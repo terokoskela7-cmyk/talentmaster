@@ -11,10 +11,11 @@ const rakenna = (tila, muokkaa, env2, opts2) => { const d = F.lataa(tila || 'kyp
   return { d, m, rm, h: r.main, rail: r.rail }; };
 const sig = (tyyppi, jid, nimi, o) => Object.assign({ tyyppi, jid, nimi, avain: tyyppi + '|' + jid, jaksoVk: null, n: 10, vk: 4, pv: 5, auki: 3, alku: 70, loppu: 40, pros: 12, tavoite: 25, leikkija: false }, o || {});
 const idt = (d) => d.spec.joukkueet.map((j) => j.id);
+const kortti = (h, nimi) => { const i = h.indexOf('aria-label="' + nimi + '"'), re = /<div class="kk-jk[ "]|<div class="kk-ilman|<div class="kk-ika"|<div class="kk-sh"|<div class="kt-ev kk-kn"|<div class="kk-loppu"/g; let a = 0, b = h.length, m; while ((m = re.exec(h))) { if (m.index <= i) { if (m[0].startsWith('<div class="kk-jk')) a = m.index; } else { b = m.index; break; } } return h.slice(a, b); };   // yksi kortti kokonaisena (attribuutit mukaan, päättyy seuraavaan korttiin/ryhmään)
 
 describe('D161 · Tällä viikolla: signaalit ja VP:tä odottavat viestit yhdessä listassa; tärkein = signaalikortti', () => {
   it('kypsä (8/9 jaksolla): vaihe Rytmi; otsikko D163 "{n} asiaa tällä viikolla." (viikko, ei kausi) + tulkintalause "Tärkein: …"', () => {
-    const { rm, m, h } = rakenna('kypsa'), x = teksti(h); expect(KK.tmKotiVaihe(m)).toBe('rytmi'); expect(x).toContain(rm.asioita + ' asiaa tällä viikolla.'); expect(x).toContain('Jakso on käynnissä 8/9 joukkueella. Tärkein: P15 on ollut ilman jaksoa 4 viikkoa.'); expect(x).not.toMatch(/Kausi 20|jaksolla \d+ %/);
+    const { rm, m, h } = rakenna('kypsa'), x = teksti(h); expect(KK.tmKotiVaihe(m)).toBe('rytmi'); expect(x).toContain(rm.asioita + ' asiaa tällä viikolla.'); expect(x).toContain('8 joukkueella 9:stä on jakso. Tärkein: P15 on ollut ilman jaksoa 4 viikkoa.'); expect(x).not.toMatch(/Kausi 20|jaksolla \d+ %/);
   });
   it('signaalikortti on sivun AINOA täytetty nappi (D147); alarivi Kuittaa · Ensi viikolla harmaana; muut toiminnot linkkejä', () => {
     const { h } = rakenna('kypsa'); expect((h.match(/class="kt-btn"/g) || []).length).toBe(1); expect(h).toMatch(/<button class="kt-btn" type="button" onclick="jk\('P15 Demo'\)">Aloita jakso<\/button>/); expect(h).toContain('data-kuittaus="kuitattu"'); expect(h).toContain("onclick=\"kt('ei_jaksoa|"); expect(h).not.toContain('class="kt-btn q');
@@ -28,7 +29,7 @@ describe('D161 · Tällä viikolla: signaalit ja VP:tä odottavat viestit yhdess
     const { h } = rakenna('kypsa'), x = teksti(h); expect(x).toContain('Katselmus · P13 Katselmusikkuna on auki'); expect(x).toContain('6 pelaajan katselmus tekemättä. Jakso vk 6/6. Kevyt katselmus riittää.'); expect(x).toContain('Sulje jakso lauseella'); expect(h).toContain('class="kk-kebab"');
   });
   it('tyhjä viikko (D114): "Rauhallinen viikko." + osio "Ei uusia asioita · tarkistettu {n} joukkuetta", ei signaalikorttia', () => {
-    const { h, rm } = rakenna('kypsa', (d) => { d.koosteet.forEach((k) => Object.values(k.joukkueet).forEach((j) => { j.n_katselmus = 0; j.jakso = true; j.n_jaksolla = j.n_pelaajat; })); }); expect(rm.asioita).toBe(0); expect(teksti(h)).toContain('Rauhallinen viikko.'); expect(teksti(h)).toContain('Ei uusia asioita · tarkistettu 9 joukkuetta'); expect(teksti(h)).not.toContain('Mikään ei vaadi'); expect(h).not.toContain('kk-sigk'); expect((h.match(/class="kt-btn"/g) || []).length).toBe(0);
+    const { h, rm } = rakenna('kypsa', (d) => { d.koosteet.forEach((k) => Object.values(k.joukkueet).forEach((j) => { j.n_katselmus = 0; j.jakso = true; j.n_jaksolla = j.n_pelaajat; j.n_perhe_kuittaus_7 = Math.round(j.n_suostumus / 2); })); }); expect(rm.asioita).toBe(0); expect(teksti(h)).toContain('Rauhallinen viikko.'); expect(teksti(h)).toContain('Ei uusia asioita · tarkistettu 9 joukkuetta'); expect(teksti(h)).not.toContain('Mikään ei vaadi'); expect(h).not.toContain('kk-sigk'); expect((h.match(/class="kt-btn"/g) || []).length).toBe(0);
   });
 });
 
@@ -53,41 +54,53 @@ describe('Ryhmittely: sama asia ≥ 3 joukkueella = YKSI rivi/kortti (kuten Tila
   });
 });
 
-describe('D166 · joukkueet kolmella tasolla', () => {
+describe('D171 · joukkueet ikävaiheittain: kortit leveällä, rivit kapealla (korvaa D166:n huomiokortit ja rivit)', () => {
   const synt = (tyypit, env2) => { const d = F.lataa('kypsa', NYT), v = d.koosteet[d.koosteet.length - 1], m = PU.tmPulssiRivit(d.koosteet, { nytMs: NYT, ensimmainenVk: d.ensin, jaksoVk: d.jaksoVk, katselmusPv: {} }), rv = m.rivit.filter((r) => r.jakso.voimassa && r.n >= 5);
     Object.keys(v.joukkueet).forEach((k) => { v.joukkueet[k].n_suostumus = v.joukkueet[k].n_pelaajat; }); m.signaalitLista = tyypit.map((ty, i) => sig(ty, rv[i].jid, rv[i].nimi, { jaksoVk: { vk: 3, N: 6 } }));
     const rm = KK.tmKotiRytmiMalli(m, Object.assign({ yhteensa: v.yhteensa, koosteJ: v.joukkueet, kalenteri: [], nytMs: NYT }, env2 || {})); return { rm, h: KK.tmKotiRytmiHTML(rm, { t: (x) => x, fn: FN }).main, rv }; };
-  it('yksi huomio → EI korttia: rivi listan alussa amber-merkillä; syy vain kerran (sama asia Tällä viikolla -listassa → rivillä vain merkki)', () => {
-    const { rm, h } = rakenna('kypsa'), x = teksti(h); expect(rm.huomio).toHaveLength(0); expect(h).not.toContain('kk-jk'); expect(rm.muut[0]).toMatchObject({ tunniste: 'P13', huomio: true, syyToistuu: true });
-    const rivi = h.match(/<div class="kk-jr"[^>]*><span class="kk-tn"[^>]*>P13[\s\S]*?<span class="kk-ar"/)[0]; expect(rivi).toContain('class="kk-mk w"'); expect(rivi).not.toContain('kk-why'); expect(x.match(/Katselmusikkuna on auki/g)).toHaveLength(1);
-    expect(rm.muut.map((r) => r.tunniste).slice(0, 2)).toEqual(['P13', 'P10']);   // huomio ensin, loput ikäjärjestyksessä
+  it('ryhmät ikävaiheittain ikäjärjestyksessä; otsikkorivi "9–12-vuotiaat · Leikkijä · 2 joukkuetta · 2 jaksolla"; ryhmät eivät ole joukkueita (ei joukkuenappia otsikossa)', () => {
+    const { rm, h } = rakenna('kypsa'), x = teksti(h); expect(rm.ryhmat.map((g) => g.ikavaihe)).toEqual(['leikkija', 'rakentaja', 'showcase']);
+    expect(x).toContain('9–12-vuotiaat Leikkijä · 4 joukkuetta · 4 jaksolla'); expect(x).toContain('13–15-vuotiaat Rakentaja'); expect(x).toContain('16–19-vuotiaat Showcase'); expect(x).toContain('Joukkueet · ikäjärjestys');
+    expect(h.indexOf('9–12-vuotiaat')).toBeLessThan(h.indexOf('13–15-vuotiaat')); expect(h.indexOf('13–15-vuotiaat')).toBeLessThan(h.indexOf('16–19-vuotiaat')); expect(h).not.toMatch(/<div class="kk-ikah">(?:(?!<\/div>).)*<button/);
   });
-  it('yksi huomio jonka asiaa EI ole listassa: rivillä amber-merkki + syy kerran (renderöinti)', () => {
-    const { rm } = rakenna('kypsa'), rm2 = Object.assign({}, rm, { muut: rm.muut.map((r, i) => (i === 0 ? Object.assign({}, r, { syyToistuu: false }) : r)) }), h = KK.tmKotiRytmiHTML(rm2, { t: (x) => x, fn: FN }).main, rivi = h.match(/<div class="kk-jr"[^>]*><span class="kk-tn"[^>]*>P13[\s\S]*?<span class="kk-ar"/)[0];
-    expect(rivi).toContain('class="kk-mk w"'); expect(teksti(rivi)).toContain('Katselmusikkuna on auki'); expect(rivi.match(/kk-why/g)).toHaveLength(1);
+  it('kortti: tunniste + pelaajamäärä, jakson nimi, segmenttipalkki (kulunut = täytetty) + "vk 4/8", Katsaus ja Käyttö 7 pv; koko kortti klikattava (role=button), EI nappeja kortin sisällä (D147)', () => {
+    const { h } = rakenna('kypsa'), kortit = h.match(/<div class="kk-jk[ "][^>]*>[\s\S]*?<\/div><\/div>(?=<div class="kk-jk|<\/div><\/div>|<div class="kk-ilman|$)/g) || [];
+    expect(h.match(/class="kk-jk[ "]/g).length).toBeGreaterThanOrEqual(8); const p10 = kortti(h, 'P10 Demo');
+    expect(p10).toContain('role="button"'); expect(p10).toContain("onclick=\"jk('P10 Demo')\""); expect(p10).toContain('class="kk-vk" style="--n:8"'); expect((p10.match(/<i class="on">/g) || []).length).toBe(3); expect(p10).toContain('<i class="nyt">'); expect(teksti(p10)).toContain('vk 4/8'); expect(teksti(p10)).toContain('Käyttö 7 pv');
+    const nimet = [...h.matchAll(/<div class="kk-jk[ "][^>]*aria-label="([^"]+)"/g)].map((m) => m[1]); expect(nimet.length).toBeGreaterThanOrEqual(8); nimet.forEach((n) => { const k = kortti(h, n); expect(k, n).not.toMatch(/<(button|a)[ >]/); expect(k, n).not.toContain('kt-btn'); expect(k, n).not.toContain('kk-lnk"'); });
+    void kortit;
   });
-  it('kaksi+ huomiota → huomiokortit (≤ 3), amber-merkki; syy vain jos asiaa ei ole listassa', () => {
-    const a = synt(['katselmusikkuna', 'katsaus_laskee']), x = teksti(a.h); expect(a.rm.huomio).toHaveLength(2); expect(a.h.match(/class="kk-jk w"/g)).toHaveLength(2); expect(a.h).toContain('▲ huomio');
-    a.rm.huomio.forEach((r) => expect(r.syyToistuu, r.tunniste).toBe(true)); expect(a.h).not.toContain('kk-why'); expect(x).not.toContain('Katsaus laskenut kolme viikkoa');   // syy näkyy jo listassa → kortilla vain merkki
-    const c = synt(['kaytto_matala', 'kaytto_matala', 'katsaus_laskee', 'katselmusikkuna', 'katselmusikkuna', 'ei_jaksoa', 'ei_jaksoa']); expect(c.rm.huomio.length).toBeLessThanOrEqual(3); expect(c.rm.huomio.length).toBeGreaterThanOrEqual(2); expect(c.rm.huomio.length + c.rm.muut.length).toBe(c.rm.jaksolla);
+  it('leikkijä: "perhe kuittaa" metatekstinä (ei lukusolussa, ei Katsaus-solua); muilla Katsaus ja Käyttö 7 pv', () => {
+    const { h } = rakenna('kypsa'), p10 = kortti(h, 'P10 Demo'), p13 = kortti(h, 'P13 Demo');
+    expect(teksti(p10)).toContain('vk 4/8 · perhe kuittaa'); expect(p10).not.toContain('>Katsaus<'); expect(p13).toContain('>Katsaus<'); expect(p13).not.toContain('perhe kuittaa');
   });
-  it('ikäjärjestys: rivit ja tunnisteet; jaksottomat tunnisteina; huomioiden määrä + muut = jaksolliset', () => {
-    const { rm, h } = rakenna('kypsa'), x = teksti(h); expect(rm.huomio.length + rm.muut.length).toBe(rm.jaksolla); expect(rm.ilman.map((i) => i.tunniste)).toEqual(['P15']); expect(h).toContain('class="kk-jr"');
-    expect(x).toContain('Joukkueet · ikäjärjestys'); expect(x).toContain('9 joukkuetta · 8 jaksolla'); expect(x).toContain('Ilman jaksoa · 1'); expect(x).toContain('Aloita jakso →');
-    const nimet = rm.muut.filter((r) => !r.huomio).map((r) => r.tunniste); expect(nimet).toEqual([...nimet].sort((a, b) => parseInt(a.replace(/\D/g, ''), 10) - parseInt(b.replace(/\D/g, ''), 10)));
+  it('pieni joukkue (alle 5): luvut lukumääränä ilman prosenttia (D116), esim. "3/4"; iso joukkue prosenttina', () => {
+    const { h } = rakenna('kypsa', (d) => { const v = d.koosteet[d.koosteet.length - 1]; Object.assign(v.joukkueet[idt(d)[3]], { n_suostumus: 4, n_perhe_kuittaus_7: 3 }); Object.assign(v.joukkueet[idt(d)[5]], { n_suostumus: 18, n_vastausperusta: 18, n_vastanneet: 10 }); }), t12 = teksti(kortti(h, 'T12 Demo'));
+    expect(t12).toContain('4 pel.'); expect(t12).toMatch(/Käyttö 7 pv 3\/4/); expect(t12).toContain('perhe kuittaa'); expect(t12).not.toMatch(/\d %/);
+    expect(teksti(kortti(h, 'P14 Demo'))).toMatch(/Katsaus 56 %/);
   });
-  it('rivi: tunniste · teema · "Leikkijä · 8 pel. · perhe kuittaa · vk 4/8" metarivillä; lukusarakkeessa vain luku (Käyttö 7 pv)', () => {
-    const { h } = rakenna('kypsa'), x = teksti(h); expect(x).toContain('P10 Pelaaminen Leikkijä · 8 pel. · perhe kuittaa · vk 4/8 Käyttö 7 pv 38 %'); expect(h).toContain("onclick=\"jk('P10 Demo')\"");
+  it('huomio kortissa: amber-reuna (.w) + "▲ huomio" oikeassa yläkulmassa; syy yhdellä rivillä (.kk-why) vain jos asiaa ei ole Tällä viikolla -listassa; erillistä huomiokorttiosiota ei ole; huomio näkyy kerran', () => {
+    const a = synt(['katselmusikkuna', 'katsaus_laskee']); expect(a.h.match(/class="kk-jk w"/g)).toHaveLength(2); expect(a.h.match(/▲ huomio/g)).toHaveLength(2); a.rm.ryhmat.flatMap((g) => g.kortit).filter((r) => r.huomio).forEach((r) => expect(r.syyToistuu, r.tunniste).toBe(true));
+    expect(a.h).not.toContain('kk-why');   // syy näkyy jo listassa → kortilla vain merkki (D150)
+    const { rm, h } = rakenna('kypsa'), x = teksti(h); expect(rm.huomioN).toBeGreaterThanOrEqual(1); expect(h.match(/class="kk-jk w"/g) || []).toHaveLength(rm.huomioN); expect(x.match(/Katselmusikkuna on auki/g)).toHaveLength(1);   // syy kerran koko sivulla
+    const ilmanListaa = synt(['kaytto_matala'], {}); ilmanListaa.rm.ryhmat.forEach((g) => g.kortit.forEach((r) => { if (r.huomio) r.syyToistuu = false; })); const h2 = KK.tmKotiRytmiHTML(ilmanListaa.rm, { t: (x2) => x2, fn: FN }).main; expect(h2.match(/class="kk-why"/g)).toHaveLength(1); expect(teksti(h2)).toMatch(/Käyttö 12 %, tavoite 25 %/);
   });
-  it('EI tyhjiä lukusoluja: lukusarakkeissa ei "—" eikä "perhe kuittaa"; puuttuva luku = saraketta ei näytetä (kaikki fixturet, Rytmi ja Käynnistys, kortit ja rivit)', () => {
-    ['kypsa', 'pilotti', 'kuormitus'].forEach((tila) => { const h = F.kotiHTML(F.lataa(tila, NYT), {}); const sarakkeet = (h.match(/<span class="kk-(?:rn|nums)">[\s\S]*?<\/span><\/span><\/span>(?=<span class="kk-ar"|<\/button>|<\/div>)/g) || []).concat(h.match(/<span class="kk-nu[^"]*">[\s\S]*?<\/span><\/span>/g) || []);
-      expect(sarakkeet.length, tila).toBeGreaterThan(0); sarakkeet.forEach((s) => { expect(teksti(s), tila).not.toContain('—'); expect(teksti(s), tila).not.toContain('perhe kuittaa'); }); expect(h, tila).not.toContain('kk-na'); });
-    const k = rakenna('kypsa').h; expect(k).not.toMatch(/Katsaus\s*<\/span><span class="kk-v[^"]*">\s*<\/span>/);
+  it('huomio ei ole rajattu kolmeen: kaikki signaalin saaneet jaksolliset joukkueet saavat merkin', () => { const c = synt(['kaytto_matala', 'kaytto_matala', 'katsaus_laskee', 'katselmusikkuna', 'katselmusikkuna', 'ei_jaksoa', 'ei_jaksoa']); expect(c.rm.huomioN).toBe(5); expect(c.h.match(/class="kk-jk w"/g)).toHaveLength(5); });
+  it('jaksottomat: 1–2 → katkoviivakortit ("Ei jaksoa" + "Aloita jakso →" tekstinä, ei nappia); enemmän → YKSI katkoviivakortti tunnisteineen (D144: 6 + "+N") ja "Aloita jaksot →"; 0 pelaajan joukkueet eivät näy', () => {
+    const { rm, h } = rakenna('kypsa'), p15 = kortti(h, 'P15 Demo'); expect(rm.ryhmat.find((g) => g.ikavaihe === 'rakentaja').ilmanYhteen).toBe(false); expect(p15).toContain('class="kk-jk ei"'); expect(teksti(p15)).toContain('Ei jaksoa'); expect(teksti(p15)).toContain('Aloita jakso →'); expect(p15).not.toMatch(/<button/);
+    const r = rakenna('kypsa', (dd) => { dd.koosteet.forEach((kk) => Object.values(kk.joukkueet).forEach((j, i) => { if (i < 8) { j.jakso = false; j.n_jaksolla = 0; } })); }), il = r.h.slice(r.h.indexOf('kk-ilman')); expect(r.rm.ryhmat.some((g) => g.ilmanYhteen)).toBe(true); expect(il).toContain('class="kk-ilman"'); expect(il).toContain('Aloita jaksot →');
+    expect(rm.ryhmat.flatMap((g) => g.kortit.concat(g.ilman)).every((x) => x.n > 0)).toBe(true);
   });
-  it('kattavuusportti: luvut vain kun joukkueen suostumus ≥ 70 % ja ≥ 5 pelaajaa, muuten "perheitä mukana x/y" (ei "0 %")', () => {
-    const { h, rm } = rakenna('kypsa', (d) => { Object.values(d.koosteet).forEach((k) => { k.joukkueet[idt(d)[5]].n_suostumus = 2; }); }), x = teksti(h); expect(x).toMatch(/P14 Kuljettaminen Rakentaja · 18 pel\. · vk 3\/4 perheitä mukana 2\/18/); expect(rm.muut.concat(rm.huomio).find((r) => r.tunniste === 'P14').luvut).toBeNull(); expect(x).not.toMatch(/(^|[^\d])0 %/);
+  it('kapea (< 600 px, opts.kapea): rivit nykyisellä #972/#973-rakenteella (kk-jr, nuoli), huomio rivillä amber-merkkinä ja syy yhdellä rivillä; ei kortteja', () => {
+    const { rm } = rakenna('kypsa'), h = KK.tmKotiRytmiHTML(rm, { t: (x) => x, fn: FN, kapea: true }).main; expect(h).toContain('class="kk-jr'); expect(h).not.toMatch(/class="kk-jk[ "]/g.test(h) ? /(?!)/ : /class="kk-jk w"/); expect(h).toContain('class="kk-ar"'); expect(h).toContain('class="kk-mk w"'); expect(teksti(h)).toContain('9–12-vuotiaat');
+    const rivi = h.match(/<div class="kk-jr w"[\s\S]*?<span class="kk-ar"/)[0]; expect(rivi).toContain('▲'); expect(rivi).not.toMatch(/<button/);
+    const a = synt(['kaytto_matala']); a.rm.ryhmat.forEach((g) => g.kortit.forEach((r) => { if (r.huomio) r.syyToistuu = false; })); expect(KK.tmKotiRytmiHTML(a.rm, { t: (x) => x, fn: FN, kapea: true }).main.match(/class="kk-why"/g)).toHaveLength(1);
   });
-  it('0 pelaajan joukkueet eivät näy Kodissa (§7.18)', () => { const { h } = rakenna('pilotti', (d) => { Object.values(d.koosteet).forEach((k) => { const j = Object.values(k.joukkueet)[0]; Object.keys(k.joukkueet).slice(0, 5).forEach((id) => { k.joukkueet[id].jakso = true; k.joukkueet[id].n_jaksolla = k.joukkueet[id].n_pelaajat; k.joukkueet[id].jakso_nimi = 'X'; }); void j; }); }); expect(h).not.toMatch(/>\s*(P18|T18)\s*</); });
+  it('ei paremmuuslistaa (D42): kortit ikäjärjestyksessä, ei lajittelua tuloksen mukaan', () => { const { rm } = rakenna('kypsa'), jarj = rm.ryhmat.flatMap((g) => g.kortit.map((r) => r.ikaNum)); expect(jarj).toEqual([...jarj].sort((a, b) => a - b)); });
+  it('kattavuusportti: luvut vain kun joukkueen suostumus ≥ 70 % pelaajista, muuten "perheitä mukana x/y" (ei "0 %")', () => {
+    const { h, rm } = rakenna('kypsa', (d) => { Object.values(d.koosteet).forEach((k) => { k.joukkueet[idt(d)[5]].n_suostumus = 2; }); }), p14 = kortti(h, 'P14 Demo'), x = teksti(p14); expect(x).toMatch(/perheitä mukana 2\/18/); expect(rm.ryhmat.flatMap((g) => g.kortit).find((r) => r.tunniste === 'P14').luvut).toBeNull(); expect(teksti(h)).not.toMatch(/(^|[^\d])0 %/);
+  });
+  it('0 pelaajan joukkueet eivät näy Kodissa (§7.18)', () => { const { h } = rakenna('pilotti', (d) => { Object.values(d.koosteet).forEach((k) => { Object.keys(k.joukkueet).slice(0, 5).forEach((id) => { k.joukkueet[id].jakso = true; k.joukkueet[id].n_jaksolla = k.joukkueet[id].n_pelaajat; k.joukkueet[id].jakso_nimi = 'X'; }); }); }); expect(h).not.toMatch(/>\s*(P18|T18)\s*</); });
 });
 
 describe('Käynnistyksen askeleet ohuena rivinä kunnes kaikki ovat valmiita', () => {
@@ -102,7 +115,7 @@ describe('Kieli: viikonpäivälyhenteet valitusta kielestä (fi/sv/en)', () => {
     const a = rakenna('kypsa', null, null, { kieli: 'fi' }), b = rakenna('kypsa', null, null, { kieli: 'sv' }), c = rakenna('kypsa', null, null, { kieli: 'en' });
     expect(teksti(a.rail)).toMatch(/Tänään · ma 12\.10\./); expect(teksti(b.rail)).toMatch(/Tänään · mån 12\.10/); expect(teksti(c.rail)).toMatch(/Tänään · Mon 12\/10/); expect(teksti(a.h)).toMatch(/kooste klo \d/);
     expect(rakenna('kypsa').rail).toBe(a.rail);
-    const ti = (kieli) => teksti(TT.tmTilanneHTML(TT.tmTilanneMalli(F.lataa('kypsa', NYT).syote), { t: (x) => x, kieli, fn: {} })); expect(ti('sv')).toMatch(/jaksopalaveri \d+[./]\d+/); expect(ti('sv')).toMatch(/Jaksopalaveri · (sö|sön)\.? \d+/); expect(ti('fi')).toMatch(/Jaksopalaveri · su \d+\.\d+\./);
+    const ti = (kieli) => teksti(TT.tmTilanneHTML(TT.tmTilanneMalli(F.lataa('kypsa', NYT).syote), { t: (x) => x, kieli, fn: {} })); expect(ti('sv')).toMatch(/jaksopalaveri \d+[./]\d+/); expect(ti('sv')).toMatch(/Jaksopalaveri · (mån|tis|ons|tors|fre|lör|sön)\.? \d+/); expect(ti('fi')).toMatch(/Jaksopalaveri · (ma|ti|ke|to|pe|la|su) \d+\.\d+\./);
   });
 });
 
@@ -115,7 +128,7 @@ describe('Otsikkorivi ja hiljaiset linkit; sisältö vasemmalle; oikea palsta', 
     const x = teksti(F.kotiHTML(F.lataa('pilotti', NYT), {})); expect(x).not.toMatch(/Ei toimenpiteitä tällä viikolla|Ei uusia asioita/); expect(x).toContain('Aloita jakso joukkueen näkymässä. Jakso antaa joukkueelle teeman ja viikkotavoitteet.'); expect(x).not.toMatch(/vahvistaa/);
   });
   it('oikea palsta: jokaisella joukkuetapahtumalla tunniste; saman päivän harjoitukset yhdeksi riviksi ("ti 13.10. · 3 harjoitusta" + tunnisteet); seuratason tapahtumat omina riveinään', () => {
-    const r = rakenna('kypsa').rail, x = teksti(r); expect(x).toContain('ti 13.10. 3 harjoitusta P10 P12 P13'); expect(x).toContain('Tänään'); expect(x).toContain('2 harjoitusta P14 P11'); expect(x).toContain('Ottelu T12'); expect(x).toContain('pe 16.10. Harjoitus T14'); ['Valmentajapalaveri', 'Syysturnaus', 'Testijakso'].forEach((s) => { const m = r.match(new RegExp('<div class="kk-rr">(?:(?!</div>).)*' + s + '(?:(?!</div>).)*</div>')); expect(m, s).not.toBeNull(); expect(m[0], s).not.toContain('kk-rtags'); });
+    const r = rakenna('kypsa').rail, x = teksti(r); expect(x).toContain('ti 13.10. 3 harjoitusta P10 P12 P13'); expect(x).toContain('Tänään'); expect(x).toContain('2 harjoitusta P14 P11'); expect(x).toContain('T12 · ottelu'); expect(x).toContain('pe 16.10. T14 · harjoitus'); ['Valmentajapalaveri', 'Syysturnaus'].forEach((s) => { const m = r.match(new RegExp('<div class="kk-rr">(?:(?!</div>).)*' + s + '(?:(?!</div>).)*</div>')); expect(m, s).not.toBeNull(); expect(m[0], s).not.toContain('kk-rtags'); });
     expect(r).not.toMatch(/Demo harjoitus/);
   });
   it('sisältö vasemmalle: Koti ja Tilanne eivät keskity leveällä näytöllä (margin-left:0)', () => {
@@ -154,18 +167,18 @@ describe('Korjaus-PR: mobiilirivit, nuoli, viikkotunniste, D144-tagit', () => {
       [F.kotiHTML(d, { kieli }), F.tilanneHTML(d, { kieli })].forEach((h) => expect(nakyvat(h), tila + ' ' + kieli).not.toMatch(/\d{4}-W\d{2}/)); }));
     const dm = KK.tmKotiDemo(NYT), v = dm.koosteet[dm.koosteet.length - 1], m = PU.tmPulssiRivit(dm.koosteet, { nytMs: NYT, ensimmainenVk: dm.ensin, jaksoVk: {}, katselmusPv: {} });
     expect(nakyvat(KK.tmKotiRytmiHTML(KK.tmKotiRytmiMalli(m, { yhteensa: v.yhteensa, koosteJ: v.joukkueet, kalenteri: dm.kalenteri, nytMs: NYT }), { t: (x) => x, fn: {} }).main)).not.toMatch(/\d{4}-W\d{2}/);
-    expect(teksti(F.kotiHTML(F.lataa('pilotti', NYT), {}))).toContain('Tilanne viikolta 42.');
+    expect(teksti(F.kotiHTML(F.lataa('pilotti', NYT), {}))).not.toContain('Tilanne viikolta');   // D171/A: koosteen ajankohta näkyy jo ylhäällä (D150)
   });
-  it('Perheet mukana -askeleen avain on "Tilanne viikolta {vk}" (viikkonumero, ei tunnistetta)', () => {
+  it('Perheet mukana -askeleen teksti ei sisällä "Tilanne viikolta" (D171/A, D150: kooste-aika näkyy otsikkorivillä)', () => {
     const km = KK.tmKotiKaynnistysMalli(PU.tmPulssiRivit(F.lataa('pilotti', NYT).koosteet, { nytMs: NYT, ensimmainenVk: '2026-W20', jaksoVk: {}, katselmusPv: {} }), { yhteensa: { n_pelaajat: 1, n_suostumus: 0 }, koosteJ: {}, nytMs: NYT }); const x = JSON.stringify(km.askeleet);
-    expect(x).toContain('Tilanne viikolta {vk}'); expect(x).not.toContain('Luku koosteesta');
+    expect(x).not.toContain('Tilanne viikolta'); expect(x).not.toContain('Luku koosteesta'); expect(x).toContain('Suostumus avaa pelaajan sovelluksen ja kotitehtävät.');
   });
   it('D144: "Odottaa jaksoa" ja "Ilman jaksoa" -laatikot näyttävät enintään 6 tagia + "+N"', () => {
     const k = F.kotiHTML(F.lataa('pilotti', NYT), {}), o = k.slice(k.indexOf('kk-odottaa')); expect((o.slice(0, o.indexOf('Ehdota jaksot')).match(/class="kk-tag"/g) || []).length).toBe(7); expect(teksti(o)).toContain('+8');
     const { rm } = rakenna('kypsa'); expect(rm.ilman.length).toBeLessThanOrEqual(6);
     const d = F.lataa('kypsa', NYT); Object.values(d.koosteet).forEach((kk) => Object.values(kk.joukkueet).forEach((j, i) => { if (i < 8) { j.jakso = false; j.n_jaksolla = 0; } }));
-    const r = rakenna('kypsa', (dd) => { dd.koosteet.forEach((kk) => Object.values(kk.joukkueet).forEach((j, i) => { if (i < 8) { j.jakso = false; j.n_jaksolla = 0; } })); }), il = r.h.slice(r.h.indexOf('kk-odottaa'));
-    expect(r.rm.ilman.length).toBeGreaterThan(6); expect((il.match(/class="kk-tag"/g) || []).length).toBe(7); expect(teksti(il)).toMatch(/\+\d+/);
+    const r = rakenna('kuormitus'), bl = r.h.split('class="kk-ilman"').slice(1).map((x) => x.slice(0, x.indexOf('Aloita jaksot'))), tagit = bl.map((x) => (x.match(/class="kk-tag"/g) || []).length);
+    expect(r.rm.ilman.length).toBeGreaterThan(6); expect(Math.max(...tagit)).toBe(7); expect(tagit.every((n) => n <= 7)).toBe(true); expect(bl.some((x) => /\+\d+/.test(teksti(x)))).toBe(true);
   });
   it('mobiili < 600 px: listarivin toimintolinkki ja ⋯ omalle rivilleen tekstin alle; yläotsikko ei rivity (nowrap + ellipsis)', () => {
     const m = KK.CSS.match(/@media \(max-width:600px\)\{[^@]*?\}\}/)[0]; expect(m).toContain('.kk-it>.kk-ac{grid-column:2'); expect(m).toContain('.kk-it .kk-k{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis');

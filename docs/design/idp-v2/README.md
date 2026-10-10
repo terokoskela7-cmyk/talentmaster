@@ -58,6 +58,15 @@ Briefit: `docs/CODE_BRIEF_DESIGN_V2_T1_KONTRASTI.md`, `docs/CODE_BRIEF_KENTTA_K0
 - Avoimet päätökset (07) ratkaisevat osan näkymistä: tarkista tila projektikartasta ennen toteutusta.
 
 
+## D171 · Joukkueet Kodissa korteiksi (Tero 11.10.2026)
+Koti (Rytmi): joukkueet **korteiksi leveällä näytöllä** (D159 palautetaan), **riveiksi mobiilissa** (< 600 px, #972/#973-rakenne). Korvaa D166:n huomiokortit ja rivit leveällä näytöllä. SSOT: `32_koti_v2_joukkuekortit.html` (kortti) + `33_koti_vaiheet_laatuportti.html` (Käynnistyksen askeleet, oikea palsta); brief voittaa mockupin ristiriidassa.
+- **Ryhmittely:** ikävaiheittain syntymävuodesta (9–12 Leikkijä · 13–15 Rakentaja · 16–19 Showcase), ikäjärjestys, ryhmät eivät ole joukkueita; ei paremmuuslistaa (D42).
+- **Kortti:** tunniste (Cormorant 26) + pelaajamäärä, jakson nimi (DM Sans 16/600), segmenttipalkki "vk 3/6" (viikot = jakson kesto, ei suoritus), erotin, Katsaus ja Käyttö 7 pv (D169); leikkijä: "perhe kuittaa" metatekstinä; pieni joukkue (< 5) lukumääränä "3/4" ilman prosenttia (D116). Huomio: amber-reuna + "▲ huomio" + syy yhdellä rivillä (vain jos syytä ei ole jo "Tällä viikolla" -listassa, D150). Koko kortti klikattava, ei nappeja (D147).
+- **Jaksottomat:** 1–2 → katkoviivakortit ("Ei jaksoa" · "Aloita jakso →" tekstinä); > 2 → yksi katkoviivakortti tunnisteineen (D144: 6 + "+N") ja "Aloita jaksot →" (D160). 0 pelaajan joukkueet pois.
+- **Ruudukko:** 3 korttia rivissä (≥ 700 px), 2 (420–699), 1; < 600 px viewport → rivit.
+- **Oikea palsta:** Tänään (tapahtuma · tunniste · jakson nimi + viikko), Tulossa 14 päivää (päiväkohtaiset harjoitukset yhdeksi riviksi + tunnisteet; aina jaksopalaveri "N/M valmiina", testijakso "N/M varannut päivän", taukoviikot katkoviivalaatikkona, kun osuvat 14 päivän sisään). Taukoviikoille ei vielä ole datalähdettä: `env.tauot` tai kalenteritapahtuma tyyppiä `tauko`/`loma`.
+- **Testipäivät-laskuri (Käynnistys, askel 3):** kalenterin testi- ja kilpailutapahtumat testijakson aikana tai ennen sitä lasketaan joukkueen varaamaksi testipäiväksi. Lasketaan: tyyppi `testitapahtuma`, `testitapahtuma_id` asetettu, tai nimi (tyypeille muu/turnaus/tyhjä) sisältää *testi / kisa / kilpailu / mittaus* (esim. "Tekniikkakisat"). Ei lasketa: ottelu, harjoitus, palaverit, poistetut, yli vuorokauden menneet, testijakson (suunnitellun) lopun jälkeiset. Testi: `tests/vp_koti_d171.test.js`.
+
 ## D169 · Typografia ja sävyt (kuuden portaan asteikko) — kaikki uudet näkymät
 SSOT: `33_koti_vaiheet_laatuportti.html` §6 ja CSS-lohko "D169". Koskee myös mockupin 22 komponentteja (`.kt-*`): koot `--fs-*`-tokenien kautta (40/32 · 26 · 16 · 14 · 12,5 · 11), DM Mono vain osioiden yläotsikoissa (`.kt-eb`), luvut DM Sans 600 tasalevyisinä, merkityksellinen meta `--ink2`, nimikkeet `--ink3`.
 

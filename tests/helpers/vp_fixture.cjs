@@ -72,7 +72,7 @@ function lataa(tila, nytMs) {
       const n = j.n, jakso = !!(j.jakso && j.jakso.alkuVkSitten >= w), akt = Math.round(n * j.aktPros / 100), harj = Math.round(n * j.harjPros / 100), kats = j.katsAuki && w === 0;
       jm[j.id] = { nimi: j.nimi, ikavaihe: j.ika <= 12 ? 'leikkija' : j.ika <= 15 ? 'rakentaja' : 'showcase', tyyppi: j.tyyppi, profiili: j.profiili, jakso, n_pelaajat: n, n_jaksolla: jakso ? n : 0, n_valinta_odottaa: 0,
         n_katselmus: kats ? Math.ceil(n / 2) : 0, n_vastanneet: kats ? Math.round(n * j.vastPros / 100) : 0, n_vastausperusta: kats ? n : 0, n_katselmus_ajallaan: j.jakso ? 1 : 0, n_katselmus_perusta: j.jakso ? 1 : 0,
-        n_suostumus: j.suost, n_kirjautunut_30: akt, n_huoltaja_30: Math.round(j.suost * .6), n_aktiivinen_7: akt, n_aktiivinen_30: akt, n_toiminto_7: Math.round(akt / 2), n_perhe_kuittaus_7: Math.round(j.suost / 2), n_harjoite_7: harj, n_harjoite_30: harj, jakso_nimi: jakso ? j.jakso.nimi : null };
+        n_suostumus: j.suost, n_kirjautunut_30: akt, n_huoltaja_30: Math.round(j.suost * .6), n_aktiivinen_7: akt, n_aktiivinen_30: akt, n_toiminto_7: Math.round(akt / 2), n_perhe_kuittaus_7: j.perhePros != null ? Math.round(n * j.perhePros / 100) : Math.round(j.suost / 2), n_harjoite_7: harj, n_harjoite_30: harj, jakso_nimi: jakso ? j.jakso.nimi : null };
       if (kats) jm[j.id].n_katselmus_pv = j.katsPv;
       y.n_pelaajat += n; y.n_suostumus += j.suost; y.n_aktiivinen_7 += akt; y.n_aktiivinen_30 += akt; y.n_harjoite_7 += harj; y.n_harjoite_30 += harj; y.n_kirjautunut_30 += akt; y.n_huoltaja_30 += Math.round(j.suost * .6);
     });
@@ -90,8 +90,9 @@ function lataa(tila, nytMs) {
     if (j.jakso) d.jaksofokus = { osa_alueet: { tekninen_taktinen: { nimi: j.jakso.nimi } }, alku: iso(nyt - j.jakso.alkuVkSitten * 7 * DAY), kesto_vk: j.jakso.N }; return d; });
   const nimet = {}; J.forEach((j) => { nimet[j.id] = j.nimi; });
   const kalenteri = s.kalenteri.map((e) => { const o = { nimi: e.nimi || '', alkaa: nyt + e.h * HR }; if (e.tyyppi) o.tyyppi = e.tyyppi; if (e.j != null && J[e.j]) { o.joukkue = J[e.j].id; o.joukkueet = [J[e.j].id]; o.joukkue_nimi = J[e.j].nimi; } return o; });
+  (s.tauot || []).forEach((x) => kalenteri.push({ nimi: x.nimi, tyyppi: 'loma', alkaa: nyt + x.h * HR, paattyy: nyt + (x.h + x.kesto) * HR }));   // seuran taukoviikot (esim. syysloma): kalenteritapahtuma tyyppiä loma (ei vielä omaa datalähdettä)
   if (s.palaveriPv != null) kalenteri.push({ nimi: 'Jaksopalaveri', tyyppi: 'jaksopalaveri', alkaa: nyt + s.palaveriPv * DAY, poistettu: false, id: 'jp1' });
-  const tapahtumat = J.length ? [{ id: 't1', tila: 'suunniteltu', nimi: 'Testijakso', pvm_alku: iso(nyt + 24 * DAY), pvm_loppu: iso(nyt + 31 * DAY) }].concat((s.testiJoukkueet || []).map((ji, i) => ({ id: 't2_' + i, tila: 'suunniteltu', nimi: 'Testipäivä', joukkue: J[ji].id, pvm_alku: iso(nyt + (25 + i) * DAY), pvm_loppu: iso(nyt + (25 + i) * DAY) }))) : [];
+  const tapahtumat = J.length ? [{ id: 't1', tila: 'suunniteltu', nimi: 'Testijakso', pvm_alku: iso(nyt + (s.testijaksoPv != null ? s.testijaksoPv : 24) * DAY), pvm_loppu: iso(nyt + (s.testijaksoPv != null ? s.testijaksoPv + 7 : 31) * DAY) }].concat((s.testiJoukkueet || []).map((ji, i) => ({ id: 't2_' + i, tila: 'suunniteltu', nimi: 'Testipäivä', joukkue: J[ji].id, pvm_alku: iso(nyt + (25 + i) * DAY), pvm_loppu: iso(nyt + (25 + i) * DAY) }))) : [];
   /* Tekniikka kehityskohteena (PR 2): YKSI määritelmä lib/tm_tekniikka.js — sama tulos Tilanteelle, Kodille ja (testeissä) ehdotukselle */
   const TK = require('../../lib/tm_tekniikka.js'), tekniikkaRivit = joukkueDocs.map((jd) => Object.assign({ nimi: jd.nimi }, TK.tmJoukkueTekniikka(pelaajat, joukkueDocs, jd.id, nyt))).filter((r) => r.yht > 0), tekniikka = TK.tmTekniikkaYhteenveto(pelaajat, joukkueDocs, nyt);
   /* Ehdotus tki_alhainen = SAMA funktio kuin huomio (PR 2): joukkueet = ne, joiden tekniikka on kehityskohteena. Muut ehdotukset speksistä sellaisenaan. */
@@ -121,9 +122,9 @@ function kotiHTML(d, o) {
   o = o || {}; const t = o.t || ((x) => x), esc = (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const KO = require('../../lib/tm_vp_koti.js'), viim = d.koosteet[d.koosteet.length - 1] || {};
   const m = PU.tmPulssiRivit(d.koosteet, { nytMs: d.nyt, ensimmainenVk: d.ensin, katselmusPv: {}, jaksoVk: d.jaksoVk, kuittaukset: [] });
-  const kal = d.kalenteri.map((e) => ({ nimi: e.nimi, alkaa: e.alkaa, tyyppi: e.tyyppi, joukkue: e.joukkue, joukkueet: e.joukkueet, joukkue_nimi: e.joukkue_nimi })), vaihe = KO.tmKotiVaihe(m);
+  const kal = d.kalenteri.map((e) => ({ nimi: e.nimi, alkaa: e.alkaa, paattyy: e.paattyy, tyyppi: e.tyyppi, joukkue: e.joukkue, joukkueet: e.joukkueet, joukkue_nimi: e.joukkue_nimi, poistettu: e.poistettu, testitapahtuma_id: e.testitapahtuma_id })), vaihe = KO.tmKotiVaihe(m);
   const env = { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: kal, viestit: o.viestit || d.viestit, nytMs: d.nyt, seuraNimi: o.seuraNimi || 'Demo FC', tekniikka: d.tekniikka, fyysinen: d.fyysinen };
-  const op = Object.assign({ t, esc, kieli: o.kieli, auki: o.auki, pika: [{ teksti: 'Arvioi harjoitus', fn: 'a' }, { teksti: 'Kirjaa mentorointi', fn: 'b' }, { teksti: 'Uusi tapahtuma', fn: 'c' }], fn: { aloitaJaksot: 'aj', kutsu: 'ku', testit: 'te', joukkue: 'j', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', demo: 'de', tuo: 'tu', auki: 'au', opas: 'op', kuittaa: 'kt', valmentaja: 'va' } });
+  const op = Object.assign({ t, esc, kieli: o.kieli, auki: o.auki, kapea: !!o.kapea, pika: [{ teksti: 'Arvioi harjoitus', fn: 'a' }, { teksti: 'Kirjaa mentorointi', fn: 'b' }, { teksti: 'Uusi tapahtuma', fn: 'c' }], fn: { aloitaJaksot: 'aj', kutsu: 'ku', testit: 'te', joukkue: 'j', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', demo: 'de', tuo: 'tu', auki: 'au', opas: 'op', kuittaa: 'kt', valmentaja: 'va' } });
   const r = vaihe === 'kaynnistys' ? KO.tmKotiKaynnistysHTML(KO.tmKotiKaynnistysMalli(m, env), op) : KO.tmKotiRytmiHTML(KO.tmKotiRytmiMalli(m, env), op);
   return r.main + r.rail;
 }
