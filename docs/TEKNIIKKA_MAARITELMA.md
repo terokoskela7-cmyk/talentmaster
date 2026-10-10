@@ -1,6 +1,6 @@
 # Tekniikka heikko — yksi määritelmä (kartoitus + ehdotus)
 
-> **Tila: ehdotus, ei toteutusta.** Päivitetty Teron briiffin (10.10.2026, "yhdistetyt päätökset") mukaan: mittariketju on **TKI → TSI**, Eerikkilän tekniikkataso ja `d2_taso` jäävät pois heikkouden mittarista. Tero päättää TSI-rajan (§6) ennen toteutusta; #975 mergataan sen jälkeen.
+> **Tila: ehdotus, ei toteutusta.** Päivitetty Teron lopullisten päätösten (10.10.2026) mukaan: ketju **TKI → TSI**, TSI-raja normiviitteestä (§3), Eerikkilän tekniikkataso ja `d2_taso` pois heikkouden mittarista. Tero mergeää #975:n tämän jälkeen; toteutus PR 1–3 vasta sen jälkeen.
 > Taustataito: `tm-mittarit-ja-testit` (§23 TKI · §26 mittaristo/normiIka · §30 TSI · §34). Päivitetty 10.10.2026, pohja `origin/main` (#974).
 > Luvut §5: `node scripts/diag_tekniikka_maaritelma.cjs` (fixturet, offline) · `… kpv [--seura=sjk]` (oikea data, vain `.get()`, ei nimiä) · `… tsi sjk` (TSI-jakauma). Kaikki vain luku.
 
@@ -17,7 +17,7 @@ VP näkee samasta asiasta kaksi lukua, koska **kaksi eri sääntöä** vastaa ky
 
 Ne eivät ole saman asian kaksi pyöristystä: skaalat eivät vastaa toisiaan. D2 < 3 vastaa TKI/20-varalaskennassa TKI:tä < 60, ei < 40. Lisäksi TKI-pohjaista D2:ta ei edes käytetä, jos pelaajalla on `d2_taso` (TK-lajitasot tai H-H), jolloin D2 ja TKI voivat osoittaa eri suuntiin samalla pelaajalla.
 
-**Suositus (päivitetty):** yksi lib-funktio (`lib/tm_tekniikka.js`), pelaajakohtainen ketju TKI → TSI, mittarikohtainen vanhuusraja 15 kk, joukkueluokka "tekniikka kehityskohteena" ja syy ("alle ikätason" / "pallo hidastaa suunnanmuutoksissa"). Sekä huomio että ehdotus lukevat saman tuloksen. Datan perusteella kolme asiaa vaatii Teron päätöstä ennen toteutusta: TSI-raja (§6 K3–K5), TKI:n puuttuminen yli 13-vuotiailta (§6 K2) ja "seuran pulssi" -kohteen sisältö (§6 K9).
+**Ratkaisu (Teron päätökset 10.10.2026):** yksi lib-funktio (`lib/tm_tekniikka.js`), pelaajakohtainen ketju TKI → TSI (TKI < 40; TSI ≥ viite + 0,3 s, viite = SM-pallo taso 3 − SM-juoksu taso 3 iän ja sukupuolen mukaan), mittarikohtainen vanhuusraja 15 kk, joukkueluokka "tekniikka kehityskohteena" syineen sekä "ei tekniikkadataa · N joukkuetta". Huomio ja ehdotus lukevat saman tuloksen. Päätökset ja ratkaistut kysymykset §6:ssa; yhä avoimet K8, K11–K14.
 
 ## 1. Kartoitus — kaikki kohdat, joissa tekniikka luokitellaan heikoksi
 
@@ -90,154 +90,177 @@ Tarkistamatta (ei tässä kartoituksessa): Pelaaja_v7 ja Vanhempi_v2 eivät luok
 
 **Ehdotus:** (1) jää ainoana taso-**näyttö**varana (sama kaava, yksi paikka), eikä sitä käytetä luokitteluun. (2) poistetaan (hyppy 59 → 60 antaa 2,95 → 3,5 ilman perustetta); `_pLvl` lukee (1):n. (3) kopiot delegoidaan (1):lle. (4) on oikea malli: TKI omalla asteikollaan. Heikkouden luokittelu ei käytä mitään muunnosta: `TKI < 40` suoraan. Vartija: testi, joka kaatuu, jos `tki … / 20` esiintyy muualla kuin (1):ssä.
 
-## 2. Määritelmä (Teron briiffi 10.10.2026)
+## 2. Määritelmä (Teron lopulliset päätökset 10.10.2026)
 
-**Tiedosto:** `lib/tm_tekniikka.js`, dual-export (`window.TM_TEKNIIKKA` + `module.exports`), ei DOM- eikä Firestore-riippuvuutta. Käyttäjät: VP_v25:n huomio ja ehdotus, Tilanne, seuran pulssi, myöhemmin Master.
+**Tiedosto:** `lib/tm_tekniikka.js`, dual-export (`window.TM_TEKNIIKKA` + `module.exports`), ei DOM- eikä Firestore-riippuvuutta. Käyttäjät: VP_v25:n huomio ja ehdotus, Tilanne, seuran pulssi, myöhemmin Master. Vain henkilökunnan näkymä: pelaajalle ja huoltajalle ei luokitusta eikä lukuja (§7.22).
 
 ### 2.1 Testien luonne
 
-| Mittari | Vertailukohta | Heikkouden mittari |
+| Mittari | Mitä se on | Heikkouden mittari |
 |---|---|---|
-| **TKI 0–100** (alueellinen tekniikkakilpailu) | ikäluokan pronssiraja (`TK_KOKONAISRAJAT`) | **Kyllä** — ainoa "alle ikätason" -lähde |
-| **TSI** (`sm_pallo − sm_juoksu`) | pelaajan oma juoksu | **Kyllä** — syy "pallo hidastaa suunnanmuutoksissa" |
-| `sm_juoksu_taso`, `sm_pallo_taso` | valtakunnallinen normi | Ei |
-| Eerikkilän tekniikkataso (syöttö, pujottelu 1–3) | valtakunnan huippu | Ei (myöhemmin mahdollisesti myönteinen signaali, oma tehtävä) |
-| `d2_taso` | sekoitus (§1.1) | Ei |
+| **TKI 0–100** | Alueellinen tekniikkakilpailu (syöttö, pujottelu, ponnauttelu, kuljetus-laukaus, pituuspotku), 8–13-vuotiaat | **Kyllä** — syy "alle ikätason" |
+| **TSI** = `sm_pallo − sm_juoksu` | Taito pallon kanssa suunnanmuutoksissa omaan juoksuun verrattuna. SM-testit H-H-manuaalissa, normit järjestelmässä (Palloliitto FINAL2024) | **Kyllä** — syy "pallo hidastaa suunnanmuutoksissa" |
+| `sm_juoksu_taso`, `sm_pallo_taso` | yksittäisten SM-testien tasot | Ei suoraan; normeja käytetään vain TSI-viitteen laskentaan |
+| Eerikkilän tekniikkataso (syöttö, pujottelu 1–3) | valtakunnallinen, otanta valtakunnan huippu | **Ei koskaan**; taso 3 voi myöhemmin olla myönteinen signaali (oma tehtävä) |
+| `d2_taso` | sekalähde (KPV `tk`, SJK `sm_pallo` + `hh`) | **Ei**; §1.1:n kahdeksan heikkouskäyttöä korvataan jaetulla funktiolla |
 
 ### 2.2 Pelaajan luokitus — `tmTekniikkaMittari(p, nytMs)`
 
-Ketju, **mittarikohtainen** vanhuus (15 kk): ensimmäinen *tuore* mittari ratkaisee.
+Ketju **TKI → TSI**; ensimmäinen käytettävissä oleva (tuore) mittari ratkaisee.
 
-1. **TKI** tuore (`tki_pvm` alle 15 kk): heikko, kun `TKI < 40`. Syy `alle ikätason`.
-2. muuten **TSI** tuore (`tsi_pvm` alle 15 kk) ja ikäluokalla on raja: heikko, kun `TSI > raja(normiIka(syntymaVuosi, tsi_pvm))`. Syy `pallo hidastaa suunnanmuutoksissa`.
-3. muuten **ei tekniikkadataa** (kuuluu joukkoon, jos pelaajalla on vain valtakunnallisia testejä, vanha tulos tai ei mitään).
+1. **TKI** (`tki_pvm` alle 15 kk): kehityskohde, kun `TKI < 40`. Syy `alle ikätason`. Luokitus käyttää TKI:tä suoraan (ei tasomuunnosta).
+2. muuten **TSI** (`tsi_pvm` alle 15 kk): `viite(ikä, sukupuoli) = SM-pallo taso 3 − SM-juoksu taso 3` rekisteristä (`eerikkilaNormiarvo`); kehityskohde, kun **`TSI ≥ viite + 0,3 s`**. Ikä `normiIka(syntymaVuosi, tsi_pvm)`, sukupuoli `"M"`/`"N"`. Syy `pallo hidastaa suunnanmuutoksissa`.
+3. muuten **ei tekniikkadataa**: pelaajalla on vain Eerikkilä-tekniikka tai yksittäisiä SM-tasoja, vanha tulos tai ei mitään.
 
-Vanha mittari (≥ 15 kk) ei vaikuta luokitukseen. Palautus sisältää `vanhat: ['TKI']`, jolloin pelaajan kohdalla näytetään "TKI yli vuoden vanha". Muu mittaus (FLEI, H-H) ei päivitä eikä peitä tekniikan omaa päivämäärää, koska ikä luetaan vain `tki_pvm`/`tsi_pvm`:stä.
+**Vanhuus 15 kk mittarikohtaisesti.** Vanhempi tulos ei vaikuta luokitukseen. Palautus sisältää `vanhat: ['TKI']`, ja pelaajan kohdalla näytetään "TKI yli vuoden vanha" / "TSI yli vuoden vanha". Tuore FLEI tai muu mittaus ei peitä: ikä luetaan vain `tki_pvm`/`tsi_pvm`:stä (ei joukkueen "viimeisin mittaus" -päivästä).
+
+**Normit rekisteristä, ei koodiin kopioituna.** `lib/tm_tekniikka.js` lukee `EERIKKILA_NORMIT.sm_pallo` ja `.sm_juoksu` (`eerikkilaNormiarvo`). Kaksi rajausta, jotka funktion on tehtävä itse (`eerikkilaNormiarvo` ei tee niitä, ks. K12): ikä < 10 → ei viitettä; ikä ≥ 20 → avain `"M"`/`"N"` (aikuiset).
 
 ### 2.3 Joukkue — `tmJoukkueTekniikka(pelaajat, joukkueDocs, joukkueId, nytMs)`
 
 - Jäsenyys `tmPelaajanJoukkueet` (`lib/tm_joukkue.js:144`). Ryhmät eivät ole joukkueita.
-- **Kehityskohde**, kun `heikkoja / mitattu ≥ 1/3` ja `mitattu ≥ 5`, **tai** `heikkoja / joukkueen pelaajat ≥ 1/2`.
-- **Syy** = se, joka koskee useampaa heikkoa pelaajaa; tasatilanteessa TKI.
-- Ilman luokkaa: `mitattu = 0` → **"ei tekniikkadataa"**; `1–4` → **"liian vähän dataa"**; muuten `ok`. Molemmat näkyvät VP:lle ("ei tekniikkadataa · N joukkuetta"), ei piiloteta.
-- Palautus: `{ yht, mitattu, heikkoja, vanhoja, luokka, syy, lahteet, uusinPvm, mediaaniKk }`.
+- **Tekniikka kehityskohteena**, kun `heikkoja / mitattu ≥ 1/3` ja `mitattu ≥ 5`, **tai** `heikkoja / kaikki joukkueen pelaajat ≥ 1/2` (K10 vahvistettu).
+- **Syy** = se (TKI tai TSI), joka koskee useampaa heikkoa pelaajaa; tasatilanteessa TKI.
+- **"Otos pieni"** -merkintä, kun mitattuja on alle 8.
+- **Ilman luokkaa** (`mitattu = 0`, tai `1–4` eikä puolen ehto täyty): näkyy VP:lle "ei tekniikkadataa · N joukkuetta"; ei piiloteta. Koskee myös 14+-joukkueita, joilla ei ole SM-testejä (K2 hyväksytty). Rivi ohjaa VP:tä Testipäivät-askeleeseen.
+- Palautus: `{ yht, mitattu, heikkoja, vanhoja, luokka, syy, otosPieni, lahteet, uusinPvm, mediaaniKk }`.
 
-### 2.4 Teksti ja tunnisteet
+### 2.4 Näkymät ja tekstit
 
-- Huomio: **"Tekniikka kehityskohteena · N joukkuetta"**, rivillä syy: "alle ikätason" tai "pallo hidastaa suunnanmuutoksissa". Datan ikä näkyy ("mitattu 8/12 · mediaani 3 kk").
-- Ehdotuksen tunniste **`tki_alhainen` säilyy** (historia, dedup D134, sv-käännökset); tunnisteen viereen kommentti, että se kattaa koko ketjun (TKI → TSI). Vain teksti muuttuu.
-- Uudet sv-avaimet tyhjinä Geminille. Luvut eivät mene pelaajalle eivätkä huoltajalle (§7.22).
+- **Kodin huomio:** "Tekniikka kehityskohteena · N joukkuetta", rivillä joukkueen syy ("alle ikätason" tai "pallo hidastaa suunnanmuutoksissa"). Datan ikä näkyy ("mitattu 8/12 · mediaani 3 kk").
+- **Ehdotus** käyttää samaa funktiota ja antaa samalle datalle saman joukkuemäärän (testi). Tunniste **`tki_alhainen` säilyy**; vain teksti muuttuu, ja tunnisteen viereen kommentti, että se kattaa koko ketjun (TKI → TSI).
+- **Seuran pulssi (K9):** vain lukumäärä ja linkki Tilanteeseen; joukkuerivejä ei toisteta (D150).
+- Uudet **sv-avaimet tyhjinä uuteen erään**; ruotsia ei kirjoiteta.
 
-## 3. TSI-raja — ehdotus SJK-datasta (Tero päättää)
+## 3. TSI-viitetaulukko (taso 3 − taso 3)
 
-SJK:n TSI (`node scripts/diag_tekniikka_maaritelma.cjs tsi sjk`, vain luku): **56 arvoa, vain ikäluokat 14–16**, kolme testipäivää (24.3., 27.3., 1.4.2026), `tsi_pvm` kaikilla testipäivä (ei "tänään"-varapäiviä: 38 arvoa on `recalcTSI`:n kirjoittamia, päivät silti maalis–huhtikuulta).
+Rekisteri tarkistettu (`node scripts/diag_tekniikka_maaritelma.cjs viite`): `EERIKKILA_NORMIT.sm_juoksu` ja `.sm_pallo` sisältävät kaikki neljä tasorajaa (taso 5–2) jokaiselle iälle **10–19** ja avaimille **M** (miehet) ja **N** (naiset), molemmille sukupuolille; arvot ovat aidosti nousevia (ei aukkoja tai ristiriitoja). Ikiä 8–9 ei ole (TSI ei luokittele; TKI kattaa 8–13). Viite = `eerikkilaNormiarvo('sm_pallo') − eerikkilaNormiarvo('sm_juoksu')`; `eerikkilaNormiarvo` palauttaa taso 3:n rajan (`rajat[2]`, hitain arvo joka on vielä taso 3).
 
-| Ikä (`normiIka`) | n | min | p25 | p50 | **p67** | p75 | p90 | max | > 1,5 s |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 14 | 20 | 1,13 | 1,31 | 1,56 | **1,59** | 1,73 | 2,40 | 4,75 | 60 % |
-| 15 | 24 | 0,79 | 1,10 | 1,29 | **1,45** | 1,64 | 1,94 | 2,52 | 33 % |
-| 16 | 12 | 1,05 | 1,15 | 1,20 | **1,36** | 1,39 | 1,40 | 1,56 | 8 % |
-| yht | 56 | 0,79 | 1,17 | 1,35 | 1,55 | 1,58 | 1,93 | 4,75 | 38 % |
+| Ikä | Pojat: pallo | juoksu | **viite** | **raja (+0,3)** | Tytöt: pallo | juoksu | **viite** | **raja (+0,3)** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 10 | 10,58 | 9,09 | **1,49** | **1,79** | 11,39 | 9,30 | **2,09** | **2,39** |
+| 11 | 10,14 | 8,73 | **1,41** | **1,71** | 10,83 | 8,99 | **1,84** | **2,14** |
+| 12 | 9,86 | 8,45 | **1,41** | **1,71** | 10,40 | 8,70 | **1,70** | **2,00** |
+| 13 | 9,56 | 8,22 | **1,34** | **1,64** | 10,12 | 8,51 | **1,61** | **1,91** |
+| 14 | 9,28 | 8,08 | **1,20** | **1,50** | 9,74 | 8,42 | **1,32** | **1,62** |
+| 15 | 9,02 | 7,82 | **1,20** | **1,50** | 9,51 | 8,39 | **1,12** | **1,42** |
+| 16 | 8,74 | 7,61 | **1,13** | **1,43** | 9,35 | 8,28 | **1,07** | **1,37** |
+| 17 | 8,60 | 7,52 | **1,08** | **1,38** | 9,32 | 8,25 | **1,07** | **1,37** |
+| 18 | 8,52 | 7,45 | **1,07** | **1,37** | 9,27 | 8,20 | **1,07** | **1,37** |
+| 19 | 8,44 | 7,38 | **1,06** | **1,36** | 9,22 | 8,15 | **1,07** | **1,37** |
+| M / N | 8,34 | 7,29 | **1,05** | **1,35** | 9,15 | 8,08 | **1,07** | **1,37** |
 
-Heikoimman kolmanneksen alaraja (p67, pyöristetty 0,05:een) ikäluokittain: **14 → 1,60 · 15 → 1,45 · 16 → 1,35**. Muille ikäluokille ei ole dataa, joten TSI ei niitä luokittele (ks. K2).
+Erotus taso 3:lla: pojilla **1,05–1,49 s**, tytöillä **1,07–2,09 s** (Teron esimerkit täsmäävät: P14 9,28 − 8,08 = 1,20 s; T12 10,40 − 8,70 = 1,70 s).
 
-Vaihtoehdot, SJK:n tulos (§5.3):
+**SJK:n TSI-data suhteessa viitteisiin** (56 arvoa, ikä `normiIka(syntymaVuosi, tsi_pvm)`, vain luku):
 
-| Vaihtoehto | Raja | SJK: kehityskohteena |
-|---|---|---|
-| **A** (ehdotus, briiffin mukainen) | ikäluokittain p67: 1,60 / 1,45 / 1,35 | 3 joukkuetta (T14, T15, T16) |
-| B | yksi raja 1,6 s | 1 joukkue (T14) |
-| C | yksi raja 1,5 s (nykyinen §30 / `laskeTekninenKehityskohde`) | 3 joukkuetta (P14, T14, T15) |
+| Ryhmä | n | viite | raja | p50 | rajan ylittäviä |
+|---|---:|---:|---:|---:|---:|
+| P14 | 11 | 1,20 | 1,50 | 1,56 | 6 |
+| T14 | 9 | 1,32 | 1,62 | 1,56 | 3 |
+| P15 | 22 | 1,20 | 1,50 | 1,29 | 7 |
+| T15 | 2 | 1,12 | 1,42 | 1,38 | 1 |
+| P16 | 8 | 1,13 | 1,43 | 1,18 | 0 |
+| T16 | 4 | 1,07 | 1,37 | 1,40 | 4 |
 
-Suositus: **A**, mutta merkitty väliaikaiseksi: ikäluokkarajat ovat 12–24 pelaajan otoksesta yhdeltä seuralta ja kolmelta testipäivältä, ja ne ovat *suhteellisia* (K4). Kun muiden seurojen TSI-dataa tulee, rajat lasketaan uudelleen yhdestä paikasta (`lib/tm_tekniikka.js` `TSI_RAJA`).
+Yhteensä 21 / 56 (38 %) ylittää rajan. Ryhmät ovat pelaajan iän mukaan, eivät joukkueen: esim. T14-joukkueessa on myös 15–16-vuotiaita tyttöjä, siksi joukkuetaulukko (§5.3) ja tämä taulukko eivät ole samoja lukuja.
 
 ## 4. Mitä tämä ei tee
 
-- Ei muuta D2-tasoa (1–5) tai sen näyttöä; taso ja "heikko" ovat eri kysymyksiä.
-- Ei kirjoita Firestoreen eikä muuta pikakenttiä. Ei koske Rulesiin eikä `functions/`-tiedostoihin.
-- Ei kirjoita ruotsia (uudet avaimet tyhjinä Geminille). Ei näytä lukuja pelaajalle tai huoltajalle (§7.22).
+- Ei muuta D2-tasoa (1–5) tai sen näyttöä; taso ja "kehityskohde" ovat eri kysymyksiä.
+- Ei kirjoita Firestoreen eikä muuta pikakenttiä. Ei koske Rulesiin eikä `functions/`-tiedostoihin. Ei kirjoita ruotsia.
+- Ei korjaa `sm_*_taso`:n tallennusikää (oma tehtävä, §6 K11); ei tee Eerikkilän tekniikkatasosta myönteistä signaalia (oma tehtävä).
 
 ## 5. Luvut: nykyinen huomio · nykyinen ehdotus · uusi määritelmä
 
-Uusi määritelmä = §2 (TSI-raja A). "Ei tekniikkadataa" = 0 tuoretta mittaria; "liian vähän" = 1–4. Joukkue = `tmPelaajanJoukkueet`; ajo 10.10.2026.
+Uusi määritelmä = §2 (TSI-viite + 0,3 s, vanhuus 15 kk). Joukkue = `tmPelaajanJoukkueet`; ajo 10.10.2026, vain luku. "Ilman luokkaa" = 0 mitattua ("ei tekniikkadataa") tai 1–4 mitattua eikä puolen ehto täyty. "Otos pieni" = luokiteltu, mutta mitattuja < 8.
 
 ### 5.1 Yhteenveto
 
-| Aineisto | Joukkueita (pelaajia > 0) | Huomio nyt | Ehdotus nyt | **Uusi: kehityskohteena** | ok | liian vähän | **ei tekniikkadataa** |
+| Aineisto | Joukkueita (pelaajia > 0) | Huomio nyt | Ehdotus nyt | **Uusi: kehityskohteena** | ok | **ilman luokkaa** (josta 0 mitattua) | **otos pieni** (luokitelluista) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **KPV** (oikea data) | 15 | 3 | 10 | **1** (P12, alle ikätason) | 7 | 2 | **5** |
-| **SJK** (oikea data) | 6 | 5 | 0 | **3** (T14, T15, T16: pallo hidastaa) | 3 | 0 | **0** |
-| fixture pilotti | 15 | 3 | 2 | 2 | 1 | 0 | 12 |
-| fixture kypsa | 9 | 9 | 1 | 1 | 7 | 1 | 0 |
-| fixture kuormitus | 40 | 8 | 0 | 0 | 8 | 0 | 32 |
+| **KPV** | 15 | 3 | 10 | **1** | 7 | **7** (5) | 4 |
+| **SJK** | 6 | 5 | 0 | **4** | 2 | **0** (0) | 4 |
+| fixture pilotti | 15 | 3 | 2 | 2 | 1 | 12 (12) | 0 |
+| fixture kypsa | 9 | 9 | 1 | 1 | 7 | 1 (0) | 0 |
+| fixture kuormitus | 40 | 8 | 0 | 0 | 8 | 32 (32) | 4 |
 
 Fixture-luvut ovat keinotekoisia: `tests/helpers/vp_fixture.cjs:41` antaa kaikille TKI-pelaajille `d2_taso = 2` ja saman TKI:n koko joukkueelle, eikä yhtään TSI:tä. PR 1 korjaa tämän.
 
-### 5.2 KPV
-
-Pelaajia: TKI tuore 66 · TKI ≥ 15 kk vanha 60 · ei mittausta 34. `d2_taso` 126:lla, kaikilla `tk`. Ei TSI:tä, ei H-H:ta.
+### 5.2 KPV (TKI tuore 66 · TKI ≥ 15 kk 60 · ei mittausta 34; TSI 0; `d2_taso` 126 kpl, kaikki `tk`)
 
 | Joukkue | Huomio nyt | Ehdotus nyt | Uusi (mitattu/heikkoja/vanhoja) |
 |---|---|---|---|
-| P12 | ei | kyllä (7) | **kehityskohde** (9/5/5): alle ikätason |
-| T13, T14, T15 | kyllä | kyllä | ok (5/1/3) · liian vähän (2/0/6) · ei tekniikkadataa (0/0/10) |
-| P13 | ei | kyllä (8) | liian vähän (4/2/8) |
-| P14, P15 | ei | kyllä (5, 4) | ei tekniikkadataa (0/0/6, 0/0/8) |
-| T12, T9, P10 | ei | kyllä (3) | ok |
-| T11, T18 | ei | ei | ei tekniikkadataa |
-| P9, T10, P11 | ei | ei | ok |
+| P12 | ei | kyllä (7) | **kehityskohde** (9/5/5), alle ikätason |
+| T13 | kyllä | kyllä | ok, otos pieni (5/1/3) |
+| T14 | kyllä | kyllä | ilman luokkaa (2/0/6) |
+| T15 | kyllä | kyllä | **ei tekniikkadataa** (0/0/10) |
+| P13 | ei | kyllä (8) | ilman luokkaa (4/2/8) |
+| P14, P15 | ei | kyllä (5, 4) | **ei tekniikkadataa** (0/0/6, 0/0/8) |
+| T11, T18 | ei | ei | **ei tekniikkadataa** |
+| T12 | ei | kyllä (3) | ok, otos pieni (5/1/5) |
+| T10, P11 | ei | ei | ok, otos pieni (6/1/2, 7/1/2) |
+| T9, P10 | ei | kyllä (3, 3) | ok (10/3/0) |
+| P9 | ei | ei | ok (8/0/0) |
 
-Ehdotus laukeaa 10 joukkueelle, koska se laskee 35 kk vanhan TKI:n. Huomion kolme joukkuetta (T13–T15) tulevat `tk`-lähteisestä `d2_taso`:sta, jonka ikää ei tarkisteta.
+Ehdotus laukeaa 10 joukkueelle, koska se laskee yli 3 vuotta vanhan TKI:n. Huomion kolme joukkuetta (T13–T15) tulevat `tk`-lähteisestä `d2_taso`:sta, jonka ikää ei tarkisteta.
 
-### 5.3 SJK
+### 5.3 SJK (TKI 0; TSI 56; `d2_taso` 57 kpl: `sm_pallo` 43, `hh` 14)
 
-SJK:lla ei ole TKI:tä, joten nykyinen ehdotus ei voi laueta (0). Nykyinen huomio laukeaa 5 joukkueelle d2:n perusteella (`sm_pallo` 43, `hh` 14: valtakunnalliset testit, joita briiffin sääntö ei hyväksy).
+| Joukkue | Pel. | Huomio nyt | Uusi (mitattu/heikkoja) |
+|---|---:|---|---|
+| P14 | 7 | kyllä | **kehityskohde**, otos pieni (6/2 = 33 %) · pallo hidastaa |
+| P15 | 20 | kyllä | ok (19/6 = 32 %) |
+| P16 | 7 | ei | ok, otos pieni (5/0) |
+| T14 | 14 | kyllä | **kehityskohde** (14/7) · pallo hidastaa |
+| T15 | 6 | kyllä | **kehityskohde**, otos pieni (5/2) · pallo hidastaa |
+| T16 | 7 | kyllä | **kehityskohde**, otos pieni (7/4) · pallo hidastaa |
 
-| Joukkue | Pel. | Huomio nyt | Uusi A (mitattu/heikkoja) | B (1,6 s) | C (1,5 s) |
-|---|---:|---|---|---|---|
-| P14 | 7 | kyllä | ok (6/0) | ok | kehityskohde (6/2) |
-| P15 | 20 | kyllä | ok (19/6 = 32 %) | ok | ok |
-| P16 | 7 | ei | ok (5/0) | ok | ok |
-| T14 | 14 | kyllä | **kehityskohde** (14/6) | kehityskohde | kehityskohde (14/10) |
-| T15 | 6 | kyllä | **kehityskohde** (5/2) | ok | kehityskohde |
-| T16 | 7 | kyllä | **kehityskohde** (7/4) | ok | ok |
-
-P15 jää kolmasosan alle (6/19 = 31,6 %); yksi lisäpelaaja muuttaisi tuloksen. T15:n 5 mitattua on täsmälleen minimi.
+Nykyinen ehdotus ei voi laueta SJK:lla (ei TKI:tä), vaikka huomio laukeaa viidelle joukkueelle `sm_pallo`/`hh`-lähteisestä `d2_taso`:sta. P14 (2/6) ja P15 (6/19) ovat kolmasosan rajalla: yksi pelaaja muuttaa tuloksen. Neljästä kehityskohteesta kolme on otos pieni.
 
 ## 6. Päätökset ja avoimet kysymykset
 
-**Kirjatut päätökset (Tero, 10.10.2026)**
+### 6.1 Kirjatut päätökset (Tero, 10.10.2026)
 
-- P1. Ketju TKI → TSI; Eerikkilän tekniikkataso, `sm_*_taso` ja `d2_taso` eivät ole heikkouden mittareita.
-- P2. TKI < 40 on raja; normi-ikä `normiIka` testihetkestä.
-- P3. Vanhuusraja 15 kk, mittarikohtainen; vanha tulos ei vaikuta ja pelaajalla näkyy "TKI yli vuoden vanha". Tuore FLEI/muu mittaus ei peitä.
-- P4. Joukkue: `tmPelaajanJoukkueet`; kehityskohde kun ≥ 1/3 mitatuista (mitattuja ≥ 5) tai ≥ 1/2 joukkueen pelaajista; syy = useampaa koskeva; "ei tekniikkadataa · N joukkuetta" näkyy.
-- P5. Huomion teksti "Tekniikka kehityskohteena · N joukkuetta" + syy; `tki_alhainen` säilyy, teksti muuttuu.
-- P6. Eerikkilän tekniikkatason myönteinen signaali on oma tehtävänsä.
+- **P1.** Ketju TKI → TSI; Eerikkilän tekniikkataso, `sm_*_taso` (suoraan) ja `d2_taso` eivät ole heikkouden mittareita. `d2_taso`:n kahdeksan heikkouskäyttöä (§1.1 a–h) korvataan jaetulla funktiolla.
+- **P2.** TKI < 40 → "alle ikätason". TKI-tasomuunnoksista jää vain `laskeD2Joustava`:n `TKI/20`, ja vain näyttöön (§1.2).
+- **P3.** TSI-viite = SM-pallo taso 3 − SM-juoksu taso 3 rekisteristä (iän ja sukupuolen mukaan); kehityskohde kun TSI ≥ viite + 0,3 s. Normit luetaan rekisteristä.
+- **P4.** Normi-ikä `normiIka` testihetkestä; sukupuoli `"M"`/`"N"`.
+- **P5.** Vanhuus 15 kk mittarikohtaisesti; vanha tulos ei luokita ja näytetään pelaajalla ("TKI/TSI yli vuoden vanha"); tuore FLEI/muu mittaus ei peitä.
+- **P6.** Pelaaja, jolla on vain Eerikkilä-tekniikka tai yksittäisiä SM-tasoja, on "ei tekniikkadataa".
+- **P7.** Joukkue: `tmPelaajanJoukkueet`; kehityskohde kun ≥ 1/3 mitatuista (≥ 5 mitattua) tai ≥ 1/2 kaikista joukkueen pelaajista; syy = useampaa koskeva (TKI/TSI); "otos pieni" kun mitattuja < 8; "ei tekniikkadataa · N joukkuetta" näkyy.
+- **P8.** Huomio "Tekniikka kehityskohteena · N joukkuetta" + syy; `tki_alhainen` säilyy, vain teksti muuttuu + kommentti; pulssi vain lukumäärä + linkki Tilanteeseen (D150); sv-avaimet tyhjinä uuteen erään; ei lukuja pelaajalle/huoltajalle.
 
-**Päätettävää (TSI-raja ratkaisee #975:n mergen)**
+### 6.2 Ratkaistut kysymykset
 
-- **K3. TSI-raja.** Ehdotus A (14 → 1,60 · 15 → 1,45 · 16 → 1,35), vaihtoehdot B (1,6) ja C (1,5) §3:ssa. Hyväksytäänkö A väliaikaisena?
+| # | Kysymys | Ratkaisu |
+|---|---|---|
+| K1 | `d2_taso` sekalähde | Ratkaistu: ei heikkouden mittari (P1) |
+| K2 | TKI vain 8–13 v., TSI-dataa vain SJK:n 14–16 v. | **Hyväksytty**: 14+-joukkueet ilman SM-testejä jäävät "ei tekniikkadataa" ja ohjaavat Testipäivät-askeleeseen |
+| K3 | TSI-raja | **Ratkaistu**: viite + 0,3 s (§3), ei SJK:n prosenttipistettä |
+| K4 | Suhteellinen (prosenttipiste) raja | **Hylätty**: raja on normiviite, ei kohortin kolmannes |
+| K5 | Taidon §22 "hyvä pelaaja menettää 0,3–0,6 s" | **Ratkaistu**: väärä; korjattu viitetaulukon pohjalta (`tm-mittarit-ja-testit` §22). SJK:n pienin TSI 0,79 s, mediaani 1,35 s ja 38 % yli 1,5 s ovat viitteiden (1,05–2,09 s) suuruusluokkaa |
+| K6 | Sukupuolen ja iän sekoittuminen | **Ratkaistu**: viite on ikä × sukupuoli, ei yhteistä rajaa |
+| K7 | `tki_alhainen` ei lauennut SJK:lla | **Ratkaistu**: ehdotus käyttää samaa ketjua (TSI kattaa SJK:n) |
+| K9 | Seuran pulssi | **Ratkaistu**: vain lukumäärä + linkki (P8) |
+| K10 | "puolet joukkueen pelaajista" | **Vahvistettu**: puolet *kaikista* joukkueen pelaajista |
 
-**Ristiriidat briiffin ja datan välillä (kirjattu ennen toteutusta)**
+### 6.3 Yhä avoimet / uudet
 
-- **K1. `d2_taso` ei ole yksi asia.** KPV: kaikki `tk` (alueellinen kilpailupooli); SJK: `sm_pallo` + `hh` (valtakunnallinen). Briiffin taulukko olettaa yhden lähteen. Ei ristiriita säännön kanssa (kaikki jää pois), mutta **nykyinen huomio on siis rakennettu kolmella eri vertailukohdalla**, mikä selittää ristiriidan laajuuden.
-- **K2. TKI esiintyy vain 8–13-vuotiailla** (`tkLaskeTKI`). Yli 13-vuotiaiden joukkueilla ketjussa on vain TSI. TSI-dataa on SJK:lla 14–16-vuotiailta; KPV:llä sitä ei ole lainkaan, joten KPV:n P14, P15, T15 ja T18 jäävät tilaan **"ei tekniikkadataa"** ja T14 tilaan "liian vähän" (vanhat TKI:t, ei TSI:tä). Ikäluokille 8–13 ilman TKI:tä ja 17+ ilman TSI-rajaa ei ole luokitusta. Onko tämä haluttu tulos, vai lisätäänkö jokin toinen lähde (esim. TK-lajiaika) yli 13-vuotiaille?
-- **K4. Prosenttipiste-raja on suhteellinen.** "Heikoimman kolmanneksen alaraja" tuottaa määritelmän mukaan ~33 % heikkoja *jokaisessa* ikäluokassa, ja joukkuesääntö "≥ 1/3" laukeaa silloin noin puolelle joukkueista (SJK: 3/6). Raja kuvaa SJK:n kohorttia, ei normia, eikä sitä voi käyttää toisessa seurassa sellaisenaan. Otos on 12–24 pelaajaa ikäluokkaa kohti ja yksi sessio.
-- **K5. TSI:n tyypillinen taso poikkeaa taidon kuvauksesta.** Taito `tm-mittarit-ja-testit` (§22) sanoo hyvän pelaajan häviävän pallon kanssa 0,3–0,6 s ja rajaksi 1,5 s (§30). SJK:n pienin TSI on **0,79 s**, mediaani 1,35 s ja 38 % yli 1,5 s. Joko §22:n kuvaus on vanhentunut tai SJK:n SM-testin rata/protokolla eroaa; kumpikaan ei ole varmistettu. Taidon teksti päivitetään vasta päätöksen jälkeen.
-- **K6. Sukupuolen ja iän sekoittuminen.** 14-vuotiailla poikien ja tyttöjen mediaani on sama (1,56), 16-vuotiailla tytöt 1,40 ja pojat 1,18 (n = 4 ja 8), 15-vuotiaita tyttöjä on 2. Sukupuolikohtaisia rajoja ei voi laskea tällä otoksella. SJK:n kolme "kehityskohde"-joukkuetta ovat kaikki tyttöjoukkueita; sama raja kaikille voi tuottaa sukupuolivinouman. Seurattava, kun dataa kertyy.
-- **K7. Nykyinen ehdotus ei toimi SJK:lla lainkaan.** `tki_alhainen` vaatii TKI:n, SJK:lla sitä ei ole → ehdotus 0, vaikka huomio laukeaa 5 joukkueelle. Uusi ketju korjaa tämän (TSI), mutta ehdotuksen otsikko "Tekniikkaharjoittelua" ja teksti "alle pronssitason (TKI < 40)" on syytä vaihtaa syyn mukaan (kommentti `tki_alhainen`-tunnisteen vieressä).
-- **K8. `tsi_pvm` luotettavuus.** `recalcTSI` kirjoittaa `tsi_pvm = m.pvm || tmPaivaIso(new Date())` (`Excel_Tuonti:4715`). SJK:lla kaikki päivät ovat maalis–huhtikuulta (ei varapäiviä), mutta muilla seuroilla recalc voisi antaa "tuoreen" TSI:n, joka on vanha. PR 1 voi vaatia, että luokitus käyttää `tsi_pvm`:ää vain, jos `tsi_recalc` ei ole asettanut sitä varapäivänä (tarkistettava toteutuksessa).
-- **K9. "Seuran pulssi" ei luokittele tekniikkaa tällä hetkellä.** `lib/tm_seuran_pulssi.js` ja `lib/tm_vp_koti.js` eivät sisällä tekniikka-, TKI- eikä D2-luokitusta. Pulssin taulukossa (`VP_v25:22764` `renderTeamPulse`) TKI näkyy keskiarvona. Mitä pulssin pitää näyttää uudella määritelmällä: pelkkä luokka vai myös "mitattu x/y"? Ehdotus: sama rivi kuin huomiossa (luokka + mitattu x/y), ei uutta mittaria.
-- **K10. "Vähintään puolet joukkueen pelaajista"** tulkittu: ≥ 1/2 *kaikista* joukkueen pelaajista on tuoreella mittarilla rajan alla (sallii alle 5 mitatun joukkueen). Vahvistetaan, ettei tarkoitettu "puolet mitatuista".
-- **K11. Normi-ikä d2-/SM-kentissä.** `sm_*_taso` ja `d2_taso` (`sm_pallo`) tallennetaan joukkuenimen iällä (`Excel_Tuonti:3272–3276`), eivät `normiIka(testipvm)`:llä. Ei vaikutusta uuteen luokitukseen (ei käytetä), mutta ne kannattaa korjata, jos niitä jatkossa käytetään myönteisenä signaalina.
+- **K8. `tsi_pvm`:n luotettavuus.** `recalcTSI` kirjoittaa `tsi_pvm = m.pvm || tmPaivaIso(new Date())` (`Excel_Tuonti:4715`). SJK:lla kaikki 56 päivää ovat maalis–huhtikuulta (24.3., 27.3., 1.4.), joten varapäiviä ei ole, mutta toisella seuralla recalc voisi tuottaa "tuoreen" päivän vanhalle testille. PR 1: luokitus lukee `tsi_pvm`:n sellaisenaan; varapäivän tunnistus (esim. `tsi_recalc` ilman testipäivää) päätetään toteutuksessa.
+- **K11. `sm_*_taso`:n tallennusikä** (`Excel_Tuonti:3272–3276`: joukkuenimen ikä, ei `normiIka`). Ei vaikuta tähän luokitukseen (viite lasketaan lennossa `normiIka`:lla), mutta erillinen kartoitus ja korjausehdotus tehdään omana tehtävänään (datan uudelleenlaskenta on Teron ajo).
+- **K12 (uusi). `eerikkilaNormiarvo` ei rajaa ikää.** Funktio leikkaa iän väliin 10–19 (`Math.min(19, Math.max(10, round))`) ja hyväksyy aikuisille vain literaalin `"M"`/`"N"`. Ikä 8–9 saisi siis hiljaa ikäluokan 10 viitteen ja ikä 20+ ikäluokan 19:n. `lib/tm_tekniikka.js` ei saa luottaa siihen: ikä < 10 → ei viitettä (TSI ei luokita), ikä ≥ 20 → avain `"M"`/`"N"`. Yksikkötesti kattaa rajat (9 / 10 / 19 / 20).
+- **K13 (uusi). Viitteen merkitys.** Viite on kahden taso-3-rajan erotus (hitain arvo, joka on vielä taso 3, kummallekin testille), ei "keskipelaajan" mitattu erotus. Se vastaa Teron esimerkkejä (P14 1,20 s; T12 1,70 s) ja on sellaisenaan päätös, mutta tarkoittaa, että SJK:n ryhmien mediaanit ovat kaikki viitteen yläpuolella (P14 ja T16 myös rajan yläpuolella) ja 38 % SJK:n TSI-pelaajista ylittää rajan. Jos tulos tuntuu tiukalta tai löysältä, marginaalia (0,3 s) säädetään yhdestä vakiosta.
+- **K14 (uusi). Taidon §30 TSI-raja.** `tm-mittarit-ja-testit` §30 ("TSI > 1,5 s → PALLO ⚠️") ja `harjoitelogiikka_v4.js:2731` (`laskeTekninenKehityskohde`: TSI > 1,5 → pallonhallinta) käyttävät yhä yhtä rajaa 1,5 s kaikille. Koodi on oma kohteensa (valitsee harjoitekohteen, ei joukkueluokkaa); pidetään ennallaan tässä sarjassa. §30:n rivi on nyt ristiriidassa uuden määritelmän kanssa — kirjataan, ei muuteta, kunnes päätät, yhtenäistetäänkö kohdevalinta samaan viitteeseen.
 
 ## 7. Toteutusjako (vasta #975:n mergen jälkeen)
 
 | PR | Sisältö | Kaista |
 |---|---|---|
-| 1 | `lib/tm_tekniikka.js` (`TSI_RAJA`), yksikkötestit, **fixture-korjaus** (realistiset TKI-, TSI- ja `d2_taso`-arvot, ei vakiota `d2_taso = 2`), vartija: `tki / 20` vain yhdessä paikassa | auto |
-| 2 | Kytkentä `VP_v25`: huomio, ehdotus (`tki_alhainen`, uusi teksti), Tilanne, pulssi (K9). Testi: huomio ja ehdotus antavat samalle datalle saman joukkuemäärän. Laatuportin kuvat ja `?v=`-versiot päivitetään. Uudet sv-avaimet tyhjinä | Tero |
-| 3 | Master käyttää samaa funktiota; VP ja Master saavat ikätiedon samalla tavalla; kohtien a–h (§1.1) heikkouskäytöt korjataan; TKI-muunnokset 2–3 poistetaan (§1.2) | Tero |
+| 1 | `lib/tm_tekniikka.js` + yksikkötestit: raja-arvot molemmille sukupuolille (TKI 39,9/40; TSI viite+0,29/+0,30; ikä 9/10/19/20), vanhuusraja (14,9/15 kk), "ei tekniikkadataa", "otos pieni" (7/8), puolen ehto, syyn valinta. **Fixture-korjaus**: realistiset TKI- ja SM-arvot (TSI), ei vakiota `d2_taso = 2`. Vartija: `tki / 20` vain yhdessä paikassa | auto |
+| 2 | `VP_v25`: huomio, ehdotus (`tki_alhainen`, uusi teksti + kommentti), Tilanne ja pulssi kytketään jaettuun funktioon. Testi: huomio ja ehdotus antavat samalle datalle saman joukkuemäärän. Laatuportin kuvat, `?v=`-versiot ja pseudokielitesti päivitetään. Uudet sv-avaimet tyhjinä uuteen erään | Tero |
+| 3 | Master käyttää samaa funktiota; VP ja Master saavat iän samalla tavalla; `d2_taso`:n muut heikkouskäytöt korjataan §1.1:n mukaan; TKI-muunnokset 2–3 poistetaan (§1.2) | Tero |
 
-Rajaukset: ei kirjoituksia tuotantodataan (laskelmat vain lukien), ei Rules- eikä `functions/`-muutoksia. Eerikkilän tekniikkatason myönteinen signaali on oma tehtävänsä.
+Erilliset tehtävät (ei tähän sarjaan): `sm_*_taso`:n tallennusikä (K11), Eerikkilän tekniikkatason myönteinen signaali.
+
+Rajaukset: ei kirjoituksia tuotantodataan (laskelmat vain lukien), ei Rules- eikä `functions/`-muutoksia, ei ruotsinkielisiä tekstejä.

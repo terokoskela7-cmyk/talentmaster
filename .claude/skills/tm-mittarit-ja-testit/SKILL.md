@@ -62,8 +62,10 @@ testitapahtumat/{tapahtumaId} {
 | `kuljetus_laukaus` | Kuljetus-laukaus (tarkkuusvähennyksin) | s | DIAG | pienempi |
 | `pituuspotku` | Pituuspotku (aikabonus metrit/5, max 20s) | m | SBL | suurempi |
 
-**TSI (Tekninen suunnanmuutos-indeksi)** = `sm_pallo − sm_juoksu`. Positiivinen → fysiikka > tekniikka;
-lähellä nollaa → tekniikka vahva. Hyvä pelaaja häviää ~0.3–0.6 s pallon kanssa; selvästi enemmän → lajitekniikkavaje.
+**TSI (Tekninen suunnanmuutos-indeksi)** = `sm_pallo − sm_juoksu` (s). Pallo hidastaa aina: erotus on käytännössä aina positiivinen (SJK:n 56 arvossa 0 negatiivista) ja pienenee iän mukana.
+**Viite** (Palloliitto FINAL2024, `EERIKKILA_NORMIT.sm_pallo` − `.sm_juoksu`, taso-3-raja, `eerikkilaNormiarvo`; ikä `normiIka`): **pojat 1,05–1,49 s** (P10 1,49 · P12 1,41 · P14 1,20 · P16 1,13 · miehet 1,05),
+**tytöt 1,07–2,09 s** (T10 2,09 · T12 1,70 · T14 1,32 · T16 1,07 · naiset 1,07). Täysi taulukko: `docs/TEKNIIKKA_MAARITELMA.md` §3.
+Kehityskohde (tekniikka, syy "pallo hidastaa suunnanmuutoksissa"): **TSI ≥ viite + 0,3 s**. Aiempi lukema "hyvä pelaaja häviää ~0,3–0,6 s" oli väärä (Tero 10.10.2026): taso 3:lla erotus on yli yhden sekunnin.
 
 **MAS-käännöskorjaus `−20.3 s`** (MyE.Way-pariteetti, 2026-07-01): `MAS m/s = 1200 / (kokonaissek − 20.3)`,
 `km/h = ms × 3.6`. Verifioitu 2 MyE.Way-referenssipisteellä. **Kolme kopiota** eri arvoilla ennen korjausta →
