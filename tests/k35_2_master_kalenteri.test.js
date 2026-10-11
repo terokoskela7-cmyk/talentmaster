@@ -11,8 +11,8 @@ const otsake = (() => { const a = MASTER.indexOf('id="calModeBar"'), b = MASTER.
 const nappi = (cls) => [...otsake.matchAll(/<button class="(cal-add-btn[^"]*)"[^>]*>([^<]*)<\/button>/g)].map((m) => ({ cls: m[1], teksti: m[2] }));
 
 describe('1 · otsakkeen napit (D169, D147)', () => {
-  it('"Uusi tapahtuma" (täytetty, ainoa) ja "Luo testitapahtuma" (ääriviiva); ei emojeja, ei nuolta', () => {
-    const n = nappi(); expect(n.map((x) => x.teksti)).toEqual(['Uusi tapahtuma', 'Luo testitapahtuma']);
+  it('"Uusi tapahtuma" (täytetty, ainoa) ja "Luo testitapahtuma" ja "Lisää kalenteriini" (K35-7b) (ääriviiva); ei emojeja, ei nuolta', () => {
+    const n = nappi(); expect(n.map((x) => x.teksti)).toEqual(['Uusi tapahtuma', 'Luo testitapahtuma', 'Lisää kalenteriini']);
     expect(n.filter((x) => !/\bq\b/.test(x.cls)).length).toBe(1); expect(n[0].cls).toBe('cal-add-btn'); expect(n[1].cls).toBe('cal-add-btn q');
     n.forEach((x) => { expect(x.teksti).not.toMatch(EMOJI); expect(x.teksti).not.toMatch(/→/); });
   });

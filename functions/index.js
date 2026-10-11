@@ -2519,6 +2519,10 @@ exports.peruKalenteriTilaus = functions   // "Poista linkki": mitätöi aktiivis
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })
   .https.onCall(kalenteriIcal.luoPeruutusKasittelija({ db, HttpsError: functions.https.HttpsError, Timestamp: admin.firestore.Timestamp }));
+exports.haeKalenteriTilausTila = functions   // K35-7b: "Linkki luotu pp.kk." ilman linkkiä; ei tokenia ulos
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(kalenteriIcal.luoTilaKasittelija({ db, HttpsError: functions.https.HttpsError }));
 exports.kalenteriIcal = functions
   .region('europe-west1')
   .https.onRequest(kalenteriIcal.luoSyoteKasittelija({ db, Timestamp: admin.firestore.Timestamp }));

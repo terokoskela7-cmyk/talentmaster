@@ -202,3 +202,23 @@ test('K35-10 monipäiväinen tauko joka alkoi ennen −30 pv ikkunaa mutta jatku
   const r = await hae(db, tokenUrlista(await tilaa(db, valmCtx('vp1', 'vp'), { seuraId: 'kpv' })));
   assert.match(r.body, /UID:tauko@talentmaster/); assert.doesNotMatch(r.body, /UID:vanha@talentmaster/);
 });
+
+const tila = (db, ctx, data) => H.luoTilaKasittelija({ db, HttpsError, Timestamp, nyt: () => NYT })(data || { seuraId: 'kpv', pelaajaId: 'p1' }, ctx);
+test('K35-7b tila: ei tilausta → {aktiivinen:false}; luonnin jälkeen {aktiivinen:true, luotu} — EI tokenia/url:ia; poiston jälkeen taas false; toisen pelaajan tilaus ei vuoda', async () => {
+  const db = luoDb(perus());
+  assert.deepStrictEqual(await tila(db, pelaajaCtx), { aktiivinen: false, luotu: null });
+  const luotu = await tilaa(db, pelaajaCtx), t = await tila(db, pelaajaCtx);
+  assert.strictEqual(t.aktiivinen, true); assert.ok(t.luotu); assert.deepStrictEqual(Object.keys(t).sort(), ['aktiivinen', 'luotu']);
+  assert.ok(!JSON.stringify(t).includes(tokenUrlista(luotu))); assert.ok(!/ics|webcal|http/i.test(JSON.stringify(t)));
+  assert.strictEqual((await tila(db, { auth: { uid: 'pel_kpv_p2', token: { rooli: 'pelaaja', pelaajaSeuraId: 'kpv', pelaajaId: 'p2' } } }, { seuraId: 'kpv', pelaajaId: 'p2' })).aktiivinen, false);
+  await H.luoPeruutusKasittelija({ db, HttpsError, Timestamp, nyt: () => NYT })({ seuraId: 'kpv', pelaajaId: 'p1' }, pelaajaCtx);
+  assert.strictEqual((await tila(db, pelaajaCtx)).aktiivinen, false);
+});
+test('K35-7b tila: oikeudet kuten luonnissa — huoltaja ilman suostumusta / vahvistamaton email → selkeä permission-denied; henkilökunta oma syöte ✓; kirjautumaton ✗', async () => {
+  const db = luoDb(perus());
+  assert.strictEqual((await tila(db, huoltajaCtx())).aktiivinen, false);
+  await assert.rejects(tila(luoDb(perus({ 'seurat/kpv/pelaajat/p1': { huoltajaEmail: 'aiti@esimerkki.fi', suostumusTila: 'odottaa' } })), huoltajaCtx()), (x) => x.code === 'permission-denied' && /Ei oikeutta/.test(x.message));
+  await assert.rejects(tila(db, huoltajaCtx({ email_verified: false })), (x) => x.code === 'permission-denied');
+  assert.strictEqual((await tila(db, valmCtx(), { seuraId: 'kpv' })).aktiivinen, false);
+  await assert.rejects(tila(db, {}), (x) => x.code === 'unauthenticated');
+});

@@ -140,6 +140,16 @@ function luoPeruutusKasittelija(deps) {
   };
 }
 
+/* haeKalenteriTilausTila({ seuraId, pelaajaId? }): K35-7b — onko tilaajalla (sama tunnistus kuin luonnissa) aktiivinen tilaus → { aktiivinen, luotu }. EI koskaan tokenia/URL:ia/hashia (URL ei ole tallessa selväkielisenä). */
+function luoTilaKasittelija(deps) {
+  const { db } = deps;
+  return async function haeKalenteriTilausTila(data, context) {
+    const x = await tunnista(deps, data, context), vanhat = await aktiiviset(db.collection('kalenteri_tilaukset'), x); let luotu = null;
+    vanhat.forEach((d) => { const m = ms((d.data() || {}).luotu); if (m != null && (luotu == null || m > luotu)) luotu = m; });
+    return { aktiivinen: !!vanhat.size, luotu: luotu != null ? new Date(luotu).toISOString() : null };
+  };
+}
+
 function luoSyoteKasittelija(deps) {
   const { db, Timestamp } = deps, nytF = deps.nyt || (() => Date.now());
   const ei = (res) => { res.set('Cache-Control', 'no-store'); res.status(404).send('Not found'); };   // sama vastaus kaikille virheille: ei selitystä
@@ -161,4 +171,4 @@ function luoSyoteKasittelija(deps) {
   };
 }
 
-module.exports = { luoTilausKasittelija, luoPeruutusKasittelija, emailHash, luoSyoteKasittelija, rakennaSyote, hash, uusiToken, IKKUNA_ALKU_PV, IKKUNA_LOPPU_PV, HENKILOKUNTA, JOHTO };
+module.exports = { luoTilausKasittelija, luoPeruutusKasittelija, luoTilaKasittelija, emailHash, luoSyoteKasittelija, rakennaSyote, hash, uusiToken, IKKUNA_ALKU_PV, IKKUNA_LOPPU_PV, HENKILOKUNTA, JOHTO };

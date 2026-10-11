@@ -18,7 +18,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- K35-7b: callable luoKalenteriTilaus/peruKalenteriTilaus/haeKalenteriTilausTila -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+<script src="lib/tm_kalenteri_tilaus_ui.js?v=1"></script>   <!-- K35-7b: "Lisää kalenteriini" -->
 <script src="lib/tm_kalenteri_lataus.js?v=1"></script>   <!-- K35-10: rajattu kalenterilataus (−8…+26 vk, laajenee selatessa; monipäiväiset erikseen) -->
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (audit 27, D140) -->
 <script src="lib/tm_koti_luvut.js?v=3"></script>   <!-- P0-luvut: avoimetTestit (yksi määritelmä), kattavuus (D125) — audit 27 -->
@@ -1908,6 +1910,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
           </div>
           <button class="cal-add-btn" onclick="_avaaUusiTapahtuma(tmPaivaIso(new Date()), '17:00')" data-i18n="Uusi tapahtuma">Uusi tapahtuma</button>
           <button class="cal-add-btn q" onclick="_avaaTestausV9()" data-i18n="Luo testitapahtuma">Luo testitapahtuma</button>
+          <button class="cal-add-btn q" onclick="_calTilausAvaa()" data-i18n="Lisää kalenteriini">Lisää kalenteriini</button>
         </div>
       </div>
 
@@ -3757,6 +3760,8 @@ function _renderInboxOhjaus(el) {
   }
 }
 
+/* K35-7b: valmentajan oma iCal-syöte (callable-ohjain libissä) */
+function _calTilausAvaa() { window.TM_KALENTERI_TILAUS_UI.tmTilausAsenna({ t: masterT, kutsu: (n, d) => firebase.app().functions('europe-west1').httpsCallable(n)(d), args: () => ({ seuraId: _seuraId }), toast: x => toast(x, 'ok') }).avaa(); }
 /* ── KALENTERI TAPAHTUMAT FIRESTORESTA ── */
 /* K35-10: kalenteri ladataan RAJATUSTI (lib/tm_kalenteri_lataus.js): −8…+26 vk nykyhetkestä, laajenee kun viikkoa selataan ulkopuolelle (haetaan vain puuttuva väli); monipäiväiset (tauko/vapaa/erikoisohjelma) 2. kyselyllä.
    Kutsu ilman argumenttia (muokkauksen jälkeen) = ladattu väli haetaan uudelleen; argumentilla (viikon päivä) = vain puuttuva väli. Sarjan muokkaus (toistuvuus_sarja_id) on oma kyselynsä, ei rajaudu. */
