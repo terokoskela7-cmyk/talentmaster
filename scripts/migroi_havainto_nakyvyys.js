@@ -37,7 +37,7 @@ const KIRJOITA = argv.includes('--kirjoita');
 const ERA = 400;   // WriteBatch-raja on 500; jätetään marginaali (§22)
 
 async function main() {
-  if (!admin.apps.length) admin.initializeApp({ credential: admin.applicationDefault() });
+  if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault() });
   const db = admin.firestore();
 
   console.log(KIRJOITA ? '⚠ KIRJOITUSAJO\n' : 'KUIVA-AJO — ei kirjoituksia.\n');

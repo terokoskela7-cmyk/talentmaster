@@ -57,7 +57,7 @@ describe('scripts/backfill_sukupuoli.js (Tero ajaa): dry-run oletus, vain yksimi
   const src = lue('scripts/backfill_sukupuoli.js');
   it('dry-run oletuksena (--apply vaaditaan kirjoitukseen), käyttää libin päättelyä, ristiriidat ja tyhjät listataan, kirjoitus tarkistaa puuttumisen uudelleen, ADC', () => {
     expect(src).toContain("const SEURA = arg('seura') || 'kpv', APPLY = argv.includes('--apply');"); expect(src).toContain('if (!APPLY) {');  expect(src).toContain('tmSukupuoliSuunnitelma(syote)'); expect(src).toContain("if (s === 'M' || s === 'N') { ohitettu++; continue; }");
-    expect(src).toContain('admin.applicationDefault()'); expect(src).not.toMatch(/serviceAccount|\.json'\)/); expect(src.indexOf('batch.update(')).toBeGreaterThan(src.indexOf('if (!APPLY)'));
+    expect(src).toContain('admin.credential.applicationDefault()'); expect(src).not.toMatch(/serviceAccount|\.json'\)/); expect(src.indexOf('batch.update(')).toBeGreaterThan(src.indexOf('if (!APPLY)'));
   });
 });
 
