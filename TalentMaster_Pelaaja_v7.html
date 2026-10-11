@@ -585,6 +585,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: + pääalusta (Mondo) -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Vanhemman kanssa) -->   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
+<script src="lib/tm_harjoituskertyma.js?v=1"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=1"></script>   <!-- K35-6f -->
 <script src="lib/tm_kalenteri_ilmoitus.js?v=3"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="lib/tm_kehityskaari.js?v=7"></script>   <!-- Trendi Vaihe 2: kehityskaari (§7.22 kannustava) · v4 = K4 (FLEI "Kehon valmius" + §22 alusta-vartija pelaaja-renderissä) -->
 </head>
@@ -2815,13 +2816,21 @@ function _p7PelaajaviestiHTML(v) {
   var esc = (typeof _thEsc === 'function') ? _thEsc : function (s) { return s; };
   return '<div style="display:flex;align-items:flex-start;gap:6px;margin-top:8px;font-size:12px;color:var(--text);line-height:1.4"><span style="flex-shrink:0">💬</span><span>' + esc(String(v)) + '</span></div>';
 }
+/* K35-6f: "Tällä kaudella" -kortti — kooste callablella (haePelaajanKertyma), HTML libissä. Tekstit fi (sv/en: era 29, Gemini). */
+function _p7KertymaHTML() {
+  var N = window.TM_HARJOITUSKERTYMA_NAKYMA, H = window.TM_HARJOITUSKERTYMA; if (!N || !H || !_pelaaja || _isDemoUser) return '';
+  if (window._p7Kertyma === undefined && !_ladattu.kertyma) { _ladattu.kertyma = true; H.tmKertymaLueCallable(window._fbApp.functions('europe-west1').httpsCallable('haePelaajanKertyma'), { seuraId: _pelaaja.seuraId, pelaajaId: _pelaaja.id }).then(function (k) { window._p7Kertyma = k || null; draw(); }); }
+  if (!window._p7Kertyma) return '';
+  if (!document.getElementById('hkCss')) { var st = document.createElement('style'); st.id = 'hkCss'; st.textContent = N.tmKertymaCSS(); document.head.appendChild(st); }
+  return '<section style="padding:2px 20px 8px">' + N.tmKertymaKevytHTML(window._p7Kertyma, {}) + '</section>';
+}
 function _p7AikatauluHTML() {
   if (window._p7Kalenteri === null && !_ladattu.kalenteri) _p7LataaKalenteri();
   var evs = window._p7Kalenteri, inner;
   if (evs === null) inner = '<div style="font-size:12px;color:#8C8B86;padding:4px 0">' + T('ladataan_aikataulua') + '</div>';
   else if (!evs.length) inner = '<div style="font-size:12.5px;color:#8C8B86;line-height:1.5;padding:4px 0">' + T('vanhempi.ei_tapahtumia') + '</div>';
   else inner = evs.slice(0, 5).map(_p7AikatauluKortti).join('');
-  return '<section style="padding:2px 20px 8px">'
+  return _p7KertymaHTML() + '<section style="padding:2px 20px 8px">'
     + '<div style="font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-d);margin-bottom:10px">' + T('seuran_aikataulu') + '</div>'
     + inner + '</section>';
 }
@@ -4826,7 +4835,7 @@ function _kaynnistaAppUI() {
   // P7 latch/race-fix: _pelaaja + anon-auth nyt valmiit → nollaa kalenteri/notif-latch + yritä (1. render saattoi bailata not-ready).
   // Render-fix: piirrä latauksen resolvoiduttua RIIPPUMATTA hetkellisestä _tab/_sc:stä (loaderin _rerender-ehto saattoi
   // ohittaa draw()in transientissa käynnistystilassa → UI jäi "Ladataan…"-tilaan vaikka data oli jo haettu).
-  _ladattu.kalenteri = false; window._p7Kalenteri = null;
+  _ladattu.kalenteri = false; window._p7Kalenteri = null; _ladattu.kertyma = false; window._p7Kertyma = undefined;
   if (typeof _p7LataaKalenteri === 'function') Promise.resolve(_p7LataaKalenteri()).then(function () { if (typeof draw === 'function') draw(); });
   _ladattu.notif = false; window._p7Notif = null;
   if (typeof _p7LataaNotif === 'function') Promise.resolve(_p7LataaNotif()).then(function () { if (typeof draw === 'function') draw(); });

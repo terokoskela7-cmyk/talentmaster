@@ -2488,6 +2488,24 @@ exports.haePelaajanKalenteri = functions
 /* K35-7a — kalenterin iCal-syöte (D190; functions/kalenteri_ical.js): luoKalenteriTilaus (callable, App Check) palauttaa tilaus-URL:n kerran; kalenteriIcal (HTTPS, EI App Checkia — kalenterisovellus ei osaa;
    token on ainoa suoja) palvelee /<token>.ics. Rajaus jaetulla libillä (B4). Deploy: Tero. */
 const kalenteriIcal = require('./kalenteri_ical');
+
+/* K35-6f — pelaajan harjoituskertymä (functions/harjoituskertyma.js): kooste TRIGGERILLÄ → pelaajat/{pid}/kooste/kertyma_{kausi} (viikkokorit); pelaaja/huoltaja lukevat callablella haePelaajanKertyma (sama tunnistus kuin haePelaajanKalenteri). */
+const harjoituskertyma = require('./harjoituskertyma');
+const _kertymaDeps = { db, Timestamp: admin.firestore.Timestamp, FieldPath: admin.firestore.FieldPath, palvelinAika: () => admin.firestore.FieldValue.serverTimestamp() };
+exports.kertymaLasnaolijaOnWrite = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .firestore.document('seurat/{sid}/kalenteri/{eid}/lasnaolijat/{pid}')
+  .onWrite(harjoituskertyma.luoLasnaoloKasittelija(_kertymaDeps));
+exports.kertymaKirjausOnWrite = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .firestore.document('seurat/{sid}/pelaajat/{pid}/kirjaukset/{pvm}')
+  .onWrite(harjoituskertyma.luoKirjausKasittelija(_kertymaDeps));
+exports.haePelaajanKertyma = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(harjoituskertyma.luoKertymaKasittelija({ db, HttpsError: functions.https.HttpsError }));
 exports.luoKalenteriTilaus = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })

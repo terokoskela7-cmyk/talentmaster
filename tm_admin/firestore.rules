@@ -1,10 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.58
+// TalentMaster™ — firestore.rules v3.59
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.58 → v3.59 (K35-6f pelaajan harjoituskertymä — UUSI alikokoelma, ei migraatiota):
+//   · seurat/{sid}/pelaajat/{pid}/kooste/{id}: read SA | oman seuran johto (VP/UTJ/seurasihteeri) | talenttivalmentaja | OMAN joukkueen valmentaja (onOmanJoukkueenValmentaja); write false (vain palvelin: triggerit kertymaLasnaolijaOnWrite / kertymaKirjausOnWrite
+//     ja taydenna_harjoituskertyma.js, Admin SDK). Pelaaja ja huoltaja EIVÄT lue suoraan — vain callable haePelaajanKertyma (sama tunnistus kuin haePelaajanKalenteri). Sisältö: pelaajan omat viikkokorit (ei vertailua muihin).
 // Muutokset v3.57 → v3.58 (K35-6d joukkueen omat: vapaa, erikoisohjelma — D240/D241; ei migraatiota, vain uusi kirjoitusehto):
 //   · seurat/{sid}/kalenteri/{id} create/update: tyyppi (lower+trim) 'seuran_tauko' | 'tauko' | 'loma' → KOKONAAN vain johto (VP/UTJ/seurasihteeri) tai SA, myös joukkueeseen rajattuna (valmentaja ei luo eikä muokkaa; valmentajan joukkuekohtainen tauko = joukkueen_vapaa);
 //     'joukkueen_vapaa' | 'erikoisohjelma' → `joukkue` (joukkue-id) PAKOLLINEN ja valmentaja vain OMA joukkue (kayttajat.joukkueet ∋ joukkue; johto ja talenttivalmentaja kaikki joukkueet). //     Update tarkistaa sekä uuden että vanhan dokumentin (ei tyypin vaihtoa toiseksi eikä toisen joukkueen vapaan muokkausta). Muut tyypit ennallaan (valmentaja kirjoittaa kuten ennen).
@@ -1455,6 +1458,12 @@ service cloud.firestore {
         // PÄÄTÖS 2: VP + talenttivalmentaja (oma seura) saavat kirjata eksplisiittisesti (sisältyvät jo
         //   onOmanSeuranValmentaja():iin — klausuulit selventävät policy-päätöksen); huoltaja saa kirjata
         //   U12-lapselle kun lahde=='vanhempi' (onU12Huoltaja).
+        // v3.59 (K35-6f): harjoituskertymä — viikkokorit, vain palvelin kirjoittaa; henkilökunta lukee (pelaaja/huoltaja callablella haePelaajanKertyma)
+        match /kooste/{koosteId} {
+          allow read:  if onSuperAdmin() || (onOmaSeura(seuraId) && (onJohtoRooli() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)));
+          allow write: if false;
+        }
+
         match /kirjaukset/{pvm} {
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)

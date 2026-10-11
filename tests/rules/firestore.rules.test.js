@@ -5310,3 +5310,19 @@ describe('v3.58 · kalenteri: seuran tauko vain johto; joukkueen vapaa / erikois
     await assertFails(setDoc(kal(pelaajaContext(SEURA_A, PELAAJA_UID).firestore(), 'p_x'), ev({ tyyppi: 'joukkueen_vapaa', joukkue: JOUKKUE_A1 }))); await assertFails(setDoc(kal(huoltajaContext().firestore(), 'h_x'), ev({ tyyppi: 'harjoitus' })));
   });
 });
+
+describe('v3.59 · pelaajat/{pid}/kooste (K35-6f harjoituskertymä): henkilökunta lukee, vain palvelin kirjoittaa', () => {
+  const K = (db, pid) => doc(db, 'seurat', SEURA_A, 'pelaajat', pid || PELAAJA_UID, 'kooste', 'kertyma_2026-27');
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); await testEnv.withSecurityRulesDisabled(async (c) => { for (const pid of [PELAAJA_UID, PELAAJA_A2_UID]) await setDoc(K(c.firestore(), pid), { kausi: '2026-27', versio: 1, viikot: { '2026-W42': { treeni: { paik: 1 } } } }); }); });
+  it('lukee: SA ✓, VP/johto ✓, talenttivalmentaja ✓, oman joukkueen valmentaja ✓ (oma pelaaja); toisen joukkueen valmentaja ✗ (toisen joukkueen pelaaja)', async () => {
+    await assertSucceeds(getDoc(K(saContext().firestore()))); await assertSucceeds(getDoc(K(vpContext(SEURA_A).firestore()))); await assertSucceeds(getDoc(K(vpContext(SEURA_A).firestore(), PELAAJA_A2_UID))); await assertSucceeds(getDoc(K(talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore(), PELAAJA_A2_UID)));
+    await assertSucceeds(getDoc(K(valmentajaContext(VALM_A_UID, SEURA_A).firestore()))); await assertFails(getDoc(K(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_A2_UID)));
+  });
+  it('pelaaja (itse), huoltaja, toisen seuran VP ja anonyymi eivät lue suoraan (callable haePelaajanKertyma)', async () => {
+    await assertFails(getDoc(K(pelaajaContext(SEURA_A, PELAAJA_UID).firestore()))); await assertFails(getDoc(K(huoltajaContext().firestore()))); await assertFails(getDoc(K(vpContext(SEURA_B).firestore()))); await assertFails(getDoc(K(anonContext().firestore())));
+  });
+  it('kirjoitus ✗ kaikilta (SA, VP, valmentaja, pelaaja, huoltaja) — create, update, delete; dokumentti säilyy', async () => {
+    for (const c of [saContext(), vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A), pelaajaContext(SEURA_A, PELAAJA_UID), huoltajaContext()]) { const db = c.firestore(); await assertFails(setDoc(K(db, 'uusi_p'), { viikot: {} })); await assertFails(updateDoc(K(db), { versio: 2 })); await assertFails(deleteDoc(K(db))); }
+    let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(K(c.firestore()))).data(); }); expect(d.versio).toBe(1);
+  });
+});
