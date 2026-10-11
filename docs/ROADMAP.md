@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **1. Lisää seuroja** | Teron käsityö seuran käyttöönotossa | Seuran pääkäyttäjä hoitaa tunnukset ja pelaajat (Sibbossa Joakim). Seuran oma data seuran kielellä (D16). Seuran pulssi kertoo johdolle, kulkeeko silmukka. | Seuratason linja (S1–S4) |
 | **2. Lisää kieliä** | Kovakoodattu suomi, jota mikään portti ei näe | Kaikki tekstit reitityksen ja karttojen kautta, yksi Gemini-erä kerrallaan, portti uudelle suomelle | Kielilinja |
-| **3. Lisää koodia** | VP_v25 23 364 riviä, Master 11 675 | Kasvukatto (R0). Uusi logiikka `lib/`-moduuleihin (109 kpl). Kuorten jako R1–R3. | Rakennelinja |
+| **3. Lisää koodia** | VP_v25 23 732 riviä, Master 11 776 (katto 11 900) | Kasvukatto (R0). Uusi logiikka `lib/`-moduuleihin (109 kpl). Kuorten jako R1–R3. | Rakennelinja |
 | **4. Lisää dataa** | Selain hakee seuran koko kalenterin ja laskee koosteet itse | Palvelin laskee ja rajaa: viikkokooste (S1), pelaajan kalenteri palvelimelta (B4) | Tietosuoja ja data |
 | **5. Lisää muutoksia** | Mergejono ja Teron käsitestit | Kaksi kaistaa (auto/Tero), CI-portit, deploy-ihmisportti vain funktioille ja Rulesille | Laatu |
 
@@ -37,6 +37,13 @@
 - **Diagnoosi KPV ja SJK** (`scripts/diag_yksi_totuus.cjs`): KPV:n TK-päivät ovat oikeita; Masterin "liian vähän mitattuja" johtui tallennetusta `d2_taso`:sta ilman ikää. SJK:n testipäivät 24.3./27.3./1.4.2026 vahvistettu oikeiksi (Tero 11.10.), ei datakorjausta.
 - **VP:n luettavuus** (#989): VP:n tumma teema samaan lämpimään palettiin kuin Masterissa; korttipinnat; "Ok" → "Ikätasolla".
 - **Sopimusluonnokset** KPV ja Sibbo (Claude Docs): palvelusopimus, liitteet hinnasta ja kehitystyöstä, DPA-runko. Avoimet päätökset Terolla.
+
+### ✅ Valmis (11.10., kalenteri K35)
+- **Suunnittelu:** mockup 35 (kalenterin käytettävyys, D180–D198), mockup 37 Seuran linja (D199), `docs/KOKONAISKUVA_KAUSI_JAKSO_VIIKKO.md` (kerrosmalli, yksi lähde per tieto), `docs/CODE_BRIEF_35_KALENTERI.md` (K35-1…K35-11), Palloliiton viikkopohjat `docs/data/spl_viikkopohjat_2023.json` (#1001).
+- **K35-1** jaetut libit: tyyppirekisteri (12 tyyppiä), tapahtumamalli, tauko vain `seuran_tauko`sta (D193), seuraava tapahtuma (#999). Kehitystyöpöydän Tänään lukee kalenteria (#1000).
+- **K35-2 / 2b** Masterin kalenteri: tyypit ja värit rekisteristä, tapahtumat klo 06–22 eivät katoa, koko päivän tapahtumat ja monipäiväinen tauko omalle rivilleen, paikka ja päivä muokattaviksi, tuodun tapahtuman lähdekentät lukittuina, tyyppimuutos ei muuta näkyvyyttä huomaamatta, modaalit mahtuvat ruutuun (#1002, #1005).
+- **K35-3** `lib/tm_viikkopohja.js`: Palloliiton pohjat → seuran skeema, Täytä viikko -logiikka (ottelusta laskettu MD, palautuminen MD+1, tauot, päällekkäisyydet), omatoiminen tuntimäärä (#1003).
+- **K35-4** Palloliiton 6 pohjaa ja pelimuodot FC Demoon (`scripts/lataa_viikkopohjat.js`, vain seura `demo`; ajettu 11.10.) (#1004, #1006). Skriptien ADC-korjaus (#1007).
 
 ### 🗓 Päätökset 11.10.
 - **Masterin tumma teema on luettavuuden mittapuu** molemmille sovelluksille (lämmin ink, selvä ink/ink2-ero, korttipinnat).
@@ -69,7 +76,7 @@
 **C. Rakennelinja: kuorten pilkkominen**
 | Vaihe | Milloin | Mitä |
 |---|---|---|
-| **R0 kasvukatto** | ✅ voimassa | Kuoret eivät kasva yli katon. Uusi logiikka `lib/`-moduuleihin. `node scripts/kuoret_kasvukatto.js` · `--kirjoita` laskee kattoa. ⚠ **Vapaata vähän:** Pelaaja_v7 100, Vanhempi_v2 41, Master 225 riviä. Kielilinjan reititys siirtää renderöintiä `lib/`-moduuleihin, ei nosta kattoa. |
+| **R0 kasvukatto** | ✅ voimassa | Kuoret eivät kasva yli katon. Uusi logiikka `lib/`-moduuleihin. `node scripts/kuoret_kasvukatto.js` · `--kirjoita` laskee kattoa. ⚠ **Vapaata vähän (11.10.):** Vanhempi_v2 7, Admin 60, Pelaaja_v7 111, Master 124 riviä. K35-6a:n on poistettava Masterin tuntiruudukko samassa PR:ssä. Kielilinjan reititys siirtää renderöintiä `lib/`-moduuleihin, ei nosta kattoa. |
 | functions + lib | S1:n yhteydessä | Yksi tapa viedä `lib/`-logiikka funktioihin (S1 selvitys a). Pohja R3:lle. |
 | poisto | 1.12. | Vanha pelaajakortti pois Masterista ja VP:stä (D49). Ensimmäinen iso pienennys. Valmistelu ensin: ei mitään tarvittavaa katoa. |
 | **R1 VP_v25:n jako** | joulukuu | Etusivu on Seuran pulssi. Porautuminen vie samaan kehitystyöpöytään kuin Masterissa. Kalenteri, ryhmät, raportit ja työkalut omille kevyille sivuilleen. Ensin selvitys (osiot, rivit, Master-kopiot). |
@@ -119,6 +126,20 @@
 - **D176 PHV pelaajalle ja huoltajalle:** kasvuvaihe sanoin ja selittäen, yksi neutraali väri, ei "jäljessä"-kehystä. Mockup 36 → PR C.
 - **PR D "Muistuta pelaajaa"** (1.11. jälkeen): pelaajan viestinäkymä näyttää valmentajan muistutukset; lähetyssheet kehitystyöpöydästä; `ctx.vkMuistutus` kuoressa.
 
+**G. Kalenteri ja suunnittelu (K35, mockupit 35 ja 37, D180–D199)**
+Kalenteri on yksi kokoelma (`seurat/{sid}/kalenteri`), jota VP ja valmentaja käyttävät eri näkymin (D186). Seuran linja → kausi → joukkueen viikko → pelaaja (kerrosmalli).
+| Vaihe | Milloin | Mitä |
+|---|---|---|
+| K35-1…4 | ✅ 11.10. | Ks. Valmis (11.10., kalenteri). |
+| **K35-6a** | loka | Masterin viikko päiväsarakkeina (D182) + Täytä viikko → esikatselu → Vahvista (D184). Monista viikko. Tuntiruudukko pois. |
+| K35-6b | loka–marras | Siirto vetämällä Outlookin tapaan, aamutreenit poimituille pelaajille. |
+| K35-6c | marras | Ryhmän vastaava suunnittelee ryhmän treenit (D196, Rules) + perheille yksi viikkoilmoitus (D192, functions). |
+| K35-5 | marras | TASO-ottelut kalenteriin (lähde omistaa ajan, TM sisällön, D181). |
+| **Kalenterin lataus rajatuksi** | ennen K35-6c | Master hakee nyt seuran koko kalenterin (`where poistettu == false`). Rajaus aikaväliin + joukkueeseen ennen kuin seuroja ja kausia kertyy. Sama B4:n kanssa. |
+| K35-7 | joulu | iCal-vienti (pelaajakohtainen linkki, D190 — vaatii Teron kuittauksen). |
+| K35-8 | joulu (R1) | VP:n Kalenteri-sivu: seuran viikko, kausi, Seuran linja -työkalu (mockup 37, D199), kuormanäkymä (D197), testijaksot (D198). |
+| K35-9…11 | 2027 | iCal-tuonti (JOPOX), MyClub API, kuorma rinnakkain (RPE valmentaja + pelaajat). |
+
 ### 📅 Kalenteri
 | Milloin | Mitä | Kuka |
 |---|---|---|
@@ -136,9 +157,10 @@
 | 2.11.2026 | KPV:n tuorein tekniikkakisa (2.11.2025) täyttää 12 kk → muistutus syttyy | — |
 | ennen 10.11. | K3-käsitesti KPV:llä (ensimmäiset jaksot päättyvät ~17.11.) | Tero |
 | ~15.11. | S2: PM tarkistaa pulssin oikeilla neljän viikon luvuilla | PM |
+| loka–marras | **Kalenteri K35-6a/b/c** (Täytä viikko, siirto vetämällä, ryhmän vastaava) · K35-5 TASO · kalenterin lataus rajatuksi | Code → Tero |
 | marraskuu | Ydinvahvuuden alue klikkaamalla, PR B (aluejako A + maalivahti pelimuodon mukaan; mockup 34 hyväksytty; Rules) · keräilykortti + PHV pelaajalle (mockup 36, PR C) · Muistuta pelaajaa (PR D) | Code, Tero |
 | **1.12.** | Vanha pelaajakortti pois (D49) · Seuran pulssi S2 | Code |
-| joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106) · S3 tavoitetasot · K5 Leikkijä + huoltaja · Kenttä aktiiviseksi (D98 + D107: reitti, osamerkit, tavoitteet kentältä; alue klikkaamalla jo marraskuussa) · pelaajan ehdotus "missä tykkään pelata" | Code |
+| joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106, VP:n Kalenteri + Seuran linja K35-8) · S3 tavoitetasot · K5 Leikkijä + huoltaja · Kenttä aktiiviseksi (D98 + D107: reitti, osamerkit, tavoitteet kentältä; alue klikkaamalla jo marraskuussa) · pelaajan ehdotus "missä tykkään pelata" | Code |
 | tammikuu | R2 Master + Seura · portti uudelle suomelle päälle | Code |
 | tammikuu 2027 | **KPV:n seuraava tekniikkakisa** ennen 2.2.2027, jolloin 2.11.2025 tulokset vanhenevat (15 kk) ja D2-luokat putoavat "ei luokkaa" -tilaan | Tero + KPV |
 | kevät | R3 backend · S4 · ryhmät R2 (sääntöryhmät, IDP-ryhmät) · Pallo-Iirojen tuonti | — |
