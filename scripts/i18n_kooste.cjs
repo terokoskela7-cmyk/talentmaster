@@ -8,6 +8,10 @@
      node scripts/i18n_kooste.cjs tarkista [kooste.json]            rakenne vs. erät (puuttuva/ylimääräinen avain → exit 1)
      node scripts/i18n_kooste.cjs vie [kooste.json] [--kirjoita]    kuiva-ajo oletuksena; --kirjoita päivittää erätiedostot
 
+   ERÄ 19 (kaikki avoimet sv-rivit yhteen pakettiin, osiot → rivit, kuten aiemmat erät; ei id-koostetta):
+     node scripts/i18n_kooste.cjs era19-kokoa [--ulos=docs/i18n/sv_kaannoserae_19_gemini.json]   (pudottaa avaimet, joita ei enää ole koodissa; raportoi)
+     node scripts/i18n_kooste.cjs era19-vie [docs/i18n/sv_kaannoserae_19_palautus.json] [--kirjoita]   kuiva-ajo oletuksena; tarkistaa fi/avaimet/paikkamerkit/HTML/välilyönnit; kirjoittaa erätiedostoihin vasta --kirjoita
+
    Kooste: rivit = { <id>: { fi, sv, nakyma, lukija, kayttoyhteys, koodissa, avaimet:[{era, osio, avain}] } }.
    Sama suomenkielinen teksti on mukana kerran; `avaimet` listaa kaikki erien rivit, joihin käännös viedään.
    Identiteetti = (era, osio, avain). Avain, joka on erässä tyhjänä mutta puuttuu koosteesta = PUUTTUVA; avain, joka on koosteessa
@@ -71,9 +75,9 @@ function osiot(E) {
 const tyhja = (r) => typeof r === 'object' && r !== null && !(typeof r.sv === 'string' && r.sv.trim() !== '');
 
 /* Kaikki tyhjät sv-rivit: [{era, osio, avain, fi, en}] erien järjestyksessä */
-function tyhjatRivit(hakemisto) {
+function tyhjatRivit(hakemisto, erat) {
   const ulos = [];
-  for (const era of ERAT) {
+  for (const era of (erat || ERAT)) {
     const E = lueEra(hakemisto, era);
     for (const [osio, rivit] of Object.entries(osiot(E))) {
       for (const [avain, r] of Object.entries(rivit)) {
@@ -87,10 +91,11 @@ function tyhjatRivit(hakemisto) {
 }
 
 /* ── koodiviitteet (vain kokoa; paras mahdollinen haku, ei validointia) ── */
-function koodiLahteet() {
+function koodiLahteet(kaikkiHtml) {
   const tiedostot = [];
   for (const f of fs.readdirSync(path.join(ROOT, 'lib'))) if (/^tm_.*\.js$/.test(f) && !/i18n|_lang/.test(f)) tiedostot.push('lib/' + f);
-  for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Huoltajakutsu.html', 'TalentMaster_Pelaaja_v7.html']) if (fs.existsSync(path.join(ROOT, f))) tiedostot.push(f);
+  const html = kaikkiHtml ? fs.readdirSync(ROOT).filter((f) => /^TalentMaster_.*\.html$/.test(f)) : ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Huoltajakutsu.html', 'TalentMaster_Pelaaja_v7.html'];
+  for (const f of html) if (fs.existsSync(path.join(ROOT, f))) tiedostot.push(f);
   return tiedostot.map((f) => ({ f, rivit: fs.readFileSync(path.join(ROOT, f), 'utf8').split('\n') }));
 }
 function koodissa(lahteet, fi, avaimet) {
@@ -213,6 +218,88 @@ function vie(kooste, hakemisto, opts) {
   return { virheet, kirjoitettu: n, erat: Object.keys(muutokset) };
 }
 
+
+/* ════════ ERÄ 19: kaikki avoimet sv-rivit yhteen pakettiin (osiot → rivit {fi, en, sv:""}) ════════
+   Erät 2, 4–18 + s11 (3 on viety; 2026-10-08 suljettu: sen kysymyspohjat ovat jo käännetty taulukkoina). Identiteetti = (osio, avain): sama osio+avain eri erissä = yksi rivi.
+   Code ei kirjoita eikä ehdota ruotsia: sv jää tyhjäksi, vienti kopioi Geminin arvot sellaisinaan. */
+const ERAT_19 = ERAT.concat(['15', '16', '17', '18']);
+const ERA19_GEMINI = 'docs/i18n/sv_kaannoserae_19_gemini.json', ERA19_PALAUTUS = 'docs/i18n/sv_kaannoserae_19_palautus.json';
+
+/* Onko rivi vielä koodissa? tm_lang: avain löytyy tm_lang.js:n fi-puusta. Muut: fi-teksti tai avain esiintyy lib/tm_*.js- tai TalentMaster_*.html-lähteessä (i18n-karttatiedostot pois, muuten kartta todistaisi itse itsensä). */
+function eloissa(osio, avain, fi, lahteet, fiPuu) {
+  if (osio === 'tm_lang') return avain.split('.').reduce((o, k) => (o == null ? undefined : o[k]), fiPuu) !== undefined;
+  return koodissa(lahteet, fi, [{ avain }]).length > 0;
+}
+
+function kokoaEra19(hakemisto) {
+  const rivit = tyhjatRivit(hakemisto, ERAT_19), lahteet = koodiLahteet(true), fiPuu = require('../lib/tm_lang.js').TM_LANG.fi;
+  const osiotUlos = {}, pudotetut = [], tormaykset = [];
+  for (const r of rivit) {
+    if (!eloissa(r.osio, r.avain, r.fi, lahteet, fiPuu)) { pudotetut.push({ era: r.era, osio: r.osio, avain: r.avain, fi: r.fi }); continue; }
+    const o = osiotUlos[r.osio] || (osiotUlos[r.osio] = {});
+    if (o[r.avain]) { if (o[r.avain].fi !== r.fi) tormaykset.push(r.osio + ' :: ' + r.avain + ' (fi eroaa erien välillä)'); continue; }
+    o[r.avain] = { fi: r.fi, en: typeof r.en === 'string' ? r.en : '', sv: '' };
+  }
+  if (tormaykset.length) throw new Error('osio+avain-törmäys:\n- ' + tormaykset.join('\n- '));
+  const osiot = {};
+  for (const nimi of Object.keys(osiotUlos).sort()) {
+    const t = tieto(nimi, Object.keys(osiotUlos[nimi])[0]);
+    osiot[nimi] = { _konteksti: [t.nakyma, t.lukija.length ? 'lukija: ' + t.lukija.join(', ') : '', t.kuvaus].filter(Boolean).join(' · '), rivit: osiotUlos[nimi] };
+  }
+  const osioMaarat = {}; for (const [n, v] of Object.entries(osiot)) osioMaarat[n] = Object.keys(v.rivit).length;
+  const yht = Object.values(osioMaarat).reduce((a, b) => a + b, 0);
+  return { osiot, osioMaarat, yht, ennenYhdistysta: rivit.length - pudotetut.length, pudotetut, erat: ERAT_19 };
+}
+
+/* Tarkistus: palautus vs. lähetetty paketti (rakenne, fi, sv täytetty, paikkamerkit/HTML/välilyönnit) → { virheet, varoitukset } */
+function tarkistaEra19(lahetetty, palautus) {
+  const virheet = [], varoitukset = [], lisaa = (v) => virheet.push(v);
+  if (!palautus || typeof palautus.osiot !== 'object') return { virheet: ['palautus.osiot puuttuu'], varoitukset };
+  for (const [osio, o] of Object.entries(lahetetty.osiot)) {
+    const p = palautus.osiot[osio] && palautus.osiot[osio].rivit;
+    if (!p) { lisaa('OSIO PUUTTUU palautuksesta: ' + osio); continue; }
+    for (const [avain, r] of Object.entries(o.rivit)) {
+      const x = p[avain];
+      if (!x) { lisaa('PUUTTUVA rivi: ' + osio + ' :: ' + avain); continue; }
+      if (x.fi !== r.fi) { lisaa('fi muuttunut: ' + osio + ' :: ' + avain); continue; }
+      if (typeof x.sv !== 'string' || !x.sv.trim()) { lisaa('sv tyhjä: ' + osio + ' :: ' + avain + (x.kysymys ? ' (Geminin kysymys: ' + x.kysymys + ')' : '')); continue; }
+      if (joukko(r.fi, PAIKKA).replace(/\{gen\}\|?/g, '') !== joukko(x.sv, PAIKKA)) lisaa('paikkamerkit eroavat: ' + osio + ' :: ' + avain + ' (fi: ' + joukko(r.fi, PAIKKA) + ' ≠ sv: ' + joukko(x.sv, PAIKKA) + ')');
+      if (joukko(r.fi, TAGI) !== joukko(x.sv, TAGI)) lisaa('HTML-tagit eroavat: ' + osio + ' :: ' + avain);
+      if (/^\s/.test(r.fi) !== /^\s/.test(x.sv) || /\s$/.test(r.fi) !== /\s$/.test(x.sv)) lisaa('alku-/loppuvälilyönti eroaa: ' + osio + ' :: ' + avain);
+    }
+    for (const avain of Object.keys(p)) if (!o.rivit[avain]) lisaa('YLIMÄÄRÄINEN rivi: ' + osio + ' :: ' + avain);
+  }
+  for (const osio of Object.keys(palautus.osiot)) if (!lahetetty.osiot[osio]) lisaa('YLIMÄÄRÄINEN osio: ' + osio);
+  /* sama fi eri osioissa, eri sv → varoitus (johdonmukaisuus; ei estä) */
+  const fiSv = new Map();
+  for (const [osio, o] of Object.entries(palautus.osiot)) for (const [avain, x] of Object.entries(o.rivit || {})) if (x && typeof x.sv === 'string' && x.sv.trim()) {
+    const e = fiSv.get(x.fi); if (e && e.sv !== x.sv) varoitukset.push('sama fi, eri sv: ' + JSON.stringify(x.fi) + ' — ' + e.paikka + ' ↔ ' + osio + ' :: ' + avain); else if (!e) fiSv.set(x.fi, { sv: x.sv, paikka: osio + ' :: ' + avain });
+  }
+  return { virheet, varoitukset };
+}
+
+/* Vienti: kopioi palautuksen sv jokaiseen erän tyhjään riviin, jonka (osio, avain) on paketissa. Ei ylikirjoita olemassa olevaa eri sv:tä. */
+function vieEra19(lahetetty, palautus, hakemisto, opts) {
+  opts = opts || {};
+  const t = tarkistaEra19(lahetetty, palautus);
+  if (t.virheet.length) return { virheet: t.virheet, varoitukset: t.varoitukset, kirjoitettu: 0, erat: [] };
+  const muutokset = {}; const virheet = []; let n = 0;
+  for (const era of ERAT_19) {
+    const E = lueEra(hakemisto, era), os = osiot(E);
+    for (const [osio, rivit] of Object.entries(os)) {
+      const p = palautus.osiot[osio] && palautus.osiot[osio].rivit; if (!p) continue;
+      for (const [avain, r] of Object.entries(rivit)) {
+        if (!tyhja(r) || !p[avain]) continue;
+        if (r.fi !== p[avain].fi) { virheet.push('erän fi ≠ paketin fi: ' + era + ' / ' + osio + ' :: ' + avain); continue; }
+        r.sv = p[avain].sv; n++; muutokset[era] = E;
+      }
+    }
+  }
+  if (virheet.length) return { virheet, varoitukset: t.varoitukset, kirjoitettu: 0, erat: [] };
+  if (opts.kirjoita) for (const E of Object.values(muutokset)) fs.writeFileSync(E.polku, JSON.stringify(E.J, null, E.muoto.sisennys) + (E.muoto.loppurivi ? '\n' : ''));
+  return { virheet, varoitukset: t.varoitukset, kirjoitettu: n, erat: Object.keys(muutokset) };
+}
+
 /* ── CLI ── */
 function main() {
   const [, , komento, ...muut] = process.argv;
@@ -235,6 +322,33 @@ function main() {
     console.log('kooste kirjoitettu: ' + path.relative(ROOT, ulos) + '\n  rivit ennen duplikaatteja: ' + ennen + '\n  rivit duplikaattien jälkeen: ' + jalkeen);
     return;
   }
+  if (komento === 'era19-kokoa') {
+    const ulos = path.resolve(ROOT, arg('ulos', ERA19_GEMINI)), K = kokoaEra19(ERA_HAKEMISTO);
+    const termisto = JSON.parse(fs.readFileSync(path.join(ERA_HAKEMISTO, 'termisto.fi-sv.json'), 'utf8'));
+    const J = {
+      _tiedosto: 'TalentMaster — sv-käännöserä 19 Geminille (kaikki avoimet sv-rivit)',
+      _pvm: new Date().toISOString().slice(0, 10),
+      _tila: 'LÄHETETTÄVÄ. Täytä vain "sv"-kentät; ohje: docs/i18n/GEMINI_ERA_19_OHJE.md. Palautus: docs/i18n/sv_kaannoserae_19_palautus.json.',
+      _erat: K.erat, _rivit_yhteensa: K.yht, _rivit_osioittain: K.osioMaarat, _pudotettu_vanhentuneena: K.pudotetut.length,
+      termisto,
+      osiot: K.osiot,
+    };
+    fs.writeFileSync(ulos, JSON.stringify(J, null, 1) + '\n');
+    console.log('erä 19 kirjoitettu: ' + path.relative(ROOT, ulos) + '\n  rivejä yhteensä: ' + K.yht + ' (tyhjiä erärivejä mukana ' + K.ennenYhdistysta + ', yhdistetty osio+avain)');
+    for (const [n, c] of Object.entries(K.osioMaarat)) console.log('    ' + n + ': ' + c);
+    console.log('  pudotettu vanhentuneena (ei enää koodissa): ' + K.pudotetut.length);
+    K.pudotetut.forEach((p) => console.log('    - ' + p.era + ' / ' + p.osio + ' :: ' + JSON.stringify(p.avain)));
+    return;
+  }
+  if (komento === 'era19-vie') {
+    const palautusPolku = path.resolve(ROOT, muut.find((x) => !x.startsWith('--')) || ERA19_PALAUTUS), kirjoita = muut.includes('--kirjoita');
+    const lahetetty = JSON.parse(fs.readFileSync(path.join(ROOT, ERA19_GEMINI), 'utf8')), palautus = JSON.parse(fs.readFileSync(palautusPolku, 'utf8'));
+    const t = vieEra19(lahetetty, palautus, ERA_HAKEMISTO, { kirjoita });
+    t.varoitukset.forEach((v) => console.warn('VAROITUS: ' + v));
+    if (t.virheet.length) { console.error('VIENTI KAATUI (' + t.virheet.length + ' poikkeavaa riviä), mitään ei kirjoitettu:\n- ' + t.virheet.join('\n- ')); process.exit(1); }
+    console.log((kirjoita ? 'viety' : 'kuiva-ajo OK, ei kirjoitettu (lisää --kirjoita)') + ': ' + t.kirjoitettu + ' erärivin sv, erät ' + t.erat.join(', '));
+    return;
+  }
   if (komento === 'tarkista' || komento === 'vie') {
     const K = lueKooste();
     if (komento === 'tarkista') {
@@ -249,8 +363,8 @@ function main() {
     console.log((kirjoita ? 'viety' : 'kuiva-ajo OK, ei kirjoitettu') + ': ' + t.kirjoitettu + ' erärivin sv, erät ' + t.erat.join(', '));
     return;
   }
-  console.error('käyttö: i18n_kooste.cjs kokoa|tarkista|vie [tiedosto] [--kirjoita]');
+  console.error('käyttö: i18n_kooste.cjs kokoa|tarkista|vie|era19-kokoa|era19-vie [tiedosto] [--kirjoita]');
   process.exit(2);
 }
 if (require.main === module) main();
-module.exports = { ERAT, kokoa, tarkista, vie, tyhjatRivit, lueEra };
+module.exports = { ERAT, ERAT_19, kokoa, tarkista, vie, tyhjatRivit, lueEra, kokoaEra19, tarkistaEra19, vieEra19 };
