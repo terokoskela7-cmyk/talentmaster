@@ -93,22 +93,31 @@ describe('D108 · näkymä (henkilökunta)', () => {
   const rivi = (jf, k = 'k1') => KT.tmKtHavaintoRivi(osatJa(jf).find((o) => o.koodi === k), c);
   const SAMA = { [KONS]: { k1: { valm1: { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' }, vp1: { arvo: 2, pvm: '2026-10-09', rooli: 'vp' } } } };
   const ERI = { [KONS]: { k1: { valm1: { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' }, vp1: { arvo: 3, pvm: '2026-10-09', rooli: 'vp' } } } };
-  it('Osat-rivin merkintärivi: "valmentaja 9.10. · VP 9.10." (arvot samat)', () => { expect(rivi(jfMerk({ k1: 2 }, SAMA))).toBe('valmentaja 9.10. · VP 9.10.'); });
-  it('arvot eroavat → molemmat: "valmentaja: ohjatusti 9.10. · VP: itsenäisesti 9.10."; pääarvo (tila) on voimassa oleva osa_arviot', () => {
-    expect(rivi(jfMerk({ k1: 2 }, ERI))).toBe('valmentaja: ohjatusti 9.10. · VP: itsenäisesti 9.10.'); expect(osatJa(jfMerk({ k1: 2 }, ERI))[0].tila).toBe('ohjatusti');
+  it('Osat-rivin meta = VIIMEISIN arvio "tila · nimi pvm" (arvot samat → ei "arviot eroavat"); rooli vain jos nimeä ei tunneta', () => {
+    const o = osatJa(jfMerk({ k1: 2 }, SAMA))[0], m = KT.tmKtOsaMeta(o, Object.assign({}, c, { nimet: (u) => ({ valm1: 'Mika V.', vp1: 'Tero Koskela' })[u] || '' }));
+    expect(m.meta).toMatch(/^ohjatusti · (Mika V\.|Tero Koskela) 9\.10\.$/); expect(m.eroavat).toBe(false); expect(rivi(jfMerk({ k1: 2 }, SAMA))).toMatch(/^ohjatusti · (valmentaja|VP) 9\.10\.$/);
   });
-  it('nimi näytetään jos löytyy henkilöstöstä: "Mika V. (valmentaja) 9.10."; roolit sanoina (UTJ, VP)', () => {
-    const o = osatJa(jfMerk({ k1: 2 }, { [KONS]: { k1: { valm1: { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' }, utj1: { arvo: 2, pvm: '2026-10-08', rooli: 'urheilutoimenjohtaja' } } } }))[0];
-    expect(KT.tmKtHavaintoRivi(o, Object.assign({}, c, { nimet: (u) => (u === 'valm1' ? 'Mika V.' : '') }))).toBe('Mika V. (valmentaja) 9.10. · UTJ 8.10.');
+  it('arvot eroavat → uusin + "· arviot eroavat" (avautuu paikallaan, kaikki arviot); pääarvo (tila) on voimassa oleva osa_arviot', () => {
+    const o = osatJa(jfMerk({ k1: 2 }, ERI))[0], m = KT.tmKtOsaMeta(o, Object.assign({}, c, { nimet: (u) => ({ valm1: 'Mika V.', vp1: 'Tero Koskela' })[u] || '' }));
+    expect(m.eroavat).toBe(true); expect(m.kaikki.length).toBe(2); expect(m.kaikki.join(' | ')).toMatch(/ohjatusti · Mika V\. 9\.10\./); expect(m.kaikki.join(' | ')).toMatch(/itsenäisesti · Tero Koskela 9\.10\./); expect(osatJa(jfMerk({ k1: 2 }, ERI))[0].tila).toBe('ohjatusti');
+    const h = KT.tmKtOsatHTML({ osat: osatJa(jfMerk({ k1: 2 }, ERI)), jaksoNimi: 'H' }, Object.assign({}, c, { nimet: (u) => ({ valm1: 'Mika V.', vp1: 'Tero Koskela' })[u] || '', osaFn: '_ktHavaintoAvaa' }));
+    expect(h).toContain('arviot eroavat'); expect(h).toContain('data-kt-kaikki-arviot'); expect(h).toContain('data-kt-eroavat'); expect(KT.tmKtCss()).toContain('.kt-osa-r.auki .kt-osa-kaikki{display:grid}');
   });
-  it('vanha merkintä ilman osa_havainnot-tietoa → "aiempi merkintä", ei virhettä; ei merkintää → tyhjä rivi', () => {
-    expect(rivi(jfMerk({ k1: 3 }, undefined))).toBe('aiempi merkintä'); expect(rivi(jfMerk({ k1: 3 }, { [KONS]: {} }))).toBe('aiempi merkintä'); expect(rivi(jfMerk({}, undefined))).toBe('');
+  it('henkilön nimi, ei roolinimeä: "SA" ei koskaan (super_admin ilman nimeä → vain tila + pvm); rooli sanana vain muulle tuntemattomalle', () => {
+    const sa = { [KONS]: { k1: { sa1: { arvo: 2, pvm: '2026-10-09', rooli: 'super_admin' } } } }, o = osatJa(jfMerk({ k1: 2 }, sa))[0];
+    expect(KT.tmKtOsaMeta(o, c).meta).toBe('ohjatusti · 9.10.'); expect(JSON.stringify(KT.tmKtOsaMeta(o, c))).not.toMatch(/\bSA\b/);
+    expect(KT.tmKtOsaMeta(o, Object.assign({}, c, { nimet: (u) => (u === 'sa1' ? 'Tero Koskela' : '') })).meta).toBe('ohjatusti · Tero Koskela 9.10.');
+    const utj = osatJa(jfMerk({ k1: 2 }, { [KONS]: { k1: { u1: { arvo: 2, pvm: '2026-10-08', rooli: 'urheilutoimenjohtaja' } } } }))[0]; expect(KT.tmKtOsaMeta(utj, c).meta).toBe('ohjatusti · UTJ 8.10.');
+  });
+  it('vanha merkintä ilman osa_havainnot-tietoa → EI "aiempi merkintä" -tekstiä (tyhjä meta), ei virhettä', () => {
+    expect(rivi(jfMerk({ k1: 3 }, undefined))).toBe(''); expect(rivi(jfMerk({ k1: 3 }, { [KONS]: {} }))).toBe(''); expect(rivi(jfMerk({}, undefined))).toBe('');
     expect(() => KT.tmKtHavainnot({ osa_havainnot: { kons: { k1: 'rikki', k2: { u: null, v: { arvo: 7 } } } } }, KONS, 'k1')).not.toThrow(); expect(KT.tmKtHavainnot({ osa_havainnot: { kons: { k2: { u: { arvo: 7 } } } } }, KONS, 'k2')).toEqual([]);
+    expect(KT.tmKtOsatHTML({ osat: osatJa(jfMerk({ k1: 3 }, undefined)), jaksoNimi: 'H' }, c)).not.toContain('aiempi merkintä');
   });
-  it('Osat-rivin HTML: merkintärivi tilan alla; "Pelaajan silmin" piilottaa sen (.kt-hk) — silmin-CSS piilottaa .kt-hk', () => {
+  it('Osat-rivin HTML: meta tilan alla; "Pelaajan silmin" piilottaa sen (.kt-hk) — silmin-CSS piilottaa .kt-hk; "arvioi" on linkkityylinen (teal)', () => {
     const h = KT.tmKtOsatHTML({ osat: osatJa(jfMerk({ k1: 2 }, ERI)), viikonOsa: null, jaksoNimi: 'H' }, Object.assign({}, c, { osaFn: '_ktHavaintoAvaa' }));
-    expect(h).toContain('class="kt-osa-mer kt-hk" data-kt-merkinnat'); expect(h).toContain('valmentaja: ohjatusti'); expect(KT.tmKtCss()).toContain('.kt-silmin .kt-hk{display:none}');
-    expect(KT.tmKtOsatHTML({ osat: osatJa(jfMerk({ k1: 3 }, undefined)), jaksoNimi: 'H' }, c)).toContain('aiempi merkintä');
+    expect(h).toContain('class="kt-osa-mer kt-hk" data-kt-merkinnat'); expect(h).toContain('ohjatusti ·'); expect(KT.tmKtCss()).toContain('.kt-silmin .kt-hk{display:none}'); expect(KT.tmKtCss()).toContain('.kt-osa-st.arvioi{color:var(--teal)}');
+    expect(KT.tmKtOsatHTML({ osat: [{ k: 'd', nimi: 'X', koodi: 'x', tila: null }], jaksoNimi: 'H' }, c)).toContain('class="kt-osa-st arvioi"');
   });
   it('paneeli: ennen valintaa muiden merkinnät ("Valmentaja merkitsi: ohjatusti 9.10."), OMA aiempi valinta täytettynä', () => {
     const osat = osatJa(jfMerk({ k1: 2 }, ERI)); const h = KT.tmKtPaneeliHTML({ osat, viikonOsa: osat[0], valittu: 'k1', avain: KONS, uid: 'vp1' }, { esc: ESC, t: (k) => k, pid: PID, tallennaFn: 'T', veoFn: 'V', peruFn: 'P' });

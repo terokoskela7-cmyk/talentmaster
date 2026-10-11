@@ -125,14 +125,14 @@ describe('HOTFIX · paneelin napit renderöityvät oikein kun shell antaa c:n IL
 
 describe('6 · kysymyskortit', () => {
   const sitoumus = (vahv) => ({ idp_sitoumus_pvm: '2026-10-06', idp_sitoumus_vahv_jakso: vahv ? '2026-10-05T08:00:00' : undefined });
-  it('sitoumus vahvistettu → kaksi korttia, sitoumusrivi signaalin alarivillä', () => {
-    const h = nayta(pel({ k1: 3 }, Object.assign(sitoumus(true)))); expect((h.match(/class="kt-q"/g) || []).length).toBe(2); expect(h).toContain('kt-q3 two'); expect(plain(h)).toMatch(/Sitoumus annettu .*, vahvistettu /);
+  it('sitoumus vahvistettu → kaksi korttia; vahvistettu sitoumus EI näy signaalikortissa (Tero 11.10.)', () => {
+    const h = nayta(pel({ k1: 3 }, Object.assign(sitoumus(true)))); expect((h.match(/class="kt-q"/g) || []).length).toBe(2); expect(h).toContain('kt-q3 two'); expect(plain(h)).not.toMatch(/Sitoumus annettu|vahvistettu/);
   });
   it('sitoumus odottaa vahvistusta → kolme korttia', () => {
     const h = nayta(pel({ k1: 3 }, sitoumus(false))); expect((h.match(/class="kt-q"/g) || []).length).toBe(3); expect(h).not.toContain('kt-q3 two'); expect(plain(h)).toContain('Sitoutui');
   });
-  it('ei sitoumusta → kaksi korttia, alarivillä "Pelaaja sitoutuu sovelluksessa"; ei otsikkoa "Kolme kysymystä"', () => {
-    const h = nayta(pel({ k1: 3 })); expect((h.match(/class="kt-q"/g) || []).length).toBe(2); expect(plain(h)).toContain('Pelaaja sitoutuu sovelluksessa'); expect(plain(h)).not.toContain('Kolme kysymystä');
+  it('ei sitoumusta → kaksi korttia, ei sitoumusriviä signaalikortissa (rivi vain kun vaatii toimenpidettä); ei otsikkoa "Kolme kysymystä"', () => {
+    const h = nayta(pel({ k1: 3 })); expect((h.match(/class="kt-q"/g) || []).length).toBe(2); expect(plain(h)).not.toContain('Pelaaja sitoutuu sovelluksessa'); expect(plain(h)).not.toContain('Kolme kysymystä');
   });
   it('kortin tyylit mockupista (reuna, säde, padding, gap, tausta; kysymys, vastaus, ei tietoa, lähde); alle 720 px yksi sarake', () => {
     expect(CSS).toContain('.kt-q{border:1px solid var(--border);border-radius:4px;padding:10px 12px;display:grid;gap:3px;background:var(--bg)}');
@@ -149,9 +149,9 @@ describe('7 · Osat-kortti', () => {
     for (const s of ['kt_st_itsenaisesti', 'kt_st_viikon_osa', 'kt_st_arvioi']) expect(vp.includes(s) || plain(vp).includes({ kt_st_itsenaisesti: 'itsenäisesti', kt_st_viikon_osa: 'viikon osa', kt_st_arvioi: 'arvioi' }[s])).toBe(true);
     expect(ma).not.toContain('<button type="button" class="kt-osa-r'); expect((ma.match(/<div class="kt-osa-r/g) || []).length).toBe(5);
   });
-  it('rivin tyylit: ruudukko auto/1fr/auto, gap 10px, padding 7px 10px, reuna, säde 4px, 13,5 px; kirjain DM Mono teal; viikon osa amber; itsenäisesti teal', () => {
+  it('rivin tyylit: ruudukko auto/1fr/auto, gap 10px, padding 7px 10px, reuna, säde 4px, 13,5 px; kirjain DM Mono teal; viikon osa teal (D169: amber = poikkeama); itsenäisesti teal', () => {
     expect(CSS).toContain('.kt-osa-r{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border:1px solid var(--border);border-radius:4px;');
     expect(CSS).toContain('.kt-osat{display:grid;gap:4px;margin-top:6px}'); expect(CSS).toContain('.kt-osa-k{font-family:var(--font-sans);font-size:var(--fs-meta,12.5px);color:var(--teal);font-weight:500}');
-    expect(CSS).toContain('.kt-osa-r.on{border-color:var(--amber)}.kt-osa-r.on .kt-osa-st{color:var(--amber);font-weight:600}'); expect(CSS).toContain('.kt-osa-r.ok .kt-osa-st{color:var(--teal);font-weight:600}');
+    expect(CSS).toContain('.kt-osa-r.on{border-color:var(--teal)}.kt-osa-r.on .kt-osa-st{color:var(--teal);font-weight:600}'); expect(CSS).toContain('.kt-osa-r.ok .kt-osa-st{color:var(--teal);font-weight:600}');
   });
 });
