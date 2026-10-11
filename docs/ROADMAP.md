@@ -97,14 +97,14 @@
 | **sv-erä 19 Geminille** | heti | Kaikki tyhjät sv-avaimet yhteen pakettiin (`docs/i18n/sv_kaannoserae_19_gemini.json`) + ohje + tuontiskripti (kuiva-ajo). Tero vie Geminille, tuonti omana PR:nä. Code ei kirjoita ruotsia. |
 | **tmTasoVari** | ennen 1.11. | Yksi tasoväri ja yksi kattavuussääntö (D125) koko sovelluksessa. Viisi kynnysjoukkoa yhteen. Loput 6 kk:n rajat → VANHA_KK / MUISTUTUS_KK. Puuttuva data ei ole punaista. §7.22: ei pelaajalle. |
 | **Kehitystyöpöytä, Tänään** | ennen 1.11. | Ei tyhjää kenttää (jaksokortti), Seuraava askel -kortille nappi (D100), kysymyskortit samaan anatomiaan (D103), osat: viikon osa tealina, viimeisin arvio, "arviot eroavat", ei "SA"-tekstiä seuran käyttäjälle. |
-| **Ydinvahvuuden alue klikkaamalla** | 1.11. jälkeen | D108–D110: aluejako = pelipaikka-alueet + maalivahti, pelimuodon mukaan (5v5 ei aluevalintaa · 8v8 6 · 11v11 8). Mockup 34 ✅ (#996) → PR B: aluejaot normistoon, `joukkueet/{jid}.pelimuoto`, Rules + testit. |
+| **Ydinvahvuuden alue klikkaamalla** | 1.11. jälkeen | D172–D174: aluejako = pelipaikka-alueet + maalivahti, pelimuodon mukaan (5v5 ei aluevalintaa · 8v8 6 · 11v11 8). Mockup 34 ✅ (#996) → PR B: aluejaot normistoon, `joukkueet/{jid}.pelimuoto`, Rules + testit. |
 | Kenttä aktiiviseksi (R1) | joulukuu | Reitti, viikkomerkit ja osat kentällä (D98, D107) + pelaajan ehdotus "missä tykkään pelata" → valmentaja vahvistaa. |
 | Seuran oma normisto -asetukset | 1.11. jälkeen | `konfiguraatio/normit` + Rules + asetusnäkymä VP:lle (mockup ensin). |
 | Yhteinen sivupaneeli | 1.11. jälkeen | Ks. alla. |
 
 - **Päätökset 11.10.2026 (Tero):**
   - Masterin tumma teema on luettavuuden mittapuu molemmille sovelluksille (lämmin ink, selvä ink/ink2-ero, korttipinnat). VP:lle tehty #989:ssä.
-  - Ydinvahvuuden alue asetetaan klikkaamalla kentän aluetta (korvaa 22:n "Siirrä kentällä" -piirron; D98-tietomalli ennallaan; päätöslistassa D108). 1.11: jaksokortti ilman kenttää, kun aluetta ei ole · marraskuu: valmentaja/VP klikkaa alueen (mockup 34 ensin; kahden aluejaon vaihtoehto, Tero valitsee) · joulukuu (R1): reitti, viikkomerkit, osat kentällä + pelaajan ehdotus "missä tykkään pelata" (`ydinvahvuus.alue_ehdotus`, pelaaja kirjoittaa vain omaansa; U8–12 vain "missä tykkäät pelata").
+  - Ydinvahvuuden alue asetetaan klikkaamalla kentän aluetta (korvaa 22:n "Siirrä kentällä" -piirron; D98-tietomalli ennallaan; päätöslistassa D172). 1.11: jaksokortti ilman kenttää, kun aluetta ei ole · marraskuu: valmentaja/VP klikkaa alueen (mockup 34 ensin; kahden aluejaon vaihtoehto, Tero valitsee) · joulukuu (R1): reitti, viikkomerkit, osat kentällä + pelaajan ehdotus "missä tykkään pelata" (`ydinvahvuus.alue_ehdotus`, pelaaja kirjoittaa vain omaansa; U8–12 vain "missä tykkäät pelata").
   - SJK:n testipäivät 24.3./27.3./1.4.2026 ovat oikeat. Ei korjausskriptiä, ei lisäselvitystä.
   - Yhteinen sivupaneeli: 1.11 jälkeen, mockup ensin (alla).
 
@@ -114,9 +114,9 @@
 - eri ikoni Kodille, Valmentajana kehittymiselle ja Aloita tästä -kohdalle
 - napit ilman isoja kirjaimia ja emojeja (D169: isot kirjaimet vain .kt-eb-yläotsikoissa)
 
-- **D108–D110 Ydinvahvuuden alue:** klikkaamalla; aluejako = pelipaikka-alueet + maalivahti, joukkueen pelimuodon mukaan (5v5 ei aluevalintaa · 8v8 6 aluetta · 11v11 8 aluetta; koordinaatisto 0–100 × 0–140 yhteinen); hyökkäys aina ylös; alue.y + alue.h > 84 → koko kenttä. Mockup 34 (PR #996) → PR B (toteutus, 1.11. jälkeen: aluejaot normistoon `tmAlueet(pelimuoto)`, `joukkueet/{jid}.pelimuoto`, Rules + testit).
-- **D111 Keräilykortin taso** nousee pelaajan OMAN kehittymisen mukaan (ei normitaso/OVR/vertailu; ei koskaan laske; Showcase 16+ näkee lisäksi OVR-tason). Mockup 36 ensin → PR C.
-- **D112 PHV pelaajalle ja huoltajalle:** kasvuvaihe sanoin ja selittäen, yksi neutraali väri, ei "jäljessä"-kehystä. Mockup 36 → PR C.
+- **D172–D174 Ydinvahvuuden alue:** klikkaamalla; aluejako = pelipaikka-alueet + maalivahti, joukkueen pelimuodon mukaan (5v5 ei aluevalintaa · 8v8 6 aluetta · 11v11 8 aluetta; koordinaatisto 0–100 × 0–140 yhteinen); hyökkäys aina ylös; alue.y + alue.h > 84 → koko kenttä. Mockup 34 (PR #996) → PR B (toteutus, 1.11. jälkeen: aluejaot normistoon `tmAlueet(pelimuoto)`, `joukkueet/{jid}.pelimuoto`, Rules + testit).
+- **D175 Keräilykortin taso** nousee pelaajan OMAN kehittymisen mukaan (ei normitaso/OVR/vertailu; ei koskaan laske; Showcase 16+ näkee lisäksi OVR-tason). Mockup 36 ensin → PR C.
+- **D176 PHV pelaajalle ja huoltajalle:** kasvuvaihe sanoin ja selittäen, yksi neutraali väri, ei "jäljessä"-kehystä. Mockup 36 → PR C.
 - **PR D "Muistuta pelaajaa"** (1.11. jälkeen): pelaajan viestinäkymä näyttää valmentajan muistutukset; lähetyssheet kehitystyöpöydästä; `ctx.vkMuistutus` kuoressa.
 
 ### 📅 Kalenteri
@@ -128,7 +128,7 @@
 | 15.–20.10. | sv-läpiajo PR 2–4 · Gemini-erä 2 | Code → Tero/Gemini → PM |
 | ~20.10. | **Päätös: Kenttä-lippu Sibbolle 1.11.?** (onko Kenttä-polku kokonaan ruotsiksi) | Tero |
 | 20.–31.10. | Gemini-erän 2 vienti · Teron sv-käsitesti · B4 pelaajan kalenteri | Code, Tero |
-| ennen 1.11. | **Kehitystyöpöytä 22, korjauskierros A** (A1–A6 oikeellisuus, A7–A13 käytettävyys) ennen S2:ta · `docs/CODE_BRIEF_22_KEHITYSTYOPOYTA.md` | Code |
+| ennen 1.11. | **Kehitystyöpöytä 22, korjauskierros A** (A1–A6 oikeellisuus, A7–A13 käytettävyys) + D108 viikkohavainto rinnakkain (`osa_havainnot`, tekijä + päivä; VP ei korvaa valmentajaa) ennen S2:ta · `docs/CODE_BRIEF_22_KEHITYSTYOPOYTA.md` | Code |
 | ennen 1.11. | **tmTasoVari** · **kehitystyöpöytä Tänään** -korjaukset · sv-erä 19 Geminille | Code → Tero/Gemini |
 | ennen 1.11. | Tyhjät joukkueet pois: KPV `kpv_t8`, `kpv_u8` ("KPV U8" → P-nimeäminen), SJK `sjk_p12`, `sjk_p13` | Tero |
 | ennen 1.11. | KPV ja Sibbo: sopimusten avoimet päätökset (käyttöönottohinta, laskutus aktiivisista pelaajista, tuntihinta, koulutustunnit, ruotsinkielinen versio, Y-tunnus) | Tero |
