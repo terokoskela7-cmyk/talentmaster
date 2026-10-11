@@ -37,7 +37,7 @@ describe('2 · yksi tyyppirekisteri (D186, D171)', () => {
     const johto = TY.tmKalTyypitRoolille(true), muut = TY.tmKalTyypitRoolille(false);
     expect(johto.length).toBe(12); expect(muut.length).toBe(11); expect(muut.map((t) => t.avain)).not.toContain('seuran_tauko'); expect(johto.map((t) => t.avain)).toContain('seuran_tauko');
     expect(johto.slice(0, 5).map((t) => t.avain)).toEqual(TY.tmKalPikavalinnat().map((t) => t.avain)); johto.forEach((t) => { expect(t.nimiAvain).toBe('kal_tyyppi_' + t.avain); expect(t.nimi).toBeTruthy(); });
-    expect(MASTER).toMatch(/tmKalTyypitRoolille\(!!_superAdmin \|\| _calJohtoRooli\(\)\)/);
+    expect(MASTER).toMatch(/tmKalTyypitRoolille\(!!_superAdmin \|\| _calJohtoRooli\(\), \{ tauko: false \}\)/g);
   });
   it('selite rekisteristä: yksi rivi per merkki; tauko vain johdolle', () => {
     expect(TY.tmKalSelite(false).map((x) => x.merkki)).toEqual(['harj', 'ott', 'test', 'pal', 'muu']); expect(TY.tmKalSelite(true).map((x) => x.merkki)).toEqual(['harj', 'ott', 'test', 'pal', 'muu', 'tauko']);
@@ -73,7 +73,7 @@ describe('4 · luonti ja muokkaus (D185, D181)', () => {
   it('päivän muokkaus: ero ja siirto libistä (sarjassa kaikki saman verran; kuukauden ja kesäajan yli)', () => {
     expect(MA.tmKalPaivaEro('2026-10-09', '2026-10-07')).toBe(2); expect(MA.tmKalPaivaEro('2026-10-05', '2026-10-07')).toBe(-2); expect(MA.tmKalSiirraPaiva('2026-10-30', 3)).toBe('2026-11-02'); expect(MA.tmKalSiirraPaiva('2026-03-27', 2)).toBe('2026-03-29'); expect(MA.tmKalSiirraPaiva('2026-10-25', -1)).toBe('2026-10-24');
     ['2026-10-07', '2026-10-14', '2026-10-21'].forEach((p) => expect(MA.tmKalSiirraPaiva(p, MA.tmKalPaivaEro('2026-10-09', '2026-10-07'))).toBe(MA.tmKalSiirraPaiva(p, 2)));
-    expect(MASTER).toContain('KM.tmKalPaivaEro(pvmI.value, t.pvm)'); expect(MASTER).toContain('KM.tmKalSiirraPaiva(d._pvmISO, _siirtoPv)'); expect(MASTER).toMatch(/yhteiset\.tyyppi = tyyppiI\.value/);
+    expect(MASTER).toContain('KM.tmKalPaivaEro(pvmI.value, t.pvm)'); expect(MASTER).toContain('KM.tmKalSiirraPaiva(d._pvmISO, _siirtoPv)'); expect(MASTER).not.toMatch(/yhteiset\.tyyppi = /); expect(MASTER).toContain('Object.assign(yhteiset, KM.tmKalTyyppiMuutos(');
   });
   it('tuodun tapahtuman lähdekentät lukittuina (tmKalSaaMuokata); manuaalinen vapaa; oikeudet ennallaan (_calSaaMuokataTapahtuma)', () => {
     const tuotu = { lahde: 'myclub' }, oma = { lahde: 'manuaalinen' };
@@ -94,4 +94,35 @@ describe('5–6 · kauden loppu ja soft-delete', () => {
   it('malli ladataan Masterissa; kuori ei ylitä kasvukattoa', () => {
     expect(MASTER).toContain('lib/tm_kalenteri_malli.js'); const fx = JSON.parse(readFileSync(new URL('./fixtures/kuoret_kasvukatto.json', import.meta.url), 'utf8')), n = (MASTER.match(/\n/g) || []).length; expect(n).toBeLessThanOrEqual(fx['TalentMaster_Master_v16.html'].katto);
   });
+});
+
+describe('7 · korjaukset (katselmointi 11.10.)', () => {
+  const M = (ev, uusi, johto = true) => MA.tmKalTyyppiMuutos(ev, uusi, johto);
+  it('nimen muutos ei kirjoita tyyppiä: mentorointi, kokous, tuntematon "leiri" säilyvät raakoina', () => {
+    expect(M({ tyyppi: 'mentorointi' }, 'mentorointitapaaminen')).toEqual({}); expect(M({ tyyppi: 'kokous' }, TY.tmKalTyyppiAvain('kokous'))).toEqual({}); expect(M({ tyyppi: 'leiri' }, TY.tmKalTyyppiAvain('leiri'))).toEqual({});
+  });
+  it('tyypin vaihto: harjoitus→valmentajapalaveri nakyvyys henkilokunta; palaveri→harjoitus kaikki; ryhmä/poimitut-kohde ei muutu', () => {
+    expect(M({ tyyppi: 'harjoitus' }, 'valmentajapalaveri')).toEqual({ tyyppi: 'valmentajapalaveri', nakyvyys: 'henkilokunta' }); expect(M({ tyyppi: 'valmentajapalaveri' }, 'harjoitus')).toEqual({ tyyppi: 'harjoitus', nakyvyys: 'kaikki' });
+    expect(M({ tyyppi: 'harjoitus', kohde: { tyyppi: 'ryhma' } }, 'valmentajapalaveri')).toEqual({ tyyppi: 'valmentajapalaveri' }); expect(M({ tyyppi: 'harjoitus', kohde: { tyyppi: 'pelaajat' } }, 'valmentajapalaveri')).toEqual({ tyyppi: 'valmentajapalaveri' });
+    expect(M({ tyyppi: 'harjoitus' }, 'seuran_tauko')).toEqual({}); expect(M({ tyyppi: 'harjoitus' }, 'tuntematon_x')).toEqual({});
+  });
+  it('seuran_taukoa ei Masterin luontilistassa millään roolilla; selitteessä johdolle saa olla', () => {
+    [true, false].forEach((j) => expect(TY.tmKalTyypitRoolille(j, { tauko: false }).map((t) => t.avain)).not.toContain('seuran_tauko')); expect(TY.tmKalTyypitRoolille(true).map((t) => t.avain)).toContain('seuran_tauko'); expect(TY.tmKalSelite(true).map((x) => x.merkki)).toContain('tauko');
+    expect(MASTER).toContain("disabled = true; }   // tyyppi ei ole roolin listalla");
+  });
+  it('koko päivän tapahtumat ja tauot "Koko pvm" -riville; tuntiväli ohittaa ne; erottelu kanonisella avaimella', () => {
+    const tauko = { tyyppi: 'seuran_tauko', koko_paiva: true, pvm: '2026-10-12', alkaa: '00:00', _alkaaMs: Date.UTC(2026, 9, 11, 21, 0), _paattyyMs: Date.UTC(2026, 9, 18, 20, 59) };
+    expect(MA.tmKalKokoPaiva(tauko)).toBe(true); expect(MA.tmKalKokoPaiva({ tyyppi: 'mentorointi' })).toBe(true); expect(MA.tmKalKokoPaiva({ tyyppi: 'harjoitus' })).toBe(false); expect(MA.tmKalKokoPaiva({ tyyppi: 'leiri', koko_paiva: true })).toBe(true);
+    expect(MA.tmKalTuntivali([tauko, { alkaa: '17:00' }]).tunnit).toEqual([15, 16, 17, 18, 19, 20]); expect(MA.tmKalTuntivali([{ tyyppi: 'seuran_tauko', alkaa: '00:00' }]).tunnit).toEqual([15, 16, 17, 18, 19, 20]);
+    expect(['2026-10-11', '2026-10-12', '2026-10-18', '2026-10-19'].map((p) => MA.tmKalOsuuPaivalle(tauko, p))).toEqual([false, true, true, false]);
+    expect(MASTER).not.toContain("t.tyyppi === 'mentorointi'"); expect(MASTER).toContain('_KM.tmKalKokoPaiva(t)');
+  });
+  it('renderCal: syysloma 12.–18.10. näkyy Koko pvm -rivillä jokaisella päivällä, ei tuntiruudukossa', () => {
+    const els = {}, el = (id) => els[id] || (els[id] = { innerHTML: '', textContent: '', style: {}, classList: { toggle() {} } });
+    const ctx = lataaSivu('TalentMaster_Master_v16.html', { _demo: false, _joukkue: null, _superAdmin: false, _rooli: 'valmentaja', _testitapahtumat: [], _pelaajatData: [], _calWkOffset: 1, masterT: (x) => x, _mEsc: (x) => String(x), toast() {},
+      _kalenteriTapahtumat: [{ id: 'k', tyyppi: 'seuran_tauko', nimi: 'Syysloma', koko_paiva: true, pvm: '2026-10-12', alkaa: '00:00', paattyy: '23:59', _alkaaMs: Date.UTC(2026, 9, 11, 21, 0), _paattyyMs: Date.UTC(2026, 9, 18, 20, 59) }] });
+    ctx.document = { getElementById: (id) => (['calWeek', 'calSelite', 'calWkLabel', 'calWkSub', 'calPlayers', 'calSelfPct'].includes(id) ? el(id) : null), querySelectorAll: () => [], createElement: () => ({ style: {}, classList: { add() {}, remove() {} } }), body: { appendChild() {} }, addEventListener() {} };
+    ctx.renderCal(); const h = els.calWeek.innerHTML; expect(h.split('calEventClick(\'k\')').length - 1).toBe(7); expect(h).toContain('>15:00<'); expect(h).not.toContain('>9:00<');
+  });
+  it('koko päivän tapahtuman päivän vaihto ei katoa hiljaa (siirtää alun, säilyttää keston)', () => { expect(MASTER).toContain('var _kokoPv = t.koko_paiva === true'); expect(MASTER).toContain('t._paattyyMs - t._alkaaMs'); });
 });

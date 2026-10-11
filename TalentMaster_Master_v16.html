@@ -147,8 +147,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
 <script src="lib/tm_kt_komponentit.js?v=4"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
-<script src="lib/tm_kalenteri_tyypit.js?v=2"></script>   <!-- K35-1: kalenterin tyyppirekisteri (D186) -->
-<script src="lib/tm_kalenteri_malli.js?v=1"></script>   <!-- K35-2: kalenterimalli (tuntiväli, oletuspaikka, kauden loppu, lähteen omistajuus; D181/D185) -->
+<script src="lib/tm_kalenteri_tyypit.js?v=3"></script>   <!-- K35-1: kalenterin tyyppirekisteri (D186) -->
+<script src="lib/tm_kalenteri_malli.js?v=2"></script>   <!-- K35-2: kalenterimalli (tuntiväli, oletuspaikka, kauden loppu, lähteen omistajuus; D181/D185) -->
 <script src="lib/tm_kalenteri_kyselyt.js?v=1"></script>   <!-- K35-1: tauko + seuraava tapahtuma (D193) -->
 <script src="lib/tm_kehitystyopoyta.js?v=16"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
@@ -10110,14 +10110,14 @@ function renderCal() {
     .map(t => ({ ...t, _dayIdx: dayIdxOf(t.pvm), _src:'testi' }))
     .filter(t => t._dayIdx >= 0);
 
-  // Kalenteritapahtumat → erottele mentoroinnit (all-day) ja tuntisidotut (harjoitus/ottelu/muu)
-  const kalEvts = (_kalenteriTapahtumat || []).filter(suodataJoukkue)
+  // Kalenteritapahtumat → koko päivän rivi ("Koko pvm": koko_paiva, tauko, mentorointi — erottelu rekisterin avaimella) ja tuntisidotut (harjoitus/ottelu/muu)
+  const _KM = window.TM_KALENTERI_MALLI, kalSuod = (_kalenteriTapahtumat || []).filter(suodataJoukkue);
+  const mentEvts = kalSuod.filter(t => _KM.tmKalKokoPaiva(t));   // monipäiväinen (syysloma): chip jokaisella osuvalla päivällä
+  const paivaIso = dates.map(dd => tmPaivaIso(dd));
+  const tuntiEvts = kalSuod.filter(t => !_KM.tmKalKokoPaiva(t))
     .map(t => ({ ...t, _dayIdx: dayIdxOf(t.pvm), _hour: t.alkaa ? parseInt(t.alkaa.split(':')[0]) : 17, _src:'kalenteri' }))
     .filter(t => t._dayIdx >= 0);
-  const mentEvts  = kalEvts.filter(t => t.tyyppi === 'mentorointi' || t.tyyppi === 'kokous');
-  const tuntiEvts = kalEvts.filter(t => t.tyyppi !== 'mentorointi' && t.tyyppi !== 'kokous');
-
-  const _tv = window.TM_KALENTERI_MALLI.tmKalTuntivali(tuntiEvts);   // K35-2: väli min(15, aikaisin)…max(20, myöhäisin), 6–22 — tapahtuma ei katoa
+  const _tv = _KM.tmKalTuntivali(tuntiEvts);   // K35-2: väli min(15, aikaisin)…max(20, myöhäisin), 6–22 — tapahtuma ei katoa; koko päivän tapahtumat eivät vaikuta
   const c = { hours:_tv.tunnit, events:[], players:[] };
   _calSeliteRender();
   if (_demo && typeof DEMO !== 'undefined' && DEMO.cal) {
@@ -10146,8 +10146,8 @@ function renderCal() {
     testiEvts.filter(t => t._dayIdx === d).forEach(t => {
       chips += _calChip(_calEvtTyyli(t,'testi'), t, lisaaJoukkue, "event.stopPropagation();_avaaKentta('" + t.id + "')", '');
     });
-    mentEvts.filter(t => t._dayIdx === d).forEach(t => {
-      chips += _calChip(_calEvtTyyli(t,'kalenteri'), t, lisaaJoukkue, "event.stopPropagation();calEventClick('" + t.id + "')", (t.aika || t.alkaa || ''));
+    mentEvts.filter(t => _KM.tmKalOsuuPaivalle(t, paivaIso[d])).forEach(t => {
+      chips += _calChip(_calEvtTyyli(t,'kalenteri'), t, lisaaJoukkue, "event.stopPropagation();calEventClick('" + t.id + "')", t.koko_paiva === true ? '' : (t.aika || t.alkaa || ''));
     });
     html += '<div class="cal-cell' + (isToday?' today-col':'') + '" style="min-height:auto;">' + chips + '</div>';
   }
@@ -10617,7 +10617,9 @@ function _calMuokkaaTapahtuma(t) {
     box.appendChild(lbl(masterT('Nimi'))); box.appendChild(nimiI);
     // D185: tyyppi ja päivä muokattaviksi (tyyppi rekisteristä, D186)
     tyyppiI = document.createElement('select'); tyyppiI.style.cssText = inpCss;
-    var _tAv = KT.tmKalTyyppiAvain(t.tyyppi); KT.tmKalTyypitRoolille(!!_superAdmin || _calJohtoRooli()).forEach(function (ty) { var o = document.createElement('option'); o.value = ty.avain; o.textContent = _calTyyppiNimi(ty); if (ty.avain === _tAv) o.selected = true; tyyppiI.appendChild(o); });
+    var _tAv = KT.tmKalTyyppiAvain(t.tyyppi), _lista = KT.tmKalTyypitRoolille(!!_superAdmin || _calJohtoRooli(), { tauko: false });   // seuran_tauko ei ole Masterin valinta (D171/D193)
+    _lista.forEach(function (ty) { var o = document.createElement('option'); o.value = ty.avain; o.textContent = _calTyyppiNimi(ty); if (ty.avain === _tAv) o.selected = true; tyyppiI.appendChild(o); });
+    if (!_lista.some(function (ty) { return ty.avain === _tAv; })) { var _o = document.createElement('option'); _o.value = _tAv; _o.textContent = _calTyyppiNimi(KT.tmKalTyyppi(_tAv)); _o.selected = true; tyyppiI.insertBefore(_o, tyyppiI.firstChild); tyyppiI.disabled = true; }   // tyyppi ei ole roolin listalla (esim. tauko) → valitsin lukittu
     box.appendChild(lbl(masterT('Tyyppi'))); box.appendChild(tyyppiI);
     pvmI = document.createElement('input'); pvmI.type = 'date'; pvmI.value = t.pvm || ''; pvmI.style.cssText = inpCss; pvmI.disabled = lk.alkaa;
     box.appendChild(lbl(masterT('Päivä'))); box.appendChild(pvmI);
@@ -10651,10 +10653,12 @@ function _calMuokkaaTapahtuma(t) {
         var muid = _calMerkUid();
         var yhteiset = { paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid };
         if (full) {
-          yhteiset.nimi = nimiI.value.trim() || t.nimi || null; yhteiset.tyyppi = tyyppiI.value;
+          yhteiset.nimi = nimiI.value.trim() || t.nimi || null;
+          Object.assign(yhteiset, KM.tmKalTyyppiMuutos(t, tyyppiI.value, !!_superAdmin || _calJohtoRooli()));   // {} jos tyyppi ei muuttunut (raaka tyyppi säilyy); muuten tyyppi + nakyvyys
           if (!lk.paikka) yhteiset.paikka = paikkaI.value.trim() || null;
           if (!lk.tila) yhteiset.tila = tilaI.value;
         }
+        var _kokoPv = t.koko_paiva === true || KT.tmKalTyyppiAvain(t.tyyppi) === 'seuran_tauko';
         var _siirtoPv = (full && !lk.alkaa && pvmI.value && t.pvm) ? KM.tmKalPaivaEro(pvmI.value, t.pvm) : 0;   // päivän muutos (vuorokausia): sarjassa siirtää jokaista valitun laajuuden tapahtumaa saman verran (lib)
         var docit = await _calSkooppiDocit(t, scope);
         var batch = _db.batch();
@@ -10663,8 +10667,15 @@ function _calMuokkaaTapahtuma(t) {
           var upd = Object.assign({}, yhteiset);
           if (full) {
             var _uusiPv = _siirtoPv ? KM.tmKalSiirraPaiva(d._pvmISO, _siirtoPv) : d._pvmISO;
-            if (!lk.alkaa && alkaaI.value) upd.alkaa = firebase.firestore.Timestamp.fromDate(new Date(_uusiPv + 'T' + alkaaI.value + ':00'));
-            if (!lk.paattyy && paattyyI.value) upd.paattyy = firebase.firestore.Timestamp.fromDate(new Date(_uusiPv + 'T' + paattyyI.value + ':00'));
+            if (_kokoPv) {   // koko päivän tapahtuma / tauko: aikakentät eivät päde; päivän vaihto siirtää alun ja säilyttää keston (ei hiljaista katoamista)
+              if (!lk.alkaa && _siirtoPv) {
+                var _a0 = new Date(_uusiPv + 'T' + (t.alkaa || '00:00') + ':00'); upd.alkaa = firebase.firestore.Timestamp.fromDate(_a0);
+                if (t._alkaaMs != null && t._paattyyMs != null) upd.paattyy = firebase.firestore.Timestamp.fromMillis(_a0.getTime() + (t._paattyyMs - t._alkaaMs));
+              }
+            } else {
+              if (!lk.alkaa && alkaaI.value) upd.alkaa = firebase.firestore.Timestamp.fromDate(new Date(_uusiPv + 'T' + alkaaI.value + ':00'));
+              if (!lk.paattyy && paattyyI.value) upd.paattyy = firebase.firestore.Timestamp.fromDate(new Date(_uusiPv + 'T' + paattyyI.value + ':00'));
+            }
           }
           if (scope === 'vain' && t.toistuvuus_sarja_id) upd.sarja_poikkeus = true;
           if (muistLadattu) { upd.muistiinpanot = firebase.firestore.FieldValue.delete(); _calMuistiinpanoBatch(batch, col.doc(d.id), muistI.value, muid); }   // vanha kenttä pois + alikokoelma
@@ -10761,7 +10772,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
   box.appendChild(hdr);
 
   // Tapahtumatyyppi — YKSI rekisteri (D186, lib/tm_kalenteri_tyypit.js): pikavalinnat ensin; johto näkee kaikki 12, muut kaikki paitsi seuran_tauko (D171)
-  const tyypit = window.TM_KALENTERI_TYYPIT.tmKalTyypitRoolille(!!_superAdmin || _calJohtoRooli()).map(ty => Object.assign({ id: ty.avain, label: _calTyyppiNimi(ty), color: window.TM_KALENTERI_TYYPIT.tmKalMerkkiTyyli(ty.merkki).vari }, {}));
+  const tyypit = window.TM_KALENTERI_TYYPIT.tmKalTyypitRoolille(!!_superAdmin || _calJohtoRooli(), { tauko: false }).map(ty => Object.assign({ id: ty.avain, label: _calTyyppiNimi(ty), color: window.TM_KALENTERI_TYYPIT.tmKalMerkkiTyyli(ty.merkki).vari }, {}));
   const _tyyliValittu = (btn, on, color) => { btn.style.borderColor = on ? color : 'var(--border)'; btn.style.background = on ? 'color-mix(in srgb,' + color + ' 12%,transparent)' : 'var(--surface)'; };
 
   let valittuTyyppi = 'harjoitus';
