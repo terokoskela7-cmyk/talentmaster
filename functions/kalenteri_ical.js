@@ -32,9 +32,11 @@ async function rakennaSyote(deps, tilaus, nytMs) {
   const { db, Timestamp } = deps, seura = db.collection('seurat').doc(tilaus.seuraId);
   const sSnap = await seura.get().catch(() => null), s = sSnap && sSnap.exists ? (sSnap.data() || {}) : {};
   const alku = Timestamp.fromDate(new Date(nytMs + IKKUNA_ALKU_PV * PV)), loppu = Timestamp.fromDate(new Date(nytMs + IKKUNA_LOPPU_PV * PV));
-  const [jSnap, eSnap] = await Promise.all([seura.collection('joukkueet').get(), seura.collection('kalenteri').where('alkaa', '>=', alku).where('alkaa', '<=', loppu).get()]);
+  // K35-10: 2. kysely monipäiväisille (tauko/vapaa/erikoisohjelma: koko_paiva) jotka alkoivat ennen ikkunaa mutta jatkuvat sen sisään; yhdistys id:llä. Virhe (indeksi puuttuu) ei kaada syötettä.
+  const [jSnap, eSnap, pitkat] = await Promise.all([seura.collection('joukkueet').get(), seura.collection('kalenteri').where('alkaa', '>=', alku).where('alkaa', '<=', loppu).get(),
+    seura.collection('kalenteri').where('koko_paiva', '==', true).where('paattyy', '>=', alku).get().catch(() => null)]);
   const joukkueDocs = []; jSnap.forEach((d) => joukkueDocs.push({ id: d.id, nimi: (d.data() || {}).nimi }));
-  const evs = []; eSnap.forEach((d) => evs.push(Object.assign({ id: d.id }, d.data())));
+  const evs = [], nahty = {}; [eSnap, pitkat].forEach((q) => { if (q) q.forEach((d) => { if (!nahty[d.id]) { nahty[d.id] = 1; evs.push(Object.assign({ id: d.id }, d.data())); } }); });
   let valitut;
   if (tilaus.pelaajaId) {
     const pSnap = await seura.collection('pelaajat').doc(tilaus.pelaajaId).get();
@@ -57,8 +59,13 @@ async function rakennaSyote(deps, tilaus, nytMs) {
     try { const rs = await seura.collection('ryhmat').get(); rs.forEach((d) => { const r = d.data() || {}; if (r.aktiivinen !== false && ((Array.isArray(r.valmentajat) && r.valmentajat.indexOf(tilaus.uid) >= 0) || r.vastuu_uid === tilaus.uid)) ryhmaIdt.push(d.id); }); } catch (e) { ryhmaIdt = []; }
     let omatPelaajat = [];   // poimittujen pelaajien tapahtumat (esim. aamutreeni): valmentaja näkee, jos poimittu pelaaja kuuluu hänen joukkueeseensa (§7.18 tmPelaajanJoukkueet)
     if (!kaikki && evs.some((ev) => ev.kohde && ev.kohde.tyyppi === 'pelaajat')) {
-      const J = require('./tm_joukkue'), ps = await seura.collection('pelaajat').get();
-      ps.forEach((d) => { const ids = J.tmPelaajanJoukkueet(Object.assign({ id: d.id }, d.data() || {}), joukkueDocs); if (ids.some((i) => omat.indexOf(String(i)) >= 0)) omatPelaajat.push(d.id); });
+      // K35-10: luetaan VAIN ikkunan poimittujen pelaajien dokit (uniikit pelaajat_id:t, getAll ≤ 100/erä) — ei koko pelaajakokoelmaa; lukumäärä ei riipu seuran koosta
+      const J = require('./tm_joukkue'), idt = []; evs.forEach((ev) => { if (ev.kohde && ev.kohde.tyyppi === 'pelaajat' && Array.isArray(ev.pelaajat_id)) ev.pelaajat_id.forEach((x) => { x = String(x); if (x && idt.indexOf(x) < 0) idt.push(x); }); });
+      const ref = (id) => seura.collection('pelaajat').doc(id);
+      for (let i = 0; i < idt.length; i += 100) {
+        const era = idt.slice(i, i + 100), docs = typeof db.getAll === 'function' ? await db.getAll(...era.map(ref)) : await Promise.all(era.map((id) => ref(id).get()));
+        docs.forEach((d) => { if (!d || !d.exists) return; const ids = J.tmPelaajanJoukkueet(Object.assign({ id: d.id }, d.data() || {}), joukkueDocs); if (ids.some((x) => omat.indexOf(String(x)) >= 0)) omatPelaajat.push(d.id); });
+      }
     }
     const ctx = { uid: tilaus.uid, johto, ryhmaIdt, omatPelaajat, omatJoukkueet: kaikki ? joukkueDocs.map((j) => j.id) : omat };   // D242: joukkueen valmennuspalaveri (kohde henkilokunta + joukkue) vain sen joukkueen valmentajille, johdolle ja luojalle — jaettu tmNakyyKalenterissa
     valitut = evs.filter((ev) => {

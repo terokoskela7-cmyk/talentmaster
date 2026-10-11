@@ -12,7 +12,7 @@ const Timestamp = { fromDate: (d) => ts(d.getTime()), fromMillis: (m) => ts(m) }
 const val = (v) => (v && typeof v === 'object' && v._ms != null ? v._ms : v);
 
 function luoDb(alku) {
-  const data = Object.assign({}, alku), kirjoitukset = [];
+  const data = Object.assign({}, alku), kirjoitukset = [], lukuja = { pelaajat: 0 };
   const lapset = (polku) => Object.keys(data).filter((p) => p.startsWith(polku + '/') && p.slice(polku.length + 1).indexOf('/') < 0);
   const snap = (p) => ({ id: p.split('/').pop(), exists: data[p] !== undefined, data: () => (data[p] === undefined ? undefined : JSON.parse(JSON.stringify(data[p], (k, v) => v)) && data[p]) });
   const col = (polku, ehdot) => {
@@ -20,10 +20,10 @@ function luoDb(alku) {
       doc: (id) => docRef(polku + '/' + (id || 'auto' + Math.random().toString(36).slice(2))),
       where: (f, op, v) => col(polku, (ehdot || []).concat([[f, op, v]])),
       get: async () => { const arr = lapset(polku).filter((p) => (ehdot || []).every(([f, op, v]) => { const x = val(data[p][f]), y = val(v); return op === '==' ? x === y : op === '>=' ? x >= y : op === '<=' ? x <= y : false; })).map((p) => ({ id: p.split('/').pop(), data: () => data[p] })); return { size: arr.length, forEach: (fn) => arr.forEach(fn), docs: arr }; }
-    }; return c;
+    }; if (/\/pelaajat$/.test(polku)) { const g = c.get; c.get = async () => { const r = await g(); lukuja.pelaajat += r.docs ? r.docs.length : 0; return r; }; } return c;
   };
-  const docRef = (p) => ({ path: p, get: async () => snap(p), set: async (d) => { data[p] = d; kirjoitukset.push(['set', p, d]); }, update: async (d) => { data[p] = Object.assign({}, data[p], d); kirjoitukset.push(['update', p, d]); }, collection: (c) => col(p + '/' + c) });
-  const db = { data, kirjoitukset, collection: (c) => col(c), batch: () => { const ops = []; return { set: (r, d) => ops.push(['set', r, d]), update: (r, d) => ops.push(['update', r, d]), commit: async () => { for (const [t, r, d] of ops) await r[t](d); } }; } };
+  const docRef = (p) => ({ path: p, get: async () => { if (/\/pelaajat\/[^/]+$/.test(p)) lukuja.pelaajat++; return snap(p); }, set: async (d) => { data[p] = d; kirjoitukset.push(['set', p, d]); }, update: async (d) => { data[p] = Object.assign({}, data[p], d); kirjoitukset.push(['update', p, d]); }, collection: (c) => col(p + '/' + c) });
+  const db = { data, kirjoitukset, lukuja, collection: (c) => col(c), batch: () => { const ops = []; return { set: (r, d) => ops.push(['set', r, d]), update: (r, d) => ops.push(['update', r, d]), commit: async () => { for (const [t, r, d] of ops) await r[t](d); } }; } };
   db.collection = (c) => ({ doc: (id) => docRef(c + '/' + id), where: (f, op, v) => col(c, [[f, op, v]]), get: col(c).get });
   return db;
 }
@@ -175,4 +175,30 @@ test('K35-6d aamutreeni: poimittujen pelaajien tapahtuma (kohde pelaajat) näkyy
   assert.deepStrictEqual(uidit(await hae(db, tokenUrlista(await tilaa(db, valmCtx('vp1', 'vp'), { seuraId: 'kpv' })))), ['am']);   // johto
   const db2 = luoDb(perus()); lisaaEv(db2, 'am', e('am', 2, { alalaji: 'aamutreeni', joukkue: null, joukkue_nimi: null, joukkueet: [], kohde: { tyyppi: 'pelaajat' }, pelaajat_id: ['p2'], luoja_uid: 'muu' }));
   assert.deepStrictEqual(uidit(await hae(db2, tokenUrlista(await tilaa(db2, pelaajaCtx)))), []);   // p1 ei poimittu → ei näe
+});
+
+test('K35-10 pelaajaluku: poimitun-kohteen valmentajasyöte lukee VAIN ikkunan pelaajat_id:t — lukumäärä ei riipu seuran pelaajamäärästä', async () => {
+  const lukuAjossa = async (extraPelaajia) => {
+    const lisa = {}; for (let i = 0; i < extraPelaajia; i++) lisa['seurat/kpv/pelaajat/x' + i] = { etunimi: 'X' + i, joukkueet: ['kpv_u15'] };
+    const db = luoDb(perus(Object.assign({ 'seurat/kpv/pelaajat/p3': { etunimi: 'Kolmas', joukkueet: ['kpv_u15'] } }, lisa)));
+    lisaaEv(db, 'am', e('am', 2, { alalaji: 'aamutreeni', joukkue: null, joukkue_nimi: null, joukkueet: [], kohde: { tyyppi: 'pelaajat' }, pelaajat_id: ['p1', 'p3', 'p1'], luoja_uid: 'muu' }));
+    const t = tokenUrlista(await tilaa(db, valmCtx('v1'), { seuraId: 'kpv' })); db.lukuja.pelaajat = 0;
+    const r = await hae(db, t); assert.match(r.body, /UID:am@talentmaster/); return db.lukuja.pelaajat;
+  };
+  const pieni = await lukuAjossa(0), iso = await lukuAjossa(400);
+  assert.strictEqual(pieni, 2); assert.strictEqual(iso, 2);   // p1 + p3 (uniikit), ei 400 lisäpelaajaa
+});
+test('K35-10 pelaajaluku: getAll-erät ≤ 100 (250 poimittua → 3 erää) kun db.getAll on käytössä', async () => {
+  const db = luoDb(perus()), idt = []; for (let i = 0; i < 250; i++) { idt.push('q' + i); db.data['seurat/kpv/pelaajat/q' + i] = { etunimi: 'Q' + i, joukkueet: ['kpv_u13'] }; }
+  lisaaEv(db, 'am', e('am', 2, { alalaji: 'aamutreeni', joukkue: null, joukkue_nimi: null, joukkueet: [], kohde: { tyyppi: 'pelaajat' }, pelaajat_id: idt, luoja_uid: 'muu' }));
+  const t = tokenUrlista(await tilaa(db, valmCtx('v1'), { seuraId: 'kpv' })), era = []; const doc = db.collection('seurat').doc('kpv').collection('pelaajat').doc;
+  db.getAll = async (...refs) => { era.push(refs.length); return Promise.all(refs.map((r) => r.get())); };
+  await hae(db, t); assert.deepStrictEqual(era, [100, 100, 50]);
+});
+test('K35-10 monipäiväinen tauko joka alkoi ennen −30 pv ikkunaa mutta jatkuu sen sisään näkyy syötteessä (2. kysely)', async () => {
+  const db = luoDb(perus());
+  lisaaEv(db, 'tauko', e('tauko', -90, { tyyppi: 'seuran_tauko', nimi: 'Syysloma', koko_paiva: true, joukkue: null, joukkue_nimi: null, joukkueet: [], paattyy: ts(NYT + 5 * PV) }));
+  lisaaEv(db, 'vanha', e('vanha', -90, { nimi: 'Vanha treeni' }));
+  const r = await hae(db, tokenUrlista(await tilaa(db, valmCtx('vp1', 'vp'), { seuraId: 'kpv' })));
+  assert.match(r.body, /UID:tauko@talentmaster/); assert.doesNotMatch(r.body, /UID:vanha@talentmaster/);
 });
