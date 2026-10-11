@@ -19,7 +19,7 @@ function luoDb(o) {
         : { doc: (id) => ({ get: async () => ({ exists: !!(o.kooste || {})[pid + '/' + id], data: () => o.kooste[pid + '/' + id] }), set: async (d, opts) => { kirjoitukset.push({ pid, id, d, opts }); } }) },
     }) };
     if (n === 'joukkueet') return { get: async () => ({ forEach: (f) => o.joukkueet.forEach((j) => f({ id: j.id, data: () => ({ nimi: j.nimi }) })) }) };
-    if (n === 'kalenteri') return { doc: (eid) => ({ get: async () => ({ exists: !!o.eventit[eid], data: () => o.eventit[eid] }), collection: () => ({ doc: (pid) => ({ get: async () => ({ exists: !!(o.lasnaolot || {})[eid + '/' + pid], data: () => o.lasnaolot[eid + '/' + pid] }) }) }) }),
+    if (n === 'kalenteri') return { doc: (eid) => ({ get: async () => ({ exists: !!o.eventit[eid], data: () => o.eventit[eid] }), collection: () => ({ get: async () => ({ forEach: (f) => Object.keys(o.lasnaolot || {}).filter((k) => k.startsWith(eid + '/')).forEach((k) => f({ id: k.split('/')[1], data: () => o.lasnaolot[k] })) }), doc: (pid) => ({ get: async () => ({ exists: !!(o.lasnaolot || {})[eid + '/' + pid], data: () => o.lasnaolot[eid + '/' + pid] }) }) }) }),
       where: (_k, _o, a) => ({ where: (_k2, _o2, l) => ({ get: async () => ({ forEach: (f) => Object.keys(o.eventit).filter((id) => o.eventit[id].alkaa._ms >= a._ms && o.eventit[id].alkaa._ms <= l._ms).forEach((id) => f({ id, data: () => o.eventit[id] })) }) }) }) };
     throw new Error('? ' + n);
   } };
@@ -78,4 +78,24 @@ test('CALLABLE: huoltaja vain OMAN lapsen — toisen lapsen pelaaja ✗; väär�
 test('CALLABLE: ei koostetta → tyhjä kausi (ei virhettä); poistettu/arkistoitu pelaaja ✗', async () => {
   const r = await aja(perus(), pelaajaTok()); assert.strictEqual(r.kertyma.kausi.treeni.yht, 0);
   const p = perus(); p.pelaajat.p1 = Object.assign({}, PELAAJA, { arkistoitu: true }); await assert.rejects(aja(p, pelaajaTok()), (e) => e.code === 'permission-denied');
+});
+
+const muutos = (e, u) => ({ before: { data: () => e }, after: { data: () => u } });
+test('MUUTOS siirto: tapahtuma ma → seuraavan viikon ma läsnäolon jälkeen korjaa molemmat korit (W42 tyhjenee, W43 saa läsnäolon)', async () => {
+  const o = perus(); o.eventit.a = ev('2026-10-20'); const db = luoDb(o), k = K.luoTapahtumaMuutosKasittelija(deps(db));
+  const r = await k(muutos(ev('2026-10-13'), ev('2026-10-20')), { params: { sid: 'demo', eid: 'a' } });
+  assert.deepStrictEqual(r, { pelaajia: 1, viikkoja: 2 }); const w = (pid, v) => db.kirjoitukset.filter((x) => x.pid === pid).map((x) => x.d.viikot[v]).filter(Boolean)[0];
+  assert.strictEqual(w('p1', '2026-W42').treeni.paik, 0); assert.strictEqual(w('p1', '2026-W43').treeni.paik, 1);
+});
+test('MUUTOS peruminen/poisto: tila → peruttu tai poistettu → vanhan viikon kori päivittyy (tapahtuma ei enää lasketa); ei muutosta → ei mitään', async () => {
+  for (const u of [{ tila: 'peruttu' }, { poistettu: true }, { tila: 'peruutettu' }]) {
+    const o = perus(); o.eventit.a = Object.assign(ev('2026-10-13'), u); const db = luoDb(o);
+    await K.luoTapahtumaMuutosKasittelija(deps(db))(muutos(ev('2026-10-13'), o.eventit.a), { params: { sid: 'demo', eid: 'a' } });
+    assert.strictEqual(db.kirjoitukset.filter((x) => x.pid === 'p1').pop().d.viikot['2026-W42'].treeni.paik, 0);
+  }
+  const db = luoDb(perus()); assert.strictEqual(await K.luoTapahtumaMuutosKasittelija(deps(db))(muutos(ev('2026-10-13'), ev('2026-10-13', { nimi: 'X' })), { params: { sid: 'demo', eid: 'a' } }), null); assert.strictEqual(db.kirjoitukset.length, 0);
+});
+test('MUUTOS: ei lasnaolijoita (tuleva tapahtuma) → ei kirjoituksia eikä pelaajalukuja', async () => {
+  const o = perus(); o.lasnaolot = {}; const db = luoDb(o); const r = await K.luoTapahtumaMuutosKasittelija(deps(db))(muutos(ev('2026-10-13'), ev('2026-10-20')), { params: { sid: 'demo', eid: 'a' } });
+  assert.strictEqual(r, null); assert.strictEqual(db.kirjoitukset.length, 0); assert.strictEqual(db.lukuja.pelaajat, 0);
 });

@@ -3,7 +3,7 @@
  * K35-6f — pelaajan harjoituskertymä: kooste TRIGGERILLÄ (ei laskentaa joka avauksella). Kaista: Tero.
  *   seurat/{sid}/pelaajat/{pid}/kooste/kertyma_{kausi} = { kausi, versio:1, viikot:{ 'YYYY-Www': viikkokori }, paivitetty }  — viikkokorit (lib/tm_harjoituskertyma.js: tmViikkoKori); sRPE-paikka (srpe: null) valmiina D197:lle.
  *   Triggerit: onWrite kalenteri/{ev}/lasnaolijat/{pid} (läsnäolo vahvistettu/muutettu) ja onWrite pelaajat/{pid}/kirjaukset/{pvm} (omatoiminen) → päivittää VAIN kyseisen viikon korin (≈ 10 tapahtumaa + 7 kirjausta).
- *   Rajoitus: tapahtuman perumista/siirtoa ei seuraa trigger (korjaantuu seuraavasta läsnäolo-/kirjauskirjoituksesta tai taydenna_harjoituskertyma.js-ajosta).
+ *   + onUpdate kalenteri/{eid} (K35-10): siirto toiseen viikkoon / peruminen / poisto päivittää vanhan ja uuden viikon korin läsnäolijoille (ei lasnaolijoita → ei lisälukuja).
  *   Callable haePelaajanKertyma({ seuraId, pelaajaId }): pelaaja (token) ja huoltaja (sama tunnistus kuin haePelaajanKalenteri: email_verified + huoltajaEmail + suostumus 'annettu'; pelaajaPoissa → hylkäys); henkilökunta lukee koosteen suoraan (Rules).
  *   Ei vertailua muihin pelaajiin: dokumentti ja vastaus sisältävät vain pelaajan omat luvut.
  */
@@ -71,6 +71,22 @@ function luoKirjausKasittelija(deps) {
   return async function kertymaKirjausOnWrite(change, context) { const { sid, pid, pvm } = context.params; return /^\d{4}-\d{2}-\d{2}$/.test(pvm) ? paivitaViikko(deps, sid, pid, pvm, nytF()) : null; };
 }
 
+/* Siirto/peruminen/poisto: onUpdate kalenteri/{eid} — jos alkaa-viikko muuttuu TAI tila → peruttu/peruutettu TAI poistettu → true, ja tapahtumalla on lasnaolijat-dokeja,
+   päivitetään vanha ja uusi viikko jokaiselle lasnaolijat-pelaajalle. Ei lasnaolijoita (tulevat tapahtumat) → ei lisälukuja eikä kirjoituksia. */
+function luoTapahtumaMuutosKasittelija(deps) {
+  const nytF = deps.nyt || (() => Date.now()), peruttu = (d) => d.tila === 'peruttu' || d.tila === 'peruutettu', viikko = (d) => { const a = _ms(d.alkaa); return a == null ? null : H.tmKertymaVkRajat(H.tmKertymaPaiva(a)); };
+  return async function kertymaTapahtumaOnUpdate(change, context) {
+    const { sid, eid } = context.params, e = change.before.data() || {}, u = change.after.data() || {};
+    const vanha = viikko(e), uusi = viikko(u), siirto = !!(vanha && uusi && vanha.avain !== uusi.avain), poistui = (!peruttu(e) && peruttu(u)) || (e.poistettu !== true && u.poistettu === true);
+    if (!siirto && !poistui) return null;
+    const snap = await deps.db.collection('seurat').doc(sid).collection('kalenteri').doc(eid).collection('lasnaolijat').get(), pidt = []; snap.forEach((d) => pidt.push(d.id));
+    if (!pidt.length) return null;
+    const paivat = [vanha, uusi].filter(Boolean).map((r) => r.ma).filter((v, i, a) => a.indexOf(v) === i);
+    for (const pid of pidt) for (const pv of paivat) await paivitaViikko(deps, sid, pid, pv, nytF());
+    return { pelaajia: pidt.length, viikkoja: paivat.length };
+  };
+}
+
 function luoKertymaKasittelija(deps) {
   const { db, HttpsError } = deps, nytF = deps.nyt || (() => Date.now()), torju = () => new HttpsError('permission-denied', 'Ei oikeutta tämän pelaajan kertymään.');
   return async function haePelaajanKertyma(data, context) {
@@ -88,4 +104,4 @@ function luoKertymaKasittelija(deps) {
     return { kertyma: H.tmKertymaKoreista(k && k.exists ? (k.data() || {}).viikot : {}, nyt), laskettu: new Date(nyt).toISOString() };
   };
 }
-module.exports = { paivitaViikko, taytaPelaaja, luoLasnaoloKasittelija, luoKirjausKasittelija, luoKertymaKasittelija, koosteId };
+module.exports = { paivitaViikko, taytaPelaaja, luoTapahtumaMuutosKasittelija, luoLasnaoloKasittelija, luoKirjausKasittelija, luoKertymaKasittelija, koosteId };
