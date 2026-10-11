@@ -2,9 +2,22 @@
 const M = require('../lib/tm_valmentaja_koti.js'), N = require('../lib/tm_valmentaja_koti_nakyma.js');
 const ms = (d, h) => Date.parse(d + 'T' + h + ':00+03:00');
 const ev = (id, d, o) => Object.assign({ id, tyyppi: 'harjoitus', pvm: d, alkaa: '17:30', _alkaaMs: ms(d, '17:30'), _paattyyMs: ms(d, '19:00'), joukkue: 'Demo U13', joukkueet: ['demo_u13'], nimi: 'Treeni' }, o || {});
-const J = { id: 'demo_u13', nimi: 'Demo U13' }, NYT = ms('2026-10-14', '20:00');   // ke illalla
+const J_ = { id: 'demo_u13', nimi: 'Demo U13' }, NYT = ms('2026-10-14', '20:00');   // ke illalla
 const PEL = ['Aatu Aalto', 'Beni Berg', 'Cai Carlsson', 'Eero Eskola', 'Fabian Fors', 'Gus Grön'].map((n, i) => ({ id: 'p' + i, nimi: n }));
-const mal = (o) => M.tmKotiMalli(Object.assign({ nyt: NYT, joukkue: J, tapahtumat: [], pelaajat: PEL }, o));
+const mal = (o) => M.tmKotiMalli(Object.assign({ nyt: NYT, joukkue: J_, tapahtumat: [], pelaajat: PEL }, o));
+
+describe('joukkueen jakso (tmJoukkueenJakso → syke)', () => {
+  const J = require('../lib/tm_joukkuejakso.js'), doc = { jaksofokus: { alku: '2026-10-05', kesto_vk: 4, osa_alueet: { tekninen_taktinen: { nimi: 'Pelaaminen' } } } };
+  it('aktiivinen jakso: nimi, päättymispäivä, viikko n/N, päiviä jäljellä; ei vielä alkanut / umpeutunut / ei jaksoa → null', () => {
+    expect(J.tmJoukkueenJakso(doc, ms('2026-10-20', '12:00'))).toEqual({ nimi: 'Pelaaminen', alku: '2026-10-05', paattyy: '2026-11-02', vk: 3, vkYht: 4, pvJaljella: 13 });
+    expect(J.tmJoukkueenJakso(doc, ms('2026-10-01', '12:00'))).toBeNull(); expect(J.tmJoukkueenJakso(doc, ms('2026-11-05', '12:00'))).toBeNull(); expect(J.tmJoukkueenJakso({}, NYT)).toBeNull();
+  });
+  it('Koti: jakso päättyy ≤ 5 pv → tehtävä; syke näyttää viikon n/N + päättymispäivän', () => {
+    const jk = J.tmJoukkueenJakso(doc, ms('2026-10-29', '12:00')), m = M.tmKotiMalli({ nyt: ms('2026-10-29', '12:00'), joukkue: J_, pelaajat: PEL, tapahtumat: [], jakso: { nimi: jk.nimi, loppu: jk.paattyy, vk: jk.vk, vkYht: jk.vkYht } });
+    expect(m.tehtavat.map((t) => t.avain)).toContain('jakso'); expect(m.syke.jakso).toEqual({ vk: 4, yht: 4, paattyy: '2026-11-02' });
+    expect(N.tmKotiHTML(m, { t: (x) => x, on: () => 'x()' })).toContain('Jakson viikko · päättyy 2.11.');
+  });
+});
 
 describe('seuraava', () => {
   it('lähin ei-päättynyt omalle joukkueelle; toisen joukkueen, peruttu ja poistettu ohitetaan; käynnissä oleva lasketaan', () => {
@@ -40,6 +53,14 @@ describe('tehtävät', () => {
     expect(m.tehtavat.map((t) => t.avain)).toEqual(['lasnaolot', 'jakso', 'havainnot']); expect(m.tehtavat.every((t) => t.nappi && t.nappi.toiminto)).toBe(true);
     const h = mal({ havainnot: {} }).tehtavat.find((t) => t.avain === 'havainnot'); expect(h.teksti).toContain('+2'); expect(h.teksti.split(',').length).toBe(4);
   });
+  it('FLEI < 40 = turvasignaali, AINA ylin; D3-itsearvio odottaa havaintojen jälkeen; järjestys FLEI > läsnäolot > jakso > havainnot > D3 > viesti > klippi; 3 näkyvissä + loput lisaTehtavat', () => {
+    const pel = PEL.map((p, i) => Object.assign({}, p, { flei: i === 1 ? 35 : 70, d3Odottaa: i === 2 }));
+    const m = mal({ pelaajat: pel, tapahtumat: [tanaanPaattynyt], havainnot: {}, jakso: { nimi: 'J', loppu: '2026-10-17' }, viestit: [{ id: 'v1', kuka: 'Äiti', huoltaja: true, vastattu: false, aika: NYT - 30 * 3600000 }], klipit: [{ id: 'k', jaettu: false }] });
+    expect(m.tehtavat.map((t) => t.avain)).toEqual(['flei', 'lasnaolot', 'jakso']); expect(m.lisaTehtavat.map((t) => t.avain)).toEqual(['havainnot', 'd3', 'viesti', 'klippi']);
+    expect(m.tehtavat[0]).toMatchObject({ turva: true, nappi: { teksti: 'Lähetä klinikkaan', arg: 'p1' } }); expect(m.tehtavat[0].teksti).toContain('Beni B.'); expect(m.lisaTehtavat[1].nappi).toMatchObject({ toiminto: 'd3', arg: 'p2' });
+    const h = N.tmKotiHTML(m, { t: (x) => x, on: (n) => 'k(' + n.toiminto + ')' }); expect(h).toContain('Näytä kaikki (7)'); expect(h).toContain('vk-teht turva'); expect((h.match(/vk-lisaa/g) || []).length).toBeGreaterThan(0);
+    expect(mal({ pelaajat: PEL.map((p) => Object.assign({}, p, { flei: 40 })) }).tehtavat.some((t) => t.avain === 'flei')).toBe(false);   // raja: < 40
+  });
   it('jakso > 5 pv tai kooste tehty → ei tehtävää; viesti alle 24 h tai vastattu → ei; klippi jaettu → ei', () => {
     const m = mal({ havainnot: { p0: '2026-10-10', p1: '2026-10-10', p2: '2026-10-10', p3: '2026-10-10', p4: '2026-10-10', p5: '2026-10-10' }, jakso: { loppu: '2026-10-25' }, viestit: [{ id: 'v', huoltaja: true, vastattu: false, aika: NYT - 3600000 }, { id: 'w', huoltaja: true, vastattu: true, aika: NYT - 99 * 3600000 }], klipit: [{ id: 'k', jaettu: true }] });
     expect(m.tehtavat).toEqual([]);
@@ -67,7 +88,7 @@ describe('syke, viestit, tyhjä, HTML', () => {
     expect(m.syke).toMatchObject({ omatoimiAktiivisia: 2, pelaajia: 6, lasnaolo4vk: null }); expect(m.viestit.map((v) => v.id)).toEqual(['m4', 'm3', 'm2']);
   });
   it('uusi valmentaja (ei pelaajia, ei tapahtumia) → tyhja "uusi" → Aloita tästä -polku, ei tyhjiä kortteja', () => {
-    const m = M.tmKotiMalli({ nyt: NYT, joukkue: J, tapahtumat: [], pelaajat: [] }); expect(m.tyhja).toBe('uusi');
+    const m = M.tmKotiMalli({ nyt: NYT, joukkue: J_, tapahtumat: [], pelaajat: [] }); expect(m.tyhja).toBe('uusi');
     const h = N.tmKotiHTML(m, { t: (x) => x, on: () => 'x()' }); expect(h).toContain('Aloita tästä'); expect(h).not.toContain('Syke');
   });
   it('HTML: kortit + napit; ei hex/emoji; ei punaista; nostoissa amber/teal-luokat', () => {

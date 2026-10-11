@@ -127,7 +127,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
 <script src="lib/tm_tukitavoitteet.js?v=4"></script>   <!-- J1/J2: joukkuejakson osa-alueet + tukitavoitteet (lukee tm_idp, tm_jakso_malli, tm_fyysteemat) -->
 <script src="lib/tm_joukkue.js?v=5"></script>   <!-- §7.18: tmPelaajanJoukkueet — YKSI jäsenyyssääntö (joukkueet[] on totuus) -->
-<script src="lib/tm_joukkuejakso.js?v=4"></script>   <!-- J2: joukkuejakso (Kausi → Joukkueen jakso): valinnat, lomake, kortti -->
+<script src="lib/tm_joukkuejakso.js?v=5"></script>   <!-- J2: joukkuejakso (Kausi → Joukkueen jakso): valinnat, lomake, kortti -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>
 <script src="lib/tm_joukkoaloitus.js?v=5"></script>   <!-- J4 C: joukkoaloitus (Kausi → Pelaajien jaksot) -->   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
@@ -5091,13 +5091,13 @@ function renderKotiV2() {
   const el = document.getElementById('kotiView'), M = window.TM_VALMENTAJA_KOTI, N = window.TM_VALMENTAJA_KOTI_NAKYMA;
   if (!el || !M || !N || _demo || !_seuraId) return false;
   if (!document.getElementById('vkCss')) { const st = document.createElement('style'); st.id = 'vkCss'; st.textContent = N.tmKotiCSS(); document.head.appendChild(st); }
-  const jd = (_mJoukkueDocs || []).find(j => j.nimi === _joukkue), pel = (_pelaajatData || []).filter(p => !_joukkue || _mOnJoukkueessa(p, _joukkue)).map(p => ({ id: p.id, nimi: _tmHenkiloNimi(p) })), havainnot = {};
+  const jd = (_mJoukkueDocs || []).find(j => j.nimi === _joukkue), pel = (_pelaajatData || []).filter(p => !_joukkue || _mOnJoukkueessa(p, _joukkue)).map(p => ({ id: p.id, nimi: _tmHenkiloNimi(p), flei: p.flei_viimeisin != null ? p.flei_viimeisin : null, d3Odottaa: typeof d3OdottaaKalibrointia === 'function' ? !!d3OdottaaKalibrointia(p) : p.d3_varmuus === 'itsearvio' })), havainnot = {}, jk = jd && window.TM_JOUKKUEJAKSO.tmJoukkueenJakso(jd, Date.now());   // jakso: YKSI lähde tmJoukkueenJakso (sama laskenta kuin Kausi)
   (_pelaajatData || []).forEach(p => { const ms = _iaMs(p.adar_pvm); if (ms && (p.adar_havaintoja || 0) > 0) havainnot[p.id] = tmPaivaIso(new Date(ms)); });
-  const m = M.tmKotiMalli({ tapahtumat: _kalenteriTapahtumat || [], nyt: Date.now(), joukkue: jd ? { id: jd.id, nimi: jd.nimi } : (_joukkue ? { nimi: _joukkue } : null), pelaajat: pel, havainnot, saatavuus: window._kotiSaat || null,
+  const m = M.tmKotiMalli({ tapahtumat: _kalenteriTapahtumat || [], nyt: Date.now(), joukkue: jd ? { id: jd.id, nimi: jd.nimi } : (_joukkue ? { nimi: _joukkue } : null), pelaajat: pel, havainnot, saatavuus: window._kotiSaat || null, jakso: jk ? { nimi: jk.nimi, alku: jk.alku, loppu: jk.paattyy, vk: jk.vk, vkYht: jk.vkYht } : null,
     kirjaukset: (_kirjaukset || []).map(k => ({ pelaajaId: k._pelaajaId || k.playerId, pvm: tmPaivaIso(new Date(k.t || 0)), tyyppi: k.tyyppi, tehty: k.tehty })),
     viestit: (_vpViestit || []).map(v => ({ id: v._firestoreId, kuka: v.fromNimi, teksti: v.teksti, luettu: v.luettu === true, vastattu: true, aika: v.t })), uusi: !pel.length });
   const toimi = n => { const a = n.arg == null ? '' : String(n.arg).replace(/'/g, ''); switch (n.toiminto) {
-    case 'avaa': return "calEventClick('" + a + "')"; case 'lasnaolo': return "calEventClick('" + a + "')"; case 'pelaaja': return "setWs('dev');renderDev('" + a + "')"; case 'havainto': return "openDrill('adar'" + (a ? ",'" + a + "'" : '') + ")";
+    case 'avaa': return "calEventClick('" + a + "')"; case 'lasnaolo': return "calEventClick('" + a + "')"; case 'pelaaja': return "setWs('dev');renderDev('" + a + "')"; case 'd3': return "_avaaD3Arvio('" + a + "')"; case 'havainto': return "openDrill('adar'" + (a ? ",'" + a + "'" : '') + ")";
     case 'kalenteri': case 'jakso': case 'viesti': return "setWs('" + (n.toiminto === 'kalenteri' ? 'cal' : n.toiminto === 'jakso' ? 'season' : 'inbox') + "')"; case 'viestit': case 'viesti_vastaa': return "setWs('inbox')"; case 'tayta': return "setWs('cal')"; case 'pulssi': return "setWs('pulse')"; default: return "setWs('koti')"; } };
   el.innerHTML = N.tmKotiHTML(m, { t: masterT, on: toimi });
   if (m.seuraava && (window._kotiSaatHaettu !== m.seuraava.id)) { window._kotiSaatHaettu = m.seuraava.id; N.tmKotiLataaSaatavuus(_db, _seuraId, m.seuraava.id, pel).then(r => { if (r) { window._kotiSaat = Object.assign({}, window._kotiSaat, { [m.seuraava.id]: r }); renderKotiV2(); } }); }
