@@ -22,7 +22,8 @@ describe('Gemini-erä 2 — master_kartta', () => {
   const ERA18 = JSON.parse(lue('docs/i18n/sv_kaannoserae_18.json')).osiot, LIB18 = ERA18['lib.tm_nakyma_ryhmat'].rivit;   // erä 18 (yksi totuus): Masterin HTML-avaimet + lib.tm_nakyma_ryhmat (käytössä libin t()-kutsuissa masterT:n kautta)
   const ERA22 = JSON.parse(lue('docs/i18n/sv_kaannoserae_22.json')).osiot.master_kartta.rivit;   // erä 22 (K35-2): kalenterin otsakkeen nappi + paikka-vihje, sv tyhjä
   const ERA23 = JSON.parse(lue('docs/i18n/sv_kaannoserae_23.json')).osiot.master_kartta.rivit;   // erä 23 (K35-2b): 'Muut tyypit', sv tyhjä
-  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA8, ERA16, ERA18.master_kartta.rivit, ERA22, ERA23, LIB18);
+  const ERA24 = JSON.parse(lue('docs/i18n/sv_kaannoserae_24.json')).osiot.master_kartta.rivit;   // erä 24 (K35-6a): viikkonäkymä + Täytä viikko, sv tyhjä
+  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA8, ERA16, ERA18.master_kartta.rivit, ERA22, ERA23, ERA24, LIB18);
   it('jokainen sv-riviä vailla oleva Masterin avain on erässä (avain = fi-teksti)', () => {
     const { puuttuu } = masterAvaimet(juuri);
     expect(puuttuu.filter((fi) => !rivit[fi]), 'aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);
@@ -32,7 +33,7 @@ describe('Gemini-erä 2 — master_kartta', () => {
     const { puuttuu } = masterAvaimet(juuri);
     // erän 2 tyhjät rivit täyttyivät erässä 3 (docs/i18n/sv_kaannoserae_3.json master_kartta; vienti scripts/i18n_vie_sv_era3.cjs) → ei vanhentunut
     const era3 = JSON.parse(lue('docs/i18n/sv_kaannoserae_3.json')).osiot.master_kartta.rivit;
-    const libKaytossa = JSON.parse(lue('docs/i18n/sv_kaannoserae_18.json')).osiot['lib.tm_nakyma_ryhmat'].rivit;   // lib käyttää näitä masterT:n kautta (extractor skannaa vain HTML:n)
+    const libKaytossa = Object.assign({}, JSON.parse(lue('docs/i18n/sv_kaannoserae_18.json')).osiot['lib.tm_nakyma_ryhmat'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_24.json')).osiot['lib.tm_kalenteri_nakyma'].rivit);   // lib käyttää näitä masterT:n kautta (extractor skannaa vain HTML:n)
     const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv && !(era3[fi] && era3[fi].sv) && !libKaytossa[fi]);
     expect(vanhentuneet).toEqual([]);
   });

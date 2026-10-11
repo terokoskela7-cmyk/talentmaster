@@ -1,0 +1,35 @@
+/* K35-6a · selaintestien ja kuvien yhteinen harness: Masterin OIKEA sivu file://-osoitteesta, Firebase korvattu muistissa olevalla mock-Firestorella (ei verkkoa, ei oikeaa dataa).
+   Fixture: FC Demon kaltainen (keksityt nimet): joukkue "Demo U13" (demo_u13, 8v8), Palloliiton 6 pohjaa valmennuslinja/viikkopohjat-dokissa; "nyt" = ma 19.10.2026. */
+import fs from 'fs'; import os from 'os'; import path from 'path'; import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const NYT = Date.UTC(2026, 9, 19, 9, 0);
+const ms = (pvm, hhmm) => Date.parse(pvm + 'T' + hhmm + ':00+03:00');
+const tap = (id, tyyppi, pvm, a, p, o) => Object.assign({ id, tyyppi, nimi: '', pvm, alkaa: a, paattyy: p, _alkaaMs: ms(pvm, a), _paattyyMs: ms(pvm, p), joukkue: 'Demo U13', joukkue_nimi: 'Demo U13', paikka: '', tila: 'suunniteltu', poistettu: false, lahde: 'manuaalinen' }, o || {});
+export const FIXTURE = {
+  /* tyhja: edellisen viikon harjoitukset (historia) + ottelu la 24.10.; ei harjoituksia viikolla 19.–25.10. */
+  historia: [tap('h1', 'harjoitus', '2026-10-13', '17:30', '19:00', { paikka: 'Kenttä 2' }), tap('h2', 'harjoitus', '2026-10-15', '17:30', '19:00', { paikka: 'Halli' }), tap('h3', 'harjoitus', '2026-10-06', '17:30', '19:00', { paikka: 'Kenttä 2' })],
+  ottelu: tap('o1', 'ottelu', '2026-10-24', '12:00', '13:30', { vastustaja: 'Demo Juniorit', paikka: 'Stadion' }),
+  tauko: { id: 't1', tyyppi: 'seuran_tauko', nimi: 'Syysloma', koko_paiva: true, pvm: '2026-10-12', alkaa: '00:00', paattyy: '23:59', _alkaaMs: Date.parse('2026-10-12T00:00:00+03:00'), _paattyyMs: Date.parse('2026-10-18T23:59:00+03:00'), joukkue: '', joukkue_nimi: '', poistettu: false },
+  ryhma: tap('r1', 'harjoitus', '2026-10-20', '17:30', '19:00', { nimi: 'MV-harjoitus', joukkue: '', joukkue_nimi: '', kohde: { tyyppi: 'ryhma', ryhma_id: 'g1' }, pelaajat_id: ['p1', 'p2', 'p3'] }),
+  pelaajat: ['p1', 'p2', 'p3', 'p4'].map((id, i) => ({ id, etunimi: 'Demo' + (i + 1), sukunimi: 'Pelaaja', joukkue: 'Demo U13', joukkueet: ['demo_u13'] }))
+};
+export function pohjat() { const V = require('../../lib/tm_viikkopohja.js'); return V.tmPalloliitonPohjat(JSON.parse(fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), '../../docs/data/spl_viikkopohjat_2023.json'), 'utf8'))); }
+const kello = 'var __N=' + NYT + ',__D=Date;Date=class extends __D{constructor(...a){super(...(a.length?a:[__N]))}static now(){return __N}};';
+/* opts: { teema, tapahtumat:[...], pelimuoto:'8v8'|null, rooli:'vp'|'valmentaja', pohjat:bool, kutsu:'js', viikko:0 } */
+export function sivu(masterHtml, juuri, opts) {
+  opts = Object.assign({ teema: 'dark', tapahtumat: [], pelimuoto: '8v8', rooli: 'vp', pohjat: true, kutsu: '', viikko: 0 }, opts);
+  const probe = kello + '(function(){var out=function(x){var o=document.createElement("pre");o.id="probe-out";o.textContent=x;o.style.display="none";document.body.appendChild(o)};try{'
+    + 'if(typeof firebase==="undefined"||!firebase.firestore)firebase={firestore:{Timestamp:{fromDate:function(d){return{toDate:function(){return d},_ms:d.getTime()}},fromMillis:function(m){return{toDate:function(){return new Date(m)},_ms:m}}},FieldValue:{serverTimestamp:function(){return"TS"},delete:function(){return"DEL"}}},auth:function(){return{currentUser:{uid:"u1"}}}};'
+    + 'var DOCS=' + JSON.stringify(opts.pohjat ? { 'seurat/demo/valmennuslinja/viikkopohjat': { pohjat: pohjat() } } : {}) + ',N=0;window.__kirj=[];window.__paivitykset=[];'
+    + 'function mkDoc(p){return{get:async function(){return DOCS[p]?{exists:true,data:function(){return DOCS[p]}}:{exists:false}},update:async function(d){window.__paivitykset.push([p,d]);},collection:function(c){return mkCol(p+"/"+c)}}}'
+    + 'function mkCol(p){return{doc:function(id){return mkDoc(p+"/"+(id||("auto"+(++N))))},get:async function(){return{docs:[],forEach:function(){}}},where:function(){return this}}}'
+    + '_db.collection=function(c){return mkCol(c)};_db.batch=function(){var ops=[];return{set:function(r,d){ops.push({r:r,d:d})},commit:async function(){ops.forEach(function(o){window.__kirj.push(o)})}}};'   // _db on const → korvataan sen metodit
+    + 'document.documentElement.setAttribute("data-theme","' + opts.teema + '");_seuraId="demo";_demo=false;_rooli="' + opts.rooli + '";_uid="u1";_superAdmin=false;_joukkue="Demo U13";_testitapahtumat=[];_pelaajatData=' + JSON.stringify(FIXTURE.pelaajat) + ';'
+    + '_mJoukkueDocs=[{id:"demo_u13",nimi:"Demo U13",ika:"U13",pelimuoto:' + JSON.stringify(opts.pelimuoto) + '}];_mLataaJoukkueDocs=async function(){return _mJoukkueDocs};'
+    + 'var BASE=' + JSON.stringify(opts.tapahtumat) + ';_kalenteriTapahtumat=BASE.slice();'
+    + '_lataaKalenteriTapahtumat=async function(){var lisat=window.__kirj.map(function(o,i){var d=o.d,a=d.alkaa.toDate(),b=d.paattyy.toDate(),z=function(n){return(n<10?"0":"")+n},pv=a.getFullYear()+"-"+z(a.getMonth()+1)+"-"+z(a.getDate());return Object.assign({id:"uusi"+i},d,{pvm:pv,alkaa:z(a.getHours())+":"+z(a.getMinutes()),paattyy:z(b.getHours())+":"+z(b.getMinutes()),_alkaaMs:a.getTime(),_paattyyMs:b.getTime(),joukkue:d.joukkue_nimi||d.joukkue})});_kalenteriTapahtumat=BASE.concat(lisat);renderCal()};'
+    + 'var pakota=function(){document.getElementById("sLogin").classList.add("hidden");document.getElementById("sDash").classList.remove("hidden")};pakota();setInterval(pakota,150);_calWkOffset=' + opts.viikko + ';setWs("cal");renderCal();'
+    + 'setTimeout(function(){try{' + (opts.kutsu || '') + '}catch(e){out("VIRHE "+e.message);return}out("ok")},900)}catch(e){out("VIRHE "+e.message)}})();';
+  const j = masterHtml.indexOf('<head>') + 6, i = masterHtml.lastIndexOf('</body>'), p = path.join(os.tmpdir(), 'k35_6a_' + Math.random().toString(36).slice(2) + '.html');
+  fs.writeFileSync(p, masterHtml.slice(0, j) + '<base href="file://' + juuri + '/">' + masterHtml.slice(j, i) + '<script>' + probe + '</script>' + masterHtml.slice(i)); return p;
+}
