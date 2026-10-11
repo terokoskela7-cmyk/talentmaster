@@ -9,7 +9,6 @@ const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KUVIO = /(?:\b|['"])ottelu['"]?\s*:\s*[{'"]|\bid\s*:\s*['"]ottelu['"]/g;
 const SALLITTU = {
   'TalentMaster_VP_v25.html': 1,          // KALENTERI_TYYPIT
-  'TalentMaster_Master_v16.html': 1,      // `tyypit`-lista luontimodaalissa (_calEvtTyyli on switch, ei karttaa)
   'TalentMaster_Pelaaja_v7.html': 1,      // _P7_TT
   'TalentMaster_Vanhempi_v2.html': 1,     // _VANH_TT
   'TalentMaster_Pelihavainto_Kentta.html': 1   // pelitapahtumien kartta (ei kalenteri) — vanha, ei saa kasvaa
