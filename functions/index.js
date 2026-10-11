@@ -2485,6 +2485,17 @@ exports.haePelaajanKalenteri = functions
   .runWith({ enforceAppCheck: true })
   .https.onCall(pelaajanKalenteri.luoKasittelija({ db, HttpsError: functions.https.HttpsError, Timestamp: admin.firestore.Timestamp }));
 
+/* K35-7a — kalenterin iCal-syöte (D190; functions/kalenteri_ical.js): luoKalenteriTilaus (callable, App Check) palauttaa tilaus-URL:n kerran; kalenteriIcal (HTTPS, EI App Checkia — kalenterisovellus ei osaa;
+   token on ainoa suoja) palvelee /<token>.ics. Rajaus jaetulla libillä (B4). Deploy: Tero. */
+const kalenteriIcal = require('./kalenteri_ical');
+exports.luoKalenteriTilaus = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(kalenteriIcal.luoTilausKasittelija({ db, HttpsError: functions.https.HttpsError, Timestamp: admin.firestore.Timestamp }));
+exports.kalenteriIcal = functions
+  .region('europe-west1')
+  .https.onRequest(kalenteriIcal.luoSyoteKasittelija({ db, Timestamp: admin.firestore.Timestamp }));
+
 /* Huoltajakutsu: kirjautumaton sivu (TalentMaster_Huoltajakutsu.html) avaa kutsun → tuore salasanalinkki; vanhentunut/käytetty kutsu → uusi linkki huoltajaEmailiin. App Check pakollinen. */
 exports.avaaHuoltajakutsu = functions
   .region('europe-west1')
