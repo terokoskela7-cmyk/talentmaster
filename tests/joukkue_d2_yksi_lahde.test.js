@@ -15,6 +15,7 @@ function funktio(src, alku) { const i = src.indexOf(alku); if (i < 0) throw new 
 function ymp() {
   const sb = { console: { log() {}, warn() {}, error() {} }, document: { getElementById: (id) => (id === 'joukkuekortit' ? sb.__el : null) }, __el: { innerHTML: '' } }; sb.window = sb; vm.createContext(sb);
   for (const f of ['lib/tm_phv_tila.js', 'lib/tm_mittarit.js', 'lib/tm_eerikkila_normit.js']) vm.runInContext(lue(f), sb);
+  sb.window.TM_NAKYMA_RYHMAT = require('../lib/tm_nakyma_ryhmat.js');   // YKSI TOTUUS: joukkuekortin luokitusrivit (Node-require: libit ratkaisevat riippuvuutensa itse)
   Object.assign(sb, { vpT: (x) => x, joukkueJarjestys: () => 0, lyhennaNimi: (x) => x, tmOnVanhaMittaus: () => false, tmPvmFi: (x) => x, tmKuukausiaMittauksesta: () => 0, onNeutraaliPrePHV: () => false, raeJoukkueJakauma: () => ({ n_kvartaalillisia: 0 }), _jsvJoukkueIkaSp: () => ({ ika: 10, sp: 'P' }) });
   for (const n of ['laskeJoukkueSuunta', '_pJNimet', '_pOnJoukkueessa', '_pRyhmiteltyJoukkueittain']) vm.runInContext(funktio(VP, 'function ' + n + '('), sb);
   vm.runInContext(funktio(VP, 'function renderTeamPulse('), sb);

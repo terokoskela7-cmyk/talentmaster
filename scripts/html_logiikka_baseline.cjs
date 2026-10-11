@@ -9,7 +9,10 @@ const KUVIOT = {
   normihaku: /\beerikkilaTaso\s*\(|\beerikkilaNormiarvo\s*\(/g,
   tkiRaja: /\btki(?:_viimeisin)?\s*(?:<|<=|>=|>)\s*\d{2}\b|\bTKI\s*(?:<|<=|>=|>)\s*\d{2}\b/g,
   tasoRaja: /\b(?:hh_taso|d1_taso|d2_taso|\.taso|_taso)\s*(?:<|<=|>=|>)\s*[1-5](?:\.\d)?\b/g,
-  tasoKonversio: /\btki[A-Za-z_]*\s*\/\s*20\b/g
+  tasoKonversio: /\btki[A-Za-z_]*\s*\/\s*20\b/g,
+  /* YKSI TOTUUS: ei kovakoodattuja vanhuusrajoja ("12 kk", "15 kk") eikä tasorajoja tekstissä ("taso < 3", "taso ≥ 3") — raja tulee normistosta/libistä; lista saa vain pienentyä */
+  vanhuusRaja: /\b(?:12|15)\s*kk\b|\bkk\s*(?:>|>=)\s*(?:12|15)\b/g,
+  tasoTeksti: /\btaso\s*(?:<|≥|>=|<=|≤)\s*[1-5]\b/g
 };
 function laske() {
   const ulos = {};
