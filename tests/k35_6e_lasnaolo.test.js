@@ -50,9 +50,8 @@ describe('2 · "Merkitse läsnäolot" -muistutus', () => {
 describe('3 · läsnäolo oletuksena "kaikki paikalla" (tmLasnaoloEsivalinta)', () => {
   const roster = ['p1', 'p2', 'p3', 'p4'].map((id) => ({ id, nimi: 'Demo ' + id }));
   it('merkitsemätön tapahtuma → kaikki paikalla esivalittuna; ylärivi "4/4 paikalla"', () => {
-    const e = L.tmLasnaoloEsivalinta(roster, {}); expect(e.esivalittu).toBe(true); expect(Object.values(e.state).every((x) => x.tila === 'paikalla')).toBe(true); expect(L.tmLasnaoloYhteenveto(e.state)).toMatchObject({ paikalla: 4, n: 4, teksti: '4/4 paikalla' });
-    expect(L.tmLasnaoloEsivalinta(roster, { p1: { saatavuus: 'estynyt' } }).esivalittu).toBe(true);   // pelkkä RSVP ei ole merkintä; saatavuus säilyy tiedona (esivalinta poissa vasta D189)
-    expect(L.tmLasnaoloEsivalinta(roster, { p1: { saatavuus: 'estynyt' } }).state.p1).toMatchObject({ tila: 'paikalla', saatavuus: 'estynyt' });
+    const e = L.tmLasnaoloEsivalinta(roster, {}); expect(e.esivalittu).toBe(true); expect(Object.values(e.state).every((x) => x.tila === 'paikalla')).toBe(true); expect(L.tmLasnaoloYhteenveto(e.state)).toMatchObject({ paikalla: 4, n: 4, teksti: '4/4 paikalla' });   // identiteettikäännös: avain = fi-teksti
+    expect(L.tmLasnaoloEsivalinta(roster, { p1: { saatavuus: 'tulossa' } }).state.p1).toMatchObject({ tila: 'paikalla', saatavuus: 'tulossa' });
   });
   it('olemassa oleva merkintä säilyy: merkityt ennallaan, merkitsemättömät jäävät tyhjiksi (ei esivalintaa)', () => {
     const e = L.tmLasnaoloEsivalinta(roster, { p1: { tila: 'paikalla' }, p2: { tila: 'poissa', syy: 'sairas' }, p3: { tila: 'myohassa' } });
@@ -66,9 +65,26 @@ describe('3 · läsnäolo oletuksena "kaikki paikalla" (tmLasnaoloEsivalinta)', 
   it('EI automaattista tallennusta: lib ei kirjoita mitään; Master tallentaa vain Tallenna läsnäolo -napista (_calTallennaLasnaolo kutsutaan vain tallBtn.onclickistä)', () => {
     expect(lue('lib/tm_lasnaolo.js')).not.toMatch(/firebase|firestore|\.set\(|\.update\(|batch/);
     expect((MASTER.match(/_calTallennaLasnaolo\(/g) || []).length).toBe(2);   // määrittely + tallBtn.onclick
-    expect(MASTER).toContain("tallBtn.onclick = function() { _calTallennaLasnaolo(t, roster, state, tallBtn); };"); expect(MASTER).toContain('TM_LASNAOLO.tmLasnaoloEsivalinta(roster, existing)'); expect(MASTER).toContain('TM_LASNAOLO.tmLasnaoloYhteenveto(state)');
+    expect(MASTER).toContain("tallBtn.onclick = function() { _calTallennaLasnaolo(t, roster, state, tallBtn); };"); expect(MASTER).toContain('TM_LASNAOLO.tmLasnaoloEsivalinta(roster, existing, masterT)'); expect(MASTER).toContain('TM_LASNAOLO.tmLasnaoloYhteenveto(state, masterT)');
     const a = MASTER.indexOf('async function _calRenderLasnaolo'), b = MASTER.indexOf('async function _calTallennaLasnaolo'); expect(MASTER.slice(a, b)).not.toMatch(/\.set\(|batch\.|\.commit\(/);   // läsnäolonäkymän avaus ei kirjoita
   });
+});
+
+describe('3b · RSVP "estynyt" → esivalinta poissa, syy "ilmoitti estyneeksi" (D189)', () => {
+  const roster = ['p1', 'p2', 'p3', 'p4'].map((id) => ({ id, nimi: 'Demo ' + id })), TT = (x) => x;
+  it('merkitsemätön tapahtuma: estynyt → poissa + syy; muut paikalla; pelkkä tulossa → paikalla; pelaaja ilman ilmoitusta → paikalla', () => {
+    const e = L.tmLasnaoloEsivalinta(roster, { p2: { saatavuus: 'estynyt' }, p3: { saatavuus: 'tulossa' } }, TT);
+    expect(e.esivalittu).toBe(true); expect(e.state.p2).toMatchObject({ tila: 'poissa', syy: 'ilmoitti estyneeksi', saatavuus: 'estynyt' }); expect(e.state.p1.tila).toBe('paikalla'); expect(e.state.p3.tila).toBe('paikalla'); expect(e.state.p4.tila).toBe('paikalla');
+    expect(L.tmLasnaoloYhteenveto(e.state, TT).teksti).toBe('3/4 paikalla · 1 poissa');
+  });
+  it('syy tulee käännösfunktion kautta (ei kovakoodattua suomea); jo merkityllä tapahtumalla estynyt ei muuta mitään', () => {
+    const e = L.tmLasnaoloEsivalinta(roster, { p2: { saatavuus: 'estynyt' } }, (x) => '[' + x + ']'); expect(e.state.p2.syy).toBe('[ilmoitti estyneeksi]'); expect(L.tmLasnaoloYhteenveto(e.state, (x) => '[' + x + ']').teksti).toBe('3/4 [paikalla] · 1 [poissa]');
+    const m = L.tmLasnaoloEsivalinta(roster, { p1: { tila: 'paikalla' }, p2: { saatavuus: 'estynyt' } }, TT); expect(m.esivalittu).toBe(false); expect(m.state.p2.tila).toBeNull(); expect(m.state.p2.syy).toBe('');
+  });
+  it('lib ei sisällä kovakoodattuja käyttäjälle näkyviä suomenkielisiä tekstejä muuten kuin t()-avaimina', () => {
+    const src = lue('lib/tm_lasnaolo.js').split('\n').filter((r) => !/^\s*(\/\*|\*|·|\/\/)/.test(r) && !/^\s{3,}[·A-ZÄÖ]/.test(r)).join('\n'); const kirjaimet = [...src.matchAll(/'([^']*[äö][^']*)'/g)].map((m) => m[1]); kirjaimet.forEach((k) => expect(src).toMatch(new RegExp("T\\('" + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "'\\)")));
+  });
+  it('Master välittää masterT:n libille (ei omaa tekstinkoostetta)', () => { expect(MASTER).toContain('tmLasnaoloEsivalinta(roster, existing, masterT)'); expect(MASTER).toContain('tmLasnaoloYhteenveto(state, masterT).teksti'); });
 });
 
 describe('4 · modaalien tekstikentät (#1005)', () => {

@@ -43,6 +43,15 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K35-6e · sel
       await p.locator('#calDetailModal').getByText('Sulje', { exact: true }).click(); expect(await p.locator('.kv-kortti[onclick*="h2"]').innerText()).toContain('✓ 3/4'); await sk.close();
     } finally { await selain.close(); }
   }, 90000);
+  it('RSVP "estynyt" → esivalinta poissa, syy "ilmoitti estyneeksi" (yhteenveto "✓ 3/4 paikalla · 1 poissa"); tallennus kirjoittaa poissa + syyn vain kuittauksella', async () => {
+    const selain = await kaynnista();
+    try {
+      const { sk, p } = await avaa(selain, Object.assign({ tapahtumat: [harj('h2', '2026-10-15')], kokoelmat: KOK({ 'seurat/demo/kalenteri/h2/lasnaolijat': [{ id: 'p3', data: { saatavuus: 'estynyt' } }] }) }, VIIKKO));
+      await p.locator('.kv-kortti[onclick*="h2"]').click(); await p.waitForFunction(() => (document.querySelector('.la-sum') || {}).textContent);
+      expect((await p.locator('.la-sum').innerText()).startsWith('✓ 3/4 paikalla · 1 poissa')).toBe(true); expect(await p.locator('.la-syy[data-pid="p3"]').inputValue()).toBe('ilmoitti estyneeksi'); expect(await p.locator('.la-btn[data-pid="p3"][data-tila="poissa"]').evaluate((b) => b.style.fontWeight)).toBe('600'); expect(await p.evaluate(() => window.__kirj.length)).toBe(0);
+      await p.getByText('Tallenna läsnäolo').click(); await p.waitForFunction(() => window.__kirj.length === 5); const p3 = await p.evaluate(() => window.__kirj.map((o) => [o.r.path, o.d.tila, o.d.syy]).find((x) => /lasnaolijat\/p3$/.test(x[0]))); expect(p3.slice(1)).toEqual(['poissa', 'ilmoitti estyneeksi']); await sk.close();
+    } finally { await selain.close(); }
+  }, 90000);
   it('jo merkittyä läsnäoloa ei muuteta: esivalintaa ei tehdä, merkityt säilyvät ja merkitsemättömät jäävät tyhjiksi', async () => {
     const selain = await kaynnista();
     try {

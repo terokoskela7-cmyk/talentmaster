@@ -1,10 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.57
+// TalentMaster™ — firestore.rules v3.58
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.57 → v3.58 (K35-6d joukkueen omat: vapaa, erikoisohjelma — D240/D241; ei migraatiota, vain uusi kirjoitusehto):
+//   · seurat/{sid}/kalenteri/{id} create/update: tyyppi (lower+trim) 'seuran_tauko' | 'tauko' | 'loma' → KOKONAAN vain johto (VP/UTJ/seurasihteeri) tai SA, myös joukkueeseen rajattuna (valmentaja ei luo eikä muokkaa; valmentajan joukkuekohtainen tauko = joukkueen_vapaa);
+//     'joukkueen_vapaa' | 'erikoisohjelma' → `joukkue` (joukkue-id) PAKOLLINEN ja valmentaja vain OMA joukkue (kayttajat.joukkueet ∋ joukkue; johto ja talenttivalmentaja kaikki joukkueet). //     Update tarkistaa sekä uuden että vanhan dokumentin (ei tyypin vaihtoa toiseksi eikä toisen joukkueen vapaan muokkausta). Muut tyypit ennallaan (valmentaja kirjoittaa kuten ennen).
 // Muutokset v3.56 → v3.57 (K35-7a kalenterin iCal-syöte, D190 — UUSI kokoelma, ei migraatiota):
 //   · kalenteri_tilaukset/{sha256(token)}: allow read, write: if false — VAIN palvelin (Admin SDK: callable luoKalenteriTilaus kirjoittaa, HTTPS kalenteriIcal lukee). Dokumentti { seuraId, pelaajaId|null, uid|null, tilaajaUid, kohde, rooli, luotu, mitatoity, viimeksi_haettu };
 //     asiakas ei näe eikä muuta tilauksia (tokenin tiiviste on dokumentin id → ei listausta). Token on syötteen ainoa suoja (kalenterisovellus ei osaa App Checkia).
@@ -661,6 +664,19 @@ service cloud.firestore {
     // kayttajat/{uid}.joukkueet = ID-lista (Seura-näkymä; VP:llä tyhjä → hoitaa kaikkia johto-ohituksella).
     function valmentajanJoukkueet(seuraId) {
       return get(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(request.auth.uid)).data.get('joukkueet', []);
+    }
+    /* v3.58 (K35-6d): kalenteri-dokin tyyppikohtaiset kirjoitusehdot. d = request.resource.data (create/update-uusi) tai resource.data (update-vanha). */
+    function kalTyyppi(d) { return d.get('tyyppi', '').lower().trim(); }
+    function kalOnSeuranTauko(d) { return kalTyyppi(d) in ['seuran_tauko', 'tauko', 'loma']; }
+    function kalOnJoukkueenOma(d) { return kalTyyppi(d) in ['joukkueen_vapaa', 'erikoisohjelma']; }
+    function kalOnJoukkue(d) { return d.get('joukkue', null) is string && d.get('joukkue', '').size() > 0; }
+    function kalOmaJoukkue(seuraId, d) {
+      return onJohtoRooli() || request.auth.token.rooli == 'talenttivalmentaja'
+          || (kalOnJoukkue(d) && valmentajanJoukkueet(seuraId).hasAny([d.joukkue]));
+    }
+    function kalTyyppiSaaKirjoittaa(seuraId, d) {
+      return onSuperAdmin() || ((!kalOnSeuranTauko(d) || onJohtoRooli())
+          && (!kalOnJoukkueenOma(d) || (kalOnJoukkue(d) && kalOmaJoukkue(seuraId, d))));
     }
     // Valmentaja saa kirjoittaa VAIN oman joukkueensa pelaajiin (ID-täsmäys pelaajan joukkueet[] ∩ valmentajan joukkueet[]).
     // Joukkuerajauksen OHITTAA → koko seura (seura-lukko onOmanSeuranValmentaja säilyy silti):
@@ -1905,6 +1921,7 @@ service cloud.firestore {
         // Luonti: VP/johto (vapaa) TAI valmentajarooli joka asettaa luoja_uid == oma uid.
         // v3.52: `muistiinpanot`-kenttä ei saa olla tapahtumadokumentissa (pelaaja lukee kalenterin) — vain henkilokunta/muistiinpanot-alikokoelmassa.
         allow create: if !('muistiinpanot' in request.resource.data)
+                      && kalTyyppiSaaKirjoittaa(seuraId, request.resource.data)   // v3.58 (K35-6d): seuran tauko vain johto; vapaa/erikoisohjelma: joukkue pakollinen, valmentaja oma joukkue
                       && (onSuperAdmin()
                       || (onOmaSeura(seuraId) && onJohtoRooli())
                       || (onOmanSeuranValmentaja(seuraId)
@@ -1916,6 +1933,7 @@ service cloud.firestore {
         //  · valmentaja MUIDEN tapahtumaan → vain field-level
         //    (läsnäolo-kooste + RPE + aikaleima; muistiinpanot vain henkilokunta-alikokoelmassa, v3.52/v3.53; EI soft-deletea/nimeä/aikaa muille).
         allow update: if !('muistiinpanot' in request.resource.data)   // v3.52: kenttä pois tapahtumadokumentista (poistava update sallittu)
+                      && kalTyyppiSaaKirjoittaa(seuraId, request.resource.data) && kalTyyppiSaaKirjoittaa(seuraId, resource.data)   // v3.58 (K35-6d): uusi JA vanha dokumentti
                       && (onSuperAdmin()
                       || (onOmaSeura(seuraId) && onJohtoRooli())
                       || (onOmanSeuranValmentaja(seuraId)

@@ -55,7 +55,7 @@ async function rakennaSyote(deps, tilaus, nytMs) {
     const johto = JOHTO.indexOf(k.rooli) >= 0, kaikki = johto || k.rooli === 'talenttivalmentaja', omat = Array.isArray(k.joukkueet) ? k.joukkueet.map(String) : [];
     let ryhmaIdt = [];
     try { const rs = await seura.collection('ryhmat').get(); rs.forEach((d) => { const r = d.data() || {}; if (r.aktiivinen !== false && ((Array.isArray(r.valmentajat) && r.valmentajat.indexOf(tilaus.uid) >= 0) || r.vastuu_uid === tilaus.uid)) ryhmaIdt.push(d.id); }); } catch (e) { ryhmaIdt = []; }
-    const ctx = { uid: tilaus.uid, johto, ryhmaIdt, omatPelaajat: [] };
+    const ctx = { uid: tilaus.uid, johto, ryhmaIdt, omatPelaajat: [], omatJoukkueet: kaikki ? joukkueDocs.map((j) => j.id) : omat };   // D242: joukkueen valmennuspalaveri (kohde henkilokunta + joukkue) vain sen joukkueen valmentajille, johdolle ja luojalle — jaettu tmNakyyKalenterissa
     valitut = evs.filter((ev) => {
       if (ev.poistettu === true || !R.tmNakyyKalenterissa(ev, ctx)) return false;
       if (kaikki || (ev.kohde && ev.kohde.tyyppi === 'ryhma') || (ev.kohde && ev.kohde.tyyppi === 'henkilokunta')) return true;
