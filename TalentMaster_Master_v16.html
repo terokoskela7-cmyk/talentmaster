@@ -1053,6 +1053,20 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
 
 /* Lisää-modal (pelkkä koriste — ei varsinaista tallennusta) */
 .cal-add-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--teal); color: var(--bg); border: 1px solid var(--teal); padding: 9px 16px; font-family: inherit; font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; min-height: 36px; }   /* D169: ei isoja kirjaimia eikä letter-spacingiä; D147: yksi täytetty nappi */
+/* K35-2b · tapahtumamodaalit mahtuvat ruutuun: kiinteä yläosa · vierittyvä runko · kiinteä alaosa (Tallenna aina näkyvissä) */
+.cal-modal-tausta { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.cal-modal { background: var(--card); border-radius: 10px; width: 420px; max-width: 100%; max-height: calc(100dvh - 32px); overflow: hidden; display: flex; flex-direction: column; }
+.cal-modal-yla { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--border); }
+.cal-modal-runko { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 14px; padding: 16px 24px; }
+.cal-modal-ala { flex: none; display: flex; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--border); background: var(--card); }
+.cal-modal-ala > button { flex: 1; }
+.cal-modal-muut { padding: 8px; border-radius: 6px; border: 0.5px dashed var(--border); background: transparent; color: var(--ink2); cursor: pointer; font-size: 13px; text-align: left; min-height: 36px; }
+@media (max-width: 480px) {
+  .cal-modal-tausta { padding: 16px 0; }
+  .cal-modal { width: 100%; }
+  .cal-modal-yla, .cal-modal-runko { padding-left: 16px; padding-right: 16px; }
+  .cal-modal-ala { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+}
 .cal-add-btn:hover { filter: brightness(1.08); }
 .cal-add-btn.q { background: transparent; color: var(--teal); }
 .cal-leg-sw-katko { border-left-style: dashed !important; }
@@ -10596,16 +10610,25 @@ function _calPoistaTapahtuma(t, modal) {
 }
 
 // Muokkaus: täysi (nimi/aika/paikka/tila/muistiinpanot) jos oma/johto; muuten vain muistiinpanot (field-level §3.5).
+/* K35-2b: Esc sulkee tapahtumamodaalin (kuuntelija poistuu itse, kun modaali on poissa DOM:ista); taustan klikkaus hoidetaan modaalikohtaisesti */
+function _calModalEsc(modal) {
+  var kuuntelija = function (e) {
+    if (!modal.isConnected) { document.removeEventListener('keydown', kuuntelija); return; }
+    if (e.key === 'Escape') { document.removeEventListener('keydown', kuuntelija); modal.remove(); }
+  };
+  document.addEventListener('keydown', kuuntelija);
+}
 function _calMuokkaaTapahtuma(t) {
   var full = _calSaaMuokataTapahtuma(t);
   document.getElementById('calEditModal')?.remove();
   var modal = document.createElement('div');
-  modal.id = 'calEditModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
-  var box = document.createElement('div');
-  box.style.cssText = 'background:var(--card);border-radius:10px;padding:24px;width:420px;max-width:100%;display:flex;flex-direction:column;gap:10px';
-  box.innerHTML = '<div style="font-size:16px;font-weight:500">' + masterT('Muokkaa tapahtumaa') + '</div>'
-    + (full ? '' : '<div style="font-size:11px;color:var(--ink3)">' + masterT('Et ole tapahtuman luoja — voit muokata vain muistiinpanoja.') + '</div>');
+  modal.id = 'calEditModal'; modal.className = 'cal-modal-tausta';
+  var ikkuna = document.createElement('div'); ikkuna.className = 'cal-modal';
+  var yla = document.createElement('div'); yla.className = 'cal-modal-yla';
+  yla.innerHTML = '<div style="font-size:16px;font-weight:500">' + masterT('Muokkaa tapahtumaa') + '</div>';
+  var ylaSulje = document.createElement('button'); ylaSulje.textContent = '✕'; ylaSulje.setAttribute('aria-label', 'Sulje'); ylaSulje.style.cssText = 'background:none;border:none;cursor:pointer;font-size:18px;color:var(--ink3)'; ylaSulje.onclick = function () { modal.remove(); }; yla.appendChild(ylaSulje);
+  var box = document.createElement('div'); box.className = 'cal-modal-runko';   // vierittyvä runko: kaikki kentät lisätään tähän
+  if (!full) box.innerHTML = '<div style="font-size:11px;color:var(--ink3)">' + masterT('Et ole tapahtuman luoja — voit muokata vain muistiinpanoja.') + '</div>';
 
   var lbl = function(txt) { var l = document.createElement('label'); l.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3)'; l.textContent = txt; return l; };
   var inpCss = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box';
@@ -10641,7 +10664,7 @@ function _calMuokkaaTapahtuma(t) {
   _calMuistiinpanoHae(t).then(function (s) { muistI.value = s; muistI.disabled = false; muistLadattu = true; }, function () { muistI.placeholder = masterT('Muistiinpanon lukeminen epäonnistui — muistiinpanoa ei muuteta'); });
   box.appendChild(lbl(masterT('Muistiinpanot'))); box.appendChild(muistI);
 
-  var btnRivi = document.createElement('div'); btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:6px';
+  var btnRivi = document.createElement('div'); btnRivi.className = 'cal-modal-ala';   // kiinteä alaosa: Peruuta + Tallenna
   var peru = document.createElement('button'); peru.textContent = masterT('Peruuta'); peru.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer';
   peru.onclick = function() { modal.remove(); };
   var tall = document.createElement('button'); tall.textContent = masterT('Tallenna'); tall.style.cssText = 'flex:1;padding:10px;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:500';
@@ -10688,10 +10711,11 @@ function _calMuokkaaTapahtuma(t) {
       } catch (e) { toast(masterT('Päivitys epäonnistui: ') + e.message, 'err'); tall.disabled = false; tall.textContent = masterT('Tallenna'); }
     });
   };
-  btnRivi.appendChild(peru); btnRivi.appendChild(tall); box.appendChild(btnRivi);
+  btnRivi.appendChild(peru); btnRivi.appendChild(tall);
 
-  modal.appendChild(box);
+  ikkuna.appendChild(yla); ikkuna.appendChild(box); ikkuna.appendChild(btnRivi); modal.appendChild(ikkuna);
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+  _calModalEsc(modal);
   document.body.appendChild(modal);
 }
 /* ── TIETOSUOJA P0 (8.10.2026): kalenterin muistiinpano → seurat/{sid}/kalenteri/{id}/henkilokunta/muistiinpanot (Rules v3.48: vain henkilökunta). Tapahtumadokumentista kenttä poistetaan (FieldValue.delete) tallennettaessa. ── */
@@ -10751,15 +10775,13 @@ function _avaaUusiTapahtuma(pvm, klo) {
   document.getElementById('uusiTapahtumaModal')?.remove();
 
   const modal = document.createElement('div');
-  modal.id = 'uusiTapahtumaModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.id = 'uusiTapahtumaModal'; modal.className = 'cal-modal-tausta';
 
-  const box = document.createElement('div');
-  box.style.cssText = 'background:var(--card);border-radius:10px;padding:24px;width:420px;max-width:100%;display:flex;flex-direction:column;gap:14px';
+  const ikkuna = document.createElement('div'); ikkuna.className = 'cal-modal';   // K35-2b: yla (kiinteä) · runko (vierittyy) · ala (kiinteä)
+  const box = document.createElement('div'); box.className = 'cal-modal-runko';   // kaikki kentät lisätään runkoon
 
-  // Otsikko
-  const hdr = document.createElement('div');
-  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
+  // Otsikko (kiinteä yläosa)
+  const hdr = document.createElement('div'); hdr.className = 'cal-modal-yla';
   const otsikko = document.createElement('div');
   otsikko.innerHTML = '<span style="font-size:16px;font-weight:500">' + masterT('Uusi tapahtuma') + '</span><br>' +
     '<span style="font-size:12px;color:var(--ink3)">' + pvm + (klo ? masterT(' · klo ') + klo : '') + '</span>';
@@ -10769,12 +10791,12 @@ function _avaaUusiTapahtuma(pvm, klo) {
   suljeBtn.onclick = () => modal.remove();
   hdr.appendChild(otsikko);
   hdr.appendChild(suljeBtn);
-  box.appendChild(hdr);
 
   // Tapahtumatyyppi — YKSI rekisteri (D186, lib/tm_kalenteri_tyypit.js): pikavalinnat ensin; johto näkee kaikki 12, muut kaikki paitsi seuran_tauko (D171)
   const tyypit = window.TM_KALENTERI_TYYPIT.tmKalTyypitRoolille(!!_superAdmin || _calJohtoRooli(), { tauko: false }).map(ty => Object.assign({ id: ty.avain, label: _calTyyppiNimi(ty), color: window.TM_KALENTERI_TYYPIT.tmKalMerkkiTyyli(ty.merkki).vari }, {}));
   const _tyyliValittu = (btn, on, color) => { btn.style.borderColor = on ? color : 'var(--border)'; btn.style.background = on ? 'color-mix(in srgb,' + color + ' 12%,transparent)' : 'var(--surface)'; };
 
+  const _pikaAvaimet = window.TM_KALENTERI_TYYPIT.tmKalPikavalinnat().map(x => x.avain);   // D185: 5 pikavalintaa (rekisteri)
   let valittuTyyppi = 'harjoitus';
   const tyyppirivi = document.createElement('div');
   tyyppirivi.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
@@ -10793,8 +10815,12 @@ function _avaaUusiTapahtuma(pvm, klo) {
       if (typeof _mKnTyyppiMuuttui === 'function') _mKnTyyppiMuuttui();   // R1 PR 2
       if (typeof _calPaikkaOletus === 'function') _calPaikkaOletus();   // D185: paikan oletus = joukkueen viimeisin saman tyypin tapahtuma
     };
+    if (!_pikaAvaimet.includes(t.id)) { btn.classList.add('cal-tyyppi-muu'); btn.style.display = 'none'; }   // D185: loput tyypit vasta "Muut tyypit" -painikkeella
     tyyppirivi.appendChild(btn);
   });
+  const muutBtn = document.createElement('button'); muutBtn.type = 'button'; muutBtn.id = 'tapahtumatyyppiMuut'; muutBtn.className = 'cal-modal-muut'; muutBtn.textContent = masterT('Muut tyypit');
+  muutBtn.onclick = () => { tyyppirivi.querySelectorAll('.cal-tyyppi-muu').forEach(b => { b.style.display = ''; }); muutBtn.remove(); };
+  if (tyypit.some(t => !_pikaAvaimet.includes(t.id))) tyyppirivi.appendChild(muutBtn);
   box.appendChild(tyyppirivi);
 
   // Nimi-kenttä
@@ -11050,11 +11076,11 @@ function _avaaUusiTapahtuma(pvm, klo) {
     }
     modal.remove();
   };
-  box.appendChild(tallBtn);
-
-  modal.appendChild(box);
-  // Klikkaus taustaan sulkee
+  const ala = document.createElement('div'); ala.className = 'cal-modal-ala'; ala.appendChild(tallBtn);   // kiinteä alaosa: Tallenna aina näkyvissä
+  ikkuna.appendChild(hdr); ikkuna.appendChild(box); ikkuna.appendChild(ala); modal.appendChild(ikkuna);
+  // Klikkaus taustaan ja Esc sulkevat
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  _calModalEsc(modal);
   document.body.appendChild(modal);
   setTimeout(() => nimiInput.focus(), 100);
 }
