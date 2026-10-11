@@ -115,6 +115,12 @@
   - eri ikoni Kodille, Valmentajana kehittymiselle ja Aloita tästä -kohdalle
   - napit ilman isoja kirjaimia ja emojeja (D169: isot kirjaimet vain .kt-eb-yläotsikoissa)
 
+**F. Kehitystyöpöytä ja Kenttä (22, D97–D112)**
+- **D108–D110 Ydinvahvuuden alue:** klikkaamalla; aluejako = pelipaikka-alueet + maalivahti, joukkueen pelimuodon mukaan (5v5 ei aluevalintaa · 8v8 6 aluetta · 11v11 8 aluetta; koordinaatisto 0–100 × 0–140 yhteinen); hyökkäys aina ylös; alue.y + alue.h > 84 → koko kenttä. Mockup 34 (PR #996) → PR B (toteutus, 1.11. jälkeen: aluejaot normistoon `tmAlueet(pelimuoto)`, `joukkueet/{jid}.pelimuoto`, Rules + testit).
+- **D111 Keräilykortin taso** nousee pelaajan OMAN kehittymisen mukaan (ei normitaso/OVR/vertailu; ei koskaan laske; Showcase 16+ näkee lisäksi OVR-tason). Mockup 36 ensin → PR C.
+- **D112 PHV pelaajalle ja huoltajalle:** kasvuvaihe sanoin ja selittäen, yksi neutraali väri, ei "jäljessä"-kehystä. Mockup 36 → PR C.
+- **PR D "Muistuta pelaajaa"** (1.11. jälkeen): pelaajan viestinäkymä näyttää valmentajan muistutukset; lähetyssheet kehitystyöpöydästä; `ctx.vkMuistutus` kuoressa.
+
 ### 📅 Kalenteri
 | Milloin | Mitä | Kuka |
 |---|---|---|
