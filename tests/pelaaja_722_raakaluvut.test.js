@@ -63,7 +63,7 @@ describe('§7.22 — ketjurivillä ei näkyvää raaka-arvoa', () => {
   it('palkki ja heikoin-korostus säilyvät (taso välittyy ilman lukua)', () => {
     const lohko = ketjuLohko();
     expect(lohko).toContain('width:${c.arvo>0?Math.min(100,c.arvo/3*100):0}%');
-    expect(lohko).toContain("c.koodi===heikoin.koodi?'#E8A020'");
+    expect(lohko).toContain('background:var(--teal);border-radius:2px');   // §7.22: palkin väri ei riipu tasosta (ei amber-korostusta heikoimmalle)
   });
   it('heikoin ketju nimetään yhä (nimi + miksi, ei lukua)', () => {
     const lohko = rTestitLohko().join('\n');
@@ -111,9 +111,8 @@ describe('§7.22 — hero näyttää TILAN, ei numeroa (vaihtoehto B)', () => {
     expect(def).toContain('flei >= 40');
     // Jaettu = KAIKKI kuluttajat saavat saman kynnyksen; kopiota ei saa olla muualla.
     expect((PELAAJA.match(/flei >= 70/g) || []).length).toBe(1);
-    expect(def).toContain('var(--teal-d)');   // Design V2 T1: tekstiväri tummalla = --teal-d
-    expect(def).toContain('#E8A020');
-    expect(def).toContain('#E04040');
+    expect(def).toContain("const vari = 'var(--text)'");   // §7.22 (11.10.2026): väri AINA sama neutraali — tila SANOIN, ei tasoon sidottua väriä
+    expect(def).not.toMatch(/#E8A020|#E04040|teal-d|--red|--amber/);
     // Ei mitään MUUTA kynnystä kuin 70/40 (ei uusia maagisia lukuja)
     expect(def.match(/flei >= (\d+)/g)).toEqual(['flei >= 70', 'flei >= 40']);
   });
@@ -122,7 +121,7 @@ describe('§7.22 — hero näyttää TILAN, ei numeroa (vaihtoehto B)', () => {
     for (const k of ['valmiustila_ei_dataa', 'valmiustila_valmis', 'valmiustila_kehittyy', 'valmiustila_huolto']) {
       expect(def, k).toContain(k);
     }
-    expect(def).toMatch(/\(!flei\)\s*\?\s*\{ sana: _tMittari\('valmiustila_ei_dataa'\), vari: 'var\(--ink3/);
+    expect(def).toMatch(/\(!flei\)\s*\?\s*\{ sana: _tMittari\('valmiustila_ei_dataa'\), vari: vari \}/);
   });
   it('tilasanat resolvoituvat fi JA sv (pelaajan i18n-mekanismi)', async () => {
     const vm = await import('vm');

@@ -34,7 +34,7 @@ describe('teal ainoa aksentti — sininen/pinkki pois provenienssista', () => {
   it('kattavuuspalkki teal (ent. sini-teal-liukuväri); aukko (<40%) amber', () => {
     expect(HTML).toContain('.jsp-arv-covfill { height: 100%; background: var(--teal);');
     expect(HTML).toContain('.jsp-arv-covfill.low { background: var(--amber); }');
-    expect(HTML).toContain("(pct < 40 ? ' low' : '')");
+    expect(HTML).toContain("(tmKattavuus(a, its.length).matala ? ' low' : '')");   // D125: matala kattavuus (< KATTAVUUS_MATALA_PROS) amber
     expect(HTML).not.toContain('linear-gradient(90deg,rgba(42,93,176,.7),rgba(40,176,144,.8))');
   });
   it('ryhmäotsikot: hav ink2 · peli ink3 (ei sininen/pinkki)', () => {

@@ -402,7 +402,7 @@ describe('b) lapsen + huoltajan tavoite AINA alueellisesta', () => {
 describe('b) henkilökunta näkee lähteen + n (alueellinen + loppukilpailutaso erikseen)', () => {
   const S = lue('TalentMaster_VP_v25.html');
   const a = S.indexOf('// <<< TK_VIITTEET_GEN'), b = S.indexOf('// >>> TK_VIITTEET_GEN');
-  const ctx = vm.createContext({ vpT: (x) => x, _vpSelTip: () => '', eerikkilaTaso: EN.eerikkilaTaso, Math, Number, isNaN });
+  const ctx = vm.createContext({ vpT: (x) => x, _vpSelTip: () => '', eerikkilaTaso: EN.eerikkilaTaso, tmTasoCss: require('../lib/tm_tasovari.js').tmTasoCss, Math, Number, isNaN });
   vm.runInContext([S.slice(a, b), pura(S, 'function tkLajiViite('), pura(S, 'function tkLajiTaso('), pura(S, 'function _jsvViiteLabel('),
     S.slice(S.indexOf('const _JSV_TKLAJIT = ['), S.indexOf('];', S.indexOf('const _JSV_TKLAJIT = [')) + 2),
     pura(S, 'function _jsvLajiData('), pura(S, 'function _jsvTasoVari5('), pura(S, 'function _jsvPerLajiHTML('),
@@ -424,6 +424,7 @@ describe('b) henkilökunta näkee lähteen + n (alueellinen + loppukilpailutaso 
     const M = lue('TalentMaster_Master_v16.html');
     const mctx = vm.createContext(Object.assign({}, T_GLOBAALIT, {
       masterT: (x) => x, _devIkaSp: () => ({ ika: 10, sp: 'M' }), _tkiMerkkiM: () => null, _tkLajiNimi: (x) => x, _devNimi: () => 'Testi',
+      tmTasoCss: require('../lib/tm_tasovari.js').tmTasoCss,
       Math, Number, String, parseInt, isNaN,
     }));
     vm.runInContext(pura(M, 'function _buildTKIDetail(') + '\nthis.f = _buildTKIDetail;', mctx);

@@ -3,7 +3,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const juuri = path.join(__dirname, '..', '..'), lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8');
 function funktio(src, alku) { const i = src.indexOf(alku); if (i < 0) throw new Error('ei löydy ' + alku); let d = 0; for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}' && --d === 0) return src.slice(i, j + 1); } throw new Error('ei sulje ' + alku); }
-const LIBIT = ['tm_pvm.js', 'tm_viikko.js', 'tm_phv_tila.js', 'tm_idp.js', 'tm_eerikkila_normit.js', 'tm_normisto.js', 'tm_testipaiva.js', 'tm_joukkue.js', 'tm_joukkuesaanto.js', 'tm_tekniikka.js', 'tm_fyysinen.js', 'tm_koti_luvut.js', 'tm_nakyma_ryhmat.js'];
+const LIBIT = ['tm_pvm.js', 'tm_viikko.js', 'tm_phv_tila.js', 'tm_idp.js', 'tm_eerikkila_normit.js', 'tm_normisto.js', 'tm_tasovari.js', 'tm_testipaiva.js', 'tm_joukkue.js', 'tm_joukkuesaanto.js', 'tm_tekniikka.js', 'tm_fyysinen.js', 'tm_koti_luvut.js', 'tm_nakyma_ryhmat.js'];
 
 function luo(P, nytMs) {
   const el = {}, modaalit = [];

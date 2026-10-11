@@ -22,16 +22,17 @@ function extract(sig) {
 
 let M;
 beforeAll(() => {
-  M = new Function(
+  M = new Function('__PVM',
     'var tmPhvKoodi = function (p) { return (p && p.phv_tila) || null; };\n' +
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     // Erä 4: mittausfunktiot kutsuvat nyt vpT:tä → passthrough-stub, muuten ReferenceError.
     'var vpT = function(x){return x;};\n' +
+    'var tmMuistutusMittaus = __PVM.tmMuistutusMittaus, tmMuistutusKk = __PVM.tmMuistutusKk;\n' +   // oikea lib (MUISTUTUS_KK, normisto)
     extract('function _vpMittausTuoreusHTML(p, ika) {') + '\n' +
     extract('function _vpMittausLinssiHTML(p, ika, sisalla) {') + '\n' +
     extract('function _vpMittausNextStepHTML(p) {') + '\n' +
     'return { tuoreus: _vpMittausTuoreusHTML, linssi: _vpMittausLinssiHTML, next: _vpMittausNextStepHTML };'
-  )();
+  )(require('../lib/tm_pvm.js'));
 });
 
 describe('tuoreus + luotettavuus (§22)', () => {
@@ -48,9 +49,10 @@ describe('tuoreus + luotettavuus (§22)', () => {
     expect(h).toContain('trendi käytettävissä');
     expect(h).not.toContain('1 testikerta');
   });
-  it('vanha data (>180 pv) → "yli 6 kk — suositellaan päivitystä"', () => {
+  it('vanha data (MUISTUTUS_KK, normisto) → "yli 12 kk — suositellaan päivitystä"; 6 kk vanha ei vielä', () => {
     const h = M.tuoreus({ hh_pvm: '2020-01-01' }, 13);
-    expect(h).toContain('yli 6 kk');
+    expect(h).toContain('yli 12 kk'); expect(h).not.toContain('yli 6 kk');
+    const kuusi = new Date(Date.now() - 190 * 86400000).toISOString().slice(0, 10); expect(M.tuoreus({ hh_pvm: kuusi }, 13)).not.toContain('suositellaan päivitystä');
   });
   it('ei mittauksia → rehellinen tyhjä + Aloita mittaus (Testaus)', () => {
     const h = M.tuoreus({}, 13);
