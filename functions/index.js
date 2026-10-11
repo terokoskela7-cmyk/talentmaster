@@ -2502,6 +2502,11 @@ exports.kertymaKirjausOnWrite = functions
   .runWith({ timeoutSeconds: 60, memory: '256MB' })
   .firestore.document('seurat/{sid}/pelaajat/{pid}/kirjaukset/{pvm}')
   .onWrite(harjoituskertyma.luoKirjausKasittelija(_kertymaDeps));
+exports.kertymaTapahtumaOnUpdate = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 120, memory: '256MB' })
+  .firestore.document('seurat/{sid}/kalenteri/{eid}')
+  .onUpdate(harjoituskertyma.luoTapahtumaMuutosKasittelija(_kertymaDeps));
 exports.haePelaajanKertyma = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })
