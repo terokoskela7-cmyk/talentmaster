@@ -46,4 +46,8 @@ describe('K35-4 lataa_viikkopohjat', () => {
     const huono = JSON.parse(JSON.stringify(JSONI)); huono.pohjat[0].pelimuoto = '9v9'; const db = mockDb({ viikkopohjat: null, joukkueet: J() }); await expect(aja(db, { json: huono, kirjoita: true })).rejects.toThrow(/eivät kelpaa/); expect(db.kirjoitukset).toEqual([]);
     Object.values(S.DEMO_PELIMUODOT).forEach((m) => expect(V.PELIMUODOT).toContain(m));
   });
+  it('ADC-kirjautuminen käyttää admin.credential.applicationDefault() (firebase-adminissa ei ole admin.applicationDefault)', () => {
+    const src = readFileSync(new URL('../scripts/lataa_viikkopohjat.js', import.meta.url), 'utf8'); expect(src).toContain('admin.credential.applicationDefault()'); expect(src).not.toMatch(/admin\.applicationDefault/);
+    const a = require('firebase-admin'); expect(typeof a.credential.applicationDefault).toBe('function'); expect(a.applicationDefault).toBeUndefined();
+  });
 });
