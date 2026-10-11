@@ -28,6 +28,7 @@ Jokaisella tiedolla on yksi tallennuspaikka ja yksi funktio, josta kaikki lukeva
 | Tauko | `kalenteri`, tyyppi `seuran_tauko` | `tmOnTauko`, `tmTaukopaivat` | signaalit, eskalointi 7 pv, katselmusikkunat, Täytä viikko, jaksojen viikot, Kodin palsta | K35-1 (D193) |
 | Seuraava tapahtuma | `kalenteri` | `tmSeuraavaTapahtuma` | kehitystyöpöydän "Treenattiinko?", valmentajan Tänään (D142), pelaajan Viikko | K35-1 |
 | Tapahtuman tyyppi, kerros, merkki | – | `lib/tm_kalenteri_tyypit.js` | Master, VP, Pelaaja, Vanhempi, Koti | K35-1 (D186) |
+| (Näkymät eivät ole yhteistä tietoa) | – | – | VP:n kalenteri ohjaa seuraa, valmentajan kalenteri rakentaa joukkueen viikkoa: eri näkymät, samat libit | D186 tarkennus 11.10. |
 | Tuodun tapahtuman omistajuus | `kalenteri.lahde`, `lahde_id` | `tmKalSaaMuokata` | luonti, muokkaus, synkat | K35-1 (D181) |
 | Jakso ja sen viikko (vk 3/6) | `joukkueet.jaksofokus` | `tmJaksoTila` (toinen sessio, sama kuin S1) | jaksokortti, kalenterin Silmukka, pulssi | valmis |
 | Viikkotavoite | `jaksofokus.viikot[]` | `tmJfViikko` | joukkueen viikko, pelaajan "Tällä viikolla" | valmis (D36) |
