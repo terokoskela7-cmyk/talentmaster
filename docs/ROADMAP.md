@@ -76,6 +76,11 @@
 
 
 
+- **Päätökset 11.10.2026 (Tero):**
+  - Masterin tumma teema on luettavuuden mittapuu molemmille sovelluksille (lämmin ink, selvä ink/ink2-ero, korttipinnat). VP:lle tehty #989:ssä.
+  - Ydinvahvuuden alue asetetaan klikkaamalla kentän aluetta (korvaa 22:n "Siirrä kentällä" -piirron; D98-tietomalli ennallaan; päätöslistassa D108). 1.11: jaksokortti ilman kenttää, kun aluetta ei ole · marraskuu: valmentaja/VP klikkaa alueen (mockup 34 ensin; kahden aluejaon vaihtoehto, Tero valitsee) · joulukuu (R1): reitti, viikkomerkit, osat kentällä + pelaajan ehdotus "missä tykkään pelata" (`ydinvahvuus.alue_ehdotus`, pelaaja kirjoittaa vain omaansa; U8–12 vain "missä tykkäät pelata").
+  - SJK:n testipäivät 24.3./27.3./1.4.2026 ovat oikeat. Ei korjausskriptiä, ei lisäselvitystä.
+  - Yhteinen sivupaneeli: 1.11 jälkeen, mockup ensin (alla).
 - **Yhteinen sivupaneeli (Master + VP) — mockup ensin, 1.11 jälkeen.** Ei tehdä ennen mockupia. Kielivalitsin vain yhteen paikkaan (nyt sekä sivupaneelissa että yläpalkissa) samassa yhteydessä. Masterin korjattavat samassa yhteydessä (Tero 11.10., Masterin tumma teema on molempien sovellusten luettavuuden mittapuu):
   - navigaatio vain kerran (sivupaneelin Työkalut vs välilehdet 01–07)
   - "Kirjaudu ulos" ei leikkaudu; kielivalinta ja versio omalle rivilleen
