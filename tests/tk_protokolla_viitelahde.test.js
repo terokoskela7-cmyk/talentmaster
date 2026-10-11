@@ -126,17 +126,17 @@ describe('a) Testituonti_Master: sarakkeen tunnistus tapahtuman protokollalla + 
 // Excel_Tuonti: aja tallennaFirestoreen-funktion OMA paketinrakennus (pelaajat.map) vm:ssä.
 function ajaExcelPaketit({ protokolla, sarakkeet, testit, protoValinta }) {
   const S = lue('TalentMaster_Excel_Tuonti.html');
-  const a = S.indexOf('const paketit = pelaajat.map(p => {');
-  const runko = pura(S.slice(a), 'const paketit = pelaajat.map(p => {');
+  const a = S.indexOf('const paketit0 = pelaajat.map(p => {');
+  const runko = pura(S.slice(a), 'const paketit0 = pelaajat.map(p => {');
   const ctx = vm.createContext(Object.assign({}, T_GLOBAALIT, {
     console, Math, Number, String, Object, isNaN, parseFloat, parseInt, Date, Set, Array,
-    laskeHHTaso: EN.laskeHHTaso, laskeIka: () => 13, _kausiPvm: () => null, _paivaIso: () => '2026-09-01',
+    laskeHHTaso: EN.laskeHHTaso, laskeIka: () => 13, _kausiPvm: () => null, _paivaIso: () => '2026-09-01', TM_TESTIPAIVA: require('../lib/tm_testipaiva.js'),
     tuontiData: { testiSarakkeet: sarakkeet.map((id) => ({ testiId: id })), meta: { protoValinta: protoValinta || {}, kausi: '' } },
     pelaajat: [{ testit, testauspvm: '2026-09-01', sukupuoli: 'M', syntymaVuosi: 2013 }],
     tapahtuma: { pvm: '2026-09-01', protokolla }, onTekniikka: protokolla === 'tekniikkakilpailu',
     onHH: protokolla === 'hh_laaja', proto: {},
   }));
-  vm.runInContext(runko + ');\nthis.paketit = paketit;', ctx);
+  vm.runInContext(runko + ');\nthis.paketit = paketit0;', ctx);
   return ctx.paketit[0];
 }
 

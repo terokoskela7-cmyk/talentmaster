@@ -20,7 +20,8 @@
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (D140) — ENNEN viikkoa käyttäviä kirjastoja -->
 <script src="lib/tm_eerikkila_normit.js?v=52"></script>   <!-- PR B: normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/hhKehityskohde (§26 H-H-pikakentät) -->
 <script src="lib/tm_tki_core.js?v=2"></script>   <!-- PR B: TKI-ydin + _laskeVahvuudetJaKehityskohteet → TM_TESTIT (IIFE) -->
-<script src="lib/tm_pikakentat.js?v=6"></script>   <!-- PR B: tmLaskePikakentat — §26-pikakentät samassa batchissa tuloksen kanssa -->
+<script src="lib/tm_testipaiva.js?v=2"></script>   <!-- testipäivän lähde (oikea / arvio / tuntematon) -->
+<script src="lib/tm_pikakentat.js?v=9"></script>   <!-- PR B: tmLaskePikakentat — §26-pikakentät samassa batchissa tuloksen kanssa -->
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -1440,19 +1441,20 @@ async function ttTallennaPelaaja(db, seuraId, tapahtuma, p, tallennusData, fleiP
   if (snap.empty) return 'ohitettu';
   const pelaajaRef = snap.docs[0].ref;
   const pvm = p.testauspvm || tapahtuma.pvm || '';
+  /* YKSI päivä-sääntö (lib/tm_testipaiva.js, sama kuin Excel_Tuonti): oikea → oikea; kausiteksti → ARVIO (pvm_arvio); muuten tuntematon → EI pikakenttiä (ei keksittyä päivää) */
+  const _tp = TM_TESTIPAIVA.tmTestipaiva({ pvm: (typeof tmPaivaIso === 'function' && pvm) ? (tmPaivaIso(pvm) || null) : pvm, teksti: pvm }), pvmIso = _tp.pvm;
   const profiiliUpdate = {};
-  if (fleiPct !== null && pvm) {
+  if (fleiPct !== null && pvmIso) {
     profiiliUpdate.flei_viimeisin = fleiPct;
-    profiiliUpdate.flei_pvm = pvm;
+    profiiliUpdate.flei_pvm = pvmIso;
     profiiliUpdate.flei_historia = firebase.firestore.FieldValue.arrayUnion({
-      pvm: pvm, flei: fleiPct, tapahtumaId: tapahtuma.id, tallennettu: new Date().toISOString(),   // §7.6: ISO, ei serverTimestamp
+      pvm: pvmIso, flei: fleiPct, tapahtumaId: tapahtuma.id, tallennettu: new Date().toISOString(),   // §7.6: ISO, ei serverTimestamp
     });
   }
   if (p.phv_tila) profiiliUpdate.phv_tila = p.phv_tila;
   // §26-pikakentät (H-H + TKI + johdetut vahvuus/kehityskohde/*_edellinen) SAMASSA batchissa — jaettu
   // lib/tm_pikakentat.js (sama kuin Pikakirjaus). Viimeisin-vartija + pvm-vahti libissä. Päivä ISO-muotoon;
   // jäsentymätön päivä → EI pikakenttiä (pari-invariantti: arvoa ei kirjoiteta ilman oikeaa *_pvm:ää).
-  const pvmIso = (typeof tmPaivaIso === 'function' && pvm) ? tmPaivaIso(pvm) : null;
   if (pvmIso && typeof TM_PIKAKENTAT !== 'undefined' && typeof TM_PIKAKENTAT.tmLaskePikakentat === 'function') {
     Object.assign(profiiliUpdate, TM_PIKAKENTAT.tmLaskePikakentat(snap.docs[0].data() || {}, ttLibTulokset(tallennusData.testit), pvmIso));
   }
@@ -1466,6 +1468,7 @@ async function ttTallennaPelaaja(db, seuraId, tapahtuma, p, tallennusData, fleiP
   const b = db.batch();
   b.set(db.collection('seurat').doc(seuraId).collection('testitapahtumat').doc(tapahtuma.id)
     .collection('tulokset').doc(tunniste), tallennusData, { merge: true });
+  Object.keys(profiiliUpdate).filter(k => /^(tki|hh|tsi|d1|d2|flei|tk_lajit)_pvm$/.test(k) && profiiliUpdate[k] === pvmIso).forEach(k => { profiiliUpdate[k + '_arvio'] = _tp.arvio ? true : firebase.firestore.FieldValue.delete(); });   // arviopäivä merkitään; oikea päivä poistaa vanhan arviomerkin
   if (Object.keys(profiiliUpdate).length) b.update(pelaajaRef, profiiliUpdate);
   await b.commit();
   return 'ok';

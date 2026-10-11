@@ -30,6 +30,7 @@
 <script src="lib/tm_joukkue.js?v=5"></script>
 <script src="lib/tm_joukkuejasenyys_tarkistus.js?v=1"></script>   <!-- §7.18: "Tarkista joukkuejäsenyydet" (SA) — logiikka libissä -->
 <script src="lib/tm_pvm.js?v=4"></script>
+<script src="lib/tm_testipaiva.js?v=2"></script>   <!-- testipäivän lähde: oikea | arvio (kausi, pvm_arvio) | tuntematon — EI hiljaista varapäivää -->
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- Omat ennätykset (PB): paivitaEnnatykset (jaettu, TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js?v=2"></script>   <!-- Trendi Vaihe 1a: mittaushistorian selkäranka (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
@@ -649,6 +650,9 @@ tbody tr:hover { background: rgba(46,213,115,0.04); }
         <div id="pdf-meta" style="margin-top:10px;"></div>
         <div id="pdf-taulukko" class="table-wrap" style="margin-top:14px;"></div>
         <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <label style="font-size:12px;color:var(--text2);display:flex;flex-direction:column;">Kilpailupäivä (pakollinen)
+            <input id="pdf-pvm" type="date" onchange="pdfPvmMuutos(this.value)" style="margin-top:4px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;">
+          </label>
           <button class="btn btn-primary" id="pdf-tallenna-nappi" onclick="tallennaPdfFirestoreen()" disabled>
             💾 Tallenna yhdistetyt Firestoreen
           </button>
@@ -2741,22 +2745,24 @@ function naytaEsikatselu() {
     taulukkoOver.parentNode.insertBefore(el, taulukkoOver);
   })();
 
-  // B+ — varoitus puuttuvasta TestiPvm:stä. Historia-moodissa puuttuva pvm johdetaan kaudesta
-  // (parempi kuin tämänpäiväinen); tämä kertoo käyttäjälle mitä päivää käytetään ennen tallennusta.
+  // B+ — varoitus puuttuvasta TestiPvm:stä. Päivä johdetaan tmTestipaiva-säännöllä (oikea → oikea; kausi → ARVIO pvm_arvio; muuten tuntematon): tämä paneeli kertoo mitä tallennuksessa tapahtuu.
+  // Tallennus ohittaa rivit joilla päivä on tuntematon — ne listataan NIMILLÄ tässä (ei lokiin).
   (function() {
     document.getElementById('pvm-varoitus-paneeli')?.remove();
     if (tuontiData.meta && tuontiData.meta.tapahtumaId) return;   // tapahtuma-moodissa pvm tulee tapahtumasta
-    const puuttuu = (tuontiData.pelaajat || []).filter(p => !String(p.testauspvm || '').trim()).length;
-    if (puuttuu === 0) return;
     const kausi = (tuontiData.meta && tuontiData.meta.kausi) || '';
-    const kpvm = _kausiPvm(kausi);
-    const kaytetty = kpvm || _paivaIso(new Date());
-    const lahde = kpvm ? ('kauden "' + escapeHtml(kausi) + '" päivä') : '⚠ tämänpäiväinen — kausi ei tunnistettu';
+    const rivit = (tuontiData.pelaajat || []).map(p => ({ p: p, tp: TM_TESTIPAIVA.tmTestipaiva({ pvm: _paivaIso(p.testauspvm), teksti: p.testauspvm, kausi: kausi }) }));
+    const arvioita = rivit.filter(x => x.tp.lahde === 'arvio'), tuntemattomat = rivit.filter(x => x.tp.lahde === 'tuntematon');
+    if (!arvioita.length && !tuntemattomat.length) return;
+    const nimi = x => escapeHtml(((x.p.etunimi || '') + ' ' + (x.p.sukunimi || '')).trim() || String(x.p.tunniste || '(nimetön rivi)'));
     const el = document.createElement('div');
     el.id = 'pvm-varoitus-paneeli';
     el.style.cssText = 'margin-bottom:14px;padding:12px 14px;background:rgba(224,160,64,.12);border:.5px solid rgba(224,160,64,.5);border-radius:8px;font-size:12px;color:var(--text);';
-    el.innerHTML = '⚠ <strong>' + puuttuu + ' pelaajalla ei TestiPvm:ää</strong> → testipäiväksi tallentuu <strong>' + kaytetty + '</strong> (' + lahde + ').'
-      + '<div style="font-size:11px;color:var(--text2);margin-top:4px;">Halutessasi tarkan testipäivän: lisää TestiPvm-sarake Exceliin. Kausi on vain varapäivä, ei korvaa tarkkaa päivämäärää.</div>';
+    let h = '';
+    if (arvioita.length) h += '⚠ <strong>' + arvioita.length + ' pelaajalla ei oikeaa TestiPvm:ää</strong> → testipäiväksi tallentuu <strong>ARVIO ' + escapeHtml(arvioita[0].tp.pvm) + '</strong> (kausi "' + escapeHtml(arvioita[0].tp.kausi || kausi) + '", merkitään pvm_arvio; näkymässä "päivä arvioitu kaudesta").';
+    if (tuntemattomat.length) h += (h ? '<div style="margin-top:8px;">' : '<div>') + '⛔ <strong>' + tuntemattomat.length + ' riviä OHITETAAN</strong> — testipäivä tuntematon (ei TestiPvm:ää eikä tunnistettua kautta): ' + tuntemattomat.slice(0, 20).map(nimi).join(', ') + (tuntemattomat.length > 20 ? ' … +' + (tuntemattomat.length - 20) : '') + '.</div>';
+    h += '<div style="font-size:11px;color:var(--text2);margin-top:4px;">Halutessasi tarkan testipäivän: lisää TestiPvm-sarake Exceliin. Kausi on vain arvio, ei korvaa tarkkaa päivämäärää.</div>';
+    el.innerHTML = h;
     taulukkoOver.parentNode.insertBefore(el, taulukkoOver);
   })();
 
@@ -2890,16 +2896,6 @@ function paivitaTallennusNappi() {
 const BATCH_KOKO = 400; // Firestore raja 500 — käytä 400 marginaalin kanssa
 
 // Apuri: ikä syntymäVuodesta ja testauspvm:stä
-// B+: johda kaudesta edustava testipäivä kun TestiPvm puuttuu. Muoto "2026-kevat" / "kevät 2026" /
-// "2025-syksy" / "2022-talvi". Ankkurit: kevät→01-20 (Wallsport, sama kuin OSA 4), syksy→09-01, talvi→01-15.
-function _kausiPvm(kausi) {
-  if (!kausi) return null;
-  const s = String(kausi).toLowerCase();
-  const v = (s.match(/(20\d{2})/) || [])[1];
-  if (!v) return null;
-  const mmdd = /kev[aä]t/.test(s) ? '01-20' : /syksy/.test(s) ? '09-01' : /talvi/.test(s) ? '01-15' : null;
-  return mmdd ? (v + '-' + mmdd) : null;
-}
 
 // NORMINHAUN IKÄ = ikäluokka (§24/§26, docs/IKAKONVENTIO_SPEC.md): year(testipvm) − syntymaVuosi.
 // EI 1.7.-vähennystä — normit ovat ikäluokkapohjaisia. Bio-ika (Mirwald/PHV §25) lasketaan erikseen desimaalina.
@@ -2987,7 +2983,7 @@ async function tallennaFirestoreen() {
   const NYT_ISO = new Date().toISOString();
 
   // Rakenna täydet datapaketit jokaiselle pelaajalle ENNEN batch-kirjoitusta
-  const paketit = pelaajat.map(p => {
+  const paketit0 = pelaajat.map(p => {
     // Kaksi karttaa: skalaari (TKI/FLEI/validointi) + tallennus (rakenne jos monisuoritus)
     const testitSkalaari = {};
     const testit = {};
@@ -3118,19 +3114,16 @@ async function tallennaFirestoreen() {
     });
 
     const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || '';
-    // B+ (2026-06): prioriteetti TestiPvm → (ei-parsittava esim "Kevät 2026" → Wallsport 2026-01-20)
-    //   → KAUSI-johdettu pvm (parempi kuin tämänpäiväinen; kausi on pakollinen historia-moodissa)
-    //   → viimeisenä tänään. Esikatselu varoittaa puuttuvasta TestiPvm:stä (_puuttuvaTestiPvmVaroitus).
-    const WALLSPORT_FALLBACK = '2026-01-20';
-    // _kausiPvm(pvmRaw) ENSIN: jos TestiPvm itse on kausi-teksti ("Kevät 2026") → ankkuripvm (V8:n
-    // new Date("Kevät 2026")=01-01 ei enää harhauta). Oikeat pvm:t → _kausiPvm null → _paivaIso.
-    const pvmIso = (String(pvmRaw).trim() !== '')
-      ? (_kausiPvm(pvmRaw) || _paivaIso(pvmRaw) || WALLSPORT_FALLBACK)
-      : (_kausiPvm(tuontiData.meta.kausi) || _paivaIso(new Date()));
-    const pvmTeksti = (String(pvmRaw).trim() !== '' && String(pvmRaw).trim() !== pvmIso) ? String(pvmRaw).trim() : null;
+    // Testipäivä (lib/tm_testipaiva.js): oikea TestiPvm → oikea; kausiteksti TAI vain kausi → ARVIO (pvm_arvio: true, kauden keskipäivä); muuten päivä tuntematon → rivi ohitetaan.
+    // Ei hiljaista varapäivää (ei 20.1.-oletusta, ei "tänään").
+    const _tp = TM_TESTIPAIVA.tmTestipaiva({ pvm: _paivaIso(pvmRaw), teksti: pvmRaw, kausi: tuontiData.meta.kausi || (tapahtuma && tapahtuma.kausi) });
+    const pvmIso = _tp.pvm, pvmArvio = _tp.arvio;
+    const pvmTeksti = (String(pvmRaw).trim() !== '' && String(pvmRaw).trim() !== pvmIso) ? String(pvmRaw).trim() : null;   // alkuperäinen teksti (esim. kausiteksti)
 
-    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, syntymaVuosi, ika, kokonaistulos };
+    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmArvio, pvmTeksti, syntymaVuosi, ika, kokonaistulos };
   });
+  const paketit = paketit0.filter(x => x.pvmIso);   // ei päivää (ei oikea, ei kausiarvio) → EI tallenneta (ei keksittyä päivää)
+  if (paketit0.length > paketit.length) { toast((paketit0.length - paketit.length) + ' riviä ohitettu: testipäivä tuntematon (anna TestiPvm tai kausi)', 'err'); console.warn('[tuonti] ohitettu ilman testipäivää: ' + (paketit0.length - paketit.length)); }
 
   // Aja batchina, jaa 400:n eriin
   let onnistuneet = 0;
@@ -3144,7 +3137,7 @@ async function tallennaFirestoreen() {
     const batch = db.batch();
 
     era.forEach(pkg => {
-      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, ika, syntymaVuosi, kokonaistulos } = pkg;   // ika/syntymaVuosi: laskettu paketinrakennuksessa → välitetään forEach:iin
+      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmArvio, pvmTeksti, ika, syntymaVuosi, kokonaistulos } = pkg;   // ika/syntymaVuosi: laskettu paketinrakennuksessa → välitetään forEach:iin
       // FIX: sp puuttui tallennussilmukan skoopista → ReferenceError 3004 → 0/0. Keskitetty M/N-johto lib-helperiin.
       const sp = (typeof normSukupuoliMN === 'function')
         ? normSukupuoliMN(p.sukupuoli || (p._firestoreData && p._firestoreData.sukupuoli))
@@ -3162,6 +3155,7 @@ async function tallennaFirestoreen() {
         etunimi: p.etunimi,
         phv_tila: p.phv_tila || '',
         testauspvm: pvmIso,
+        pvm_arvio: pvmArvio === true,   // true = päivä on kauden keskipäivä (arvio), ei mitattu päivä
         kausi: tuontiData.meta.kausi || (tapahtuma && tapahtuma.kausi) || '',
         protokolla: protokollaKey,
         tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3367,6 +3361,8 @@ async function tallennaFirestoreen() {
             if (_enR.ennatykset_alustat) profiiliUpdate.ennatykset_alustat = _enR.ennatykset_alustat;
           }
         } catch (e) { console.warn('[ennatykset]', e && e.message); }
+        // pvm_arvio-merkintä jokaiselle tässä kirjoitettavalle *_pvm-kentälle: arvio → true, oikea päivä → vanha merkki pois (ei jää väärää "arvio"-leimaa)
+        Object.keys(profiiliUpdate).filter(k => /^(tki|hh|tsi|d1|d2|flei|tk_lajit)_pvm$/.test(k) && profiiliUpdate[k] === pvmIso).forEach(k => { profiiliUpdate[k + '_arvio'] = pvmArvio ? true : firebase.firestore.FieldValue.delete(); });
         if (Object.keys(profiiliUpdate).length > 0) {
           batch.set(pelaajaRef, profiiliUpdate, { merge: true });
         }
@@ -3458,7 +3454,8 @@ async function kasittelePdfTiedosto(file) {
       })));
     }
     pdfData = { tiedostonimi: file.name, ikaluokka: '', sukupuoli: '', ika: null, merkkirajat: null,
-                rivit: [], taulukot: [], pvm: _paivaIso(new Date()), tapahtuma: '', valmis: false };
+                rivit: [], taulukot: [], pvm: '', tapahtuma: '', valmis: false };   // kilpailupäivä annettava (ei "tänään"-oletusta)
+    { const _pe = document.getElementById('pdf-pvm'); if (_pe) _pe.value = ''; }
     parsiPalloliittoPdf(sivut);
     if (pdfData.rivit.length === 0) {
       statusEl.innerHTML = '<span style="color:var(--amber)">Ei tunnistettu pelaajarivejä — tarkista että PDF on Palloliiton vakiomuotoinen tuloste.</span>';
@@ -3740,8 +3737,8 @@ async function pdfYhdistaPalloIDt() {
 // Valittu kilpailupäivä (input → pdfData.pvm → tänään)
 function _pdfValittuPvm() {
   const el = document.getElementById('pdf-pvm');
-  if (el && el.value) return el.value;
-  return pdfData.pvm || _paivaIso(new Date());
+  if (el) return el.value || null;   // kilpailupäivä-kenttä tallennusnapin vieressä; tyhjä = ei päivää
+  return pdfData.pvm || null;   // EI hiljaista "tänään"-varapäivää: tallennus vaatii kilpailupäivän
 }
 function _pdfDocKey(pvmIso, ikaluokka) { return pvmIso + '_tekniikkakilpailu_' + (ikaluokka || ''); }
 
@@ -3756,6 +3753,7 @@ async function tarkistaDuplikaatit() {
   });
   if (!seuraId) return;
   const pvmIso = _pdfValittuPvm();
+  if (!pvmIso) return;   // ei päivää → ei duplikaattitarkistusta (tallennus estetty kunnes kilpailupäivä annettu)
   const loydetyt = pdfData.rivit.filter(r => r.pelaajaId);
   const tulokset = await Promise.all(loydetyt.map(r => {
     const docKey = _pdfDocKey(pvmIso, r.ikaluokka);
@@ -3777,7 +3775,7 @@ async function tarkistaDuplikaatit() {
 
 // Kilpailupäivän muutos → tarkista duplikaatit uudelleen + päivitä esikatselu
 async function pdfPvmMuutos(arvo) {
-  pdfData.pvm = arvo || _pdfValittuPvm();
+  pdfData.pvm = arvo || null;
   await tarkistaDuplikaatit();
   naytaPdfEsikatselu();
 }
@@ -3825,10 +3823,8 @@ function naytaPdfEsikatselu() {
   mh += '</div>';
   // Tallennusyhteenveto (duplikaatit)
   mh += '<div style="margin-top:8px;font-size:13px;font-weight:600;">' + uusiN + ' uutta · ' + dupN + ' duplikaattia (' + ohitetaanN + ' ohitetaan)</div>';
-  const pvmArvo = pdfData.pvm || _paivaIso(new Date());
   mh += '<div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">';
   mh += '  <label style="font-size:12px;color:var(--text2);display:block;">Tapahtuman nimi<br><input id="pdf-tapahtuma-nimi" type="text" value="' + escapeHtml(pdfData.tapahtuma || '') + '" placeholder="esim. Eteläinen aluetaitokilpailu" oninput="pdfData.tapahtuma=this.value" style="margin-top:4px;min-width:240px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;"></label>';
-  mh += '  <label style="font-size:12px;color:var(--text2);display:block;">Kilpailupäivä<br><input id="pdf-pvm" type="date" value="' + pvmArvo + '" onchange="pdfPvmMuutos(this.value)" style="margin-top:4px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;"></label>';
   mh += '</div>';
   mh += '<div style="margin-top:6px;font-size:11px;color:var(--text3);">Duplikaatti = sama pelaaja, sama päivä + ikäluokka jo tallennettu. Päivämäärän muutos tarkistaa uudelleen.</div>';
   document.getElementById('pdf-meta').innerHTML = mh;
@@ -3918,13 +3914,13 @@ function pdfPaivitaTallennusNappi() {
   const korvaaN = tallennettavat.filter(r => r._dup && r._dup.tila === 'duplikaatti' && r._dup.strategia === 'korvaa').length;
   const uusiN = n - korvaaN;
   const ohitettu = pdfData.rivit.filter(r => r.pelaajaId && !_pdfTallennetaanko(r)).length;
-  nappi.disabled = (n === 0);
+  nappi.disabled = (n === 0 || !_pdfValittuPvm());   // ilman kilpailupäivää ei tallenneta (ei "tänään"-varapäivää)
   // Nappiteksti: duplikaatit EIVÄT lasketa mukaan ohitettaessa
   nappi.innerHTML = n > 0 ? ('💾 Tallenna ' + n + ' Firestoreen') : '💾 Ei tallennettavia';
   const osat = [uusiN + ' uutta'];
   if (korvaaN > 0) osat.push(korvaaN + ' korvataan');
   if (ohitettu > 0) osat.push(ohitettu + ' duplikaattia ohitetaan');
-  status.textContent = n > 0 ? osat.join(' · ') : 'Kaikki ohitetaan tai ei yhdistettyjä pelaajia';
+  status.textContent = (!_pdfValittuPvm() ? '⚠ Anna kilpailupäivä ennen tallennusta · ' : '') + (n > 0 ? osat.join(' · ') : 'Kaikki ohitetaan tai ei yhdistettyjä pelaajia');
 }
 
 async function tallennaPdfFirestoreen() {
@@ -3936,6 +3932,7 @@ async function tallennaPdfFirestoreen() {
 
   const tapahtumaNimi = (document.getElementById('pdf-tapahtuma-nimi') || {}).value || pdfData.tapahtuma || '';
   const pvmIso = _pdfValittuPvm();
+  if (!pvmIso) { toast('Anna kilpailupäivä ennen tallennusta', 'err'); return; }   // ei "tänään"-varapäivää
   const NYT_ISO = new Date().toISOString();
 
   const nappi = document.getElementById('pdf-tallenna-nappi');
@@ -4067,10 +4064,12 @@ async function _adminLaskeTkiUudelleen() {
       if (!tk.length) { ohitettu++; return; }
       tk.sort((a, b) => String(b.pvm || b.testauspvm || '').localeCompare(String(a.pvm || a.testauspvm || '')));
       const d = tk[0];
+      const _dp = TM_TESTIPAIVA.tmDokumentinPaiva(d);   // sama päivä-/arviosääntö kuin tuonnissa (tmTestipaiva); ei päivää → rivi ohitetaan, EI tyhjää tki_pvm:ää
+      if (!_dp.pvm) { ohitettu++; return; }
       const pelData = t.pelData || {};
       // ika = pelaajan OIKEA ikä syntymävuodesta suhteessa kilpailuvuoteen (testituloksen pvm); fallback ikäluokkaan
       const syntymaVuosi = pelData.syntymaVuosi || null;
-      const kilpailuVuosi = parseInt(String(d.pvm || d.testauspvm || '').slice(0, 4)) || (new Date()).getFullYear();
+      const kilpailuVuosi = parseInt(String(_dp.pvm).slice(0, 4));
       const ika = syntymaVuosi
         ? (kilpailuVuosi - parseInt(syntymaVuosi))
         : (parseInt(String(d.ikaluokka || '').slice(1)) || null);
@@ -4087,7 +4086,8 @@ async function _adminLaskeTkiUudelleen() {
       const tki = tkLaskeTKI(kt, ika, sp, rajatOverride);
       const merkki = tkLaskeMerkki(kt, ika, sp, rajatOverride);
       const vk = _laskeVahvuudetJaKehityskohteet({ testit: _dTestit }, { ika: ika });
-      const pika = { tki_viimeisin: (tki == null ? null : tki), tki_pvm: d.pvm || d.testauspvm || '' };
+      const pika = { tki_viimeisin: (tki == null ? null : tki), tki_pvm: _dp.pvm };
+      pika.tki_pvm_arvio = _dp.arvio ? true : firebase.firestore.FieldValue.delete();   // arviopäivä (kausi) säilyy arviona recalcin läpi   // arviopäivä (kausi) säilyy arviona recalcin läpi
       pika.tki_merkki = merkki || null;   // kirjoita AINA (myös null)
       if (vk.vahvuudet[0]) pika.tki_vahvuus = vk.vahvuudet[0].laji;
       if (vk.kehityskohteet[0]) pika.tki_kehityskohde = vk.kehityskohteet[0].laji;
@@ -4095,13 +4095,13 @@ async function _adminLaskeTkiUudelleen() {
       // recalc EI vangitse _edellinen (norm-migraatio ≠ kehitys, §29).
       const _tkLajit = (tki == null) ? null : _tkLajitPikakentat(_dTestit, ika);
       pika.tk_lajit_viimeisin = _tkLajit;
-      pika.tk_lajit_pvm = _tkLajit ? (d.pvm || d.testauspvm || '') : null;
+      pika.tk_lajit_pvm = _tkLajit ? _dp.pvm : null;
       pika.tk_kokonaistulos_viimeisin = (tki == null ? null : kt);
       // D2-tekninen TK-lajitasoista (§8.7): kirjoita VAIN jos d2 puuttuu tai jo TK-pohjainen.
       // ÄLÄ KOSKAAN ylikirjoita SM/H-H-pohjaista d2:ta (null-lahde + olemassa oleva arvo = säilytä).
       if (_tkLajit && typeof laskeD2Tekninen === 'function' && (pelData.d2_taso == null || pelData.d2_lahde === 'tk')) {
         const _d2tk = laskeD2Tekninen(_tkLajit, ika, sp);
-        if (_d2tk != null) { pika.d2_taso = _d2tk; pika.d2_lahde = 'tk'; pika.d2_pvm = d.pvm || d.testauspvm || ''; }
+        if (_d2tk != null) { pika.d2_taso = _d2tk; pika.d2_lahde = 'tk'; pika.d2_pvm = _dp.pvm; pika.d2_pvm_arvio = _dp.arvio ? true : firebase.firestore.FieldValue.delete(); }
       }
       paivitykset.push({ pid: t.pid, pika: pika });
     });
@@ -4169,6 +4169,8 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
     let valittu = jkIka ? tk.find(function(x) { return String(x.data.ikaluokka || '').toUpperCase() === jkIka; }) : null;
     if (!valittu) valittu = tk[0];
     const d = valittu.data;
+    const _dp = TM_TESTIPAIVA.tmDokumentinPaiva(d);   // sama päivä-/arviosääntö kuin tuonnissa; ei päivää → ohita (ei tyhjää tki_pvm:ää)
+    if (!_dp.pvm) { ohitettu++; return; }
     const ikaluokka = String(d.ikaluokka || '');
     const sp = (ikaluokka.charAt(0).toUpperCase() === 'T') ? 'T' : 'P';   // TK_KOKONAISRAJAT-avaimet P/T (EI M/N)
     const ika = parseInt(ikaluokka.replace(/[^0-9]/g, ''), 10);
@@ -4189,7 +4191,7 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
     muutokset.push({
       pelRef: t.ref, tulRef: valittu.ref,
       nimi: (t.pel.etunimi || '') + ' ' + (t.pel.sukunimi || ''),
-      joukkue: t.pel.joukkue || '', ikaluokka: ikaluokka, kt: kt, pvm: d.pvm || d.testauspvm || '',
+      joukkue: t.pel.joukkue || '', ikaluokka: ikaluokka, kt: kt, pvm: _dp.pvm, pvmArvio: _dp.arvio,
       vanhaTki: (t.pel.tki_viimeisin === undefined ? '—' : t.pel.tki_viimeisin),
       vanhaTkiRaaka: (t.pel.tki_viimeisin == null ? null : t.pel.tki_viimeisin),
       vanhaPvm: t.pel.tki_pvm || null,
@@ -4222,7 +4224,7 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
     const era = muutokset.slice(e * ERA, (e + 1) * ERA);
     const batch = db.batch();
     era.forEach(function(m) {
-      const pika = { tki_viimeisin: (m.tki == null ? null : m.tki), tki_merkki: m.merkki || null, tki_pvm: m.pvm || '' };
+      const pika = { tki_viimeisin: (m.tki == null ? null : m.tki), tki_merkki: m.merkki || null, tki_pvm: m.pvm, tki_pvm_arvio: m.pvmArvio ? true : firebase.firestore.FieldValue.delete() };
       // VAIHE 2 — kehitysvauhti: edellinen vain aidolla uudella testillä (eri pvm) → pvm-vahti.
       if (m.vanhaTkiRaaka != null && m.vanhaPvm && m.pvm && m.vanhaPvm !== m.pvm) {
         pika.tki_edellinen = m.vanhaTkiRaaka;
@@ -4230,7 +4232,7 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
       }
       // TKI-analyysimalli VAIHE 1 — per-laji + kokonaistulos; edellinen samalla pvm-vahdilla kuin tki_edellinen.
       pika.tk_lajit_viimeisin = m.tkLajit;
-      pika.tk_lajit_pvm = m.tkLajit ? (m.pvm || '') : null;
+      pika.tk_lajit_pvm = m.tkLajit ? m.pvm : null;
       pika.tk_kokonaistulos_viimeisin = (m.tki == null ? null : m.kt);
       if (m.vanhaKt != null && m.vanhaPvm && m.pvm && m.vanhaPvm !== m.pvm) {
         pika.tk_kokonaistulos_edellinen = m.vanhaKt;
@@ -4239,7 +4241,7 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
       // D2-tekninen TK-lajitasoista (§8.7): kirjoita VAIN jos d2 puuttuu tai jo TK-pohjainen.
       // ÄLÄ KOSKAAN ylikirjoita SM/H-H-pohjaista d2:ta (null-lahde + olemassa oleva arvo = säilytä).
       if (m.d2tk != null && (m.vanhaD2 == null || m.vanhaD2Lahde === 'tk')) {
-        pika.d2_taso = m.d2tk; pika.d2_lahde = 'tk'; pika.d2_pvm = m.pvm || '';
+        pika.d2_taso = m.d2tk; pika.d2_lahde = 'tk'; pika.d2_pvm = m.pvm; pika.d2_pvm_arvio = m.pvmArvio ? true : firebase.firestore.FieldValue.delete();
       }
       if (m.vk.vahvuudet[0]) pika.tki_vahvuus = m.vk.vahvuudet[0].laji;
       if (m.vk.kehityskohteet[0]) pika.tki_kehityskohde = m.vk.kehityskohteet[0].laji;
@@ -4461,7 +4463,7 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
       d1_taso: d1_taso, d1_kattavuus: d1_kattavuus,
       d2_taso: _d2 ? _d2.taso : null, d2_kattavuus: _d2 ? _d2.kattavuus : null, d2_lahde: _d2 ? _d2.lahde : null,
       hhViimeisinUusi: _hvUusi,
-      hhPvm: p.hh_pvm || null,
+      hhPvm: p.hh_pvm || null, hhPvmArvio: p.hh_pvm_arvio === true,
       raeKvartaali: (typeof raeKvartaali === 'function') ? raeKvartaali(p.syntymaaika) : null,   // §14/§30 RAE-pikakenttä
       hh_kehityskohde: kk ? kk.kehityskohde : null, hh_vahvuus: kk ? kk.vahvuus : null });
   });
@@ -4490,8 +4492,8 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     const batch = db.batch();
     era.forEach(function(m2) {
       const _u = { hh_taso: m2.taso, hh_taso_recalc: true, d1_taso: m2.d1_taso, hh_kehityskohde: m2.hh_kehityskohde, hh_vahvuus: m2.hh_vahvuus };
-      if (m2.d1_taso != null) { _u.d1_lahde = 'hh'; _u.d1_kattavuus = m2.d1_kattavuus; if (m2.hhPvm) _u.d1_pvm = m2.hhPvm; }   // BUG-fix: pvm aikajanan laajennukselle
-      if (m2.d2_taso != null) { _u.d2_taso = m2.d2_taso; _u.d2_lahde = m2.d2_lahde || 'hh'; _u.d2_kattavuus = m2.d2_kattavuus; _u.d2_taso_recalc = true; if (m2.hhPvm) _u.d2_pvm = m2.hhPvm; }   // §30 d2 backfill (H-H syöttö/pujottelu tai sm_pallo-fallback)
+      if (m2.d1_taso != null) { _u.d1_lahde = 'hh'; _u.d1_kattavuus = m2.d1_kattavuus; if (m2.hhPvm) { _u.d1_pvm = m2.hhPvm; _u.d1_pvm_arvio = m2.hhPvmArvio ? true : firebase.firestore.FieldValue.delete(); } }   // BUG-fix: pvm aikajanan laajennukselle
+      if (m2.d2_taso != null) { _u.d2_taso = m2.d2_taso; _u.d2_lahde = m2.d2_lahde || 'hh'; _u.d2_kattavuus = m2.d2_kattavuus; _u.d2_taso_recalc = true; if (m2.hhPvm) { _u.d2_pvm = m2.hhPvm; _u.d2_pvm_arvio = m2.hhPvmArvio ? true : firebase.firestore.FieldValue.delete(); } }   // §30 d2 backfill (H-H syöttö/pujottelu tai sm_pallo-fallback)
       if (m2.raeKvartaali) _u.rae_kvartaali = m2.raeKvartaali;   // §14/§30 RAE-pikakenttä (kerroin RAE_KERROIN, sovellus TODO)
       if (m2.hhViimeisinUusi) _u.hh_viimeisin = m2.hhViimeisinUusi;   // #69: sm_juoksu/sm_pallo persistointi (täysi hv-objekti)
       batch.set(m2.ref, _u, { merge: true });
@@ -4690,7 +4692,7 @@ window.recalcTSI = async function(seuraIdArg, dryRun) {
     if (isNaN(smJuoksu) || isNaN(smPallo)) { ohitettu++; continue; }
     const tsi = Math.round((smPallo - smJuoksu) * 100) / 100;   // §22: SM-pallo − SM-juoksu
     muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''),
-      smJuoksu: smJuoksu, smPallo: smPallo, tsi: tsi, pvm: d.testauspvm || d.pvm || null });
+      smJuoksu: smJuoksu, smPallo: smPallo, tsi: tsi, pvm: TM_TESTIPAIVA.tmDokumentinPaiva(d).pvm, pvmArvio: TM_TESTIPAIVA.tmDokumentinPaiva(d).arvio });
   }
 
   muutokset.forEach(function(m){
@@ -4710,9 +4712,10 @@ window.recalcTSI = async function(seuraIdArg, dryRun) {
     const era = muutokset.slice(e * ERA, (e + 1) * ERA);
     const batch = db.batch();
     era.forEach(function(m){
+      if (!m.pvm) return;   // ei päivää tulosdokumentissa → EI kirjoiteta tsi_pvm:ää keksittynä (pari-invariantti)
       batch.set(m.ref, {
         tsi_viimeisin: m.tsi, sm_juoksu_viimeisin: m.smJuoksu, sm_pallo_viimeisin: m.smPallo,
-        tsi_pvm: m.pvm || tmPaivaIso(new Date()), tsi_recalc: true
+        tsi_pvm: m.pvm, tsi_pvm_arvio: m.pvmArvio ? true : firebase.firestore.FieldValue.delete(), tsi_recalc: true
       }, { merge: true });
     });
     try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
@@ -4756,10 +4759,12 @@ window.recalcSMtasot = async function(seuraIdArg, dryRun) {
     const sj = (p.hyppy_sj_viimeisin != null) ? p.hyppy_sj_viimeisin : null;
     const ei = (cmj != null && sj != null) ? Math.round((cmj - sj) * 10) / 10 : null;
 
+    const _tpD = TM_TESTIPAIVA.tmPaivaLahde(p, 'tsi');   // d2_pvm = tsi_pvm (sama SM-testi); ei päivää → ei d2:ta (EI "tänään"-varapäivää)
+    if (!_tpD.iso) { d2 = null; smJtaso = null; smPtaso = null; }
     if (d2 == null && ei == null) { ohitettu++; return; }
     muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''),
       smJuoksu: p.sm_juoksu_viimeisin, smPallo: p.sm_pallo_viimeisin, smJtaso: smJtaso, smPtaso: smPtaso, d2: d2, ei: ei,
-      pvm: p.tsi_pvm || tmPaivaIso(new Date()) });
+      pvm: _tpD.iso, pvmArvio: _tpD.lahde === 'arvio' });
   });
 
   muutokset.forEach(function(m2){
@@ -4783,7 +4788,7 @@ window.recalcSMtasot = async function(seuraIdArg, dryRun) {
     const batch = db.batch();
     era.forEach(function(m2){
       const upd = {};
-      if (m2.d2 != null) { upd.sm_juoksu_taso = m2.smJtaso; upd.sm_pallo_taso = m2.smPtaso; upd.d2_taso = m2.d2; upd.d2_taso_recalc = true; upd.d2_pvm = m2.pvm; }
+      if (m2.d2 != null) { upd.sm_juoksu_taso = m2.smJtaso; upd.sm_pallo_taso = m2.smPtaso; upd.d2_taso = m2.d2; upd.d2_taso_recalc = true; upd.d2_pvm = m2.pvm; upd.d2_pvm_arvio = m2.pvmArvio ? true : firebase.firestore.FieldValue.delete(); }
       if (m2.ei != null) upd.ei_viimeisin = m2.ei;
       batch.set(m2.ref, upd, { merge: true });
     });
@@ -4821,7 +4826,7 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
       .sort(function(a,b){ return String(b.testauspvm||b.pvm||'').localeCompare(String(a.testauspvm||a.pvm||'')); });
     if (!docs.length) { ohitettu++; continue; }
     const tt = docs[0].testit;
-    const _srcPvm = _paivaIso(docs[0].testauspvm || docs[0].pvm || '') || null;   // lähde-H-H-testin pvm (§26 pari-invariantti)
+    const _srcDp = TM_TESTIPAIVA.tmDokumentinPaiva(docs[0]), _srcPvm = _srcDp.pvm;   // lähde-H-H-testin pvm (§26 pari-invariantti)
     const _vanhaPvm = p.hh_pvm ? _paivaIso(p.hh_pvm) : null;
     const lin10m = (tt.lin10m != null && !isNaN(parseFloat(tt.lin10m))) ? parseFloat(tt.lin10m) : null;
     const lin5m  = (tt.lin5m  != null && !isNaN(parseFloat(tt.lin5m)))  ? parseFloat(tt.lin5m)  : null;
@@ -4831,7 +4836,7 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
     const pvmVanhentunut = (_srcPvm && (!_vanhaPvm || _srcPvm > _vanhaPvm));
     if ((lin10m == null || hv.lin10m != null) && (lin5m == null || hv.lin5m != null) && (kasirata == null || hv.kasirata != null) && !pvmVanhentunut) { ohitettu++; continue; }
     muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), lin10m: lin10m, lin5m: lin5m, kasirata: kasirata,
-      hhPvm: pvmVanhentunut ? _srcPvm : null });   // §26: kirjoita hh_pvm samasta testistä (pari-invariantti)
+      hhPvm: pvmVanhentunut ? _srcPvm : null, hhPvmArvio: _srcDp.arvio });   // §26: kirjoita hh_pvm samasta testistä (pari-invariantti)
   }
   muutokset.forEach(function(m){ console.log((dryRun?'[DRY-RUN] ':'[recalcHHsplits] OK ')+m.nimi+(m.lin10m!=null?' · 10m '+m.lin10m+'s':'')+(m.lin5m!=null?' · 5m '+m.lin5m+'s':'')+(m.kasirata!=null?' · kasirata '+m.kasirata+'s':'')); });
   if (dryRun) {
@@ -4851,7 +4856,7 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
       if (m.lin5m != null) hv.lin5m = m.lin5m;
       if (m.kasirata != null) hv.kasirata = m.kasirata;
       const _u = { hh_viimeisin: hv };   // deep-merge → lisää lin10m/lin5m/kasirata poistamatta muita
-      if (m.hhPvm) _u.hh_pvm = m.hhPvm;   // §26-invariantti: hh_viimeisin + hh_pvm samasta testistä (juurisyy-korjaus)
+      if (m.hhPvm) { _u.hh_pvm = m.hhPvm; _u.hh_pvm_arvio = m.hhPvmArvio ? true : firebase.firestore.FieldValue.delete(); }   // §26-invariantti: hh_viimeisin + hh_pvm samasta testistä (juurisyy-korjaus)
       batch.set(m.ref, _u, { merge: true });
     });
     try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
@@ -4876,7 +4881,7 @@ window.korjaaHhPvm = async function(seuraIdArg, dryRun) {
   const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
   const muutokset = [];
   let ohitettu = 0, eiTuloksia = 0;
-  const _pvmOf = function(d, id) { return _paivaIso(d.testauspvm || d.pvm || String(id || '').split('_')[0] || '') || null; };
+  const _pvmOf = function(d, id) { return TM_TESTIPAIVA.tmDokumentinPaiva(d, id).pvm; };
   // A-SEMANTIIKKA (tuotepäätös): hh_pvm = VIIMEISIN (max) vaikuttanut H-H-testipäivä (fyysinen/sm TAI syöttö/pujottelu;
   // EI TKI). Kanoninen valinta lib/tm_pvm.js:ssä (tmValitseHhPvm, Vitest-testattu) — EI arvo-täsmää/backdate.
   for (const pelDoc of pelSnap.docs) {
@@ -4884,12 +4889,12 @@ window.korjaaHhPvm = async function(seuraIdArg, dryRun) {
     if (p.hh_viimeisin == null) { ohitettu++; continue; }
     const tulSnap = await db.collection('seurat').doc(sid).collection('pelaajat').doc(pelDoc.id)
       .collection('testitulokset').get().catch(function(){ return { docs: [] }; });
-    const testDocs = tulSnap.docs.map(function(t){ const dd = t.data(); return { protokolla: dd.protokolla, testit: dd.testit, pvm: _pvmOf(dd, t.id) }; });
+    const testDocs = tulSnap.docs.map(function(t){ const dd = t.data(); return { protokolla: dd.protokolla, testit: dd.testit, pvm: _pvmOf(dd, t.id), arvio: TM_TESTIPAIVA.tmDokumentinPaiva(dd, t.id).arvio }; });
     if (!testDocs.some(function(x){ return x.pvm && tmOnHHtesti(x); })) { eiTuloksia++; continue; }
     const nykyPvm = p.hh_pvm ? _paivaIso(p.hh_pvm) : null;
     const uusiPvm = tmValitseHhPvm(testDocs, nykyPvm);   // null = jo OK / ei backdate
     if (uusiPvm == null) { ohitettu++; continue; }
-    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), vanha: nykyPvm, uusi: uusiPvm });
+    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), vanha: nykyPvm, uusi: uusiPvm, arvio: testDocs.filter(function(x){ return x.pvm === uusiPvm; }).every(function(x){ return x.arvio; }) });
   }
   muutokset.forEach(function(m){ console.log((dryRun?'[DRY-RUN] ':'[korjaaHhPvm] OK ')+m.nimi+': hh_pvm '+(m.vanha||'—')+' → '+m.uusi); });
   if (dryRun) {
@@ -4902,7 +4907,7 @@ window.korjaaHhPvm = async function(seuraIdArg, dryRun) {
   for (let e = 0; e < Math.ceil(muutokset.length / ERA); e++) {
     const era = muutokset.slice(e*ERA, (e+1)*ERA);
     const batch = db.batch();
-    era.forEach(function(m){ batch.set(m.ref, { hh_pvm: m.uusi }, { merge: true }); });   // VAIN hh_pvm; hh_viimeisin-arvot ennallaan
+    era.forEach(function(m){ batch.set(m.ref, { hh_pvm: m.uusi, hh_pvm_arvio: m.arvio ? true : firebase.firestore.FieldValue.delete() }, { merge: true }); });   // VAIN hh_pvm (+ arviomerkki); hh_viimeisin-arvot ennallaan
     try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
     catch (err) { console.error('[korjaaHhPvm batch '+(e+1)+']', err); virhe += era.length; }
   }
@@ -4923,7 +4928,7 @@ window.backfillTestipaivat = async function(seuraIdArg, dryRun) {
   const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
   const muutokset = [];
   let ohitettu = 0;
-  const _pvmOf = function(d, id) { return _paivaIso(d.testauspvm || d.pvm || String(id || '').split('_')[0] || '') || null; };
+  const _pvmOf = function(d, id) { return TM_TESTIPAIVA.tmDokumentinPaiva(d, id).pvm; };
   const _samat = function(a, b) { a = a || {}; b = b || {}; const ks = ['fyysinen_hh','tekniikka_hh','tki','phv'];
     return ks.every(function(k){ return (a[k] || null) === (b[k] || null); }); };
   for (const pelDoc of pelSnap.docs) {
