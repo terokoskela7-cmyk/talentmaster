@@ -51,9 +51,10 @@
 
 **K35-3 · Viikkopohjat ja Täytä viikko -logiikka (kaista auto).**
 - `lib/tm_viikkopohja.js`:
-  - `POHJAT_PALLOLIITTO`: 5v5, 8v8, 11v11 nuoruus ja 11v11 erikoistuminen mockupin §1 taulukon luvuin. Merkitse `lahde:'palloliitto'` ja `lahde_viite:'Palloliiton valmennuslinja, Seurojen ääni 2023'`. Tero vahvistaa ikäkohdistuksen ennen latausta.
+  - `POHJAT_PALLOLIITTO` luetaan tiedostosta `docs/data/spl_viikkopohjat_2023.json` (kuusi pohjaa: 3v3, 5v5, 8v8 lapsuus, 8v8 nuoruus, 11v11 nuoruus, 11v11 erikoistuminen; harjoitusmäärät, kestot, harjoitustapahtuman rakenne, 11v11:n esimerkkiviikon päiväprofiili; sivuviitteet). `lahde:'palloliitto'`, `lahde_viite:'Palloliiton valmennuslinja 2023, s. N'`. Ikä on ohjeellinen; pohjan valinta tehdään pelimuodosta (D173), ei iästä. Vartija: JSON ja lib pysyvät samassa (testi lukee tiedoston).
   - Skeema `valmennuslinja/viikkopohjat`: `{pohjat:[{avain, nimi, pelimuoto, ikavaihe, lahde:'palloliitto'|'seura', paivat:[{md, viikonpaiva_oletus, painotus, kesto_min, alue, pelimuoto, rpe_min?, rpe_max?}], peli:{maara, teksti}}]}`. `rpe_*` vain 11v11 (D26). Lisäksi `tmViikkopohjaVirhe(pohja)`.
   - `tmKausivaihe(kausisuunnitelma, pvm)` ja `tmPohjaJoukkueelle(pohjat, kausisuunnitelma, joukkue, pvm)` (D34; ilman kausisuunnitelmaa pelimuodon mukaan).
+  - Pohja voi kuulua joukkueelle tai ryhmälle (`kohde: {joukkue}|{ryhma}`, D196). Ryhmän vastaava (`ryhmat.vastuu_uid`) saa käyttää Täytä viikkoa ryhmälle.
   - `tmTaytaViikko({pohja, vaihe, ottelut, tauot, historia, kokoonpanot, maanantai})` → `{ehdotukset:[{pvm, alkaa, paattyy, paikka, tyyppi:'harjoitus', md, painotus, teema?}], paallekkaisyydet:[{pvm, pelaajia, toinen_tapahtuma_id}], ohitetut:[{pvm, syy:'tauko'}]}`. Päivät lasketaan ottelusta (14), ilman ottelua oletuspäivistä. Ajat ja paikka tulevat `historia`sta (joukkueen viimeisin saman viikonpäivän harjoitus), muuten pohjan oletus 17.30 + kesto. Taukoviikot ohitetaan.
 - Testit: ottelu la → ma −5, ke −3, to −2; ei ottelua → oletuspäivät; tauko → 0 ehdotusta; päällekkäisyys ryhmän kanssa (3 yhteistä pelaajaa) tunnistetaan; 5v5 ei saa `rpe_*`-kenttiä.
 
@@ -61,7 +62,7 @@
 
 **K35-5 · TASO-ottelut kalenteriin (kaista Tero, functions).** `tasoHaeSeuranOttelut` + uusi ajastettu synkka `kalenteriTasoSynkka` (europe-west1, Helsingin aika) → `kalenteri/{id}` `lahde:'taso'`, `lahde_id:'taso_<id>'`, `tyyppi:'ottelu'`. Joukkueen yhdistäminen: `konfiguraatio/kalenterilahteet.taso.joukkueet{taso_id: jid}`. D181: synkka kirjoittaa vain `LAHTEEN_KENTAT`, poistunut ottelu → `tila:'peruttu'`. Muutos laukaisee nykyisen `notifKalenteriMuutos`in (ei uutta ilmoituspolkua). Yhdistämättömiä joukkueita ei tuoda. Testit: dedup, siirto, perutus, TM-kenttiä ei ylikirjoiteta.
 
-**K35-6 · Täytä viikko Masteriin (kaista Tero).**
+**K35-6 · Täytä viikko Masteriin (kaista Tero).** Sisältää Rules-muutoksen ryhmän vastaavalle (D196): luonti ja täysi muokkaus tapahtumiin, joiden `kohde.ryhma_id` on oma ryhmä (`ryhmat/{rid}.vastuu_uid == auth.uid`). Versio + changelog + Rules-testi.
 - `lib/tm_kalenteri_nakyma.js`: päiväsarakkeet, kortit aikajärjestyksessä (D182, mockup §2), mobiilissa päivät riveinä. Esikatselutila katkoviivakortein, päällekkäisyys amber-kortissa. Yksi signaalikortti, jossa on Täytä viikko tai Vahvista N harjoitusta. Monista viikko ja Lisää yksittäinen tapahtuma linkkeinä.
 - Vahvistus kirjoittaa batchina (`luoja_uid`), ja perheet saavat yhden viikkoilmoituksen (`pelaajat/{pid}/notifikaatiot`, D192). Ilmoitus on uusi päätöshaara `kalenteri_notif.js`iin: tunniste `viikko_<jid>_<isoviikko>`, ja saman batchin yksittäiset muutosilmoitukset ohitetaan. Tämä on functions-muutos, joten sen voi tehdä omana PR:nään.
 - Master käyttää komponenttia. VP saa sen R1:ssä (K35-8).

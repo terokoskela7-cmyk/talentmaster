@@ -32,7 +32,7 @@ Jokaisella tiedolla on yksi tallennuspaikka ja yksi funktio, josta kaikki lukeva
 | Jakso ja sen viikko (vk 3/6) | `joukkueet.jaksofokus` | `tmJaksoTila` (toinen sessio, sama kuin S1) | jaksokortti, kalenterin Silmukka, pulssi | valmis |
 | Viikkotavoite | `jaksofokus.viikot[]` | `tmJfViikko` | joukkueen viikko, pelaajan "Tällä viikolla" | valmis (D36) |
 | Jakson teema | vuosikello → jaksofokus | `tmJoukkueenTeema` (`tm_jakso_malli.js`) | Täytä viikko, harjoituksen teema, teemakattavuus | valmis |
-| Viikkopohja | `valmennuslinja/viikkopohjat` | `tmTaytaViikko` | Täytä viikko, VP:n poikkeamat | K35-3 (D183) |
+| Viikkopohja | `valmennuslinja/viikkopohjat`; Palloliiton oletus `docs/data/spl_viikkopohjat_2023.json` | `tmTaytaViikko` | Täytä viikko (joukkue tai ryhmä), VP:n poikkeamat | K35-3 (D183) |
 | Testitulosten ikä | pikakentät `*_pvm` | `tm_nakyma_ryhmat.js` VANHA_KK 15, MUISTUTUS_KK 12; `tmTestijaksoEhdotus` | D1/D2-kortit, Tilanne, kausinäkymän testijaksorivi | valmis + K35-1 |
 | Toteutunut läsnäolo | `lasnaolijat/{pid}.tila` | K2a | kooste, kuorma, dropout (K5) | valmis |
 | Ennakkoilmoitus | `lasnaolijat/{pid}.saatavuus` + rooli | K2b | valmentajan viikko, perhe | valmis; rooli lisätään (D189) |
@@ -111,7 +111,7 @@ Roolit CLAUDE.md §4:stä, ryhmänvetäjät (D136) ja hallitus (21). Mockup 35 k
 | VP, UTJ | kausi, viikkopohjat, lähteet, seuran viikko, poikkeamat, täysi CRUD | koko seura | katettu (35 §1, §4, §5, §8) |
 | seurasihteeri | kuten VP (johto-rooli Rulesissa) | koko seura | katettu, ei omaa näkymää |
 | valmentaja | joukkueen viikko, Täytä viikko, päivän suunnittelu, läsnäolo, kuorma | oma joukkue ja omat ryhmät | katettu (35 §2, §3, §6) |
-| talenttivalmentaja, maalivahtivalmentaja | ryhmän tapahtumat samalla näkymällä kuin joukkue; pohjaa ei ole | ryhmä valitsimessa (D136, D138) | **aukko → D196** |
+| talenttivalmentaja, maalivahtivalmentaja (ryhmän vastaava) | suunnittelee ryhmän omat harjoitukset kuten valmentaja joukkueen: tapahtumat, päivän suunnittelu, läsnäolo, oma viikkopohja valinnainen | ryhmä valitsimessa (D136, D138) | D196 |
 | fysiikkavalmentaja, fysioterapeutti | kuorman seuranta, kypsyysvahti, klinikkalähetys | henkilökunnan kuormanäkymä | **aukko → D197** |
 | testivastaava | testijaksot ja testitapahtumat, Testaus_v9 | kausinäkymän testijaksorivi | **aukko → D198** |
 | super_admin | kuten VP, seuravalitsin pakollinen (§3) | valittu seura | huomioitava K35-2, K35-8 |
@@ -125,7 +125,7 @@ Roolit CLAUDE.md §4:stä, ryhmänvetäjät (D136) ja hallitus (21). Mockup 35 k
 - **D193** Tauolla on yksi lähde: `seuran_tauko` (35 §10).
 - **D194** Joukkueen viikko on kalenterin viikkonäkymä (35 §10).
 - **D195** Kerrosmalli ja omistajuustaulukko (tämän dokumentin §1–§3) ovat sopimus sessioiden välillä. Uusi tieto lisätään §2:n taulukkoon ennen kuin sitä luetaan mistään.
-- **D196** Ryhmän viikko. Ryhmällä (talentit, maalivahdit, IDP-ryhmä) on oma rytmi mutta ei viikkopohjaa: ryhmänvetäjä lisää tapahtumat pikalisäyksellä tai toistuvuudella, ja Täytä viikko ei koske ryhmää. Täytä viikko tarkistaa joukkueen ehdotukset ryhmien tapahtumia vasten (päällekkäisyys pelaajalla), ja ryhmänvetäjä näkee saman päällekkäisyyden omassa viikossaan. Pelaajalle ryhmän tapahtuma näkyy neutraalilla nimellä (15 §4).
+- **D196** Ryhmän viikko ja ryhmän vastaavan oikeus (Tero 11.10.). Ryhmän vastaava (`ryhmat/{rid}.vastuu_uid`) suunnittelee ryhmän omat harjoitukset samoilla työkaluilla kuin joukkueen valmentaja: luo, muokkaa ja poistaa ryhmän tapahtumat, avaa päivän suunnittelun (osat, alueet, harjoitteet seuran pankista) ja merkitsee läsnäolon. Ryhmällä voi olla oma viikkopohja (esim. maalivahdit 1 × vk), jolloin Täytä viikko toimii ryhmälle; ilman pohjaa tapahtumat lisätään pikalisäyksellä tai toistuvuudella. Täytä viikko tarkistaa joukkueen ja ryhmän ehdotukset toisiaan vasten (päällekkäisyys pelaajalla), ja molemmat vastaavat näkevät sen. Pelaajalle ryhmän tapahtuma näkyy neutraalilla nimellä (15 §4). Rules: nykyinen `ryhmanValmentajaTapahtumassa` sallii vain `pelaajat_id`- ja `jaadytetty`-päivityksen; vastaavalle tarvitaan luonti ja täysi muokkaus omiin ryhmän tapahtumiin (Teron kaista, K35-6:n yhteydessä).
 - **D197** Kuorman ja kypsyysvahdin näkymä henkilökunnalle. Fysiikkavalmentaja ja fysioterapeutti saavat Kalenteri · Kuorma -välilehden (R1): joukkueet riveinä, viikot sarakkeina, solu = kuorma rinnakkain (D188), PH- ja tuntematon-pelaajat merkittyinä (§25), klinikkalähetys FLEI < 40 omana rivinään. Ei uutta dataa: luetaan `valmentaja_rpe`, pelaajien kirjaukset, `tmPhvTila` ja pikakentät. Terveystieto pysyy `terveys/`-kokoelmassa, ei kalenterissa.
 - **D198** Testijakson suunnittelu kalenterista. "Suunnittele testijakso →" (Mittausaukot, Mittaustilanne, kausinäkymän testijaksorivi) avaa sheetin: joukkueet, protokolla, päivät `tmTestijaksoEhdotus`esta → luo `testitapahtuma`-tapahtumat (`testitapahtuma_id` linkittää Testaus_v9:ään, nykyinen malli). Luojat: johto ja testivastaava. Tulokset kirjataan edelleen Testaus_v9:ssä tai Excel-tuonnilla, ja testipäivä tulee tapahtumasta (`tm_testipaiva.js`: oikea päivä, ei arvio).
 
