@@ -136,7 +136,9 @@ Kalenteri on yksi kokoelma (`seurat/{sid}/kalenteri`), jota VP ja valmentaja kä
 | K35-6c | marras | Ryhmän vastaava suunnittelee ryhmän treenit (D196, Rules) + perheille yksi viikkoilmoitus (D192, functions). |
 | K35-5 | marras | TASO-ottelut kalenteriin (lähde omistaa ajan, TM sisällön, D181). |
 | **Kalenterin lataus rajatuksi** | ennen K35-6c | Master hakee nyt seuran koko kalenterin (`where poistettu == false`). Rajaus aikaväliin + joukkueeseen ennen kuin seuroja ja kausia kertyy. Sama B4:n kanssa. |
-| K35-7 | joulu | iCal-vienti (pelaajakohtainen linkki, D190 — vaatii Teron kuittauksen). |
+| **K35-7a** | loka–marras | iCal-syöte palvelimella: oma salainen linkki pelaajalle, huoltajalle (per lapsi) ja valmentajalle; ei muiden nimiä; linkin uusiminen mitätöi vanhan. Outlook/Google/iPhone päivittyvät automaattisesti (viive tunteja, viime hetken muutokset ilmoituksina). **D190 kuitattu 11.10.** |
+| K35-7b | 6a:n jälkeen | "Lisää kalenteriini" Pelaajaan, Vanhempaan ja Masteriin. |
+| **K35-9a Outlook → TM** | 7a:n jälkeen | Valmentajan/VP:n työkalenteri TM:ään (D191 tarkennus, Tero 11.10.): Outlookin julkaistu iCal-linkki (vain varattu-tieto), palvelin hakee tunnin välein, tallennetaan vain varatut ajat ilman otsikoita, näkyy vain omistajalle "Varattu", Täytä viikko ja luonti varoittavat päällekkäisyydestä. Avoin: näkeekö VP valmentajan varaukset (suositus: vain valmentajan luvalla, oletus pois). M365-ympäristö voi estää julkaisun → Microsoft Graph myöhemmin. |
 | K35-8 | joulu (R1) | VP:n Kalenteri-sivu: seuran viikko, kausi, Seuran linja -työkalu (mockup 37, D199), kuormanäkymä (D197), testijaksot (D198). |
 | K35-9…11 | 2027 | iCal-tuonti (JOPOX), MyClub API, kuorma rinnakkain (RPE valmentaja + pelaajat). |
 
@@ -153,7 +155,9 @@ Kalenteri on yksi kokoelma (`seurat/{sid}/kalenteri`), jota VP ja valmentaja kä
 | ennen 1.11. | **tmTasoVari** · **kehitystyöpöytä Tänään** -korjaukset · sv-erä 19 Geminille | Code → Tero/Gemini |
 | ennen 1.11. | Tyhjät joukkueet pois: KPV `kpv_t8`, `kpv_u8` ("KPV U8" → P-nimeäminen), SJK `sjk_p12`, `sjk_p13` | Tero |
 | ennen 1.11. | KPV ja Sibbo: sopimusten avoimet päätökset (käyttöönottohinta, laskutus aktiivisista pelaajista, tuntihinta, koulutustunnit, ruotsinkielinen versio, Y-tunnus) | Tero |
-| **1.11.** | **Sibbo:** ryhmät (maalivahdit, talenttiryhmä), klipit, ruotsi | — |
+| tällä viikolla | **Sibbon klippien läpiajo ruotsiksi** (FC Demo, sv, ~15 min): valmentaja (Master) lähettää Veo-linkin aikakohdalla testipelaajalle → pelaaja (Pelaaja_v7) avaa oikeasta kohdasta ja vastaa → huoltaja (Vanhempi) kuittaa "Katsoimme yhdessä" (U8–12) → valmentaja sulkee ketjun → sama puhelimella. Koodi valmis (M1 #884/#888, sv 100 %). | Tero |
+| ennen 1.11. | **Sibbon klippien käyttöönoton ehdot:** 1) Veon katseluoikeus: jaetaanko ottelut linkillä vai vain Veo-tilin jäsenille (Joakim) · 2) huoltajien suostumukset annettu (ilman sitä klippi "odottaa lupaa") · 3) pelaajien ja perheiden tunnukset · 4) ryhmälle lähetys puuttuu M1:stä (nyt "Valitut…"); jos Sibbo tarvitsee 1.11., se ohittaa K35-6:n | Tero + Joakim |
+| **1.11.** | **Sibbo:** ryhmät (maalivahdit, talenttiryhmä), **klipit pelaajille (Veo-linkki + kysymys) = Sibbon päätarve**, ruotsi | — |
 | 2.11.2026 | KPV:n tuorein tekniikkakisa (2.11.2025) täyttää 12 kk → muistutus syttyy | — |
 | ennen 10.11. | K3-käsitesti KPV:llä (ensimmäiset jaksot päättyvät ~17.11.) | Tero |
 | ~15.11. | S2: PM tarkistaa pulssin oikeilla neljän viikon luvuilla | PM |
