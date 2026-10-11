@@ -82,7 +82,7 @@ describe('Design: komponentit, tokenit', () => {
     const h = HTML(); ['kt-eb', 'kt-sig', 'kt-btn', 'kt-ev', 'kt-sig-h'].forEach((c) => expect(h).toContain(c));
     ['kt-sig', 'kt-sig-h', 'kt-sig-why', 'kt-btn', 'kt-eb', 'kt-ev', 'kt-q3'].forEach((c) => expect(TT.CSS).not.toMatch(new RegExp('(^|[}\\n,])\\.' + c + '[{ .:,]')));
     expect(TT.CSS).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); expect(TT.CSS).not.toMatch(/rgba?\(/);
-    const sallitut = new Set(['teal', 'amber', 'red', 'ink', 'ink2', 'ink3', 'bg', 'border', 'teal-brd', 'font-serif', 'font-mono', 'font-sans', 'kt-serif', 'amber-dim', 'tt-teal-dim', 'ov-1', 'n', 'c', 's', 'w', 'fs-h1', 'fs-h2', 'fs-lead', 'fs-body', 'fs-meta', 'fs-eb']);
+    const sallitut = new Set(['teal', 'amber', 'red', 'ink', 'ink2', 'ink3', 'bg', 'bg3', 'border', 'teal-brd', 'font-serif', 'font-mono', 'font-sans', 'kt-serif', 'amber-dim', 'tt-teal-dim', 'ov-1', 'n', 'c', 's', 'w', 'fs-h1', 'fs-h2', 'fs-lead', 'fs-body', 'fs-meta', 'fs-eb']);
     expect([...new Set((TT.CSS.match(/var\(--[a-z0-9-]+/g) || []).map((x) => x.slice(6)))].filter((x) => !sallitut.has(x))).toEqual([]);
   });
   it('mitat mockupista: KPI-luku Cormorant --fs-h2; aikajanan otsikot DM Sans --fs-meta (D169: DM Mono vain .kt-eb); rivi --fs-body; kortin radius 6', () => {

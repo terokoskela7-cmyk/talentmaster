@@ -98,7 +98,7 @@ describe('Tilanne: tekniikka kehityskohteena -rivit ja "ei tekniikkadataa"', () 
   });
   it('syy näkyy per joukkue (ryhmän avattu lista) ja otos pieni -merkintä; datan ikä (mitattu m/y · kk sitten)', () => {
     const x = teksti(html(F.lataa('kypsa', NYT)));
-    expect(x).toMatch(/alle ikätason · mitattu \d+\/\d+/); expect(x).toMatch(/mitattu \d+ kk sitten|mitattu \d+\.\d+\./);
+    expect(x).toMatch(/alle ikätason · \d+\/\d+ mitattu/); expect(x).toMatch(/testattu \d+ kk sitten|testattu \d+\.\d+\./);
   });
   it('datan ikä on tekniikan OMA: tuore FLEI/H-H ei peitä vanhaa TKI:tä (vanhat tulokset eivät tee huomiota)', () => {
     const d = muunna(F.lataa('kypsa', NYT), (p) => Object.assign({}, p, p.tki_pvm ? { tki_pvm: '2023-01-01' } : {}, p.tsi_pvm ? { tsi_pvm: '2023-01-01' } : {}, { flei_pvm: '2026-10-09', hh_pvm: '2026-10-09' }));

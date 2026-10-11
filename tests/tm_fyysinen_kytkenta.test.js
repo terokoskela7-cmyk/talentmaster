@@ -108,7 +108,7 @@ describe('VP_v25 ja Master on kytketty libiin (lähdevartijat)', () => {
   it('Master: D2 komposiittiin ei Eerikkilän tekniikkatestejä (d2KomposiittiTaso), D1/D2-kortti käyttää tm_fyysinen/tm_tekniikka-luokitusta', () => {
     expect(MA).toContain('lib/tm_fyysinen.js?v='); expect(MA).toContain('lib/tm_tekniikka.js?v='); expect(MA).toContain('lib/tm_nakyma_ryhmat.js?v='); expect(MA).toContain("tmRyhmat(dim, P"); expect(MA).toContain('tmNakymaYhteenveto(P');   // YKSI TOTUUS: kortti/ponnahdus libistä (tm_nakyma_ryhmat → tm_fyysinen/tm_tekniikka)
     const NR = readFileSync(new URL('../lib/tm_nakyma_ryhmat.js', import.meta.url), 'utf8'); expect(NR).toContain('tmFyysinenPelaaja(') ; expect(NR).toContain('tmTekniikkaMittari(') ; expect(NR).toContain('tmFyysinenJoukkueLuokka(') ; expect(NR).toContain('tmTekniikkaJoukkueLuokka(');
-    expect((MA.match(/d2KomposiittiTaso\(/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect((MA.match(/d2KomposiittiTaso\(/g) || []).length).toBe(0); expect(MA).toContain('tmTuoreTasoFn('); expect(MA).toContain('tmTaso3(');   // Master ei laske tasoa itse: komposiitti (d2KomposiittiTaso) vain libissä, tuoreilla dimensioilla
     expect(MA).not.toMatch(/const d2j = \(typeof laskeD2Joustava/);
   });
 });

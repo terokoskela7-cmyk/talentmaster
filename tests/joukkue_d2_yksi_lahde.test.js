@@ -87,7 +87,8 @@ describe('vartija: VP_v25 ei laske joukkuetason D2:ta TKI/20:stä — se tulee l
   const rivit = VP.split('\n');
   it('ei omaa laskeJoukkueD2-funktiota; joukkuekortti, hero ja KPI-kortti kutsuvat tmJoukkueD2:ta', () => {
     expect(VP).not.toMatch(/function laskeJoukkueD2\b/); expect(VP).not.toMatch(/laskeJoukkueD2\(/);
-    expect(VP).toContain('const d2 = tmJoukkueD2(pelaajat);'); expect(VP).toContain('tmJoukkueD2(KP, { minN: 1 })'); expect(VP).toContain('const _d2T = tmJoukkueD2(pool);');
+    expect(VP).toContain('const d2 = tmJoukkueD2(_p2);');   // _p2 = joukkueen pelaajat ilman vanhaa D2-tulosta (tm_nakyma_ryhmat)
+     expect(VP).toContain('tmJoukkueD2(KP, { minN: 1 })'); expect(VP).toContain('const _d2T = tmJoukkueD2(pool);');
   });
   it('ei `tki_viimeisin / 20` -laskentaa — ainoa poikkeus on _pLvl (laskeD2Joustava, "lähimpänä tavoitetta", raportoitu erikseen)', () => {
     const osumat = rivit.map((r, i) => [i + 1, r]).filter(([, r]) => /tki_viimeisin\s*\/\s*20|tki_viimeisin\s*\)\s*\/\s*20/.test(r));

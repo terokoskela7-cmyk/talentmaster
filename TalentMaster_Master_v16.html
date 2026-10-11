@@ -21,7 +21,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (audit 27, D140) -->
 <script src="lib/tm_koti_luvut.js?v=2"></script>   <!-- P0-luvut: avoimetTestit (yksi määritelmä), kattavuus (D125) — audit 27 -->
-<script src="lib/tm_pvm.js?v=4"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
+<script src="lib/tm_pvm.js?v=5"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
@@ -35,12 +35,12 @@
 <script src="lib/tm_i18n_common.js?v=12"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_master_i18n.js?v=30"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
-<script src="lib/tm_eerikkila_normit.js?v=52"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=53"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_normisto.js?v=2"></script>   <!-- PR 3b: kolme kerrosta — normisto + seuran linja (docs/NORMISTO_JA_SEURAN_LINJA.md) -->
 <script src="lib/tm_joukkuesaanto.js?v=3"></script>   <!-- PR 3: YKSI joukkuesääntö (tekniikka + fyysinen) -->
 <script src="lib/tm_tekniikka.js?v=5"></script>   <!-- PR 3: D2 = YKSI tekniikka-määritelmä (TKI → SM-tasot) -->
 <script src="lib/tm_fyysinen.js?v=4"></script>   <!-- PR 3: D1 = YKSI fyysisen heikkouden määritelmä (H-H-fyysiset tasot, §28) -->
-<script src="lib/tm_nakyma_ryhmat.js?v=1"></script>   <!-- YKSI TOTUUS: D1/D2-ryhmittely, kortti, banneri, kattavuus samasta luokittelusta (ei omia rajoja näkymissä) -->
+<script src="lib/tm_nakyma_ryhmat.js?v=2"></script>   <!-- YKSI TOTUUS: D1/D2-ryhmittely, kortti, banneri, kattavuus samasta luokittelusta (ei omia rajoja näkymissä) -->
 <script src="lib/tm_harjoitusarviointi.js?v=6"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- sv-läpiajo PR 3: curriculumin sv-sidecar (TM_TT_SV) — kielivalinta VAIN näyttöön (lib/tm_tt_sv_valinta.js) -->
@@ -9627,7 +9627,6 @@ function _mSeasonLuvut() {
 window._avaaKausiPelaajat = function(dim) {
   const P = _pelaajatData || [], NR = window.TM_NAKYMA_RYHMAT;
   const _nimi = p => _tmHenkiloNimi(p);
-  const _lvl = p => { const _is=_devIkaSp(p); const a=[p.d1_taso,p.hh_taso,(typeof d2KomposiittiTaso==='function')?d2KomposiittiTaso(p,_is.ika,_is.sp):null].filter(v=>v!=null); return a.length?Math.max(...a):null; };   // vain NÄYTTÖÖN (tasoluku henkilökunnalle); ryhmittely tulee libeistä
   const vanha=document.getElementById('kausiPelModal'); if(vanha) vanha.remove();
   const m=document.createElement('div'); m.id='kausiPelModal';
   m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9200;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -9637,16 +9636,16 @@ window._avaaKausiPelaajat = function(dim) {
     + (selite?'<span style="font-size:11px;color:var(--ink3);max-width:230px;text-align:right">'+selite+'</span>':'')
     + (taso!=null?'<span style="min-width:30px;text-align:center;font-family:var(--font-m,monospace);font-weight:600;color:var(--ink)">'+taso+'</span>':'')
     + '<span style="color:var(--teal)">→</span></div></div>';
-  const osio = (otsk,n,col,html) => n ? '<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:'+col+';margin:16px 0 2px">'+otsk+' ('+n+')</div>'+html : '';
+  const osio = (otsk,n,col,html,vihje) => n ? '<div'+(vihje?' title="'+String(vihje).replace(/"/g,'&quot;')+'"':'')+' style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:'+col+';margin:16px 0 2px">'+otsk+' ('+n+')</div>'+html : '';
   let otsikko, body, lkm, syy = '';
   if (dim==='d1' || dim==='d2') {
     const R = NR.tmRyhmat(dim, P, Date.now(), {}), VARI = { kehityskohde:'var(--amber)', ok:'var(--teal)' };
     otsikko = dim==='d1' ? masterT('D1 Fyysinen') : masterT('D2 Tekninen'); lkm = R.yht; syy = NR.tmKorttiSyy(R, masterT);
-    body = R.yht ? NR.RYHMAT.map(g => osio(NR.tmRyhmaOtsikko(g, dim, masterT, R.kk), R.ryhmat[g].length, VARI[g]||'var(--ink3)', R.ryhmat[g].map(r => rivihtml(r.p, NR.tmRiviSelite(r, dim, masterT))).join(''))).join('')
+    body = R.yht ? NR.RYHMAT.map(g => osio(NR.tmRyhmaOtsikko(g, dim, masterT, R.kk), R.ryhmat[g].length, VARI[g]||'var(--ink3)', R.ryhmat[g].map(r => rivihtml(r.p, NR.tmRiviSelite(r, dim, masterT))).join(''), NR.tmRyhmaSelite(g, masterT))).join('')
       : '<div style="padding:24px 0;color:var(--ink3);font-size:13px;text-align:center">'+masterT('Ei dataa tässä ulottuvuudessa')+'</div>';
   } else {
     /* "Taso ≥3" -mittari: jako samasta kanonisesta laskeTaso3Osuus:sta kuin kortin luku (yksi pelaaja kerrallaan) */
-    const Y = _mSeasonLuvut(), rivit = Y.Pt.filter(p => _lvl(p) != null).map(p => ({ p: p, taso: _lvl(p), t3: laskeTaso3Osuus([p]).n_taso3 > 0 })).sort((a,b)=>a.taso-b.taso);
+    const Y = _mSeasonLuvut(), _tf = NR.tmTuoreTasoFn(Y.Y), rivit = Y.P.filter(p => NR.tmTasoLvl(p, Y.Y, _tf) != null).map(p => ({ p: p, taso: NR.tmTasoLvl(p, Y.Y, _tf), t3: laskeTaso3Osuus([p], { tuore: _tf }).n_taso3 > 0 })).sort((a,b)=>a.taso-b.taso);   // vain tuoreet dimensiot (tm_nakyma_ryhmat) = sama joukko kuin kortin luku
     otsikko = masterT('Taso ≥3'); lkm = rivit.length;
     const keski = rivit.filter(r => r.t3), alle = rivit.filter(r => !r.t3);
     body = rivit.length ? osio(masterT('Alle ikäluokan keskitason'), alle.length, 'var(--ink3)', alle.map(r => rivihtml(r.p, '', r.taso)).join('')) + osio(masterT('Ikäluokan keskitaso tai parempi'), keski.length, 'var(--teal)', keski.map(r => rivihtml(r.p, '', r.taso)).join(''))
@@ -9666,33 +9665,22 @@ function renderSeason() {
   if (!_demo && _seuraId) {
     const P = _pelaajatData || [];
     const now = new Date();
-    /* YKSI TOTUUS (lib/tm_nakyma_ryhmat.js): vanhuus (VANHA_KK normistosta), kortit, banneri ja kattavuus samasta luokittelusta. Pt = pelaajat joilla on tuore tulos tai ei vanhaa-vain-tulosta. */
-    const _SL = _mSeasonLuvut(), Pt = _SL.Pt, nVanhentunut = _SL.Y.banneri.n, NR = window.TM_NAKYMA_RYHMAT;
+    /* YKSI TOTUUS (lib/tm_nakyma_ryhmat.js): vanhuus (VANHA_KK normistosta), kortit, banneri ja kattavuus samasta luokittelusta. */
+    const _SL = _mSeasonLuvut(), nVanhentunut = _SL.Y.banneri.n, NR = window.TM_NAKYMA_RYHMAT;
     const _kat = (lista, onMitattu) => window.TM_KOTI_LUVUT.kattavuus(lista, { _: lista }, onMitattu);   // D125: sama portti kuin VP:llä (yksi joukkue → 70 % pelaajista)
     const nimi = p => _tmHenkiloNimi(p);
-    const lvl = p => {
-      const _is = _devIkaSp(p);
-      const a = [p.d1_taso, p.hh_taso, (typeof d2KomposiittiTaso === 'function') ? d2KomposiittiTaso(p, _is.ika, _is.sp) : null].filter(v => v != null);   // PR 3: ei Eerikkilän tekniikkatestien D2:ta komposiittiin
-      return a.length ? Math.max(...a) : null;
-    };
 
     const _bw = document.getElementById('seasonBarWrap'); if (_bw) _bw.style.display = 'none';
     const subEl = document.getElementById('seasonSub');
     if (subEl) subEl.textContent = masterT('Kausi ') + now.getFullYear() + '/' + (now.getFullYear()+1).toString().slice(-2) + ' · ' + P.length + masterT(' pelaajaa');
 
-    // ── 1. KEHITYSPULSSI: % kehittynyt (abs §30/§3.2) + % taso ≥3 ──
-    let parani = 0, mitattuKahdesti = 0; const _parit = [];
-    Pt.forEach(p => {
-      let onPari = false, paraniTama = false;
-      if (p.hh_taso_edellinen != null && (p.hh_taso != null || p.d1_taso != null)) { onPari = true; if ((p.d1_taso != null ? p.d1_taso : p.hh_taso) > p.hh_taso_edellinen) paraniTama = true; }
-      if (p.tk_kokonaistulos_edellinen != null && p.tk_kokonaistulos_viimeisin != null) { onPari = true; if (p.tk_kokonaistulos_viimeisin < p.tk_kokonaistulos_edellinen) paraniTama = true; } // abs: nopeampi = parani
-      if (onPari) { mitattuKahdesti++; _parit.push(p); if (paraniTama) parani++; }
-    });
-    // Taso ≥3 KANONISESTA laskeTaso3Osuus:sta (sama luku kuin VP-tuloskortti samalla scopella, §6b)
-    const _t3 = (typeof laskeTaso3Osuus === 'function') ? laskeTaso3Osuus(Pt) : null;
-    const onTasoN = _t3 ? _t3.n_arvioidut : Pt.filter(p => lvl(p) != null).length;
-    const taso3 = _t3 ? _t3.n_taso3 : Pt.filter(p => lvl(p) != null && lvl(p) >= 3).length;
-    const katPari = _kat(P, p => _parit.indexOf(p) >= 0), katTaso = _kat(P, p => Pt.indexOf(p) >= 0 && lvl(p) != null);   // D125 kattavuusportti: "Kehittynyt 100 %" viidestä pelaajasta 16:sta → "5/16 mitattu kahdesti"
+    // ── 1. KEHITYSPULSSI: % kehittynyt (abs §30/§3.2) + % taso ≥3 — molemmat TUOREISTA (lib/tm_nakyma_ryhmat.js), sama pohja kuin D1/D2-kortit ──
+    const _K = NR.tmKehittynyt(P, _SL.Y), parani = _K.parani, mitattuKahdesti = _K.pareja, _parit = _K.pelaajat;
+    // Taso ≥3 KANONISESTA laskeTaso3Osuus:sta tuoreilla dimensioilla (sama funktio ja sama joukko kuin VP-tuloskortti samalla scopella, §6b)
+    const _tf = NR.tmTuoreTasoFn(_SL.Y), _t3 = NR.tmTaso3(P, _SL.Y);
+    const onTasoN = _t3.n_arvioidut, taso3 = _t3.n_taso3;
+    const katPari = _kat(P, p => _parit.indexOf(p) >= 0), katTaso = _kat(P, p => NR.tmTasoLvl(p, _SL.Y, _tf) != null);   // D125 kattavuusportti: "Kehittynyt 100 %" viidestä pelaajasta 16:sta → "5/16 mitattu kahdesti"
+    const _vanhaKortissa = [_SL.Y.d1, _SL.Y.d2].some(R => R.kortti.eiDataa < R.yht && R.kortti.vanha > 0);   // sama tieto on jo D1/D2-kortin syyrivillä → ei toista erillistä riviä (yksi lähde)
     const pulseEl = document.getElementById('seasonPulse');
     if (pulseEl) {
       const metr = (lbl, n, d, vihje, selite, klikDim, kat) => {
@@ -9712,7 +9700,7 @@ function renderSeason() {
       pulseEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
         + metr(masterT('Kehittynyt (abs)'), parani, mitattuKahdesti, mitattuKahdesti ? parani + '/' + mitattuKahdesti + masterT(' kahdesti mitattua parani') : masterT('tarvitsee 2 mittausta/pelaaja'), masterT('Osuus kahdesti mitatuista pelaajista, joiden taso nousi (absoluuttinen kehitys §30). Vaatii ≥2 mittausta/pelaaja — ei vertaa muihin, vaan pelaajan omaan lähtötasoon.'), null, katPari)
         + metr(masterT('Taso ≥3'), taso3, onTasoN, onTasoN ? taso3 + '/' + onTasoN + masterT(' ikäluokan keskitaso+') : masterT('ei tasodataa'), masterT('Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).'), onTasoN ? 'taso' : null, katTaso)
-        + '</div>' + (nVanhentunut ? '<div style="font-size:11px;color:var(--ink3);margin-top:8px">' + NR.tmBanneriTeksti(_SL.Y.banneri, masterT) + '</div>' : '');
+        + '</div>' + (nVanhentunut && !_vanhaKortissa ? '<div style="font-size:11px;color:var(--ink3);margin-top:8px">' + NR.tmBanneriTeksti(_SL.Y.banneri, masterT) + '</div>' : '');
     }
 
     // ── 2. D1/D2-tasohistogrammit + PHV-vaihejakauma + kattavuussignaalit (§26) ──
@@ -9722,13 +9710,13 @@ function renderSeason() {
       const R1 = _SL.Y.d1, R2 = _SL.Y.d2;
       const onD1 = R1.kortti.eiDataa < R1.yht, onD2 = R2.kortti.eiDataa < R2.yht;
       const tyhjaMs = txt => '<div style="font-size:11px;color:var(--ink3);padding:6px 0">' + txt + '</div>';
-      const palkki = (nimi, n, mx, col, teksti) => '<div style="display:flex;align-items:center;gap:8px;margin:4px 0"><span style="flex:0 0 84px;font-size:10px;color:var(--ink2)">' + nimi + '</span>'
+      const palkki = (nimi, n, mx, col, teksti, vihje) => '<div' + (vihje ? ' title="' + String(vihje).replace(/"/g, '&quot;') + '"' : '') + ' style="display:flex;align-items:center;gap:8px;margin:4px 0"><span style="flex:0 0 84px;font-size:10px;color:var(--ink2)">' + nimi + '</span>'
         + '<span style="flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><span style="display:block;height:7px;width:' + (mx ? (n / mx * 100).toFixed(0) : 0) + '%;background:' + col + '"></span></span>'
         + (teksti ? '<span style="flex:0 0 auto;white-space:nowrap;font-size:10px;color:' + col + ';text-align:right">' + teksti + '</span>' : '<span style="flex:0 0 26px;font-size:11px;font-family:var(--font-m,monospace);color:' + col + ';text-align:right">' + n + '</span>') + '</div>';
       /* D1 osaindeksit: ka vain pelaajista joita §28 ei neutraloi; enemmistö neutraloitu → harmaa "kypsyys ratkaisee" ilman lukua; amber vain luokittelun syynä oleville osille */
       const d1OsaProfiili = () => { const os = NR.tmD1Osaprofiili(R1, masterT); return os.length ? os.map(o => palkki(o.nimi, o.ka == null ? 0 : o.ka, 5, _savy(o.savy), o.teksti || o.ka)).join('') : tyhjaMs(masterT('Ei fyysistä osaindeksiä vielä (H-H raakatulokset puuttuvat).')); };
-      /* D2: pylväät = luokitellut (kehityskohde + ok) → summa = "mitattu N/M"; muut ryhmät (vanha, päivä tuntematon, ei dataa, nopeus ja tekniikka samalla tasolla) kortin syyrivillä */
-      const d2Palkit = () => { const k = R2.ryhmat.kehityskohde.length, o = R2.ryhmat.ok.length, mx = Math.max(1, k, o); return palkki(NR.tmRyhmaOtsikko('kehityskohde', 'd2', masterT), k, mx, 'var(--amber)') + palkki(NR.tmRyhmaOtsikko('ok', 'd2', masterT), o, mx, 'var(--teal)'); };
+      /* D2: pylväät = luokitellut (kehityskohde + ikätasolla) → summa = "mitattu N/M"; muut ryhmät (vanha, päivä tuntematon, ei dataa, nopeus ja tekniikka samalla tasolla) kortin syyrivillä */
+      const d2Palkit = () => { const k = R2.ryhmat.kehityskohde.length, o = R2.ryhmat.ok.length, mx = Math.max(1, R2.yht); return palkki(NR.tmRyhmaOtsikko('kehityskohde', 'd2', masterT), k, mx, 'var(--amber)') + palkki(NR.tmRyhmaOtsikko('ok', 'd2', masterT), o, mx, 'var(--teal)', null, NR.tmRyhmaSelite('ok', masterT)); };   // palkin pituus = n / joukkueen pelaajamäärä (ei suurimpaan ryhmään)
       const _korttiYla = R => { const o = NR.tmKorttiOtsikko(R, masterT);
         return '<div style="font-size:11px;margin-bottom:2px;color:' + _savy(o.savy) + '">' + (o.merkki ? o.merkki + ' ' : '') + o.teksti + '</div>'
           + '<div style="font-size:11px;color:var(--ink3);margin-bottom:8px">' + NR.tmKorttiSyy(R, masterT) + '</div>'
