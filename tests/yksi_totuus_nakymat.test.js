@@ -119,3 +119,16 @@ describe('vartijat: ei omia luokittelurajoja eikä tallennettuja tasoja luokitte
     ['Kehityskohteet (taso < 3)', 'Vahvuudet (taso ≥ 3)', 'tämä seura on TKI-pohjainen', 'yli 12 kk vanha', "masterT('§28-neutraali')"].forEach((x) => expect(MA).not.toContain(x));
   });
 });
+
+describe('Taso ≥3: pohja näkyy luvun vieressä (Tero 11.10.)', () => {
+  it('Master SJK P15: kattavuusportin alla "mitattu 12/20" (pohja näkyy); portin ylittävällä joukolla "N/12 ikäluokan keskitaso+ · 12 testattua"; ei 14/14; tmTaso3 = kattavuuden testattu', () => {
+    const P = F.sjkP15(), Y = NR.tmNakymaYhteenveto(P, F.NYT), tf = NR.tmTuoreTasoFn(Y), tuoreet = P.filter((p) => tf(p).d1 || tf(p).d2);
+    expect(t(H.luo(P, F.NYT).kausi().pulse)).toContain('mitattu 12/20'); expect(t(H.luo(P, F.NYT).kausi().pulse)).not.toContain('14/14');
+    expect(t(H.luo(tuoreet, F.NYT).kausi().pulse)).toMatch(/\d+\/12 ikäluokan keskitaso\+ · 12 testattua/);
+    expect(NR.tmTaso3(P, Y)).toMatchObject({ n_taso3: 12, n_arvioidut: 12 }); expect(Y.kattavuus.testattu).toBe(12);
+  });
+  it('VP: tuloskortti, syvennys ja raportti käyttävät lib-funktiota (tmTaso3 / tmTuoreTasoFn), ei omaa d1/hh/d2-maksimia', () => {
+    const VP = lue('TalentMaster_VP_v25.html'); expect(VP).toContain('_vpTaso3(P)'); expect(VP).toContain('taso3Tuore: _vpTuoreFn('); expect(VP).not.toContain('const lvl = p => { const a = [p.d1_taso, p.hh_taso, p.d2_taso]');
+    expect(VP).toContain("{n} testattua"); expect(VP).toContain('const _tuoreP = function(R){ const sj = new Set();');   // joukkuekortin tasopalkit: vanha ja päivätön pois
+  });
+});

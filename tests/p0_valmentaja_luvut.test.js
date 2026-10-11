@@ -92,9 +92,11 @@ describe('5 · kattavuusportti (D125) Kausi-lukuihin ja RAE:hen', () => {
 
 describe('6 · D141 mittauksen ikä: yli 12 kk vanha ei tasona eikä värinä', () => {
   const ref = '2026-10-10';
-  it('tmTasoVanhentunut: 12 kk raja (kalenterikuukausien ero > 12)', () => {
-    expect(PVM.tmTasoVanhentunut('2023-10-28', ref)).toBe(true); expect(PVM.tmTasoVanhentunut('2025-10-01', ref)).toBe(false); expect(PVM.tmTasoVanhentunut('2025-10-31', ref)).toBe(false); expect(PVM.tmTasoVanhentunut('2026-09-20', ref)).toBe(false);
-    expect(PVM.tmTasoVanhentunut('2025-09-30', ref)).toBe(true); expect(PVM.tmTasoVanhentunut('2025-07-30', ref)).toBe(true);   // kalenterikuukausien ero > 12 (kk-tarkkuus, kuten tmKuukausiaMittauksesta)
+  it('tmTasoVanhentunut: sama vertailu kuin libissä — kk (päiviä / 30,4375) ≥ MUISTUTUS_KK (tm_normisto.tmMuistutusKkYli), ei omaa "yli"-tulkintaa', () => {
+    const NO = require('../lib/tm_normisto.js'), kk = (iso) => (Date.UTC(2026, 9, 10) - Date.parse(iso + 'T00:00:00Z')) / (30.4375 * 86400000);
+    ['2023-10-28', '2025-10-01', '2025-10-09', '2025-10-10', '2025-10-31', '2026-09-20', '2025-09-30', '2025-07-30'].forEach((d) => expect(PVM.tmTasoVanhentunut(d, ref), d).toBe(NO.tmMuistutusKkYli(kk(d))));
+    expect(PVM.tmTasoVanhentunut('2025-10-09', ref)).toBe(true); expect(PVM.tmTasoVanhentunut('2025-10-10', ref)).toBe(false);   // 366 pv = 12,02 kk · 365 pv = 11,99 kk
+    expect(PVM.tmMuistutusKk()).toBe(NO.LUKITUT.MUISTUTUS_KK);
     expect(PVM.tmTasoVanhentunut(null, ref)).toBe(false); expect(PVM.tmTasoVanhentunut('roska', ref)).toBe(false);
   });
   it('"mitattu 2023 · päivitä" vanhentuneelle, "mitattu 20.9.2026" tuoreelle; käännösfunktio mukaan', () => {
