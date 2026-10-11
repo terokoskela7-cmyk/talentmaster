@@ -125,7 +125,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_seuran_kooste.js?v=3"></script>   <!-- S1.1: tmKoosteTrendi (viikkokooste v2) -->
 <script src="lib/tm_koti_luvut.js?v=2"></script>   <!-- P0-luvut (audit 24 §6): YKSI laskuri/kartoitus/suostumus/kattavuusportti/§28-portti — Koti + Tilanne kutsuvat tätä -->
 <script src="lib/tm_seuran_pulssi.js?v=4"></script>
-<script src="lib/tm_vp_koti.js?v=9"></script>   <!-- PR B (D164–D167): Koti vaiheittain — Käynnistys; malli + HTML libissä -->   <!-- S2: Koti = Seuran pulssi (docs/CODE_BRIEF_S2_KOTI.md) — rivimalli + HTML libissä, kuoreen vain kytkentä -->
+<script src="lib/tm_vp_koti_joukkueet.js?v=1"></script>   <!-- D171: Kodin joukkuekortit ikävaiheittain (leveä) / rivit (< 600 px) -->
+<script src="lib/tm_vp_koti_palsta.js?v=1"></script>   <!-- D171: Kodin oikea palsta (Tänään · Tulossa 14 päivää) -->
+<script src="lib/tm_vp_koti.js?v=10"></script>   <!-- PR B (D164–D167): Koti vaiheittain — Käynnistys; malli + HTML libissä -->   <!-- S2: Koti = Seuran pulssi (docs/CODE_BRIEF_S2_KOTI.md) — rivimalli + HTML libissä, kuoreen vain kytkentä -->
 <script src="lib/tm_kayttoaste.js?v=2"></script>   <!-- S1.1: "Sovelluksen käyttö" -kortti (Koti) — renderöinti libissä, ei kuoressa -->
 <script src="lib/tm_sitoumus.js?v=1"></script>   <!-- Kehitystyöpöytä 22 · A1: sitoumus, yksi sääntö -->
 <script src="lib/tm_aloita_jakso.js?v=12"></script>
@@ -17579,6 +17581,7 @@ var KALENTERI_TYYPIT = {
   kalibraatiopaja:        { nimi: 'Kalibraatiopaja',        vari: '#2A5DB0',      ikoni: '⚖️' },
   idp_seuranta:           { nimi: 'IDP-seuranta',           vari: 'var(--teal)',  ikoni: '📊' },
   talenttileiri:          { nimi: 'Talenttileiri',          vari: 'var(--teal)',  ikoni: '⭐' },
+  seuran_tauko:           { nimi: 'Seuran tauko',           vari: 'var(--ink3)',   ikoni: '🏖️' },   // D171: seuran taukoviikot (alku, loppu, nimi) — Koti lukee; ei joukkuetta → ei näy pelaajalle (tmKuuluuPelaajalle vaatii joukkueen)
   muu:                    { nimi: 'Muu',                    vari: 'var(--ink3)',   ikoni: '📌' }
 };
 
@@ -17635,7 +17638,9 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
   var wPvm = document.createElement('div'); wPvm.appendChild(_vpModalLbl(vpT('Päivä'))); wPvm.appendChild(pvmInp);
   var wAlk = document.createElement('div'); wAlk.appendChild(_vpModalLbl(vpT('Alkaa'))); wAlk.appendChild(alkaaInp);
   var wPaa = document.createElement('div'); wPaa.appendChild(_vpModalLbl(vpT('Päättyy'))); wPaa.appendChild(paattyyInp);
-  aikaRivi.appendChild(wPvm); aikaRivi.appendChild(wAlk); aikaRivi.appendChild(wPaa);
+  var loppuPvmInp = document.createElement('input'); loppuPvmInp.type = 'date'; loppuPvmInp.value = pvmInp.value; loppuPvmInp.style.cssText = pvmInp.style.cssText;
+  var wLoppu = document.createElement('div'); wLoppu.style.display = 'none'; wLoppu.appendChild(_vpModalLbl(vpT('Viimeinen päivä'))); wLoppu.appendChild(loppuPvmInp);   // vain tyypille 'Seuran tauko' (D171)
+  aikaRivi.appendChild(wPvm); aikaRivi.appendChild(wAlk); aikaRivi.appendChild(wPaa); aikaRivi.appendChild(wLoppu);
   box.appendChild(aikaRivi);
 
   // Joukkue
@@ -17777,6 +17782,9 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
     valmentajaWrap.style.display = tyyppiSel.value === 'mentorointitapaaminen' ? 'block' : 'none';
     teemaWrap.style.display = tyyppiSel.value === 'harjoitus' ? 'block' : 'none';
     logWrap.style.display = tyyppiSel.value === 'ottelu' ? 'block' : 'none';   // P7-c.2
+    const _tauko = tyyppiSel.value === 'seuran_tauko';   // D171: Seuran tauko = alku (Päivä) + Viimeinen päivä + nimi; ei kellonaikoja, ei joukkuetta
+    wLoppu.style.display = _tauko ? 'block' : 'none'; wAlk.style.display = _tauko ? 'none' : 'block'; wPaa.style.display = _tauko ? 'none' : 'block'; if (_tauko) { joukkueSel.value = ''; if (loppuPvmInp.value < pvmInp.value) loppuPvmInp.value = pvmInp.value; }
+    joukkueSel.disabled = _tauko;
     _knTyyppiMuuttui();   // R1 PR 2
   };
   // Esitäyttö: harjoituksen nimi = teeman nimi (jos esitäytetty), muuten "Harjoitus".
@@ -17796,14 +17804,16 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
     if (!nimiInp.value.trim()) { toast(vpT('Anna tapahtumalle nimi'), 'error'); return; }
     if (!pvmInp.value) { toast(vpT('Valitse päivä'), 'error'); return; }
     if (tyyppiSel.value === 'mentorointitapaaminen' && !valmentajaSel.value) { toast(vpT('Valitse mentoroitava valmentaja'), 'error'); return; }
+    if (tyyppiSel.value === 'seuran_tauko' && (!loppuPvmInp.value || loppuPvmInp.value < pvmInp.value)) { toast(vpT('Viimeinen päivä ei voi olla ennen alkua'), 'error'); return; }
     tall.disabled = true; tall.textContent = vpT('Tallennetaan…');
 
     var tyyppi = tyyppiSel.value;
     var pvmStr = pvmInp.value;
     var alkaaStr = alkaaInp.value || '00:00';
     var paattyyStr = paattyyInp.value || alkaaStr;
-    var alkaaTs = new Date(pvmStr + 'T' + alkaaStr + ':00');
-    var paattyyTs = new Date(pvmStr + 'T' + paattyyStr + ':00');
+    var _tauko2 = tyyppi === 'seuran_tauko';   // D171: koko päivän jakso alkupäivästä viimeiseen päivään
+    var alkaaTs = new Date(pvmStr + 'T' + (_tauko2 ? '00:00' : alkaaStr) + ':00');
+    var paattyyTs = _tauko2 ? new Date(loppuPvmInp.value + 'T23:59:00') : new Date(pvmStr + 'T' + paattyyStr + ':00');
     var uid = (_uid || (firebase.auth().currentUser && firebase.auth().currentUser.uid) || '');
 
     var doc = {
@@ -17811,10 +17821,10 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
       tyyppi: tyyppi,
       alkaa: firebase.firestore.Timestamp.fromDate(alkaaTs),
       paattyy: firebase.firestore.Timestamp.fromDate(paattyyTs),
-      koko_paiva: false,
-      joukkue: joukkueSel.value || null,
-      joukkue_nimi: joukkueSel.value ? (_joukkueNimet[joukkueSel.value] || joukkueSel.value) : null,
-      joukkueet: joukkueSel.value ? [joukkueSel.value] : [],
+      koko_paiva: _tauko2,
+      joukkue: _tauko2 ? null : (joukkueSel.value || null),
+      joukkue_nimi: !_tauko2 && joukkueSel.value ? (_joukkueNimet[joukkueSel.value] || joukkueSel.value) : null,
+      joukkueet: !_tauko2 && joukkueSel.value ? [joukkueSel.value] : [],
       osallistujat_uid: uid ? [uid] : [],
       // Vaihe 4d: kohdepelaajat (4c-klusteri / roster) → K2-läsnäolo kohdistuu heihin.
       pelaajat_id: (tyyppi === 'harjoitus' && Array.isArray(window._jsvUusiPelaajatId)) ? window._jsvUusiPelaajatId.slice() : [],
@@ -21431,28 +21441,15 @@ async function _vpPulssiLataa() {   // kooste-luku: sama jaettu lukufunktio kuin
     db.collection('seurat').doc(_seuraId).collection('toimenpiteet').where('tyyppi', '==', 'pulssi').limit(300).get()]);   // PR 2: kuittaukset (yhtäsuuruussuodatin, ei indeksiä)
   return { koosteet: r[0], ensin: r[1].docs[0] ? r[1].docs[0].id : null, kuittaukset: r[2].docs.map(function (d) { return d.data(); }) };
 }
-/* Tekniikka kehityskohteena (PR 2): YKSI määritelmä lib/tm_tekniikka.js; Kodin pulssi näyttää vain lukumäärän ja linkin Tilanteeseen (K9, D150). Ei pelaajia → null. */
-function _vpTekniikkaYhteenveto() {
-  try {
-    if (!window.TM_TEKNIIKKA || typeof _pelaajat === 'undefined' || !(_pelaajat && _pelaajat.length)) return null;
-    return window.TM_TEKNIIKKA.tmTekniikkaYhteenveto(_pelaajat, typeof _vpJoukkueDocs === 'undefined' ? [] : (_vpJoukkueDocs || []), Date.now());
-  } catch (e) { return null; }
-}
-/* Fyysiset testit kehityskohteena (PR 3): YKSI määritelmä lib/tm_fyysinen.js; Kodin pulssi näyttää vain lukumäärän ja linkin Tilanteeseen. Ei pelaajia → null. */
-function _vpFyysinenYhteenveto() {
-  try {
-    if (!window.TM_FYSINEN || typeof _pelaajat === 'undefined' || !(_pelaajat && _pelaajat.length)) return null;
-    return window.TM_FYSINEN.tmFyysinenYhteenveto(_pelaajat, typeof _vpJoukkueDocs === 'undefined' ? [] : (_vpJoukkueDocs || []), Date.now());
-  } catch (e) { return null; }
-}
+/* Tekniikka / fyysinen kehityskohteena EIVÄT ole Kodissa (D171: D118 + D163) — vain Tilanteessa; Kodin pulssin yhteenvetofunktiot poistettu. */
 function _renderKotiPulssi(el) {
   const T = window.TM_SEURAN_PULSSI, S = window._vpPulssi = window._vpPulssi || {};
   const piirra = function () {   // PR B + D: Koti vaiheittain (D164) — Käynnistys tai Rytmi lib/tm_vp_koti.js:stä; kuoressa vain kytkentä
-    const nyt = Date.now(), KK = window.TM_VP_KOTI, demo = !!(KK && window._vpKotiDemo === _seuraId), D = demo ? KK.tmKotiDemo(nyt) : null, ks = demo ? D.koosteet : S.koosteet, viim = ks[ks.length - 1] || {}, kal = ((demo ? D.kalenteri : _kalenteriTapahtumat) || []).map(function (e) { return { nimi: e.nimi, alkaa: e.alkaa, tyyppi: e.tyyppi, joukkue: e.joukkue, joukkueet: e.joukkueet, joukkue_nimi: e.joukkue_nimi }; });   // D167: esimerkkiseura vain muistissa
+    const nyt = Date.now(), KK = window.TM_VP_KOTI, demo = !!(KK && window._vpKotiDemo === _seuraId), D = demo ? KK.tmKotiDemo(nyt) : null, ks = demo ? D.koosteet : S.koosteet, viim = ks[ks.length - 1] || {}, kal = ((demo ? D.kalenteri : _kalenteriTapahtumat) || []).map(function (e) { return { nimi: e.nimi, alkaa: e.alkaa, paattyy: e.paattyy, tyyppi: e.tyyppi, joukkue: e.joukkue, joukkueet: e.joukkueet, joukkue_nimi: e.joukkue_nimi, poistettu: e.poistettu, testitapahtuma_id: e.testitapahtuma_id, id: e.id }; });   // D167 · D171: paattyy (taukoviikot), poistettu + testitapahtuma_id (testipäivälaskuri): esimerkkiseura vain muistissa
     const opasLuokka = function (p) { const w = document.getElementById('ws-koti'); if (w && w.classList) { w.classList.add('kk-uusi'); w.classList.toggle('vpk-hide-guide', p); } };   // D150
     const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: demo ? D.ensin : S.ensin, katselmusPv: demo ? {} : _vpKatselmusPv(), jaksoVk: demo ? {} : _vpJaksoVk(), kuittaukset: demo ? [] : S.kuittaukset || [] }), vaihe = KK.tmKotiVaihe(m);
-    const env = { tekniikka: demo ? null : _vpTekniikkaYhteenveto(), fyysinen: demo ? null : _vpFyysinenYhteenveto(), yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: demo ? [] : _tapahtumat, nimet: demo ? {} : _joukkueNimet, kalenteri: kal, viestit: demo ? [] : (_vpViestit.rivit || []).filter(function (r) { return r.lukematon && r.saapunut; }), nytMs: nyt, seuraNimi: demo ? D.seuranNimi : (document.getElementById('tbSeura') || {}).textContent };
-    const op = { t: vpT, esc: _jsvEsc, kieli: typeof tmNykyinenKieli === 'function' ? tmNykyinenKieli() : 'fi', pika: demo || !window.TM_VP_NAVI ? null : window.TM_VP_NAVI.tmNaviPikatoiminnot(), auki: window._vpKotiAuki,
+    const env = { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: demo ? [] : _tapahtumat, nimet: demo ? {} : _joukkueNimet, kalenteri: kal, viestit: demo ? [] : (_vpViestit.rivit || []).filter(function (r) { return r.lukematon && r.saapunut; }), nytMs: nyt, seuraNimi: demo ? D.seuranNimi : (document.getElementById('tbSeura') || {}).textContent };
+    const op = { kapea: window.innerWidth < 600, t: vpT, esc: _jsvEsc, kieli: typeof tmNykyinenKieli === 'function' ? tmNykyinenKieli() : 'fi', pika: demo || !window.TM_VP_NAVI ? null : window.TM_VP_NAVI.tmNaviPikatoiminnot(), auki: window._vpKotiAuki,
       fn: demo ? {} : { aloitaJaksot: '_vpKotiAloitaJaksot', kutsu: '_vpKotiKutsu', testit: 'avaaUusiTestiModaali', joukkue: 'avaaJoukkueSyvanakyma', viesti: '_vpViestiAvaa', tilanne: '_vpPulssiTilanne', kalenteri: '_vpKotiKalenteri', paivita: '_vpPulssiPaivita', demo: '_vpKotiDemoVaihda', tuo: '_vpKotiTuo', auki: '_vpKotiAukiVaihda', opas: '_vpKotiOpas', kuittaa: '_vpPulssiKuittaa', valmentaja: '_vpPulssiValmentajat' } };
     const kaynn = vaihe === 'kaynnistys' && !demo, r = kaynn ? KK.tmKotiKaynnistysHTML(KK.tmKotiKaynnistysMalli(m, env), op) : KK.tmKotiRytmiHTML(KK.tmKotiRytmiMalli(m, env), op);
     opasLuokka(!window._vpKotiOpasNayta);   // opas piilossa oletuksena kaikissa vaiheissa; vain sivun lopun "Näytä opas" -linkki näyttää sen   // D150: Käynnistyksessä kolme askelta korvaa oppaan (palautus otsikkorivin linkistä)

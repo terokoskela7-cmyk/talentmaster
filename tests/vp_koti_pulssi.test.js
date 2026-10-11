@@ -36,7 +36,7 @@ describe('Kenttä-lippu valitsee Kodin (D67)', () => {
     y.ctx.renderKotiVP(); expect(y.html).toContain('Ladataan pulssia…');   // ensin latausrivi, vanha Koti ei välähdä
     await new Promise((r) => setImmediate(r)); await new Promise((r) => setImmediate(r));
     const h = y.html;
-    expect(h).toContain('id="vpAloitaKortti"'); expect(h).toContain('class="kk"'); expect(h).toContain('Jakso on käynnissä 1/2 joukkueella.'); expect(h).toContain('Tällä viikolla'); expect(h).toContain('Joukkueet · ikäjärjestys');
+    expect(h).toContain('id="vpAloitaKortti"'); expect(h).toContain('class="kk"'); expect(h).toContain('Yhdellä joukkueella 2:sta on jakso.'); expect(h).toContain('Tällä viikolla'); expect(h).toContain('Joukkueet · ikäjärjestys');
     expect(h).toContain('Tulossa 14 päivää'); expect(h).toContain('Ottelu X'); expect(h).toContain('Tänään');
     const jarj = ['id="vpAloitaKortti"', 'class="kk-hd"', 'Tällä viikolla', 'Joukkueet · ikäjärjestys', 'Tulossa 14 päivää'].map((x) => h.indexOf(x)); expect(jarj.every((x, i) => x >= 0 && (i === 0 || x > jarj[i - 1]))).toBe(true);
   });

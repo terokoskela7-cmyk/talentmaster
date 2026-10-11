@@ -43,6 +43,16 @@ describe('pseudokieli: Tilanne ja Koti (Käynnistys) — ei merkitsemätöntä t
     const valmis = F.lataa('kypsa', NYT); valmis.syote.joukkueet.forEach((j) => { j.katselmusAuki = false; }); expect(loydot(TT.tmTilanneHTML(TT.tmTilanneMalli(valmis.syote), { t: ps, fn }), valmis)).toEqual([]);
     const kaksi = F.lataa('kypsa', NYT); kaksi.syote.joukkueet.slice(0, 2).forEach((j) => { j.katselmusAuki = true; }); expect(loydot(TT.tmTilanneHTML(TT.tmTilanneMalli(kaksi.syote), { t: ps, fn }), kaksi)).toEqual([]);
   });
+  it('Koti D171: kortit ja rivit (kapea), ikäryhmäotsikot, jaksottomat kortteina ja yhteen korttiin, tauko, jaksopalaveri ja testijakso palstalla, testipäivälaskuri kalenterista — ei merkitsemätöntä tekstiä', () => {
+    const fn = { aloitaJaksot: 'a', kutsu: 'k', testit: 't', joukkue: 'j', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', auki: 'au', opas: 'o', kuittaa: 'kt', valmentaja: 'va' };
+    const KJ = require('../lib/tm_vp_koti_joukkueet.js'), PU = require('../lib/tm_seuran_pulssi.js');
+    ['kypsa', 'kuormitus'].forEach((tila) => [false, true].forEach((kapea) => { const d = F.lataa(tila, NYT), h = F.kotiHTML(d, { t: ps, kapea }); expect(h).toContain('⟦'); expect(loydot(h, d), tila + (kapea ? ' kapea' : '') + ': merkitsemätöntä tekstiä').toEqual([]); }));
+    const d = F.lataa('kypsa', NYT); d.kalenteri.push({ nimi: 'Syyskisat', tyyppi: 'muu', alkaa: NYT + 2 * 86400000 }); d.koosteet.forEach((k) => Object.values(k.joukkueet).forEach((j, i) => { if (i < 4) { j.jakso = false; j.n_jaksolla = 0; } }));
+    const v = d.koosteet[d.koosteet.length - 1], m = PU.tmPulssiRivit(d.koosteet, { nytMs: NYT, ensimmainenVk: d.ensin, jaksoVk: d.jaksoVk, katselmusPv: {} }), env = { yhteensa: v.yhteensa, koosteJ: v.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: d.kalenteri.concat([{ nimi: 'Syyskisat', tyyppi: 'muu', alkaa: NYT + 2 * 86400000, joukkue: d.spec.joukkueet[3].id, joukkueet: [d.spec.joukkueet[3].id] }]), viestit: [], nytMs: NYT };
+    [false, true].forEach((kapea) => { const r = KK.tmKotiRytmiHTML(KK.tmKotiRytmiMalli(m, env), { t: ps, fn, kapea }); expect(r.main).toContain('kk-ilman'); expect(loydot(r.main + r.rail, d), 'ilmanYhteen kapea=' + kapea).toEqual([]); });
+    const x = KK.tmKotiKaynnistysHTML(KK.tmKotiKaynnistysMalli(m, env), { t: ps, fn }); expect(loydot(x.main + x.rail, d), 'Käynnistys, testitapahtumat kalenterissa').toEqual([]);
+    void KJ;
+  });
   it('Koti, kaikki haarat: signaalit (katselmus, katsaus, käyttö), viestit eri ajoilta, kolme askelta valmiina, esimerkkiseura-nauha', () => {
     const d = F.lataa('pilotti', NYT), PU = require('../lib/tm_seuran_pulssi.js'), v = d.koosteet[d.koosteet.length - 1]; Object.keys(v.joukkueet).forEach((k) => { v.joukkueet[k].n_suostumus = v.joukkueet[k].n_pelaajat; });
     const m = PU.tmPulssiRivit(d.koosteet, { nytMs: NYT, ensimmainenVk: d.ensin, jaksoVk: d.jaksoVk, katselmusPv: {} }), j0 = m.rivit.find((r) => r.jakso.voimassa);

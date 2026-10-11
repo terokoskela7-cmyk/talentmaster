@@ -37,21 +37,18 @@ function luvut(d, nyt) {
     const rivit = d.joukkueDocs.map((jd) => Object.assign({ nimi: jd.nimi }, FY.tmJoukkueFyysinen(d.pelaajat, d.joukkueDocs, jd.id, nyt))).filter((r) => r.yht > 0);
     const m = TT.tmTilanneMalli(Object.assign({}, d.syote, { nytMs: nyt, fyysinen: rivit, fyysinenYht: { kypsyysMittaamatta: y.kypsyysMittaamatta, neutraaleja: y.neutraaleja } }));
     const huomio = []; m.huomiot.forEach((x) => { if (x.tyyppi === 'ryhma' && x.kind === 'fyysinen') x.joukkueet.forEach((j) => huomio.push(j.nimi)); else if (x.tyyppi === 'joukkue' && x.kinds.indexOf('fyysinen') >= 0) huomio.push(x.joukkue); });
-    const rm = KK.tmKotiRytmiMalli(PU.tmPulssiRivit(d.koosteet, { nytMs: nyt, ensimmainenVk: d.ensin, katselmusPv: {}, jaksoVk: d.jaksoVk, kuittaukset: [] }), { yhteensa: (d.koosteet[d.koosteet.length - 1] || {}).yhteensa, koosteJ: (d.koosteet[d.koosteet.length - 1] || {}).joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: [], viestit: [], nytMs: nyt, fyysinen: y });
-    const koti = rm.entries.find((e) => e.tyyppi === 'fyysinen');
-    return { ehdotus: ehdotus.sort(), huomio: huomio.sort(), yhteenveto: y, tilanneM: m, kotiN: koti ? koti.n : 0 };
+    return { ehdotus: ehdotus.sort(), huomio: huomio.sort(), yhteenveto: y, tilanneM: m };
   } finally { Date.now = realDateNow; }
 }
 const muunna = (d, f) => Object.assign({}, d, { pelaajat: d.pelaajat.map(f) });
 
-describe('YKSI määritelmä: huomio = ehdotus = Kodin pulssi (sama joukkuejoukko ja -määrä)', () => {
+describe('YKSI määritelmä: huomio = ehdotus (Kodin pulssirivi poistettu D171:ssä; sama joukkuejoukko ja -määrä)', () => {
   for (const tila of ['pilotti', 'kypsa', 'kuormitus']) {
     it(tila + ': huomio, ehdotus (VP_v25 TP_SIGNAALIT), Tilanne-yhteenveto ja Kodin pulssi antavat saman joukkuemäärän ja -joukon', () => {
       const d = F.lataa(tila, NYT), r = luvut(d, NYT);
       expect(r.yhteenveto.kehityskohde, tila).toBeGreaterThan(0);
       expect(r.ehdotus.length, tila).toBe(r.yhteenveto.kehityskohde);
       expect(r.huomio.length, tila).toBe(r.yhteenveto.kehityskohde);
-      expect(r.kotiN, tila).toBe(r.yhteenveto.kehityskohde);
       expect(r.huomio, tila).toEqual(r.ehdotus);
       expect(r.tilanneM.fyysinen.kehityskohde, tila).toBe(r.yhteenveto.kehityskohde);
     });
@@ -64,7 +61,7 @@ describe('YKSI määritelmä: huomio = ehdotus = Kodin pulssi (sama joukkuejoukk
     const tuntematon = muunna(d0, (p) => { const q = Object.assign({}, p); delete q.biologinenIka_viimeisin; return q; });
     for (const [nimi, d] of [['heikko', heikko], ['vanha', vanha], ['eiMitaan', eiMitaan], ['tuntematon', tuntematon]]) {
       const r = luvut(d, NYT);
-      expect(r.ehdotus.length, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.huomio.length, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.kotiN, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.huomio, nimi).toEqual(r.ehdotus);
+      expect(r.ehdotus.length, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.huomio.length, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.huomio, nimi).toEqual(r.ehdotus);
     }
     expect(luvut(vanha, NYT).yhteenveto.kehityskohde).toBe(0);                               // yli 15 kk vanha patteristo ei luokita
     expect(luvut(eiMitaan, NYT).yhteenveto.kehityskohde).toBe(0);
@@ -72,7 +69,7 @@ describe('YKSI määritelmä: huomio = ehdotus = Kodin pulssi (sama joukkuejoukk
   });
   it('aika kuluu: 500 pv myöhemmin patteristo vanhenee (15 kk) — kaikki kolme laskevat yhdessä', () => {
     const d = F.lataa('kypsa', NYT), a = luvut(d, NYT), b = luvut(d, NYT + 500 * DAY);
-    expect(b.yhteenveto.kehityskohde).toBeLessThan(a.yhteenveto.kehityskohde); expect(b.ehdotus.length).toBe(b.yhteenveto.kehityskohde); expect(b.huomio.length).toBe(b.yhteenveto.kehityskohde); expect(b.kotiN).toBe(b.yhteenveto.kehityskohde);
+    expect(b.yhteenveto.kehityskohde).toBeLessThan(a.yhteenveto.kehityskohde); expect(b.ehdotus.length).toBe(b.yhteenveto.kehityskohde); expect(b.huomio.length).toBe(b.yhteenveto.kehityskohde);
   });
   it('fixturen ehdotukset (hh_taso_alhainen) johdetaan samasta funktiosta', () => {
     for (const tila of ['pilotti', 'kypsa', 'kuormitus']) { const d = F.lataa(tila, NYT), e = d.syote.ehdotukset.find((x) => x.signaali === 'hh_taso_alhainen'); expect(e ? e.joukkueet.length : 0, tila).toBe(d.fyysinen.kehityskohde); }
