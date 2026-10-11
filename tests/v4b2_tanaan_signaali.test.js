@@ -21,7 +21,7 @@ describe('D48 — järjestys (taulukko): jokainen rivi yksinään', () => {
     ['2 valinta tehty', P({ jaksofokus: TARJOUS(), ydinvahvuus_valinta: { vaihtoehto: 'seura_kierto', valittu_pvm: '2026-10-01' } }), {}, 'valinta_tehty', 'vahvista'],
     ['3 suljettava', P({ jaksofokus: PAATTYNYT(2) }), {}, 'suljettava', 'sulje'],
     ['4 valinta odottaa pelaajaa', P({ jaksofokus: TARJOUS() }), {}, 'valinta_odottaa', null],
-    ['5 viikkokatsaus ei vastattu', P({ jaksofokus: JF() }), { vkEiVastattu: true, askel: YLL }, 'vk_ei_vastattu', null],
+    ['5 viikkokatsaus ei vastattu', P({ jaksofokus: JF() }), { vkEiVastattu: true, askel: YLL }, 'vk_ei_vastattu', 'havainto'],   // nappi: Merkitse havainto (kuoressa ei muistutuksen lähetyspolkua; ctx.vkMuistutus → Muistuta pelaajaa, jo muistutettu → havainto)
     ['6 havainto', P({ jaksofokus: JF() }), { askel: HAV }, 'havainto', 'havainto'],
     ['7 ylläpito', P({ jaksofokus: JF() }), { askel: YLL }, 'yllapito', 'avaa_polku'],
     ['8 ei tietoa', P(), {}, 'ei_tietoa', 'aloita']
