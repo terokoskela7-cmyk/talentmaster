@@ -36,6 +36,16 @@ describe('1 · Palloliiton pohjat → skeema', () => {
   it('peli.maara lähteen "ka. X–Y peliä" alarajasta, muuten null', () => { expect(P('spl_3v3').peli.maara).toBeNull(); expect(P('spl_8v8_nuoruus').peli.maara).toBe(1); expect(P('spl_11v11_nuoruus').peli.maara).toBe(1); });
 });
 
+describe('1b · omatoiminen (Palloliiton omatoiminen_h)', () => {
+  it('6 pohjaa saavat omatoiminen-kentän: h_vk lähteestä (erikoistuminen null), sisältö fysiikka + idp; ei kalenteritapahtumia', () => {
+    expect(POHJAT.map((p) => p.omatoiminen.h_vk)).toEqual([[3, 12], [3, 12], [10, 15], [10, 15], [10, 10], null]); POHJAT.forEach((p) => expect(p.omatoiminen.sisalto).toEqual(['fysiikka', 'idp']));
+    expect(V.tmTaytaViikko({ pohja: P('spl_5v5'), maanantai: '2026-10-19', ottelut: [], tapahtumat: [] }).ehdotukset.every((e) => e.tyyppi === 'harjoitus')).toBe(true);
+  });
+  it('tmViikkopohjaVirhe hyväksyy puuttuvan omatoiminen-kentän; hylkää rikkinäisen', () => {
+    const p = JSON.parse(JSON.stringify(P('spl_5v5'))); delete p.omatoiminen; expect(V.tmViikkopohjaVirhe(p)).toBeNull(); p.omatoiminen = { h_vk: [5, 3], sisalto: [] }; expect(V.tmViikkopohjaVirhe(p)).toBe('omatoiminen'); p.omatoiminen = { h_vk: null, sisalto: ['idp'] }; expect(V.tmViikkopohjaVirhe(p)).toBeNull(); p.omatoiminen = 'x'; expect(V.tmViikkopohjaVirhe(p)).toBe('omatoiminen');
+  });
+});
+
 describe('2 · tmViikkopohjaVirhe', () => {
   const hyva = () => JSON.parse(JSON.stringify(P('spl_5v5')));
   it('6 Palloliiton pohjaa → null; virheet nimetään', () => {
