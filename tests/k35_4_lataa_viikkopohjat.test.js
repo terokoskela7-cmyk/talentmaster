@@ -50,4 +50,10 @@ describe('K35-4 lataa_viikkopohjat', () => {
     const src = readFileSync(new URL('../scripts/lataa_viikkopohjat.js', import.meta.url), 'utf8'); expect(src).toContain('admin.credential.applicationDefault()'); expect(src).not.toMatch(/admin\.applicationDefault/);
     const a = require('firebase-admin'); expect(typeof a.credential.applicationDefault).toBe('function'); expect(a.applicationDefault).toBeUndefined();
   });
+  it('ika_ohje kirjoitetaan jokaiselle 6 pohjalle ([5,6] … [18,21]) ja tulostuu kuiva-ajossa; puuttuva ika_ohje keskeyttää ennen kirjoitusta', async () => {
+    const rivit = [], db = mockDb({ viikkopohjat: null, joukkueet: J() }), p = await S.aja({ db, seura: 'demo', json: JSONI, nyt: NYT, loki: (x) => rivit.push(x) });
+    expect(p.doc.pohjat.map((x) => x.ika_ohje)).toEqual([[5, 6], [7, 9], [10, 11], [12, 13], [14, 17], [18, 21]]); expect(rivit.filter((r) => /ika_ohje \[\d+,\d+\]/.test(r)).length).toBe(6); expect(rivit.join('\n')).not.toContain('PUUTTUU');
+    const V2 = require('../lib/tm_viikkopohja.js'), vanha = JSON.parse(JSON.stringify(JSONI)); vanha.pohjat.forEach((x) => { delete x.ika_ohje; });
+    const db2 = mockDb({ viikkopohjat: null, joukkueet: J() }); await expect(S.aja({ db: db2, seura: 'demo', json: vanha, kirjoita: true, nyt: NYT, loki: () => {} })).rejects.toThrow(/puuttuu ika_ohje/); expect(db2.kirjoitukset).toEqual([]); void V2;
+  });
 });
