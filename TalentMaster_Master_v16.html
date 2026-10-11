@@ -148,8 +148,11 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
 <script src="lib/tm_kt_komponentit.js?v=4"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
 <script src="lib/tm_kalenteri_tyypit.js?v=3"></script>   <!-- K35-1: kalenterin tyyppirekisteri (D186) -->
-<script src="lib/tm_kalenteri_malli.js?v=2"></script>   <!-- K35-2: kalenterimalli (tuntiväli, oletuspaikka, kauden loppu, lähteen omistajuus; D181/D185) -->
+<script src="lib/tm_kalenteri_malli.js?v=3"></script>   <!-- K35-2: kalenterimalli (tuntiväli, oletuspaikka, kauden loppu, lähteen omistajuus; D181/D185) -->
 <script src="lib/tm_kalenteri_kyselyt.js?v=1"></script>   <!-- K35-1: tauko + seuraava tapahtuma (D193) -->
+<script src="lib/tm_viikkopohja.js?v=1"></script>   <!-- K35-3: viikkopohjat + Täytä viikko -laskenta -->
+<script src="lib/tm_kalenteri_nakyma.js?v=1"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
+<script src="lib/tm_kalenteri_taytto.js?v=1"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
 <script src="lib/tm_kehitystyopoyta.js?v=16"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
@@ -1014,17 +1017,7 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
 .cal-wk-sub   { font-family:'DM Mono', monospace; font-size: 10px; color: var(--ink3); margin-left: auto; }
 
 /* Viikko-grid: 7 päivää yläriville, alla aikaruudukko */
-.cal-week { display: grid; grid-template-columns: 56px repeat(7, 1fr); gap:.5px; background: var(--line); border:.5px solid var(--line2); border-radius: 8px; overflow: hidden; }
-.cal-day-hdr { background: var(--card); padding: 10px 10px; text-align: center; }
-.cal-day-hdr.today { background: linear-gradient(180deg, rgba(26,122,94,.12), rgba(26,122,94,.02)); }
-.cal-day-hdr.today .cal-day-num { color: var(--teal); }
-.cal-day-name { font-size: 9px; letter-spacing:.2em; text-transform:uppercase; color: var(--ink3); font-weight: 500; }
-.cal-day-num  { font-family:'Cormorant Garamond', serif; font-weight: 400; font-size: 22px; color: var(--ink); margin-top: 2px; line-height: 1; }
 
-.cal-time-lbl { background: var(--card); padding: 8px 8px 8px 10px; font-family:'DM Mono', monospace; font-size: 9px; color: var(--ink3); border-top:.5px solid var(--line); }
-.cal-cell { background: var(--bg); min-height: 56px; border-top:.5px solid var(--line); position: relative; padding: 3px; cursor: pointer; transition: background .12s; }
-.cal-cell:hover { background: var(--card2); }
-.cal-cell.today-col { background: rgba(40,176,144,.04); }
 .cal-evt.test { background: rgba(40,176,144,.15); border-left: 2px solid var(--teal); }
 .cal-evt.test.done { background: rgba(88,87,81,.15); border-left: 2px solid var(--ink3); opacity: .7; }
 
@@ -1914,7 +1907,8 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
         <span class="cal-wk-sub" id="calWkSub" data-i18n="Kausi 25/26 · 17/36">Kausi 25/26 · 17/36</span>
       </div>
 
-      <div class="cal-week" id="calWeek"></div>
+      <div id="calTaytaKortti"></div>   <!-- Täytä viikko -signaalikortti (tm_kalenteri_nakyma) -->
+      <div id="calWeek"></div>
 
       <div class="cal-legend" id="calSelite"></div>   <!-- selite rekisteristä (TM_KALENTERI_TYYPIT.tmKalSelite) — renderCal täyttää -->
 
@@ -9921,27 +9915,6 @@ function _calSeliteRender() {
     return '<span class="cal-legend-item"><span class="cal-legend-sw' + (x.tyyli.katkoviiva ? ' cal-leg-sw-katko' : '') + '" style="background:color-mix(in srgb,' + x.tyyli.vari + ' 12%,transparent);border-color:' + x.tyyli.vari + '"></span><span>' + _mEsc(_calTyyppiNimi(x)) + '</span></span>';
   }).join('');
 }
-// Kalenterichip — pale tausta + värillinen (tumma) teksti; joukkueen nimi jos useita näkyvissä
-function _calChip(sty, t, lisaaJoukkue, onclick, aika) {
-  let teksti = sty.teksti;
-  if (lisaaJoukkue) {
-    const jn = t.joukkue_nimi || t.joukkue || '';
-    if (jn) teksti += ' · ' + jn;
-  }
-  const teemaMerkki = (t.treeniteema && t.treeniteema.nimi) ? ' ⚽' : '';   // Vaihe 4d — treeniteema (luku)
-  const clickAttr = onclick ? ' onclick="' + onclick + '"' : '';
-  const cursor = onclick ? 'cursor:pointer;' : 'cursor:default;';
-  const metaHtml = aika ? '<div class="cal-evt-meta">' + aika + '</div>' : '';
-  const _k = t.lasnaolo_kooste;
-  const koosteHtml = (_k && (_k.paikalla != null || _k.myohassa != null || _k.poissa != null))
-    ? '<div class="cal-evt-meta">✓ ' + (_k.paikalla || 0) + '/' + ((_k.paikalla || 0) + (_k.myohassa || 0) + (_k.poissa || 0)) + '</div>' : '';
-  return '<div class="cal-evt"' + clickAttr
-    + ' style="background:color-mix(in srgb,' + sty.vari + ' 12%,transparent);border-left:2px ' + (sty.katkoviiva ? 'dashed' : 'solid') + ' ' + sty.vari + ';' + cursor + '"'
-    + ' title="' + teksti + '">'
-    + '<div class="cal-evt-title" style="color:' + sty.vari + ';">' + teksti + teemaMerkki + _calToistLbl(t) + '</div>'
-    + metaHtml + koosteHtml + '</div>';
-}
-
 // ════════════════════════════════════════════════════════════
 //  V1 — Kuorma & fiilis: session-RPE + kalibraatio (KUORMA_FIILIS_SPEC.md)
 //  Staff-only (§7.22). Laskenta jo ladatuista _kirjauksista + kalenterin valmentaja_rpe:stä.
@@ -10088,6 +10061,37 @@ function renderKuorma() {
   el.innerHTML = h;
 }
 
+/* K35-6a — Täytä viikko -ohjain: logiikka lib/tm_kalenteri_taytto.js, tässä vain kytkentä (env) */
+function _calTayttoOhjain() {
+  if (window._calTaytto) return window._calTaytto;
+  const joukkueNimi = () => _joukkue || null;
+  window._calTaytto = window.TM_KALENTERI_TAYTTO.tmKalTayttoLuo({
+    db: _db, seuraId: () => _seuraId, uid: () => _uid, demo: () => !!_demo, joukkue: joukkueNimi, joukkueDocit: () => _mJoukkueDocs, lataaJoukkueDocit: _mLataaJoukkueDocs,
+    tapahtumat: () => _kalenteriTapahtumat || [], pelaajat: () => (_pelaajatData || []).filter(p => !_joukkue || _mOnJoukkueessa(p, _joukkue)).map(p => p.id), johto: () => !!_superAdmin || _calJohtoRooli(), saaKirjoittaa: () => _saaMerkitaLasnaolo(),
+    ts: (pvm, hhmm) => firebase.firestore.Timestamp.fromDate(new Date(pvm + 'T' + hhmm + ':00')), palvelinAika: () => firebase.firestore.FieldValue.serverTimestamp(), toast: toast, t: masterT,
+    rerender: () => renderCal(), lataaTapahtumat: _lataaKalenteriTapahtumat, avaaUusi: pvm => _avaaUusiTapahtuma(pvm, '17:00'), avaaEhdotus: _calEhdotusMuokkaa,
+    maanantai: () => { const d = new Date(), dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow + _calWkOffset * 7); return tmPaivaIso(d); }
+  });
+  return window._calTaytto;
+}
+/* Esikatselukortin muokkaus ennen vahvistusta: sama modaalirakenne (.cal-modal), muutos vain muistissa (aika, paikka, poista) */
+function _calEhdotusMuokkaa(idx, e) {
+  document.getElementById('calEhdModal')?.remove();
+  const modal = document.createElement('div'); modal.id = 'calEhdModal'; modal.className = 'cal-modal-tausta';
+  const ikk = document.createElement('div'); ikk.className = 'cal-modal';
+  const yla = document.createElement('div'); yla.className = 'cal-modal-yla'; yla.innerHTML = '<div style="font-size:16px;font-weight:500">' + masterT('Muokkaa ehdotusta') + '</div><div style="font-size:12px;color:var(--ink3)">' + window.TM_KALENTERI_NAKYMA.tmKalPvmLyhyt(e.pvm) + '</div>';
+  const runko = document.createElement('div'); runko.className = 'cal-modal-runko';
+  const inp = (tyyppi, arvo) => { const i = document.createElement('input'); i.type = tyyppi; i.value = arvo || ''; i.style.cssText = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box'; return i; };
+  const kentta = (otsikko, el) => { const w = document.createElement('div'); const l = document.createElement('label'); l.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px'; l.textContent = masterT(otsikko); w.appendChild(l); w.appendChild(el); runko.appendChild(w); return el; };
+  const a = kentta('Alkaa', inp('time', e.alkaa)), p = kentta('Päättyy', inp('time', e.paattyy)), pl = kentta('Paikka', inp('text', e.paikka));
+  const ala = document.createElement('div'); ala.className = 'cal-modal-ala';
+  const poista = document.createElement('button'); poista.textContent = masterT('Poista ehdotus'); poista.style.cssText = 'padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer';
+  const tall = document.createElement('button'); tall.textContent = masterT('Tallenna'); tall.style.cssText = 'padding:10px;background:var(--teal);color:var(--bg);border:none;border-radius:6px;cursor:pointer;font-weight:500';
+  poista.onclick = () => { modal.remove(); _calTayttoOhjain().poista(idx); };
+  tall.onclick = () => { modal.remove(); _calTayttoOhjain().paivita(idx, { alkaa: a.value, paattyy: p.value, paikka: pl.value.trim() }); };
+  ala.appendChild(poista); ala.appendChild(tall); ikk.appendChild(yla); ikk.appendChild(runko); ikk.appendChild(ala); modal.appendChild(ikk);
+  modal.addEventListener('click', ev => { if (ev.target === modal) modal.remove(); }); _calModalEsc(modal); document.body.appendChild(modal);
+}
 function renderCal() {
   const today = new Date();
   const dayOfWeek = (today.getDay() + 6) % 7;
@@ -10111,80 +10115,23 @@ function renderCal() {
   const subEl = document.getElementById('calWkSub');
   if (subEl) subEl.textContent = masterT('Kausi ') + monday.getFullYear() + '/' + (monday.getFullYear()+1).toString().slice(-2) + masterT(' · Viikko ') + weekNum;
 
-  const days = ['Ma','Ti','Ke','To','Pe','La','Su'];
-  const todayStr = tmPaivaIso(today);
-
-  // ── Tapahtumat: testit + mentoroinnit = all-day (ylärivi); harjoitukset/ottelut = tuntiruudukko ──
+  const todayStr = tmPaivaIso(today), mondayIso = tmPaivaIso(monday);
+  // K35-6a: viikko = päiväsarakkeet (D182, lib/tm_kalenteri_nakyma.js); testitapahtumat koko päivän riville; Täytä viikko -kortti + esikatselu (lib/tm_kalenteri_taytto.js, D184)
   const suodataJoukkue = t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
-  const lisaaJoukkue = !_joukkue; // näytä joukkueen nimi chipissä kun useita joukkueita näkyvissä
-  const dayIdxOf = (pvm) => dates.findIndex(dd => tmPaivaIso(dd) === pvm);
-
-  // Testitapahtumat → all-day (teal). Ei kellonaikaan sidottuja.
-  const testiEvts = (_testitapahtumat || []).filter(suodataJoukkue)
-    .map(t => ({ ...t, _dayIdx: dayIdxOf(t.pvm), _src:'testi' }))
-    .filter(t => t._dayIdx >= 0);
-
-  // Kalenteritapahtumat → koko päivän rivi ("Koko pvm": koko_paiva, tauko, mentorointi — erottelu rekisterin avaimella) ja tuntisidotut (harjoitus/ottelu/muu)
-  const _KM = window.TM_KALENTERI_MALLI, kalSuod = (_kalenteriTapahtumat || []).filter(suodataJoukkue);
-  const mentEvts = kalSuod.filter(t => _KM.tmKalKokoPaiva(t));   // monipäiväinen (syysloma): chip jokaisella osuvalla päivällä
-  const paivaIso = dates.map(dd => tmPaivaIso(dd));
-  const tuntiEvts = kalSuod.filter(t => !_KM.tmKalKokoPaiva(t))
-    .map(t => ({ ...t, _dayIdx: dayIdxOf(t.pvm), _hour: t.alkaa ? parseInt(t.alkaa.split(':')[0]) : 17, _src:'kalenteri' }))
-    .filter(t => t._dayIdx >= 0);
-  const _tv = _KM.tmKalTuntivali(tuntiEvts);   // K35-2: väli min(15, aikaisin)…max(20, myöhäisin), 6–22 — tapahtuma ei katoa; koko päivän tapahtumat eivät vaikuta
-  const c = { hours:_tv.tunnit, events:[], players:[] };
+  const testit = (_testitapahtumat || []).filter(suodataJoukkue).map(t => ({ id: t.id, tyyppi: 'testitapahtuma', koko_paiva: true, nimi: _protokollaLyhenne(t.protokolla), pvm: t.pvm, joukkue_nimi: t.joukkue_nimi || t.joukkue || '' }));
+  let kalTap = (_kalenteriTapahtumat || []).filter(suodataJoukkue);
+  if (_demo && typeof DEMO !== 'undefined' && DEMO.cal) kalTap = kalTap.concat((DEMO.cal.events || []).map((e, i) => ({ id: 'demo' + i, tyyppi: e.type !== 'match' ? 'harjoitus' : 'ottelu', nimi: masterT(e.title||''), paikka: masterT(e.meta||''), pvm: tmPaivaIso(new Date(monday.getTime() + e.day * 86400000 + 43200000)), alkaa: String(e.hour).padStart(2, '0') + ':00' })));
+  const c = { players: (_demo && typeof DEMO !== 'undefined' && DEMO.cal) ? (DEMO.cal.players || []) : [] };   // demo-pelaajalista (omatoiminen-osio)
   _calSeliteRender();
-  if (_demo && typeof DEMO !== 'undefined' && DEMO.cal) {
-    c.events = DEMO.cal.events || [];
-    c.players = DEMO.cal.players || [];
-  }
-
-  const wk = document.getElementById('calWeek');
-  if (!wk) return;
-
-  // ── Rakenna grid: päiväotsikot ──
-  let html = '<div class="cal-day-hdr" style="background:var(--card)"></div>';
-  days.forEach((d,i) => {
-    const isToday = tmPaivaIso(dates[i]) === todayStr;
-    html += '<div class="cal-day-hdr' + (isToday?' today':'') + '">'
-      + '<div class="cal-day-name">' + masterT(d) + '</div>'
-      + '<div class="cal-day-num">' + dates[i].getDate() + '</div>'
-      + '</div>';
-  });
-
-  // ── All-day -rivi: testitapahtumat (teal) + mentoroinnit (violetti) — ei kellonaikaa ──
-  html += '<div class="cal-time-lbl" style="display:flex;align-items:center;">' + masterT('Koko pvm') + '</div>';
-  for (let d = 0; d < 7; d++) {
-    const isToday = tmPaivaIso(dates[d]) === todayStr;
-    let chips = '';
-    testiEvts.filter(t => t._dayIdx === d).forEach(t => {
-      chips += _calChip(_calEvtTyyli(t,'testi'), t, lisaaJoukkue, "event.stopPropagation();_avaaKentta('" + t.id + "')", '');
-    });
-    mentEvts.filter(t => _KM.tmKalOsuuPaivalle(t, paivaIso[d])).forEach(t => {
-      chips += _calChip(_calEvtTyyli(t,'kalenteri'), t, lisaaJoukkue, "event.stopPropagation();calEventClick('" + t.id + "')", t.koko_paiva === true ? '' : (t.aika || t.alkaa || ''));
-    });
-    html += '<div class="cal-cell' + (isToday?' today-col':'') + '" style="min-height:auto;">' + chips + '</div>';
-  }
-
-  // ── Tuntiruudukko: harjoitukset / ottelut / muu (kellonaikaan sidotut) ──
-  c.hours.forEach(h => {
-    html += '<div class="cal-time-lbl">' + h + ':00</div>';
-    for (let d = 0; d < 7; d++) {
-      const isToday = tmPaivaIso(dates[d]) === todayStr;
-      let chips = '';
-      if (_demo) (c.events||[]).filter(e => e.day === d && e.hour === h).forEach(e => {
-        chips += '<div class="cal-evt ' + (e.type||'team') + '" onclick="event.stopPropagation();calEventClick(\'' + (e.type||'team') + '\',' + d + ',' + h + ')" title="' + masterT(e.title||'') + '"><div class="cal-evt-title">' + masterT(e.title||'') + '</div><div class="cal-evt-meta">' + masterT(e.meta||'') + '</div></div>';
-      });
-      tuntiEvts.filter(t => t._dayIdx === d && window.TM_KALENTERI_MALLI.tmKalTuntiRiville(t._hour, _tv) === h).forEach(t => {
-        const sty = _calEvtTyyli(t,'kalenteri');
-        const aika = (t.alkaa||'') + (t.paattyy ? '–'+t.paattyy : '');
-        chips += _calChip(sty, t, lisaaJoukkue, "event.stopPropagation();calEventClick('" + t.id + "')", aika);
-      });
-      html += '<div class="cal-cell' + (isToday?' today-col':'') + '" onclick="calSlotClick(' + d + ',' + h + ')">' + chips + '</div>';
-    }
-  });
-
-  wk.innerHTML = html;
+  if (!document.getElementById('kvCss')) { const st = document.createElement('style'); st.id = 'kvCss'; st.textContent = window.TM_KALENTERI_NAKYMA.CSS; document.head.appendChild(st); }
+  const testiIdt = {}; testit.forEach(t => { testiIdt[t.id] = 1; });
+  const C = { t: masterT, tanaan: todayStr, nayta_joukkue: !_joukkue, tyyppiNimi: avain => _calTyyppiNimi(window.TM_KALENTERI_TYYPIT.tmKalTyyppi(avain)),
+    on: { kortti: id => (testiIdt[id] ? "_avaaKentta('" + id + "')" : "calEventClick('" + id + "')"), lisaa: pvm => "_avaaUusiTapahtuma('" + pvm + "','17:00')" } };
+  const r = _calTayttoOhjain().renderoi(mondayIso, kalTap.concat(testit), C);
+  const wk = document.getElementById('calWeek'); if (!wk) return;
+  wk.innerHTML = r.viikko;
+  const kortti = document.getElementById('calTaytaKortti'); if (kortti) kortti.innerHTML = r.kortti;
+  _calTayttoOhjain().lataa();
 
   // ── Omatoiminen-pelaajalista Firestoresta ──
   const pl = document.getElementById('calPlayers');
@@ -10755,18 +10702,6 @@ function _mRyOmatNayta() {
   const l = window._mRyLista || []; if (!l.length) { el.innerHTML = ''; return; }
   el.innerHTML = '<span style="font-size:11px;color:var(--ink3)">' + _mEsc(masterT('Omat ryhmät')) + ':</span> ' + l.map(function (r) { return '<span data-omat-ryhma="' + _mEsc(r.id) + '" style="font-size:11.5px;border:.5px solid var(--border);border-radius:999px;padding:2px 8px;margin-left:4px;color:var(--ink2)">' + _mEsc(r.nimi) + '</span>'; }).join('');
 }
-function calSlotClick(day, hour) {
-  // Laske klikattu päivämäärä
-  const today = new Date();
-  const dayOfWeek = (today.getDay() + 6) % 7;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - dayOfWeek + (_calWkOffset * 7));
-  const clickedDate = new Date(monday);
-  clickedDate.setDate(monday.getDate() + day);
-  const pvm = tmPaivaIso(clickedDate);
-  const klo = String(hour).padStart(2,'0') + ':00';
-  _avaaUusiTapahtuma(pvm, klo);
-}
 
 function _avaaUusiTapahtuma(pvm, klo) {
   // Vaihe C — luonti vain johto/valmentaja/talenttivalmentaja (Rules v3.5 create). Demo ohittaa (esikatselu).
@@ -10784,7 +10719,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
   const hdr = document.createElement('div'); hdr.className = 'cal-modal-yla';
   const otsikko = document.createElement('div');
   otsikko.innerHTML = '<span style="font-size:16px;font-weight:500">' + masterT('Uusi tapahtuma') + '</span><br>' +
-    '<span style="font-size:12px;color:var(--ink3)">' + pvm + (klo ? masterT(' · klo ') + klo : '') + '</span>';
+    '<span style="font-size:12px;color:var(--ink3)">' + window.TM_KALENTERI_NAKYMA.tmKalPvmFi(pvm) + (klo ? masterT(' · klo ') + klo : '') + '</span>';
   const suljeBtn = document.createElement('button');
   suljeBtn.textContent = '✕';
   suljeBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:18px;color:var(--ink3)';
@@ -11085,9 +11020,6 @@ function _avaaUusiTapahtuma(pvm, klo) {
   setTimeout(() => nimiInput.focus(), 100);
 }
 
-function _calSlotClickOrig(day, hour) {
-  toast(masterT('Lisää tapahtuma — ') + masterT(['Ma','Ti','Ke','To','Pe','La','Su'][day]) + masterT(' klo ') + hour, 'cal-slot');
-}
 function calPlayerClick(name) {
   toast(masterT('Pelaaja: ') + name + masterT(' — avaa omatoimisen historia'), 'cal-player');
 }

@@ -26,7 +26,7 @@ describe('1 · otsakkeen napit (D169, D147)', () => {
 describe('2 · yksi tyyppirekisteri (D186, D171)', () => {
   it('Masterin tyyppilista ja värit rekisteristä: ei omaa tyyppilistaa, ei hex-värejä _calEvtTyylissä eikä selitteessä', () => {
     expect(MASTER).not.toMatch(/id:'harjoitus',\s+label:masterT/); expect(MASTER).toContain('tmKalTyypitRoolille('); expect(MASTER).toContain('tmKalSelite(');
-    const ev = MASTER.slice(MASTER.indexOf('function _calEvtTyyli('), MASTER.indexOf('// Kalenterichip')); expect(ev).not.toMatch(/#[0-9a-fA-F]{3,6}/); expect(ev).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+    const ev = MASTER.slice(MASTER.indexOf('function _calEvtTyyli('), MASTER.indexOf('/* Selite rekisteristä')); expect(ev).not.toMatch(/#[0-9a-fA-F]{3,6}/); expect(ev).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
     ['#2A5DB0', '#C0392B', '#7B68EE', '#7A8B99', '#3DA35D'].forEach((h) => expect(MASTER.slice(MASTER.indexOf('id="calModeBar"'), MASTER.indexOf('id="calModeBar"') + 4000)).not.toContain(h));
   });
   it('värit tokeneista merkin mukaan: harj → teal · ott → ink · test → teal · pal → ink3 katkoviiva · tauko → ink3 · muu → ink2', () => {
@@ -51,14 +51,13 @@ describe('3 · tuntiruudukko ei pudota tapahtumia', () => {
     const r = MA.tmKalTuntivali([{ alkaa: '04:00' }, { alkaa: '23:00' }]); expect([r.alku, r.loppu]).toEqual([6, 22]); expect(MA.tmKalTuntiRiville(4, r)).toBe(6); expect(MA.tmKalTuntiRiville(23, r)).toBe(22);
     expect(MA.tmKalTuntivali([{ alkaa: '16:00' }, { alkaa: '19:00' }]).tunnit).toEqual([15, 16, 17, 18, 19, 20]);
   });
-  it('renderCal (oikea Master vm:ssä): tapahtumat klo 09 ja 21 ovat ruudukossa omilla riveillään; selite rekisteristä', () => {
+  it('renderCal (oikea Master vm:ssä, K35-6a): tapahtumat klo 09 ja 21 näkyvät päiväsarakkeessa aikajärjestyksessä; selite rekisteristä', () => {
     const els = {}, el = (id) => els[id] || (els[id] = { innerHTML: '', textContent: '', style: {}, classList: { toggle() {} } });
     const ctx = lataaSivu('TalentMaster_Master_v16.html', { _demo: false, _joukkue: null, _superAdmin: false, _rooli: 'valmentaja', _testitapahtumat: [], _pelaajatData: [], masterT: (x) => x, _mEsc: (x) => String(x), toast() {},
-      _kalenteriTapahtumat: [{ id: 'a', tyyppi: 'harjoitus', pvm: '2026-10-07', alkaa: '09:00', paattyy: '10:00', joukkue_nimi: '' }, { id: 'b', tyyppi: 'ottelu', pvm: '2026-10-07', alkaa: '21:00', paattyy: '22:00', vastustaja: 'HJK' }] });
-    ctx.document = { getElementById: (id) => (['calWeek', 'calSelite', 'calWkLabel', 'calWkSub', 'calPlayers', 'calSelfPct'].includes(id) ? el(id) : null), querySelectorAll: () => [], createElement: () => ({ style: {}, classList: { add() {}, remove() {} } }), body: { appendChild() {} }, addEventListener() {} };
-    ctx.renderCal(); const h = els.calWeek.innerHTML; expect(h).toContain('9:00'); expect(h).toContain('21:00'); expect(h).toContain('Harjoitus'); expect(h).toContain('Ottelu · HJK');
-    expect(h).toContain('color-mix(in srgb,var(--teal) 12%,transparent)'); expect(h).not.toMatch(/#[0-9a-fA-F]{6}1f/); expect(els.calSelite.innerHTML).toContain('Testitapahtuma'); expect(els.calSelite.innerHTML).not.toContain('Seuran tauko');
-    const rivi = (hh) => h.slice(h.indexOf('>' + hh + ':00<'), h.indexOf('>' + (hh + 1) + ':00<')); expect(rivi(9)).toContain('Harjoitus'); expect(rivi(9)).not.toContain('Ottelu');
+      _kalenteriTapahtumat: [{ id: 'b', tyyppi: 'ottelu', pvm: '2026-10-07', alkaa: '21:00', paattyy: '22:00', vastustaja: 'HJK' }, { id: 'a', tyyppi: 'harjoitus', pvm: '2026-10-07', alkaa: '09:00', paattyy: '10:00', joukkue_nimi: '' }] });
+    ctx.document = { getElementById: (id) => (['calWeek', 'calSelite', 'calWkLabel', 'calWkSub', 'calPlayers', 'calSelfPct'].includes(id) ? el(id) : null), querySelectorAll: () => [], createElement: () => ({ style: {}, classList: { add() {}, remove() {} } }), body: { appendChild() {} }, head: { appendChild() {} }, addEventListener() {} };
+    ctx.renderCal(); const h = els.calWeek.innerHTML; expect(h).toContain('09:00–10:00'); expect(h).toContain('21:00–22:00'); expect(h).toContain('Harjoitus'); expect(h).toContain('Ottelu · HJK'); expect(h.indexOf('09:00–10:00')).toBeLessThan(h.indexOf('21:00–22:00'));
+    expect(h).toContain('--kv:var(--teal)'); expect(h).not.toMatch(/#[0-9a-fA-F]{3,6}\b/); expect(els.calSelite.innerHTML).toContain('Testitapahtuma'); expect(els.calSelite.innerHTML).not.toContain('Seuran tauko'); expect(h).not.toContain('cal-time-lbl');
   });
 });
 
@@ -115,14 +114,15 @@ describe('7 · korjaukset (katselmointi 11.10.)', () => {
     expect(MA.tmKalKokoPaiva(tauko)).toBe(true); expect(MA.tmKalKokoPaiva({ tyyppi: 'mentorointi' })).toBe(true); expect(MA.tmKalKokoPaiva({ tyyppi: 'harjoitus' })).toBe(false); expect(MA.tmKalKokoPaiva({ tyyppi: 'leiri', koko_paiva: true })).toBe(true);
     expect(MA.tmKalTuntivali([tauko, { alkaa: '17:00' }]).tunnit).toEqual([15, 16, 17, 18, 19, 20]); expect(MA.tmKalTuntivali([{ tyyppi: 'seuran_tauko', alkaa: '00:00' }]).tunnit).toEqual([15, 16, 17, 18, 19, 20]);
     expect(['2026-10-11', '2026-10-12', '2026-10-18', '2026-10-19'].map((p) => MA.tmKalOsuuPaivalle(tauko, p))).toEqual([false, true, true, false]);
-    expect(MASTER).not.toContain("t.tyyppi === 'mentorointi'"); expect(MASTER).toContain('_KM.tmKalKokoPaiva(t)');
+    expect(MASTER).not.toContain("t.tyyppi === 'mentorointi'"); expect(readFileSync(new URL('../lib/tm_kalenteri_nakyma.js', import.meta.url), 'utf8')).toContain('tmKalKokoPaiva');
   });
   it('renderCal: syysloma 12.–18.10. näkyy Koko pvm -rivillä jokaisella päivällä, ei tuntiruudukossa', () => {
     const els = {}, el = (id) => els[id] || (els[id] = { innerHTML: '', textContent: '', style: {}, classList: { toggle() {} } });
-    const ctx = lataaSivu('TalentMaster_Master_v16.html', { _demo: false, _joukkue: null, _superAdmin: false, _rooli: 'valmentaja', _testitapahtumat: [], _pelaajatData: [], _calWkOffset: 1, masterT: (x) => x, _mEsc: (x) => String(x), toast() {},
+    const ctx = lataaSivu('TalentMaster_Master_v16.html', { _demo: false, _joukkue: null, _superAdmin: false, _rooli: 'valmentaja', _testitapahtumat: [], _pelaajatData: [], _calWkOffset: Math.round((Date.UTC(2026, 9, 12) - (Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) - ((new Date().getDay() + 6) % 7) * 86400000)) / (7 * 86400000)),   // viikko 12.–18.10. riippumatta ajopäivästä
+       masterT: (x) => x, _mEsc: (x) => String(x), toast() {},
       _kalenteriTapahtumat: [{ id: 'k', tyyppi: 'seuran_tauko', nimi: 'Syysloma', koko_paiva: true, pvm: '2026-10-12', alkaa: '00:00', paattyy: '23:59', _alkaaMs: Date.UTC(2026, 9, 11, 21, 0), _paattyyMs: Date.UTC(2026, 9, 18, 20, 59) }] });
-    ctx.document = { getElementById: (id) => (['calWeek', 'calSelite', 'calWkLabel', 'calWkSub', 'calPlayers', 'calSelfPct'].includes(id) ? el(id) : null), querySelectorAll: () => [], createElement: () => ({ style: {}, classList: { add() {}, remove() {} } }), body: { appendChild() {} }, addEventListener() {} };
-    ctx.renderCal(); const h = els.calWeek.innerHTML; expect(h.split('calEventClick(\'k\')').length - 1).toBe(7); expect(h).toContain('>15:00<'); expect(h).not.toContain('>9:00<');
+    ctx.document = { getElementById: (id) => (['calWeek', 'calSelite', 'calWkLabel', 'calWkSub', 'calPlayers', 'calSelfPct'].includes(id) ? el(id) : null), querySelectorAll: () => [], createElement: () => ({ style: {}, classList: { add() {}, remove() {} } }), body: { appendChild() {} }, head: { appendChild() {} }, addEventListener() {} };
+    ctx.renderCal(); const h = els.calWeek.innerHTML; expect(h.split("calEventClick('k')").length - 1).toBe(7); expect(h).not.toContain('cal-time-lbl'); expect(h).not.toMatch(/>\d{1,2}:00</);
   });
   it('koko päivän tapahtuman päivän vaihto ei katoa hiljaa (siirtää alun, säilyttää keston)', () => { expect(MASTER).toContain('var _kokoPv = t.koko_paiva === true'); expect(MASTER).toContain('t._paattyyMs - t._alkaaMs'); });
 });
