@@ -74,6 +74,14 @@
 - Rules-versiot (live): v3.47 ryhmät · v3.48 kalenteri · v3.50 mediaviesti · v3.51 suostumus kyselyssä · v3.52 muistiinpanot pois tapahtumasta. **Seuraava v3.53 = S1** (sisältää v3.52-jälkisiivouksen).
 - Tuotantodatan ajot (tuonnit, migraatiot, täydennykset ja takaisinlaskennat) ajaa Tero, ei Code eikä PM.
 
+
+
+- **Yhteinen sivupaneeli (Master + VP) — mockup ensin, 1.11 jälkeen.** Ei tehdä ennen mockupia. Kielivalitsin vain yhteen paikkaan (nyt sekä sivupaneelissa että yläpalkissa) samassa yhteydessä. Masterin korjattavat samassa yhteydessä (Tero 11.10., Masterin tumma teema on molempien sovellusten luettavuuden mittapuu):
+  - navigaatio vain kerran (sivupaneelin Työkalut vs välilehdet 01–07)
+  - "Kirjaudu ulos" ei leikkaudu; kielivalinta ja versio omalle rivilleen
+  - eri ikoni Kodille, Valmentajana kehittymiselle ja Aloita tästä -kohdalle
+  - napit ilman isoja kirjaimia ja emojeja (D169: isot kirjaimet vain .kt-eb-yläotsikoissa)
+
 ### 📅 Kalenteri
 | Milloin | Mitä | Kuka |
 |---|---|---|

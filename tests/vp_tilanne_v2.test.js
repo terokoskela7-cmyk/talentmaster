@@ -39,7 +39,7 @@ describe('D148 · huomiot: asian mukaan ryhmitelty (≥ 3 joukkuetta = yksi rivi
   it('ryhmän tunnisteet D144:llä: enintään kuusi + "+N"; rivi on <details> ja avaa listan joukkueista (jokainen avaa joukkueen); yksittäinen asia ryhmästä pois joukkuerivistä', () => {
     const kymmenen = ['P10', 'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'T12'].concat(['P9', 'T9']).map((x) => x + ' Demo'), hu = huom(kymmenen.map((j) => P({ joukkue: j })), kymmenen.map(T));
     expect(hu[0]).toMatchObject({ tyyppi: 'ryhma', n: 10 }); const h = TT.tmTilanneHTML(Object.assign(TT.tmTilanneMalli(F.lataa('kypsa', NYT).syote), { huomiot: hu }), { t, fn: { joukkue: 'jk' } });
-    expect(h).toContain('<details class="tt-ryhma">'); const sum = h.slice(h.indexOf('<summary class="tt-it">'), h.indexOf('</summary>')); expect((sum.match(/class="tt-tg ok"/g) || []).length).toBe(7); expect(sum).toContain('>+4<');
+    expect(h).toContain('<details class="tt-ryhma">'); const sum = h.slice(h.indexOf('<summary class="tt-it tt-rw">'), h.indexOf('</summary>')); expect((sum.match(/class="tt-tg ok"/g) || []).length).toBe(7); expect(sum).toContain('>+4<');
     expect((h.match(/class="tt-it tt-alit"/g) || []).length).toBe(10); expect(h).toContain("onclick=\"jk('P10 Demo')\"");
   });
   it('joukkueen jäljelle jäävät asiat: Tekniikka ryhmässä, fyysinen jää joukkuerivinä; tila = asioiden nimet ("tekniikka · fyysiset testit"), ei "2 asiaa"', () => {
@@ -114,7 +114,7 @@ describe('Rakenne ylhäältä alas (mockup 30) ja tieto kerran (D150)', () => {
     const h = tila('pilotti').h, ennen = h.slice(0, h.indexOf('id="tilanneAikajana"')); expect(ennen).not.toMatch(/tt-tg/); expect(teksti(ennen)).toContain('14 ilman jaksoa'); expect(ennen).not.toContain('kt-nauha');
   });
   it('mittaus · talentit · syntymäkvartaalit samalla .kt-ev-anatomialla: otsikko, luku, lause, linkki', () => {
-    const { h } = tila('pilotti'), x = teksti(h); ['Mittaustilanne 13 /15 yli 6 kk vanha', 'Seuraava testijakso vk', 'Seuratason fyysisiä lukuja ei näytetä ennen kuin 10/15 on mitattu.', 'Suunnittele testijakso →', 'Talentit 2 talenttia · 0 ehdokasta', 'Hidden Gem -ehdokkaat näkyvät, kun D1 on mitattu (§28). 6 odottaa mittausta.', 'Syntymäkvartaalit 4 /160 syntymäaikaa', 'RAE-jakaumaa ei voi vielä lukea: syntymäajat puuttuvat 156 pelaajalta.', 'Täydennä syntymäajat →'].forEach((s) => expect(x, s).toContain(s));
+    const { h } = tila('pilotti'), x = teksti(h); ['Mittaustilanne 12 /15 yli 12 kk vanha', 'Seuraava testijakso vk', 'Seuratason fyysisiä lukuja ei näytetä ennen kuin 10/15 on mitattu.', 'Suunnittele testijakso →', 'Talentit 2 talenttia · 0 ehdokasta', 'Hidden Gem -ehdokkaat näkyvät, kun D1 on mitattu (§28). 6 odottaa mittausta.', 'Syntymäkvartaalit 4 /160 syntymäaikaa', 'RAE-jakaumaa ei voi vielä lukea: syntymäajat puuttuvat 156 pelaajalta.', 'Täydennä syntymäajat →'].forEach((s) => expect(x, s).toContain(s));
     expect((h.match(/class="kt-ev tt-g3k"/g) || []).length).toBe(3); expect(x).not.toMatch(/Q1 \d+ %/);   // RAE kattavuusportilla (D125): alle rajan ei prosentteja
   });
   it('kysymyskortit: amber vain kun luku alle puolen; sisältö ei nimiä', () => { const h = tila('pilotti').h; expect(h).toMatch(/class="kt-q-v w">1<small>\/15/); expect(tila('kypsa').h).not.toMatch(/class="kt-q-v w">8</); });

@@ -26,8 +26,9 @@ const kortti = (pelaajat) => { sb._pelaajat = pelaajat; sb.renderTeamPulse(); re
 const teksti = (html) => html.replace(/<[^>]+>/g, '|').replace(/\|+/g, '|');
 
 // P10-tyyppinen joukkue: d2_taso ka 3.6 (3.625), TKI ka 54 (TKI/20 = 2.7), H-H 3.2
-const P10 = [3, 4, 3.5, 4, 3.5, 4, 3.5, 3.5].map((d, i) => ({ id: 'p' + i, joukkue: 'Testi P10', d2_taso: d, tki_viimeisin: 54, hh_taso: 3.2 }));
-const TKI_VAIN = [50, 60, 40, 70].map((t, i) => ({ id: 't' + i, joukkue: 'Testi P11', tki_viimeisin: t, hh_taso: 3.2 }));
+const PV = new Date().toISOString().slice(0, 10);   // tuore päivä: tasopalkit keskiarvoistavat vain tuoreen tuloksen (vanha/päivätön pois, tm_nakyma_ryhmat)
+const P10 = [3, 4, 3.5, 4, 3.5, 4, 3.5, 3.5].map((d, i) => ({ id: 'p' + i, joukkue: 'Testi P10', d2_taso: d, tki_viimeisin: 54, tki_pvm: PV, hh_taso: 3.2, hh_viimeisin: { cmj: 30, mas: 15 }, hh_pvm: PV }));
+const TKI_VAIN = [50, 60, 40, 70].map((t, i) => ({ id: 't' + i, joukkue: 'Testi P11', tki_viimeisin: t, tki_pvm: PV, hh_taso: 3.2, hh_viimeisin: { cmj: 30, mas: 15 }, hh_pvm: PV }));
 
 describe('P10-tyyppinen joukkue: d2_taso ka 3.6, TKI ka 54 — pulssi, poikkeamat ja joukkuekortti antavat KAIKKI 3.6', () => {
   it('jaettu tmJoukkueD2 → 3.6 (lähde sm); on sama kuin pelaajien laskeD2Taso-keskiarvo', () => {
@@ -87,7 +88,8 @@ describe('vartija: VP_v25 ei laske joukkuetason D2:ta TKI/20:stä — se tulee l
   const rivit = VP.split('\n');
   it('ei omaa laskeJoukkueD2-funktiota; joukkuekortti, hero ja KPI-kortti kutsuvat tmJoukkueD2:ta', () => {
     expect(VP).not.toMatch(/function laskeJoukkueD2\b/); expect(VP).not.toMatch(/laskeJoukkueD2\(/);
-    expect(VP).toContain('const d2 = tmJoukkueD2(pelaajat);'); expect(VP).toContain('tmJoukkueD2(KP, { minN: 1 })'); expect(VP).toContain('const _d2T = tmJoukkueD2(pool);');
+    expect(VP).toContain('const d2 = tmJoukkueD2(_p2);');   // _p2 = joukkueen pelaajat ilman vanhaa D2-tulosta (tm_nakyma_ryhmat)
+     expect(VP).toContain('tmJoukkueD2(KP, { minN: 1 })'); expect(VP).toContain('const _d2T = tmJoukkueD2(pool);');
   });
   it('ei `tki_viimeisin / 20` -laskentaa — ainoa poikkeus on _pLvl (laskeD2Joustava, "lähimpänä tavoitetta", raportoitu erikseen)', () => {
     const osumat = rivit.map((r, i) => [i + 1, r]).filter(([, r]) => /tki_viimeisin\s*\/\s*20|tki_viimeisin\s*\)\s*\/\s*20/.test(r));

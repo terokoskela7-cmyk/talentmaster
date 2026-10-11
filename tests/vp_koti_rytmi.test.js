@@ -139,14 +139,14 @@ describe('Otsikkorivi ja hiljaiset linkit; sisältö vasemmalle; oikea palsta', 
   });
 });
 
-describe('Esimerkkiseura (D167) Rytmi-näkymänä; Tilanne: ryhmärivin vasen sarake tyhjä', () => {
+describe('Esimerkkiseura (D167) Rytmi-näkymänä; Tilanne: ryhmärivi koko leveydelle (ei tyhjää saraketta)', () => {
   it('demo: FC Demo Rytmi-vaiheessa, signaalit (ei jaksoa, katselmus, katsaus laskee) ja toiminnot pois (fn {})', () => {
     const D = KK.tmKotiDemo(NYT), v = D.koosteet[D.koosteet.length - 1], m = PU.tmPulssiRivit(D.koosteet, { nytMs: NYT, ensimmainenVk: D.ensin, jaksoVk: {}, katselmusPv: {} }), rm = KK.tmKotiRytmiMalli(m, { yhteensa: v.yhteensa, koosteJ: v.joukkueet, kalenteri: D.kalenteri, nytMs: NYT, seuraNimi: D.seuranNimi }), h = KK.tmKotiRytmiHTML(rm, { t: (x) => x, fn: {} }).main;
     expect(KK.tmKotiVaihe(m)).toBe('rytmi'); expect(rm.entries.map((e) => e.tyyppi)).toEqual(expect.arrayContaining(['ei_jaksoa', 'katselmusikkuna', 'katsaus_laskee'])); expect(h).not.toContain('onclick'); expect(teksti(h)).toContain('FC Demo · viikko');
   });
-  it('Tilanne: ryhmärivin vasen sarake on tyhjä (luku toisti tekstin "· N joukkuetta")', () => {
+  it('Tilanne: ryhmärivi on koko leveydelle — ei tyhjää tunnistesaraketta (Tero 11.10.: .tt-rw, teksti "· N joukkuetta" säilyy)', () => {
     const Pp = (j) => ({ joukkue: j, tyyppi: 'alle_normin', osaAlue: 'tekniikka', vakavuus: 'amber', arvo: 2, teema: 'x', alaraja: false, kypsyysEstetty: null }), d = F.lataa('kypsa', NYT); d.syote.poikkeamat = ['P10 Demo', 'P11 Demo', 'P12 Demo'].map(Pp); d.syote.tekniikka = undefined; d.syote.fyysinen = undefined;
-    const h = TT.tmTilanneHTML(TT.tmTilanneMalli(d.syote), { t: (x) => x, fn: {} }), sum = h.slice(h.indexOf('<summary class="tt-it">'), h.indexOf('</summary>')); expect(sum).toContain('<span class="tt-j" aria-hidden="true"></span>'); expect(teksti(sum)).toContain('Tekniikka kehityskohteena · 3 joukkuetta'); expect(teksti(sum)).not.toMatch(/^\s*3 Tekniikka/);
+    const h = TT.tmTilanneHTML(TT.tmTilanneMalli(d.syote), { t: (x) => x, fn: {} }), sum = h.slice(h.indexOf('<summary class="tt-it tt-rw">'), h.indexOf('</summary>')); expect(sum).not.toContain('class="tt-j"'); expect(TT.CSS).toContain('.tt-it.tt-rw{grid-template-columns:minmax(0,1fr) auto}'); expect(teksti(sum)).toContain('Tekniikka kehityskohteena · 3 joukkuetta'); expect(teksti(sum)).not.toMatch(/^\s*3 Tekniikka/);
   });
 });
 

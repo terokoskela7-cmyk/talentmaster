@@ -114,3 +114,25 @@ describe('D168 · fixture-tilat', () => {
     KAIKKI.forEach(([nimi, , , h]) => expect(h.length, nimi).toBeGreaterThan(500)); expect((RENDER.kuormitus.koti.match(/Östra Nylands/g) || []).length).toBeGreaterThanOrEqual(40);
   });
 });
+
+describe('Tero 11.10 · VP:n tumma teema seuraa Masterin lämmintä paletti (mittapuu: Master_v16 tumma)', () => {
+  const lohko = (html) => (html.match(/:root\[data-theme="dark"\] \{[^}]*\}/) || [''])[0], tok = (l, k) => (l.match(new RegExp('--' + k + ':\\s*([^;]+);')) || [])[1].replace(/\s*\/\*.*$/, '').trim();
+  const MA = readFileSync(new URL('../TalentMaster_Master_v16.html', import.meta.url), 'utf8'), VPD = lohko(VP), MAD = lohko(MA);
+  it('--ink, --ink2, --ink3 samat kuin Master_v16:n tummassa teemassa', () => { ['ink', 'ink2', 'ink3'].forEach((k) => expect(tok(VPD, k), k).toBe(tok(MAD, k))); });
+  it('ei sinertäviä ink-arvoja VP_v25:n tummassa teemassa (#E8EEF8 / #9AAAC4 / #8296BA / rgba(232,238,248,…))', () => {
+    ['E8EEF8', '9AAAC4', '8296BA'].forEach((h) => expect(VPD.toUpperCase()).not.toContain(h)); expect(VPD).not.toMatch(/232,\s*238,\s*248/);
+    [...VPD.matchAll(/--ink[\w-]*:\s*rgba\((\d+),\s*(\d+),\s*(\d+)/g)].forEach((m) => expect(+m[3] - +m[1], m[0]).toBeLessThanOrEqual(12));   // lämmin: sininen kanava ei ylitä punaista
+  });
+  it('kontrasti ≥ 4,5 pinnoilla --bg, --bg2, --bg3 (ink, ink2, ink3 — kaikki tekstikoot ≥ 12,5 px)', () => {
+    const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }, L = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)), pinta = ['bg', 'bg2', 'bg3'].map((k) => hex(tok(VPD, k)));
+    ['ink', 'ink2', 'ink3'].forEach((k) => { const m = tok(VPD, k).match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/), a = +m[4]; pinta.forEach((b) => { const fg = [1, 2, 3].map((i, j) => a * +m[i] + (1 - a) * b[j]), l1 = L(fg), l2 = L(b); expect((Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05), k).toBeGreaterThanOrEqual(4.5); }); });
+  });
+  it('Tilanteen listakortit ja Mittausaukot käyttävät korttipintaa --bg3 (= Masterin --card) ja .5px-reunaa', () => {
+    const c = sennut(TT.CSS); ['.tt-list', '.tt-aukot'].forEach((v) => { const m = c.find((x) => x.valitsin === v).maar; expect(m, v).toContain('var(--bg3)'); expect(m, v).toContain('.5px solid var(--border)'); });
+  });
+  it('huomiorivi: "testattu 11 kk sitten · 9/14 mitattu" (meta ink2, --fs-meta)', () => {
+    const h = RENDER.pilotti.tilanne, t = teksti(h); expect(t).not.toMatch(/mitattu \d+\/\d+/); expect(t).toMatch(/testattu \d+ kk sitten|testattu \d/); expect(t).toMatch(/\d+\/\d+ mitattu/);
+    const r = sennut(TT.CSS).find((x) => x.valitsin.split(',').map((s) => s.trim()).includes('.tt-m')); expect(r.maar).toContain('color:var(--ink2)'); expect(r.maar).toContain('var(--fs-meta');
+  });
+});
