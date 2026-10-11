@@ -69,7 +69,7 @@ async function main() {
     console.error('Käyttö: --seura=<id> --email=<käyttäjän email> [--pelaaja=<docId> | --pelaaja-nimi="Etu Suku"]');
     process.exit(2);
   }
-  if (!admin.apps.length) admin.initializeApp({ credential: admin.applicationDefault() });
+  if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault() });
   const db = admin.firestore();
   const auth = admin.auth();
 

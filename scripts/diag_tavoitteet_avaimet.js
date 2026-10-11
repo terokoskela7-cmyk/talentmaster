@@ -34,7 +34,7 @@ function avaimenMuoto(avain) {
 }
 
 async function main() {
-  if (!admin.apps.length) admin.initializeApp({ credential: admin.applicationDefault() });
+  if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault() });
   const db = admin.firestore();
 
   const seurat = VAIN_SEURA

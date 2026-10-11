@@ -20,7 +20,7 @@ const arg = (n) => { const o = argv.find((a) => a.indexOf('--' + n + '=') === 0)
 const SEURA = arg('seura') || 'kpv', APPLY = argv.includes('--apply');
 
 async function main() {
-  if (!admin.apps.length) admin.initializeApp({ credential: admin.applicationDefault(), projectId: 'talentmaster-pilot' });
+  if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault(), projectId: 'talentmaster-pilot' });
   const db = admin.firestore();
   console.log((APPLY ? '⚠ APPLY — kirjoittaa' : 'DRY-RUN — ei kirjoituksia') + ' · seura: ' + SEURA + '\n');
   const pelaajat = (await db.collection('seurat').doc(SEURA).collection('pelaajat').get()).docs;

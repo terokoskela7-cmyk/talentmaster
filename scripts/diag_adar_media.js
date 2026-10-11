@@ -35,7 +35,7 @@ const POISTA = argv.includes('--poista');
 const AI_KENTAT = ['media', 'ai_narratiivi', 'ai_malli', 'ai_analysoitu', 'ai_luottamus'];
 
 async function main() {
-  if (!admin.apps.length) admin.initializeApp({ credential: admin.applicationDefault() });
+  if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault() });
   const db = admin.firestore();
   const bucket = admin.storage().bucket();
 
