@@ -37,7 +37,7 @@
   - `tmTaukopaivat(alku, loppu, tapahtumat)` → taukopäivien määrä ikkunoiden pidennykseen (D131: katselmusikkunat, eskalointi 7 pv).
   - `tmSeuraavaTapahtuma(tapahtumat, {joukkue?, ryhma?, pelaajaId?, tyyppi?, nyt})` → `{id, alkaa, paattyy, paikka, tyyppi, nimi} | null`. Pelaajakohtainen haku käyttää `TM_RYHMAT.tmTapahtumaKuuluuPelaajalle`a, jotta ryhmäharjoitukset tulevat mukaan. Käyttäjät: kehitystyöpöydän "Treenattiinko?" (lähde "kalenteri · harjoitus 17.00"), valmentajan Tänään (D142), pelaajan Viikko.
   - `tmTestijaksoEhdotus(viimeisin_pvm, MUISTUTUS_KK, VANHA_KK)` → `{muistutus_pvm, vanhenee_pvm}` kausinäkymän testijaksoriville ("Suunnittele testijakso →" avaa Kalenteri · Kausi). Rajat tulevat `lib/tm_nakyma_ryhmat.js`:stä, ei omia vakioita.
-- **Pelimuoto:** viikkopohjan valinta lukee `joukkueet/{jid}.pelimuoto` ('5v5'|'8v8'|'11v11', toisen session päätös, Rules sen PR B:ssä marraskuussa). Pohjalla on oma `pelimuoto`-tunniste ("tämä on 8v8-pohja"), mutta joukkueen pelimuotoa ei tallenneta muualle. Jos kenttä puuttuu, `tmPohjaJoukkueelle` palauttaa `null` ja näkymä pyytää valitsemaan pelimuodon kerran.
+- **Pelimuoto:** viikkopohjan valinta lukee `joukkueet/{jid}.pelimuoto` ('5v5'|'8v8'|'11v11', D173, Rules toisen session PR B:ssä marraskuussa). Pohjalla on oma `pelimuoto`-tunniste ("tämä on 8v8-pohja"), mutta joukkueen pelimuotoa ei tallenneta muualle. Jos kenttä puuttuu, `tmPohjaJoukkueelle` palauttaa `null` ja näkymä pyytää valitsemaan pelimuodon kerran.
 - Testit: rekisteri kattaa kaikki nykyiset tyypit; normalisointi molemmista muodoista; tauko tunnistetaan vain `seuran_tauko`sta; seuraava tapahtuma pelaajalle sisältää ryhmän tapahtuman; vartija `tests/kalenteri_yksi_rekisteri.test.js`: uutta `{testitapahtuma:…, ottelu:…}`-tyyppikarttaa ei saa lisätä HTML:ään (nykyiset neljä sallittu listalla, lista saa vain pienentyä).
 - Ei käyttöliittymämuutoksia.
 
@@ -84,7 +84,7 @@
 ## Rajapinnat toiseen sessioon (lisäbriiffi 11.10., tarkistettu)
 - **Yhteiset tiedot, yksi lähde:** pelimuoto `joukkueet.pelimuoto` · jaksot `jaksofokus` (kalenteri näyttää nauhoina, ei omista) · ISO-viikko `lib/tm_viikko.js` · tauot `seuran_tauko` (D193) · seuraava tapahtuma `tmSeuraavaTapahtuma` · testirajat `MUISTUTUS_KK`/`VANHA_KK` `tm_nakyma_ryhmat.js`:stä. Kokonaiskuva: `docs/KOKONAISKUVA_KAUSI_JAKSO_VIIKKO.md`.
 - **Ilmoitukset (D192):** automaattiset (tapahtuma, muutos, peruutus, viikko-ohjelma, muistutus) ovat `notifikaatiot`-kokoelmassa ja vain funktiot kirjoittavat niitä (Rules v3.56 L1480–1484). Ihmisen lähettämät ("Muistuta pelaajaa", toisen session PR D) ovat `viestit`-kokoelmassa. Pelaajan sovelluksessa yksi "Sinulle"-lista yhdistää molemmat selaimessa (`lib/tm_sinulle.js`, kalenterisession omistuksessa). Ei toista muistutusjärjestelmää.
-- **D-numerot:** D109–D121 on käytössä mockupissa 23 (Seuran pulssi v2, D119 lukittu) ja `CODE_BRIEF_S2_KOTI.md`:ssä. #998:n ja mockupin 34 uudet päätökset on numeroitava uudelleen (ehdotus: D172–D179, sitten D200→). Kalenteri käyttää D180–D199.
+- **D-numerot (sovittu 11.10.):** toinen sessio käyttää D172–D176 (D172 alue klikkaamalla · D173 aluejako pelimuodosta · D174 hyökkäys ylöspäin · D175 korttitaso · D176 PHV sanoin) ja jatkaa D177–D179 ja D200→. D108 = viikkohavainto. D109–D121 on mockupin 23. Kalenteri käyttää D180–D199.
 - **Jaetut tiedostot:** kalenterin koodi-PR:t Masteriin ja VP:hen vasta #995:n mergen jälkeen; ROADMAP-muutokset #998:n jälkeen. `docs/design/idp-v2/README.md` on molempien käytössä: yksi rivi per mockup, ei muita muokkauksia.
 
 ## Avoimet (Tero)

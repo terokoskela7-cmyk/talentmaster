@@ -23,7 +23,7 @@ Jokaisella tiedolla on yksi tallennuspaikka ja yksi funktio, josta kaikki lukeva
 
 | Tieto | Tallennuspaikka | Funktio (lib) | Lukijat | Tila |
 |---|---|---|---|---|
-| Pelimuoto 5v5 / 8v8 / 11v11 | `joukkueet/{jid}.pelimuoto` | suoraan kentästä; `tmPohjaJoukkueelle` käyttää | ydinvahvuuden aluejako (34), viikkopohjan valinta (35), kuormaprofiili D26 | toinen sessio lisää kentän ja Rulesin (PR B, marraskuu) |
+| Pelimuoto 5v5 / 8v8 / 11v11 | `joukkueet/{jid}.pelimuoto` (D173) | suoraan kentästä; `tmPohjaJoukkueelle` käyttää | ydinvahvuuden aluejako (34, D172–D173), viikkopohjan valinta (35), kuormaprofiili D26 | toinen sessio lisää kentän ja Rulesin (PR B, marraskuu) |
 | ISO-viikko | – | `TM_VIIKKO.tmIsoViikkoNro` | kaikki neljä sovellusta | valmis (D140) |
 | Tauko | `kalenteri`, tyyppi `seuran_tauko` | `tmOnTauko`, `tmTaukopaivat` | signaalit, eskalointi 7 pv, katselmusikkunat, Täytä viikko, jaksojen viikot, Kodin palsta | K35-1 (D193) |
 | Seuraava tapahtuma | `kalenteri` | `tmSeuraavaTapahtuma` | kehitystyöpöydän "Treenattiinko?", valmentajan Tänään (D142), pelaajan Viikko | K35-1 |
@@ -51,7 +51,7 @@ Jokaisella tiedolla on yksi tallennuspaikka ja yksi funktio, josta kaikki lukeva
 | `functions/kalenteri_notif.js`, uudet synkat, iCal | omistaa | ei koske | Teron kaista |
 | `viestit`-kokoelma, "Muistuta pelaajaa" | ei koske | omistaa | D192 |
 | ROADMAP, 22:n päätöslista, README-rivit | yksi rivi per mockup | yksi rivi per mockup | yksi avoin PR per tiedosto |
-| D-numerot | D180–D199 | D172–D179, D200→ | D109–D121 on mockupin 23 |
+| D-numerot | D180–D199 | D172–D176 käytössä, D177–D179 ja D200→ vapaana | D108 viikkohavainto, D109–D121 mockupin 23 |
 
 ## 4 · Riippuvuusketju ja kriittinen polku
 
@@ -111,7 +111,7 @@ Testi kokonaisuudelle: jos jokin kerros muuttuu (VP vaihtaa vaiheen, valmentaja 
 
 ## 8 · Mitä seuraavaksi
 
-1. Tero kuittaa D180–D195 ja lisäbriiffin korjaukset (D-numerot toiselle sessiolle).
+1. Tero kuittaa D180–D195. D-numerointi on sovittu 11.10. (toinen sessio D172–D176).
 2. Code: K35-1 heti (auto). Toinen sessio ottaa `tmSeuraavaTapahtuma`n ja `tmOnTauko`n käyttöön Tänään-korjauksissa.
 3. PM: mockupin 35 osio 2 päivitetään D194:n mukaan (kenttäkuva päiväkorteissa, päivän suunnittelu, ryhmät ja teemakattavuus viikon alla) ja Palloliiton pohjat tarkistetaan valmennuslinjasta, kun Tero lataa sen.
 4. K35-2 heti #995:n jälkeen. Loput järjestyksessä §4.
