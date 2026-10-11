@@ -68,13 +68,13 @@ describe.skipIf(!KAYTOSSA)('K35-2b · selain: Tallenna näkyvissä (Playwright +
       } finally { await selain.close(); }
     }, 90000);
   }
-  it('luonti: pikavalintoja 5 näkyvissä + "Muut tyypit"; painike paljastaa loput 6 (johto, ei tauko)', async () => {
+  it('luonti: pikavalintoja 5 näkyvissä + "Muut tyypit"; painike paljastaa loput 8 (johto, ei seuran tauko)', async () => {
     const { chromium } = require('playwright-core');
     const selain = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox', '--allow-file-access-from-files', '--hide-scrollbars'] });
     try {
       const sk = await selain.newContext({ viewport: { width: 1280, height: 720 } }), p = await sk.newPage(); await p.goto('file://' + sivu(KUTSUT.uusi), { waitUntil: 'domcontentloaded' }); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 30000 });
       const nakyvia = () => p.evaluate(() => [...document.querySelectorAll('#uusiTapahtumaModal [id^=tapahtumatyyppi_]')].filter((b) => b.id !== 'tapahtumatyyppiMuut' && getComputedStyle(b).display !== 'none').length);
-      expect(await nakyvia()).toBe(5); expect(await p.locator('#tapahtumatyyppiMuut').count()).toBe(1); await p.locator('#tapahtumatyyppiMuut').click(); expect(await nakyvia()).toBe(11); expect(await p.locator('#tapahtumatyyppiMuut').count()).toBe(0); expect(await p.locator('#tapahtumatyyppi_seuran_tauko').count()).toBe(0);
+      expect(await nakyvia()).toBe(5); expect(await p.locator('#tapahtumatyyppiMuut').count()).toBe(1); await p.locator('#tapahtumatyyppiMuut').click(); expect(await nakyvia()).toBe(13); expect(await p.locator('#tapahtumatyyppiMuut').count()).toBe(0); expect(await p.locator('#tapahtumatyyppi_seuran_tauko').count()).toBe(0);
       await sk.close();
     } finally { await selain.close(); }
   }, 90000);

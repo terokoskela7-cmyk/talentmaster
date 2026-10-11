@@ -9,11 +9,11 @@ const H = (s) => Date.parse(s + '+03:00');   // Helsingin kesäaika lokakuussa (
 const DAY = 86400000;
 
 describe('tyyppirekisteri (D186)', () => {
-  it('12 tyyppiä, VP:n KALENTERI_TYYPIT-avaimet kaikki mukana', () => {
+  it('14 tyyppiä (K35-6d: + joukkueen_vapaa, erikoisohjelma), VP:n KALENTERI_TYYPIT-avaimet (12) kaikki mukana', () => {
     const vp = lue('TalentMaster_VP_v25.html'), i = vp.search(/(?:var|const|let) KALENTERI_TYYPIT\s*=/), lohko = vp.slice(i, vp.indexOf('};', i));
     const avaimet = [...lohko.matchAll(/^\s+([a-z_]+):\s+\{ nimi:/gm)].map((m) => m[1]);
     expect(avaimet.length).toBe(12);
-    expect(Object.keys(TY.TYYPIT).sort()).toEqual(avaimet.sort());
+    expect(Object.keys(TY.TYYPIT).sort()).toEqual(avaimet.concat(['joukkueen_vapaa', 'erikoisohjelma']).sort());   // VP ei vielä käytä uusia (R1/K35-8)
     expect(TY.tmKalTyypit().map((t) => t.avain)).toEqual(TY.JARJESTYS);
   });
   it('ei emojeja eikä hex-värejä; kerros D131:n mukaan; nimiAvain i18n:lle', () => {

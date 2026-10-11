@@ -8,6 +8,7 @@
    · `nimiAvain` = i18n-avain (kal_tyyppi_<avain>); `nimi` = suomenkielinen oletus. sv tulee Geminin kautta.
    · ALIAKSET: vanhat tai muiden sovellusten nimet → kanoninen avain (tauko/loma → seuran_tauko, D193).
    · K35-2: tmKalTyypitRoolille(johto) (seuran_tauko vain johdolle, D171) · tmKalMerkkiTyyli(merkki) → { vari: 'var(--token)', katkoviiva } (D169, ei hex-arvoja) · tmKalSelite(johto) → yksi rivi per merkki rekisteristä
+   · K35-6d (D240–D242): + joukkueen_vapaa (joukkuetauko) ja erikoisohjelma (laji: leiri|turnaus|kotiviikko|kevennys|muu); tmKalOnTauko(x) · TAUKO_TYYPIT · ERIKOISOHJELMA_LAJIT; tyyppikohtaiset kokoPaiva/monipaivainen/joukkuePakollinen
    API: tmKalTyyppiAvain(x) · tmKalTyyppi(x) · tmKalTyypit() · tmKalPikavalinnat() · tmKalVainHenkilokunta(x) · tmKalTyypitRoolille · tmKalMerkkiTyyli · tmKalSelite · TYYPIT · ALIAKSET · JARJESTYS
    Dual-export: module.exports || window.TM_KALENTERI_TYYPIT. Kopio functions/-kansioon ensimmäisessä palvelinkäytössä (kaista Tero).
 ════════════════════════════════════════════════════════════════════════ */
@@ -25,10 +26,16 @@
     tiimipalaveri:         { nimi: 'Tiimipalaveri',         kerros: 'asiat',     merkki: 'pal',   pika: 0 },
     mentorointitapaaminen: { nimi: 'Mentorointitapaaminen', kerros: 'asiat',     merkki: 'pal',   pika: 0 },
     kalibraatiopaja:       { nimi: 'Kalibraatiopaja',       kerros: 'asiat',     merkki: 'pal',   pika: 0 },
-    seuran_tauko:          { nimi: 'Seuran tauko',          kerros: 'tauko',     merkki: 'tauko', pika: 0 }
+    seuran_tauko:          { nimi: 'Seuran tauko',          kerros: 'tauko',     merkki: 'tauko', pika: 0 },
+    /* K35-6d: joukkueen omat. joukkueen_vapaa (D240) = joukkuetauko: koko päivä, monipäiväinen, joukkue pakollinen; tmOnTauko lukee sen joukkueeseen rajattuna taukona. erikoisohjelma (D241) = leiri/turnaus/kotiviikko/kevennys/muu (kenttä laji), koko päivä, monipäiväinen. */
+    joukkueen_vapaa:       { nimi: 'Joukkueen vapaa',       kerros: 'tauko',     merkki: 'tauko', pika: 0, kokoPaiva: true, monipaivainen: true, joukkuePakollinen: true },
+    erikoisohjelma:        { nimi: 'Erikoisohjelma',        kerros: 'valmennus', merkki: 'harj',  pika: 0, kokoPaiva: true, monipaivainen: true, joukkuePakollinen: true }
   };
+  var ERIKOISOHJELMA_LAJIT = ['leiri', 'turnaus', 'kotiviikko', 'kevennys', 'muu'];   // erikoisohjelma.laji (D241)
+  /* Tauko = seuran_tauko TAI joukkueen_vapaa (D193 "yksi lähde" säilyy: tauko-tyypit tästä listasta) */
+  var TAUKO_TYYPIT = ['seuran_tauko', 'joukkueen_vapaa'];
   /* Järjestys valitsimissa: pikavalinnat ensin (D185), sitten loput. */
-  var JARJESTYS = ['harjoitus', 'ottelu', 'testitapahtuma', 'valmentajapalaveri', 'muu', 'talenttileiri', 'jaksopalaveri', 'idp_seuranta', 'tiimipalaveri', 'mentorointitapaaminen', 'kalibraatiopaja', 'seuran_tauko'];
+  var JARJESTYS = ['harjoitus', 'ottelu', 'testitapahtuma', 'valmentajapalaveri', 'muu', 'talenttileiri', 'jaksopalaveri', 'idp_seuranta', 'tiimipalaveri', 'mentorointitapaaminen', 'kalibraatiopaja', 'joukkueen_vapaa', 'erikoisohjelma', 'seuran_tauko'];
   /* Sama joukko kuin TM_RYHMAT.HK_TYYPIT (tests/k35_1_kalenteri_libit.test.js pitää ne samoina); 'kokous' on vanha alias. */
   var HK = ['jaksopalaveri', 'valmentajapalaveri', 'tiimipalaveri', 'kokous', 'kalibraatiopaja', 'mentorointitapaaminen'];
   var ALIAKSET = { treeni: 'harjoitus', joukkueharjoitus: 'harjoitus', peli: 'ottelu', testi: 'testitapahtuma', kasvumittaus: 'testitapahtuma',
@@ -42,7 +49,7 @@
   }
   function tmKalTyyppi(x) {
     var a = tmKalTyyppiAvain(x), t = TYYPIT[a];
-    return { avain: a, nimi: t.nimi, nimiAvain: 'kal_tyyppi_' + a, kerros: t.kerros, merkki: t.merkki, pikavalinta: t.pika > 0, vainHenkilokunta: HK.indexOf(a) >= 0 };
+    return { avain: a, nimi: t.nimi, nimiAvain: 'kal_tyyppi_' + a, kerros: t.kerros, merkki: t.merkki, pikavalinta: t.pika > 0, vainHenkilokunta: HK.indexOf(a) >= 0, kokoPaiva: !!t.kokoPaiva, monipaivainen: !!t.monipaivainen, joukkuePakollinen: !!t.joukkuePakollinen, tauko: TAUKO_TYYPIT.indexOf(a) >= 0 };
   }
   function tmKalTyypit() { return JARJESTYS.map(tmKalTyyppi); }
   function tmKalPikavalinnat() { return JARJESTYS.filter(function (a) { return TYYPIT[a].pika > 0; }).sort(function (a, b) { return TYYPIT[a].pika - TYYPIT[b].pika; }).map(tmKalTyyppi); }
@@ -51,15 +58,20 @@
     return HK.indexOf(raaka) >= 0 || HK.indexOf(tmKalTyyppiAvain(raaka)) >= 0;
   }
 
-  /* K35-2 (D171, D186): johto näkee kaikki 12; muut kaikki paitsi seuran_tauko (tauon luo VP). Pikavalinnat ensin (JARJESTYS). */
+  /* Onko tyyppi tauko (seuran_tauko | joukkueen_vapaa)? Kanoninen avain tai alias. */
+  function tmKalOnTauko(x) { return TAUKO_TYYPIT.indexOf(tmKalTyyppiAvain(x)) >= 0; }
+  /* K35-2 (D171, D186): johto näkee kaikki 14 (K35-6d: joukkueen_vapaa ja erikoisohjelma kaikille); muut kaikki paitsi seuran_tauko (tauon luo VP). Pikavalinnat ensin (JARJESTYS). */
   /* opts.tauko === false: seuran_tauko pois kaikilta (Masterin luonti/tyypinvaihto — tauon luo VP: koko päivä, monipäiväinen; D171/D193). Selite (tmKalSelite) saa yhä näyttää tauon johdolle. */
-  function tmKalTyypitRoolille(johto, opts) { var ilmanTaukoa = !!(opts && opts.tauko === false); return tmKalTyypit().filter(function (t) { return t.avain !== 'seuran_tauko' || (johto && !ilmanTaukoa); }); }
+  function tmKalTyypitRoolille(johto, opts) {
+    var ilmanTaukoa = !!(opts && opts.tauko === false), ilmanKokoPaivaa = !!(opts && opts.kokoPaiva === false);   // kokoPaiva:false → muokkauksen tyyppivalitsin (ei vaihdeta ajallista tapahtumaa koko päivän tyypiksi)
+    return tmKalTyypit().filter(function (t) { return (t.avain !== 'seuran_tauko' || (johto && !ilmanTaukoa)) && !(ilmanKokoPaivaa && t.kokoPaiva); });
+  }
   /* Merkki → värit TOKENEISTA (D169; ei hex-arvoja): harj → teal · ott → ink · test → teal · pal → ink3 katkoviiva · tauko → ink3 · muu → ink2 */
   var MERKKI_TYYLI = { harj: { vari: 'var(--teal)', katkoviiva: false }, ott: { vari: 'var(--ink)', katkoviiva: false }, test: { vari: 'var(--teal)', katkoviiva: false }, pal: { vari: 'var(--ink3)', katkoviiva: true }, tauko: { vari: 'var(--ink3)', katkoviiva: false }, muu: { vari: 'var(--ink2)', katkoviiva: false } };
   function tmKalMerkkiTyyli(merkki) { var s = MERKKI_TYYLI[merkki] || MERKKI_TYYLI.muu; return { vari: s.vari, katkoviiva: s.katkoviiva }; }
   /* Selite rekisteristä: ensimmäinen näkyvä tyyppi per merkki (rekisterin järjestyksessä) */
   function tmKalSelite(johto) { var nahty = {}, ulos = []; tmKalTyypitRoolille(johto).forEach(function (t) { if (nahty[t.merkki]) return; nahty[t.merkki] = 1; ulos.push(Object.assign({ tyyli: tmKalMerkkiTyyli(t.merkki) }, t)); }); return ulos; }
 
-  var API = { tmKalTyypitRoolille: tmKalTyypitRoolille, tmKalMerkkiTyyli: tmKalMerkkiTyyli, tmKalSelite: tmKalSelite, TYYPIT: TYYPIT, ALIAKSET: ALIAKSET, JARJESTYS: JARJESTYS, HK_TYYPIT: HK, tmKalTyyppiAvain: tmKalTyyppiAvain, tmKalTyyppi: tmKalTyyppi, tmKalTyypit: tmKalTyypit, tmKalPikavalinnat: tmKalPikavalinnat, tmKalVainHenkilokunta: tmKalVainHenkilokunta };
+  var API = { tmKalOnTauko: tmKalOnTauko, TAUKO_TYYPIT: TAUKO_TYYPIT, ERIKOISOHJELMA_LAJIT: ERIKOISOHJELMA_LAJIT, tmKalTyypitRoolille: tmKalTyypitRoolille, tmKalMerkkiTyyli: tmKalMerkkiTyyli, tmKalSelite: tmKalSelite, TYYPIT: TYYPIT, ALIAKSET: ALIAKSET, JARJESTYS: JARJESTYS, HK_TYYPIT: HK, tmKalTyyppiAvain: tmKalTyyppiAvain, tmKalTyyppi: tmKalTyyppi, tmKalTyypit: tmKalTyypit, tmKalPikavalinnat: tmKalPikavalinnat, tmKalVainHenkilokunta: tmKalVainHenkilokunta };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else if (root) root.TM_KALENTERI_TYYPIT = API;
 })(typeof window !== 'undefined' ? window : null);

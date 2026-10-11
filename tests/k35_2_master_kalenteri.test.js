@@ -33,14 +33,14 @@ describe('2 · yksi tyyppirekisteri (D186, D171)', () => {
     const s = (m) => TY.tmKalMerkkiTyyli(m); expect([s('harj').vari, s('ott').vari, s('test').vari, s('pal').vari, s('tauko').vari, s('muu').vari]).toEqual(['var(--teal)', 'var(--ink)', 'var(--teal)', 'var(--ink3)', 'var(--ink3)', 'var(--ink2)']);
     expect(s('pal').katkoviiva).toBe(true); expect(s('harj').katkoviiva).toBe(false); TY.tmKalTyypit().forEach((t) => expect(s(t.merkki).vari).toMatch(/^var\(--(teal|ink|ink2|ink3)\)$/));
   });
-  it('johto näkee kaikki 12 (pikavalinnat ensin); muut kaikki paitsi seuran_tauko', () => {
+  it('johto näkee kaikki 14 (pikavalinnat ensin); muut kaikki paitsi seuran_tauko (K35-6d: joukkueen_vapaa ja erikoisohjelma kaikille)', () => {
     const johto = TY.tmKalTyypitRoolille(true), muut = TY.tmKalTyypitRoolille(false);
-    expect(johto.length).toBe(12); expect(muut.length).toBe(11); expect(muut.map((t) => t.avain)).not.toContain('seuran_tauko'); expect(johto.map((t) => t.avain)).toContain('seuran_tauko');
+    expect(johto.length).toBe(14); expect(muut.length).toBe(13); expect(muut.map((t) => t.avain)).not.toContain('seuran_tauko'); expect(johto.map((t) => t.avain)).toContain('seuran_tauko');
     expect(johto.slice(0, 5).map((t) => t.avain)).toEqual(TY.tmKalPikavalinnat().map((t) => t.avain)); johto.forEach((t) => { expect(t.nimiAvain).toBe('kal_tyyppi_' + t.avain); expect(t.nimi).toBeTruthy(); });
-    expect(MASTER).toMatch(/tmKalTyypitRoolille\(!!_superAdmin \|\| _calJohtoRooli\(\), \{ tauko: false \}\)/g);
+    expect(MASTER).toMatch(/tmKalTyypitRoolille\(!!_superAdmin \|\| _calJohtoRooli\(\), \{ tauko: false(, kokoPaiva: false)? \}\)/g);
   });
-  it('selite rekisteristä: yksi rivi per merkki; tauko vain johdolle', () => {
-    expect(TY.tmKalSelite(false).map((x) => x.merkki)).toEqual(['harj', 'ott', 'test', 'pal', 'muu']); expect(TY.tmKalSelite(true).map((x) => x.merkki)).toEqual(['harj', 'ott', 'test', 'pal', 'muu', 'tauko']);
+  it('selite rekisteristä: yksi rivi per merkki; tauko-rivi kaikille (joukkueen_vapaa), seuran_tauko vain johdolle', () => {
+    expect(TY.tmKalSelite(false).map((x) => x.merkki)).toEqual(['harj', 'ott', 'test', 'pal', 'muu', 'tauko']); expect(TY.tmKalSelite(true).map((x) => x.merkki)).toEqual(['harj', 'ott', 'test', 'pal', 'muu', 'tauko']);
   });
   it('nimi = masterT(nimiAvain), fallback = rekisterin nimi', () => { expect(MASTER).toMatch(/function _calTyyppiNimi\(ty\) \{ var s = masterT\(ty\.nimiAvain\); return \(s && s !== ty\.nimiAvain\) \? s : ty\.nimi; \}/); });
 });
