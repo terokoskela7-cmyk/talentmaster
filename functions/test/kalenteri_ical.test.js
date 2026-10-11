@@ -163,3 +163,16 @@ test('K35-6d: joukkueen_vapaa ja erikoisohjelma näkyvät joukkueen pelaajalle k
   lisaaEv(db, 'vapaa', e('vapaa', 2, { tyyppi: 'joukkueen_vapaa', koko_paiva: true, alkaa: ts(a), paattyy: ts(b), paikka: null })); lisaaEv(db, 'leiri', e('leiri', 5, { tyyppi: 'erikoisohjelma', laji: 'leiri', koko_paiva: true, alkaa: ts(a), paattyy: ts(b), joukkue: 'kpv_u15', joukkue_nimi: 'KPV U15', joukkueet: ['kpv_u15'] }));
   const body = (await hae(db, tokenUrlista(await tilaa(db, pelaajaCtx)))).body; assert.ok(body.includes('UID:vapaa@talentmaster')); assert.ok(!body.includes('UID:leiri@talentmaster')); assert.ok(body.includes('DTSTART;VALUE=DATE:20261022') && body.includes('DTEND;VALUE=DATE:20261025')); assert.ok(body.includes('SUMMARY;LANGUAGE=fi:Joukkueen vapaa · KPV U13'));
 });
+
+test('K35-6d aamutreeni: poimittujen pelaajien tapahtuma (kohde pelaajat) näkyy iCal-syötteessä poimitulle pelaajalle, ei muulle; joukkueen valmentajalle jos poimittu on hänen joukkueessaan; ei toisen joukkueen valmentajalle', async () => {
+  const db = luoDb(perus({ 'seurat/kpv/pelaajat/p3': { etunimi: 'Kolmas', joukkueet: ['kpv_u15'] }, 'seurat/kpv/kayttajat/v2': { rooli: 'valmentaja', joukkueet: ['kpv_u15'], aktiivinen: true } }));
+  lisaaEv(db, 'am', e('am', 2, { alalaji: 'aamutreeni', nimi: 'Aamutreeni', joukkue: null, joukkue_nimi: null, joukkueet: [], kohde: { tyyppi: 'pelaajat' }, pelaajat_id: ['p1'], luoja_uid: 'muu' }));
+  const uidit = (r) => [...r.body.matchAll(/UID:([^@]+)@talentmaster/g)].map((m) => m[1]);
+  assert.deepStrictEqual(uidit(await hae(db, tokenUrlista(await tilaa(db, pelaajaCtx)))), ['am']);   // p1 poimittu
+  assert.deepStrictEqual(uidit(await hae(db, tokenUrlista(await tilaa(db, huoltajaCtx())))), ['am']);   // p1:n huoltaja
+  assert.deepStrictEqual(uidit(await hae(db, tokenUrlista(await tilaa(db, valmCtx('v1'), { seuraId: 'kpv' })))), ['am']);   // v1: p1 on hänen joukkueessaan (kpv_u13)
+  assert.deepStrictEqual(uidit(await hae(db, tokenUrlista(await tilaa(db, valmCtx('v2'), { seuraId: 'kpv' })))), []);   // v2: vain U15; p1 ei hänen
+  assert.deepStrictEqual(uidit(await hae(db, tokenUrlista(await tilaa(db, valmCtx('vp1', 'vp'), { seuraId: 'kpv' })))), ['am']);   // johto
+  const db2 = luoDb(perus()); lisaaEv(db2, 'am', e('am', 2, { alalaji: 'aamutreeni', joukkue: null, joukkue_nimi: null, joukkueet: [], kohde: { tyyppi: 'pelaajat' }, pelaajat_id: ['p2'], luoja_uid: 'muu' }));
+  assert.deepStrictEqual(uidit(await hae(db2, tokenUrlista(await tilaa(db2, pelaajaCtx)))), []);   // p1 ei poimittu → ei näe
+});
