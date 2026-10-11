@@ -71,7 +71,7 @@ async function main() {
   const argv = process.argv.slice(2), arg = (k) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : null; };
   const seura = arg('seura'); if (!seura) { console.error('Käyttö: node scripts/lataa_viikkopohjat.js --seura demo [--kirjoita] [--korvaa]'); process.exit(1); }
   try { tarkistaSeura(seura); } catch (e) { console.error(e.message); process.exit(1); }
-  const admin = require('firebase-admin'); if (!admin.apps.length) admin.initializeApp({ credential: admin.applicationDefault(), projectId: PROJECT_ID });
+  const admin = require('firebase-admin'); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault(), projectId: PROJECT_ID });
   await aja({ db: admin.firestore(), seura: seura, kirjoita: argv.includes('--kirjoita'), korvaa: argv.includes('--korvaa'), json: JSON.parse(fs.readFileSync(JSON_POLKU, 'utf8')) });
 }
 module.exports = { suunnittele, aja, tarkistaSeura, DEMO_PELIMUODOT, SALLITTU_SEURA };
