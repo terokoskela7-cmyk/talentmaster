@@ -147,7 +147,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K4: tmTukiPerustelu = K1:n mittaus-/lukutarkistus lauseelle (lazy-riippuvuudet vain K1-näkymille) -->
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa (Kenttä-lipun takana) -->
-<script src="lib/tm_tanaan_signaali.js?v=8"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
+<script src="lib/tm_tanaan_signaali.js?v=9"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
 <script src="lib/tm_kevyt_katselmus.js?v=2"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
@@ -155,7 +155,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_vp_navi.js?v=3"></script>   <!-- S2c PR 2: navigaatio v3 (D135) + Viestit v0 — rakenne ja reitit libissä -->
 <script src="lib/tm_vp_tilanne.js?v=13"></script>   <!-- S2c PR 1: Tilanne = kausi (D123) — malli + HTML libissä -->
 <script src="lib/tm_kt_komponentit.js?v=4"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
-<script src="lib/tm_kehitystyopoyta.js?v=15"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
+<script src="lib/tm_kalenteri_tyypit.js?v=1"></script>   <!-- K35-1: kalenterin tyyppirekisteri (D186) -->
+<script src="lib/tm_kalenteri_kyselyt.js?v=1"></script>   <!-- K35-1: tauko + seuraava tapahtuma (D193) -->
+<script src="lib/tm_kehitystyopoyta.js?v=16"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
 <script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -11014,7 +11016,15 @@ function _ktTanaanHTML(p, tila) {   // mockup 22 osio 1: koko Tänään kootaan 
   const kenttaFn = function (alue, pp) { return (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ase: { alue: alue, nimi: (pp && pp.ydinvahvuus && pp.ydinvahvuus.kuvaus) || '', tila: 'ok' }, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: vpT }) : ''; };   // D98: kenttä piirtyy VAIN kun ydinvahvuus.alue on (ei tyhjää kenttää); muuten jaksokortti (lib)
   return K.tmKtTanaanKoko(p, tila, { esc: _jsvEsc, t: vpT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
     paneeli: true, rooli: window._vpSA ? 'super_admin' : window._vpRooli, uid: _uid, nimet: function (u) { const v = (_valmentajat || []).find(function (x) { return x.id === u; }); return v ? v.nimi : ''; }, voiKirjoittaa: typeof _vpVoiMuokata !== 'function' || _vpVoiMuokata(p), kenttaFn: kenttaFn, kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, tanaan: tmPaivaIso(new Date()),
-    sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });
+    sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), kalenteri: (typeof _ktKalenteri === 'function' ? _ktKalenteri() : null), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });
+}
+/* K35-1 kytkentä: Tänään saa seuran kalenterin (tauko D193 + seuraava harjoitus "Treenattiinko?"-korttiin). Luetaan kerran, jos Kalenteria ei ole vielä avattu; sitten _ktPaivita. Logiikka libissä (tmKtKalenteri). */
+let _ktKalLataus = false;
+function _ktKalenteri() {
+  const kal = typeof _kalenteriTapahtumat !== 'undefined' ? _kalenteriTapahtumat : null;
+  if (kal && kal.length) return kal;
+  if (!_ktKalLataus && !_isDemoMode && _seuraId && typeof lataaKalenteriTapahtumat === 'function') { _ktKalLataus = true; lataaKalenteriTapahtumat().then(function () { if (typeof _ktPaivita === 'function') _ktPaivita(); }).catch(function () {}); }
+  return kal || [];
 }
 function _ktPolkuHTML(p) {   // Polku = olemassa oleva kausi → jakso → viikko -koodi, samat slot-id:t (_jspKehAskel, _jspKehSuunnitelma …) joten re-render-koukut toimivat
   window._vpArvPelaaja = p; if (typeof _vpLataaTavoite === 'function') _vpLataaTavoite(p);

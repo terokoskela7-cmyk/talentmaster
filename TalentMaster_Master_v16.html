@@ -141,13 +141,15 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa + rivitila (Kenttä-lipun takana) -->
 <script src="lib/tm_polun_tila.js?v=2"></script>   <!-- Polun tila + kolme kysymystä (13 §1) -->
-<script src="lib/tm_tanaan_signaali.js?v=8"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
+<script src="lib/tm_tanaan_signaali.js?v=9"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
 <script src="lib/tm_kevyt_katselmus.js?v=2"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
 <script src="lib/tm_kt_komponentit.js?v=4"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
-<script src="lib/tm_kehitystyopoyta.js?v=15"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
+<script src="lib/tm_kalenteri_tyypit.js?v=1"></script>   <!-- K35-1: kalenterin tyyppirekisteri (D186) -->
+<script src="lib/tm_kalenteri_kyselyt.js?v=1"></script>   <!-- K35-1: tauko + seuraava tapahtuma (D193) -->
+<script src="lib/tm_kehitystyopoyta.js?v=16"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
@@ -3757,7 +3759,7 @@ async function _lataaKalenteriTapahtumat() {
       var alkaaStr = alkaaD ? (String(alkaaD.getHours()).padStart(2,'0') + ':' + String(alkaaD.getMinutes()).padStart(2,'0')) : '';
       var paattyyStr = paattyyD ? (String(paattyyD.getHours()).padStart(2,'0') + ':' + String(paattyyD.getMinutes()).padStart(2,'0')) : '';
       return Object.assign({ id: d.id, _lahde: 'kalenteri' }, data, {
-        pvm: pvmStr, alkaa: alkaaStr, paattyy: paattyyStr,
+        pvm: pvmStr, alkaa: alkaaStr, paattyy: paattyyStr, _alkaaMs: alkaaD ? alkaaD.getTime() : null, _paattyyMs: paattyyD ? paattyyD.getTime() : null,   // K35-1: tarkat ajat (monipäiväinen tauko)
         joukkue: data.joukkue_nimi || data.joukkue || ''
       });
     });
@@ -6605,7 +6607,7 @@ function _ktTanaanHTML(p, tila) {   // mockup 22 osio 1: koko Tänään libissä
   const kenttaFn = function (alue, pp) { return (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ase: { alue: alue, nimi: (pp && pp.ydinvahvuus && pp.ydinvahvuus.kuvaus) || '', tila: 'ok' }, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: masterT }) : ''; };   // D98: kenttä piirtyy VAIN kun ydinvahvuus.alue on (ei tyhjää kenttää); muuten jaksokortti (lib)
   return K.tmKtTanaanKoko(p, tila, { esc: _mEsc, t: masterT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
     paneeli: true, rooli: _superAdmin ? 'super_admin' : _rooli, uid: _uid, nimet: function (u) { const h = (window._mHenkilosto || []).find(function (x) { return x.id === u; }); return h ? h.nimi : ''; }, voiKirjoittaa: _ktVoiKirjoittaa(p), kenttaFn: kenttaFn, kaanon: (typeof tmKonseptiKaanon === 'function') ? _mTtKaanonNayta : null, tanaan: tmPaivaIso(new Date()),
-    sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });
+    sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), kalenteri: (typeof _kalenteriTapahtumat !== 'undefined' ? _kalenteriTapahtumat : null), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });   // K35-1: tauko + seuraava harjoitus (tmKtKalenteri)
 }
 /* Viikkohavainto (A13 jatko 3): sama paneeli, käsittelijät ja kirjoitusydin kuin VP:ssä (lib). Kirjoitusoikeus = näkymän oikeus (oma joukkue / talenttivalmentaja / johto oma seura / SA — sama sääntö kuin Rules). */
 function _ktVoiKirjoittaa(p) { return window.TM_HASH_REITITIN.tmPelaajaOikeus(p, _ktOikeusCtx()).ok; }
