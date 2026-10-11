@@ -13,7 +13,7 @@ const paketti = () => JSON.parse(readFileSync(join(ERA_DIR, 'sv_kaannoserae_19_g
 let tmp;
 beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'sv19-')); for (const f of readdirSync(ERA_DIR)) if (/^sv_kaannoserae_.*\.json$/.test(f)) cpSync(join(ERA_DIR, f), join(tmp, f)); });
 afterEach(() => rmSync(tmp, { recursive: true, force: true }));
-const tayta = (p) => { const k = JSON.parse(JSON.stringify(p)); for (const o of Object.values(k.osiot)) for (const r of Object.values(o.rivit)) r.sv = r.fi.replace(/\{gen\}/g, '') + '·'; return k; };
+const tayta = (p) => { const k = JSON.parse(JSON.stringify(p)); for (const o of Object.values(k.osiot)) for (const r of Object.values(o.rivit)) r.sv = r.fi.replace(/\{gen\}/g, '').replace(/(\s*)$/, '·$1'); return k; };
 
 describe('erä 19 — koonti', () => {
   it('paketti täsmää erien tyhjiin riveihin: jokainen paketin rivi on jollain erällä tyhjänä, kaikki sv tyhjiä, rakenne osiot → _konteksti + rivit {fi,en,sv}', () => {

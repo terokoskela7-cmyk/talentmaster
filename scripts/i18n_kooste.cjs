@@ -222,7 +222,7 @@ function vie(kooste, hakemisto, opts) {
 /* ════════ ERÄ 19: kaikki avoimet sv-rivit yhteen pakettiin (osiot → rivit {fi, en, sv:""}) ════════
    Erät 2, 4–18 + s11 (3 on viety; 2026-10-08 suljettu: sen kysymyspohjat ovat jo käännetty taulukkoina). Identiteetti = (osio, avain): sama osio+avain eri erissä = yksi rivi.
    Code ei kirjoita eikä ehdota ruotsia: sv jää tyhjäksi, vienti kopioi Geminin arvot sellaisinaan. */
-const ERAT_19 = ERAT.concat(['15', '16', '17', '18']);
+const ERAT_19 = ERAT.concat(['15', '16', '17', '18', '20', '21', '22', '23', '24']);   // 11.10. ilta: erät 20–24 (tmTasoVari, Tänään, K35-2, K35-2b, K35-6a) samaan Gemini-pakettiin
 const ERA19_GEMINI = 'docs/i18n/sv_kaannoserae_19_gemini.json', ERA19_PALAUTUS = 'docs/i18n/sv_kaannoserae_19_palautus.json';
 
 /* Onko rivi vielä koodissa? tm_lang: avain löytyy tm_lang.js:n fi-puusta. Muut: fi-teksti tai avain esiintyy lib/tm_*.js- tai TalentMaster_*.html-lähteessä (i18n-karttatiedostot pois, muuten kartta todistaisi itse itsensä). */

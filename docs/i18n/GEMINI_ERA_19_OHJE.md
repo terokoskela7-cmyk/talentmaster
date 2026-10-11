@@ -1,7 +1,7 @@
 # Ohje Geminille — sv-käännöserä 19
 
-Tiedosto: `docs/i18n/sv_kaannoserae_19_gemini.json` (475 riviä, 12 osiota). Palautus: `docs/i18n/sv_kaannoserae_19_palautus.json`.
-Erä kokoaa kaikki avoimet `sv`-kentät erien 2, 4–18 ja s11 (sama osio + avain = yksi rivi). Rivit, joita ei enää ole koodissa, on pudotettu.
+Tiedosto: `docs/i18n/sv_kaannoserae_19_gemini.json` (516 riviä, 14 osiota). Palautus: `docs/i18n/sv_kaannoserae_19_palautus.json`.
+Erä kokoaa kaikki avoimet `sv`-kentät erien 2, 4–18, s11 ja 20–24 (tmTasoVari, Tänään, Masterin kalenteri K35-2/2b/6a) (sama osio + avain = yksi rivi). Rivit, joita ei enää ole koodissa, on pudotettu.
 
 ## Valmis kehote (kopioi Geminille tiedoston kanssa)
 
@@ -31,17 +31,19 @@ Erä kokoaa kaikki avoimet `sv`-kentät erien 2, 4–18 ja s11 (sama osio + avai
 
 | osio | rivejä |
 |---|---|
+| `lib.tm_kalenteri_nakyma` | 26 |
+| `lib.tm_kehitystyopoyta` | 6 |
 | `lib.tm_nakyma_ryhmat` | 40 |
 | `lib.tm_seuran_pulssi` | 53 |
-| `lib.tm_tanaan_signaali` | 1 |
+| `lib.tm_tanaan_signaali` | 2 |
 | `lib.tm_vp_koti` | 107 |
 | `lib.tm_vp_navi` | 8 |
 | `lib.tm_vp_tilanne` | 146 |
 | `lib.tm_vp_tilanne_harva` | 11 |
-| `master_kartta` | 20 |
+| `master_kartta` | 25 |
 | `s11` | 15 |
 | `tm_lang` | 24 |
-| `vp_kartta` | 48 |
+| `vp_kartta` | 51 |
 | `vp_toimenpide_hannat` | 2 |
 
 ## Tuonti (Tero, kun palautus on valmis)
