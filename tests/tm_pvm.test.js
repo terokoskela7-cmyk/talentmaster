@@ -3,21 +3,20 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { tmPaivaIso, tmSolustaPvm, tmOnHHtesti, tmValitseHhPvm, tmTestipaivaPatteristot,
-  TUOREUS_KK, tmKuukausiaMittauksesta, tmOnVanhaMittaus, tmPvmFi } = require('../lib/tm_pvm.js');
+  tmKuukausiaMittauksesta, tmOnVanhaMittaus, tmPvmFi, tmMuistutusKk } = require('../lib/tm_pvm.js');
 
-// Datan tuoreus (CODE_TASK: Päivitä mittaus -kehys). Raja 6 kk. refIso deterministinen.
+// Datan tuoreus (Päivitä mittaus -kehys). Raja = MUISTUTUS_KK (12 kk, lib/tm_normisto.js) — ei omaa 6 kk:n rajaa. refIso deterministinen.
 describe('tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi', () => {
   const REF = '2026-07-02';
-  it('TUOREUS_KK = 6', () => expect(TUOREUS_KK).toBe(6));
+  it('raja = MUISTUTUS_KK (12) normistosta; ei TUOREUS_KK-vakiota', () => { expect(tmMuistutusKk()).toBe(12); expect(require('../lib/tm_pvm.js').TUOREUS_KK).toBeUndefined(); });
   it('kuukausiaMittauksesta: Sibbo 3.10.2025 → 9 kk', () => {
     expect(tmKuukausiaMittauksesta('2025-10-03', REF)).toBe(9);
   });
-  it('onVanhaMittaus: >6 kk → true (Sibbo 9 kk)', () => {
-    expect(tmOnVanhaMittaus('2025-10-03', REF)).toBe(true);
+  it('onVanhaMittaus: 9 kk (Sibbo) → false (ei enää 6 kk:n rajaa), yli vuosi → true', () => {
+    expect(tmOnVanhaMittaus('2025-10-03', REF)).toBe(false); expect(tmOnVanhaMittaus('2025-04-02', REF)).toBe(true);
   });
-  it('onVanhaMittaus: tasan 6 kk → false, 7 kk → true (raja >6)', () => {
-    expect(tmOnVanhaMittaus('2026-01-02', REF)).toBe(false);   // 6 kk
-    expect(tmOnVanhaMittaus('2025-12-02', REF)).toBe(true);    // 7 kk
+  it('onVanhaMittaus = tmTasoVanhentunut (yksi funktio, MUISTUTUS_KK)', () => {
+    const P = require('../lib/tm_pvm.js'); ['2026-01-02', '2025-12-02', '2025-05-01', '2025-04-02', '2024-01-01'].forEach((d) => expect(P.tmOnVanhaMittaus(d, REF), d).toBe(P.tmTasoVanhentunut(d, REF)));
   });
   it('onVanhaMittaus: tuore (2 kk) → false', () => {
     expect(tmOnVanhaMittaus('2026-05-02', REF)).toBe(false);

@@ -23,10 +23,10 @@ function extract(sig) {
 
 let tuoreus;
 beforeAll(() => {
-  tuoreus = new Function(
-    'var _jsvEsc = function(s){return String(s==null?"":s);};\nvar vpT = function(x){return x;};\n'
+  tuoreus = new Function('__PVM',
+    'var _jsvEsc = function(s){return String(s==null?"":s);};\nvar vpT = function(x){return x;};\nvar tmMuistutusMittaus = __PVM.tmMuistutusMittaus, tmMuistutusKk = __PVM.tmMuistutusKk;\n'
     + extract('function _vpMittausTuoreusHTML(p, ika) {') + '\nreturn _vpMittausTuoreusHTML;'
-  )();
+  )(require('../lib/tm_pvm.js'));
 });
 
 describe('A7 · datan ikä', () => {
