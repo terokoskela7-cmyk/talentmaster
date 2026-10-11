@@ -151,8 +151,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kalenteri_malli.js?v=4"></script>   <!-- K35-2: kalenterimalli (tuntiväli, oletuspaikka, kauden loppu, lähteen omistajuus; D181/D185) -->
 <script src="lib/tm_kalenteri_kyselyt.js?v=2"></script>   <!-- K35-1: tauko + seuraava tapahtuma (D193) -->
 <script src="lib/tm_viikkopohja.js?v=3"></script>   <!-- K35-3: viikkopohjat + Täytä viikko -laskenta -->
-<script src="lib/tm_kalenteri_nakyma.js?v=4"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
+<script src="lib/tm_kalenteri_nakyma.js?v=5"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
+<script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
 <script src="lib/tm_kalenteri_taytto.js?v=3"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
 <script src="lib/tm_kalenteri_omat.js?v=1"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
 <script src="lib/tm_kehitystyopoyta.js?v=16"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
@@ -10072,6 +10073,31 @@ function _calJoukkueId() {   // oman joukkueen docin id (kanonisoitu) — K35-6d
   const k = (_joukkue && _mJoukkueDocs.length) ? tmKanonisoiJoukkue(_joukkue, _mJoukkueDocs) : null;
   return k ? k.id : (_joukkue ? _mKaavioJoukkueId(_joukkue) : null);
 }
+/* K35-6b — siirto toiselle päivälle (vedä ja pudota / "Siirrä…"): pudotus avaa vahvistuksen (päivä + aika, kesto säilyy); logiikka lib/tm_kalenteri_siirto.js */
+window._calSiirto = { _v: null,
+  veda(e, id) { this._v = id; e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'move'; },
+  pudota(e, pvm) { e.preventDefault(); const id = this._v || e.dataTransfer.getData('text/plain'); this._v = null; if (id) this.avaa(id, pvm); },
+  avaa(id, pvm) {
+    const t = (_kalenteriTapahtumat || []).find(x => x.id === id), S = window.TM_KALENTERI_SIIRTO; if (!t || !S.tmSiirtoVoi(t)) return;
+    document.getElementById('calSiirtoModal')?.remove();
+    const modal = document.createElement('div'), ikk = document.createElement('div'); modal.id = 'calSiirtoModal'; modal.className = 'cal-modal-tausta'; ikk.className = 'cal-modal';
+    ikk.innerHTML = S.tmSiirtoLomakeHTML({ t: masterT, pvm: pvm || t.pvm, alkaa: t.alkaa, paattyy: S.tmSiirtoSuunnitelma(t, { pvm: pvm || t.pvm, alkaa: t.alkaa }).paattyy, nimi: _calTyyppiNimi(window.TM_KALENTERI_TYYPIT.tmKalTyyppi(t.tyyppi)) + ' · ' + window.TM_KALENTERI_NAKYMA.tmKalPvmFi(t.pvm) + ' ' + (t.alkaa || '') });
+    modal.appendChild(ikk); document.body.appendChild(modal); modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); }); _calModalEsc(modal);
+    const $ = s => ikk.querySelector(s), plan = () => S.tmSiirtoSuunnitelma(t, { pvm: $('#siirtoPvm').value, alkaa: $('#siirtoAlkaa').value });
+    const nayta = () => { $('#siirtoPaattyy').textContent = plan().paattyy || '–'; }; $('#siirtoPvm').onchange = nayta; $('#siirtoAlkaa').onchange = nayta;
+    $('#siirtoPeru').onclick = () => modal.remove();
+    $('#siirtoTallenna').onclick = () => {
+      const p = plan(); if (!p.ok) { toast(masterT('Tarkista päivä ja aika'), 'err'); return; } if (!p.muuttui) { modal.remove(); return; }
+      _calSkooppiDialog(t, masterT('Siirrä tapahtuma'), async scope => {
+        try {
+          await _mTuoreToken(_auth.currentUser); const batch = _db.batch(), col = _db.collection('seurat').doc(_seuraId).collection('kalenteri'), muid = _calMerkUid();
+          (await _calSkooppiDocit(t, scope)).forEach(d => { const w = S.tmSiirtoDoc({ pvm: d._pvmISO }, p), upd = { alkaa: firebase.firestore.Timestamp.fromDate(new Date(w.alkaa + ':00')), paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid };
+            if (w.paattyy) upd.paattyy = firebase.firestore.Timestamp.fromDate(new Date(w.paattyy + ':00')); if (scope === 'vain' && t.toistuvuus_sarja_id) upd.sarja_poikkeus = true; batch.set(col.doc(d.id), upd, { merge: true }); });
+          await batch.commit(); modal.remove(); toast(masterT('✓ Siirretty'), 'ok'); await _lataaKalenteriTapahtumat();
+        } catch (e) { toast(masterT('Siirto epäonnistui: ') + e.message, 'err'); }
+      });
+    };
+  } };
 function _calTayttoOhjain() {
   if (window._calTaytto) return window._calTaytto;
   const joukkueNimi = () => _joukkue || null;
@@ -10136,7 +10162,8 @@ function renderCal() {
   if (!document.getElementById('kvCss')) { const st = document.createElement('style'); st.id = 'kvCss'; st.textContent = window.TM_KALENTERI_NAKYMA.CSS; document.head.appendChild(st); }
   const testiIdt = {}; testit.forEach(t => { testiIdt[t.id] = 1; });
   const C = { t: masterT, tanaan: todayStr, nyt: Date.now(), henkilokunta: _saaMerkitaLasnaolo(), nayta_joukkue: !_joukkue, tyyppiNimi: avain => _calTyyppiNimi(window.TM_KALENTERI_TYYPIT.tmKalTyyppi(avain)),
-    on: { kortti: id => (testiIdt[id] ? "_avaaKentta('" + id + "')" : "calEventClick('" + id + "')"), lisaa: pvm => "_avaaUusiTapahtuma('" + pvm + "','17:00')" } };
+    siirrettava: k => !testiIdt[k.id] && window.TM_KALENTERI_SIIRTO.tmSiirtoVoi(k) && _calSaaMuokataTapahtuma((_kalenteriTapahtumat || []).find(x => x.id === k.id)),
+    on: { kortti: id => (testiIdt[id] ? "_avaaKentta('" + id + "')" : "calEventClick('" + id + "')"), lisaa: pvm => "_avaaUusiTapahtuma('" + pvm + "','17:00')", veda: id => "_calSiirto.veda(event,'" + id + "')", pudota: pvm => "_calSiirto.pudota(event,'" + pvm + "')", siirra: id => "_calSiirto.avaa('" + id + "')" } };
   const r = _calTayttoOhjain().renderoi(mondayIso, kalTap.concat(testit), C);
   const wk = document.getElementById('calWeek'); if (!wk) return;
   wk.innerHTML = r.viikko;
