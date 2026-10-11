@@ -27,7 +27,8 @@ describe('Gemini-erä 2 — master_kartta', () => {
   const ERA26 = JSON.parse(lue('docs/i18n/sv_kaannoserae_26.json')).osiot.master_kartta.rivit;   // erä 26 (K35-6e): läsnäolo, sv tyhjä
   const ERA27 = JSON.parse(lue('docs/i18n/sv_kaannoserae_27.json')).osiot.master_kartta.rivit;   // erä 27 (K35-6b): siirto, sv tyhjä
   const ERA28 = JSON.parse(lue('docs/i18n/sv_kaannoserae_28.json')).osiot.master_kartta.rivit;   // erä 28 (K35-6d aamutreenit): sv tyhjä
-  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA8, ERA16, ERA18.master_kartta.rivit, ERA22, ERA23, ERA24, ERA25, ERA26, ERA27, ERA28, LIB18);
+  const ERA29J = JSON.parse(lue('docs/i18n/sv_kaannoserae_29.json')), ERA29 = ERA29J.osiot.master_kartta.rivit;   // erä 29 (K35-6f harjoituskertymä): sv tyhjä
+  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA8, ERA16, ERA18.master_kartta.rivit, ERA22, ERA23, ERA24, ERA25, ERA26, ERA27, ERA28, ERA29, LIB18);
   it('jokainen sv-riviä vailla oleva Masterin avain on erässä (avain = fi-teksti)', () => {
     const { puuttuu } = masterAvaimet(juuri);
     expect(puuttuu.filter((fi) => !rivit[fi]), 'aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);
@@ -37,7 +38,7 @@ describe('Gemini-erä 2 — master_kartta', () => {
     const { puuttuu } = masterAvaimet(juuri);
     // erän 2 tyhjät rivit täyttyivät erässä 3 (docs/i18n/sv_kaannoserae_3.json master_kartta; vienti scripts/i18n_vie_sv_era3.cjs) → ei vanhentunut
     const era3 = JSON.parse(lue('docs/i18n/sv_kaannoserae_3.json')).osiot.master_kartta.rivit;
-    const libKaytossa = Object.assign({}, JSON.parse(lue('docs/i18n/sv_kaannoserae_18.json')).osiot['lib.tm_nakyma_ryhmat'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_24.json')).osiot['lib.tm_kalenteri_nakyma'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_25.json')).osiot['lib.tm_kalenteri_omat'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_26.json')).osiot['lib.tm_kalenteri_nakyma'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_27.json')).osiot['lib.tm_kalenteri_siirto'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_28.json')).osiot['lib.tm_aamutreeni'].rivit);   // lib käyttää näitä masterT:n kautta (extractor skannaa vain HTML:n)
+    const libKaytossa = Object.assign({}, JSON.parse(lue('docs/i18n/sv_kaannoserae_29.json')).osiot['lib.tm_harjoituskertyma_nakyma'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_18.json')).osiot['lib.tm_nakyma_ryhmat'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_24.json')).osiot['lib.tm_kalenteri_nakyma'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_25.json')).osiot['lib.tm_kalenteri_omat'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_26.json')).osiot['lib.tm_kalenteri_nakyma'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_27.json')).osiot['lib.tm_kalenteri_siirto'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_28.json')).osiot['lib.tm_aamutreeni'].rivit);   // lib käyttää näitä masterT:n kautta (extractor skannaa vain HTML:n)
     const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv && !(era3[fi] && era3[fi].sv) && !libKaytossa[fi]);
     expect(vanhentuneet).toEqual([]);
   });
