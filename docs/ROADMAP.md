@@ -85,6 +85,11 @@
 | SendGrid EU-datasijainti | avoin päätös | Teron hyväksyntä ja alihankkijalista |
 | Sentry funktioihin | avoin | Ei lisätä S1:n sivussa, oma päätöksensä |
 
+**E. Laatu ja työnkulku**
+- Auto-kaista (docs, testit, lib ilman näkyviä muutoksia) ja Teron kaista (Rules, functions, HTML, SW, data). Deploy-ihmisportti funktioille.
+- Rules-versiot (live): v3.47 ryhmät · v3.48 kalenteri · v3.50 mediaviesti · v3.51 suostumus kyselyssä · v3.52 muistiinpanot pois tapahtumasta. **Seuraava v3.53 = S1** (sisältää v3.52-jälkisiivouksen).
+- Tuotantodatan ajot (tuonnit, migraatiot, täydennykset ja takaisinlaskennat) ajaa Tero, ei Code eikä PM.
+
 **F. Yksi totuus ja kehitystyöpöytä**
 | Vaihe | Milloin | Mitä |
 |---|---|---|
@@ -97,18 +102,11 @@
 | Seuran oma normisto -asetukset | 1.11. jälkeen | `konfiguraatio/normit` + Rules + asetusnäkymä VP:lle (mockup ensin). |
 | Yhteinen sivupaneeli | 1.11. jälkeen | Ks. alla. |
 
-**E. Laatu ja työnkulku**
-- Auto-kaista (docs, testit, lib ilman näkyviä muutoksia) ja Teron kaista (Rules, functions, HTML, SW, data). Deploy-ihmisportti funktioille.
-- Rules-versiot (live): v3.47 ryhmät · v3.48 kalenteri · v3.50 mediaviesti · v3.51 suostumus kyselyssä · v3.52 muistiinpanot pois tapahtumasta. **Seuraava v3.53 = S1** (sisältää v3.52-jälkisiivouksen).
-- Tuotantodatan ajot (tuonnit, migraatiot, täydennykset ja takaisinlaskennat) ajaa Tero, ei Code eikä PM.
-
-
-
-- **Yhteinen sivupaneeli (Master + VP) — mockup ensin, 1.11 jälkeen.** Ei tehdä ennen mockupia. Kielivalitsin vain yhteen paikkaan (nyt sekä sivupaneelissa että yläpalkissa) samassa yhteydessä. Masterin korjattavat samassa yhteydessä (Tero 11.10., Masterin tumma teema on molempien sovellusten luettavuuden mittapuu):
-  - navigaatio vain kerran (sivupaneelin Työkalut vs välilehdet 01–07)
-  - "Kirjaudu ulos" ei leikkaudu; kielivalinta ja versio omalle rivilleen
-  - eri ikoni Kodille, Valmentajana kehittymiselle ja Aloita tästä -kohdalle
-  - napit ilman isoja kirjaimia ja emojeja (D169: isot kirjaimet vain .kt-eb-yläotsikoissa)
+**Yhteinen sivupaneeli (Master + VP) — mockup ensin, 1.11 jälkeen.** Ei tehdä ennen mockupia. Kielivalitsin vain yhteen paikkaan (nyt sekä sivupaneelissa että yläpalkissa) samassa yhteydessä. Masterin korjattavat samassa yhteydessä (Tero 11.10., Masterin tumma teema on molempien sovellusten luettavuuden mittapuu):
+- navigaatio vain kerran (sivupaneelin Työkalut vs välilehdet 01–07)
+- "Kirjaudu ulos" ei leikkaudu; kielivalinta ja versio omalle rivilleen
+- eri ikoni Kodille, Valmentajana kehittymiselle ja Aloita tästä -kohdalle
+- napit ilman isoja kirjaimia ja emojeja (D169: isot kirjaimet vain .kt-eb-yläotsikoissa)
 
 ### 📅 Kalenteri
 | Milloin | Mitä | Kuka |
@@ -119,20 +117,19 @@
 | 15.–20.10. | sv-läpiajo PR 2–4 · Gemini-erä 2 | Code → Tero/Gemini → PM |
 | ~20.10. | **Päätös: Kenttä-lippu Sibbolle 1.11.?** (onko Kenttä-polku kokonaan ruotsiksi) | Tero |
 | 20.–31.10. | Gemini-erän 2 vienti · Teron sv-käsitesti · B4 pelaajan kalenteri | Code, Tero |
-| ennen 1.11. | **Kehitystyöpöytä 22, korjauskierros A** (A1–A6 oikeellisuus, A7–A13 käytettävyys) ennen S2:ta · `docs/CODE_BRIEF_22_KEHITYSTYOPOYTA.md` | Code |
+| ennen 1.11. | **Kehitystyöpöytä 22, korjauskierros A** (A1–A6 oikeellisuus, A7–A13 käytettävyys) + D108 viikkohavainto rinnakkain (`osa_havainnot`, tekijä + päivä; VP ei korvaa valmentajaa) ennen S2:ta · `docs/CODE_BRIEF_22_KEHITYSTYOPOYTA.md` | Code |
 | ennen 1.11. | **tmTasoVari** · **kehitystyöpöytä Tänään** -korjaukset · sv-erä 19 Geminille | Code → Tero/Gemini |
 | ennen 1.11. | Tyhjät joukkueet pois: KPV `kpv_t8`, `kpv_u8` ("KPV U8" → P-nimeäminen), SJK `sjk_p12`, `sjk_p13` | Tero |
 | ennen 1.11. | KPV ja Sibbo: sopimusten avoimet päätökset (käyttöönottohinta, laskutus aktiivisista pelaajista, tuntihinta, koulutustunnit, ruotsinkielinen versio, Y-tunnus) | Tero |
-| marraskuu | Mockup 34 + ydinvahvuuden alue klikkaamalla (Rules) | Code, Tero valitsee aluejaon |
-| 2.11.2026 | KPV:n tuorein tekniikkakisa (2.11.2025) täyttää 12 kk → muistutus syttyy | — |
-| tammikuu 2027 | **KPV:n seuraava tekniikkakisa** ennen 2.2.2027, jolloin 2.11.2025 tulokset vanhenevat (15 kk) ja D2-luokat putoavat "ei luokkaa" -tilaan | Tero + KPV |
 | **1.11.** | **Sibbo:** ryhmät (maalivahdit, talenttiryhmä), klipit, ruotsi | — |
+| 2.11.2026 | KPV:n tuorein tekniikkakisa (2.11.2025) täyttää 12 kk → muistutus syttyy | — |
 | ennen 10.11. | K3-käsitesti KPV:llä (ensimmäiset jaksot päättyvät ~17.11.) | Tero |
 | ~15.11. | S2: PM tarkistaa pulssin oikeilla neljän viikon luvuilla | PM |
-| ennen 1.11. | Kehitystyöpöytä 22 A-kierros + D108 viikkohavainto rinnakkain (`osa_havainnot`, tekijä + päivä; VP ei korvaa valmentajaa) | Code |
+| marraskuu | Mockup 34 + ydinvahvuuden alue klikkaamalla (Rules) | Code, Tero valitsee aluejaon |
 | **1.12.** | Vanha pelaajakortti pois (D49) · Seuran pulssi S2 | Code |
 | joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106) · S3 tavoitetasot · K5 Leikkijä + huoltaja · Kenttä aktiiviseksi (D98 + D107: reitti, osamerkit, tavoitteet kentältä; alue klikkaamalla jo marraskuussa) · pelaajan ehdotus "missä tykkään pelata" | Code |
 | tammikuu | R2 Master + Seura · portti uudelle suomelle päälle | Code |
+| tammikuu 2027 | **KPV:n seuraava tekniikkakisa** ennen 2.2.2027, jolloin 2.11.2025 tulokset vanhenevat (15 kk) ja D2-luokat putoavat "ei luokkaa" -tilaan | Tero + KPV |
 | kevät | R3 backend · S4 · ryhmät R2 (sääntöryhmät, IDP-ryhmät) · Pallo-Iirojen tuonti | — |
 
 ---
