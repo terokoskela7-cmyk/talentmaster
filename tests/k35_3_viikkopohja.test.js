@@ -63,7 +63,7 @@ describe('3 · kausivaihe ja pohjan valinta', () => {
   });
   it('kausivaiheen pohja-avain voittaa; ilman kausisuunnitelmaa pelimuodosta; pelimuoto puuttuu → null', () => {
     expect(V.tmPohjaJoukkueelle(POHJAT, ks, { id: 'j1', ika: 13, pelimuoto: '8v8' }, '2026-10-05').avain).toBe('spl_8v8_nuoruus'); expect(V.tmPohjaJoukkueelle(POHJAT, ks, { id: 'j1', ika: 13, pelimuoto: '8v8' }, '2026-11-05').avain).toBe('spl_11v11_nuoruus');
-    expect(V.tmPohjaJoukkueelle(POHJAT, null, { id: 'j1', pelimuoto: '5v5' }, '2026-10-05').avain).toBe('spl_5v5'); expect(V.tmPohjaJoukkueelle(POHJAT, null, { id: 'j1', pelimuoto: '8v8', ikavaihe: 'nuoruus' }, '2026-10-05').avain).toBe('spl_8v8_nuoruus'); expect(V.tmPohjaJoukkueelle(POHJAT, null, { id: 'j1', pelimuoto: '8v8' }, '2026-10-05').avain).toBe('spl_8v8_lapsuus');
+    expect(V.tmPohjaJoukkueelle(POHJAT, null, { id: 'j1', pelimuoto: '5v5' }, '2026-10-05').avain).toBe('spl_5v5'); expect(V.tmPohjaJoukkueelle(POHJAT, null, { id: 'j1', pelimuoto: '8v8', ika: 13 }, '2026-10-05').avain).toBe('spl_8v8_nuoruus');   // ikä ratkaisee (Palloliiton ika_ohje), ei TM:n ikävaihe expect(V.tmPohjaJoukkueelle(POHJAT, null, { id: 'j1', pelimuoto: '8v8' }, '2026-10-05').avain).toBe('spl_8v8_lapsuus');
     expect(V.tmPohjaJoukkueelle(POHJAT, null, { id: 'j1' }, '2026-10-05')).toBeNull(); expect(V.tmPohjaJoukkueelle(POHJAT, ks, { id: 'j1' }, '2026-10-05')).toBeNull(); expect(V.tmPohjaJoukkueelle([], null, { id: 'j1', pelimuoto: '5v5' }, '2026-10-05')).toBeNull();
   });
   it('seuran pohja voittaa Palloliiton (sama pelimuoto); joukkueelle kohdistettu voittaa seuran; toisen joukkueen kohdistettu ei kuulu', () => {
@@ -164,5 +164,25 @@ describe('6 · rajaus ja koodin laatu', () => {
     const vm = require('vm'), fs = require('fs'), ctx = { window: null, Intl, Date, Math, JSON, Array, Object, String };
     ctx.window = ctx; ['lib/tm_kalenteri_tyypit.js', 'lib/tm_kalenteri_malli.js', 'lib/tm_kalenteri_kyselyt.js', 'lib/tm_ryhmat.js', 'lib/tm_viikkopohja.js'].forEach((f) => vm.runInNewContext(fs.readFileSync(new URL('../' + f, import.meta.url), 'utf8'), ctx));
     const r = ctx.TM_VIIKKOPOHJA.tmTaytaViikko({ pohja: P('spl_5v5'), ottelut: ['2026-10-24'], tapahtumat: [], maanantai: '2026-10-19', joukkue: U13 }); expect(r.ehdotukset.map((e) => e.pvm)).toEqual(['2026-10-19', '2026-10-21', '2026-10-22']);
+  });
+});
+
+describe('3b · pohjan valinta iän mukaan (Palloliiton ika_ohje; korjaus 11.10.)', () => {
+  const t = (j) => (V.tmPohjaJoukkueelle(POHJAT, null, j, '2026-10-19') || {}).avain;
+  it('tmPohjaPalloliitosta säilyttää ika_ohje [min,max]', () => { expect(P('spl_8v8_lapsuus').ika_ohje).toEqual([10, 11]); expect(P('spl_8v8_nuoruus').ika_ohje).toEqual([12, 13]); expect(P('spl_11v11_nuoruus').ika_ohje).toEqual([14, 17]); expect(P('spl_11v11_erikoistuminen').ika_ohje).toEqual([18, 21]); POHJAT.forEach((p) => expect(p.ika_ohje).toHaveLength(2)); });
+  it('tmJoukkueenIka: luku tai U13/P13/T13/13 → 13; ikaluokka-kenttä; puuttuu → null', () => { const a = (x) => V.tmJoukkueenIka(x); expect([a({ ika: 13 }), a({ ika: 'U13' }), a({ ika: 'P13' }), a({ ika: 'T13' }), a({ ika: '13' }), a({ ikaluokka: 'U15' }), a({ ika: 'U9' })]).toEqual([13, 13, 13, 13, 13, 15, 9]); expect([a({}), a(null), a({ ika: '' }), a({ ika: 'aikuiset' }), a({ ika: 0 })]).toEqual([null, null, null, null, null]); });
+  it('demo_u13 (U13, 8v8) → 8v8_nuoruus; ika 10 → 8v8_lapsuus; demo_u15 ja u17 (11v11) → 11v11_nuoruus; ika 19 → 11v11_erikoistuminen', () => {
+    expect(t({ id: 'demo_u13', pelimuoto: '8v8', ika: 'U13' })).toBe('spl_8v8_nuoruus'); expect(t({ id: 'x', pelimuoto: '8v8', ika: 10 })).toBe('spl_8v8_lapsuus'); expect(t({ id: 'demo_u15', pelimuoto: '11v11', ika: 'U15' })).toBe('spl_11v11_nuoruus'); expect(t({ id: 'demo_u17', pelimuoto: '11v11', ika: 'U17' })).toBe('spl_11v11_nuoruus'); expect(t({ id: 'x', pelimuoto: '11v11', ika: 19 })).toBe('spl_11v11_erikoistuminen');
+  });
+  it('ikä ohjeen ulkopuolella → lähin; ikä tuntematon → nykyinen järjestys (ensimmäinen); ikavaihe ei vaikuta Palloliiton pohjan valintaan', () => {
+    expect(t({ id: 'x', pelimuoto: '11v11', ika: 'U9' })).toBe('spl_11v11_nuoruus'); expect(t({ id: 'x', pelimuoto: '8v8', ika: 'U30' })).toBe('spl_8v8_nuoruus'); expect(t({ id: 'x', pelimuoto: '8v8' })).toBe('spl_8v8_lapsuus'); expect(t({ id: 'x', pelimuoto: '8v8', ika: 'U13', ikavaihe: 'leikkija' })).toBe('spl_8v8_nuoruus'); expect(t({ id: 'x', pelimuoto: '11v11', ikavaihe: 'showcase' })).toBe('spl_11v11_nuoruus');
+  });
+  it('kausisuunnitelman viikkopohjat[ikävaihe] -reitti ennallaan (TM:n leikkijä/rakentaja/showcase; ikävaihe iästä)', () => {
+    const ks = { vaiheet: [{ avain: 'k', alku: '2026-08-01', loppu: '2027-02-28', viikkopohjat: { leikkija: 'spl_8v8_lapsuus', rakentaja: 'spl_8v8_nuoruus' } }] };
+    expect(V.tmPohjaJoukkueelle(POHJAT, ks, { id: 'a', pelimuoto: '8v8', ika: 'U13' }, '2026-10-19').avain).toBe('spl_8v8_nuoruus'); expect(V.tmPohjaJoukkueelle(POHJAT, ks, { id: 'a', pelimuoto: '8v8', ika: 'U10' }, '2026-10-19').avain).toBe('spl_8v8_lapsuus');
+  });
+  it('seuran pohja voittaa Palloliiton myös iällä; seuran pohjista ikä ratkaisee, jos ika_ohje annettu', () => {
+    const s1 = Object.assign({}, P('spl_8v8_lapsuus'), { avain: 's_a', lahde: 'seura', ika_ohje: [9, 11] }), s2 = Object.assign({}, P('spl_8v8_nuoruus'), { avain: 's_b', lahde: 'seura', ika_ohje: [12, 14] });
+    expect(V.tmPohjaJoukkueelle(POHJAT.concat([s1, s2]), null, { id: 'x', pelimuoto: '8v8', ika: 13 }, '2026-10-19').avain).toBe('s_b'); expect(V.tmPohjaJoukkueelle(POHJAT.concat([s1, s2]), null, { id: 'x', pelimuoto: '8v8', ika: 10 }, '2026-10-19').avain).toBe('s_a');
   });
 });
