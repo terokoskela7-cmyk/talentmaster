@@ -5326,3 +5326,14 @@ describe('v3.59 · pelaajat/{pid}/kooste (K35-6f harjoituskertymä): henkilökun
     let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(K(c.firestore()))).data(); }); expect(d.versio).toBe(1);
   });
 });
+
+describe('v3.60 · kooste/{id} read: talenttivalmentaja (oma seura) lukee kaikkien joukkueiden pelaajat; toisen joukkueen valmentaja ei; toisen seuran talenttivalmentaja ei', () => {
+  const K = (db, pid) => doc(db, 'seurat', SEURA_A, 'pelaajat', pid, 'kooste', 'kertyma_2026-27');
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); await testEnv.withSecurityRulesDisabled(async (c) => { for (const pid of [PELAAJA_UID, PELAAJA_A2_UID]) await setDoc(K(c.firestore(), pid), { versio: 1, viikot: {} }); }); });
+  it('talenttivalmentaja ✓ molempien joukkueiden pelaajat; valmentaja ✗ toisen joukkueen pelaaja; toisen seuran talenttivalmentaja ✗', async () => {
+    const tv = talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(getDoc(K(tv, PELAAJA_UID))); await assertSucceeds(getDoc(K(tv, PELAAJA_A2_UID)));
+    await assertFails(getDoc(K(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_A2_UID)));
+    await assertFails(getDoc(K(talenttivalmentajaContext('talval-b-001', SEURA_B).firestore(), PELAAJA_UID)));
+  });
+});

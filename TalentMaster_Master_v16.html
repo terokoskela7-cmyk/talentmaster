@@ -6653,7 +6653,7 @@ function _mKertymaTayta(p) {
   const el = document.getElementById('_mKertymaCard'); if (!el) return; const N = window.TM_HARJOITUSKERTYMA_NAKYMA;
   if (!document.getElementById('hkCss')) { const st = document.createElement('style'); st.id = 'hkCss'; st.textContent = N.tmKertymaCSS(); document.head.appendChild(st); }
   if (_demo || !_seuraId) { el.innerHTML = N.tmKertymaMasterHTML(window.TM_HARJOITUSKERTYMA.tmKertyma({ tapahtumat: [], nyt: Date.now() }), { t: masterT }); return; }
-  window.TM_HARJOITUSKERTYMA.tmKertymaLueKooste(_db, _seuraId, p.id, Date.now()).then(k => { const e = document.getElementById('_mKertymaCard'); if (e) e.innerHTML = k ? N.tmKertymaMasterHTML(k, { t: masterT }) : '<div class="hk-tyhja">' + _mEsc(masterT('Ei vielä kirjauksia')) + '</div>'; });
+  window.TM_HARJOITUSKERTYMA.tmKertymaLueKooste(_db, _seuraId, p.id, Date.now()).then(k => { const e = document.getElementById('_mKertymaCard'), w = document.getElementById('_mKertymaWrap'); if (w && !k) w.style.display = 'none'; if (e) e.innerHTML = k ? N.tmKertymaMasterHTML(k, { t: masterT }) : ''; });   // lukuvirhe (esim. oikeus) → lohko ja sen otsikko piiloon, ei kaatumista
 }
 function _ktNayttoHTML(p) {
   const e = _mEsc, o = _mPinfoOsat(p), pid = e(p.id), nakyy = (typeof _prVoiNahda === 'function' && _prVoiNahda(p));
@@ -6664,7 +6664,7 @@ function _ktNayttoHTML(p) {
     + _ktOsio('Mittaukset') + _mStatsHTML(o.stats) + o._kehHtml + o._sekHtml + o._kehityskaariHtml
     + ((o._adarHtml || o._ristiinHtml) ? _ktOsio('Pelihavainnot') + o._adarHtml + o._ristiinHtml : '')
     + _ktOsio('Psyykkinen (D3)') + o._d3Html
-    + _ktOsio('Harjoittelu') + '<div id="_mKertymaCard" style="grid-column:1/-1"></div>'
+    + '<div id="_mKertymaWrap" style="grid-column:1/-1;display:contents">' + _ktOsio('Harjoittelu') + '<div id="_mKertymaCard" style="grid-column:1/-1"></div></div>'
     + (nakyy ? _ktOsio('Mitä pelaajan tulee osata') + '<div id="_mMitaCard" class="mkt-scope" style="grid-column:1/-1"></div>' : '')
     + '<div style="grid-column:1/-1;margin-top:16px"><button type="button" class="kt-nappi" data-kt-vanha onclick="_ktVanhaNakyma(\'' + pid + '\')">' + e(masterT('Avaa pelaajan elämäkerta')) + '</button></div>'   // elämäkerran aikajana/narratiivi: vanha näkymä kunnes poisto-PR
     + '</div>';
