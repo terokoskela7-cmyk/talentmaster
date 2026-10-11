@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791750615586';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791753575748';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -155,6 +155,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
 <script src="lib/tm_valmentaja_koti.js?v=1"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=1"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
+<script src="lib/tm_harjoituskertyma.js?v=1"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=1"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=3"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
 <script src="lib/tm_kalenteri_omat.js?v=2"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
@@ -1749,6 +1750,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
         </div>
         <div class="pulse-stats" id="pulseStats"></div>
       </div>
+      <div id="pulseKertyma" style="margin:0 0 14px"></div>   <!-- K35-6f: Ohjattu läsnäolo · 4 vk -->
       <div class="pulse-heatmap" id="pulseHeatmap"></div>
       <div class="pulse-section">
         <div class="caps" style="margin-bottom:14px" data-i18n="Tänään">Tänään</div>
@@ -4562,11 +4564,17 @@ async function sendReply(){
 /* ════════════════════════════════════════════════════════════
    PULSSI — heatmap + tänään
 ════════════════════════════════════════════════════════════ */
+/* K35-6f: Pulssi — joukkueen ohjattu läsnäolo 4 vk (luetaan pelaajien koosteet); alle 70 % olevat nimet vain valmentajalle (tämä näkymä on henkilökunnan) */
+function _mKertymaPulssi() {
+  const el = document.getElementById('pulseKertyma'); if (!el || _demo || !_seuraId) return; const N = window.TM_HARJOITUSKERTYMA_NAKYMA, ps = (_pelaajatData || []).filter(p => !_joukkue || _mOnJoukkueessa(p, _joukkue));
+  window.TM_HARJOITUSKERTYMA.tmKertymaLueJoukkue(_db, _seuraId, ps.map(p => p.id), Date.now()).then(j => { if (!document.getElementById('hkCss')) { const st = document.createElement('style'); st.id = 'hkCss'; st.textContent = N.tmKertymaCSS(); document.head.appendChild(st); } el.innerHTML = N.tmKertymaPulssiHTML(j, { t: masterT, valmentaja: true, nimet: i => _tmHenkiloNimi(ps[i]) }); });
+}
 function renderPulse(){
   const heat=document.getElementById('pulseHeatmap');
   const statsEl=document.getElementById('pulseStats');
   const todayEl=document.getElementById('pulseToday');
   if(!heat) return;
+  _mKertymaPulssi();
 
   const days=['Ma','Ti','Ke','To','Pe','La','Su'];
   const now=new Date();
@@ -6659,6 +6667,13 @@ function _ktKasvuHTML(p) {
   if (!rivit.length) return '';
   return '<div style="grid-column:1/-1;font-size:12px;color:var(--ink2)">' + _mEsc(rivit.join(' · ')) + (bio.pvm ? ' <span style="color:var(--ink3)">· ' + _mEsc(masterT('mitattu ')) + _mEsc(_pvmFiM(bio.pvm)) + '</span>' : '') + '</div>';
 }
+/* K35-6f: Harjoittelu-lohko — laskenta/HTML libeissä (tm_harjoituskertyma[_nakyma]); tässä vain lataus */
+function _mKertymaTayta(p) {
+  const el = document.getElementById('_mKertymaCard'); if (!el) return; const N = window.TM_HARJOITUSKERTYMA_NAKYMA;
+  if (!document.getElementById('hkCss')) { const st = document.createElement('style'); st.id = 'hkCss'; st.textContent = N.tmKertymaCSS(); document.head.appendChild(st); }
+  if (_demo || !_seuraId) { el.innerHTML = N.tmKertymaMasterHTML(window.TM_HARJOITUSKERTYMA.tmKertyma({ tapahtumat: [], nyt: Date.now() }), { t: masterT }); return; }
+  window.TM_HARJOITUSKERTYMA.tmKertymaLueKooste(_db, _seuraId, p.id, Date.now()).then(k => { const e = document.getElementById('_mKertymaCard'); if (e) e.innerHTML = k ? N.tmKertymaMasterHTML(k, { t: masterT }) : '<div class="hk-tyhja">' + _mEsc(masterT('Ei vielä kirjauksia')) + '</div>'; });
+}
 function _ktNayttoHTML(p) {
   const e = _mEsc, o = _mPinfoOsat(p), pid = e(p.id), nakyy = (typeof _prVoiNahda === 'function' && _prVoiNahda(p));
   const perus = '<div style="grid-column:1/-1"><div class="pinfo-sub">' + e(o.ika + ' · ' + (p.pelipaikka || '—') + ' · ' + (p.joukkue || _joukkue || '—')) + (o.testPvm ? ' · <span style="color:var(--ink3)">' + (o.testIka ? e(o.testIka) : e(masterT('testattu ')) + e(o.testPvm)) + '</span>' : '') + '</div></div>' + o.lisaHtml;
@@ -6668,6 +6683,7 @@ function _ktNayttoHTML(p) {
     + _ktOsio('Mittaukset') + _mStatsHTML(o.stats) + o._kehHtml + o._sekHtml + o._kehityskaariHtml
     + ((o._adarHtml || o._ristiinHtml) ? _ktOsio('Pelihavainnot') + o._adarHtml + o._ristiinHtml : '')
     + _ktOsio('Psyykkinen (D3)') + o._d3Html
+    + _ktOsio('Harjoittelu') + '<div id="_mKertymaCard" style="grid-column:1/-1"></div>'
     + (nakyy ? _ktOsio('Mitä pelaajan tulee osata') + '<div id="_mMitaCard" class="mkt-scope" style="grid-column:1/-1"></div>' : '')
     + '<div style="grid-column:1/-1;margin-top:16px"><button type="button" class="kt-nappi" data-kt-vanha onclick="_ktVanhaNakyma(\'' + pid + '\')">' + e(masterT('Avaa pelaajan elämäkerta')) + '</button></div>'   // elämäkerran aikajana/narratiivi: vanha näkymä kunnes poisto-PR
     + '</div>';
@@ -6705,6 +6721,7 @@ function _ktNayta() {
   if (!p) { _ktAsetaHTML(K.tmKtEiLoydyHTML(_ktOpts())); return; }
   if (!H.tmPelaajaOikeus(p, _ktOikeusCtx()).ok) { _ktAsetaHTML(K.tmKtEiOikeuttaHTML(_ktOpts())); return; }   // näkymä tarkistaa oikeuden itse (D46 #3); Rules tekee saman
   _ktAsetaHTML(_ktKehys(p)); _ktHkAsenna();
+  if (S.ladattu.naytto && !S.silmin) _mKertymaTayta(p);   // K35-6f: Harjoittelu-lohko (kooste luetaan, ei lasketa)
   if (S.ladattu.naytto && !S.silmin) { const mc = document.getElementById('_mMitaCard'); if (mc && typeof _mMitaOsattavaHTML === 'function') mc.innerHTML = _mMitaOsattavaHTML(p); }   // Näyttö: "mitä pelaajan tulee osata"
   if (S.ladattu.polku && typeof _mvLataaKlipit === 'function') _mvLataaKlipit(p);   // R6.4: pelaajan klippiketjut (lazy, vain Polku)
   if (S.ladattu.polku) { window._mIdpPelaaja = p; if (typeof _mIdpReRender === 'function') _mIdpReRender(); if (typeof _mIdpLataa === 'function') _mIdpLataa(p); }   // Polku: IDP-kortti (kausi → jakso → katselmus) olemassa olevalla koodilla

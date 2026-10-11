@@ -121,7 +121,7 @@ describe('5 · luonnin lib (tm_kalenteri_omat) ja Masterin kytkentä', () => {
 
 describe('6 · Rules v3.58 (lähdetarkistus; emulaattoritestit tests/rules)', () => {
   it('versio + changelog; kalTyyppiSaaKirjoittaa create ja update (uusi + vanha dokumentti) oikeassa kalenteri-lohkossa', () => {
-    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore\.rules v3\.58/); expect(r).toMatch(/Muutokset v3\.57 → v3\.58/); expect(r).toContain("kalTyyppi(d) in ['seuran_tauko', 'tauko', 'loma']"); expect(r).toContain("['joukkueen_vapaa', 'erikoisohjelma']");
+    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore\.rules v3\.5[89]/); expect(r).toMatch(/Muutokset v3\.57 → v3\.58/); expect(r).toContain("kalTyyppi(d) in ['seuran_tauko', 'tauko', 'loma']"); expect(r).toContain("['joukkueen_vapaa', 'erikoisohjelma']");
     const a = r.indexOf('match /kalenteri/{tapahtumaId}'), blokki = r.slice(a, r.indexOf('match /henkilokunta/{dokId}', a)); expect(blokki).toContain('allow create: if !(\'muistiinpanot\' in request.resource.data)\n                      && kalTyyppiSaaKirjoittaa(seuraId, request.resource.data)'); expect(blokki).toContain('kalTyyppiSaaKirjoittaa(seuraId, request.resource.data) && kalTyyppiSaaKirjoittaa(seuraId, resource.data)');
   });
 });
