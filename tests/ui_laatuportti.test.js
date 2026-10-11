@@ -136,3 +136,12 @@ describe('Tero 11.10 · VP:n tumma teema seuraa Masterin lämmintä paletti (mit
     const r = sennut(TT.CSS).find((x) => x.valitsin.split(',').map((s) => s.trim()).includes('.tt-m')); expect(r.maar).toContain('color:var(--ink2)'); expect(r.maar).toContain('var(--fs-meta');
   });
 });
+
+describe('Kehitystyöpöytä · Tänään (PR 3): portti', () => {
+  const KTD = require('../lib/tm_kehitystyopoyta.js'), TSG = require('../lib/tm_tanaan_signaali.js'), KENTTA = require('../lib/tm_kentta.js');
+  const p = { id: 'p1', etunimi: 'T', jaksofokus: { konsepti_avain: 'x', konsepti_nimi: 'J', alkoi: '2026-10-05T00:00:00', kesto_vk: 6, osat: ['A', 'B'], osa_havainnot: {} }, ydinvahvuus: { kuvaus: 'L' } };
+  const nayta = (pp) => KTD.tmKtTanaanKoko(pp, { tila: 'kaynnissa' }, { esc: (s) => String(s), t: (k) => k, tanaan: '2026-10-11', toimiFn: '_ktToimi', sigCtx: { vkEiVastattu: true, askel: { avain: 'yllapito' } }, nimet: () => '', kenttaFn: (a) => KENTTA.tmKentta({ koko: 'puoli', ase: { alue: a, nimi: 'L', tila: 'ok' } }, { wrap: true }) });
+  it('ei tyhjää kenttää ilman aluetta (jaksokortti); alue → kenttä', () => { expect(nayta(p)).not.toMatch(/<svg/); expect(nayta(p)).toContain('data-kt-jaksokortti'); expect(nayta(Object.assign({}, p, { ydinvahvuus: { kuvaus: 'L', alue: { x: 1, y: 2, w: 3, h: 4 } } }))).toMatch(/<svg/); });
+  it('ei "SA"-tekstiä seuran käyttäjälle (osien meta)', () => { const o = { k: 'a', nimi: 'A', koodi: 'k', tila: 'ohjatusti', havainnot: [{ uid: 'u', arvo: 2, pvm: '2026-10-09', rooli: 'super_admin' }] }; expect(teksti(KTD.tmKtOsatHTML({ osat: [o] }, { esc: (s) => String(s), t: (k) => k }))).not.toMatch(/\bSA\b/); });
+  it('yksi täytetty nappi (signaalikortti); otsakkeen ensisijainen ääriviiva', () => { expect((nayta(p).match(/class="kt-btn"/g) || []).length).toBe(1); expect(KTD.tmKtKehysHTML({ pid: 'p', nimi: 'T', tila: { tila: 'kaynnissa', ensisijainen: { avain: 'havainto', teksti: 'x' }, valikko: [], rivitila: { teksti: 'y', savy: 'ok' } } }, { esc: (s) => String(s), t: (k) => k, toimiFn: 'f', valilehtiFn: 'v', silminFn: 's' })).toContain('kt-nappi-ens-q'); expect(TSG.tmTanaanSignaali(p, { vkEiVastattu: true, askel: { avain: 'yllapito' }, tila: { tila: 'kaynnissa' } }).ensisijainen.nappi.avain).toBe('havainto'); });
+});
