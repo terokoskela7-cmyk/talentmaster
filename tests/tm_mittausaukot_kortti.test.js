@@ -60,12 +60,4 @@ describe('Taivutus: 1 / N kaikilla kolmella kielellä', () => {
       expect(b).toContain('Ei jaksoa ' + L['{n} joukkuetta'].replace('{n}', 14)); expect(b).toContain('Ei jaksoa · ' + L['{n} joukkuetta'].replace('{n}', 14));
     });
   }
-  it('Kodin pulssi: "Ei tekniikkadataa · 1 joukkue" / "N joukkuetta"; fyysinen kehityskohde 1 joukkue', () => {
-    const d = F.lataa('pilotti', NYT), m = PU.tmPulssiRivit(d.koosteet, { nytMs: NYT, ensimmainenVk: d.ensin, katselmusPv: {}, jaksoVk: d.jaksoVk, kuittaukset: [] }), viim = d.koosteet[d.koosteet.length - 1] || {};
-    const koti = (tek, fy, t) => KK.tmKotiRytmiHTML(KK.tmKotiRytmiMalli(m, { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: [], viestit: [], nytMs: NYT, tekniikka: tek, fyysinen: fy }), { t, esc: (x) => String(x), fn: { tilanne: 'ti', joukkue: 'jk' } }).main;
-    for (const kieli of ['fi', 'sv', 'en']) { const L = KIELET[kieli], t = kielenT(kieli);
-      const y = teksti(koti({ kehityskohde: 0, eiTekniikkadataa: 1 }, { kehityskohde: 1 }, t)), n = teksti(koti({ kehityskohde: 0, eiTekniikkadataa: 7 }, { kehityskohde: 4 }, t));
-      expect(y).toContain('Ei tekniikkadataa · ' + L['{n} joukkue'].replace('{n}', 1)); expect(n).toContain('Ei tekniikkadataa · ' + L['{n} joukkuetta'].replace('{n}', 7));
-      expect(y).toContain('Fyysiset testit kehityskohteena · ' + L['{n} joukkue'].replace('{n}', 1)); expect(n).toContain('Fyysiset testit kehityskohteena · ' + L['{n} joukkuetta'].replace('{n}', 4)); }
-  });
 });

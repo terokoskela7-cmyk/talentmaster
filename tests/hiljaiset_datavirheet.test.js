@@ -53,7 +53,7 @@ const sisaltaaSentinelin = (x, s) => JSON.stringify(x).includes(JSON.stringify(s
 describe('a) Testituonti_Master · ttTallennaPelaaja', () => {
   const T = lue('TalentMaster_Testituonti_Master.html');
   const aja = (db, p, fleiPct) => {
-    const ctx = { firebase: { firestore: { FieldValue: FV } }, Date };
+    const ctx = { firebase: { firestore: { FieldValue: FV } }, Date, TM_TESTIPAIVA: require('../lib/tm_testipaiva.js') };
     vm.createContext(ctx); vm.runInContext(pura(T, 'async function ttTallennaPelaaja(') + '\nthis.f = ttTallennaPelaaja;', ctx);
     return ctx.f(db, 'kpv', { id: 'tt1', pvm: '2026-10-03' }, p, { testit: { kyykky: 3 }, tallennettu: SENT.serverTimestamp }, fleiPct);
   };

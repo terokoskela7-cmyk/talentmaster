@@ -25,7 +25,7 @@ describe('D151 · otsikko ja tulkintalause; D170 · Käynnistys-vaiheessa ei sig
     const b = tila('kypsa', (d) => { d.syote.joukkueet.forEach((j) => { j.katselmusAuki = false; }); d.syote.palaveri = null; }); expect(b.m.signaali).toBeNull(); expect(b.h).not.toContain('kt-sig');
   });
   it('tyhjä seura: "Kausi odottaa joukkueita." ilman nollia (ei 0/0) ja ilman aikajanaa', () => { const { h } = tila('tyhja'), x = teksti(h); expect(x).toContain('Kausi odottaa joukkueita.'); expect(x).not.toMatch(/\b0\/0\b/); expect(h).not.toContain('tilanneAikajana'); });
-  it('sivun yksi täytetty nappi: jokaisessa tilassa korkeintaan yksi; Käynnistyksessä nolla', () => { F.TILAT.forEach((n) => { const k = (tila(n).h.match(/class="kt-btn"/g) || []).length; expect(k, n).toBeLessThanOrEqual(1); if (['pilotti', 'tyhja', 'kuormitus'].includes(n)) expect(k, n).toBe(0); }); });
+  it('sivun yksi täytetty nappi: jokaisessa tilassa korkeintaan yksi; Käynnistyksessä nolla', () => { F.TILAT.forEach((n) => { const k = (tila(n).h.match(/class="kt-btn"/g) || []).length; expect(k, n).toBeLessThanOrEqual(1); if (['pilotti', 'tyhja'].includes(n)) expect(k, n).toBe(0); }); });
 });
 
 describe('D148 · huomiot: asian mukaan ryhmitelty (≥ 3 joukkuetta = yksi rivi), selkokielellä', () => {

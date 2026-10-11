@@ -56,7 +56,7 @@ describe('D169 · fonttiasteikko ja tokenit', () => {
 describe('D147 · yksi täytetty nappi per näkymä (ratchet → 1)', () => {
   const taytetyt = (h) => (h.match(/class="kt-btn(?:\s[^"]*)?"/g) || []).filter((c) => !/\s(q|g)(\s|")/.test(c) && !/\bsm\b/.test(c) || /kt-btn"/.test(c)).length;
   /* Koti: Käynnistys (PR B) ja Rytmi (PR D) tavoitteessa: täsmälleen yksi täytetty nappi (Rytmi: signaalikortin päätoiminto). Tilanne (PR C): tavoite 1 saavutettu — Rytmi-vaiheessa signaalikortin päätoiminto, Käynnistyksessä 0 (D170). */
-  const KAYNNISTYS = ['tyhja', 'pilotti', 'kuormitus'], RAJA = { koti: 1, tilanne: 1 };
+  const KAYNNISTYS = ['tyhja', 'pilotti'], RAJA = { koti: 1, tilanne: 1 };
   it.each(KAIKKI)('%s: täytettyjä .kt-btn ≤ raja', (nimi, t, n, h) => { expect(taytetyt(h), nimi).toBeLessThanOrEqual(n === 'koti' && KAYNNISTYS.includes(t) ? 1 : RAJA[n]); });
   it('Kodin Käynnistys-vaihe: täsmälleen yksi täytetty nappi jokaisessa tilassa', () => { KAYNNISTYS.forEach((t) => expect(taytetyt(RENDER[t].koti), t).toBe(1)); });
   it('Kodin Rytmi-vaihe (PR D): täsmälleen yksi täytetty nappi = signaalikortin päätoiminto', () => { expect(taytetyt(RENDER.kypsa.koti)).toBe(1); expect(RENDER.kypsa.koti).toMatch(/class="kt-sig w kk-sigk"/); });

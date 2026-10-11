@@ -11,23 +11,25 @@ const rivit = (n, jaksolla, nollia) => { const k = { vk: '2026-W42', versio: 5, 
   return PU.tmPulssiRivit([k], { nytMs: NYT, ensimmainenVk: '2026-W20', jaksoVk: {}, katselmusPv: {} }); };
 const HTML = (d, o) => { const m = PU.tmPulssiRivit(d.koosteet, { nytMs: d.nyt, ensimmainenVk: d.ensin, jaksoVk: d.jaksoVk, katselmusPv: {} }), v = d.koosteet[d.koosteet.length - 1]; const km = KK.tmKotiKaynnistysMalli(m, Object.assign({ yhteensa: v.yhteensa, koosteJ: v.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: d.kalenteri, viestit: d.viestit, nytMs: d.nyt }, o || {})); const r = KK.tmKotiKaynnistysHTML(km, { t: (x) => x, fn: { opas: 'op', aloitaJaksot: 'aj', kutsu: 'ku', testit: 'te', joukkue: 'jk', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', demo: 'de', auki: 'au', tuo: 'tu' } }); return { km, h: r.main + r.rail }; };
 
+/* kuormitus-fixture on Rytmi (20/40 jaksolla); Käynnistys-vaiheen "monta jaksotonta" -tapaukset: vain 10 jaksolla (30 odottaa) */
+const kuormKaynn = () => { const d = F.lataa('kuormitus', NYT); d.koosteet.forEach((k) => Object.values(k.joukkueet).forEach((j, i) => { if (i % 4 !== 0) { j.jakso = false; j.n_jaksolla = 0; } })); return d; };
 describe('D164 · vaihe lasketaan koosteesta (ei käsivalintaa)', () => {
   it('alle 1/3 joukkueista jaksolla → Käynnistys; vähintään 1/3 → Rytmi (rajat: 3 joukkuetta 1 jaksolla = Rytmi, 4 joukkuetta 1 jaksolla = Käynnistys)', () => {
     expect(KK.tmKotiVaihe(rivit(3, 1))).toBe('rytmi'); expect(KK.tmKotiVaihe(rivit(4, 1))).toBe('kaynnistys'); expect(KK.tmKotiVaihe(rivit(15, 4))).toBe('kaynnistys'); expect(KK.tmKotiVaihe(rivit(15, 5))).toBe('rytmi'); expect(KK.tmKotiVaihe(rivit(9, 8))).toBe('rytmi');
   });
   it('0 pelaajan joukkueet eivät lasketa nimittäjään (2 tyhjää + 3 joukkuetta, 1 jaksolla = Rytmi)', () => { expect(KK.tmKotiVaihe(rivit(3, 1, 2))).toBe('rytmi'); });
-  it('0 joukkuetta (ei koostetta/ei rivejä) → Käynnistys; fixture-tilat: tyhjä/pilotti/kuormitus Käynnistys, kypsä Rytmi', () => {
+  it('0 joukkuetta (ei koostetta/ei rivejä) → Käynnistys; fixture-tilat: tyhjä/pilotti Käynnistys, kypsä/kuormitus (20/40 jaksolla) Rytmi', () => {
     expect(KK.tmKotiVaihe({ rivit: [] })).toBe('kaynnistys'); expect(KK.tmKotiVaihe(null)).toBe('kaynnistys');
     const v = (t) => { const d = F.lataa(t, NYT); return KK.tmKotiVaihe(PU.tmPulssiRivit(d.koosteet, { nytMs: NYT, ensimmainenVk: d.ensin, jaksoVk: {}, katselmusPv: {} })); };
-    expect(['tyhja', 'pilotti', 'kypsa', 'kuormitus'].map(v)).toEqual(['kaynnistys', 'kaynnistys', 'rytmi', 'kaynnistys']);
+    expect(['tyhja', 'pilotti', 'kypsa', 'kuormitus'].map(v)).toEqual(['kaynnistys', 'kaynnistys', 'rytmi', 'rytmi']);
   });
 });
 
 describe('D165 · kolme askelta', () => {
   const { km, h } = HTML(F.lataa('pilotti', NYT)), t = teksti(h);
-  it('otsikko "Kauden käynnistys: kolme askelta." + lause; askeleet Jaksot 1/15 · Perheet mukana 4/160 · Testipäivät 2/15 (mockup 33)', () => {
-    expect(t).toContain('Kauden käynnistys: kolme askelta.'); expect(km.askeleet.map((a) => [a.nimi, a.a, a.b])).toEqual([['Jaksot', 1, 15], ['Perheet mukana', 4, 160], ['Testipäivät', 2, 15]]);
-    ['1/15', 'joukkuetta jaksolla', '4/160', 'perhettä antanut suostumuksen', 'Tilanne viikolta 42.', '2/15', 'joukkuetta varannut päivän', 'Testijakso vk 45–46. Mittaukset ennen talven jaksoja.', 'Aloita jakso joukkueen näkymässä. Jakso antaa joukkueelle teeman ja viikkotavoitteet.'].forEach((x) => expect(t, x).toContain(x));
+  it('otsikko "Kauden käynnistys: kolme askelta." + lause; askeleet Jaksot 1/15 · Perheet mukana 4/160 · Testipäivät 3/15 (2 testitapahtumaa + P13:n tekniikkakisat kalenterissa; mockup 33)', () => {
+    expect(t).toContain('Kauden käynnistys: kolme askelta.'); expect(km.askeleet.map((a) => [a.nimi, a.a, a.b])).toEqual([['Jaksot', 1, 15], ['Perheet mukana', 4, 160], ['Testipäivät', 3, 15]]);
+    ['1/15', 'joukkuetta jaksolla', '4/160', 'perhettä antanut suostumuksen', 'Suostumus avaa pelaajan sovelluksen ja kotitehtävät.', '3/15', 'joukkuetta varannut päivän', 'Testijakso vk 45–46. Mittaukset ennen talven jaksoja.', 'Aloita jakso joukkueen näkymässä. Jakso antaa joukkueelle teeman ja viikkotavoitteet.'].forEach((x) => expect(t, x).toContain(x));
   });
   it('sivun ainoa täytetty nappi on ensimmäisellä keskeneräisellä askeleella ("Aloita jaksot"); muut ovat tekstilinkkejä "Kutsu loput 156 →" ja "Sovi päivät →"', () => {
     expect((h.match(/class="kt-btn"/g) || []).length).toBe(1); expect(h).toMatch(/<button class="kt-btn" type="button" onclick="aj\(\)">Aloita jaksot<\/button>/);
@@ -38,7 +40,7 @@ describe('D165 · kolme askelta', () => {
     const m2 = rivit(3, 1), km3 = KK.tmKotiKaynnistysMalli(m2, { yhteensa: { n_pelaajat: 30, n_suostumus: 0 }, koosteJ: {}, nytMs: NYT }); expect(km3.askeleet.find((a) => a.id === 'jaksot').valmis).toBe(true); expect(km3.askeleet.filter((a) => a.taytetty).map((a) => a.id)).toEqual(['perheet']);
   });
   it('ei prosentteja eikä 0/0 askelissa (D125); testipäivät 0/15 kun yhtään varausta ei ole', () => {
-    expect(t).not.toMatch(/\d\s?%/); expect(t).not.toMatch(/\b0\/0\b/); const d = F.lataa('pilotti', NYT); d.tapahtumat = d.tapahtumat.filter((e) => !e.joukkue); expect(teksti(HTML(d).h)).toContain('0/15'); expect(teksti(HTML(d).h)).toContain('joukkuetta varannut päivän');
+    expect(t).not.toMatch(/\d\s?%/); expect(t).not.toMatch(/\b0\/0\b/); const d = F.lataa('pilotti', NYT); d.tapahtumat = d.tapahtumat.filter((e) => !e.joukkue); d.kalenteri = d.kalenteri.filter((e) => e.tyyppi !== 'testitapahtuma'); expect(teksti(HTML(d).h)).toContain('0/15'); expect(teksti(HTML(d).h)).toContain('joukkuetta varannut päivän');
   });
   it('Perheet mukana: luku koosteen yhteensa-kentästä (ei pelaajalistasta)', () => { const d = F.lataa('pilotti', NYT); d.koosteet[d.koosteet.length - 1].yhteensa.n_suostumus = 20; expect(HTML(d).km.askeleet[1]).toMatchObject({ a: 20, b: 160 }); expect(teksti(HTML(d).h)).toContain('Kutsu loput 140 →'); });
 });
@@ -58,17 +60,17 @@ describe('Tällä viikolla · Jaksolla nyt · Odottaa jaksoa · oikea palsta', (
   });
   it('Odottaa jaksoa: 14 tunnistetta ikäjärjestyksessä (ei tyhjiä joukkueita P18/T18); yli 14 → "+N"; klikkaus avaa joukkueen', () => {
     const { km, h } = HTML(F.lataa('pilotti', NYT)); expect(km.odottaa).toHaveLength(14); expect(km.odottaa[0].tunniste).toBe('P8'); expect(teksti(h)).toContain('Odottaa jaksoa · 14'); { const o = h.slice(h.indexOf('kk-odottaa')); expect((o.slice(0, o.indexOf('Ehdota jaksot')).match(/class="kk-tag"/g) || []).length).toBe(7); }   // D144: 6 tagia + "+8" expect(h).not.toMatch(/>(P18|T18)</); expect(h).toContain("onclick=\"jk('P8 Pilotti')\"");
-    const k = HTML(F.lataa('kuormitus', NYT)); expect(teksti(k.h)).toContain('Odottaa jaksoa · 30'); expect(k.h).toMatch(/data-auki|onclick="au\('odottaa'\)">\+\d+</);
+    const k = HTML(kuormKaynn()); expect(teksti(k.h)).toContain('Odottaa jaksoa · 30'); expect(k.h).toMatch(/data-auki|onclick="au\('odottaa'\)">\+\d+</);
   });
   it('Odottaa jaksoa -rivillä aina "Ehdota jaksot →" (mockup 33): sama kohde kuin Aloita jaksot -napilla (aj)', () => {
-    ['pilotti', 'kuormitus'].forEach((t) => { const h = HTML(F.lataa(t, NYT)).h; expect(h).toMatch(/<button class="kk-lnk" type="button" onclick="aj\(\)">Ehdota jaksot →<\/button>/); expect(h).toMatch(/<button class="kt-btn" type="button" onclick="aj\(\)">Aloita jaksot<\/button>/); });
+    [F.lataa('pilotti', NYT), kuormKaynn()].forEach((d0) => { const h = HTML(d0).h; expect(h).toMatch(/<button class="kk-lnk" type="button" onclick="aj\(\)">Ehdota jaksot →<\/button>/); expect(h).toMatch(/<button class="kt-btn" type="button" onclick="aj\(\)">Aloita jaksot<\/button>/); });
   });
   it('D150: "Aloita tästä" -opas piilossa oletuksena kaikissa vaiheissa; vain sivun lopun "Näytä opas" -linkki palauttaa sen (VP: luokka vpk-hide-guide ws-koti:ssa)', () => {
     expect(teksti(HTML(F.lataa('pilotti', NYT)).h)).toContain('Näytä opas'); expect(HTML(F.lataa('pilotti', NYT)).h).toContain('onclick="op()"');
     expect(KK.CSS).toContain("#ws-koti.vpk-hide-guide #vpAloitaKortti{display:none}"); expect(VP).toContain("classList.toggle('vpk-hide-guide', p)"); expect(VP).toContain('opasLuokka(!window._vpKotiOpasNayta)');  expect(VP).toContain("opas: '_vpKotiOpas'");
   });
-  it('oikea palsta: Tänään · Tulossa 14 päivää (+ testijakso vk 45–46), Avaa kalenteri →; ei lomatietoa (ei datalähdettä)', () => {
-    const t = teksti(HTML(F.lataa('pilotti', NYT)).h); ['Tänään · ma 12.10.', '17.00 Harjoitus P9', 'Tulossa 14 päivää', 'to 15.10. Ottelu P10', 'Valmentajapalaveri', 'vk 45–46 Testijakso', 'Avaa kalenteri →'].forEach((x) => expect(t, x).toContain(x));
+  it('oikea palsta: Tänään · Tulossa 14 päivää, Avaa kalenteri → (testijakso vk 45–46 ei vielä 14 päivän sisällä → ei riviä; ks. vp_koti_d171.test.js)', () => {
+    const t = teksti(HTML(F.lataa('pilotti', NYT)).h); ['Tänään · ma 12.10.', '17.00 P9 · harjoitus', 'Tulossa 14 päivää', 'to 15.10. P10 · ottelu', 'Valmentajapalaveri', 'Avaa kalenteri →'].forEach((x) => expect(t, x).toContain(x));
   });
   it('tyhjä seura: ei askelia; "Tuo pelaajat" on ainoa täytetty nappi; ei nollia', () => {
     const { h } = HTML(F.lataa('tyhja', NYT)), t = teksti(h); expect(t).toContain('Kauden käynnistys: aloita tuomalla pelaajat.'); expect((h.match(/class="kt-btn"/g) || []).length).toBe(1); expect(t).toContain('Tuo pelaajat'); expect(t).not.toMatch(/\b0\/0\b|\d\s?%/); expect(h).not.toContain('kk-st');

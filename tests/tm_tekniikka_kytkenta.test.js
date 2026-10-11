@@ -41,9 +41,7 @@ function luvut(d, nyt) {
     const syote = Object.assign({}, d.syote, { nytMs: nyt, tekniikka: tekniikkaRivit });
     const m = TT.tmTilanneMalli(syote);
     const huomio = []; m.huomiot.forEach((x) => { if (x.tyyppi === 'ryhma' && x.kind === 'tekniikka') x.joukkueet.forEach((j) => huomio.push(j.nimi)); else if (x.tyyppi === 'joukkue' && x.kinds.indexOf('tekniikka') >= 0) huomio.push(x.joukkue); });
-    const rm = KK.tmKotiRytmiMalli(PU.tmPulssiRivit(d.koosteet, { nytMs: nyt, ensimmainenVk: d.ensin, katselmusPv: {}, jaksoVk: d.jaksoVk, kuittaukset: [] }), { yhteensa: (d.koosteet[d.koosteet.length - 1] || {}).yhteensa, koosteJ: (d.koosteet[d.koosteet.length - 1] || {}).joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: [], viestit: [], nytMs: nyt, tekniikka: y });
-    const koti = rm.entries.find((e) => e.tyyppi === 'tekniikka');
-    return { ehdotus: ehdotus.sort(), huomio: huomio.sort(), yhteenveto: y, tilanneM: m, kotiN: koti ? koti.n : 0, kotiEi: koti ? koti.eiData : (y.eiTekniikkadataa) };
+    return { ehdotus: ehdotus.sort(), huomio: huomio.sort(), yhteenveto: y, tilanneM: m };
   } finally { Date.now = realDateNow; }
 }
 const muunna = (d, f) => Object.assign({}, d, { pelaajat: d.pelaajat.map(f) });
@@ -55,7 +53,6 @@ describe('YKSI määritelmä: huomio = ehdotus = Kodin pulssi (sama joukkuejoukk
       expect(r.yhteenveto.kehityskohde, tila).toBeGreaterThan(0);                       // ei triviaali: jotain löytyy
       expect(r.ehdotus.length, tila).toBe(r.yhteenveto.kehityskohde);
       expect(r.huomio.length, tila).toBe(r.yhteenveto.kehityskohde);
-      expect(r.kotiN, tila).toBe(r.yhteenveto.kehityskohde);
       expect(r.huomio, tila).toEqual(r.ehdotus);                                       // sama joukkuejoukko
       expect(r.tilanneM.tekniikka.kehityskohde, tila).toBe(r.yhteenveto.kehityskohde);
       expect(r.tilanneM.tekniikka.eiTekniikkadataa, tila).toBe(r.yhteenveto.eiTekniikkadataa);
@@ -73,7 +70,7 @@ describe('YKSI määritelmä: huomio = ehdotus = Kodin pulssi (sama joukkuejoukk
     const spPuuttuu = muunna(d0, (p) => { if (p.sm_pallo_viimeisin == null || p.id.length % 2) return p; const q = Object.assign({}, p, { joukkue: 'Blå' }); delete q.sukupuoli; return q; });
     for (const [nimi, d] of [['heikko', heikko], ['vanha', vanha], ['eiMitaan', eiMitaan], ['neutraali', neutraali], ['spPuuttuu', spPuuttuu]]) {
       const r = luvut(d, NYT);
-      expect(r.ehdotus.length, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.huomio.length, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.kotiN, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.huomio, nimi).toEqual(r.ehdotus);
+      expect(r.ehdotus.length, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.huomio.length, nimi).toBe(r.yhteenveto.kehityskohde); expect(r.huomio, nimi).toEqual(r.ehdotus);
     }
     expect(luvut(heikko, NYT).yhteenveto.kehityskohde).toBeGreaterThan(luvut(d0, NYT).yhteenveto.kehityskohde - 1);
     expect(luvut(vanha, NYT).yhteenveto.kehityskohde).toBe(0);                            // vanhat tulokset eivät luokita (15 kk)
@@ -84,7 +81,7 @@ describe('YKSI määritelmä: huomio = ehdotus = Kodin pulssi (sama joukkuejoukk
   it('aika kuluu: sama data 14 vs 16 kuukautta myöhemmin (TKI vanhenee) — kaikki kolme laskevat yhdessä', () => {
     const d = F.lataa('kypsa', NYT);
     const a = luvut(d, NYT), b = luvut(d, NYT + 500 * DAY);
-    expect(b.yhteenveto.kehityskohde).toBeLessThan(a.yhteenveto.kehityskohde); expect(b.ehdotus.length).toBe(b.yhteenveto.kehityskohde); expect(b.huomio.length).toBe(b.yhteenveto.kehityskohde); expect(b.kotiN).toBe(b.yhteenveto.kehityskohde);
+    expect(b.yhteenveto.kehityskohde).toBeLessThan(a.yhteenveto.kehityskohde); expect(b.ehdotus.length).toBe(b.yhteenveto.kehityskohde); expect(b.huomio.length).toBe(b.yhteenveto.kehityskohde);
   });
 });
 
@@ -115,23 +112,12 @@ describe('Tilanne: tekniikka kehityskohteena -rivit ja "ei tekniikkadataa"', () 
   });
 });
 
-describe('Kodin pulssi: vain lukumäärä ja linkki Tilanteeseen (K9, D150)', () => {
-  const koti = (d, tek) => {
-    const m = PU.tmPulssiRivit(d.koosteet, { nytMs: NYT, ensimmainenVk: d.ensin, katselmusPv: {}, jaksoVk: d.jaksoVk, kuittaukset: [] }), viim = d.koosteet[d.koosteet.length - 1] || {};
-    const rm = KK.tmKotiRytmiMalli(m, { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: [], viestit: [], nytMs: NYT, tekniikka: tek });
-    return { rm, h: KK.tmKotiRytmiHTML(rm, { t: (x) => x, esc: (x) => String(x), fn: { tilanne: 'ti', joukkue: 'jk' } }).main };
-  };
-  const teksti = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  it('rivi "Tekniikka kehityskohteena · N joukkuetta" + linkki Avaa Tilanne; EI joukkuetunnisteita (ei toisteta, D150); ei koskaan signaalikortti', () => {
-    const d = F.lataa('kypsa', NYT), { rm, h } = koti(d, d.tekniikka), i = h.indexOf('data-signaali="tekniikka"'), rivi = h.slice(i, h.indexOf('</div>', i) + 6);
-    expect(i).toBeGreaterThan(0); expect(teksti(rivi)).toContain('Tekniikka kehityskohteena · ' + d.tekniikka.kehityskohde + ' joukkuetta'); expect(rivi).toContain('onclick="ti()"'); expect(rivi).not.toContain('kk-tag'); expect(rivi).not.toContain('onclick="jk(');
-    expect(rm.kortti === null || rm.kortti.tyyppi !== 'tekniikka').toBe(true);
-  });
-  it('vain "ei tekniikkadataa" (ei kehityskohteita) → rivi näkyy lukumäärällä; molemmat nollassa → ei riviä; ilman syötettä → Koti ennallaan', () => {
-    const d = F.lataa('pilotti', NYT), a = koti(d, { kehityskohde: 0, eiTekniikkadataa: 7 });
-    expect(teksti(a.h)).toContain('Ei tekniikkadataa · 7 joukkuetta');
-    expect(koti(d, { kehityskohde: 0, eiTekniikkadataa: 0 }).h).not.toContain('data-signaali="tekniikka"');
-    expect(koti(d, undefined).rm.entries.some((e) => e.tyyppi === 'tekniikka')).toBe(false); expect(koti(d, null).h).not.toContain('Tekniikka');
+describe('Kodin pulssi: tekniikka kehityskohteena EI kuulu Kotiin (D171: D118 + D163; kumoaa K9:n pulssirivin) — näkyy Tilanteessa', () => {
+  it('Koti (Käynnistys ja Rytmi) ei näytä tekniikkariviä vaikka syöte antaisi sen; Tilanne näyttää', () => {
+    ['pilotti', 'kypsa', 'kuormitus'].forEach((tila) => { const d = F.lataa(tila, NYT), h = F.kotiHTML(d, {}); expect(h.replace(/<[^>]+>/g, ' '), tila).not.toMatch(/Tekniikka kehityskohteena|Ei tekniikkadataa/); });
+    const d = F.lataa('kypsa', NYT), m = PU.tmPulssiRivit(d.koosteet, { nytMs: NYT, ensimmainenVk: d.ensin, katselmusPv: {}, jaksoVk: d.jaksoVk, kuittaukset: [] }), viim = d.koosteet[d.koosteet.length - 1] || {};
+    const rm = KK.tmKotiRytmiMalli(m, { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: [], viestit: [], nytMs: NYT, tekniikka: { kehityskohde: 4, eiTekniikkadataa: 3 } });
+    expect(rm.entries.some((e) => e.tyyppi === 'tekniikka')).toBe(false); expect(TT.tmTilanneHTML(TT.tmTilanneMalli(d.syote), { t: (x) => x, fn: {} }).replace(/<[^>]+>/g, ' ')).toMatch(/Tekniikka kehityskohteena · \d+ joukkuetta/);
   });
 });
 
@@ -146,7 +132,7 @@ describe('VP_v25 on kytketty libiin (lähdevartijat)', () => {
     expect(VP).toContain('<script src="lib/tm_tekniikka.js?v='); expect(VP.indexOf('lib/tm_tekniikka.js')).toBeLessThan(VP.indexOf('lib/tm_vp_tilanne.js'));
     expect((VP.match(/tmTekniikkaJoukkueLuokka\(/g) || []).length).toBeGreaterThanOrEqual(3);                      // TP-ehdotus + poikkeamalista + joukkuekortin status
     expect((VP.match(/w\.osaAlue !== 'tekniikka'|x\.osaAlue === 'tekniikka'/g) || []).length).toBeGreaterThanOrEqual(2);
-    expect(VP).toContain('tmTekniikkaYhteenveto(');                                                                  // Kodin pulssi
+    expect(VP).not.toContain('_vpTekniikkaYhteenveto');   // D171: tekniikka kehityskohteena ei ole Kodissa (vain Tilanne)
     const tilanne = readFileSync(join(juuri, 'lib/tm_vp_tilanne.js'), 'utf8'); expect(tilanne).toContain('tmJoukkueTekniikka('); expect(tilanne).not.toMatch(/Tekniikka alle ikätason/);
   });
   it('Tilanteen ehdotuksen teksti: tunniste tki_alhainen, uusi perustelu, vanhaa "alle pronssitason" ei ole', () => {

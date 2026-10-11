@@ -126,6 +126,8 @@ const SV_ODOTTAA_SANKTIOINTIA = [
   'Lukukuittaus ei tallentunut — viesti pysyy lukemattomana.',
   'Viesti tallentui historiaan mutta ei valmentajan Inboxiin — yritä uudelleen.',
   // Erä 6 (docs/i18n/sv_kaannoserae_6.json, S2 PR 2): kuittauksen toastit.
+  // Erä 17 (docs/i18n/sv_kaannoserae_17.json, Koti D171): Seuran tauko -lomakkeen toast.
+  'Viimeinen päivä ei voi olla ennen alkua',
   'Siirretty ensi viikolle', 'Kuitattu', 'Kuittaus ei tallentunut — tarkista yhteys ja yritä uudelleen.',
 ];
 
