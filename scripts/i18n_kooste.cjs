@@ -17,6 +17,7 @@
    Identiteetti = (era, osio, avain). Avain, joka on erässä tyhjänä mutta puuttuu koosteesta = PUUTTUVA; avain, joka on koosteessa
    mutta ei löydy erästä (tai jonka fi eroaa) = YLIMÄÄRÄINEN. Molemmat kaatavat ajon. */
 'use strict';
+/* {gen} ja {e} = suomen taivutuspäätteen paikkamerkit (esim. {b}:{e} → 15:stä); sv saa jättää ne pois (Gemini-erä 19, 11.10.). */
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
@@ -178,7 +179,7 @@ function tarkista(kooste, hakemisto, opts) {
     if (opts.tayta) {
       if (typeof r.sv !== 'string' || !r.sv.trim()) lisaa(id + ': sv tyhjä' + (r.kysymys ? ' (Geminin kysymys: ' + r.kysymys + ')' : '') + ' — ' + JSON.stringify(r.fi));
       else {
-        if (joukko(r.fi, PAIKKA).replace(/\{gen\}\|?/g, '') !== joukko(r.sv, PAIKKA)) lisaa(id + ': paikkamerkit eroavat (fi: ' + joukko(r.fi, PAIKKA) + ' ≠ sv: ' + joukko(r.sv, PAIKKA) + ')');
+        if (joukko(r.fi, PAIKKA).split('|').filter((x) => x !== '{gen}' && x !== '{e}').join('|') !== joukko(r.sv, PAIKKA).split('|').filter((x) => x !== '{gen}' && x !== '{e}').join('|')) lisaa(id + ': paikkamerkit eroavat (fi: ' + joukko(r.fi, PAIKKA) + ' ≠ sv: ' + joukko(r.sv, PAIKKA) + ')');
         if (joukko(r.fi, TAGI) !== joukko(r.sv, TAGI)) lisaa(id + ': HTML-tagit eroavat');
         if (/^\s/.test(r.fi) !== /^\s/.test(r.sv) || /\s$/.test(r.fi) !== /\s$/.test(r.sv)) lisaa(id + ': alku-/loppuvälilyönti eroaa fi:stä — ' + JSON.stringify(r.fi));
       }
@@ -263,7 +264,7 @@ function tarkistaEra19(lahetetty, palautus) {
       if (!x) { lisaa('PUUTTUVA rivi: ' + osio + ' :: ' + avain); continue; }
       if (x.fi !== r.fi) { lisaa('fi muuttunut: ' + osio + ' :: ' + avain); continue; }
       if (typeof x.sv !== 'string' || !x.sv.trim()) { lisaa('sv tyhjä: ' + osio + ' :: ' + avain + (x.kysymys ? ' (Geminin kysymys: ' + x.kysymys + ')' : '')); continue; }
-      if (joukko(r.fi, PAIKKA).replace(/\{gen\}\|?/g, '') !== joukko(x.sv, PAIKKA)) lisaa('paikkamerkit eroavat: ' + osio + ' :: ' + avain + ' (fi: ' + joukko(r.fi, PAIKKA) + ' ≠ sv: ' + joukko(x.sv, PAIKKA) + ')');
+      if (joukko(r.fi, PAIKKA).split('|').filter((x) => x !== '{gen}' && x !== '{e}').join('|') !== joukko(x.sv, PAIKKA).split('|').filter((x) => x !== '{gen}' && x !== '{e}').join('|')) lisaa('paikkamerkit eroavat: ' + osio + ' :: ' + avain + ' (fi: ' + joukko(r.fi, PAIKKA) + ' ≠ sv: ' + joukko(x.sv, PAIKKA) + ')');
       if (joukko(r.fi, TAGI) !== joukko(x.sv, TAGI)) lisaa('HTML-tagit eroavat: ' + osio + ' :: ' + avain);
       if (/^\s/.test(r.fi) !== /^\s/.test(x.sv) || /\s$/.test(r.fi) !== /\s$/.test(x.sv)) lisaa('alku-/loppuvälilyönti eroaa: ' + osio + ' :: ' + avain);
     }
