@@ -110,6 +110,8 @@ describe('5 · luonnin lib (tm_kalenteri_omat) ja Masterin kytkentä', () => {
     const el = () => ({ style: {} }), laji = el(), wrap = { style: {}, querySelector: () => laji }, a = el(), b = el();
     O.tmKalOmatNayta('erikoisohjelma', { wrap, piilota: [a, b] }); expect([wrap.style.display, laji.style.display, a.style.display]).toEqual(['flex', 'block', 'none']); O.tmKalOmatNayta('joukkueen_vapaa', { wrap, piilota: [a, b] }); expect([wrap.style.display, laji.style.display, b.style.display]).toEqual(['flex', 'none', 'none']);
     O.tmKalOmatNayta('harjoitus', { wrap, piilota: [a, b] }); expect([wrap.style.display, a.style.display, b.style.display]).toEqual(['none', '', '']);
+    const m = el(); m.style.display = 'none'; O.tmKalOmatNayta('harjoitus', { wrap, piilota: [m] }); expect(m.style.display).toBe('none');   // tyyppikohtaisesti piilotettu lohko (mentorointi/logistiikka) ei aukea vahingossa
+    O.tmKalOmatNayta('joukkueen_vapaa', { wrap, piilota: [m] }); O.tmKalOmatNayta('harjoitus', { wrap, piilota: [m] }); expect(m.style.display).toBe('none');
   });
   it('HTML: Loppupäivä + Laji (5 lajia), ei hexejä/emojeja; Master kytkee libin eikä käsittele päiviä/tyyppejä itse', () => {
     const h = O.tmKalOmatHTML({ t: (x) => x, pvm: '2026-10-22' }); expect(h).toContain('id="tapahtumaLoppu" value="2026-10-22"'); expect((h.match(/<option/g) || []).length).toBe(5); expect(h).not.toMatch(/#[0-9a-fA-F]{3,6}\b/); expect(h).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);

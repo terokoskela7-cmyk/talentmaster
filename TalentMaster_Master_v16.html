@@ -151,11 +151,12 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kalenteri_malli.js?v=4"></script>   <!-- K35-2: kalenterimalli (tuntiväli, oletuspaikka, kauden loppu, lähteen omistajuus; D181/D185) -->
 <script src="lib/tm_kalenteri_kyselyt.js?v=2"></script>   <!-- K35-1: tauko + seuraava tapahtuma (D193) -->
 <script src="lib/tm_viikkopohja.js?v=3"></script>   <!-- K35-3: viikkopohjat + Täytä viikko -laskenta -->
-<script src="lib/tm_kalenteri_nakyma.js?v=5"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
+<script src="lib/tm_kalenteri_nakyma.js?v=6"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
+<script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=3"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
-<script src="lib/tm_kalenteri_omat.js?v=1"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
+<script src="lib/tm_kalenteri_omat.js?v=2"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
 <script src="lib/tm_kehitystyopoyta.js?v=16"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
@@ -10770,7 +10771,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
   const _tyyliValittu = (btn, on, color) => { btn.style.borderColor = on ? color : 'var(--border)'; btn.style.background = on ? 'color-mix(in srgb,' + color + ' 12%,transparent)' : 'var(--surface)'; };
 
   const _pikaAvaimet = window.TM_KALENTERI_TYYPIT.tmKalPikavalinnat().map(x => x.avain);   // D185: 5 pikavalintaa (rekisteri)
-  let valittuTyyppi = 'harjoitus';
+  let valittuTyyppi = 'harjoitus', _aamu = false;   // _aamu: Aamutreeni-pikavalinta (harjoituksen esiasetus, ei uutta tyyppiä)
   const tyyppirivi = document.createElement('div');
   tyyppirivi.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
   tyypit.forEach(t => {
@@ -10780,6 +10781,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
     btn.style.cssText = 'padding:8px;border-radius:6px;border:0.5px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px;text-align:left;transition:all .12s;min-height:36px';
     _tyyliValittu(btn, t.id === valittuTyyppi, t.color);
     btn.onclick = () => {
+      if (_aamu) _aamuValitse(false);
       valittuTyyppi = t.id;
       tyypit.forEach(t2 => _tyyliValittu(document.getElementById('tapahtumatyyppi_' + t2.id), t2.id === t.id, t2.color));
       // Näkyvyystoggle klikkaushetkellä (elementit ovat closuressa; korvaa build-aikaisen getElementById-toggle-bugin).
@@ -10792,6 +10794,9 @@ function _avaaUusiTapahtuma(pvm, klo) {
     if (!_pikaAvaimet.includes(t.id)) { btn.classList.add('cal-tyyppi-muu'); btn.style.display = 'none'; }   // D185: loput tyypit vasta "Muut tyypit" -painikkeella
     tyyppirivi.appendChild(btn);
   });
+  // K35-6d: Aamutreeni-pikavalinta = harjoitus + alalaji 'aamutreeni', 07:00–08:30, Kenelle poimitut pelaajat (pakollinen), Viikoittain (ma–su-valinta)
+  const aamuBtn = document.createElement('button'); aamuBtn.type = 'button'; aamuBtn.id = 'tapahtumatyyppiAamu'; aamuBtn.textContent = masterT('Aamutreeni'); aamuBtn.style.cssText = 'padding:8px;border-radius:6px;border:0.5px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px;text-align:left;min-height:36px';
+  aamuBtn.onclick = () => _aamuValitse(true); tyyppirivi.appendChild(aamuBtn);
   const muutBtn = document.createElement('button'); muutBtn.type = 'button'; muutBtn.id = 'tapahtumatyyppiMuut'; muutBtn.className = 'cal-modal-muut'; muutBtn.textContent = masterT('Muut tyypit');
   muutBtn.onclick = () => { tyyppirivi.querySelectorAll('.cal-tyyppi-muu').forEach(b => { b.style.display = ''; }); muutBtn.remove(); };
   if (tyypit.some(t => !_pikaAvaimet.includes(t.id))) tyyppirivi.appendChild(muutBtn);
@@ -10890,6 +10895,14 @@ function _avaaUusiTapahtuma(pvm, klo) {
   box.appendChild(aikaRivi);
   // K35-6d (D240/D241): koko päivän omat (Joukkueen vapaa, Erikoisohjelma) — Loppupäivä + Laji; kellonajat ja toistuvuus piiloon
   const kpWrap = document.createElement('div'); kpWrap.style.cssText = 'display:none;flex-direction:column;gap:14px'; kpWrap.innerHTML = window.TM_KALENTERI_OMAT.tmKalOmatHTML({ t: masterT, pvm: pvm, inpCss: 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box' }); box.appendChild(kpWrap);
+  const aamuWrap = document.createElement('div'); aamuWrap.style.display = 'none'; aamuWrap.innerHTML = window.TM_AAMUTREENI.tmAamuHTML({ t: masterT, pvm: pvm }); box.appendChild(aamuWrap);
+  function _aamuValitse(on) {
+    _aamu = on;
+    if (on) { const E = window.TM_AAMUTREENI.ESIASETUS; document.getElementById('tapahtumatyyppi_harjoitus').click(); _aamu = true; document.getElementById('tapahtumaAlkaa').value = E.alkaa; document.getElementById('tapahtumaPaattyy').value = E.paattyy; toistChips.querySelector('[data-cad="' + E.toisto + '"]').click(); knWrap._tapa = 'pelaajat'; _knKosk = true; }
+    else { knWrap._tapa = null; _knKosk = false; }
+    _mKnRender(); _aamuTyylit();
+  }
+  function _aamuTyylit() { aamuBtn.style.borderColor = _aamu ? 'var(--teal)' : 'var(--border)'; aamuBtn.style.background = _aamu ? 'color-mix(in srgb,var(--teal) 12%,transparent)' : 'var(--surface)'; aamuWrap.style.display = _aamu ? 'block' : 'none'; }
   const _kpNayta = () => window.TM_KALENTERI_OMAT.tmKalOmatNayta(valittuTyyppi, { wrap: kpWrap, piilota: [aikaRivi, mentWrap, logWrap, toistL, toistChips, paattyyWrap, toistEsik] });
 
   // D185 — Paikka luontiin; oletus = joukkueen viimeisimmän saman tyypin tapahtuman paikka (muutetaan tyypin vaihtuessa, kunnes käyttäjä kirjoittaa itse)
@@ -10906,8 +10919,8 @@ function _avaaUusiTapahtuma(pvm, klo) {
   var knWrap = document.createElement('div'), _knKosk = false;
   var _mKnRender = function () {
     var R = window.TM_RYHMAT; if (!R) return; var tapa = knWrap._tapa || (R.tmOletusNakyvyys(valittuTyyppi) === 'henkilokunta' ? 'henkilokunta' : 'joukkue'), jn = {}; if (_joukkue) jn[_joukkue] = _joukkue;
-    knWrap.innerHTML = R.tmKenelleHTML({ esc: _mEsc, t: masterT, tapa: tapa, sallitut: window.TM_KALENTERI_OMAT.tmKalOmatKenelle(valittuTyyppi, { joukkue: !!_joukkue }).sallitut, joukkueHkNimi: masterT('Joukkueen valmennus') + ' (' + (_joukkue || '') + ')', joukkueTapaNimi: _joukkue || masterT('Koko seura'), ryhmat: window._mRyLista || [], pelaajat: (_pelaajatData || []).map(function (p) { return { id: p.id, nimi: _tmHenkiloNimi(p), joukkue: p.joukkue || '' }; }), jasenMaara: function (r) { return (r.tyyppi === 'saanto' ? 0 : (r.pelaajat_id || []).length); } });
-    var sel = knWrap.querySelector('[data-kn-tapa]'); sel.onchange = function () { _knKosk = true; knWrap._tapa = sel.value; R.tmKenelleNayta(knWrap); }; R.tmKenelleNayta(knWrap);
+    knWrap.innerHTML = R.tmKenelleHTML({ esc: _mEsc, t: masterT, tapa: tapa, sallitut: _aamu ? window.TM_AAMUTREENI.tmAamuKenelle().sallitut : window.TM_KALENTERI_OMAT.tmKalOmatKenelle(valittuTyyppi, { joukkue: !!_joukkue }).sallitut, joukkueHkNimi: masterT('Joukkueen valmennus') + ' (' + (_joukkue || '') + ')', joukkueTapaNimi: _joukkue || masterT('Koko seura'), ryhmat: window._mRyLista || [], pelaajat: (_pelaajatData || []).map(function (p) { return { id: p.id, nimi: _tmHenkiloNimi(p), joukkue: p.joukkue || '' }; }), jasenMaara: function (r) { return (r.tyyppi === 'saanto' ? 0 : (r.pelaajat_id || []).length); } });
+    var sel = knWrap.querySelector('[data-kn-tapa]'); sel.onchange = function () { _knKosk = true; knWrap._tapa = sel.value; R.tmKenelleNayta(knWrap); }; sel.style.display = _aamu ? 'none' : ''; R.tmKenelleNayta(knWrap);   // aamutreeni: joukkue-valinta piiloon
   };
   var _mKnTyyppiMuuttui = function () { if (!_knKosk) { knWrap._tapa = null; _mKnRender(); } };
   _mKnRender(); box.appendChild(knWrap); if (window._mRyLista === null) _mRyHaeLista().then(_mKnRender);
@@ -10951,7 +10964,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
   tallBtn.textContent = masterT('Tallenna tapahtuma');
   tallBtn.style.cssText = 'padding:10px;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;margin-top:4px';
   tallBtn.onclick = async () => {
-    const nimi = nimiInput.value.trim() || (tyypit.find(t=>t.id===valittuTyyppi)?.label || masterT('Tapahtuma'));
+    const nimi = nimiInput.value.trim() || (_aamu ? masterT('Aamutreeni') : (tyypit.find(t=>t.id===valittuTyyppi)?.label || masterT('Tapahtuma')));
     const alkaa = document.getElementById('tapahtumaAlkaa').value;
     const paattyy = document.getElementById('tapahtumaPaattyy').value;
     var pvmVal = (document.getElementById('tapahtumaPvm') || {}).value || pvm;   // Bugi 1b — valittu päivä (ei parametri-lukko)
@@ -10973,6 +10986,8 @@ function _avaaUusiTapahtuma(pvm, klo) {
       try {
         var alkaaTs = new Date(pvmVal + 'T' + (alkaa || '00:00') + ':00');
         var paattyyTs = new Date(pvmVal + 'T' + (paattyy || alkaa || '00:00') + ':00');
+        var _aamuPv = _aamu ? window.TM_AAMUTREENI.tmAamuLue(aamuWrap) : null;
+        if (_aamu && !_aamuPv.length) { toast(masterT('Valitse vähintään yksi viikonpäivä'), 'err'); tallBtn.disabled = false; tallBtn.textContent = masterT('Tallenna tapahtuma'); return; }
         var _om = null;   // K35-6d: Joukkueen vapaa / Erikoisohjelma → koko päivä, monipäiväinen, joukkue (id) pakollinen
         if (window.TM_KALENTERI_OMAT.tmKalOmatTyyppi(valittuTyyppi).kokoPaiva) {
           _om = window.TM_KALENTERI_OMAT.tmKalOmatDoc({ tyyppi: valittuTyyppi, pvm: pvmVal, loppu: (document.getElementById('tapahtumaLoppu') || {}).value, laji: (document.getElementById('tapahtumaLaji') || {}).value, nimi: nimiInput.value.trim(), joukkueId: _calJoukkueId(), joukkueNimi: _joukkue });
@@ -11019,7 +11034,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
         else { var _kv = window.TM_RYHMAT.tmKenelleLue(knWrap), _jn = {}; if (_joukkue) _jn[_joukkue] = _joukkue; if (_kv.tapa === 'joukkue_hk') { _jn = {}; _jn[_calJoukkueId()] = _joukkue; } var _rr0 = (window._mRyLista || []).filter(function (x) { return x.id === _kv.ryhma_id; })[0];
           var _kd = window.TM_RYHMAT.tmKenelleDoc(Object.assign(_kv, { joukkue: _kv.tapa === 'joukkue_hk' ? (_calJoukkueId() || '') : (_joukkue || ''), joukkueNimet: _jn }), { ryhmat: window._mRyLista || [], ryhmaIdt: _rr0 ? await _mRyJasenIdt(_rr0) : [], oletusPelaajat: doc.pelaajat_id });
           if (!_kd.ok) { toast(masterT(window.TM_RYHMAT.tmKenelleVirhe(_kd.syy, { t: masterT })), 'err'); tallBtn.disabled = false; tallBtn.textContent = masterT('Tallenna'); return; }
-          Object.assign(doc, _kd.osa); }
+          Object.assign(doc, _kd.osa); if (_aamu) Object.assign(doc, window.TM_AAMUTREENI.tmAamuOsa(nimi)); }   // aamutreeni: alalaji 'aamutreeni', kohde poimitut pelaajat
         // P7-c.2: logistiikka (additiivinen; vain ei-tyhjät kentät). Sama kalenteri-dokki → ei Rules-muutosta.
         var _mlog = {};
         if (mSaap.value) _mlog.saapumisaika = mSaap.value;
@@ -11032,22 +11047,22 @@ function _avaaUusiTapahtuma(pvm, klo) {
           toast(masterT('✓ Tapahtuma tallennettu: ') + nimi, 'ok');
         } else {
           var _pv = toistPaattyyInp.value || window.TM_KALENTERI_MALLI.tmKalKaudenLoppu(new Date());
-          var _rr = TM_KALENTERI.tmKalenteriOccurrences(pvmVal, _calCadence, _pv, 60);   // Bugi 1b — valittu alkupäivä
-          var _sid = TM_KALENTERI.tmSarjaId(Date.now(), Math.random().toString(36).slice(2, 8));
-          var _pn = TM_KALENTERI.tmToistuvuusPaiva(pvmVal);
-          var _batch = _db.batch();
-          var _col = _db.collection('seurat').doc(_seuraId).collection('kalenteri');
-          _rr.pvmt.forEach(function(op) {
-            var d2 = Object.assign({}, doc, {
-              alkaa: firebase.firestore.Timestamp.fromDate(new Date(op + 'T' + (alkaa || '00:00') + ':00')),
-              paattyy: firebase.firestore.Timestamp.fromDate(new Date(op + 'T' + (paattyy || alkaa || '00:00') + ':00')),
-              toistuvuus: { tyyppi: _calCadence, paiva: _pn, paattyy: _pv },
-              toistuvuus_sarja_id: _sid
+          var _starts = _aamu ? window.TM_AAMUTREENI.tmAamuAlut(pvmVal, _aamuPv) : [pvmVal], _batch = _db.batch(), _col = _db.collection('seurat').doc(_seuraId).collection('kalenteri'), _n = 0, _kat = false;   // aamutreeni: jokaiselle valitulle viikonpäivälle oma sarja
+          _starts.forEach(function(st) {
+            var _rr = TM_KALENTERI.tmKalenteriOccurrences(st, _calCadence, _pv, 60), _sid = TM_KALENTERI.tmSarjaId(Date.now(), Math.random().toString(36).slice(2, 8)), _pn = TM_KALENTERI.tmToistuvuusPaiva(st);   // Bugi 1b — valittu alkupäivä
+            _n += _rr.pvmt.length; _kat = _kat || _rr.katkaistu;
+            _rr.pvmt.forEach(function(op) {
+              var d2 = Object.assign({}, doc, {
+                alkaa: firebase.firestore.Timestamp.fromDate(new Date(op + 'T' + (alkaa || '00:00') + ':00')),
+                paattyy: firebase.firestore.Timestamp.fromDate(new Date(op + 'T' + (paattyy || alkaa || '00:00') + ':00')),
+                toistuvuus: { tyyppi: _calCadence, paiva: _pn, paattyy: _pv },
+                toistuvuus_sarja_id: _sid
+              });
+              _batch.set(_col.doc(), d2);
             });
-            _batch.set(_col.doc(), d2);
           });
           await _batch.commit();
-          toast('✓ ' + _rr.pvmt.length + masterT(' tapahtumaa tallennettu') + (_rr.katkaistu ? masterT(' (katkaistu 60:een)') : ''), 'ok');
+          toast('✓ ' + _n + masterT(' tapahtumaa tallennettu') + (_kat ? masterT(' (katkaistu 60:een)') : ''), 'ok');
         }
         await _lataaKalenteriTapahtumat();
       } catch(e) {
