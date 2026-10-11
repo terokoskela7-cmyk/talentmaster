@@ -29,10 +29,16 @@
 
 ### Ennen 1.11.
 
-**K35-1 · Tyyppirekisteri ja tapahtumamalli (kaista auto).**
+**K35-1 · Tyyppirekisteri, tapahtumamalli ja jaetut kyselyt (kaista auto). Ensimmäisenä, koska toinen sessio tarvitsee `tmOnTauko`n ja `tmSeuraavaTapahtuma`n ennen 1.11.**
 - `lib/tm_kalenteri_tyypit.js`: 12 tyyppiä (nykyiset VP:n avaimet ja `seuran_tauko`), `nimiAvain` (i18n), `kerros` ('valmennus'|'silmukka'|'asiat', D131), `merkki` ('harj'|'ott'|'test'|'pal'|'muu'; tyylit tokeneista, ei hex), `vainHenkilokunta` (= `TM_RYHMAT.HK_TYYPIT`, yksi lähde), `pikavalinta` (5 yleisintä, D185). Ei emojeja.
 - `lib/tm_kalenteri_malli.js`: `tmKalNormalisoi(doc)` → yksi muoto molemmille sovelluksille (Timestamp → `{alkaaMs, paattyyMs, pvm}`; `joukkue` id säilyy, nimi `joukkue_nimi`; `poistettu_pvm` tulkitaan kummastakin muodosta), `tmKalKaudenLoppu(pvm)` (siirretään `_laskeKausi`n logiikka), `LAHTEEN_KENTAT` (D181: `pvm`, `alkaa`, `paattyy`, `paikka`, `tila:'peruttu'`), `tmKalSaaMuokata(kentta, ev)` (lähteen kentät lukittuja, kun `lahde !== 'manuaalinen'`).
-- Testit: rekisteri kattaa kaikki nykyiset tyypit; normalisointi molemmista muodoista; vartija `tests/kalenteri_yksi_rekisteri.test.js`: uutta `{testitapahtuma:…, ottelu:…}`-tyyppikarttaa ei saa lisätä HTML:ään (nykyiset neljä sallittu listalla, lista saa vain pienentyä).
+- `lib/tm_kalenteri_kyselyt.js` (puhdas, kaksi exportia, kopio `functions/`-kansioon kuten `tm_ryhmat.js`):
+  - `tmOnTauko(tapahtumat, pvm, joukkueId?)` → `{tauko:boolean, nimi?}`. **Ainoa lähde on `seuran_tauko`-tapahtuma** (D171). Korvaa `lib/tm_vp_koti.js` L107–109:n sisäisen `_tauot`-funktion ja `env.tauot`-syötteen; tyypit `tauko` ja `loma` siirretään rekisteriin aliaksina, kunnes data on tarkistettu. Mockupin 15 `kausisuunnitelma.tauot` ja mockupin 26 `kalenteri/tauot/{id}` **eivät toteudu** (D193).
+  - `tmTaukopaivat(alku, loppu, tapahtumat)` → taukopäivien määrä ikkunoiden pidennykseen (D131: katselmusikkunat, eskalointi 7 pv).
+  - `tmSeuraavaTapahtuma(tapahtumat, {joukkue?, ryhma?, pelaajaId?, tyyppi?, nyt})` → `{id, alkaa, paattyy, paikka, tyyppi, nimi} | null`. Pelaajakohtainen haku käyttää `TM_RYHMAT.tmTapahtumaKuuluuPelaajalle`a, jotta ryhmäharjoitukset tulevat mukaan. Käyttäjät: kehitystyöpöydän "Treenattiinko?" (lähde "kalenteri · harjoitus 17.00"), valmentajan Tänään (D142), pelaajan Viikko.
+  - `tmTestijaksoEhdotus(viimeisin_pvm, MUISTUTUS_KK, VANHA_KK)` → `{muistutus_pvm, vanhenee_pvm}` kausinäkymän testijaksoriville ("Suunnittele testijakso →" avaa Kalenteri · Kausi). Rajat tulevat `lib/tm_nakyma_ryhmat.js`:stä, ei omia vakioita.
+- **Pelimuoto:** viikkopohjan valinta lukee `joukkueet/{jid}.pelimuoto` ('5v5'|'8v8'|'11v11', toisen session päätös, Rules sen PR B:ssä marraskuussa). Pohjalla on oma `pelimuoto`-tunniste ("tämä on 8v8-pohja"), mutta joukkueen pelimuotoa ei tallenneta muualle. Jos kenttä puuttuu, `tmPohjaJoukkueelle` palauttaa `null` ja näkymä pyytää valitsemaan pelimuodon kerran.
+- Testit: rekisteri kattaa kaikki nykyiset tyypit; normalisointi molemmista muodoista; tauko tunnistetaan vain `seuran_tauko`sta; seuraava tapahtuma pelaajalle sisältää ryhmän tapahtuman; vartija `tests/kalenteri_yksi_rekisteri.test.js`: uutta `{testitapahtuma:…, ottelu:…}`-tyyppikarttaa ei saa lisätä HTML:ään (nykyiset neljä sallittu listalla, lista saa vain pienentyä).
 - Ei käyttöliittymämuutoksia.
 
 **K35-2 · Masterin kalenterin pikakorjaukset (kaista Tero).**
@@ -57,7 +63,7 @@
 
 **K35-6 · Täytä viikko Masteriin (kaista Tero).**
 - `lib/tm_kalenteri_nakyma.js`: päiväsarakkeet, kortit aikajärjestyksessä (D182, mockup §2), mobiilissa päivät riveinä. Esikatselutila katkoviivakortein, päällekkäisyys amber-kortissa. Yksi signaalikortti, jossa on Täytä viikko tai Vahvista N harjoitusta. Monista viikko ja Lisää yksittäinen tapahtuma linkkeinä.
-- Vahvistus kirjoittaa batchina (`luoja_uid`), ja perheet saavat yhden viikkoilmoituksen. Ilmoitus on uusi päätöshaara `kalenteri_notif.js`iin: tunniste `viikko_<jid>_<isoviikko>`, ja saman batchin yksittäiset muutosilmoitukset ohitetaan. Tämä on functions-muutos, joten sen voi tehdä omana PR:nään.
+- Vahvistus kirjoittaa batchina (`luoja_uid`), ja perheet saavat yhden viikkoilmoituksen (`pelaajat/{pid}/notifikaatiot`, D192). Ilmoitus on uusi päätöshaara `kalenteri_notif.js`iin: tunniste `viikko_<jid>_<isoviikko>`, ja saman batchin yksittäiset muutosilmoitukset ohitetaan. Tämä on functions-muutos, joten sen voi tehdä omana PR:nään.
 - Master käyttää komponenttia. VP saa sen R1:ssä (K35-8).
 - Selaintarkistus: KPV P13 valmentaja ja VP, kolme tilaa, tumma, vaalea ja 390.
 
@@ -74,6 +80,12 @@
 **K35-10 · MyClub API (kaista Tero, functions).** ARKKITEHTUURI §4.1: polling 15 min, `updated_after`, avain Secret Managerissa (`runWith({secrets})`, §39), ryhmäyhdistäminen. Vain seuralle, joka on tilannut API:n. EU-sijainti: MyClub on suomalainen palvelu, mutta käsittelijäsuhde kirjataan alihankkijalistaan (§39).
 
 **K35-11 · Kuorma rinnakkain (kaista Tero, K5:n yhteydessä).** `lib/tm_kuorma_rinnakkain.js`: `{valmentaja: valmentaja_rpe, pelaajat: mediaani, vastasi, n, ero, huomio: |ero| > 2}`. Pelaajien luku vasta, kun vastanneita on vähintään 50 % (D139). Näytetään vain henkilökunnalle. Vartija: pelaaja- ja huoltajanäkymissä ei kutsuja.
+
+## Rajapinnat toiseen sessioon (lisäbriiffi 11.10., tarkistettu)
+- **Yhteiset tiedot, yksi lähde:** pelimuoto `joukkueet.pelimuoto` · jaksot `jaksofokus` (kalenteri näyttää nauhoina, ei omista) · ISO-viikko `lib/tm_viikko.js` · tauot `seuran_tauko` (D193) · seuraava tapahtuma `tmSeuraavaTapahtuma` · testirajat `MUISTUTUS_KK`/`VANHA_KK` `tm_nakyma_ryhmat.js`:stä. Kokonaiskuva: `docs/KOKONAISKUVA_KAUSI_JAKSO_VIIKKO.md`.
+- **Ilmoitukset (D192):** automaattiset (tapahtuma, muutos, peruutus, viikko-ohjelma, muistutus) ovat `notifikaatiot`-kokoelmassa ja vain funktiot kirjoittavat niitä (Rules v3.56 L1480–1484). Ihmisen lähettämät ("Muistuta pelaajaa", toisen session PR D) ovat `viestit`-kokoelmassa. Pelaajan sovelluksessa yksi "Sinulle"-lista yhdistää molemmat selaimessa (`lib/tm_sinulle.js`, kalenterisession omistuksessa). Ei toista muistutusjärjestelmää.
+- **D-numerot:** D109–D121 on käytössä mockupissa 23 (Seuran pulssi v2, D119 lukittu) ja `CODE_BRIEF_S2_KOTI.md`:ssä. #998:n ja mockupin 34 uudet päätökset on numeroitava uudelleen (ehdotus: D172–D179, sitten D200→). Kalenteri käyttää D180–D199.
+- **Jaetut tiedostot:** kalenterin koodi-PR:t Masteriin ja VP:hen vasta #995:n mergen jälkeen; ROADMAP-muutokset #998:n jälkeen. `docs/design/idp-v2/README.md` on molempien käytössä: yksi rivi per mockup, ei muita muokkauksia.
 
 ## Avoimet (Tero)
 1. D180–D191 kuittaus. Erityisesti D190 (pelaajakohtainen iCal-token) ennen K35-7:ää ja D188 vs. D27 (kumpi luku ensin mobiilissa).
