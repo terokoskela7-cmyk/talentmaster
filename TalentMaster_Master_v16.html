@@ -151,8 +151,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kalenteri_malli.js?v=4"></script>   <!-- K35-2: kalenterimalli (tuntiväli, oletuspaikka, kauden loppu, lähteen omistajuus; D181/D185) -->
 <script src="lib/tm_kalenteri_kyselyt.js?v=2"></script>   <!-- K35-1: tauko + seuraava tapahtuma (D193) -->
 <script src="lib/tm_viikkopohja.js?v=3"></script>   <!-- K35-3: viikkopohjat + Täytä viikko -laskenta -->
-<script src="lib/tm_kalenteri_nakyma.js?v=3"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
-<script src="lib/tm_kalenteri_taytto.js?v=2"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
+<script src="lib/tm_kalenteri_nakyma.js?v=4"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
+<script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
+<script src="lib/tm_kalenteri_taytto.js?v=3"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
 <script src="lib/tm_kalenteri_omat.js?v=1"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
 <script src="lib/tm_kehitystyopoyta.js?v=16"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
@@ -1056,6 +1057,8 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
 .cal-modal-runko { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 14px; padding: 16px 24px; }
 .cal-modal-ala { flex: none; display: flex; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--border); background: var(--card); }
 .cal-modal-ala > button { flex: 1; }
+.cal-modal-runko > * { flex-shrink: 0; }   /* K35-6e: tekstikentät eivät litisty, kun runko vierittyy (#1005) */
+.cal-modal-runko textarea { min-height: 72px; }
 .cal-modal-muut { padding: 8px; border-radius: 6px; border: 0.5px dashed var(--border); background: transparent; color: var(--ink2); cursor: pointer; font-size: 13px; text-align: left; min-height: 36px; }
 @media (max-width: 480px) {
   .cal-modal-tausta { padding: 16px 0; }
@@ -10132,7 +10135,7 @@ function renderCal() {
   _calSeliteRender();
   if (!document.getElementById('kvCss')) { const st = document.createElement('style'); st.id = 'kvCss'; st.textContent = window.TM_KALENTERI_NAKYMA.CSS; document.head.appendChild(st); }
   const testiIdt = {}; testit.forEach(t => { testiIdt[t.id] = 1; });
-  const C = { t: masterT, tanaan: todayStr, nayta_joukkue: !_joukkue, tyyppiNimi: avain => _calTyyppiNimi(window.TM_KALENTERI_TYYPIT.tmKalTyyppi(avain)),
+  const C = { t: masterT, tanaan: todayStr, nyt: Date.now(), henkilokunta: _saaMerkitaLasnaolo(), nayta_joukkue: !_joukkue, tyyppiNimi: avain => _calTyyppiNimi(window.TM_KALENTERI_TYYPIT.tmKalTyyppi(avain)),
     on: { kortti: id => (testiIdt[id] ? "_avaaKentta('" + id + "')" : "calEventClick('" + id + "')"), lisaa: pvm => "_avaaUusiTapahtuma('" + pvm + "','17:00')" } };
   const r = _calTayttoOhjain().renderoi(mondayIso, kalTap.concat(testit), C);
   const wk = document.getElementById('calWeek'); if (!wk) return;
@@ -10384,14 +10387,14 @@ function _calLasnaoloPaint(container, state) {
     var tila = state[pid] && state[pid].tila;
     inp.style.display = (tila === 'myohassa' || tila === 'poissa') ? 'block' : 'none';
   });
-  var sum = container.querySelector('.la-sum');
+  var sum = (container.parentNode || container).querySelector('.la-sum');   // yhteenveto on rivilistan ylärivillä (rows-säiliön ulkopuolella; aiemmin ei koskaan täyttynyt)
   if (sum) {
     var k = { paikalla: 0, myohassa: 0, poissa: 0, n: 0 };
     var rsvp = { tulossa: 0, estynyt: 0 };
     Object.keys(state).forEach(function(pid) { k.n++; var st = state[pid].tila; if (st) k[st]++; var sa = state[pid].saatavuus; if (sa === 'tulossa') rsvp.tulossa++; else if (sa === 'estynyt') rsvp.estynyt++; });
     // RSVP-erotus: ennakkoilmoitus (saatavuus) toteutuneen läsnäolon rinnalla.
     var rsvpTxt = (rsvp.tulossa || rsvp.estynyt) ? ('  ·  RSVP: ' + rsvp.tulossa + masterT(' tulossa · ') + rsvp.estynyt + masterT(' estynyt')) : '';
-    sum.textContent = '✓ ' + k.paikalla + masterT(' paikalla · ') + k.myohassa + masterT(' myöhässä · ') + k.poissa + masterT(' poissa / ') + k.n + rsvpTxt;
+    sum.textContent = '✓ ' + window.TM_LASNAOLO.tmLasnaoloYhteenveto(state, masterT).teksti + rsvpTxt;   // ylärivi: "16/16 paikalla" (+ myöhässä/poissa, RSVP) — tekstit libin t()-avainten kautta
   }
 }
 
@@ -10407,7 +10410,7 @@ async function _calRenderLasnaolo(t, container) {
     return;
   }
   var state = {};
-  roster.forEach(function(pl) { var ex = existing[pl.id]; state[pl.id] = { tila: (ex && ex.tila) || null, syy: (ex && ex.syy) || '', saatavuus: (ex && ex.saatavuus) || null }; });   // RSVP-erotus: saatavuus (pelaajan ennakkoilmoitus) read-only
+  var _ev = window.TM_LASNAOLO.tmLasnaoloEsivalinta(roster, existing, masterT); state = _ev.state;   // K35-6e: merkitsemätön tapahtuma → kaikki paikalla ESIVALITTUNA (ei tallenna ennen kuittausta); jo merkittyä ei muuteta   // RSVP-erotus: saatavuus (pelaajan ennakkoilmoitus) read-only
 
   container.innerHTML = '';
   var otsikko = document.createElement('div');
@@ -10415,6 +10418,7 @@ async function _calRenderLasnaolo(t, container) {
   otsikko.innerHTML = '<span style="font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)">' + masterT('Läsnäolo') + '</span>'
     + '<span class="la-sum" style="font-size:11px;color:var(--ink3)"></span>';
   container.appendChild(otsikko);
+  if (_ev.esivalittu) { var _vihje = document.createElement('div'); _vihje.style.cssText = 'font-size:12px;color:var(--ink3);margin-bottom:6px'; _vihje.textContent = masterT('Esivalittu: kaikki paikalla. Muuta poikkeukset ja tallenna.'); container.appendChild(_vihje); }
 
   var kaikkiBtn = document.createElement('button');
   kaikkiBtn.textContent = masterT('✓ Merkitse kaikki paikalla');

@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const N = require('../lib/tm_kalenteri_nakyma.js'), TY = require('../lib/tm_kalenteri_tyypit.js');
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const MASTER = lue('TalentMaster_Master_v16.html');
-const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B50}]/u, HEX = /#[0-9a-fA-F]{3,8}\b/;
+const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{2712}\u{2714}-\u{27BF}\u{2B50}]/u, HEX = /#[0-9a-fA-F]{3,8}\b/;
 const MA = '2026-10-19';
 const ms = (pvm, hhmm) => Date.parse(pvm + 'T' + hhmm + ':00+03:00');
 const t = (id, tyyppi, pvm, a, p, o) => Object.assign({ id, tyyppi, nimi: '', pvm, alkaa: a, paattyy: p, _alkaaMs: ms(pvm, a), _paattyyMs: ms(pvm, p), joukkue_nimi: 'Demo U13', paikka: '' }, o || {});
