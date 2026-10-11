@@ -8,14 +8,14 @@ Tieto valuu ylhäältä alas. Ylempi kerros esitäyttää, alempi voi poiketa, j
 
 | # | Kerros | Omistaja | Rytmi | Tallennuspaikka | Mistä se näkyy |
 |---|---|---|---|---|---|
-| 1 | **Seuran linja** (ikävaiheet, teemat, harjoitepankki, viikkopohjat, taitomatriisi) | VP, UTJ | kerran vuodessa, Excel-tuonti | `valmennuslinja/{lohko}`, `harjoitepankki` | Seuran linja -sivu · Kalenteri · Viikkopohjat |
-| 2 | **Kausi** (vaiheet siirtymä, valmistava, kilpailu; tauot) | VP | kerran kaudessa | `valmennuslinja/kausisuunnitelma_{kausi}` · tauot `kalenteri` tyyppi `seuran_tauko` | Kalenteri · Kausi |
+| 1 | **Seuran linja** (ikävaiheet, teemat, harjoitepankki, viikkopohjat, taitomatriisi) | VP, UTJ | kerran vuodessa, Excel-tuonti | `valmennuslinja/{lohko}`, `harjoitepankki` | **Seuran linja -sivu (D199, mockup 37)**; Kalenteri näyttää |
+| 2 | **Kausi** (vaiheet siirtymä, valmistava, kilpailu; tauot) | VP | kerran kaudessa | `valmennuslinja/kausisuunnitelma_{kausi}` · tauot `kalenteri` tyyppi `seuran_tauko` | Seuran linja · Kausi (muokkaus) · Kalenteri · Kausi (näyttö) |
 | 3 | **Vuosikello** (teemat viikkoina) | VP, seuran linjasta | kerran kaudessa | `valmennuslinja/teemat.jaksot[]` | Kalenteri · Kausi · esivalitsee jakson teeman |
 | 4 | **Joukkuejakso** (neljä aluetta, viikkotavoitteet, katselmusikkuna) | valmentaja tai VP | 3–12 vk | `joukkueet/{jid}.jaksofokus` | Jaksotyökalu (31) · Kalenterin Silmukka-kerros nauhana · Koti ja Tilanne |
 | 5 | **Viikko ja päivä** (harjoitukset, ottelut, osat, alueet, ryhmät, läsnäolo, kuorma) | valmentaja; aika ja paikka voivat tulla lähteestä | viikoittain | `kalenteri/{id}` + `lasnaolijat` + `henkilokunta/muistiinpanot` | Kalenteri · Viikko (= joukkueen viikko, D194) · valmentajan Tänään |
 | 6 | **Pelaajan jakso ja viikko** (ydinvahvuus, tukitavoite, osat a–e, viikkokatsaus, oma fokus) | valmentaja hyväksyy, pelaaja valitsee | jakson mittaan | `pelaajat/{pid}` (jaksofokus-kopio, viikkokatsaukset) | Kehitystyöpöytä (22) · pelaajan Kenttä ja Viikko (09) |
 
-Kalenteri on kerrosten 2, 3 ja 5 **koti** ja kerrosten 4 ja 6 **ikkuna**: se näyttää jaksot ja katselmusikkunat, mutta ei tallenna niitä.
+**Seuran linja -sivu (D199)** on kerrosten 1–3 työkalu: VP suunnittelee siellä linjan, kauden, viikkopohjat ja jaksojen aloituksen. **Kalenteri** on kaikkien tapahtumien (kerros 5) koti ja muiden kerrosten ikkuna: se näyttää vaiheet, tauot, jaksot ja katselmusikkunat, mutta ei omista niitä.
 
 ## 2 · Yksi lähde per tieto
 
@@ -28,6 +28,7 @@ Jokaisella tiedolla on yksi tallennuspaikka ja yksi funktio, josta kaikki lukeva
 | Tauko | `kalenteri`, tyyppi `seuran_tauko` | `tmOnTauko`, `tmTaukopaivat` | signaalit, eskalointi 7 pv, katselmusikkunat, Täytä viikko, jaksojen viikot, Kodin palsta | K35-1 (D193) |
 | Seuraava tapahtuma | `kalenteri` | `tmSeuraavaTapahtuma` | kehitystyöpöydän "Treenattiinko?", valmentajan Tänään (D142), pelaajan Viikko | K35-1 |
 | Tapahtuman tyyppi, kerros, merkki | – | `lib/tm_kalenteri_tyypit.js` | Master, VP, Pelaaja, Vanhempi, Koti | K35-1 (D186) |
+| (Näkymät eivät ole yhteistä tietoa) | – | – | VP:n kalenteri ohjaa seuraa, valmentajan kalenteri rakentaa joukkueen viikkoa: eri näkymät, samat libit | D186 tarkennus 11.10. |
 | Tuodun tapahtuman omistajuus | `kalenteri.lahde`, `lahde_id` | `tmKalSaaMuokata` | luonti, muokkaus, synkat | K35-1 (D181) |
 | Jakso ja sen viikko (vk 3/6) | `joukkueet.jaksofokus` | `tmJaksoTila` (toinen sessio, sama kuin S1) | jaksokortti, kalenterin Silmukka, pulssi | valmis |
 | Viikkotavoite | `jaksofokus.viikot[]` | `tmJfViikko` | joukkueen viikko, pelaajan "Tällä viikolla" | valmis (D36) |
@@ -124,6 +125,7 @@ Roolit CLAUDE.md §4:stä, ryhmänvetäjät (D136) ja hallitus (21). Mockup 35 k
 - **D192** Yksi ilmoitusnäkymä, kaksi lähdettä (35 §10).
 - **D193** Tauolla on yksi lähde: `seuran_tauko` (35 §10).
 - **D194** Joukkueen viikko on kalenterin viikkonäkymä (35 §10).
+- **D199** Seuran linja on VP:n suunnittelutyökalu (mockup 37); viikkopohjat pois Kalenterin välilehdiltä (D180 muutos).
 - **D195** Kerrosmalli ja omistajuustaulukko (tämän dokumentin §1–§3) ovat sopimus sessioiden välillä. Uusi tieto lisätään §2:n taulukkoon ennen kuin sitä luetaan mistään.
 - **D196** Ryhmän viikko ja ryhmän vastaavan oikeus (Tero 11.10.). Ryhmän vastaava (`ryhmat/{rid}.vastuu_uid`) suunnittelee ryhmän omat harjoitukset samoilla työkaluilla kuin joukkueen valmentaja: luo, muokkaa ja poistaa ryhmän tapahtumat, avaa päivän suunnittelun (osat, alueet, harjoitteet seuran pankista) ja merkitsee läsnäolon. Ryhmällä voi olla oma viikkopohja (esim. maalivahdit 1 × vk), jolloin Täytä viikko toimii ryhmälle; ilman pohjaa tapahtumat lisätään pikalisäyksellä tai toistuvuudella. Täytä viikko tarkistaa joukkueen ja ryhmän ehdotukset toisiaan vasten (päällekkäisyys pelaajalla), ja molemmat vastaavat näkevät sen. Pelaajalle ryhmän tapahtuma näkyy neutraalilla nimellä (15 §4). Rules: nykyinen `ryhmanValmentajaTapahtumassa` sallii vain `pelaajat_id`- ja `jaadytetty`-päivityksen; vastaavalle tarvitaan luonti ja täysi muokkaus omiin ryhmän tapahtumiin (Teron kaista, K35-6:n yhteydessä).
 - **D197** Kuorman ja kypsyysvahdin näkymä henkilökunnalle. Fysiikkavalmentaja ja fysioterapeutti saavat Kalenteri · Kuorma -välilehden (R1): joukkueet riveinä, viikot sarakkeina, solu = kuorma rinnakkain (D188), PH- ja tuntematon-pelaajat merkittyinä (§25), klinikkalähetys FLEI < 40 omana rivinään. Ei uutta dataa: luetaan `valmentaja_rpe`, pelaajien kirjaukset, `tmPhvTila` ja pikakentät. Terveystieto pysyy `terveys/`-kokoelmassa, ei kalenterissa.
