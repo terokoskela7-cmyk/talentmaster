@@ -146,6 +146,15 @@ describe('seuraava tapahtuma', () => {
     expect(KY.tmSeuraavaTapahtuma(kal, { joukkue: 'ei_ole', nyt: NYT })).toBe(null);
     expect(KY.tmSeuraavaTapahtuma(null, { nyt: NYT })).toBe(null);
   });
+  it('Masterin muoto (pvm + HH:MM) toimii samoin kuin VP:n Timestamp', () => {
+    const m = [{ id: 'm1', tyyppi: 'harjoitus', joukkue: 'KPV U13', pvm: '2026-10-21', alkaa: '17:30', paattyy: '19:00' }, { id: 'm0', tyyppi: 'harjoitus', joukkue: 'KPV U13', pvm: '2026-10-19', alkaa: '9:00', paattyy: '10:00' }];
+    const nyt = new Date(2026, 9, 20, 12, 0).getTime();
+    const s = KY.tmSeuraavaTapahtuma(m, { joukkue: 'KPV U13', nyt });
+    expect(s.id).toBe('m1'); expect(s.alkaa).toBe(new Date(2026, 9, 21, 17, 30).getTime());
+    expect(KY.tmOnTauko([{ tyyppi: 'seuran_tauko', pvm: '2026-10-12', alkaa: '', paattyy: '' }], new Date(2026, 9, 12, 15).getTime()).tauko).toBe(true);
+    const mt = [{ tyyppi: 'seuran_tauko', pvm: '2026-10-12', alkaa: '00:00', paattyy: '23:59', _alkaaMs: new Date(2026, 9, 12, 0, 0).getTime(), _paattyyMs: new Date(2026, 9, 18, 23, 59).getTime() }];
+    expect(KY.tmOnTauko(mt, new Date(2026, 9, 16, 12).getTime()).tauko).toBe(true);   // monipäiväinen tauko Masterissa: loppupäivä _paattyyMs:stä
+  });
   it('tauko ei ole seuraava tapahtuma', () => {
     expect(KY.tmSeuraavaTapahtuma([{ id: 't', tyyppi: 'seuran_tauko', alkaa: NYT + DAY }], { nyt: NYT })).toBe(null);
   });
