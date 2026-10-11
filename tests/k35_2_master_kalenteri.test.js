@@ -1,5 +1,5 @@
 /* K35-2 · Masterin kalenterin pikakorjaukset (docs/CODE_BRIEF_35_KALENTERI.md; mockup 35 §2–§3; D169, D147, D171, D181, D185, D186). */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import { lataaSivu } from './helpers/sivu_ajuri.mjs';
@@ -116,7 +116,9 @@ describe('7 · korjaukset (katselmointi 11.10.)', () => {
     expect(['2026-10-11', '2026-10-12', '2026-10-18', '2026-10-19'].map((p) => MA.tmKalOsuuPaivalle(tauko, p))).toEqual([false, true, true, false]);
     expect(MASTER).not.toContain("t.tyyppi === 'mentorointi'"); expect(readFileSync(new URL('../lib/tm_kalenteri_nakyma.js', import.meta.url), 'utf8')).toContain('tmKalKokoPaiva');
   });
+  afterEach(() => { vi.useRealTimers(); });
   it('renderCal: syysloma 12.–18.10. näkyy Koko pvm -rivillä jokaisella päivällä, ei tuntiruudukossa', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-05T12:00:00+03:00'));   // kello lukittu: testi ei riipu ajopäivästä (oli punainen 12.10. alkaen)
     const els = {}, el = (id) => els[id] || (els[id] = { innerHTML: '', textContent: '', style: {}, classList: { toggle() {} } });
     const ctx = lataaSivu('TalentMaster_Master_v16.html', { _demo: false, _joukkue: null, _superAdmin: false, _rooli: 'valmentaja', _testitapahtumat: [], _pelaajatData: [], _calWkOffset: Math.round((Date.UTC(2026, 9, 12) - (Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) - ((new Date().getDay() + 6) % 7) * 86400000)) / (7 * 86400000)),   // viikko 12.–18.10. riippumatta ajopäivästä
        masterT: (x) => x, _mEsc: (x) => String(x), toast() {},
