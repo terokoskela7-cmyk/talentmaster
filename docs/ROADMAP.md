@@ -1,5 +1,5 @@
 # TalentMaster™ — Kehityssuunnitelma (Roadmap)
-## Päivitetty 2026-10-08
+## Päivitetty 2026-10-11
 
 ---
 
@@ -28,6 +28,22 @@
 - **Sanasto D54:** "ase" ei näy käyttäjälle. Henkilökunta näkee "ydinvahvuus", pelaaja ja huoltaja "vahvuus".
 - **KPV-data:** harjoitepankki 89, rosteri 125 pelaajaa (14 joukkuetta), tekniikkakilpailut 2023–2025 (190 tulosta).
 - **Testipelaajasääntö:** kirjoitukset vain nimetyille KPV-testipelaajille (#896).
+
+### ✅ Valmis (loka 9.–11.)
+- **VP Koti ja Tilanne v2** (#948–#973, #984): Seuran pulssi Kotiin, Tilanne = kausi, Käynnistys-vaihe, rytmivaihe, joukkuekortit ikävaiheittain (D171), laatuportti ja fonttiasteikko (D168, D169).
+- **Yksi määritelmä mittareille** (#975–#983): tekniikka (`lib/tm_tekniikka.js`, TKI → SM-tasot; Eerikkilän tekniikkatasot 1–3 eivät ole heikkousmittari), fyysinen (`lib/tm_fyysinen.js`, §28) ja jaettu joukkuesääntö (`lib/tm_joukkuesaanto.js`). Harjoitelogiikan kohdevalinta samaan määritelmään.
+- **Kolmen kerroksen malli** (#981, CLAUDE.md §41): menetelmä lukittu, normisto maakohtainen, seuran linja säädettävä rajoissa (`lib/tm_normisto.js`). Pohja kansainvälistymiselle ja seuran omille tasoille.
+- **Yksi totuus näkymissä** (#985, #986, #988, #989): Master ja VP laskevat D1/D2-kortin, ponnahduksen, bannerin, kattavuuden, joukkuekortin, heron, Taso ≥3:n, Kehittyneen ja raportin samasta libistä (`lib/tm_nakyma_ryhmat.js`). Tuloksen ikä: VANHA_KK 15 luokitteluun, MUISTUTUS_KK 12 muistutuksiin. Testipäivä yhdestä lähteestä (`lib/tm_testipaiva.js`): oikea, arvio kaudesta tai tuntematon; ei hiljaisia varapäiviä tuonnissa, recalcissa eikä PDF:ssä.
+- **Diagnoosi KPV ja SJK** (`scripts/diag_yksi_totuus.cjs`): KPV:n TK-päivät ovat oikeita; Masterin "liian vähän mitattuja" johtui tallennetusta `d2_taso`:sta ilman ikää. SJK:n testipäivät 24.3./27.3./1.4.2026 vahvistettu oikeiksi (Tero 11.10.), ei datakorjausta.
+- **VP:n luettavuus** (#989): VP:n tumma teema samaan lämpimään palettiin kuin Masterissa; korttipinnat; "Ok" → "Ikätasolla".
+- **Sopimusluonnokset** KPV ja Sibbo (Claude Docs): palvelusopimus, liitteet hinnasta ja kehitystyöstä, DPA-runko. Avoimet päätökset Terolla.
+
+### 🗓 Päätökset 11.10.
+- **Masterin tumma teema on luettavuuden mittapuu** molemmille sovelluksille (lämmin ink, selvä ink/ink2-ero, korttipinnat).
+- **Ydinvahvuuden alue asetetaan klikkaamalla** kentän aluetta. Korvaa 22:n "Siirrä kentällä" -piirron. D98-tietomalli (`ydinvahvuus.alue {x,y,w,h}`) ei muutu. Aluejako (pelipaikka-alueet tai 3×3) valitaan mockupista 34.
+- **Kehitystyöpöydän kenttä ennen R1:tä:** kun aluetta ei ole, ei tyhjää kenttäpiirrosta vaan jaksokortti. Ei linkkiä toimintoon, jota ei vielä ole.
+- **Pelaajan ehdotus "missä tykkään pelata"** tulee R1:ssä: pelaaja ehdottaa, valmentaja vahvistaa (sama malli kuin sitoumus). U8–12: vain "missä tykkäät pelata", ei ydinvahvuutta (09 §4).
+- **SJK:n testipäivät** oikeat, loput jätetään tarkistamatta.
 
 ### 🛤 Linjat
 
@@ -69,6 +85,18 @@
 | SendGrid EU-datasijainti | avoin päätös | Teron hyväksyntä ja alihankkijalista |
 | Sentry funktioihin | avoin | Ei lisätä S1:n sivussa, oma päätöksensä |
 
+**F. Yksi totuus ja kehitystyöpöytä**
+| Vaihe | Milloin | Mitä |
+|---|---|---|
+| yksi totuus näkymissä | ✅ #985–#989 | Ks. Valmis (loka 9.–11.). |
+| **sv-erä 19 Geminille** | heti | Kaikki tyhjät sv-avaimet yhteen pakettiin (`docs/i18n/sv_kaannoserae_19_gemini.json`) + ohje + tuontiskripti (kuiva-ajo). Tero vie Geminille, tuonti omana PR:nä. Code ei kirjoita ruotsia. |
+| **tmTasoVari** | ennen 1.11. | Yksi tasoväri ja yksi kattavuussääntö (D125) koko sovelluksessa. Viisi kynnysjoukkoa yhteen. Loput 6 kk:n rajat → VANHA_KK / MUISTUTUS_KK. Puuttuva data ei ole punaista. §7.22: ei pelaajalle. |
+| **Kehitystyöpöytä, Tänään** | ennen 1.11. | Ei tyhjää kenttää (jaksokortti), Seuraava askel -kortille nappi (D100), kysymyskortit samaan anatomiaan (D103), osat: viikon osa tealina, viimeisin arvio, "arviot eroavat", ei "SA"-tekstiä seuran käyttäjälle. |
+| **Ydinvahvuuden alue klikkaamalla** | marraskuu | Mockup 34 (pelipaikka-alueet vs 3×3) → Teron valinta → valmentaja/VP klikkaa alueen Polussa, kenttä piirtyy. Rules-muutos (Teron kaista). |
+| Kenttä aktiiviseksi (R1) | joulukuu | Reitti, viikkomerkit ja osat kentällä (D98, D107) + pelaajan ehdotus "missä tykkään pelata" → valmentaja vahvistaa. |
+| Seuran oma normisto -asetukset | 1.11. jälkeen | `konfiguraatio/normit` + Rules + asetusnäkymä VP:lle (mockup ensin). |
+| Yhteinen sivupaneeli | 1.11. jälkeen | Ks. alla. |
+
 **E. Laatu ja työnkulku**
 - Auto-kaista (docs, testit, lib ilman näkyviä muutoksia) ja Teron kaista (Rules, functions, HTML, SW, data). Deploy-ihmisportti funktioille.
 - Rules-versiot (live): v3.47 ryhmät · v3.48 kalenteri · v3.50 mediaviesti · v3.51 suostumus kyselyssä · v3.52 muistiinpanot pois tapahtumasta. **Seuraava v3.53 = S1** (sisältää v3.52-jälkisiivouksen).
@@ -92,12 +120,18 @@
 | ~20.10. | **Päätös: Kenttä-lippu Sibbolle 1.11.?** (onko Kenttä-polku kokonaan ruotsiksi) | Tero |
 | 20.–31.10. | Gemini-erän 2 vienti · Teron sv-käsitesti · B4 pelaajan kalenteri | Code, Tero |
 | ennen 1.11. | **Kehitystyöpöytä 22, korjauskierros A** (A1–A6 oikeellisuus, A7–A13 käytettävyys) ennen S2:ta · `docs/CODE_BRIEF_22_KEHITYSTYOPOYTA.md` | Code |
+| ennen 1.11. | **tmTasoVari** · **kehitystyöpöytä Tänään** -korjaukset · sv-erä 19 Geminille | Code → Tero/Gemini |
+| ennen 1.11. | Tyhjät joukkueet pois: KPV `kpv_t8`, `kpv_u8` ("KPV U8" → P-nimeäminen), SJK `sjk_p12`, `sjk_p13` | Tero |
+| ennen 1.11. | KPV ja Sibbo: sopimusten avoimet päätökset (käyttöönottohinta, laskutus aktiivisista pelaajista, tuntihinta, koulutustunnit, ruotsinkielinen versio, Y-tunnus) | Tero |
+| marraskuu | Mockup 34 + ydinvahvuuden alue klikkaamalla (Rules) | Code, Tero valitsee aluejaon |
+| 2.11.2026 | KPV:n tuorein tekniikkakisa (2.11.2025) täyttää 12 kk → muistutus syttyy | — |
+| tammikuu 2027 | **KPV:n seuraava tekniikkakisa** ennen 2.2.2027, jolloin 2.11.2025 tulokset vanhenevat (15 kk) ja D2-luokat putoavat "ei luokkaa" -tilaan | Tero + KPV |
 | **1.11.** | **Sibbo:** ryhmät (maalivahdit, talenttiryhmä), klipit, ruotsi | — |
 | ennen 10.11. | K3-käsitesti KPV:llä (ensimmäiset jaksot päättyvät ~17.11.) | Tero |
 | ~15.11. | S2: PM tarkistaa pulssin oikeilla neljän viikon luvuilla | PM |
 | ennen 1.11. | Kehitystyöpöytä 22 A-kierros + D108 viikkohavainto rinnakkain (`osa_havainnot`, tekijä + päivä; VP ei korvaa valmentajaa) | Code |
 | **1.12.** | Vanha pelaajakortti pois (D49) · Seuran pulssi S2 | Code |
-| joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106) · S3 tavoitetasot · K5 Leikkijä + huoltaja · Kenttä aktiiviseksi (D98 + D107: alue, reitti, osamerkit, tavoitteet kentältä) | Code |
+| joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106) · S3 tavoitetasot · K5 Leikkijä + huoltaja · Kenttä aktiiviseksi (D98 + D107: reitti, osamerkit, tavoitteet kentältä; alue klikkaamalla jo marraskuussa) · pelaajan ehdotus "missä tykkään pelata" | Code |
 | tammikuu | R2 Master + Seura · portti uudelle suomelle päälle | Code |
 | kevät | R3 backend · S4 · ryhmät R2 (sääntöryhmät, IDP-ryhmät) · Pallo-Iirojen tuonti | — |
 
