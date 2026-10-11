@@ -20,7 +20,8 @@ describe('Gemini-erä 2 — master_kartta', () => {
   const ERA8 = JSON.parse(lue('docs/i18n/sv_kaannoserae_8.json')).osiot.master_kartta.rivit;   // erä 2 suljettu → uudet Masterin avaimet erässä 8 (S2b PR 0)
   const ERA16 = JSON.parse(lue('docs/i18n/sv_kaannoserae_16.json')).osiot.master_kartta.rivit;   // erä 16 (fyysinen PR 3)
   const ERA18 = JSON.parse(lue('docs/i18n/sv_kaannoserae_18.json')).osiot, LIB18 = ERA18['lib.tm_nakyma_ryhmat'].rivit;   // erä 18 (yksi totuus): Masterin HTML-avaimet + lib.tm_nakyma_ryhmat (käytössä libin t()-kutsuissa masterT:n kautta)
-  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA8, ERA16, ERA18.master_kartta.rivit, LIB18);
+  const ERA22 = JSON.parse(lue('docs/i18n/sv_kaannoserae_22.json')).osiot.master_kartta.rivit;   // erä 22 (K35-2): kalenterin otsakkeen nappi + paikka-vihje, sv tyhjä
+  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA8, ERA16, ERA18.master_kartta.rivit, ERA22, LIB18);
   it('jokainen sv-riviä vailla oleva Masterin avain on erässä (avain = fi-teksti)', () => {
     const { puuttuu } = masterAvaimet(juuri);
     expect(puuttuu.filter((fi) => !rivit[fi]), 'aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);
