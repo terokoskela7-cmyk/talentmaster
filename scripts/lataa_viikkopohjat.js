@@ -35,6 +35,8 @@ function suunnittele({ nykyinen, joukkueet, json, korvaa, nyt }) {
   let pl, lisatty = [], sailytetty = [];
   if (korvaa || !vanhaPl.length) { pl = uudet; lisatty = uudet.map((p) => p.avain); }
   else { sailytetty = vanhaPl.map((p) => p.avain); const on = {}; vanhaPl.forEach((p) => { on[p.avain] = 1; }); const puuttuvat = uudet.filter((p) => !on[p.avain]); lisatty = puuttuvat.map((p) => p.avain); pl = vanhaPl.concat(puuttuvat); }
+  const ilmanIkaa = uudet.filter((p) => !Array.isArray(p.ika_ohje) || p.ika_ohje.length !== 2).map((p) => p.avain);   // vanha koodi (ei ika_ohje) → keskeytä, ettei Firestoreen mene ika_ohje: null
+  if (ilmanIkaa.length) throw new Error('Keskeytetty: Palloliiton pohjilta puuttuu ika_ohje (' + ilmanIkaa.join(', ') + ') — aja skripti ajantasaisesta origin/main-työpuusta (git pull / git worktree add ../tm-main origin/main).');
   const doc = { pohjat: JSON.parse(JSON.stringify(seuran.concat(pl))), paivitetty: nyt, lahde: LAHDE };
   const pelimuodot = [], ohitetut = [];
   Object.keys(DEMO_PELIMUODOT).forEach((id) => {
@@ -56,7 +58,7 @@ async function aja({ db, seura, kirjoita, korvaa, json, nyt, loki }) {
   const p = suunnittele({ nykyinen: vSnap.exists ? vSnap.data() : null, joukkueet: joukkueet, json: json, korvaa: !!korvaa, nyt: nyt });
   loki((kirjoita ? 'KIRJOITUS' : 'KUIVA-AJO (ei kirjoiteta)') + ' · seura ' + seura + (korvaa ? ' · --korvaa' : ''));
   loki('seurat/' + seura + '/valmennuslinja/viikkopohjat: ' + p.doc.pohjat.length + ' pohjaa (' + p.seuranPohjia + ' seuran säilyy, Palloliiton lisätään/korvataan: ' + p.lisatty.length + ', säilyy: ' + p.sailytetty.length + ')');
-  p.doc.pohjat.forEach((x) => loki('  · ' + x.avain + ' [' + x.lahde + '] ' + x.pelimuoto + ' · ' + x.paivat.length + ' harjoitusta'));
+  p.doc.pohjat.forEach((x) => loki('  · ' + x.avain + ' [' + x.lahde + '] ' + x.pelimuoto + ' · ' + x.paivat.length + ' harjoitusta · ika_ohje ' + (Array.isArray(x.ika_ohje) ? '[' + x.ika_ohje.join(',') + ']' : (x.lahde === 'palloliitto' ? 'PUUTTUU' : '–'))));
   p.pelimuodot.forEach((x) => loki('joukkueet/' + x.id + '.pelimuoto ← ' + x.pelimuoto));
   p.ohitetut.forEach((x) => loki('ohitetaan joukkueet/' + x.id + ': ' + x.syy));
   if (kirjoita) {
