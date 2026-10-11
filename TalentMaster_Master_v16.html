@@ -9991,7 +9991,7 @@ async function _calTallennaSessioRPE(t, n, container) {
       paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
       muokkaaja_uid: muid
     }, { merge: true });
-    t.valmentaja_rpe = n;
+    t.valmentaja_rpe = n; (_kalibData.lista || []).forEach(function(x) { if (x.id === t.id) x.valmentaja_rpe = n; });
     var idx = (_kalenteriTapahtumat || []).findIndex(function(x) { return x.id === t.id; });
     if (idx >= 0) _kalenteriTapahtumat[idx].valmentaja_rpe = n;
     toast(masterT('✓ Rasitus arvioitu: ') + n + '/10', 'ok');
@@ -10000,6 +10000,16 @@ async function _calTallennaSessioRPE(t, n, container) {
   } catch (e) { toast(masterT('Tallennus epäonnistui: ') + e.message, 'err'); }
 }
 
+/* K35-10: kalibraatio tarvitsee KAUDEN harjoitukset → oma rajattu kysely (välimuisti seura+kausi); kunnes se palaa käytetään ladattua listaa. Tallennus (valmentaja_rpe) päivittää välimuistin kopion. */
+let _kalibData = { avain: null, lista: null, haku: false };
+function _kalibTapahtumat() {
+  const L = window.TM_KALENTERI_LATAUS; if (!L || !_seuraId || _demo) return _kalenteriTapahtumat || [];
+  const alku = L.tmKausiAlkuMs(Date.now()), avain = _seuraId + '|' + alku;
+  if (_kalLadattu && _kalLadattu.alku <= alku) return _kalenteriTapahtumat || [];   // yleinen lataus kattaa jo kauden alun
+  if (_kalibData.avain === avain && _kalibData.lista) return _kalibData.lista;
+  if (!_kalibData.haku || _kalibData.avain !== avain) { _kalibData = { avain: avain, lista: null, haku: true }; L.tmLataaVali(_db, _seuraId, { alku: alku, loppu: Date.now() }, firebase.firestore.Timestamp).then(docs => _kalSuodata(L.tmLatausSuodata(docs.map(_kalNormalisoi)))).then(l => { _kalibData = { avain: avain, lista: l, haku: true }; if (typeof renderKuorma === 'function') renderKuorma(); }, () => { _kalibData.haku = false; }); }
+  return _kalenteriTapahtumat || [];
+}
 // ── Kuorma & fiilis -näkymä (oma joukkue) ──
 function renderKuorma() {
   var el = document.getElementById('kuormaView'); if (!el) return;
@@ -10016,7 +10026,7 @@ function renderKuorma() {
   var r1 = function(x) { return Math.round(x * 10) / 10; };
 
   // Kalibraatio per harjoitus (viim. 5, joilla valmentaja_rpe)
-  var evts = (_kalenteriTapahtumat || []).filter(function(t) { return HARJ[t.tyyppi] && t.valmentaja_rpe != null && sj(t); });
+  var evts = _kalibTapahtumat().filter(function(t) { return HARJ[t.tyyppi] && t.valmentaja_rpe != null && sj(t); });   // K35-10: kauden alusta oma kysely, ei yleistä −8 vk ikkunaa
   evts.sort(function(a, b) { return (b.pvm || '').localeCompare(a.pvm || ''); });
   evts = evts.slice(0, 5);
   var NIMET = { harjoitus: masterT('Harjoitus'), ottelu: masterT('Ottelu'), talenttileiri: masterT('Talenttileiri') };

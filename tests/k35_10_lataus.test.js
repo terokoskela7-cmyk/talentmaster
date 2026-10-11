@@ -54,3 +54,10 @@ describe('monipäiväinen tauko ikkunan reunalla', () => {
     expect((await L.tmLataaIkkuna(d, 'demo', [L.tmLatausIkkuna({ nyt: NYT })], ts)).map((x) => x.id)).toEqual(['ma']);
   });
 });
+
+describe('kauden alku (kalibraatio)', () => {
+  it('tmKausiAlkuMs: 1.8. Helsingin ajassa; loka → saman vuoden elokuu, kesäkuu → edellisen vuoden elokuu', () => {
+    const pv = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Helsinki', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms + 12 * 3600000));
+    expect(pv(L.tmKausiAlkuMs(Date.parse('2026-10-19T09:00:00+03:00')))).toBe('2026-08-01'); expect(pv(L.tmKausiAlkuMs(Date.parse('2026-06-10T09:00:00+03:00')))).toBe('2025-08-01'); expect(pv(L.tmKausiAlkuMs(Date.parse('2026-08-01T00:30:00+03:00')))).toBe('2026-08-01');
+  });
+});
