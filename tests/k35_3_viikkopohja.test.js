@@ -20,13 +20,13 @@ describe('1 · Palloliiton pohjat → skeema', () => {
     expect(P('spl_11v11_nuoruus').lahde_viite).toBe('Palloliiton valmennuslinja 2023, s. 21, 65, 68');
   });
   it('harjoitusmäärä = yläraja; päivät MD-joukosta; kesto = alaraja; viikonpäivä = 6 + md', () => {
-    expect(POHJAT.map((p) => p.paivat.length)).toEqual([2, 3, 4, 4, 5, 5]);
+    expect(POHJAT.map((p) => p.paivat.length)).toEqual([2, 3, 4, 4, 4, 5]);   // 11v11 nuoruus 4 (ohitus avaimella), erikoistuminen 5
     expect(P('spl_3v3').paivat.map((d) => d.viikonpaiva_oletus)).toEqual([2, 4]); expect(P('spl_5v5').paivat.map((d) => d.viikonpaiva_oletus)).toEqual([1, 3, 4]); expect(P('spl_8v8_lapsuus').paivat.map((d) => d.viikonpaiva_oletus)).toEqual([1, 2, 4, 5]);
     expect(P('spl_5v5').paivat.map((d) => d.md)).toEqual([-5, -3, -2]); expect(P('spl_3v3').paivat[0].kesto_min).toBe(60); expect(P('spl_8v8_nuoruus').paivat[0].kesto_min).toBe(120); expect(P('spl_11v11_nuoruus').paivat[0].kesto_min).toBe(90);
     POHJAT.forEach((p) => p.paivat.forEach((d) => { expect(d.viikonpaiva_oletus).toBe(6 + d.md); expect(d.pelimuoto).toBe(p.pelimuoto); }));
   });
   it('11v11: painotus esimerkkiviikosta (peli +2 → −5 …); muilla painotus null', () => {
-    const d = P('spl_11v11_nuoruus').paivat; expect(d.map((x) => x.md)).toEqual([-5, -4, -3, -2, -1]); expect(d[0].painotus).toMatch(/toistoja, voimaa ja nopeutta/); expect(d[1].painotus).toMatch(/sitkeyttä/); expect(d[4].painotus).toMatch(/nopeutta ja ketteryyttä/);
+    expect(P('spl_11v11_nuoruus').paivat.map((x) => x.md)).toEqual([-5, -4, -2, -1]); const d = P('spl_11v11_erikoistuminen').paivat; expect(d.map((x) => x.md)).toEqual([-5, -4, -3, -2, -1]); expect(d[0].painotus).toMatch(/toistoja, voimaa ja nopeutta/); expect(d[1].painotus).toMatch(/sitkeyttä/); expect(d[4].painotus).toMatch(/nopeutta ja ketteryyttä/);
     P('spl_5v5').paivat.forEach((x) => expect(x.painotus).toBeNull());
   });
   it('rpe_* vain 11v11:ssä (D26): 5v5/8v8 ei kenttää, 11v11:ssä on', () => {
@@ -73,15 +73,15 @@ describe('4 · tmSaaTayttaaViikon (vain UI-apu)', () => {
 });
 
 describe('5 · tmTaytaViikko', () => {
-  it('ottelu la 24.10. → ma −5, ke −3, to −2', () => { const r = viikko({ ottelut: ['2026-10-24'] }); expect(paivat(r)).toEqual(['2026-10-19', '2026-10-21', '2026-10-22']); expect(r.ehdotukset.map((e) => e.md)).toEqual([-5, -3, -2]); expect(r.ohitetut).toEqual([]); });
+  it('ottelu la 24.10. → ma −5, ke −3, to −2', () => { const r = viikko({ ottelut: ['2026-10-24'] }); expect(paivat(r)).toEqual(['2026-10-19', '2026-10-21', '2026-10-22']); expect(r.ehdotukset.map((e) => e.md)).toEqual([-5, -3, -2]); expect(r.ohitetut).toEqual([{ pvm: '2026-10-24', syy: 'ottelu' }, { pvm: '2026-10-25', syy: 'palautuminen' }]); });
   it('ottelu su 25.10. → siirtyy vastaavasti (ti, to, pe)', () => { expect(paivat(viikko({ ottelut: ['2026-10-25'] }))).toEqual(['2026-10-20', '2026-10-22', '2026-10-23']); });
   it('ei ottelua → oletuspäivät (ma, ke, to); muoto: tyyppi harjoitus, 17:30 + kesto, paikka tyhjä', () => {
     const r = viikko({}); expect(paivat(r)).toEqual(['2026-10-19', '2026-10-21', '2026-10-22']); expect(r.ehdotukset[0]).toEqual({ pvm: '2026-10-19', alkaa: '17:30', paattyy: '18:45', paikka: '', tyyppi: 'harjoitus', md: -5, painotus: null });
     expect(paivat(viikko({ pohja: P('spl_8v8_lapsuus') }))).toEqual(['2026-10-19', '2026-10-20', '2026-10-22', '2026-10-23']); expect(viikko({ pohja: P('spl_3v3') }).ehdotukset.map((e) => e.pvm)).toEqual(['2026-10-20', '2026-10-22']);
   });
   it('kaksi ottelua viikossa (ti + la) → ei harjoitusta ottelupäivänä eikä MD−1:nä', () => {
-    const r = viikko({ pohja: P('spl_11v11_nuoruus'), ottelut: ['2026-10-20', '2026-10-24'] }), vara = ['2026-10-20', '2026-10-24', '2026-10-19', '2026-10-23'];
-    expect(paivat(r)).toEqual(['2026-10-21', '2026-10-22']); vara.forEach((p) => expect(paivat(r)).not.toContain(p)); expect(r.ohitetut.every((o) => o.syy === 'ottelu')).toBe(true); expect(r.ohitetut.map((o) => o.pvm)).toEqual(['2026-10-19', '2026-10-20', '2026-10-23', '2026-10-24'].filter((p) => r.ohitetut.some((o) => o.pvm === p)));
+    const r = viikko({ pohja: P('spl_11v11_erikoistuminen'), ottelut: ['2026-10-20', '2026-10-24'] }), vara = ['2026-10-20', '2026-10-24', '2026-10-19', '2026-10-23'];
+    expect(paivat(r)).toEqual(['2026-10-22']); vara.forEach((p) => expect(paivat(r)).not.toContain(p)); expect(r.ohitetut).toEqual([{ pvm: '2026-10-19', syy: 'ottelu' }, { pvm: '2026-10-20', syy: 'ottelu' }, { pvm: '2026-10-21', syy: 'palautuminen' }, { pvm: '2026-10-23', syy: 'ottelu' }, { pvm: '2026-10-24', syy: 'ottelu' }, { pvm: '2026-10-25', syy: 'palautuminen' }]);
   });
   it('ottelupäivää ei koskaan ehdoteta (yksi ottelu, ei-ottelupohja-päivä: ottelu ma)', () => { expect(paivat(viikko({ ottelut: ['2026-10-19'] }))).not.toContain('2026-10-19'); });
   it('syysloma 12.–18.10. (seuran_tauko koko_paiva) → 0 ehdotusta, ohitetut tauko; joukkueelle rajattu tauko ei koske toista joukkuetta', () => {
@@ -125,6 +125,23 @@ describe('5 · tmTaytaViikko', () => {
   it('vaihe ja teema kulkevat ehdotuksiin; ottelu-objektit ({pvm}/{alkaaMs}) kelpaavat', () => {
     const r = viikko({ vaihe: { avain: 'kil' }, teema: 'Pallonhallinta', ottelut: [{ pvm: '2026-10-24' }] }); expect(r.vaihe).toBe('kil'); expect(r.ehdotukset.every((e) => e.teema === 'Pallonhallinta')).toBe(true); expect(paivat(r)).toEqual(['2026-10-19', '2026-10-21', '2026-10-22']);
     expect(paivat(viikko({ ottelut: [{ alkaaMs: Date.parse(aika('2026-10-24', '12:00')) }] }))).toEqual(['2026-10-19', '2026-10-21', '2026-10-22']);
+  });
+});
+
+describe('5b · lähin tuleva ottelu ratkaisee (korjaukset 11.10.)', () => {
+  it('BUGI: kaukainen ottelu (28.11.) ei tyhjennä viikkoa → oletuspäivät (8v8: ma, ti, to, pe)', () => {
+    const r = viikko({ pohja: P('spl_8v8_lapsuus'), ottelut: ['2026-11-28'] }); expect(paivat(r)).toEqual(['2026-10-19', '2026-10-20', '2026-10-22', '2026-10-23']); expect(r.ohitetut).toEqual([]); expect(paivat(viikko({ pohja: P('spl_8v8_lapsuus'), ottelut: [] }))).toEqual(paivat(r));
+  });
+  it('ottelu ke 21.10. + la 31.10. (8v8): ma −2, ti −1, ke ottelu, to palautuminen, pe oletuspäivä (≥ MD+2, ottelu 8 pv päässä), la/su ei (md −7/−6 ei joukossa)', () => {
+    const r = viikko({ pohja: P('spl_8v8_lapsuus'), ottelut: ['2026-10-21', '2026-10-31'] }); expect(r.ehdotukset.slice(0, 2).map((e) => [e.pvm, e.md])).toEqual([['2026-10-19', -2], ['2026-10-20', -1]]);
+    expect(paivat(r)).toEqual(['2026-10-19', '2026-10-20', '2026-10-23']); expect(r.ohitetut).toEqual([{ pvm: '2026-10-21', syy: 'ottelu' }, { pvm: '2026-10-22', syy: 'palautuminen' }]);
+  });
+  it('edellinen ottelu su 18.10. → ma 19.10. ohitus palautuminen (vaikka md −2 seuraavaan otteluun sopisi)', () => {
+    const r = viikko({ pohja: P('spl_8v8_lapsuus'), ottelut: ['2026-10-18', '2026-10-21'] }); expect(r.ohitetut).toContainEqual({ pvm: '2026-10-19', syy: 'palautuminen' }); expect(paivat(r)).not.toContain('2026-10-19'); expect(paivat(r)).toContain('2026-10-20');
+  });
+  it('11v11 nuoruus = 4 harjoitusta: la-ottelulla ma −5, ti −4, to −2, pe −1', () => { expect(paivat(viikko({ pohja: P('spl_11v11_nuoruus'), ottelut: ['2026-10-24'] }))).toEqual(['2026-10-19', '2026-10-20', '2026-10-22', '2026-10-23']); });
+  it('ottelun jälkeinen päivä ohitetaan myös ilman viikon sisäistä ottelua (ottelu su 18.10.: ma palautuminen, ti–to oletus)', () => {
+    const r = viikko({ ottelut: ['2026-10-18'] }); expect(r.ohitetut).toEqual([{ pvm: '2026-10-19', syy: 'palautuminen' }]); expect(paivat(r)).toEqual(['2026-10-21', '2026-10-22']);
   });
 });
 
