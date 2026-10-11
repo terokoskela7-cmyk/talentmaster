@@ -9,13 +9,40 @@ const mal = (o) => M.tmKotiMalli(Object.assign({ nyt: NYT, joukkue: J_, tapahtum
 describe('joukkueen jakso (tmJoukkueenJakso → syke)', () => {
   const J = require('../lib/tm_joukkuejakso.js'), doc = { jaksofokus: { alku: '2026-10-05', kesto_vk: 4, osa_alueet: { tekninen_taktinen: { nimi: 'Pelaaminen' } } } };
   it('aktiivinen jakso: nimi, päättymispäivä, viikko n/N, päiviä jäljellä; ei vielä alkanut / umpeutunut / ei jaksoa → null', () => {
-    expect(J.tmJoukkueenJakso(doc, ms('2026-10-20', '12:00'))).toEqual({ nimi: 'Pelaaminen', alku: '2026-10-05', paattyy: '2026-11-02', vk: 3, vkYht: 4, pvJaljella: 13 });
+    expect(J.tmJoukkueenJakso(doc, ms('2026-10-20', '12:00'))).toEqual({ nimi: 'Pelaaminen', alku: '2026-10-05', paattyy: '2026-11-02', vk: 3, vkYht: 4, pvJaljella: 13, paattynyt: false, pvSitten: 0 });
     expect(J.tmJoukkueenJakso(doc, ms('2026-10-01', '12:00'))).toBeNull(); expect(J.tmJoukkueenJakso(doc, ms('2026-11-05', '12:00'))).toBeNull(); expect(J.tmJoukkueenJakso({}, NYT)).toBeNull();
   });
   it('Koti: jakso päättyy ≤ 5 pv → tehtävä; syke näyttää viikon n/N + päättymispäivän', () => {
     const jk = J.tmJoukkueenJakso(doc, ms('2026-10-29', '12:00')), m = M.tmKotiMalli({ nyt: ms('2026-10-29', '12:00'), joukkue: J_, pelaajat: PEL, tapahtumat: [], jakso: { nimi: jk.nimi, loppu: jk.paattyy, vk: jk.vk, vkYht: jk.vkYht } });
     expect(m.tehtavat.map((t) => t.avain)).toContain('jakso'); expect(m.syke.jakso).toEqual({ vk: 4, yht: 4, paattyy: '2026-11-02' });
     expect(N.tmKotiHTML(m, { t: (x) => x, on: () => 'x()' })).toContain('Jakson viikko · päättyy 2.11.');
+  });
+});
+
+describe('jakson kooste -tehtävä (sulkukooste jaksofokus_historia)', () => {
+  const kooste = (n, vk, h) => PEL16.map((p, i) => Object.assign({}, p, { historia: i < n ? [{ sulkutapa: 'suljettu', suljettu: h || '2026-10-12T10:00:00.000Z' }] : [] }));
+  const PEL16 = Array.from({ length: 16 }, (_, i) => ({ id: 'q' + i, nimi: 'Pelaaja ' + i }));
+  const jakso = (o) => Object.assign({ nimi: 'J', alku: '2026-10-05', loppu: '2026-10-17' }, o);
+  const aja = (n, jk, nyt, h) => M.tmKotiMalli({ nyt: nyt || NYT, joukkue: J_, pelaajat: kooste(n, 0, h), tapahtumat: [], jakso: jk || jakso() });   // NYT = ke 14.10.
+  const t = (m) => m.tehtavat.concat(m.lisaTehtavat).find((x) => x.avain === 'jakso');
+  it('0/16 ja 9/16: tehtävä näkyy luvulla ("Jakson kooste tehty 9/16 · jakso päättyy 17.10."); 16/16 → poistuu', () => {
+    expect(t(aja(0))).toMatchObject({ tarkenne: '0/16', paattyy: '17.10.', paattynyt: false }); expect(t(aja(9))).toMatchObject({ tarkenne: '9/16' }); expect(t(aja(16))).toBeUndefined();
+    const h = N.tmKotiHTML(aja(9), { t: (x) => x, on: () => 'x()' }); expect(h).toContain('Jakson kooste tehty 9/16 · jakso päättyy 17.10.');
+  });
+  it('päättynyt: kooste puuttuu → säilyy ("jakso päättyi 17.10.") max 7 pv; päättynyt + 8 pv → poistuu; päättynyt + valmis → poistuu', () => {
+    const pj = jakso({ paattynyt: true }), ma = (d) => ms(d, '12:00');
+    expect(t(aja(9, pj, ma('2026-10-20')))).toMatchObject({ tarkenne: '9/16', paattynyt: true }); expect(N.tmKotiHTML(aja(9, pj, ma('2026-10-20')), { t: (x) => x, on: () => 'x()' })).toContain('jakso päättyi 17.10.');
+    expect(t(aja(9, pj, ma('2026-10-24')))).toBeDefined();   // +7 pv: vielä mukana
+    expect(t(aja(9, pj, ma('2026-10-25')))).toBeUndefined();   // +8 pv: pois
+    expect(t(aja(16, pj, ma('2026-10-20')))).toBeUndefined();
+  });
+  it('liian aikaisin (> 5 pv ennen päättymistä) ei tehtävää; vanha sulku (ennen jakson alkua) ei lasketa; lähteetön (ei historiaa) → tehtävä ilman lukuja', () => {
+    expect(t(aja(0, jakso({ loppu: '2026-10-25' })))).toBeUndefined(); expect(t(aja(9, null, null, '2026-09-01T00:00:00.000Z'))).toMatchObject({ tarkenne: '0/16' });
+    expect(t(M.tmKotiMalli({ nyt: NYT, joukkue: J_, pelaajat: PEL, tapahtumat: [], jakso: jakso() }))).toMatchObject({ tarkenne: '' });
+  });
+  it('tmJoukkueenJakso paattynytPv: päättynyt 3 pv sitten palautuu (paattynyt, pvSitten), 8 pv sitten ei', () => {
+    const JJ = require('../lib/tm_joukkuejakso.js'), d = { jaksofokus: { alku: '2026-10-05', kesto_vk: 4, osa_alueet: { tekninen_taktinen: { nimi: 'X' } } } };   // päättyy 2.11.
+    expect(JJ.tmJoukkueenJakso(d, ms('2026-11-05', '12:00'), { paattynytPv: 7 })).toMatchObject({ paattynyt: true, pvSitten: 3 }); expect(JJ.tmJoukkueenJakso(d, ms('2026-11-10', '12:00'), { paattynytPv: 7 })).toBeNull(); expect(JJ.tmJoukkueenJakso(d, ms('2026-11-05', '12:00'))).toBeNull();
   });
 });
 
