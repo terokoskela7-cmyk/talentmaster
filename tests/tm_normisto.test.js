@@ -43,7 +43,7 @@ describe('sallitut rajat: raja-arvot (väli sisällä → seura, ulkopuolella �
   }
   it('lukitut eivät muutu seuran asetuksella: MIN_MITATTU, OTOS_PIENI, OSUUS_*, VANHA_KK → lähde "tm"', () => {
     for (const k of ['MIN_MITATTU', 'OTOS_PIENI', 'OSUUS_MITATUSTA', 'OSUUS_KAIKISTA', 'VANHA_KK', 'MUISTUTUS_KK']) expect(r(k, 1), k).toEqual({ arvo: NO.LUKITUT[k], lahde: 'tm' });
-    expect(NO.LUKITUT).toEqual({ MIN_MITATTU: 5, OTOS_PIENI: 8, OSUUS_MITATUSTA: 3, OSUUS_KAIKISTA: 2, VANHA_KK: 15, MUISTUTUS_KK: 12, KATTAVUUS_PELAAJA_PROS: 70, KATTAVUUS_MATALA_PROS: 40 }); expect(Object.keys(NO.SEURA_SALLITUT).sort()).toEqual(['ERO_TASOA', 'FYS_TASO_RAJA', 'SM_TASO_RAJA', 'TKI']);
+    expect(NO.LUKITUT).toEqual({ MIN_MITATTU: 5, OTOS_PIENI: 8, OSUUS_MITATUSTA: 3, OSUUS_KAIKISTA: 2, VANHA_KK: 15, MUISTUTUS_KK: 12, KATTAVUUS_PELAAJA_PROS: 70, KATTAVUUS_MATALA_PROS: 40, VALMIUS_KLINIKKA: 40, TUKITAVOITE_IKKUNA_KK: 6 }); expect(Object.keys(NO.SEURA_SALLITUT).sort()).toEqual(['ERO_TASOA', 'FYS_TASO_RAJA', 'SM_TASO_RAJA', 'TKI']);
   });
   it('tavoitetasot ikäluokittain 1–5: rajat sisällä, ulkopuoliset ja epäkelvot ohitetaan', () => {
     const t = (o) => NO.tmNormistoRatkaise({ tavoitetasot: o }).tavoitetasot;

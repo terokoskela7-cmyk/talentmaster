@@ -9,29 +9,65 @@ const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const L = (v, o) => T.tmTasoVari(v, o);
 
 describe('tmTasoVari — luokat asteikoittain', () => {
-  it('hh5: 4–5 ok · 3 raja · 1–2 kehitys (ka: ≥3,5 / ≥2,5); kynnykset = normiston TASO_OK/TASO_RAJA', () => {
-    expect([5, 4, 3.5, 3, 2.5, 2, 1].map((v) => L(v, { asteikko: 'hh5' }))).toEqual(['ok', 'ok', 'ok', 'raja', 'raja', 'kehitys', 'kehitys']);
-    const R = NO.tmNormistoRajat(); expect(R.TASO_OK).toBe(3.5); expect(R.TASO_RAJA).toBe(2.5);
+  it('hh5: kehitys = SAMA raja kuin tm_fyysinen (FYS_TASO_RAJA, oletus 1): taso 1 kehitys, taso 2 EI; ok ≥ TASO_OK (3,5 = taso 4–5); muuten raja', () => {
+    expect([5, 4, 3.5, 3, 2.5, 2, 1.9, 1.5, 1].map((v) => L(v, { asteikko: 'hh5' }))).toEqual(['ok', 'ok', 'ok', 'raja', 'raja', 'raja', 'kehitys', 'kehitys', 'kehitys']);
+    expect(NO.tmNormistoRajat().FYS_TASO_RAJA).toBe(1); expect(NO.tmNormistoRajat().TASO_RAJA).toBeUndefined();   // ei omaa 2,5-kynnystä
+    expect([1, 2, 3].map((v) => L(v, { asteikko: 'hh5', asetukset: { rajat: { FYS_TASO_RAJA: 2 } } }))).toEqual(['kehitys', 'kehitys', 'raja']);   // seuran linja
   });
   it('eerikkila3: EI KOSKAAN kehitys (kansallinen kärkiotos); taso 3 ok; 1–2 raja', () => {
     const arvot = []; for (let v = 0.5; v <= 3.5; v += 0.1) arvot.push(Math.round(v * 10) / 10);
     arvot.forEach((v) => expect(L(v, { asteikko: 'eerikkila3' }), String(v)).not.toBe('kehitys'));
     expect([3, 2, 1].map((v) => L(v, { asteikko: 'eerikkila3' }))).toEqual(['ok', 'raja', 'raja']);
   });
-  it('tki: ≥60 ok · 40–59 raja · <40 kehitys; seuran TKI-raja (50) siirtää rajaa, 60 ei muutu', () => {
+  it('tki: kehitys < TKI (40, seuran linja, sama kuin tm_tekniikka) · ok ≥ 60 · muuten raja', () => {
     expect([80, 60, 59, 40, 39].map((v) => L(v, { asteikko: 'tki' }))).toEqual(['ok', 'ok', 'raja', 'raja', 'kehitys']);
     expect(L(45, { asteikko: 'tki', asetukset: { rajat: { TKI: 50 } } })).toBe('kehitys'); expect(L(45, { asteikko: 'tki' })).toBe('raja');
     expect([85, 70, 45, 20].map((v) => T.tmTkiBandi(v))).toEqual(['erinomainen', 'hyva', 'kehitys', 'prioriteetti']);
   });
-  it('valmius: ≥70 ok · ≥50 raja · muuten kehitys', () => { expect([90, 70, 69, 50, 49].map((v) => L(v, { asteikko: 'valmius' }))).toEqual(['ok', 'ok', 'raja', 'raja', 'kehitys']); });
-  it('puuttuva, vanha, päivätön tai §28-neutraali → tuntematon (neutraali: ei punainen eikä amber)', () => {
+  it('valmius: ainoa sovittu raja FLEI < 40 (klinikkalähetys) → kehitys (--red); muuten ok; ei VALMIUS_OK/RAJA-kynnyksiä', () => {
+    expect([90, 70, 41, 40, 39, 0].map((v) => L(v, { asteikko: 'valmius' }))).toEqual(['ok', 'ok', 'ok', 'ok', 'kehitys', 'kehitys']);
+    expect(NO.LUKITUT.VALMIUS_KLINIKKA).toBe(40); expect(NO.tmNormistoRajat().VALMIUS_OK).toBeUndefined(); expect(NO.tmNormistoRajat().VALMIUS_RAJA).toBeUndefined();
+    expect(T.tmTasoCss(39, { asteikko: 'valmius' })).toBe('var(--red)'); expect(T.tmTasoSavy('kehitys', 'valmius')).toBe('red');
+  });
+  it('puuttuva, vanha, päivätön tai §28-neutraali → tuntematon (ink3: ei amber, ei punainen)', () => {
     [null, undefined, '', NaN, 'x'].forEach((v) => expect(L(v, { asteikko: 'hh5' })).toBe('tuntematon'));
-    ['vanha', 'tuntematon', 'paivaton'].forEach((t) => expect(L(5, { asteikko: 'hh5', tila: t })).toBe('tuntematon')); expect(L(5, { asteikko: 'tki', neutraali: true })).toBe('tuntematon'); expect(L(5, { asteikko: 'hh5', tila: 'tuore' })).toBe('ok');
+    ['vanha', 'tuntematon', 'paivaton'].forEach((t) => expect(L(5, { asteikko: 'hh5', tila: t })).toBe('tuntematon')); expect(L(1, { asteikko: 'tki', neutraali: true })).toBe('tuntematon'); expect(L(5, { asteikko: 'hh5', tila: 'tuore' })).toBe('ok');
     expect(T.tmTasoCss(null, { asteikko: 'hh5' })).toBe('var(--ink3)'); expect(T.tmTasoSavy('tuntematon')).toBe('neutraali');
   });
-  it('värit = olemassa olevat tokenit, ei hex-arvoja; sävy libistä', () => {
-    ['ok', 'raja', 'kehitys', 'tuntematon'].forEach((l) => expect(T.tmLuokkaCss(l)).toMatch(/^var\(--(teal|amber|red|ink3)\)$/));
-    expect([5, 3, 1].map((v) => T.tmTasoCss(v, { asteikko: 'hh5' }))).toEqual(['var(--teal)', 'var(--amber)', 'var(--red)']); expect(T.tmTasoSavy('ok')).toBe('teal');
+  it('D169: ok → --teal · raja → --ink2 (neutraali) · kehitys → --amber · tuntematon → --ink3; --red EI tasovärinä (vain valmius < 40)', () => {
+    ['ok', 'raja', 'kehitys', 'tuntematon'].forEach((l) => expect(T.tmLuokkaCss(l)).toMatch(/^var\(--(teal|ink2|amber|ink3)\)$/));
+    expect([5, 3, 1].map((v) => T.tmTasoCss(v, { asteikko: 'hh5' }))).toEqual(['var(--teal)', 'var(--ink2)', 'var(--amber)']);
+    ['hh5', 'eerikkila3', 'tki'].forEach((a) => { for (let v = 0; v <= 100; v++) expect(T.tmTasoCss(v, { asteikko: a })).not.toBe('var(--red)'); });
+    expect(T.tmTasoSavy('ok')).toBe('teal'); expect(T.tmTasoSavy('raja')).toBe('neutraali'); expect(T.tmTasoSavy('kehitys')).toBe('amber');
+  });
+  it('normisto puuttuu → ei hiljaista oletusta: console.warn + Sentry kerran; arvot Suomi-oletuksesta', () => {
+    const w = [], s = [], win = { Sentry: { captureMessage: (x) => s.push(x) } }, ctx = vm.createContext({ console: { warn: (x) => w.push(x) }, window: win });
+    vm.runInContext(lue('lib/tm_tasovari.js'), ctx);
+    const TV = win.TM_TASOVARI; expect([1, 2, 3, 4].map((v) => TV.tmTasoVari(v, { asteikko: 'hh5' }))).toEqual(['kehitys', 'raja', 'raja', 'ok']); expect(TV.tmTasoVari(39, { asteikko: 'tki' })).toBe('kehitys'); TV.tmKattavuus(5, 10);
+    expect(w.length).toBe(1); expect(w[0]).toMatch(/TM_NORMISTO puuttuu/); expect(s.length).toBe(1);
+  });
+});
+
+describe('sama pelaaja → sama luokka luokittelussa ja värissä (tm_fyysinen, tm_tekniikka)', () => {
+  const FY = require('../lib/tm_fyysinen.js'), TK = require('../lib/tm_tekniikka.js'), NYT = Date.UTC(2026, 9, 10, 12);
+  const EN = require('../lib/tm_eerikkila_normit.js');
+  function cmjArvo(L) { const m = EN.HH_TESTI_MAP.cmj, n = EN.EERIKKILA_NORMIT[m.eerikkila].pojat[14]; for (const k of [n[0], n[1], n[2], n[3], n[3] + 0.4, n[0] - 0.3, n[3] - 0.4, n[0] + 0.3]) for (const d of [0, 0.001, -0.001, 0.003, -0.003]) { const v = Math.round((k + d) * 1000) / 1000; if (FY.tmFyysinenTaso('cmj', v, 14, 'M') === L) return v; } throw new Error('ei arvoa ' + L); }
+  const pel = (L, lisaa) => Object.assign({ id: 'p', syntymaVuosi: 2012, sukupuoli: 'M', joukkue: 'P14', hh_pvm: '2026-06-02', hh_viimeisin: { cmj: cmjArvo(L) }, biologinenIka_viimeisin: { phv_tila_koodi: 'POST' } }, lisaa || {});
+  it('fyysinen: taso 1, 2, 3 — kehityskohde (tm_fyysinen) ⇔ kehitys (tmTasoVari hh5), oletus ja seuran linja (FYS_TASO_RAJA 2)', () => {
+    [1, 2, 3].forEach((taso) => {
+      expect(FY.tmFyysinenPelaaja(pel(taso), NYT).tila === 'kehityskohde', 'taso ' + taso).toBe(L(taso, { asteikko: 'hh5' }) === 'kehitys');
+      const as = { rajat: { FYS_TASO_RAJA: 2 } }; expect(FY.tmFyysinenPelaaja(pel(taso), NYT, { asetukset: as }).tila === 'kehityskohde', 'seura, taso ' + taso).toBe(L(taso, { asteikko: 'hh5', asetukset: as }) === 'kehitys');
+    });
+    expect(FY.tmFyysinenPelaaja(pel(2), NYT).tila).toBe('ok');   // taso 2 ei ole kehityskohde
+  });
+  it('tekniikka: TKI 39 / 40 / 60 — kehityskohde (tm_tekniikka) ⇔ kehitys (tmTasoVari tki)', () => {
+    [39, 40, 60].forEach((tki) => {
+      const m = TK.tmTekniikkaMittari({ id: 'p', syntymaVuosi: 2012, sukupuoli: 'M', joukkue: 'P14', tki_viimeisin: tki, tki_pvm: '2026-06-02' }, NYT);
+      expect(m.mitattu, 'TKI ' + tki).toBe(true); expect(m.kehityskohde, 'TKI ' + tki).toBe(L(tki, { asteikko: 'tki' }) === 'kehitys');
+    });
+  });
+  it('valmius: 39 → kehitys (klinikkalähetys-raja), 40 → ei; sama raja kuin VP:n klinikkachip (flei_viimeisin < 40)', () => {
+    expect([39, 40].map((v) => L(v, { asteikko: 'valmius' }))).toEqual(['kehitys', 'ok']); expect(lue('TalentMaster_VP_v25.html')).toContain('p.flei_viimeisin < 40');
   });
 });
 
@@ -85,5 +121,13 @@ describe('sama data → sama väri; kynnyksiä ei HTML:ssä', () => {
   });
   it('§7.22: Pelaaja_v7 ja Vanhempi_v2 eivät lataa tm_tasovari.js eivätkä kutsu tasovärifunktioita', () => {
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => { const s = lue(f); expect(s, f).not.toContain('tm_tasovari.js'); expect(s, f).not.toMatch(/\btmTasoVari\b|\btmTasoCss\b|\bhhTasoVari\b|\btkiVari\b|\btmTkiBandi\b/); });
+  });
+});
+
+describe('tukitavoitteen näyttöikkuna — nimetty lukittu arvo (ei piilovakiota)', () => {
+  it('TUKITAVOITE_IKKUNA_KK = 6 normistossa (menetelmäkerros, seura ei säädä); tm_tukitavoitteet johtaa 183 pv:n siitä', () => {
+    expect(NO.LUKITUT.TUKITAVOITE_IKKUNA_KK).toBe(6); expect(Object.keys(NO.SEURA_SALLITUT)).not.toContain('TUKITAVOITE_IKKUNA_KK'); expect(Math.round(NO.LUKITUT.TUKITAVOITE_IKKUNA_KK * 30.4375)).toBe(183);
+    const s = lue('lib/tm_tukitavoitteet.js'); expect(s).toMatch(/LUKITUT\.TUKITAVOITE_IKKUNA_KK/); expect(s).not.toMatch(/IKKUNA_PV\s*=\s*183\s*;/);
+    expect(NO.tmNormistoKaytto().R.TUKITAVOITE_IKKUNA_KK).toBe(6);
   });
 });
