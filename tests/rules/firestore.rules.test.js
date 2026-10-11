@@ -5261,3 +5261,16 @@ describe('Huoltajakutsu · huoltajakutsut / huoltajakutsu_rajat: ei client-pää
     }
   });
 });
+
+describe('v3.57 · kalenteri_tilaukset (K35-7a, D190): vain palvelin — kukaan asiakas ei lue eikä kirjoita', () => {
+  const T = (db, id) => doc(db, 'kalenteri_tilaukset', id || 'abc123');
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(T(c.firestore()), { seuraId: SEURA_A, pelaajaId: PELAAJA_UID, tilaajaUid: 'x', mitatoity: false }); }); });
+  it('SA, VP, valmentaja, huoltaja, pelaaja ja anonyymi: get ✗ ja create/update/delete ✗; dokumentti säilyy', async () => {
+    const kontekstit = [saContext(), vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A), huoltajaContext(), pelaajaContext(SEURA_A, PELAAJA_UID), anonContext()];
+    for (const c of kontekstit) {
+      const db = c.firestore();
+      await assertFails(getDoc(T(db))); await assertFails(getDocs(collection(db, 'kalenteri_tilaukset'))); await assertFails(setDoc(T(db, 'uusi'), { seuraId: SEURA_A, mitatoity: false })); await assertFails(updateDoc(T(db), { mitatoity: true })); await assertFails(deleteDoc(T(db)));
+    }
+    let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(T(c.firestore()))).data(); }); expect(d.mitatoity).toBe(false);
+  });
+});

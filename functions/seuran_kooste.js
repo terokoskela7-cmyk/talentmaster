@@ -212,4 +212,4 @@ function paivitaKasittelija(deps) {
   };
 }
 
-module.exports = { RSVP_ROOLIT, TOIMINTO_LAHTEET, HARJOITE_TYYPIT, laskeSeura, laskeKaikki, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };
+module.exports = { pelaajaPoissa: _poissa, RSVP_ROOLIT, TOIMINTO_LAHTEET, HARJOITE_TYYPIT, laskeSeura, laskeKaikki, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };

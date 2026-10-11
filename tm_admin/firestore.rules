@@ -1,10 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.56
+// TalentMaster™ — firestore.rules v3.57
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.56 → v3.57 (K35-7a kalenterin iCal-syöte, D190 — UUSI kokoelma, ei migraatiota):
+//   · kalenteri_tilaukset/{sha256(token)}: allow read, write: if false — VAIN palvelin (Admin SDK: callable luoKalenteriTilaus kirjoittaa, HTTPS kalenteriIcal lukee). Dokumentti { seuraId, pelaajaId|null, uid|null, tilaajaUid, kohde, rooli, luotu, mitatoity, viimeksi_haettu };
+//     asiakas ei näe eikä muuta tilauksia (tokenin tiiviste on dokumentin id → ei listausta). Token on syötteen ainoa suoja (kalenterisovellus ei osaa App Checkia).
 // Muutokset v3.55 → v3.56 (S2 Seuran pulssi / kooste v4 — D70 — KOVENNUS (enum), ei migraatiota; puuttuva `tyyppi` = 'kilpa'):
 //   · seurat/{sid}/joukkueet/{jid}.tyyppi: jos kenttä on mukana, arvon on oltava 'kilpa' tai 'harraste' (create ja update; sama paikka ja samat kirjoittajat kuin valmentajaprofiili: SA | johto). Valmentaja ei aseta (update-haara
 //     sallii vain jaksofokus/jaksofokus_historia). Pulssi lukee tyypin koosteesta (kooste v4: joukkueet.<jid>.tyyppi/profiili, n_toiminto_7, n_perhe_kuittaus_7 — vain palvelin kirjoittaa, koosteet ennallaan: luku johto/SA, ei pelaaja/huoltaja).
@@ -972,6 +975,8 @@ service cloud.firestore {
     match /_pelaajaPin/{avain}           { allow read, write: if false; }
     // v3.26 — Solo-lapsen PIN-hajautukset (soloLapsiKirjaudu): VAIN Admin SDK.
     match /_soloPin/{avain}              { allow read, write: if false; }
+    // v3.57 (K35-7a): kalenterin iCal-tilaukset — VAIN Admin SDK (luoKalenteriTilaus / kalenteriIcal).
+    match /kalenteri_tilaukset/{avain}   { allow read, write: if false; }
 
     match /admins/{uid} {
       // v3.24: vain SA tai käyttäjä itse. Kaikki selainlukijat lukevat omaa dokumenttiaan
