@@ -16,6 +16,7 @@ const crypto    = require('crypto');
 const { kayttajaRooliSallittu, kayttajaRooliClaimeista, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
+const { rakennaPaivitys } = require('./testipvm_korjaus');   // korjaaJoukkueenTestipvm: *_pvm + *_pvm_arvio poisto
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
 const pelaajapin = require('./pelaajapin');
 const { rakennaSendGridPayload } = require('./sahkoposti_payload');   // SendGrid-seuranta pois (§39)
@@ -856,9 +857,7 @@ exports.korjaaJoukkueenTestipvm = functions
       const era = kohteet.slice(i, i + 400);
       const batch = db.batch();
       era.forEach(function (item) {
-        const upd = {};
-        item.kentat.forEach(function (k) { upd[k] = uusiPvm; });
-        batch.update(item.ref, upd);
+        batch.update(item.ref, rakennaPaivitys(item.kentat, uusiPvm, admin.firestore.FieldValue.delete()));   // *_pvm + *_pvm_arvio pois samassa kirjoituksessa
       });
       await batch.commit();
       paivitetty += era.length;
