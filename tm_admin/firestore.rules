@@ -6,9 +6,8 @@ rules_version = '2';
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
 // Muutokset v3.57 → v3.58 (K35-6d joukkueen omat: vapaa, erikoisohjelma — D240/D241; ei migraatiota, vain uusi kirjoitusehto):
-//   · seurat/{sid}/kalenteri/{id} create/update: tyyppi (lower+trim) 'seuran_tauko' | 'tauko' | 'loma' ILMAN joukkuetta → vain johto (VP/UTJ/seurasihteeri) tai SA (valmentaja ei luo eikä muokkaa seuran taukoa);
-//     'joukkueen_vapaa' | 'erikoisohjelma' → `joukkue` (joukkue-id) PAKOLLINEN ja valmentaja vain OMA joukkue (kayttajat.joukkueet ∋ joukkue; johto ja talenttivalmentaja kaikki joukkueet). Sama ehto koskee seuran_taukoa, jos siihen on rajattu joukkue.
-//     Update tarkistaa sekä uuden että vanhan dokumentin (ei tyypin vaihtoa toiseksi eikä toisen joukkueen vapaan muokkausta). Muut tyypit ennallaan (valmentaja kirjoittaa kuten ennen).
+//   · seurat/{sid}/kalenteri/{id} create/update: tyyppi (lower+trim) 'seuran_tauko' | 'tauko' | 'loma' → KOKONAAN vain johto (VP/UTJ/seurasihteeri) tai SA, myös joukkueeseen rajattuna (valmentaja ei luo eikä muokkaa; valmentajan joukkuekohtainen tauko = joukkueen_vapaa);
+//     'joukkueen_vapaa' | 'erikoisohjelma' → `joukkue` (joukkue-id) PAKOLLINEN ja valmentaja vain OMA joukkue (kayttajat.joukkueet ∋ joukkue; johto ja talenttivalmentaja kaikki joukkueet). //     Update tarkistaa sekä uuden että vanhan dokumentin (ei tyypin vaihtoa toiseksi eikä toisen joukkueen vapaan muokkausta). Muut tyypit ennallaan (valmentaja kirjoittaa kuten ennen).
 // Muutokset v3.56 → v3.57 (K35-7a kalenterin iCal-syöte, D190 — UUSI kokoelma, ei migraatiota):
 //   · kalenteri_tilaukset/{sha256(token)}: allow read, write: if false — VAIN palvelin (Admin SDK: callable luoKalenteriTilaus kirjoittaa, HTTPS kalenteriIcal lukee). Dokumentti { seuraId, pelaajaId|null, uid|null, tilaajaUid, kohde, rooli, luotu, mitatoity, viimeksi_haettu };
 //     asiakas ei näe eikä muuta tilauksia (tokenin tiiviste on dokumentin id → ei listausta). Token on syötteen ainoa suoja (kalenterisovellus ei osaa App Checkia).
@@ -676,7 +675,7 @@ service cloud.firestore {
           || (kalOnJoukkue(d) && valmentajanJoukkueet(seuraId).hasAny([d.joukkue]));
     }
     function kalTyyppiSaaKirjoittaa(seuraId, d) {
-      return onSuperAdmin() || ((!kalOnSeuranTauko(d) || (kalOnJoukkue(d) ? kalOmaJoukkue(seuraId, d) : onJohtoRooli()))
+      return onSuperAdmin() || ((!kalOnSeuranTauko(d) || onJohtoRooli())
           && (!kalOnJoukkueenOma(d) || (kalOnJoukkue(d) && kalOmaJoukkue(seuraId, d))));
     }
     // Valmentaja saa kirjoittaa VAIN oman joukkueensa pelaajiin (ID-täsmäys pelaajan joukkueet[] ∩ valmentajan joukkueet[]).
