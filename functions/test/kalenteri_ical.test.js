@@ -146,3 +146,20 @@ test('peruKalenteriTilaus: mitätöi tilaajan aktiivisen tilauksen ILMAN uutta; 
   await assert.rejects(peru(db, { auth: { uid: 'x', token: { rooli: 'pelaaja', pelaajaSeuraId: 'kpv', pelaajaId: 'p2' } } }), (x) => x.code === 'permission-denied'); await assert.rejects(peru(db, huoltajaCtx({ email: 'toinen@esimerkki.fi' })), (x) => x.code === 'permission-denied');
   await assert.rejects(peru(db, valmCtx(), { seuraId: 'kpv', pelaajaId: 'p1' }), (x) => x.code === 'permission-denied'); await assert.rejects(peru(db, {}), (x) => x.code === 'unauthenticated'); await assert.rejects(peru(db, pelaajaCtx, { seuraId: 'a/b' }), (x) => x.code === 'invalid-argument');
 });
+
+test('K35-6d D242: joukkueen valmennuspalaveri (kohde henkilokunta + joukkue) — oman joukkueen valmentaja ✓, toisen joukkueen valmentaja ✗, johto ✓, luoja ✓, pelaajan syöte ✗; koko henkilökunnan palaveri (ei joukkuetta) kaikille henkilökunnalle', async () => {
+  const hk = (id, jid, o) => Object.assign(e(id, 3, { tyyppi: 'valmentajapalaveri', nakyvyys: 'henkilokunta', joukkue: jid, joukkue_nimi: jid === 'kpv_u15' ? 'KPV U15' : 'KPV U13', joukkueet: [jid], luoja_uid: 'muu', kohde: { tyyppi: 'henkilokunta', joukkue: jid } }), o || {});
+  const db = luoDb(perus({ 'seurat/kpv/kayttajat/v2': { rooli: 'valmentaja', joukkueet: ['kpv_u15'], aktiivinen: true } }));
+  lisaaEv(db, 'u13_hk', hk('u13_hk', 'kpv_u13')); lisaaEv(db, 'u15_hk', hk('u15_hk', 'kpv_u15')); lisaaEv(db, 'luoja_u15', hk('luoja_u15', 'kpv_u15', { luoja_uid: 'v1' })); lisaaEv(db, 'koko_hk', e('koko_hk', 4, { tyyppi: 'valmentajapalaveri', nakyvyys: 'henkilokunta', joukkue: null, joukkue_nimi: null, joukkueet: [], kohde: { tyyppi: 'henkilokunta' } }));
+  const uidit = (r) => [...r.body.matchAll(/UID:([^@]+)@talentmaster/g)].map((m) => m[1]).sort();
+  const t1 = tokenUrlista(await tilaa(db, valmCtx('v1'), { seuraId: 'kpv' })), t2 = tokenUrlista(await tilaa(db, valmCtx('v2'), { seuraId: 'kpv' })), tp = tokenUrlista(await tilaa(db, valmCtx('vp1', 'vp'), { seuraId: 'kpv' })), tpl = tokenUrlista(await tilaa(db, pelaajaCtx));
+  assert.deepStrictEqual(uidit(await hae(db, t1)), ['koko_hk', 'luoja_u15', 'u13_hk']);   // v1: oma joukkue U13 + luoja + koko henkilökunta; EI U15:n u15_hk
+  assert.deepStrictEqual(uidit(await hae(db, t2)), ['koko_hk', 'luoja_u15', 'u15_hk']);   // v2: U15 (luoja_u15 on U15:n palaveri, nakyy joukkueena)
+  assert.deepStrictEqual(uidit(await hae(db, tp)), ['koko_hk', 'luoja_u15', 'u13_hk', 'u15_hk']);   // johto kaikki
+  assert.deepStrictEqual(uidit(await hae(db, tpl)), []);   // pelaaja: henkilökunnan tapahtumat eivät näy
+});
+test('K35-6d: joukkueen_vapaa ja erikoisohjelma näkyvät joukkueen pelaajalle koko päivän (VALUE=DATE), toisen joukkueen eivät; SUMMARY tyypin nimi · joukkue', async () => {
+  const db = luoDb(perus()), a = Date.UTC(2026, 9, 21, 21, 0), b = Date.UTC(2026, 9, 24, 20, 59);   // to 22.10.–la 24.10. (EEST)
+  lisaaEv(db, 'vapaa', e('vapaa', 2, { tyyppi: 'joukkueen_vapaa', koko_paiva: true, alkaa: ts(a), paattyy: ts(b), paikka: null })); lisaaEv(db, 'leiri', e('leiri', 5, { tyyppi: 'erikoisohjelma', laji: 'leiri', koko_paiva: true, alkaa: ts(a), paattyy: ts(b), joukkue: 'kpv_u15', joukkue_nimi: 'KPV U15', joukkueet: ['kpv_u15'] }));
+  const body = (await hae(db, tokenUrlista(await tilaa(db, pelaajaCtx)))).body; assert.ok(body.includes('UID:vapaa@talentmaster')); assert.ok(!body.includes('UID:leiri@talentmaster')); assert.ok(body.includes('DTSTART;VALUE=DATE:20261022') && body.includes('DTEND;VALUE=DATE:20261025')); assert.ok(body.includes('SUMMARY;LANGUAGE=fi:Joukkueen vapaa · KPV U13'));
+});

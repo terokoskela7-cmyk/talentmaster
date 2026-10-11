@@ -5274,3 +5274,38 @@ describe('v3.57 · kalenteri_tilaukset (K35-7a, D190): vain palvelin — kukaan 
     let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(T(c.firestore()))).data(); }); expect(d.mitatoity).toBe(false);
   });
 });
+
+describe('v3.58 · kalenteri: seuran tauko vain johto; joukkueen vapaa / erikoisohjelma oma joukkue (K35-6d, D240/D241)', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const kal = (db, id) => doc(db, 'seurat', SEURA_A, 'kalenteri', id);
+  const ev = (o) => Object.assign({ luoja_uid: VALM_A_UID, nimi: 'X', alkaa: new Date('2026-10-21T00:00:00+03:00'), paattyy: new Date('2026-10-23T23:59:00+03:00'), koko_paiva: true, poistettu: false }, o);
+  const V = () => valmentajaContext(VALM_A_UID, SEURA_A).firestore(), JOHTO = () => vpContext(SEURA_A).firestore();
+  it('valmentaja EI luo seuran taukoa (ilman joukkuetta; myös aliakset tauko/loma ja kirjoitusasun variantit); johto ja SA luo', async () => {
+    for (const t of ['seuran_tauko', 'tauko', 'loma', 'Seuran_Tauko', ' tauko ']) { await assertFails(setDoc(kal(V(), 'st_' + t.trim()), ev({ tyyppi: t }))); await assertFails(setDoc(kal(V(), 'st2_' + t.trim()), ev({ tyyppi: t, joukkue: null }))); }
+    await assertSucceeds(setDoc(kal(JOHTO(), 'st_johto'), ev({ tyyppi: 'seuran_tauko' }))); await assertSucceeds(setDoc(kal(saContext().firestore(), 'st_sa'), ev({ tyyppi: 'seuran_tauko' }))); await assertSucceeds(setDoc(kal(sihteeriContext(SEURA_A).firestore(), 'st_sih'), ev({ tyyppi: 'seuran_tauko' })));
+  });
+  it('valmentaja EI muokkaa eikä muuta vanhaa seuran taukoa (update tarkistaa vanhan ja uuden dokumentin)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(kal(c.firestore(), 'tauko1'), ev({ tyyppi: 'seuran_tauko' })); await setDoc(kal(c.firestore(), 'harj1'), ev({ tyyppi: 'harjoitus', koko_paiva: false, joukkue: JOUKKUE_A1 })); await setDoc(kal(c.firestore(), 'harj_ilman'), ev({ tyyppi: 'harjoitus', koko_paiva: false })); });
+    await assertFails(updateDoc(kal(V(), 'tauko1'), { nimi: 'Muokattu' })); await assertFails(updateDoc(kal(V(), 'harj_ilman'), { tyyppi: 'seuran_tauko' })); await assertSucceeds(updateDoc(kal(V(), 'harj1'), { tyyppi: 'seuran_tauko' }));   // joukkueeseen rajattu tauko oman joukkueen valmentajalle sallittu (D240); ilman joukkuetta vain johto await assertFails(deleteDoc(kal(V(), 'tauko1')));
+    await assertSucceeds(updateDoc(kal(JOHTO(), 'tauko1'), { nimi: 'Syysloma' })); await assertSucceeds(updateDoc(kal(V(), 'harj1'), { nimi: 'Treeni' }));   // tavallinen tapahtuma ennallaan
+  });
+  it('valmentaja luo joukkueen vapaan ja erikoisohjelman OMALLE joukkueelle; ei toiselle joukkueelle; joukkue pakollinen', async () => {
+    for (const t of ['joukkueen_vapaa', 'erikoisohjelma']) {
+      await assertSucceeds(setDoc(kal(V(), 'oma_' + t), ev({ tyyppi: t, joukkue: JOUKKUE_A1, joukkue_nimi: 'FCL U12', joukkueet: [JOUKKUE_A1], laji: 'leiri' })));
+      await assertFails(setDoc(kal(V(), 'toinen_' + t), ev({ tyyppi: t, joukkue: JOUKKUE_A2, joukkueet: [JOUKKUE_A2] }))); await assertFails(setDoc(kal(V(), 'ei_' + t), ev({ tyyppi: t }))); await assertFails(setDoc(kal(V(), 'null_' + t), ev({ tyyppi: t, joukkue: null }))); await assertFails(setDoc(kal(V(), 'tyhja_' + t), ev({ tyyppi: t, joukkue: '' })));
+      await assertFails(setDoc(kal(JOHTO(), 'johto_ilman_' + t), ev({ tyyppi: t })));   // joukkue pakollinen johdollekin
+    }
+  });
+  it('johto ja SA voivat kaikki: vapaa/erikoisohjelma mille tahansa joukkueelle; talenttivalmentaja kaikille joukkueille; seuran_tauko joukkueeseen rajattuna valmentajalle vain omalle', async () => {
+    for (const t of ['joukkueen_vapaa', 'erikoisohjelma']) { await assertSucceeds(setDoc(kal(JOHTO(), 'j2_' + t), ev({ tyyppi: t, joukkue: JOUKKUE_A2 }))); await assertSucceeds(setDoc(kal(saContext().firestore(), 'sa_' + t), ev({ tyyppi: t, joukkue: JOUKKUE_A2 }))); await assertSucceeds(setDoc(kal(talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore(), 'tv_' + t), ev({ tyyppi: t, joukkue: JOUKKUE_A2, luoja_uid: 'talval-fcl-001' }))); }
+    await assertSucceeds(setDoc(kal(V(), 'st_oma'), ev({ tyyppi: 'seuran_tauko', joukkue: JOUKKUE_A1 }))); await assertFails(setDoc(kal(V(), 'st_toinen'), ev({ tyyppi: 'seuran_tauko', joukkue: JOUKKUE_A2 })));
+  });
+  it('valmentaja ei siirrä omaa vapaata toiselle joukkueelle eikä muokkaa toisen joukkueen vapaata; oman muokkaus ✓; poisto vain johto (ennallaan)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(kal(c.firestore(), 'oma'), ev({ tyyppi: 'joukkueen_vapaa', joukkue: JOUKKUE_A1 })); await setDoc(kal(c.firestore(), 'vieras'), ev({ tyyppi: 'joukkueen_vapaa', joukkue: JOUKKUE_A2 })); });
+    await assertSucceeds(updateDoc(kal(V(), 'oma'), { paattyy: new Date('2026-10-25T23:59:00+03:00') })); await assertFails(updateDoc(kal(V(), 'oma'), { joukkue: JOUKKUE_A2 })); await assertFails(updateDoc(kal(V(), 'vieras'), { nimi: 'Y' })); await assertFails(deleteDoc(kal(V(), 'oma')));
+  });
+  it('muut tyypit ennallaan: valmentaja luo harjoituksen, ottelun ja palaverin kuten ennen; pelaaja/huoltaja ei kirjoita', async () => {
+    for (const t of ['harjoitus', 'ottelu', 'valmentajapalaveri']) await assertSucceeds(setDoc(kal(V(), 'p_' + t), ev({ tyyppi: t, koko_paiva: false, joukkue: JOUKKUE_A1 })));
+    await assertFails(setDoc(kal(pelaajaContext(SEURA_A, PELAAJA_UID).firestore(), 'p_x'), ev({ tyyppi: 'joukkueen_vapaa', joukkue: JOUKKUE_A1 }))); await assertFails(setDoc(kal(huoltajaContext().firestore(), 'h_x'), ev({ tyyppi: 'harjoitus' })));
+  });
+});

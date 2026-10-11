@@ -124,8 +124,8 @@ describe('VP: jäsenmuutoksen synkka tulevien ryhmätapahtumien pelaajat_id:hen'
 });
 describe('Master: kalenteri näyttää omat ryhmät; ryhmätapahtuma vain ryhmän valmentajalle; luku vain valmentajalle itselleen (array-contains)', () => {
   it('lähdetarkistukset: Kenelle-lohko, kohdekentät-override, tapahtuman luonti ennen logistiikkaa, omat ryhmät -strippi, suodatus tmNakyyKalenterissa, ryhmälista valmentajalle where valmentajat array-contains', () => {
-    expect(MA).toContain("sallitut: ['joukkue', 'ryhma', 'pelaajat', 'henkilokunta']"); expect(MA).toContain('Object.assign(doc, _kd.osa); }'); expect(MA).toContain('id="calOmatRyhmat"'); expect(MA).toContain('TM_RYHMAT.tmNakyyKalenterissa(t, {'); expect(MA).toContain("col.where('valmentajat', 'array-contains', _uid)"); expect(MA).toContain('_mKnTyyppiMuuttui();   // R1 PR 2');
-    expect(VP).toContain('Object.assign(doc, _kd.osa); }'); expect(VP).toContain('_knTyyppiMuuttui();   // R1 PR 2'); expect(VP).toContain('<script src="lib/tm_ryhmat.js?v=2"></script>'); expect(MA).toContain('<script src="lib/tm_ryhmat.js?v=2"></script>');
+    expect(MA).toContain('TM_KALENTERI_OMAT.tmKalOmatKenelle(valittuTyyppi, { joukkue: !!_joukkue }).sallitut');   // K35-6d: sallitut libistä (+ joukkue_hk palaverille) expect(MA).toContain('Object.assign(doc, _kd.osa); }'); expect(MA).toContain('id="calOmatRyhmat"'); expect(MA).toContain('TM_RYHMAT.tmNakyyKalenterissa(t, {'); expect(MA).toContain("col.where('valmentajat', 'array-contains', _uid)"); expect(MA).toContain('_mKnTyyppiMuuttui();   // R1 PR 2');
+    expect(VP).toContain('Object.assign(doc, _kd.osa); }'); expect(VP).toContain('_knTyyppiMuuttui();   // R1 PR 2'); expect(VP).toContain('<script src="lib/tm_ryhmat.js?v=3"></script>'); expect(MA).toContain('<script src="lib/tm_ryhmat.js?v=3"></script>');
     for (const [nimi, src] of [['Pelaaja', PE], ['Vanhempi', VA]]) expect(src, nimi).not.toContain('<script src="lib/tm_ryhmat');   // pelaajasovellus ei lataa henkilökunnan libiä (inline-suodatin)
   });
   it('omat ryhmät -strippi: nimet escapataan, tyhjä → ei mitään', () => {
