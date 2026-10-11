@@ -1,5 +1,6 @@
 /* sv-erä 19 (scripts/i18n_kooste.cjs era19-kokoa / era19-vie): koonti, tarkistus ja vienti. Ajaa erien kopioilla (tmp). Koneellinen täyte (fi + merkki), ei kieltä: Code ei kirjoita ruotsia. */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60000 });   // koonti skannaa kaikki lib- ja HTML-lähteet (~2 s yksin, >5 s rinnakkaisajossa) — oletus 5 s aiheutti vaihtelevan timeoutin
 import { readFileSync, mkdtempSync, rmSync, cpSync, readdirSync } from 'fs';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
