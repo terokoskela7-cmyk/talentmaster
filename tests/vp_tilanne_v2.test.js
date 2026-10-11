@@ -56,8 +56,8 @@ describe('D148 · huomiot: asian mukaan ryhmitelty (≥ 3 joukkuetta = yksi rivi
     const m = Object.assign(TT.tmTilanneMalli(F.lataa('kypsa', NYT).syote), { huomiot: hu }), a = TT.tmTilanneHTML(m, { t, fn: { auki: 'au' } }); expect((a.match(/class="tt-it"/g) || []).length).toBe(5); expect(teksti(a)).toContain('Näytä kaikki 7 →');
     const b = TT.tmTilanneHTML(m, { t, fn: {}, auki: { huomiot: true } }); expect((b.match(/class="tt-it"/g) || []).length).toBe(7); expect(teksti(b)).not.toMatch(/Näytä kaikki \d+ →/); expect(kuusi).toHaveLength(6);
   });
-  it('D141: yli 12 kk vanha mittaus EI ole tasoväite → "Tekniikan mittaus on vanha · viimeksi 2025 · ei tasoarviota · päivitä"; kolme vanhaa → yksi ryhmärivi', () => {
-    const vanha = (n) => ({ nimi: n, pvm: '2025-08-01', ms: Date.UTC(2025, 7, 1) }), hu = huom([P({ joukkue: 'P15 Demo' })], [vanha('P15 Demo')]);
+  it('D141: VANHA_KK (15 kk, normisto) vanha mittaus EI ole tasoväite → "Tekniikan mittaus on vanha · viimeksi 2025 · ei tasoarviota · päivitä"; kolme vanhaa → yksi ryhmärivi', () => {
+    const vanha = (n) => ({ nimi: n, pvm: '2025-05-01', ms: Date.UTC(2025, 4, 1) }), hu = huom([P({ joukkue: 'P15 Demo' })], [vanha('P15 Demo')]);
     expect(hu).toHaveLength(1); expect(hu[0]).toMatchObject({ tyyppi: 'joukkue', kinds: ['vanha_tekniikka'], vuosi: 2025 });
     const x = html(hu); expect(x).toContain('Tekniikan mittaus on vanha'); expect(x).toContain('viimeksi 2025 · ei tasoarviota'); expect(x).toContain('päivitä'); expect(x).not.toMatch(/alle ikätason/);
     const g = huom(['P13 Demo', 'P14 Demo', 'P15 Demo'].map((j) => P({ joukkue: j })), ['P13 Demo', 'P14 Demo', 'P15 Demo'].map(vanha)); expect(g).toHaveLength(1); expect(g[0]).toMatchObject({ tyyppi: 'ryhma', kind: 'vanha_tekniikka', n: 3 }); expect(html(g)).toContain('Tekniikan mittaus on vanha · 3 joukkuetta');
@@ -68,7 +68,7 @@ describe('D148 · huomiot: asian mukaan ryhmitelty (≥ 3 joukkuetta = yksi rivi
   });
   it('ei huomioita → rauhallinen lause', () => { const x = teksti(tila('kypsa', (d) => { d.syote.poikkeamat = []; d.syote.tekniikka = []; d.syote.fyysinen = []; }).h); expect(x).toContain('Ei huomioita — kaikki joukkueet odotetulla tasolla.'); });
   it('järjestys: ryhmä/amber ensin, vanha mittaus viimeiseksi', () => {
-    const vanha = { nimi: 'P10 Demo', pvm: '2025-08-01', ms: Date.UTC(2025, 7, 1) }, tuore = (n) => ({ nimi: n, pvm: '2026-10-07', ms: Date.UTC(2026, 9, 7) }), hu = huom([P({ joukkue: 'P10 Demo' }), P({ joukkue: 'P13 Demo', osaAlue: 'voima', alaraja: false }), P({ joukkue: 'P14 Demo', osaAlue: 'maksinopeus' })], [vanha, tuore('P13 Demo'), tuore('P14 Demo')]);
+    const vanha = { nimi: 'P10 Demo', pvm: '2025-05-01', ms: Date.UTC(2025, 4, 1) }, tuore = (n) => ({ nimi: n, pvm: '2026-10-07', ms: Date.UTC(2026, 9, 7) }), hu = huom([P({ joukkue: 'P10 Demo' }), P({ joukkue: 'P13 Demo', osaAlue: 'voima', alaraja: false }), P({ joukkue: 'P14 Demo', osaAlue: 'maksinopeus' })], [vanha, tuore('P13 Demo'), tuore('P14 Demo')]);
     expect(hu[hu.length - 1].joukkue).toBe('P10 Demo');
   });
 });
