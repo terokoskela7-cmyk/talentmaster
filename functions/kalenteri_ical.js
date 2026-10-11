@@ -17,11 +17,13 @@ const { tunnisteTyyppi } = require('./authz_paatos');
 const K = require('./tm_kalenteri_pelaajalle');
 const R = require('./tm_ryhmat');
 const ICAL = require('./tm_ical');
+const { pelaajaPoissa } = require('./seuran_kooste');   // sama "ei mukana" -määritelmä kuin rosterissa: poistettu | arkistoitu | aktiivinen === false
 
 const PV = 86400000, IKKUNA_ALKU_PV = -30, IKKUNA_LOPPU_PV = 180;
 const JOHTO = ['vp', 'urheilutoimenjohtaja', 'seurasihteeri'], HENKILOKUNTA = JOHTO.concat(['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja', 'testivastaava']);
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 const hash = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
+const emailHash = (e) => hash(String(e == null ? '' : e).toLowerCase().trim());   // huoltajan sähköposti tilaukseen VAIN tiivisteenä (ei selväkielistä)
 const uusiToken = () => crypto.randomBytes(32).toString('base64url');
 const ms = (v) => (v && typeof v.toDate === 'function' ? v.toDate().getTime() : (typeof v === 'number' ? v : (v ? Date.parse(v) : null)));
 
@@ -38,7 +40,11 @@ async function rakennaSyote(deps, tilaus, nytMs) {
     const pSnap = await seura.collection('pelaajat').doc(tilaus.pelaajaId).get();
     if (!pSnap || !pSnap.exists) return null;
     const p = pSnap.data() || {};
-    if (tilaus.rooli === 'huoltaja' && p.suostumusTila !== 'annettu') return null;   // suostumus peruttu → syöte sulkeutuu
+    if (pelaajaPoissa(p)) return null;   // pelaaja poistettu / arkistoitu / ei aktiivinen → syöte sulkeutuu
+    if (tilaus.rooli === 'huoltaja') {
+      if (p.suostumusTila !== 'annettu') return null;   // suostumus peruttu → syöte sulkeutuu
+      if (!tilaus.huoltajaEmailHash || typeof p.huoltajaEmail !== 'string' || emailHash(p.huoltajaEmail) !== tilaus.huoltajaEmailHash) return null;   // huoltajan sähköposti vaihtunut → entinen huoltaja menettää syötteen
+    }
     const pelaaja = Object.assign({ id: tilaus.pelaajaId }, p);
     valitut = evs.filter((ev) => K.tmKuuluuPelaajalle(ev, pelaaja, joukkueDocs));
   } else {
@@ -70,39 +76,55 @@ async function rakennaSyote(deps, tilaus, nytMs) {
   return { nimi: (s.nimi ? s.nimi + ' · ' : '') + 'Kalenteri', kieli, tapahtumat };
 }
 
+/* Yhteinen oikeustarkistus (luonti ja peruutus): sama kuin haePelaajanKalenteri (B4). Palauttaa { seuraId, rooli, pelaajaId, kayttajaUid, uid, kohde, huoltajaEmailHash? } tai heittää. */
+async function tunnista(deps, data, context) {
+  const { db, HttpsError } = deps, torju = () => new HttpsError('permission-denied', 'Ei oikeutta kalenteriin.');
+  if (!context || !context.auth) throw new HttpsError('unauthenticated', 'Kirjautuminen vaaditaan.');
+  const seuraId = normalisoiDocId(data && data.seuraId), pelaajaIdSyote = data && data.pelaajaId != null && data.pelaajaId !== '' ? normalisoiDocId(data.pelaajaId) : null;
+  if (!seuraId || (data && data.pelaajaId != null && data.pelaajaId !== '' && !pelaajaIdSyote)) throw new HttpsError('invalid-argument', 'seuraId (ja pelaajaId) virheellinen.');
+  const tyyppi = tunnisteTyyppi(context.auth), token = context.auth.token || {}, seura = db.collection('seurat').doc(seuraId), uid = context.auth.uid || token.uid || null;
+  let rooli, pelaajaId = null, kayttajaUid = null, huoltajaEmailHash = null;
+  if (tyyppi === 'pelaaja') {   // pelaajatoken: vain oma pelaaja (pelaajaId voi puuttua → oma)
+    pelaajaId = pelaajaIdSyote || token.pelaajaId;
+    if (token.pelaajaSeuraId !== seuraId || token.pelaajaId !== pelaajaId) throw torju();
+    const pSnap = await seura.collection('pelaajat').doc(pelaajaId).get(); if (!pSnap || !pSnap.exists || pelaajaPoissa(pSnap.data() || {})) throw torju();
+    rooli = 'pelaaja';
+  } else if (tyyppi === 'kayttaja' && pelaajaIdSyote) {   // huoltaja: sama tarkistus kuin haePelaajanKalenteri (B4); henkilökunta hylätään (ei huoltajaEmail-täsmäystä)
+    const pSnap = await seura.collection('pelaajat').doc(pelaajaIdSyote).get(); if (!pSnap || !pSnap.exists) throw torju();
+    const p = pSnap.data() || {}; if (huoltajaSyy(token, p, { vaadiSuostumus: true }) || pelaajaPoissa(p)) throw torju();
+    rooli = 'huoltaja'; pelaajaId = pelaajaIdSyote; huoltajaEmailHash = emailHash(p.huoltajaEmail);
+  } else if (tyyppi === 'kayttaja') {   // henkilökunta: oma syöte
+    if (!uid || token.seuraId !== seuraId) throw torju();
+    const kSnap = await seura.collection('kayttajat').doc(uid).get(), k = kSnap && kSnap.exists ? (kSnap.data() || {}) : null;
+    if (!k || k.aktiivinen === false || HENKILOKUNTA.indexOf(k.rooli) < 0) throw torju();
+    rooli = 'henkilokunta'; kayttajaUid = uid;
+  } else throw torju();
+  return { seuraId, rooli, pelaajaId, kayttajaUid, uid, kohde: pelaajaId ? 'p:' + pelaajaId : 'u:' + kayttajaUid, huoltajaEmailHash };
+}
+const aktiiviset = (kokoelma, x) => kokoelma.where('seuraId', '==', x.seuraId).where('tilaajaUid', '==', x.uid).where('kohde', '==', x.kohde).where('mitatoity', '==', false).get();
+
 function luoTilausKasittelija(deps) {
-  const { db, HttpsError, Timestamp } = deps, nytF = deps.nyt || (() => Date.now()), perusUrl = deps.perusUrl || 'https://europe-west1-talentmaster-pilot.cloudfunctions.net/kalenteriIcal/';
-  const torju = () => new HttpsError('permission-denied', 'Ei oikeutta kalenteriin.');
+  const { db, Timestamp } = deps, nytF = deps.nyt || (() => Date.now()), perusUrl = deps.perusUrl || 'https://europe-west1-talentmaster-pilot.cloudfunctions.net/kalenteriIcal/';
   return async function luoKalenteriTilaus(data, context) {
-    if (!context || !context.auth) throw new HttpsError('unauthenticated', 'Kirjautuminen vaaditaan.');
-    const seuraId = normalisoiDocId(data && data.seuraId), pelaajaIdSyote = data && data.pelaajaId != null && data.pelaajaId !== '' ? normalisoiDocId(data.pelaajaId) : null;
-    if (!seuraId || (data && data.pelaajaId != null && data.pelaajaId !== '' && !pelaajaIdSyote)) throw new HttpsError('invalid-argument', 'seuraId (ja pelaajaId) virheellinen.');
-    const tyyppi = tunnisteTyyppi(context.auth), token = context.auth.token || {}, seura = db.collection('seurat').doc(seuraId), uid = context.auth.uid || token.uid || null;
-    let rooli, pelaajaId = null, kayttajaUid = null;
-    if (tyyppi === 'pelaaja') {   // pelaajatoken: vain oma pelaaja (pelaajaId voi puuttua → oma)
-      pelaajaId = pelaajaIdSyote || token.pelaajaId;
-      if (token.pelaajaSeuraId !== seuraId || token.pelaajaId !== pelaajaId) throw torju();
-      const pSnap = await seura.collection('pelaajat').doc(pelaajaId).get(); if (!pSnap || !pSnap.exists) throw torju();
-      rooli = 'pelaaja';
-    } else if (tyyppi === 'kayttaja' && pelaajaIdSyote) {   // huoltaja: sama tarkistus kuin haePelaajanKalenteri (B4); henkilökunta hylätään (ei huoltajaEmail-täsmäystä)
-      const pSnap = await seura.collection('pelaajat').doc(pelaajaIdSyote).get(); if (!pSnap || !pSnap.exists) throw torju();
-      if (huoltajaSyy(token, pSnap.data() || {}, { vaadiSuostumus: true })) throw torju();
-      rooli = 'huoltaja'; pelaajaId = pelaajaIdSyote;
-    } else if (tyyppi === 'kayttaja') {   // henkilökunta: oma syöte
-      if (!uid || token.seuraId !== seuraId) throw torju();
-      const kSnap = await seura.collection('kayttajat').doc(uid).get(), k = kSnap && kSnap.exists ? (kSnap.data() || {}) : null;
-      if (!k || k.aktiivinen === false || HENKILOKUNTA.indexOf(k.rooli) < 0) throw torju();
-      rooli = 'henkilokunta'; kayttajaUid = uid;
-    } else throw torju();
-    const kokoelma = db.collection('kalenteri_tilaukset');
-    // Uusi tilaus mitätöi saman tilaajan + saman kohteen vanhat
-    const vanhat = await kokoelma.where('seuraId', '==', seuraId).where('tilaajaUid', '==', uid).where('kohde', '==', pelaajaId ? 'p:' + pelaajaId : 'u:' + kayttajaUid).where('mitatoity', '==', false).get();
+    const x = await tunnista(deps, data, context), kokoelma = db.collection('kalenteri_tilaukset');
+    const vanhat = await aktiiviset(kokoelma, x);   // uusi tilaus mitätöi saman tilaajan + saman kohteen vanhat
     const uusi = uusiToken(), nyt = nytF(), batch = db.batch();
     vanhat.forEach((d) => batch.update(kokoelma.doc(d.id), { mitatoity: true, mitatoity_pvm: Timestamp.fromMillis(nyt) }));
-    batch.set(kokoelma.doc(hash(uusi)), { seuraId, pelaajaId, uid: kayttajaUid, tilaajaUid: uid, kohde: pelaajaId ? 'p:' + pelaajaId : 'u:' + kayttajaUid, rooli, luotu: Timestamp.fromMillis(nyt), mitatoity: false, viimeksi_haettu: null });
+    batch.set(kokoelma.doc(hash(uusi)), { seuraId: x.seuraId, pelaajaId: x.pelaajaId, uid: x.kayttajaUid, tilaajaUid: x.uid, kohde: x.kohde, rooli: x.rooli, huoltajaEmailHash: x.huoltajaEmailHash, luotu: Timestamp.fromMillis(nyt), mitatoity: false, viimeksi_haettu: null });
     await batch.commit();
     const url = perusUrl + uusi + '.ics';
     return { url, webcal: url.replace(/^https?:/, 'webcal:'), mitatoitu: vanhat.size != null ? vanhat.size : 0 };
+  };
+}
+
+/* peruKalenteriTilaus({ seuraId, pelaajaId? }): mitätöi tilaajan aktiivisen tilauksen ILMAN uutta ("Poista linkki"). Sama oikeustarkistus kuin luonnissa. Palauttaa { mitatoitu: n }. */
+function luoPeruutusKasittelija(deps) {
+  const { db, Timestamp } = deps, nytF = deps.nyt || (() => Date.now());
+  return async function peruKalenteriTilaus(data, context) {
+    const x = await tunnista(deps, data, context), kokoelma = db.collection('kalenteri_tilaukset'), vanhat = await aktiiviset(kokoelma, x), nyt = nytF(), batch = db.batch();
+    vanhat.forEach((d) => batch.update(kokoelma.doc(d.id), { mitatoity: true, mitatoity_pvm: Timestamp.fromMillis(nyt) }));
+    if (vanhat.size) await batch.commit();
+    return { mitatoitu: vanhat.size != null ? vanhat.size : 0 };
   };
 }
 
@@ -127,4 +149,4 @@ function luoSyoteKasittelija(deps) {
   };
 }
 
-module.exports = { luoTilausKasittelija, luoSyoteKasittelija, rakennaSyote, hash, uusiToken, IKKUNA_ALKU_PV, IKKUNA_LOPPU_PV, HENKILOKUNTA, JOHTO };
+module.exports = { luoTilausKasittelija, luoPeruutusKasittelija, emailHash, luoSyoteKasittelija, rakennaSyote, hash, uusiToken, IKKUNA_ALKU_PV, IKKUNA_LOPPU_PV, HENKILOKUNTA, JOHTO };

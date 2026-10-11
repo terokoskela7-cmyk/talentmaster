@@ -120,3 +120,29 @@ test('suostumus peruttu → huoltajan syöte sulkeutuu (404); pelaajan oma syöt
   const db = luoDb(perus()), th = tokenUrlista(await tilaa(db, huoltajaCtx())), tp = tokenUrlista(await tilaa(db, pelaajaCtx));
   db.data['seurat/kpv/pelaajat/p1'].suostumusTila = 'peruttu'; assert.strictEqual((await hae(db, th)).code, 404); assert.strictEqual((await hae(db, tp)).code, 200);
 });
+
+test('KATSELMOINTI: huoltajan sähköposti tilaukseen vain tiivisteenä (sha256, lowercase+trim); huoltajaEmail vaihdettu → 404; pelaajan oma syöte ei riipu huoltajan sähköpostista', async () => {
+  const db = luoDb(perus()), th = tokenUrlista(await tilaa(db, huoltajaCtx())), tp = tokenUrlista(await tilaa(db, pelaajaCtx));
+  const doc = db.data['kalenteri_tilaukset/' + crypto.createHash('sha256').update(th).digest('hex')], odotettu = crypto.createHash('sha256').update('aiti@esimerkki.fi').digest('hex');
+  assert.strictEqual(doc.huoltajaEmailHash, odotettu); assert.ok(!JSON.stringify(Object.keys(db.data).filter((k) => k.startsWith('kalenteri_tilaukset/')).map((k) => db.data[k])).toLowerCase().includes('aiti@'));   // ei selväkielistä sähköpostia tilaukseen
+  assert.strictEqual((await hae(db, th)).code, 200); db.data['seurat/kpv/pelaajat/p1'].huoltajaEmail = 'uusi.huoltaja@esimerkki.fi'; assert.strictEqual((await hae(db, th)).code, 404); assert.strictEqual((await hae(db, tp)).code, 200);
+  db.data['seurat/kpv/pelaajat/p1'].huoltajaEmail = '  AITI@Esimerkki.fi '; assert.strictEqual((await hae(db, th)).code, 200);   // sama osoite eri kirjoitusasulla
+  const vanha = luoDb(perus()); const tv = tokenUrlista(await tilaa(vanha, huoltajaCtx())); delete vanha.data['kalenteri_tilaukset/' + crypto.createHash('sha256').update(tv).digest('hex')].huoltajaEmailHash; assert.strictEqual((await hae(vanha, tv)).code, 404);   // ilman tiivistettä ei avaudu
+});
+test('KATSELMOINTI: pelaaja poistettu / arkistoitu / ei aktiivinen → 404 (pelaaja ja huoltaja); luonti hylätään samoin', async () => {
+  for (const lippu of [{ poistettu: true }, { arkistoitu: true }, { aktiivinen: false }]) {
+    const db = luoDb(perus()), tp = tokenUrlista(await tilaa(db, pelaajaCtx)), th = tokenUrlista(await tilaa(db, huoltajaCtx()));
+    assert.strictEqual((await hae(db, tp)).code, 200); Object.assign(db.data['seurat/kpv/pelaajat/p1'], lippu); assert.strictEqual((await hae(db, tp)).code, 404, JSON.stringify(lippu)); assert.strictEqual((await hae(db, th)).code, 404, JSON.stringify(lippu));
+    await assert.rejects(tilaa(db, pelaajaCtx), (x) => x.code === 'permission-denied'); await assert.rejects(tilaa(db, huoltajaCtx()), (x) => x.code === 'permission-denied');
+  }
+});
+
+const peru = (db, ctx, data) => H.luoPeruutusKasittelija({ db, HttpsError, Timestamp, nyt: () => NYT })(data || { seuraId: 'kpv', pelaajaId: 'p1' }, ctx);
+test('peruKalenteriTilaus: mitätöi tilaajan aktiivisen tilauksen ILMAN uutta; toisen tilaajan säilyy; ei aktiivista → 0; sama oikeustarkistus kuin luonnissa', async () => {
+  const db = luoDb(perus()), tp = tokenUrlista(await tilaa(db, pelaajaCtx)), th = tokenUrlista(await tilaa(db, huoltajaCtx())), ennen = Object.keys(db.data).filter((k) => k.startsWith('kalenteri_tilaukset/')).length;
+  assert.deepStrictEqual(await peru(db, pelaajaCtx), { mitatoitu: 1 }); assert.strictEqual((await hae(db, tp)).code, 404); assert.strictEqual((await hae(db, th)).code, 200); assert.strictEqual(Object.keys(db.data).filter((k) => k.startsWith('kalenteri_tilaukset/')).length, ennen);   // ei uutta dokumenttia
+  assert.deepStrictEqual(await peru(db, pelaajaCtx), { mitatoitu: 0 }); assert.deepStrictEqual(await peru(db, huoltajaCtx()), { mitatoitu: 1 }); assert.strictEqual((await hae(db, th)).code, 404);
+  const hk = luoDb(perus()), tv = tokenUrlista(await tilaa(hk, valmCtx(), { seuraId: 'kpv' })); assert.deepStrictEqual(await peru(hk, valmCtx(), { seuraId: 'kpv' }), { mitatoitu: 1 }); assert.strictEqual((await hae(hk, tv)).code, 404);
+  await assert.rejects(peru(db, { auth: { uid: 'x', token: { rooli: 'pelaaja', pelaajaSeuraId: 'kpv', pelaajaId: 'p2' } } }), (x) => x.code === 'permission-denied'); await assert.rejects(peru(db, huoltajaCtx({ email: 'toinen@esimerkki.fi' })), (x) => x.code === 'permission-denied');
+  await assert.rejects(peru(db, valmCtx(), { seuraId: 'kpv', pelaajaId: 'p1' }), (x) => x.code === 'permission-denied'); await assert.rejects(peru(db, {}), (x) => x.code === 'unauthenticated'); await assert.rejects(peru(db, pelaajaCtx, { seuraId: 'a/b' }), (x) => x.code === 'invalid-argument');
+});

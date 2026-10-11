@@ -70,13 +70,13 @@ describe('vartijat: palvelin, Rules, kopio, rajaus', () => {
   });
   it('index.js: luoKalenteriTilaus (callable, App Check) ja kalenteriIcal (onRequest, europe-west1, EI App Checkia)', () => {
     const idx = lue('functions/index.js'), a = idx.indexOf('exports.luoKalenteriTilaus'), b = idx.indexOf('exports.kalenteriIcal'), c = idx.indexOf('\n\n', b); expect(a).toBeGreaterThan(0); expect(b).toBeGreaterThan(a);
-    expect(idx.slice(a, b)).toContain("region('europe-west1')"); expect(idx.slice(a, b)).toContain('enforceAppCheck: true'); expect(idx.slice(a, b)).toContain('.https.onCall'); expect(idx.slice(b, c)).toContain("region('europe-west1')"); expect(idx.slice(b, c)).toContain('.https.onRequest'); expect(idx.slice(b, c)).not.toContain('enforceAppCheck');
+    expect(idx.slice(a, b)).toContain("region('europe-west1')"); expect(idx.slice(a, b)).toContain('enforceAppCheck: true'); expect(idx.slice(a, b)).toContain('.https.onCall'); expect(idx.slice(b, c)).toContain("region('europe-west1')"); expect(idx.slice(b, c)).toContain('.https.onRequest'); const pa = idx.indexOf('exports.peruKalenteriTilaus'); expect(pa).toBeGreaterThan(a); expect(pa).toBeLessThan(b); expect(idx.slice(pa, b)).toContain('enforceAppCheck: true'); expect(idx.slice(pa, b)).toContain('luoPeruutusKasittelija'); expect(idx.slice(b, c)).not.toContain('enforceAppCheck');
   });
   it('Rules v3.57: kalenteri_tilaukset allow read, write: if false (vain palvelin); versio + changelog', () => {
     const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore\.rules v3\.57/); expect(r).toMatch(/Muutokset v3\.56 → v3\.57/); expect(r).toMatch(/match \/kalenteri_tilaukset\/\{avain\}\s*\{ allow read, write: if false; \}/);
   });
   it('ei uutta rajauslogiikkaa: palvelin käyttää tmKuuluuPelaajalle/tmProjisoi/tmNakyyKalenterissa/huoltajaSyy; ei omia näkyvyys- tai joukkuevertailuja; token ei lokiin', () => {
-    const s = lue('functions/kalenteri_ical.js'); ['tmKuuluuPelaajalle', 'tmProjisoi', 'tmNakyyKalenterissa', 'huoltajaSyy', 'tunnisteTyyppi'].forEach((x) => expect(s).toContain(x)); expect(s).not.toMatch(/nakyvyys\s*[=!]==/); expect(s).not.toMatch(/console\.(log|warn|error)/);
+    const s = lue('functions/kalenteri_ical.js'); ['tmKuuluuPelaajalle', 'tmProjisoi', 'tmNakyyKalenterissa', 'huoltajaSyy', 'tunnisteTyyppi'].forEach((x) => expect(s).toContain(x)); expect(s).not.toMatch(/nakyvyys\s*[=!]==/); expect(s).not.toMatch(/console\.(log|warn|error)/); expect(s).toContain('huoltajaEmailHash'); expect(s).toContain('pelaajaPoissa');
     expect(s).toContain("randomBytes(32).toString('base64url')"); expect(s).toContain("createHash('sha256')"); expect(s).toContain("'max-age=900'"); expect(s).toMatch(/IKKUNA_ALKU_PV = -30, IKKUNA_LOPPU_PV = 180/);
   });
 });

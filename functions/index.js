@@ -2492,6 +2492,10 @@ exports.luoKalenteriTilaus = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })
   .https.onCall(kalenteriIcal.luoTilausKasittelija({ db, HttpsError: functions.https.HttpsError, Timestamp: admin.firestore.Timestamp }));
+exports.peruKalenteriTilaus = functions   // "Poista linkki": mitätöi aktiivisen tilauksen ilman uutta (K35-7b UI)
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(kalenteriIcal.luoPeruutusKasittelija({ db, HttpsError: functions.https.HttpsError, Timestamp: admin.firestore.Timestamp }));
 exports.kalenteriIcal = functions
   .region('europe-west1')
   .https.onRequest(kalenteriIcal.luoSyoteKasittelija({ db, Timestamp: admin.firestore.Timestamp }));
