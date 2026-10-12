@@ -10,12 +10,16 @@
  */
 const J = require('../lib/tm_joukkue.js'), PROJECT_ID = 'talentmaster-pilot';
 const _s = (x) => (x == null ? '' : String(x).trim());
+/** K35-13 #1: joukkueen nimi → doc-id-muoto ("KPV U13" → "kpv_u13"; "SJK P14 Musta" → "sjk_p14_musta"): pieniksi, ääkköset perusmerkeiksi, väli/viiva → _, muut merkit pois. */
+function normalisoiDocId(nimi) {
+  return _s(nimi).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[\s\-]+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '');
+}
 
 /** PURE: → { muutokset:[{id, data, vanha}], tunnistamattomat:[{id, arvo}], ennallaan:n, joukkueettomia:n } */
 function laske(tapahtumat, joukkueDocs) {
   const docs = (joukkueDocs || []).filter((d) => d && d.id), idt = new Set(docs.map((d) => String(d.id))), nimiIdlla = {}; docs.forEach((d) => { nimiIdlla[d.id] = d.nimi; });
   const tulos = { muutokset: [], tunnistamattomat: [], ennallaan: 0, joukkueettomia: 0 };
-  const idksi = (x) => { x = _s(x); if (!x) return { tyhja: true }; if (idt.has(x)) return { id: x }; const k = J.tmKanonisoiJoukkue(x, docs); return k ? { id: String(k.id) } : { tunnistamaton: x }; };
+  const idksi = (x) => { x = _s(x); if (!x) return { tyhja: true }; if (idt.has(x)) return { id: x }; const k = J.tmKanonisoiJoukkue(x, docs); if (k) return { id: String(k.id) }; const n = normalisoiDocId(x); return n && idt.has(n) ? { id: n } : { tunnistamaton: x }; };   // nimi → doc-id: docin nimi, sitten normalisoiDocId(nimi) === doc-id (muut seurat)
   (tapahtumat || []).forEach((e) => {
     if (!e || e.poistettu === true) return;
     const lista = Array.isArray(e.joukkueet) ? e.joukkueet : [], onJ = !!_s(e.joukkue), onL = lista.some((x) => _s(x));
@@ -55,5 +59,5 @@ async function main() {
   const admin = require('firebase-admin'); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault(), projectId: PROJECT_ID });
   await aja({ db: admin.firestore(), seura: a.seura, kirjoita: a.kirjoita });
 }
-module.exports = { laske, aja, lueArgit };
+module.exports = { laske, aja, lueArgit, normalisoiDocId };
 if (require.main === module) main().catch((e) => { console.error('VIRHE:', e.message); process.exit(1); });
