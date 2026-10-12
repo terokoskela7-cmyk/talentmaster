@@ -166,7 +166,7 @@ Kalenteri on yksi kokoelma (`seurat/{sid}/kalenteri`), jota VP ja valmentaja kä
 | 15.–20.10. | sv-läpiajo PR 2–4 · Gemini-erä 2 | Code → Tero/Gemini → PM |
 | ~20.10. | **Päätös: Kenttä-lippu Sibbolle 1.11.?** (onko Kenttä-polku kokonaan ruotsiksi) | Tero |
 | 20.–31.10. | Gemini-erän 2 vienti · Teron sv-käsitesti · B4 pelaajan kalenteri | Code, Tero |
-| ennen 1.11. | **Kehitystyöpöytä 22, korjauskierros A** (A1–A6 oikeellisuus, A7–A13 käytettävyys) + D108 viikkohavainto rinnakkain (`osa_havainnot`, tekijä + päivä; VP ei korvaa valmentajaa) ennen S2:ta · `docs/CODE_BRIEF_22_KEHITYSTYOPOYTA.md` | Code |
+| ennen 1.11. | ✅ **VALMIS 11–13.10.** **Kehitystyöpöytä 22, korjauskierros A** (A1–A6 oikeellisuus, A7–A13 käytettävyys) + D108 viikkohavainto rinnakkain (`osa_havainnot`, tekijä + päivä; VP ei korvaa valmentajaa): A1 #922 · A2–A5 #923 · A6 #924 · A7 #925 · A8 #926 · A9+A12 #927 · A10 #928 · A11 #930 · A13 #931/#934/#936/#939 · D108 #942 · Tänään-korjaukset #995, #1000 · `docs/CODE_BRIEF_22_KEHITYSTYOPOYTA.md` | Code |
 | ennen 1.11. | **tmTasoVari** · **kehitystyöpöytä Tänään** -korjaukset · sv-erä 19 Geminille | Code → Tero/Gemini |
 | ennen 1.11. | Tyhjät joukkueet pois: KPV `kpv_t8`, `kpv_u8` ("KPV U8" → P-nimeäminen), SJK `sjk_p12`, `sjk_p13` | Tero |
 | ennen 1.11. | KPV ja Sibbo: sopimusten avoimet päätökset (käyttöönottohinta, laskutus aktiivisista pelaajista, tuntihinta, koulutustunnit, ruotsinkielinen versio, Y-tunnus) | Tero |
