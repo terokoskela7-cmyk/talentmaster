@@ -158,7 +158,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kalenteri_nakyma.js?v=6"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
-<script src="lib/tm_valmentaja_koti.js?v=3"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=3"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
+<script src="lib/tm_valmentaja_koti.js?v=4"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=4"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
 <script src="lib/tm_valmentaja_nav.js?v=2"></script>   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
 <script src="lib/tm_harjoituskertyma.js?v=2"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=3"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
@@ -182,7 +182,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm-methodology.js?v=3"></script>
 <script src="lib/tm-profile.js?v=3"></script>
 <script src="lib/tm-microcycles.js?v=2"></script>
-<script src="lib/tm-prescription.js?v=2"></script>
+<script src="lib/tm-prescription.js?v=3"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -1597,7 +1597,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
   <aside class="sidebar" id="sidebar">
     <div class="sb-brand">
       <div class="sb-logo">Talent<em>Master</em>™</div>
-      <div class="sb-role caps" id="sbRole">Valmentaja</div>
+      <div class="sb-role caps" id="sbRole" data-i18n="Valmentaja">Valmentaja</div>
       <div class="sb-seura" id="sbSeura">—</div>
     </div>
 
@@ -2498,7 +2498,7 @@ async function _lataaValmentaja(uid) {
       _demo = false;   // SA ei käytä demo-dataa
       _rooli = 'super_admin';
       const sbRoleEl = document.getElementById('sbRole') || document.querySelector('.sb-role');
-      if (sbRoleEl) sbRoleEl.textContent = 'Super Admin';
+      if (sbRoleEl) { sbRoleEl.textContent = 'Super Admin'; sbRoleEl.removeAttribute('data-i18n'); }   // ei käännetä kieliswiippauksessa takaisin 'Valmentaja'ksi
 
       // Lataa kaikki seurat — näytä valitsin SA:lle
       const sSnap = await _db.collection('seurat').get().catch(() => null);
@@ -3855,7 +3855,7 @@ function _rakennaValmentajaJoukkueValitsin() {
 
   const sel = document.createElement('select');
   sel.id = 'valm-joukkue-valitsin';
-  sel.setAttribute('aria-label', masterT('Valitse joukkue'));
+  sel.setAttribute('aria-label', masterT('Valitse joukkue')); sel.setAttribute('data-i18n-aria', 'Valitse joukkue');
   sel.style.cssText = 'margin:4px 12px 0;width:calc(100% - 24px);padding:5px 8px;'
     + 'background:var(--card2);border:0.5px solid var(--line2);border-radius:6px;'
     + 'color:var(--teal);font-size:11px;cursor:pointer;font-weight:500;';
@@ -3911,7 +3911,7 @@ async function _rakennaSAJoukkueValitsin(seuraId, opts) {   // opts (VP-periaate
     // "Kaikki joukkueet" -vaihtoehto SA:lle
     const kaikki = document.createElement('option');
     kaikki.value = '';
-    kaikki.textContent = masterT('— Kaikki joukkueet —');
+    kaikki.textContent = masterT('— Kaikki joukkueet —'); kaikki.setAttribute('data-i18n', '— Kaikki joukkueet —');
     if (!_joukkue) kaikki.selected = true;
     jSel.appendChild(kaikki);
 
@@ -4812,7 +4812,7 @@ function _alusta(nimi) {
   setWs(_ws);   // 'koti' → renderKoti → renderCoachAloitaKortti (pysyvä "Aloita tästä" -kortti, gating localStorage)
 }
 
-function _setGreet(nimi) {
+function _setGreet(nimi) { window._mGreetNimi = nimi;
   const h = new Date().getHours();
   const prefix = h < 11 ? masterT('Hyvää aamua') : h < 17 ? masterT('Hyvää päivää') : masterT('Hyvää iltaa');
   document.getElementById('hGreet').textContent = prefix + ', ' + nimi + '.';
@@ -5442,7 +5442,7 @@ function masterVaihdaKieli(lang) {
   if (typeof tmAsetaKieli === 'function') tmAsetaKieli(lang, true);
   masterPaivitaKielivalitsin();
   if (typeof masterLokalisoi === 'function') masterLokalisoi();
-  if (typeof _ws !== 'undefined' && _ws) setWs(_ws);   // re-renderöi aktiivinen työtila uudella kielellä
+  if (typeof _ws !== 'undefined' && _ws) { _setDate(); if (window._mGreetNimi != null) _setGreet(window._mGreetNimi); try { _paivitaKaikkiNakymat(); } catch (e) {} setWs(_ws); }   // V-KOTI sv: KAIKKI jo piirretyt näkymät (myös Kausi) + otsikkorivi uudella kielellä; valitsimet data-i18n-sweepillä
 }
 function masterPaivitaKielivalitsin() {
   var k = (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi';
@@ -9858,10 +9858,10 @@ function renderSeason() {
           const _ph = TM.prescription.generoimPreHarkka({ pelaajat: P }, { paiva: new Date() });
           if (_ph && _ph.blokit && _ph.blokit.length) {
             const _bk = b => '<div style="flex:1;min-width:185px;background:var(--card);border:.5px solid var(--line);border-radius:8px;padding:12px 14px">'
-              + '<div style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--teal)">' + (b.tyyppi || b.vaihe || '') + (b.ketjuEmoji ? ' ' + b.ketjuEmoji : '') + '</div>'
-              + '<div style="font-size:13px;color:var(--ink);font-weight:500;margin-top:3px">' + (b.nimi || b.otsikko || '') + '</div>'
-              + (b.ohje ? '<div style="font-size:11px;color:var(--ink2);margin-top:3px;line-height:1.45">' + b.ohje + '</div>' : '')
-              + (b.phv_muistutus ? '<div style="font-size:10px;color:var(--amber);margin-top:4px">' + b.phv_muistutus + '</div>' : '') + '</div>';
+              + '<div style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--teal)">' + masterT(b.tyyppi || b.vaihe || '') + (b.ketjuEmoji ? ' ' + b.ketjuEmoji : '') + '</div>'
+              + '<div style="font-size:13px;color:var(--ink);font-weight:500;margin-top:3px">' + masterT(b.nimi || b.otsikko || '') + '</div>'
+              + (b.ohje ? '<div style="font-size:11px;color:var(--ink2);margin-top:3px;line-height:1.45">' + masterT(b.ohje) + '</div>' : '')
+              + (b.phv_muistutus ? '<div style="font-size:10px;color:var(--amber);margin-top:4px">' + (b.phv_muistutus_avain ? masterT(b.phv_muistutus_avain.avain).replace('{n}', b.phv_muistutus_avain.n) : masterT(b.phv_muistutus)) + '</div>' : '') + '</div>';
             harkkaEl.innerHTML = '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">' + masterT('Harjoitesuunnitelma · S-pre-harkka (heikoin ketju ohjaa)') + '</div>'
               + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _ph.blokit.map(_bk).join('') + '</div>';
           } else harkkaEl.innerHTML = '';
@@ -11762,10 +11762,10 @@ function undoAction(key) {
 // Selitteen näyttö klikkauksella (kosketusystävällinen). EI undo-nappia → ei käytä toast():ia.
 // textContent estää HTML-injektion. §7.17 IIFE-scope → globaali. Pitkä kesto (~6 s).
 // §IA ℹ️-infonappi KPI-/testiotsikoihin — selite aina TM_SELITTEET:istä (yksi lähde). Klikkaus → _mSelInfo.
-function _mSelBtn(k){ var t=(typeof TM_SELITTEET!=='undefined' && TM_SELITTEET[k])?TM_SELITTEET[k]:null; return t?' <span onclick="event.stopPropagation();_mSelInfo(\''+k+'\')" title="'+String(t).replace(/"/g,'&quot;')+'" style="cursor:help;color:var(--ink3);font-size:10px;opacity:.7">ⓘ</span>':''; }
+function _mSelBtn(k){ var t=(typeof TM_SELITTEET!=='undefined' && TM_SELITTEET[k])?masterT(TM_SELITTEET[k]):null; return t?' <span onclick="event.stopPropagation();_mSelInfo(\''+k+'\')" title="'+String(t).replace(/"/g,'&quot;')+'" style="cursor:help;color:var(--ink3);font-size:10px;opacity:.7">ⓘ</span>':''; }
 window._mSelBtn = _mSelBtn;
 window._mSelInfo = function(k) {
-  var t = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET[k]) ? TM_SELITTEET[k] : '';
+  var t = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET[k]) ? masterT(TM_SELITTEET[k]) : '';
   if (!t) return;
   var wrap = document.getElementById('toast-wrap');
   if (!wrap) { alert(t); return; }
