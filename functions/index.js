@@ -2254,8 +2254,7 @@ exports.notifKalenteriMuutos = functions
     }
     return null;
   });
-
-
+exports.notifKalenteriViikko = require('./kalenteri_viikko').viikkoTrigger({ functions, admin, db, roster: _c4Roster, optOut: _c4OptOut });   // K35-6c (D192): yksi viikkoilmoitus per erä (kalenteri_viikko.js)
 // ─────────────────────────────────────────────────────────────────────────────
 // KAAVIO ERÄ D2 — pelaajan "ymmärretty"-kuittaus.
 //

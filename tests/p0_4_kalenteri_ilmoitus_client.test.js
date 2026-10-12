@@ -188,7 +188,7 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
     expect(h).toContain('Peruttu: Nopeustestit'); expect(h).not.toContain('Muutos: Harjoitus'); expect(h).toMatch(/Ilmoitukset[^<]*<span[^>]*>1</);
   });
   it('lähde: lib ladataan + SW cachettaa sen (offline)', () => {
-    expect(P7).toContain('lib/tm_kalenteri_ilmoitus.js?v=3');
+    expect(P7).toMatch(/lib\/tm_kalenteri_ilmoitus\.js\?v=\d+/);
     expect(lue('sw_pelaaja.js')).toContain("/lib/tm_kalenteri_ilmoitus.js");
   });
 });
@@ -196,7 +196,7 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
 describe('Vanhempi_v2 — sama suodatus + ilmoituslista', () => {
   const V2 = lue('TalentMaster_Vanhempi_v2.html');
   it('lähde: lib ladataan, kalenterisuodatin käyttää tmEvPaattynyt:tä (ei `d < now`), SW cachettaa libin', () => {
-    expect(V2).toContain('lib/tm_kalenteri_ilmoitus.js?v=3');
+    expect(V2).toMatch(/lib\/tm_kalenteri_ilmoitus\.js\?v=\d+/);
     expect(pura(V2, 'async function _vanhLataaKalenteri(')).toMatch(/haePelaajanKalenteri[\s\S]*K\.tmKalenteriKoosta\(data, new Date\(\)\)/);   // B4: päättymissuodatus (tmEvPaattynyt) libissä tmKalenteriKoosta
     expect(lue('sw_vanhempi.js')).toContain("/lib/tm_kalenteri_ilmoitus.js");
   });
