@@ -93,7 +93,7 @@ describe('syke, viestit, tyhjä, HTML', () => {
   });
   it('HTML: kortit + napit; ei hex/emoji; ei punaista; nostoissa amber/teal-luokat', () => {
     const m = mal({ tapahtumat: [tanaan(), ev('b', '2026-10-16')], havainnot: {}, kirjaukset: [] }), h = N.tmKotiHTML(m, { t: (x) => x, on: (n) => 'k(' + n.toiminto + ')' });
-    ['Seuraava', 'Tehtävät', 'Tämä viikko', 'Pelaajat joihin kannattaa koskea', 'Syke', 'Avaa Pulssi'].forEach((s) => expect(h).toContain(s)); expect(h).toContain('k(lasnaolo)');
+    ['Seuraava', 'Tehtävät', 'Tämä viikko', 'Pelaajat, joihin kannattaa tarttua', 'Syke', 'Avaa Pulssi'].forEach((s) => expect(h).toContain(s)); expect(h).toContain('k(lasnaolo)');
     [h, N.tmKotiCSS()].forEach((x) => { expect(x).not.toMatch(/#[0-9a-fA-F]{3,6}\b/); expect(x).not.toMatch(/var\(--red/); expect(x).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u); });
   });
   function tanaan() { return ev('a', '2026-10-14'); }

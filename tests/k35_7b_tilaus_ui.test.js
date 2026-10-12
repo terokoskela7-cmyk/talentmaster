@@ -10,11 +10,19 @@ describe('modaalin tilat', () => {
     expect(ei).toContain('data-tl="luo"'); expect(ei).not.toContain('data-tl="poista"'); expect(on).toContain('Linkki luotu 5.10.'); expect(on).toContain('Luo uusi linkki'); expect(on).toContain('data-tl="poista"'); expect(on).not.toMatch(/https?:|webcal:|<input/);
     [ei, on].forEach((h) => expect(h).toContain('muutaman tunnin välein (Google voi viivästyä jopa vuorokauden)'));
   });
-  it('uusi linkki: linkki-kenttä, Avaa kalenterisovelluksessa, Kopioi, varoitus "Älä jaa sitä", välilehdet iPhone/Google/Outlook (2–3 riviä), Google kertoo viiveen', () => {
-    const h = (v) => U.tmTilausModaaliHTML({ vaihe: 'uusi', url: 'https://x.test/abc.ics', webcal: 'webcal://x.test/abc.ics', valilehti: v }, C);
-    expect(h()).toContain('value="https://x.test/abc.ics"'); expect(h()).toContain('Avaa kalenterisovelluksessa'); expect(h()).toContain('Kopioi linkki'); expect(h()).toContain('Älä jaa sitä');
-    ['iphone', 'google', 'outlook'].forEach((k) => { const rivit = (h(k).match(/<li>/g) || []).length; expect(rivit).toBeGreaterThanOrEqual(2); expect(rivit).toBeLessThanOrEqual(3); expect(U.OHJEET[k]).toBeTruthy(); });
-    expect(h('google')).toContain('jopa vuorokauden viiveellä'); expect(h('iphone')).toContain('Asetukset');
+  it('uusi linkki (K35-11 #7): linkki-kenttä, kolme nappia Apple/Outlook/Google + Outlook.com-linkki, Kopioi, "Älä jaa sitä", päivitysvälit', () => {
+    const h = U.tmTilausModaaliHTML({ vaihe: 'uusi', url: 'https://x.test/abc.ics', webcal: 'webcal://x.test/abc.ics' }, C);
+    expect(h).toContain('value="https://x.test/abc.ics"'); expect(h).toContain('Kopioi linkki'); expect(h).toContain('Älä jaa sitä');
+    ['apple', 'outlook', 'google', 'outlook_live'].forEach((k) => expect(h).toContain('data-tl="' + k + '"')); expect(h).not.toContain('data-tl-v');
+    expect(h).toContain('Apple noin 1 tunti'); expect(h).toContain('Outlook noin 3 tuntia'); expect(h).toContain('Google jopa vuorokausi');
+  });
+  it('tmTilausUrlit: Apple webcal://, Outlook addfromweb (+live), Google render?cid=webcal (koodattu); webcal johdetaan https:stä jos puuttuu', () => {
+    const u = U.tmTilausUrlit({ url: 'https://x.test/a b.ics?t=1', webcal: 'webcal://x.test/a b.ics?t=1' });
+    expect(u.apple).toBe('webcal://x.test/a b.ics?t=1');
+    expect(u.outlook).toBe('https://outlook.office.com/calendar/0/addfromweb?url=' + encodeURIComponent('https://x.test/a b.ics?t=1') + '&name=TalentMaster');
+    expect(u.outlook_live).toMatch(/^https:\/\/outlook\.live\.com\/calendar\/0\/addfromweb\?url=https%3A%2F%2Fx\.test/);
+    expect(u.google).toBe('https://calendar.google.com/calendar/render?cid=' + encodeURIComponent('webcal://x.test/a b.ics?t=1'));
+    expect(U.tmTilausUrlit({ url: 'https://x.test/c.ics' }).apple).toBe('webcal://x.test/c.ics');
   });
   it('esto: huoltaja ilman vahvistettua sähköpostia → syy + vahvistusnappi; suostumus → syy ilman nappia; virhe: oikeus/yleinen', () => {
     expect(U.tmTilausModaaliHTML({ vaihe: 'esto', esto: { syy: 'sahkoposti', toiminto: 'f' } }, C)).toMatch(/ei ole vielä vahvistettu[\s\S]*data-tl="vahvista"/);

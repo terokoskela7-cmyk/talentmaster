@@ -20,7 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- K35-7b: callable luoKalenteriTilaus/peruKalenteriTilaus/haeKalenteriTilausTila -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-<script src="lib/tm_kalenteri_tilaus_ui.js?v=1"></script>   <!-- K35-7b: "Lisää kalenteriini" -->
+<script src="lib/tm_kalenteri_tilaus_ui.js?v=2"></script>   <!-- K35-7b: "Lisää kalenteriini" -->
 <script src="lib/tm_kalenteri_lataus.js?v=1"></script>   <!-- K35-10: rajattu kalenterilataus (−8…+26 vk, laajenee selatessa; monipäiväiset erikseen) -->
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (audit 27, D140) -->
 <script src="lib/tm_koti_luvut.js?v=3"></script>   <!-- P0-luvut: avoimetTestit (yksi määritelmä), kattavuus (D125) — audit 27 -->
@@ -157,8 +157,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kalenteri_nakyma.js?v=6"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
-<script src="lib/tm_valmentaja_koti.js?v=1"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=1"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
-<script src="lib/tm_harjoituskertyma.js?v=1"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=1"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
+<script src="lib/tm_valmentaja_koti.js?v=2"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=2"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
+<script src="lib/tm_harjoituskertyma.js?v=1"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=2"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=3"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
 <script src="lib/tm_kalenteri_omat.js?v=2"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
@@ -4836,7 +4836,7 @@ function renderCoachSelfCard() {
   var el = document.getElementById('coachSelfCard');
   if (!el) return;
   var d = window._valmentajaData;
-  if (!d && !_superAdmin) { el.style.display = 'none'; return; }
+  if ((!d && !_superAdmin) || _ws === 'koti') { el.style.display = 'none'; return; }   // K35-11 #4: Koti v2 ei näytä profiilikorttia (profiili: oma toiminto)
 
   var nimi = _superAdmin ? 'Super Admin' : ((d.etunimi || '') + ' ' + (d.sukunimi || '')).trim() || 'Valmentaja';
   var rooli = _superAdmin ? 'super_admin' : (_rooli || d.rooli || 'valmentaja');
@@ -5454,6 +5454,7 @@ function setWs(ws) {
   document.querySelectorAll('.tabbar-item').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
   localStorage.setItem('tm-ws', ws);
   try { if (ws === 'dev' || ws === 'havainnot' || ws === 'inbox') localStorage.setItem('tm_valmentaja_visited_' + ws + '_' + (typeof _vcaUid === 'function' ? _vcaUid() : 'anon'), '1'); } catch (e) {}   // Aloita tästä -checklist (visited)
+  try { renderCoachSelfCard(); } catch (e) {}   // kortti piiloon Kodissa, muualla näkyviin
   // View-specific rendering
   if (ws === 'koti') renderKoti();
   if (ws === 'havainnot') renderHavainnot();
@@ -6690,7 +6691,7 @@ function _mKertymaTayta(p) {
   const el = document.getElementById('_mKertymaCard'); if (!el) return; const N = window.TM_HARJOITUSKERTYMA_NAKYMA;
   if (!document.getElementById('hkCss')) { const st = document.createElement('style'); st.id = 'hkCss'; st.textContent = N.tmKertymaCSS(); document.head.appendChild(st); }
   if (_demo || !_seuraId) { el.innerHTML = N.tmKertymaMasterHTML(window.TM_HARJOITUSKERTYMA.tmKertyma({ tapahtumat: [], nyt: Date.now() }), { t: masterT }); return; }
-  window.TM_HARJOITUSKERTYMA.tmKertymaLueKooste(_db, _seuraId, p.id, Date.now()).then(k => { const e = document.getElementById('_mKertymaCard'), w = document.getElementById('_mKertymaWrap'); if (w && !k) w.style.display = 'none'; if (e) e.innerHTML = k ? N.tmKertymaMasterHTML(k, { t: masterT }) : ''; });   // lukuvirhe (esim. oikeus) → lohko ja sen otsikko piiloon, ei kaatumista
+  window.TM_HARJOITUSKERTYMA.tmKertymaLueKooste(_db, _seuraId, p.id, Date.now()).then(k => { const e = document.getElementById('_mKertymaCard'), w = document.getElementById('_mKertymaWrap'); if (w && !k) w.style.display = 'none'; if (e) e.innerHTML = k ? N.tmKertymaMasterHTML(k, { t: masterT }) : ''; });   // K35-11 #6: puuttuva kooste → tyhjä tila (näytetään); vain lukuvirhe (null, esim. oikeus) → lohko ja otsikko piiloon, ei kaatumista
 }
 function _ktNayttoHTML(p) {
   const e = _mEsc, o = _mPinfoOsat(p), pid = e(p.id), nakyy = (typeof _prVoiNahda === 'function' && _prVoiNahda(p));
