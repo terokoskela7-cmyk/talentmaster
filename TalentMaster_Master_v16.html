@@ -20,7 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- K35-7b: callable luoKalenteriTilaus/peruKalenteriTilaus/haeKalenteriTilausTila -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-<script src="lib/tm_kalenteri_tilaus_ui.js?v=2"></script>   <!-- K35-7b: "Lisää kalenteriini" -->
+<script src="lib/tm_kalenteri_tilaus_ui.js?v=3"></script>   <!-- K35-7b: "Lisää kalenteriini" -->
 <script src="lib/tm_kalenteri_lataus.js?v=1"></script>   <!-- K35-10: rajattu kalenterilataus (−8…+26 vk, laajenee selatessa; monipäiväiset erikseen) -->
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (audit 27, D140) -->
 <script src="lib/tm_koti_luvut.js?v=3"></script>   <!-- P0-luvut: avoimetTestit (yksi määritelmä), kattavuus (D125) — audit 27 -->
@@ -154,6 +154,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kalenteri_malli.js?v=5"></script>   <!-- K35-2: kalenterimalli (tuntiväli, oletuspaikka, kauden loppu, lähteen omistajuus; D181/D185) -->
 <script src="lib/tm_kalenteri_kyselyt.js?v=3"></script>   <!-- K35-1: tauko + seuraava tapahtuma (D193) -->
 <script src="lib/tm_viikkopohja.js?v=4"></script>   <!-- K35-3: viikkopohjat + Täytä viikko -laskenta -->
+<script src="lib/tm_kalenteri_kuukausi.js?v=1"></script>   <!-- K35-11b: kuukausinäkymä -->
 <script src="lib/tm_kalenteri_nakyma.js?v=6"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
@@ -1912,7 +1913,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
           </div>
           <button class="cal-add-btn" onclick="_avaaUusiTapahtuma(tmPaivaIso(new Date()), '17:00')" data-i18n="Uusi tapahtuma">Uusi tapahtuma</button>
           <button class="cal-add-btn q" onclick="_avaaTestausV9()" data-i18n="Luo testitapahtuma">Luo testitapahtuma</button>
-          <button class="cal-add-btn q" onclick="_calTilausAvaa()" data-i18n="Lisää kalenteriini">Lisää kalenteriini</button>
+          <button class="cal-add-btn q" id="calTilausBtn" onclick="_calTilausAvaa()" data-i18n="Lisää kalenteriini">Lisää kalenteriini</button>
         </div>
       </div>
 
@@ -1925,6 +1926,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
 
       <div id="calTaytaKortti"></div>   <!-- Täytä viikko -signaalikortti (tm_kalenteri_nakyma) -->
       <div id="calWeek"></div>
+      <div id="calMonth" style="display:none"></div>   <!-- K35-11b: kuukausinäkymä (lib/tm_kalenteri_kuukausi) -->
 
       <div class="cal-legend" id="calSelite"></div>   <!-- selite rekisteristä (TM_KALENTERI_TYYPIT.tmKalSelite) — renderCal täyttää -->
 
@@ -2487,7 +2489,7 @@ async function _lataaValmentaja(uid) {
     // Vain tämä kertaluontoinen kirjautumistarkistus (network-kutsu, ei suorituskykyongelma).
     const token = await _auth.currentUser.getIdTokenResult(true).catch(() => null);
     const claims = token?.claims || {};
-    console.log('[Master] claims:', { rooli: claims.rooli, seuraId: claims.seuraId, claimsAsetettu: claims.claimsAsetettu });
+    console.log('[Master] claims:', { rooli: claims.rooli, seuraId: claims.seuraId, claimsAsetettu: claims.claimsAsetettu }); window._tmClaimSeuraId = claims.seuraId || null;
 
     // Super admin -tarkistus (admins-kokoelma)
     const adminSnap = await _db.collection('admins').doc(uid).get().catch(() => null);
@@ -3763,7 +3765,8 @@ function _renderInboxOhjaus(el) {
 }
 
 /* K35-7b: valmentajan oma iCal-syöte (callable-ohjain libissä) */
-function _calTilausAvaa() { window.TM_KALENTERI_TILAUS_UI.tmTilausAsenna({ t: masterT, kutsu: (n, d) => firebase.app().functions('europe-west1').httpsCallable(n)(d), args: () => ({ seuraId: _seuraId }), toast: x => toast(x, 'ok') }).avaa(); }
+function _calTilausEste() { return window.TM_KALENTERI_TILAUS_UI.tmTilausEste({ sa: _superAdmin, seuraId: _seuraId, claimSeuraId: window._tmClaimSeuraId }); }   // K35-11b: SA / toisen seuran käyttäjä / ei seuraa
+function _calTilausAvaa() { window.TM_KALENTERI_TILAUS_UI.tmTilausAsenna({ esto: _calTilausEste, t: masterT, kutsu: (n, d) => firebase.app().functions('europe-west1').httpsCallable(n)(d), args: () => ({ seuraId: _seuraId }), toast: x => toast(x, 'ok') }).avaa(); }
 /* ── KALENTERI TAPAHTUMAT FIRESTORESTA ── */
 /* K35-10: kalenteri ladataan RAJATUSTI (lib/tm_kalenteri_lataus.js): −8…+26 vk nykyhetkestä, laajenee kun viikkoa selataan ulkopuolelle (haetaan vain puuttuva väli); monipäiväiset (tauko/vapaa/erikoisohjelma) 2. kyselyllä.
    Kutsu ilman argumenttia (muokkauksen jälkeen) = ladattu väli haetaan uudelleen; argumentilla (viikon päivä) = vain puuttuva väli. Sarjan muokkaus (toistuvuus_sarja_id) on oma kyselynsä, ei rajaudu. */
@@ -10224,10 +10227,11 @@ function renderCal() {
   if (wkEl) wkEl.textContent = masterT('Viikko ') + weekNum + ' · ' + monday.getDate() + '.–' + sunday.getDate() + '. ' + masterT(kk[sunday.getMonth()]);
   const subEl = document.getElementById('calWkSub');
   if (subEl) subEl.textContent = masterT('Kausi ') + monday.getFullYear() + '/' + (monday.getFullYear()+1).toString().slice(-2) + masterT(' · Viikko ') + weekNum;
+  _calKuukausiNayta();   // kuukausitilassa piilottaa viikon ja asettaa kuukausiotsikon (jälkeen kuin viikkootsikko)
 
-  const todayStr = tmPaivaIso(today), mondayIso = tmPaivaIso(monday); _calVarmistaIkkuna(mondayIso);   // K35-10: selaus ikkunan ulkopuolelle hakee puuttuvan välin
+  const todayStr = tmPaivaIso(today), mondayIso = tmPaivaIso(monday); _calVarmistaIkkuna(mondayIso); const _tb = document.getElementById('calTilausBtn'); if (_tb) _tb.style.display = _calTilausEste() ? 'none' : '';   // K35-11b: Lisää kalenteriini piiloon SA:lta / toisen seuran käyttäjältä   // K35-10: selaus ikkunan ulkopuolelle hakee puuttuvan välin
   // K35-6a: viikko = päiväsarakkeet (D182, lib/tm_kalenteri_nakyma.js); testitapahtumat koko päivän riville; Täytä viikko -kortti + esikatselu (lib/tm_kalenteri_taytto.js, D184)
-  const suodataJoukkue = t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || window.TM_KALENTERI_KYSELYT.tmTapahtumaJoukkueelle(t, { id: _calJoukkueId(), nimi: _joukkue });
+  const suodataJoukkue = _calSuodataJoukkue;
   const testit = (_testitapahtumat || []).filter(suodataJoukkue).map(t => ({ id: t.id, tyyppi: 'testitapahtuma', koko_paiva: true, nimi: _protokollaLyhenne(t.protokolla), pvm: t.pvm, joukkue_nimi: t.joukkue_nimi || t.joukkue || '' }));
   let kalTap = (_kalenteriTapahtumat || []).filter(suodataJoukkue);
   if (_demo && typeof DEMO !== 'undefined' && DEMO.cal) kalTap = kalTap.concat((DEMO.cal.events || []).map((e, i) => ({ id: 'demo' + i, tyyppi: e.type !== 'match' ? 'harjoitus' : 'ottelu', nimi: masterT(e.title||''), paikka: masterT(e.meta||''), pvm: tmPaivaIso(new Date(monday.getTime() + e.day * 86400000 + 43200000)), alkaa: String(e.hour).padStart(2, '0') + ':00' })));
@@ -10283,15 +10287,29 @@ function renderCal() {
   }
 }
 
+const _calSuodataJoukkue = t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || window.TM_KALENTERI_KYSELYT.tmTapahtumaJoukkueelle(t, { id: _calJoukkueId(), nimi: _joukkue });
+let _calKk = null;
+function _calKuukausiNayta() {   // K35-11b: kuukausinäkymä (lib/tm_kalenteri_kuukausi): sama joukkuesuodatus + kortit kuin viikko; päivän klikkaus → viikko
+  const K = window.TM_KALENTERI_KUUKAUSI, kuu = _calMode === 'month', nay = (id, n) => { const e = document.getElementById(id); if (e) e.style.display = n ? '' : 'none'; };
+  nay('calMonth', kuu); nay('calWeek', !kuu); nay('calTaytaKortti', !kuu); const el = document.getElementById('calMonth'); if (!kuu || !el) return;
+  const n = new Date(); _calKk = _calKk || { vuosi: n.getFullYear(), kk: n.getMonth() };
+  if (!document.getElementById('kmCss')) { const st = document.createElement('style'); st.id = 'kmCss'; st.textContent = K.tmKuukausiCSS(); document.head.appendChild(st); }
+  const testit = (_testitapahtumat || []).filter(_calSuodataJoukkue).map(t => ({ id: t.id, tyyppi: 'testitapahtuma', koko_paiva: true, nimi: _protokollaLyhenne(t.protokolla), pvm: t.pvm }));
+  const m = K.tmKuukausiMalli({ tapahtumat: (_kalenteriTapahtumat || []).filter(_calSuodataJoukkue).concat(testit), vuosi: _calKk.vuosi, kk: _calKk.kk, tanaan: tmPaivaIso(n), nyt: Date.now() }); _calVarmistaIkkuna(m.viikot[0].maanantai);
+  el.innerHTML = K.tmKuukausiHTML(m, { t: masterT, on: { tapahtuma: id => "calEventClick('" + String(id).replace(/'/g, '') + "')", paiva: pvm => "_calKkPaiva('" + pvm + "')" } });
+  const l = document.getElementById('calWkLabel'); if (l) l.textContent = masterT(K.tmKuukausiNimi(_calKk.kk)) + ' ' + _calKk.vuosi; const s = document.getElementById('calWkSub'); if (s) s.textContent = '';
+}
+window._calKkPaiva = function (pvm) { const t = new Date(), ma = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; }, p = new Date(pvm + 'T12:00:00'); _calWkOffset = Math.round((ma(p) - ma(t)) / 6048e5); setCalMode('week'); };
+
 function setCalMode(m) {
   _calMode = m;
   document.querySelectorAll('.cal-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
-  if (m !== 'week') {
-    toast(masterT('Näkymä: ') + (m==='month'?masterT('Kuukausi'):masterT('Kausi')) + masterT(' — tulossa'), 'cal-mode');
-  }
+  if (m === 'season') toast(masterT('Näkymä: ') + masterT('Kausi') + masterT(' — tulossa'), 'cal-mode');
+  if (typeof renderCal === 'function') renderCal();
 }
 
 function calNav(dir) {
+  if (_calMode === 'month') { const n = new Date(); _calKk = window.TM_KALENTERI_KUUKAUSI.tmKuukausiSiirto((_calKk || { vuosi: n.getFullYear(), kk: n.getMonth() }).vuosi, (_calKk || { kk: n.getMonth() }).kk, dir); if (typeof renderCal === 'function') renderCal(); return; }
   _calWkOffset += dir;
   if (typeof renderCal === 'function') renderCal();   // Bugi 1a — puuttui: näkymä ei liikkunut (viikkolabel + gridi ei päivittynyt)
 }

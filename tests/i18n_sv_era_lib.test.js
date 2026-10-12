@@ -173,7 +173,7 @@ describe('kytkentä: script-tagi + SW-allowlist + cache-bumpit (§27.4)', () => 
   });
   it('SW:t (Pelaaja, Vanhempi) cachettavat tm_lib_i18n.js:n; cache-versio nostettu', () => {
     expect(lue('sw_pelaaja.js')).toContain("'/lib/tm_lib_i18n.js'"); expect(lue('sw_vanhempi.js')).toContain("'/lib/tm_lib_i18n.js'");
-    expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-v(8[2-9]|9\d|\d{3})'/); expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-v(5[3-9]|[6-9]\d|\d{3})'/);
+    expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-v(8[2-9]|9\d|\d{3}|\d{3,})'/); expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-v(5[3-9]|[6-9]\d|\d{3}|\d{3,})'/);
   });
   it('tm_lang.js:n ?v on sama ja ≥ 33 kaikissa sovelluksissa (jokainen tm_lang-muutos bumppaa kaikki — muuten stale-klientit näkevät raakoja avaimia)', () => {
     const vs = new Set(); for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Seura.html', 'TalentMaster_Rekisterointi_Suostumus.html', 'TalentMaster_Pelihavainto_Kentta.html']) { const m = /lib\/tm_lang\.js\?v=(\d+)/.exec(lue(f)); expect(m, f).toBeTruthy(); vs.add(+m[1]); }

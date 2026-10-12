@@ -83,7 +83,7 @@ describe('Vanhempi_v2 — kielivalitsin FI/SV/EN + cache-bust', () => {
     const v = V.match(/lib\/tm_lang\.js\?v=(\d+)/);
     expect(v).toBeTruthy();
     expect(Number(v[1])).toBeGreaterThanOrEqual(2);
-    const c = readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8').match(/const CACHE = 'tm-vanhempi-v(\d+)'/);
+    const c = readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8').match(/const CACHE = 'tm-vanhempi-v(\d+|\d{3,})'/);
     expect(c).toBeTruthy();
     expect(Number(c[1])).toBeGreaterThanOrEqual(7);
   });

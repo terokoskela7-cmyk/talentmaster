@@ -90,7 +90,7 @@ describe('vartija: sivut lataavat tm_viikko.js:n ennen viikkoa käyttäviä kirj
     expect(rikkomukset('<script src="lib/tm_pvm.js"></script>')).toBeNull();
   });
   it('SW:n piirissä oleva sivu (Pelaaja_v7): tm_viikko.js allowlistissa ja välimuistiversio nostettu', () => {
-    const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toContain("/lib/tm_viikko.js"); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(9\d|\d{3})'/);
+    const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toContain("/lib/tm_viikko.js"); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(9\d|\d{3}|\d{3,})'/);
   });
 });
 
