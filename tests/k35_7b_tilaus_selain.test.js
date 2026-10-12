@@ -13,7 +13,7 @@ const STUB = (aktiivinen) => 'window.__kutsut=[];var __d=function(n){return n===
 const tallenna = (p, nimi) => { if (process.env.TM_KUVAT === '1') { const dir = join(JUURI, 'docs/ui-kuvat/k35-7b'); mkdirSync(dir, { recursive: true }); return p.screenshot({ path: join(dir, nimi + '.png') }); } };
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K35-7b · Lisää kalenteriini (selain)', () => {
   const kaynnista = async () => { const { chromium } = require('playwright-core'); return chromium.launch({ executablePath: CHROME, args: ['--no-sandbox', '--allow-file-access-from-files', '--hide-scrollbars'] }); };
-  it('Master: työkaluriviltä → Luo linkki → linkki näkyy kerran, webcal-nappi, kopioi, välilehdet, viive; sulje + avaa uudelleen → "Linkki luotu 5.10." ilman linkkiä; Poista linkki → perutaan', async () => {
+  it('Master: työkaluriviltä → Luo linkki → linkki näkyy kerran, Apple/Outlook/Google-napit, kopioi, päivitysvälit; sulje + avaa uudelleen → "Linkki luotu 5.10." ilman linkkiä; Poista linkki → perutaan', async () => {
     const selain = await kaynnista();
     try {
       for (const [teema, koko] of [['dark', { width: 1280, height: 900 }], ['light', { width: 390, height: 844 }]]) {
@@ -23,7 +23,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K35-7b · Lis
         expect(await p.locator('.tl-ikkuna').innerText()).toContain('Päivittyy kalenteriisi muutaman tunnin välein');
         await p.locator('[data-tl="luo"]').click(); await p.waitForSelector('.tl-linkki');
         expect(await p.locator('.tl-linkki').inputValue()).toBe('https://x.test/kalenteriIcal/abc.ics'); expect(await p.locator('.tl-ikkuna').innerText()).toMatch(/Älä jaa sitä/);
-        await p.locator('[data-tl-v="google"]').click(); expect(await p.locator('.tl-ikkuna').innerText()).toContain('jopa vuorokauden viiveellä'); await p.locator('[data-tl-v="outlook"]').click(); expect(await p.locator('.tl-ikkuna .tl-ohje li').count()).toBe(3);
+        for (const k of ['apple', 'outlook', 'google', 'outlook_live']) expect(await p.locator('.tl-ikkuna [data-tl="' + k + '"]').count()).toBe(1);
+        expect(await p.locator('.tl-ikkuna').innerText()).toContain('Google jopa vuorokausi');
         await tallenna(p, `master_uusi_${koko.width}_${teema}`);
         expect(await p.evaluate(() => { const r = document.querySelector('.tl-ikkuna').getBoundingClientRect(); return r.left >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight + 1; })).toBe(true);
         await p.locator('[data-tl="sulje"]').click(); expect(await p.locator('.tl-tausta').count()).toBe(0);
