@@ -24,11 +24,15 @@ const MV = require('../lib/tm_mediaviesti.js'), KP = require('../lib/tm_klippi_p
 
 /* Klippipolun lib-avaimet, joille sv puuttuu (docs/i18n/sv_kaannoserae_36.json → Gemini). Elävä: sv saapui → poista rivi (testi alla kaatuu muuten). */
 export const SV_ODOTTAA = ['mv_media_video', 'mv_media_kuva', 'mv_media_linkki'];
+/* Valmentajan pelaajanäkymän Masterin fi-tekstiavaimet (masterT), joille sv puuttuu Master-kartasta (docs/i18n/sv_kaannoserae_37.json → Gemini). Elävä: sv saapui → poista rivi. */
+export const MASTER_SV_ODOTTAA = ['ei asetettu'];   // lib/tm_vastuuhenkilo.js t('ei asetettu') masterT:n kautta (IDP-kortin Vastuuhenkilö-rivi)
+const MA_SV = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;
 
 /* ── tunnistus ── */
 const svLib = (k) => LIB.tmLibT(k, 'sv');
+const KONSEPTI_FI = require('../lib/tm_teknistaktiset.js').tmTtItems({ ika: 13, joukkue: 'P13', syntymaVuosi: new Date(NYT).getFullYear() - 13 }).find((x) => x.avain === 'y_h2').nimi;   // tallennettu jaksofokus.konsepti_nimi on fi (data) → näyttö kääntää avaimella
 const FI_TEKSTIT = (() => {   // avain → fi (vain ne, joiden sv ≠ fi; odottavat pois)
-  const m = {};
+  const m = { 'data:jaksofokus.konsepti_nimi': KONSEPTI_FI };
   for (const [k, v] of Object.entries(Object.assign({}, MV.FI, KP.FI))) if (SV_ODOTTAA.indexOf(k) < 0 && svLib(k) !== v) m[k] = v;
   const lang = (p) => p.split('.').reduce((a, x) => a && a[x], LANG.TM_LANG.fi);
   for (const k of ['pelaaja.kirjaus_ei_tallentunut_kirjaudu_uu', 'pelaaja.ei_yhteytta_kirjaus', 'vanhempi.kirjaa_virhe_verkko']) m[k] = lang(k);
@@ -40,7 +44,7 @@ const SANA_RE = new RegExp('(^|[^\\p{L}])(' + SANAT.join('|') + ')($|[^\\p{L}])'
 const VIIKONPAIVA_RE = /(^|[^\p{L}])(su|ma|ti|ke|to|pe|la) \d{1,2}\.\d{1,2}\./u;
 const AVAIN_RE = /\b(mv|kp)_[a-z0-9_]+\b|\b(pelaaja|vanhempi)\.[a-z0-9_]+\b/;
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const ODOTTAA_RE = SV_ODOTTAA.map((k) => new RegExp('(^|[^\\p{L}])' + esc(String(MV.FI[k] || KP.FI[k] || k)) + '($|[^\\p{L}])', 'gu'));   // Geminiltä odottavat: fi sallittu kunnes sv saapuu
+const ODOTTAA_RE = SV_ODOTTAA.map((k) => String(MV.FI[k] || KP.FI[k] || k)).concat(MASTER_SV_ODOTTAA).map((x) => new RegExp('(^|[^\\p{L}])' + esc(x) + '($|[^\\p{L}])', 'gu'));   // Geminiltä odottavat: fi sallittu kunnes sv saapuu
 const PALAT = Object.entries(FI_TEKSTIT).flatMap(([k, v]) => String(v).split(/\{\w+\}/).map((x) => x.trim()).filter((x) => (x.match(/\p{L}/gu) || []).length >= 4).map((x) => [k, new RegExp('(^|[^\\p{L}])' + esc(x) + '($|[^\\p{L}])', 'u')]));
 export function suomiJaanteet(kerätyt, sallitut) {
   const ok = (t) => (sallitut || []).some((s) => t.indexOf(s) >= 0 && t.replace(s, '').replace(/[\s·—–:,.()„“"'0-9✓＋+@-]/g, '').length === 0);
@@ -141,6 +145,35 @@ async function masterPolku(selain, kieli) {
   return { kerätyt, virheet: virheet.filter((e) => !/Firebase|firebase|permission|Sentry|appCheck|recaptcha|^Uncaught \(in promise\) cancelled$/i.test(e)) };   // 'cancelled' = selaimen keskeyttämä taustapyyntö (ei repon koodista; sama suodatin kuin v_koti_b)
 }
 
+/* ── (a2) valmentajan PELAAJANÄKYMÄ klippikortin ympäriltä (Master_v16 #ktNakyma): Tänään (signaali, kysymyskortit, jaksokortti/Kenttä) ja Polku
+   (Klipit-kortti, IDP-kortti, kehityskaari, resepti) eri jaksotiloissa. Ladataan oikealla polulla (_ktNayta), Kenttä-lippu päällä. ── */
+const PV_ISO = (ms) => new Date(ms).toISOString();
+const NAKYMA_PELAAJAT = [
+  Object.assign({}, MASTER_PELAAJAT[0], { jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: KONSEPTI_FI, alkoi: PV_ISO(NYT - 9 * PV), kesto_vk: 6, domeeni: 'teknis_taktinen' } }),   // jakso käynnissä · vk 2/6
+  Object.assign({}, MASTER_PELAAJAT[1], { jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: KONSEPTI_FI, alkoi: PV_ISO(NYT - 2 * PV), kesto_vk: 6, domeeni: 'teknis_taktinen' } }),   // vk 1, sitoumus odottaa
+  Object.assign({}, MASTER_PELAAJAT[2]),                                                                                                                     // ei jaksoa
+  Object.assign({}, MASTER_PELAAJAT[3], { jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: KONSEPTI_FI, alkoi: PV_ISO(NYT - 50 * PV), kesto_vk: 6, domeeni: 'teknis_taktinen' } })   // päättynyt → suljettava
+];
+async function pelaajanakymaPolku(selain, kieli) {
+  const kerätyt = [], k = async (p, vaihe, sel) => { for (const t of await p.evaluate((s) => window.__keraa(s), sel)) kerätyt.push({ vaihe, teksti: t }); };
+  const sk = await selain.newContext({ viewport: { width: 1280, height: 900 } }), p = await sk.newPage(); const virheet = []; p.on('pageerror', (e) => virheet.push(e.message));
+  const alku = KERAA + 'firebase.auth=function(){return{currentUser:{uid:"u1",displayName:"Alex Coach",getIdToken:async function(){return"x"}}}};'
+    + '_joukkue="Sibbo Demo";_pelaajatData=' + JSON.stringify(NAKYMA_PELAAJAT) + ';window._mvPolku={p1:' + JSON.stringify(ratkaise(MASTER_DOKIT).filter((x) => x.pelaajaId === 'p1' || x.vastaus_viestille === 'ke')) + '};'
+    + 'masterVaihdaKieli("' + kieli + '");window._ktLippu=true;';
+  await p.goto('file://' + sivu(lue('TalentMaster_Master_v16.html'), JUURI, { rooli: 'valmentaja', pohjat: false, kutsu: alku })); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 20000 });
+  expect(await p.locator('#probe-out').textContent()).toBe('ok');
+  for (const pid of ['p1', 'p2', 'p3', 'p4']) {
+    for (const v of ['tanaan', 'polku']) {
+      await p.evaluate(([pid, v]) => { _demo = true; _ktS.pid = pid; _ktS.valilehti = v; _ktS.ladattu = { polku: v === 'polku', naytto: false }; _ktNayta(); }, [pid, v]); await odota(p, 120);
+      expect(await p.locator('#ktNakyma').count(), pid + ' ' + v).toBe(1);
+      if (v === 'polku') expect(await p.locator('#ktNakyma #mvKlipit').count()).toBe(1);
+      await k(p, 'Pelaajanäkymä ' + pid + ' ' + v, '#ktNakyma');
+    }
+  }
+  await p.evaluate(() => { _demo = false; }); await sk.close();
+  return { kerätyt, virheet: virheet.filter((e) => !/Firebase|firebase|permission|Sentry|appCheck|recaptcha|^Uncaught \(in promise\) cancelled$/i.test(e)) };
+}
+
 /* ── (b)/(c) perhe: mock-Firestore ja kerääjä ── */
 const MOCKDB = 'window.__kirj=[];window.__virhe=null;window.__q=function(docs){return{where:function(){return window.__q(docs)},get:async function(){return{docs:docs.map(function(d){return{id:d.id,data:function(){return d}}})}}}};'
   + 'window.__col=function(p){return Object.assign(window.__q(window.__DOCS),{doc:function(id){return{id:id||"auto",collection:function(c){return window.__col(p+"/"+id+"/"+c)}}}})};'
@@ -213,6 +246,10 @@ describe('Sibbo · klippipolun sv-portti (tunnistin)', () => {
   it('SV_ODOTTAA on elävä: jokainen rivi on klippilibin FI-avain, jolla EI vielä ole sv:tä (sv saapui → poista rivi)', () => {
     for (const a of SV_ODOTTAA) { expect(a in MV.FI || a in KP.FI, a).toBe(true); expect(svLib(a), a + ' sai sv:n → poista SV_ODOTTAA-listalta').toBeUndefined(); }
   });
+  it('MASTER_SV_ODOTTAA on elävä: jokainen rivi on erässä 37 (master_kartta, sv tyhjä) eikä Master-kartassa ole sille sv:tä (sv saapui → vie ja poista rivi)', () => {
+    const E37 = JSON.parse(lue('docs/i18n/sv_kaannoserae_37.json')).osiot.master_kartta.rivit;
+    for (const fi of MASTER_SV_ODOTTAA) { expect(E37[fi] && E37[fi].fi, fi).toBe(fi); expect(MA_SV[fi], fi + ' sai sv:n Master-karttaan → poista MASTER_SV_ODOTTAA-listalta').toBeUndefined(); expect(E37[fi].sv, fi + ': sv saapui erään 37 → vie karttaan').toBe(''); }
+  });
   it('lib: viikonpäivä kielen mukaan (fi ennallaan, sv Intl), pohjakysymys katsojan kielellä (oma kysymys = tallennettu teksti), mediatyyppi avaimen kautta', () => {
     const d = new Date(2026, 9, 19);
     expect(MV.tmMvViikonpaiva(d, 'fi')).toBe('ma'); expect(MV.tmMvViikonpaiva(d, 'sv')).toBe(d.toLocaleDateString('sv-SE', { weekday: 'short' }).replace('.', '')); expect(MV.tmMvViikonpaiva(d, 'sv')).not.toBe('ma');
@@ -239,6 +276,13 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('Sibbo · klip
       const sv = await masterPolku(selain, 'sv'); const r = suomiJaanteet(sv.kerätyt, NIMET); raportti('Master sv', r, sv.kerätyt);
       expect(sv.kerätyt.length).toBeGreaterThan(80); expect(sv.virheet).toEqual([]); expect(r).toEqual([]);
       const fi = await masterPolku(selain, 'fi'); expect(suomiJaanteet(fi.kerätyt, NIMET).length, 'negatiivitesti: fi-tilassa tunnistin löytää suomen').toBeGreaterThan(20);
+    } finally { await selain.close(); }
+  }, 240000);
+  it('(a2) VALMENTAJAN PELAAJANÄKYMÄ klippikortin ympäriltä — Master #ktNakyma Tänään + Polku (4 jaksotilaa): ei suomea sv-tilassa', async () => {
+    const selain = await kaynnista(); try {
+      const sv = await pelaajanakymaPolku(selain, 'sv'); const r = suomiJaanteet(sv.kerätyt, NIMET); raportti('Pelaajanäkymä sv', r, sv.kerätyt);
+      expect(sv.kerätyt.length).toBeGreaterThan(60); expect(sv.virheet).toEqual([]); expect(r).toEqual([]);
+      const fi = await pelaajanakymaPolku(selain, 'fi'); expect(suomiJaanteet(fi.kerätyt, NIMET).length, 'negatiivitesti: fi-tilassa tunnistin löytää suomen').toBeGreaterThan(20);
     } finally { await selain.close(); }
   }, 240000);
   for (const ika of [13, 16]) {
