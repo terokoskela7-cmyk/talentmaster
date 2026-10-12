@@ -39,7 +39,7 @@ describe('3 · profiilikortti seuraa joukkuevalitsinta', () => {
   });
   it('kortin alarivi lukee valitun joukkueen (_joukkue), ei muistettua: ajettuna vm:ssä "KPV P13" vaihtuu → kortti "KPV P13", ei "SJK P14"', () => {
     const el = { innerHTML: '', style: {} };
-    const ctx = { console, masterT: (x) => x, document: { getElementById: (id) => (id === 'coachSelfCard' ? el : null) }, window: { _valmentajaData: { etunimi: 'Rasmus', sukunimi: 'B', rooli: 'vp' } }, _superAdmin: false, _rooli: 'vp', _joukkue: 'SJK P14', _coachActivity: { havainnot: 1, viestit: 0 }, _seuraId: null, _uid: null };
+    const ctx = { console, masterT: (x) => x, document: { getElementById: (id) => (id === 'coachSelfCard' ? el : null) }, window: { _valmentajaData: { etunimi: 'Rasmus', sukunimi: 'B', rooli: 'vp' } }, _superAdmin: false, _rooli: 'vp', _ws: 'dev', _joukkue: 'SJK P14', _coachActivity: { havainnot: 1, viestit: 0 }, _seuraId: null, _uid: null };
     vm.createContext(ctx); vm.runInContext(funktio(MA, 'renderCoachSelfCard'), ctx);
     ctx.renderCoachSelfCard(); expect(el.innerHTML).toContain('SJK P14');
     ctx._joukkue = 'KPV P13'; ctx.renderCoachSelfCard(); expect(el.innerHTML).toContain('KPV P13'); expect(el.innerHTML).not.toContain('SJK P14');

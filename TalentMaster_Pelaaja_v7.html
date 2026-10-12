@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791753575748';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791786502034';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -585,7 +585,8 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: + pääalusta (Mondo) -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Vanhemman kanssa) -->   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
-<script src="lib/tm_harjoituskertyma.js?v=1"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=1"></script>   <!-- K35-6f -->
+<script src="lib/tm_kalenteri_tilaus_ui.js?v=2"></script>   <!-- K35-7b: "Lisää kalenteriini" (iCal-tilaus) -->
+<script src="lib/tm_harjoituskertyma.js?v=1"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=2"></script>   <!-- K35-6f -->
 <script src="lib/tm_kalenteri_ilmoitus.js?v=3"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="lib/tm_kehityskaari.js?v=7"></script>   <!-- Trendi Vaihe 2: kehityskaari (§7.22 kannustava) · v4 = K4 (FLEI "Kehon valmius" + §22 alusta-vartija pelaaja-renderissä) -->
 </head>
@@ -2824,6 +2825,11 @@ function _p7KertymaHTML() {
   if (!document.getElementById('hkCss')) { var st = document.createElement('style'); st.id = 'hkCss'; st.textContent = N.tmKertymaCSS(); document.head.appendChild(st); }
   return '<section style="padding:2px 20px 8px">' + N.tmKertymaKevytHTML(window._p7Kertyma, {}) + '</section>';
 }
+function _p7TilausAvaa() {   // K35-7b: modaali + ohjain libissä (tm_kalenteri_tilaus_ui.js)
+  window._p7Tilaus = window._p7Tilaus || window.TM_KALENTERI_TILAUS_UI.tmTilausAsenna({ kutsu: function (n, d) { return window._fbApp.functions('europe-west1').httpsCallable(n)(d); }, args: function () { return { seuraId: _pelaaja.seuraId, pelaajaId: _pelaaja.id }; }, toast: function (x) { if (typeof toast === 'function') toast(x); } });
+  window._p7Tilaus.avaa();
+}
+window._p7TilausAvaa = _p7TilausAvaa;
 function _p7AikatauluHTML() {
   if (window._p7Kalenteri === null && !_ladattu.kalenteri) _p7LataaKalenteri();
   var evs = window._p7Kalenteri, inner;
@@ -2831,7 +2837,7 @@ function _p7AikatauluHTML() {
   else if (!evs.length) inner = '<div style="font-size:12.5px;color:#8C8B86;line-height:1.5;padding:4px 0">' + T('vanhempi.ei_tapahtumia') + '</div>';
   else inner = evs.slice(0, 5).map(_p7AikatauluKortti).join('');
   return _p7KertymaHTML() + '<section style="padding:2px 20px 8px">'
-    + '<div style="font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-d);margin-bottom:10px">' + T('seuran_aikataulu') + '</div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px"><div style="font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-d)">' + T('seuran_aikataulu') + '</div>' + (_isDemoUser || !window.TM_KALENTERI_TILAUS_UI ? '' : window.TM_KALENTERI_TILAUS_UI.tmTilausPainikeHTML({ t: function (x) { return x; }, onclick: '_p7TilausAvaa()' })) + '</div>'
     + inner + '</section>';
 }
 

@@ -1,10 +1,12 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.59
+// TalentMaster™ — firestore.rules v3.60
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.59 → v3.60 (K35-10 korjaus, ei migraatiota):
+//   · seurat/{sid}/pelaajat/{pid}/kooste/{id} read: lisätty talenttivalmentaja (oma seura) — v3.59:n kommentti lupasi sen, mutta onJohtoRooli kattaa vain vp/utj/seurasihteeri. Pelaaja/huoltaja edelleen vain callablella; write false.
 // Muutokset v3.58 → v3.59 (K35-6f pelaajan harjoituskertymä — UUSI alikokoelma, ei migraatiota):
 //   · seurat/{sid}/pelaajat/{pid}/kooste/{id}: read SA | oman seuran johto (VP/UTJ/seurasihteeri) | talenttivalmentaja | OMAN joukkueen valmentaja (onOmanJoukkueenValmentaja); write false (vain palvelin: triggerit kertymaLasnaolijaOnWrite / kertymaKirjausOnWrite
 //     ja taydenna_harjoituskertyma.js, Admin SDK). Pelaaja ja huoltaja EIVÄT lue suoraan — vain callable haePelaajanKertyma (sama tunnistus kuin haePelaajanKalenteri). Sisältö: pelaajan omat viikkokorit (ei vertailua muihin).
@@ -1460,7 +1462,7 @@ service cloud.firestore {
         //   U12-lapselle kun lahde=='vanhempi' (onU12Huoltaja).
         // v3.59 (K35-6f): harjoituskertymä — viikkokorit, vain palvelin kirjoittaa; henkilökunta lukee (pelaaja/huoltaja callablella haePelaajanKertyma)
         match /kooste/{koosteId} {
-          allow read:  if onSuperAdmin() || (onOmaSeura(seuraId) && (onJohtoRooli() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)));
+          allow read:  if onSuperAdmin() || (onOmaSeura(seuraId) && (onJohtoRooli() || request.auth.token.rooli == 'talenttivalmentaja' || onOmanJoukkueenValmentaja(seuraId, pelaajaId)));   // v3.60: + talenttivalmentaja
           allow write: if false;
         }
 

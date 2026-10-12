@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791753575748';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791786502034';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -18,7 +18,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- K35-7b: callable luoKalenteriTilaus/peruKalenteriTilaus/haeKalenteriTilausTila -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+<script src="lib/tm_kalenteri_tilaus_ui.js?v=2"></script>   <!-- K35-7b: "Lisää kalenteriini" -->
+<script src="lib/tm_kalenteri_lataus.js?v=1"></script>   <!-- K35-10: rajattu kalenterilataus (−8…+26 vk, laajenee selatessa; monipäiväiset erikseen) -->
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (audit 27, D140) -->
 <script src="lib/tm_koti_luvut.js?v=3"></script>   <!-- P0-luvut: avoimetTestit (yksi määritelmä), kattavuus (D125) — audit 27 -->
 <script src="lib/tm_pvm.js?v=7"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
@@ -154,8 +157,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kalenteri_nakyma.js?v=6"></script>   <!-- K35-6a: viikkonäkymä päiväsarakkeina (D182) -->
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
-<script src="lib/tm_valmentaja_koti.js?v=1"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=1"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
-<script src="lib/tm_harjoituskertyma.js?v=1"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=1"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
+<script src="lib/tm_valmentaja_koti.js?v=2"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=2"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
+<script src="lib/tm_harjoituskertyma.js?v=1"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=2"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=3"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
 <script src="lib/tm_kalenteri_omat.js?v=2"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
@@ -1908,6 +1911,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
           </div>
           <button class="cal-add-btn" onclick="_avaaUusiTapahtuma(tmPaivaIso(new Date()), '17:00')" data-i18n="Uusi tapahtuma">Uusi tapahtuma</button>
           <button class="cal-add-btn q" onclick="_avaaTestausV9()" data-i18n="Luo testitapahtuma">Luo testitapahtuma</button>
+          <button class="cal-add-btn q" onclick="_calTilausAvaa()" data-i18n="Lisää kalenteriini">Lisää kalenteriini</button>
         </div>
       </div>
 
@@ -3757,35 +3761,39 @@ function _renderInboxOhjaus(el) {
   }
 }
 
+/* K35-7b: valmentajan oma iCal-syöte (callable-ohjain libissä) */
+function _calTilausAvaa() { window.TM_KALENTERI_TILAUS_UI.tmTilausAsenna({ t: masterT, kutsu: (n, d) => firebase.app().functions('europe-west1').httpsCallable(n)(d), args: () => ({ seuraId: _seuraId }), toast: x => toast(x, 'ok') }).avaa(); }
 /* ── KALENTERI TAPAHTUMAT FIRESTORESTA ── */
-async function _lataaKalenteriTapahtumat() {
-  if (!_seuraId || _demo) return;
-  var uudet = [];
-  // Kalenteri-kokoelma — ainoa kalenterilähde (K1: legacy tapahtumat-luku poistettu, dual-read lopetettu). KALENTERI_ARKKITEHTUURI.md §3
-  // HUOM: testitapahtumat (§22) luetaan erikseen omaan workflowiinsa — ei tässä.
-  try {
-    var snap2 = await _db.collection('seurat').doc(_seuraId)
-      .collection('kalenteri').where('poistettu', '==', false).get();
-    uudet = snap2.docs.map(function(d) {
-      var data = d.data();
-      // Muunna Timestamp → pvm/alkaa/paattyy string (yhteensopivuus renderCal:n kanssa)
-      var alkaaD = data.alkaa && data.alkaa.toDate ? data.alkaa.toDate() : null;
-      var paattyyD = data.paattyy && data.paattyy.toDate ? data.paattyy.toDate() : null;
-      var pvmStr = alkaaD ? tmPaivaIso(alkaaD) : '';
-      var alkaaStr = alkaaD ? (String(alkaaD.getHours()).padStart(2,'0') + ':' + String(alkaaD.getMinutes()).padStart(2,'0')) : '';
-      var paattyyStr = paattyyD ? (String(paattyyD.getHours()).padStart(2,'0') + ':' + String(paattyyD.getMinutes()).padStart(2,'0')) : '';
-      return Object.assign({ id: d.id, _lahde: 'kalenteri' }, data, {
-        pvm: pvmStr, alkaa: alkaaStr, paattyy: paattyyStr, _alkaaMs: alkaaD ? alkaaD.getTime() : null, _paattyyMs: paattyyD ? paattyyD.getTime() : null,   // K35-1: tarkat ajat (monipäiväinen tauko)
-        joukkue: data.joukkue_nimi || data.joukkue || ''
-      });
-    });
-  } catch(e2) { console.warn('[kalenteri-uusi]', e2.message); }
-  // Suodata joukkueella (vain kalenteri-kokoelma)
+/* K35-10: kalenteri ladataan RAJATUSTI (lib/tm_kalenteri_lataus.js): −8…+26 vk nykyhetkestä, laajenee kun viikkoa selataan ulkopuolelle (haetaan vain puuttuva väli); monipäiväiset (tauko/vapaa/erikoisohjelma) 2. kyselyllä.
+   Kutsu ilman argumenttia (muokkauksen jälkeen) = ladattu väli haetaan uudelleen; argumentilla (viikon päivä) = vain puuttuva väli. Sarjan muokkaus (toistuvuus_sarja_id) on oma kyselynsä, ei rajaudu. */
+let _kalLadattu = null, _kalKaikki = [], _kalLataa = false, _kalSeura = null;
+function _kalNormalisoi(d) {
+  var data = d.data(), alkaaD = data.alkaa && data.alkaa.toDate ? data.alkaa.toDate() : null, paattyyD = data.paattyy && data.paattyy.toDate ? data.paattyy.toDate() : null;   // Timestamp → pvm/alkaa/paattyy string (renderCal)
+  var hhmm = function (x) { return x ? (String(x.getHours()).padStart(2,'0') + ':' + String(x.getMinutes()).padStart(2,'0')) : ''; };
+  return Object.assign({ id: d.id, _lahde: 'kalenteri' }, data, { pvm: alkaaD ? tmPaivaIso(alkaaD) : '', alkaa: hhmm(alkaaD), paattyy: hhmm(paattyyD), _alkaaMs: alkaaD ? alkaaD.getTime() : null, _paattyyMs: paattyyD ? paattyyD.getTime() : null,   // K35-1: tarkat ajat (monipäiväinen tauko)
+    joukkue: data.joukkue_nimi || data.joukkue || '' });
+}
+async function _kalSuodata(uudet) {   // joukkue-/ryhmärajaus (tmNakyyKalenterissa); sama sääntö kuin iCalissa
   const _omatR = (await _mRyHaeLista()).map(function (r) { return r.id; });   // R1 PR 2: ryhmätapahtuma vain ryhmän valmentajalle/johdolle/luojalle
-  _kalenteriTapahtumat = uudet.filter(function(t) {
+  return uudet.filter(function(t) {
     if (window.TM_RYHMAT && !window.TM_RYHMAT.tmNakyyKalenterissa(t, { uid: _uid, johto: _mRyJohto(), ryhmaIdt: _omatR, omatJoukkueet: [_calJoukkueId(), _joukkue].filter(Boolean), omatPelaajat: (_pelaajatData || []).map(function (p) { return p.id; }) })) return false;
     return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue || (t.kohde && t.kohde.tyyppi === 'ryhma');   // ryhmätapahtumalla ei joukkuetta → ei joukkuesuodatusta
   }).sort(function(a,b) { return (a.pvm||'').localeCompare(b.pvm||''); });
+}
+function _calVarmistaIkkuna(viikkoIso) { if (!_kalLataa && _seuraId && !_demo && _kalLadattu && window.TM_KALENTERI_LATAUS.tmLatausPuuttuva(_kalLadattu, window.TM_KALENTERI_LATAUS.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: viikkoIso, ladattu: _kalLadattu })).length) _lataaKalenteriTapahtumat(viikkoIso); }
+async function _lataaKalenteriTapahtumat(valittuViikko) {
+  if (!_seuraId || _demo || _kalLataa) return;
+  if (_kalSeura !== _seuraId) { _kalSeura = _seuraId; _kalLadattu = null; _kalKaikki = []; valittuViikko = undefined; }   // seura vaihtui (SA) → ei edellisen seuran välimuistia
+  const L = window.TM_KALENTERI_LATAUS, tarve = L.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: valittuViikko, ladattu: _kalLadattu }), uusiLataus = valittuViikko === undefined || !_kalLadattu;
+  const valit = uusiLataus ? [tarve] : L.tmLatausPuuttuva(_kalLadattu, tarve); if (!valit.length) return;
+  _kalLataa = true;
+  // Kalenteri-kokoelma — ainoa kalenterilähde (K1). Testitapahtumat (§22) luetaan erikseen. poistettu-suodatus muistissa.
+  try {
+    const docs = await L.tmLataaIkkuna(_db, _seuraId, valit, firebase.firestore.Timestamp), uudet = L.tmLatausSuodata(docs.map(_kalNormalisoi));
+    _kalKaikki = uusiLataus ? uudet : L.tmYhdistaTapahtumat(_kalKaikki, uudet); _kalLadattu = uusiLataus ? tarve : L.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: valittuViikko, ladattu: _kalLadattu });
+  } catch(e2) { console.warn('[kalenteri-uusi]', e2.message); _kalLataa = false; return; }
+  _kalLataa = false;
+  _kalenteriTapahtumat = await _kalSuodata(_kalKaikki);
   _mRyOmatNayta();
   renderCal();
 }
@@ -4828,7 +4836,7 @@ function renderCoachSelfCard() {
   var el = document.getElementById('coachSelfCard');
   if (!el) return;
   var d = window._valmentajaData;
-  if (!d && !_superAdmin) { el.style.display = 'none'; return; }
+  if ((!d && !_superAdmin) || _ws === 'koti') { el.style.display = 'none'; return; }   // K35-11 #4: Koti v2 ei näytä profiilikorttia (profiili: oma toiminto)
 
   var nimi = _superAdmin ? 'Super Admin' : ((d.etunimi || '') + ' ' + (d.sukunimi || '')).trim() || 'Valmentaja';
   var rooli = _superAdmin ? 'super_admin' : (_rooli || d.rooli || 'valmentaja');
@@ -5446,6 +5454,7 @@ function setWs(ws) {
   document.querySelectorAll('.tabbar-item').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
   localStorage.setItem('tm-ws', ws);
   try { if (ws === 'dev' || ws === 'havainnot' || ws === 'inbox') localStorage.setItem('tm_valmentaja_visited_' + ws + '_' + (typeof _vcaUid === 'function' ? _vcaUid() : 'anon'), '1'); } catch (e) {}   // Aloita tästä -checklist (visited)
+  try { renderCoachSelfCard(); } catch (e) {}   // kortti piiloon Kodissa, muualla näkyviin
   // View-specific rendering
   if (ws === 'koti') renderKoti();
   if (ws === 'havainnot') renderHavainnot();
@@ -6558,8 +6567,18 @@ function _msJaksovali(jf) {
   var loppuD = alkoi ? new Date(new Date(alkoi).getTime() + vk * 7 * 86400000) : new Date();
   return { alkoi: alkoi, loppu: alkoi ? loppuD.toISOString().slice(0, 10) : tmPaivaIso(loppuD) };
 }
+/* K35-10: jaksokooste tarvitsee JAKSON KOKO VÄLIN → jos väli ei ole yleisen latauksen sisällä, haetaan oma rajattu kysely (välimuisti avaimella alkoi|loppu); kunnes se palaa, käytetään ladattua listaa. */
+const _msJaksoData = {}, _msJaksoHaku = {};
+function _msLataaJakso(avain, alkoi, loppu) {
+  if (_msJaksoHaku[avain] || !_seuraId || _demo || !window.TM_KALENTERI_LATAUS) return; _msJaksoHaku[avain] = 1;
+  const v = { alku: new Date((alkoi || loppu) + 'T00:00:00').getTime(), loppu: new Date(loppu + 'T23:59:59').getTime() };
+  window.TM_KALENTERI_LATAUS.tmLataaIkkuna(_db, _seuraId, [v], firebase.firestore.Timestamp).then(function (docs) { return _kalSuodata(window.TM_KALENTERI_LATAUS.tmLatausSuodata(docs.map(_kalNormalisoi))); })
+    .then(function (l) { _msJaksoData[avain] = l; if (_ktS && _ktS.pid && typeof _ktNayta === 'function') _ktNayta(); }, function () { delete _msJaksoHaku[avain]; });
+}
 function _msSessiot(jf, alkoi, loppu) {
-  return (_kalenteriTapahtumat || []).filter(function (t) {
+  var avain = (alkoi || '') + '|' + loppu, ok = _kalLadattu && alkoi && new Date(alkoi + 'T00:00:00').getTime() >= _kalLadattu.alku && new Date(loppu + 'T23:59:59').getTime() <= _kalLadattu.loppu;
+  if (!ok && !_msJaksoData[avain]) _msLataaJakso(avain, alkoi, loppu);
+  return (ok ? _kalenteriTapahtumat : (_msJaksoData[avain] || _kalenteriTapahtumat) || []).filter(function (t) {
     if (t.poistettu || !t.treeniteema || t.treeniteema.avain !== jf.konsepti_avain) return false;
     var pvm = t.pvm || '';
     if (alkoi && pvm < alkoi) return false;
@@ -6672,7 +6691,7 @@ function _mKertymaTayta(p) {
   const el = document.getElementById('_mKertymaCard'); if (!el) return; const N = window.TM_HARJOITUSKERTYMA_NAKYMA;
   if (!document.getElementById('hkCss')) { const st = document.createElement('style'); st.id = 'hkCss'; st.textContent = N.tmKertymaCSS(); document.head.appendChild(st); }
   if (_demo || !_seuraId) { el.innerHTML = N.tmKertymaMasterHTML(window.TM_HARJOITUSKERTYMA.tmKertyma({ tapahtumat: [], nyt: Date.now() }), { t: masterT }); return; }
-  window.TM_HARJOITUSKERTYMA.tmKertymaLueKooste(_db, _seuraId, p.id, Date.now()).then(k => { const e = document.getElementById('_mKertymaCard'); if (e) e.innerHTML = k ? N.tmKertymaMasterHTML(k, { t: masterT }) : '<div class="hk-tyhja">' + _mEsc(masterT('Ei vielä kirjauksia')) + '</div>'; });
+  window.TM_HARJOITUSKERTYMA.tmKertymaLueKooste(_db, _seuraId, p.id, Date.now()).then(k => { const e = document.getElementById('_mKertymaCard'), w = document.getElementById('_mKertymaWrap'); if (w && !k) w.style.display = 'none'; if (e) e.innerHTML = k ? N.tmKertymaMasterHTML(k, { t: masterT }) : ''; });   // K35-11 #6: puuttuva kooste → tyhjä tila (näytetään); vain lukuvirhe (null, esim. oikeus) → lohko ja otsikko piiloon, ei kaatumista
 }
 function _ktNayttoHTML(p) {
   const e = _mEsc, o = _mPinfoOsat(p), pid = e(p.id), nakyy = (typeof _prVoiNahda === 'function' && _prVoiNahda(p));
@@ -6683,7 +6702,7 @@ function _ktNayttoHTML(p) {
     + _ktOsio('Mittaukset') + _mStatsHTML(o.stats) + o._kehHtml + o._sekHtml + o._kehityskaariHtml
     + ((o._adarHtml || o._ristiinHtml) ? _ktOsio('Pelihavainnot') + o._adarHtml + o._ristiinHtml : '')
     + _ktOsio('Psyykkinen (D3)') + o._d3Html
-    + _ktOsio('Harjoittelu') + '<div id="_mKertymaCard" style="grid-column:1/-1"></div>'
+    + '<div id="_mKertymaWrap" style="grid-column:1/-1;display:contents">' + _ktOsio('Harjoittelu') + '<div id="_mKertymaCard" style="grid-column:1/-1"></div></div>'
     + (nakyy ? _ktOsio('Mitä pelaajan tulee osata') + '<div id="_mMitaCard" class="mkt-scope" style="grid-column:1/-1"></div>' : '')
     + '<div style="grid-column:1/-1;margin-top:16px"><button type="button" class="kt-nappi" data-kt-vanha onclick="_ktVanhaNakyma(\'' + pid + '\')">' + e(masterT('Avaa pelaajan elämäkerta')) + '</button></div>'   // elämäkerran aikajana/narratiivi: vanha näkymä kunnes poisto-PR
     + '</div>';
@@ -9992,7 +10011,7 @@ async function _calTallennaSessioRPE(t, n, container) {
       paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
       muokkaaja_uid: muid
     }, { merge: true });
-    t.valmentaja_rpe = n;
+    t.valmentaja_rpe = n; (_kalibData.lista || []).forEach(function(x) { if (x.id === t.id) x.valmentaja_rpe = n; });
     var idx = (_kalenteriTapahtumat || []).findIndex(function(x) { return x.id === t.id; });
     if (idx >= 0) _kalenteriTapahtumat[idx].valmentaja_rpe = n;
     toast(masterT('✓ Rasitus arvioitu: ') + n + '/10', 'ok');
@@ -10001,6 +10020,16 @@ async function _calTallennaSessioRPE(t, n, container) {
   } catch (e) { toast(masterT('Tallennus epäonnistui: ') + e.message, 'err'); }
 }
 
+/* K35-10: kalibraatio tarvitsee KAUDEN harjoitukset → oma rajattu kysely (välimuisti seura+kausi); kunnes se palaa käytetään ladattua listaa. Tallennus (valmentaja_rpe) päivittää välimuistin kopion. */
+let _kalibData = { avain: null, lista: null, haku: false };
+function _kalibTapahtumat() {
+  const L = window.TM_KALENTERI_LATAUS; if (!L || !_seuraId || _demo) return _kalenteriTapahtumat || [];
+  const alku = L.tmKausiAlkuMs(Date.now()), avain = _seuraId + '|' + alku;
+  if (_kalLadattu && _kalLadattu.alku <= alku) return _kalenteriTapahtumat || [];   // yleinen lataus kattaa jo kauden alun
+  if (_kalibData.avain === avain && _kalibData.lista) return _kalibData.lista;
+  if (!_kalibData.haku || _kalibData.avain !== avain) { _kalibData = { avain: avain, lista: null, haku: true }; L.tmLataaVali(_db, _seuraId, { alku: alku, loppu: Date.now() }, firebase.firestore.Timestamp).then(docs => _kalSuodata(L.tmLatausSuodata(docs.map(_kalNormalisoi)))).then(l => { _kalibData = { avain: avain, lista: l, haku: true }; if (typeof renderKuorma === 'function') renderKuorma(); }, () => { _kalibData.haku = false; }); }
+  return _kalenteriTapahtumat || [];
+}
 // ── Kuorma & fiilis -näkymä (oma joukkue) ──
 function renderKuorma() {
   var el = document.getElementById('kuormaView'); if (!el) return;
@@ -10017,7 +10046,7 @@ function renderKuorma() {
   var r1 = function(x) { return Math.round(x * 10) / 10; };
 
   // Kalibraatio per harjoitus (viim. 5, joilla valmentaja_rpe)
-  var evts = (_kalenteriTapahtumat || []).filter(function(t) { return HARJ[t.tyyppi] && t.valmentaja_rpe != null && sj(t); });
+  var evts = _kalibTapahtumat().filter(function(t) { return HARJ[t.tyyppi] && t.valmentaja_rpe != null && sj(t); });   // K35-10: kauden alusta oma kysely, ei yleistä −8 vk ikkunaa
   evts.sort(function(a, b) { return (b.pvm || '').localeCompare(a.pvm || ''); });
   evts = evts.slice(0, 5);
   var NIMET = { harjoitus: masterT('Harjoitus'), ottelu: masterT('Ottelu'), talenttileiri: masterT('Talenttileiri') };
@@ -10188,7 +10217,7 @@ function renderCal() {
   const subEl = document.getElementById('calWkSub');
   if (subEl) subEl.textContent = masterT('Kausi ') + monday.getFullYear() + '/' + (monday.getFullYear()+1).toString().slice(-2) + masterT(' · Viikko ') + weekNum;
 
-  const todayStr = tmPaivaIso(today), mondayIso = tmPaivaIso(monday);
+  const todayStr = tmPaivaIso(today), mondayIso = tmPaivaIso(monday); _calVarmistaIkkuna(mondayIso);   // K35-10: selaus ikkunan ulkopuolelle hakee puuttuvan välin
   // K35-6a: viikko = päiväsarakkeet (D182, lib/tm_kalenteri_nakyma.js); testitapahtumat koko päivän riville; Täytä viikko -kortti + esikatselu (lib/tm_kalenteri_taytto.js, D184)
   const suodataJoukkue = t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
   const testit = (_testitapahtumat || []).filter(suodataJoukkue).map(t => ({ id: t.id, tyyppi: 'testitapahtuma', koko_paiva: true, nimi: _protokollaLyhenne(t.protokolla), pvm: t.pvm, joukkue_nimi: t.joukkue_nimi || t.joukkue || '' }));
