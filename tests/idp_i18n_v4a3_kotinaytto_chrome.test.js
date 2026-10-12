@@ -58,6 +58,6 @@ describe('Pelaaja_v7 kytkenta: chrome reititetty T()-getterilla (ei kovakoodattu
   });
   it('tm_lang ?v>=4 + SW-cache >= v18', () => {
     expect(PEL).toMatch(/lib\/tm_lang\.js\?v=([4-9]|\d\d)/);
-    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/const CACHE = 'tm-pelaaja-v(1[8-9]|[2-9]\d)'/);
+    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/const CACHE = 'tm-pelaaja-v(1[8-9]|[2-9]\d|\d{3,})'/);
   });
 });
