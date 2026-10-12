@@ -158,6 +158,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
 <script src="lib/tm_valmentaja_koti.js?v=2"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=2"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
+<script src="lib/tm_valmentaja_nav.js?v=1"></script>   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
 <script src="lib/tm_harjoituskertyma.js?v=1"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=2"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=3"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
@@ -4244,6 +4245,7 @@ function renderInbox(){
   const wsB=document.getElementById('wsInboxBadge');
   if(sbB){sbB.textContent=unseenN;sbB.style.display=unseenN?'inline-flex':'none';}
   if(wsB){wsB.textContent=unseenN;wsB.style.display=unseenN?'inline-flex':'none';}
+  if(window.TM_VALMENTAJA_NAV)window.TM_VALMENTAJA_NAV.tmNavBadge(unseenN);
   // "Kuittaa kaikki" -nappi: näkyy vain Inbox-välilehdellä kun näkemättömiä (toissijainen toiminto)
   const kkBtn=document.getElementById('kuittaaKaikkiBtn');
   if(kkBtn){const _show=_inboxFilter!=='seen'&&unseenN>0;kkBtn.style.display=_show?'inline-flex':'none';kkBtn.textContent=masterT('Kuittaa kaikki')+' ('+unseenN+')';}
@@ -4806,6 +4808,7 @@ function _alusta(nimi) {
     _lataaKalenteriTapahtumat();  // harjoitukset, ottelut, muut
   }
   // §IA — aktivoi oikea näkymä (Koti oletus / palautettu) + tab-barit
+  if (window.TM_VALMENTAJA_NAV && !_demo) window.TM_VALMENTAJA_NAV.tmNavAsenna({ db: _db, seuraId: _seuraId, t: masterT, ws: () => _ws, ryhmia: () => _mRyHaeLista().then(l => l.length > 0) }).then(on => { if (on) setWs(window.TM_VALMENTAJA_NAV.tmNavReitti(_ws).ws); }).catch(() => {});   // V-KOTI B: lippu liput.valmentaja_v2
   setWs(_ws);   // 'koti' → renderKoti → renderCoachAloitaKortti (pysyvä "Aloita tästä" -kortti, gating localStorage)
 }
 
@@ -5110,6 +5113,11 @@ function renderKotiV2() {
   el.innerHTML = N.tmKotiHTML(m, { t: masterT, on: toimi });
   if (m.seuraava && (window._kotiSaatHaettu !== m.seuraava.id)) { window._kotiSaatHaettu = m.seuraava.id; N.tmKotiLataaSaatavuus(_db, _seuraId, m.seuraava.id, pel).then(r => { if (r) { window._kotiSaat = Object.assign({}, window._kotiSaat, { [m.seuraava.id]: r }); renderKotiV2(); } }); }
   return true;
+}
+async function renderRyhmat() {   // V-KOTI B: omat ryhmät + jäsenet (lib tmRyhmatHTML)
+  const el = document.getElementById('ryhmatView'), l = await _mRyHaeLista(), nm = {}, j = {}; (_pelaajatData || []).forEach(p => { nm[p.id] = _tmHenkiloNimi(p); });
+  for (const r of l) j[r.id] = (await _mRyJasenIdt(r)).filter(id => nm[id]).map(id => ({ id: id, nimi: nm[id] }));
+  if (el) el.innerHTML = window.TM_VALMENTAJA_NAV.tmRyhmatHTML(l, j, { t: masterT });
 }
 function renderKoti() {
   if (renderKotiV2()) return;
@@ -5446,6 +5454,8 @@ window.masterVaihdaKieli = masterVaihdaKieli;
 window.masterPaivitaKielivalitsin = masterPaivitaKielivalitsin;
 
 function setWs(ws) {
+  const _nv = document.body.classList.contains('nav-v2') ? window.TM_VALMENTAJA_NAV.tmNavReitti(ws) : null;   // V-KOTI B: vanhat työtila-id:t ohjautuvat (lib)
+  if (_nv) { ws = _nv.ws; if (_nv.toiminto) setTimeout(() => openDrill('adar'), 0); }
   _ws = ws;
   document.body.classList.remove('nav-drawer-open');   // §IA sulje mobiili-drawer kun näkymä vaihtuu
   document.querySelectorAll('.ws-view').forEach(v => v.classList.toggle('active', v.dataset.view === ws));
@@ -5462,6 +5472,7 @@ function setWs(ws) {
   if (ws === 'pulse') renderPulse();
   if (ws === 'testit') renderTestit();
   if (ws === 'kuorma') renderKuorma();
+  if (_nv) { window.TM_VALMENTAJA_NAV.tmNavPiirra(ws); if (ws === 'ryhmat') renderRyhmat(); }
   // Scroll top
   document.querySelector('.main')?.scrollTo({ top:0, behavior:'smooth' });
 }
