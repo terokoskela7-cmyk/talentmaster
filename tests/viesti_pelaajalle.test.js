@@ -261,7 +261,7 @@ describe('(4) Pelaaja: luettu ei katoa', () => {
 
   it('SW-välimuistiversio nostettu (puhelinten haettava uusi sivu)', () => {
     const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8');
-    expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(3[3-9]|[4-9]\d)'/);
+    expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(3[3-9]|[4-9]\d|\d{3,})'/);
   });
 });
 

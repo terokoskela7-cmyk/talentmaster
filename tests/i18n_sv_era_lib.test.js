@@ -15,7 +15,7 @@ const LIB = require('../lib/tm_lib_i18n.js');
 const SV = LIB.TM_LIB_I18N.sv;
 const LIBIT = ['tm_kehitystyopoyta', 'tm_kevyt_katselmus', 'tm_klippi_perhe', 'tm_mediaviesti', 'tm_reitin_valinta', 'tm_ryhmat', 'tm_taman_tueksi', 'tm_tanaan_kentta', 'tm_tanaan_signaali', 'tm_viikkokatsaus'];
 // Libin FI-avaimet, joille sv puuttuu (palautetaan Geminille; fi-fallback). Portti on elävä: sv saapui → poista rivi.
-const LIB_SV_ODOTTAA = ['kn_virhe_joukkue', 'kt_arviot_eroavat', 'kt_l_vk_tanaan', 'kt_jakso', 'kt_ei_jaksoa_kortti', 'kt_katselmus', 'kt_vk_lyhyt', 'ts_muistuta_nappi', 'ts_tauko', 'ts_tauko_ilman', 'kt_l_seuraava_harjoitus', 'kt_l_seuraava_ottelu', 'kt_v_tauko', 'kt_l_tauko'];   // + kalenterikytkentä (K35, tauko ja seuraava tapahtuma): sv Gemini-erään   // erä 21 (Tänään-välilehti, PR 3): sv tyhjä Geminille;   // Tyhjä: sv-erä 3 (lib.tm_kehitystyopoyta 44 + lib.tm_tanaan_signaali 1) vietiin scripts/i18n_vie_sv_era3.cjs:llä. Uusi lib-avain → lisää tähän kunnes sv saapuu.
+const LIB_SV_ODOTTAA = ['kn_virhe_joukkue', 'kt_arviot_eroavat', 'kt_l_vk_tanaan', 'kt_jakso', 'kt_ei_jaksoa_kortti', 'kt_katselmus', 'kt_vk_lyhyt', 'ts_muistuta_nappi', 'ts_tauko', 'ts_tauko_ilman', 'kt_l_seuraava_harjoitus', 'kt_l_seuraava_ottelu', 'kt_v_tauko', 'kt_l_tauko', 'mv_media_video', 'mv_media_kuva', 'mv_media_linkki'];   // + Sibbo-klippipolku: linkin tunnistusrivin mediatyyppi (docs/i18n/sv_kaannoserae_36.json)   // + kalenterikytkentä (K35, tauko ja seuraava tapahtuma): sv Gemini-erään   // erä 21 (Tänään-välilehti, PR 3): sv tyhjä Geminille;   // Tyhjä: sv-erä 3 (lib.tm_kehitystyopoyta 44 + lib.tm_tanaan_signaali 1) vietiin scripts/i18n_vie_sv_era3.cjs:llä. Uusi lib-avain → lisää tähän kunnes sv saapuu.
 const _VANHA_LIB_ODOTTAA = [];   // ts_otsikko saapui Gemini-erässä 2 (lib.tm_tanaan_signaali) ja vietiin scripts/i18n_vie_sv_era2.cjs:llä
 // PR 5: erän 2 lib-osiot (ADAR-nimet, rubriikit, Kenttä, ADAR-tekstit, pelihavainto-valinta, havaintohistoria, ts_otsikko) — avain = lib-avain tai fi-teksti
 const ERA2 = JSON.parse(lue('docs/i18n/sv_kaannoserae_2.json'));
@@ -173,7 +173,7 @@ describe('kytkentä: script-tagi + SW-allowlist + cache-bumpit (§27.4)', () => 
   });
   it('SW:t (Pelaaja, Vanhempi) cachettavat tm_lib_i18n.js:n; cache-versio nostettu', () => {
     expect(lue('sw_pelaaja.js')).toContain("'/lib/tm_lib_i18n.js'"); expect(lue('sw_vanhempi.js')).toContain("'/lib/tm_lib_i18n.js'");
-    expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-v(8[2-9]|9\d|\d{3})'/); expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-v(5[3-9]|[6-9]\d|\d{3})'/);
+    expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-v(8[2-9]|9\d|\d{3}|\d{3,})'/); expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-v(5[3-9]|[6-9]\d|\d{3}|\d{3,})'/);
   });
   it('tm_lang.js:n ?v on sama ja ≥ 33 kaikissa sovelluksissa (jokainen tm_lang-muutos bumppaa kaikki — muuten stale-klientit näkevät raakoja avaimia)', () => {
     const vs = new Set(); for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Seura.html', 'TalentMaster_Rekisterointi_Suostumus.html', 'TalentMaster_Pelihavainto_Kentta.html']) { const m = /lib\/tm_lang\.js\?v=(\d+)/.exec(lue(f)); expect(m, f).toBeTruthy(); vs.add(+m[1]); }

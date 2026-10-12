@@ -64,6 +64,6 @@ describe('Pelaaja_v7 + SW', () => {
     const koodi = lue('lib/tm_kotiharjoitteet.js').replace(/\/\*[\s\S]*?\*\//g, ''); expect(koodi).not.toMatch(/firebase|firestore|collection\(|fetch\(/i);
   });
   it('SW: cache-versio nostettu (v75), lib allowlistissä (offline); ei muita muutoksia sw-allowlistiin', () => {
-    const sw = lue('sw_pelaaja.js'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[5-9]|[89]\d)'/); expect(sw).toContain("'/lib/tm_kotiharjoitteet.js'");
+    const sw = lue('sw_pelaaja.js'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[5-9]|[89]\d|\d{3,})'/); expect(sw).toContain("'/lib/tm_kotiharjoitteet.js'");
   });
 });
