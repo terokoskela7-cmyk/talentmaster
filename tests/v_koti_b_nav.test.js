@@ -89,10 +89,39 @@ describe('kuoren kytkentä (Master)', () => {
     expect(MASTER).toContain('window.TM_VALMENTAJA_NAV.tmNavAsenna('); expect(MASTER).toContain('window.TM_VALMENTAJA_NAV.tmNavBadge(unseenN)'); expect(MASTER).toContain('async function renderRyhmat()');
   });
   it('vanha navigaatio säilyy koodissa (wsbar, sb-nav, tabbar) — lippu piilottaa vain CSS:llä', () => {
-    ['class="wsbar"', 'class="sb-nav"', 'id="mobTabbar"'].forEach((s) => expect(MASTER).toContain(s)); expect(N.tmNavCSS()).toMatch(/\.nav-v2 \.sb-nav,\.nav-v2 \.wsbar,\.nav-v2 #mobTabbar\{display:none!important\}/);
+    ['class="wsbar"', 'class="sb-nav"', 'id="mobTabbar"'].forEach((s) => expect(MASTER).toContain(s)); expect(N.tmNavCSS()).toMatch(/\.nav-v2 \.wsbar,\.nav-v2 #mobTabbar,\.nav-v2 #coachSelfCard\{display:none!important\}/); expect(N.tmNavCSS()).toContain('.nav-v2 .sb-nav>:not(select){display:none!important}');
   });
   it('kasvukatto: Master ei kasva yli kattonsa; lisäys kuoreen pieni (≤ 15 riviä main-haaraan nähden)', () => {
     const fx = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/kuoret_kasvukatto.json'), 'utf8')), n = (MASTER.match(/\n/g) || []).length; expect(n).toBeLessThanOrEqual(fx['TalentMaster_Master_v16.html'].katto);
     expect(n).toBeLessThanOrEqual(11837 + 15);
+  });
+});
+
+describe('live-tarkistus (FC Demo): valitsin, mobiili, Esc, profiilikortti, Kodin tyhjä tila', () => {
+  const css = N.tmNavCSS(), K = require('../lib/tm_valmentaja_koti.js'), KN = require('../lib/tm_valmentaja_koti_nakyma.js');
+  it('#1 sb-nav ei piiloudu kokonaan: vain sen muut lapset (valitsimet jäävät näkyviin); seuranimi piiloon kun valitsin on', () => {
+    expect(css).not.toMatch(/\.nav-v2 \.sb-nav,/); expect(css).toContain('.nav-v2 .sb-nav>:not(select){display:none!important}'); expect(css).toContain('.nav-v2 .sb-nav:not(:has(select)){display:none!important}'); expect(css).toContain('.sb-nav select) .sb-seura{display:none}');
+  });
+  it('#2 mobiili: hampurilainen ja Komennot ⌘K piiloon < 800 px (ei leveällä)', () => {
+    const mq = css.slice(css.indexOf('@media (max-width:799px)')); expect(mq).toContain('.nav-v2 .nav-burger,.nav-v2 .cmd-btn{display:none!important}'); expect(css.slice(0, css.indexOf('@media'))).not.toContain('.cmd-btn');
+  });
+  it('#4 profiilikortti piiloon kaikista näkymistä lipun ollessa päällä', () => { expect(css).toContain('.nav-v2 #coachSelfCard{display:none!important}'); });
+  it('#3 tmNavHavaintoEsc: sulkee upotetun pikakortin (window._pkSulje) ja valintamodaalin, palauttaa true; ei modaalia → false; fokus palaa + Havainto -painikkeeseen', () => {
+    const poistettu = []; let fokus = 0, pkSulje = 0, valinta = { parentNode: { removeChild: (x) => poistettu.push('valinta') } }, pk = { remove: () => poistettu.push('pk') };
+    const nap = { offsetParent: {}, focus: () => { fokus++; } }, doc = { getElementById: (id) => ({ _pkModal: pk, _tmPhValinta: valinta }[id] || null), querySelectorAll: () => [nap] };
+    expect(N.tmNavHavaintoEsc(doc, { _pkSulje: () => { pkSulje++; } })).toBe(true); expect(pkSulje).toBe(1); expect(poistettu).toEqual(['valinta']);
+    expect(N.tmNavHavaintoEsc({ getElementById: () => null }, {})).toBe(false);
+    expect(N.tmNavHavaintoEsc({ getElementById: (id) => (id === '_pkModal' ? pk : null) }, {})).toBe(true); expect(poistettu).toEqual(['valinta', 'pk']);   // ilman _pkSulje:a poistetaan suoraan
+    expect(N.tmNavPalautaFokus(doc)).toBe(true); expect(fokus).toBe(1); expect(N.tmNavPalautaFokus({ querySelectorAll: () => [{ offsetParent: null, getClientRects: () => [], focus: () => { fokus++; } }] })).toBe(false);
+  });
+  it('#3 Master kytkee: Esc-haara kutsuu tmNavHavaintoEsc ennen muuta sulkua; upotettu pikakortti paljastaa window._pkSulje; iframen Esc ohjataan samaan', () => {
+    expect(MASTER).toMatch(/if \(e\.key === 'Escape'\) \{\n\s+if \(window\.TM_VALMENTAJA_NAV && window\.TM_VALMENTAJA_NAV\.tmNavHavaintoEsc\(document, window\)\) return;/); expect(MASTER).toContain('window._pkSulje = _pkClose;'); expect(MASTER).toMatch(/w\.document\.addEventListener\('keydown'[^\n]*tmNavHavaintoEsc/);
+  });
+  it('#5 Kodin tyhjä tila: pelaajia → EI "lisää pelaajat"; ei pelaajia → kolme askelta; järjestys Täytä viikko → Uusi havainto', () => {
+    const PEL = [{ id: 'p1', nimi: 'Aatu Aalto' }], C = { t: (x) => x, on: () => 'x()' };
+    const kaksi = KN.tmKotiHTML(K.tmKotiMalli({ uusi: true, joukkue: { id: 'j', nimi: 'J' }, pelaajat: PEL, tapahtumat: [], nyt: Date.UTC(2026, 9, 14) }), C);
+    expect(kaksi).toContain('Aloita kahdella askeleella: täytä viikon harjoitukset kalenteriin ja kirjaa ensimmäinen havainto.'); expect(kaksi).not.toMatch(/lisää pelaajat/i); expect(kaksi.indexOf('Täytä viikko')).toBeGreaterThan(0); expect(kaksi.indexOf('Täytä viikko')).toBeLessThan(kaksi.indexOf('Uusi havainto'));
+    const kolme = KN.tmKotiHTML(K.tmKotiMalli({ uusi: true, joukkue: { id: 'j', nimi: 'J' }, pelaajat: [], tapahtumat: [], nyt: Date.UTC(2026, 9, 14) }), C);
+    expect(kolme).toContain('Aloita kolmella askeleella: lisää pelaajat joukkueeseen'); expect(kolme.indexOf('Täytä viikko')).toBeLessThan(kolme.indexOf('Uusi havainto'));
   });
 });
