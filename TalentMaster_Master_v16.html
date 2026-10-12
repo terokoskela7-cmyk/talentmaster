@@ -4245,7 +4245,7 @@ function renderInbox(){
   const wsB=document.getElementById('wsInboxBadge');
   if(sbB){sbB.textContent=unseenN;sbB.style.display=unseenN?'inline-flex':'none';}
   if(wsB){wsB.textContent=unseenN;wsB.style.display=unseenN?'inline-flex':'none';}
-  if(window.TM_VALMENTAJA_NAV)TM_VALMENTAJA_NAV.tmNavBadge(unseenN);
+  if(window.TM_VALMENTAJA_NAV)window.TM_VALMENTAJA_NAV.tmNavBadge(unseenN);
   // "Kuittaa kaikki" -nappi: näkyy vain Inbox-välilehdellä kun näkemättömiä (toissijainen toiminto)
   const kkBtn=document.getElementById('kuittaaKaikkiBtn');
   if(kkBtn){const _show=_inboxFilter!=='seen'&&unseenN>0;kkBtn.style.display=_show?'inline-flex':'none';kkBtn.textContent=masterT('Kuittaa kaikki')+' ('+unseenN+')';}
@@ -4808,7 +4808,7 @@ function _alusta(nimi) {
     _lataaKalenteriTapahtumat();  // harjoitukset, ottelut, muut
   }
   // §IA — aktivoi oikea näkymä (Koti oletus / palautettu) + tab-barit
-  if (window.TM_VALMENTAJA_NAV && !_demo) TM_VALMENTAJA_NAV.tmNavAsenna({ db: _db, seuraId: _seuraId, t: masterT, ws: () => _ws, ryhmia: () => _mRyHaeLista().then(l => l.length > 0) }).then(on => { if (on) setWs(TM_VALMENTAJA_NAV.tmNavReitti(_ws).ws); }).catch(() => {});   // V-KOTI B: lippu liput.valmentaja_v2
+  if (window.TM_VALMENTAJA_NAV && !_demo) window.TM_VALMENTAJA_NAV.tmNavAsenna({ db: _db, seuraId: _seuraId, t: masterT, ws: () => _ws, ryhmia: () => _mRyHaeLista().then(l => l.length > 0) }).then(on => { if (on) setWs(window.TM_VALMENTAJA_NAV.tmNavReitti(_ws).ws); }).catch(() => {});   // V-KOTI B: lippu liput.valmentaja_v2
   setWs(_ws);   // 'koti' → renderKoti → renderCoachAloitaKortti (pysyvä "Aloita tästä" -kortti, gating localStorage)
 }
 
@@ -5117,7 +5117,7 @@ function renderKotiV2() {
 async function renderRyhmat() {   // V-KOTI B: omat ryhmät + jäsenet (lib tmRyhmatHTML)
   const el = document.getElementById('ryhmatView'), l = await _mRyHaeLista(), nm = {}, j = {}; (_pelaajatData || []).forEach(p => { nm[p.id] = _tmHenkiloNimi(p); });
   for (const r of l) j[r.id] = (await _mRyJasenIdt(r)).filter(id => nm[id]).map(id => ({ id: id, nimi: nm[id] }));
-  if (el) el.innerHTML = TM_VALMENTAJA_NAV.tmRyhmatHTML(l, j, { t: masterT });
+  if (el) el.innerHTML = window.TM_VALMENTAJA_NAV.tmRyhmatHTML(l, j, { t: masterT });
 }
 function renderKoti() {
   if (renderKotiV2()) return;
@@ -5454,7 +5454,7 @@ window.masterVaihdaKieli = masterVaihdaKieli;
 window.masterPaivitaKielivalitsin = masterPaivitaKielivalitsin;
 
 function setWs(ws) {
-  const _nv = document.body.classList.contains('nav-v2') ? TM_VALMENTAJA_NAV.tmNavReitti(ws) : null;   // V-KOTI B: vanhat työtila-id:t ohjautuvat (lib)
+  const _nv = document.body.classList.contains('nav-v2') ? window.TM_VALMENTAJA_NAV.tmNavReitti(ws) : null;   // V-KOTI B: vanhat työtila-id:t ohjautuvat (lib)
   if (_nv) { ws = _nv.ws; if (_nv.toiminto) setTimeout(() => openDrill('adar'), 0); }
   _ws = ws;
   document.body.classList.remove('nav-drawer-open');   // §IA sulje mobiili-drawer kun näkymä vaihtuu
@@ -5472,7 +5472,7 @@ function setWs(ws) {
   if (ws === 'pulse') renderPulse();
   if (ws === 'testit') renderTestit();
   if (ws === 'kuorma') renderKuorma();
-  if (_nv) { TM_VALMENTAJA_NAV.tmNavPiirra(ws); if (ws === 'ryhmat') renderRyhmat(); }
+  if (_nv) { window.TM_VALMENTAJA_NAV.tmNavPiirra(ws); if (ws === 'ryhmat') renderRyhmat(); }
   // Scroll top
   document.querySelector('.main')?.scrollTo({ top:0, behavior:'smooth' });
 }

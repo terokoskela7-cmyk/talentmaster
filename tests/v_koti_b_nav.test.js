@@ -86,7 +86,7 @@ describe('HTML-säännöt', () => {
 describe('kuoren kytkentä (Master)', () => {
   it('lib ladataan; setWs ohjaa reitit vain lipun (nav-v2) ollessa päällä; alustus lipun kautta; badge-kytkentä', () => {
     expect(MASTER).toContain('lib/tm_valmentaja_nav.js'); expect(MASTER).toMatch(/function setWs\(ws\) \{\n  const _nv = document\.body\.classList\.contains\('nav-v2'\)/);
-    expect(MASTER).toContain('TM_VALMENTAJA_NAV.tmNavAsenna('); expect(MASTER).toContain('TM_VALMENTAJA_NAV.tmNavBadge(unseenN)'); expect(MASTER).toContain('async function renderRyhmat()');
+    expect(MASTER).toContain('window.TM_VALMENTAJA_NAV.tmNavAsenna('); expect(MASTER).toContain('window.TM_VALMENTAJA_NAV.tmNavBadge(unseenN)'); expect(MASTER).toContain('async function renderRyhmat()');
   });
   it('vanha navigaatio säilyy koodissa (wsbar, sb-nav, tabbar) — lippu piilottaa vain CSS:llä', () => {
     ['class="wsbar"', 'class="sb-nav"', 'id="mobTabbar"'].forEach((s) => expect(MASTER).toContain(s)); expect(N.tmNavCSS()).toMatch(/\.nav-v2 \.sb-nav,\.nav-v2 \.wsbar,\.nav-v2 #mobTabbar\{display:none!important\}/);
