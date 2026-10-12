@@ -72,7 +72,7 @@ describe('reitit — jokainen vanha työtila-id ohjautuu', () => {
 describe('HTML-säännöt', () => {
   const m = N.tmNavMalli({ ws: 'koti', lukemattomat: 2, ryhmia: true, tyokalutAuki: true });
   it('ei hex-värejä, ei emojeja; onclick-kohteet vain vakioita', () => {
-    const h = N.tmNavHTML(m), kaikki = Object.values(h).join('') + N.tmNavCSS(); expect(kaikki).not.toMatch(/#[0-9a-fA-F]{3,6}\b/); expect(kaikki).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+    const h = N.tmNavHTML(m), kaikki = Object.values(h).join('') + N.tmNavCSS(); expect(kaikki.replace(/&#\d+;/g, '')).not.toMatch(/#[0-9a-fA-F]{3,6}\b/); expect(kaikki).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
     (kaikki.match(/onclick="([^"]*)"/g) || []).forEach((x) => expect(x).toMatch(/^onclick="(setWs\('[a-z]+'\)|avaaKaaviopankki\(\)|openDrill\('adar'\)|avaaHarjoitusarviointi\(\)|avaaValmentajaKehitys\(\)|avaaCoachProfiili\(\)|toggleTyokalut\(\)|TM_VALMENTAJA_NAV\.tmNavTyokalut\(\))"$/));
   });
   it('tekstit kulkevat C.t:n kautta (kielenvaihto)', () => { const h = N.tmNavHTML(m, { t: (x) => '«' + x + '»' }); expect(h.sivu).toContain('«Koti»'); expect(h.sivu).toContain('«Valmentajana kehittyminen»'); expect(h.plus).toContain('«Havainto»'); });
