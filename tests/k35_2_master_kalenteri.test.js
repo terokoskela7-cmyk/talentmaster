@@ -77,7 +77,7 @@ describe('4 · luonti ja muokkaus (D185, D181)', () => {
   it('tuodun tapahtuman lähdekentät lukittuina (tmKalSaaMuokata); manuaalinen vapaa; oikeudet ennallaan (_calSaaMuokataTapahtuma)', () => {
     const tuotu = { lahde: 'myclub' }, oma = { lahde: 'manuaalinen' };
     expect(MA.tmKalLukitut(tuotu)).toEqual({ alkaa: true, paattyy: true, paikka: true, tila: true }); expect(MA.tmKalLukitut(oma)).toEqual({ alkaa: false, paattyy: false, paikka: false, tila: false });
-    expect(MASTER).toContain('lk = KM.tmKalLukitut(t)'); expect(MASTER).toContain('function _calSaaMuokataTapahtuma(t) { return !_demo && !!_seuraId && (_superAdmin || _calJohtoRooli() || (_calValmentajaRooli() && t && t.luoja_uid && t.luoja_uid === _uid)); }');
+    expect(MASTER).toContain('lk = KM.tmKalLukitut(t)'); expect(MASTER).toContain('function _calSaaMuokataTapahtuma(t) { return !_demo && !!_seuraId && (_superAdmin || _calJohtoRooli() || (_calValmentajaRooli() && ((t && t.luoja_uid && t.luoja_uid === _uid) || window.TM_RYHMAT.tmRyhmaVastaa(t, window._mRyLista, _uid)))); }');
   });
 });
 

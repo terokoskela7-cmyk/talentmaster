@@ -5337,3 +5337,46 @@ describe('v3.60 · kooste/{id} read: talenttivalmentaja (oma seura) lukee kaikki
     await assertFails(getDoc(K(talenttivalmentajaContext('talval-b-001', SEURA_B).firestore(), PELAAJA_UID)));
   });
 });
+
+describe('v3.61 · K35-6c (D196): ryhmän VASTAAVA (ryhmat.vastuu_uid) muokkaa ja poistaa ryhmän tapahtumia; ryhmäkenttä vastuu_uid', () => {
+  const RID = 'maalivahdit', RID2 = 'talentit', VAST_UID = 'valm-vastaava-001', MUU_UID = 'valm-muu-001', LUOJA_UID = VP_A_UID, EV = 'ev-v-1';
+  const ryhmaDokki = (o = {}) => ({ nimi: 'Maalivahdit', tyyppi: 'lista', pelaajat_id: ['p1', 'p2'], valmentajat: [VAST_UID, MUU_UID], vastuu_uid: VAST_UID, aktiivinen: true, luoja_uid: LUOJA_UID, luotu: new Date(), muokattu: new Date(), ...o });
+  const ev = (o = {}) => ({ nimi: 'Maalivahtiharjoitus', tyyppi: 'harjoitus', luoja_uid: LUOJA_UID, poistettu: false, kohde: { tyyppi: 'ryhma', ryhma_id: RID, ryhma_nimi: 'Maalivahdit' }, pelaajat_id: ['p1', 'p2'], ...o });
+  const k = (db, id = EV) => doc(db, 'seurat', SEURA_A, 'kalenteri', id);
+  const dbV = () => valmentajaContext(VAST_UID, SEURA_A).firestore(), dbMuu = () => valmentajaContext(MUU_UID, SEURA_A).firestore();
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+      await setDoc(doc(f, 'seurat', SEURA_A, 'ryhmat', RID), ryhmaDokki()); await setDoc(doc(f, 'seurat', SEURA_A, 'ryhmat', RID2), ryhmaDokki({ nimi: 'Talentit', vastuu_uid: MUU_UID }));
+      await setDoc(k(f), ev()); await setDoc(k(f, 'ev-talentit'), ev({ kohde: { tyyppi: 'ryhma', ryhma_id: RID2, ryhma_nimi: 'Talentit' } })); await setDoc(k(f, 'ev-joukkue'), ev({ kohde: { tyyppi: 'joukkue' } })); await setDoc(k(f, 'ev-ei-vastuuta'), ev({ kohde: { tyyppi: 'ryhma', ryhma_id: 'ei-vastuuta' } }));
+      const { vastuu_uid, ...ilmanVastuuta } = ryhmaDokki({ valmentajat: [VAST_UID] }); await setDoc(doc(f, 'seurat', SEURA_A, 'ryhmat', 'ei-vastuuta'), ilmanVastuuta); });
+  });
+  it('vastaava (ei luoja) päivittää KOKONAAN omaa ryhmänsä tapahtumaa: nimi, aika, paikka, tila + soft-delete (poistettu)', async () => {
+    await assertSucceeds(updateDoc(k(dbV()), { nimi: 'MV-treeni (muokattu)', paikka: 'Halli 2', tila: 'suunniteltu', alkaa: new Date(), paivitetty: serverTimestamp(), muokkaaja_uid: VAST_UID }));
+    await assertSucceeds(updateDoc(k(dbV()), { poistettu: true, poistettu_uid: VAST_UID, paivitetty: serverTimestamp(), muokkaaja_uid: VAST_UID }));
+    await assertSucceeds(updateDoc(k(dbV()), { pelaajat_id: ['p1'], jaadytetty: '2026-11-03T18:00:00.000Z', lasnaolo_kooste: { paikalla: 1, myohassa: 0, poissa: 0 }, paivitetty: serverTimestamp() }));   // v3.47-kentät yhä sallittuja
+  });
+  it('ryhmän MUU valmentaja (ei vastaava, ei luoja) EI saa nimeä/aikaa/poistoa — vain v3.47-kokoonpano- ja läsnäolokentät kuten ennen', async () => {
+    for (const o of [{ nimi: 'Kaapattu' }, { poistettu: true }, { alkaa: new Date() }, { paikka: 'x' }]) await assertFails(updateDoc(k(dbMuu()), { paivitetty: serverTimestamp(), ...o }));
+    await assertSucceeds(updateDoc(k(dbMuu()), { pelaajat_id: ['p1', 'p2', 'p3'], paivitetty: serverTimestamp(), muokkaaja_uid: MUU_UID }));
+  });
+  it('vastaava EI voi siirtää tapahtumaa toiseen ryhmään tai joukkueeseen eikä vaihtaa luojaa; toisen ryhmän / joukkue- / vastuuttoman ryhmän tapahtumaan ei oikeutta', async () => {
+    for (const o of [{ kohde: { tyyppi: 'ryhma', ryhma_id: RID2 } }, { kohde: { tyyppi: 'joukkue' } }, { kohde: { tyyppi: 'ryhma', ryhma_id: 'ei-ole' } }, { luoja_uid: VAST_UID }]) await assertFails(updateDoc(k(dbV()), { paivitetty: serverTimestamp(), ...o }));
+    for (const id of ['ev-talentit', 'ev-joukkue', 'ev-ei-vastuuta']) await assertFails(updateDoc(k(dbV(), id), { nimi: 'Kaapattu', paivitetty: serverTimestamp() }));   // vastaava on RID:n, ei RID2:n; joukkueeseen/vastuuttomaan ei erityisoikeutta
+  });
+  it('toinen vastaava (RID2) ei muokkaa RID:n tapahtumaa; toisen seuran valmentaja ✗; pelaaja ✗; johto ja luoja ennallaan ✓', async () => {
+    await assertFails(updateDoc(k(valmentajaContext(MUU_UID, SEURA_A).firestore()), { nimi: 'x', paivitetty: serverTimestamp() })); await assertSucceeds(updateDoc(k(valmentajaContext(MUU_UID, SEURA_A).firestore(), 'ev-talentit'), { nimi: 'Talentit muokattu', paivitetty: serverTimestamp() }));
+    await assertFails(updateDoc(k(valmentajaContext(VAST_UID, SEURA_B).firestore()), { nimi: 'x', paivitetty: serverTimestamp() })); await assertFails(updateDoc(k(pelaajaItseContext().firestore()), { nimi: 'x' }));
+    await assertSucceeds(updateDoc(k(vpContext(SEURA_A).firestore()), { nimi: 'VP muokkasi', paivitetty: serverTimestamp() }));
+  });
+  it('fysioterapeutti/testivastaava (ei valmennusrooli) ei saa vastaavan oikeutta vaikka vastuu_uid täsmäisi', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'ryhmat', RID), ryhmaDokki({ valmentajat: ['fyt-1', MUU_UID], vastuu_uid: 'fyt-1' })); });
+    await assertFails(updateDoc(k(fysioterapeuttiContext('fyt-1', SEURA_A).firestore()), { nimi: 'x', paivitetty: serverTimestamp() }));
+  });
+  it('ryhmädokumentti: vastuu_uid valinnainen; jos annettu, pitää olla valmentajat[]:ssä; ei-merkkijono ✗; ilman kenttää kuten ennen', async () => {
+    const r = (db, id) => doc(db, 'seurat', SEURA_A, 'ryhmat', id), uusi = (o = {}) => ({ nimi: 'Uusi', tyyppi: 'lista', pelaajat_id: [], valmentajat: [VAST_UID], aktiivinen: true, luoja_uid: VP_A_UID, luotu: serverTimestamp(), muokattu: serverTimestamp(), ...o });
+    await assertSucceeds(setDoc(r(vpContext(SEURA_A).firestore(), 'n1'), uusi({ vastuu_uid: VAST_UID }))); await assertSucceeds(setDoc(r(vpContext(SEURA_A).firestore(), 'n2'), uusi()));
+    await assertFails(setDoc(r(vpContext(SEURA_A).firestore(), 'n3'), uusi({ vastuu_uid: 'ei-valmentajissa' }))); await assertFails(setDoc(r(vpContext(SEURA_A).firestore(), 'n4'), uusi({ vastuu_uid: 7 }))); await assertFails(setDoc(r(vpContext(SEURA_A).firestore(), 'n5'), uusi({ vastuu_uid: null })));
+    await assertSucceeds(updateDoc(r(vpContext(SEURA_A).firestore(), RID), { vastuu_uid: MUU_UID, muokattu: serverTimestamp() })); await assertFails(updateDoc(r(vpContext(SEURA_A).firestore(), RID), { vastuu_uid: 'ulkopuolinen', muokattu: serverTimestamp() }));
+  });
+});

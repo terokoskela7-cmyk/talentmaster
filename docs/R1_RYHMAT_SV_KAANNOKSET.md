@@ -40,6 +40,9 @@ Sanasto: **ryhmä** = grupp · **maalivahti** = målvakt · **talenttiohjelma** 
 | `ry_ei_pelaajia` | Ei pelaajia hakuehdoilla. | _(sv — Gemini)_ |
 | `ry_valmentajat_ohje` | Ryhmän valmentaja voi luoda ryhmälle tapahtumia ja kirjata läsnäolon kaikille jäsenille joukkueesta riippumatta. | _(sv — Gemini)_ |
 | `ry_ei_valmentajia` | Ei valmentajia rekisterissä. | _(sv — Gemini)_ |
+| `ry_vastaava` | Ryhmän vastaava | _(sv — Gemini)_ |
+| `ry_vastaava_ohje` | Vastaava suunnittelee ryhmän treenit: hän voi muokata ja poistaa ryhmän tapahtumat (ei tarvitse olla niiden luoja). | _(sv — Gemini)_ |
+| `ry_ei_vastaavaa` | — Ei vastaavaa — | _(sv — Gemini)_ |
 | `ry_virhe_nimi` | Anna ryhmälle nimi (enintään 60 merkkiä). | _(sv — Gemini)_ |
 | `ry_virhe_pelaajat` | Valitse vähintään yksi pelaaja (enintään 200). | _(sv — Gemini)_ |
 | `ry_virhe_valmentajat` | Valmentajia enintään 10. Valmentajana tallentava lisää itsensä ryhmän valmentajaksi. | _(sv — Gemini)_ |
