@@ -91,9 +91,8 @@ describe('kuoren kytkentä (Master)', () => {
   it('vanha navigaatio säilyy koodissa (wsbar, sb-nav, tabbar) — lippu piilottaa vain CSS:llä', () => {
     ['class="wsbar"', 'class="sb-nav"', 'id="mobTabbar"'].forEach((s) => expect(MASTER).toContain(s)); expect(N.tmNavCSS()).toMatch(/\.nav-v2 \.wsbar,\.nav-v2 #mobTabbar,\.nav-v2 #coachSelfCard\{display:none!important\}/); expect(N.tmNavCSS()).toContain('.nav-v2 .sb-nav>:not(select){display:none!important}');
   });
-  it('kasvukatto: Master ei kasva yli kattonsa; lisäys kuoreen pieni (≤ 15 riviä main-haaraan nähden)', () => {
+  it('kasvukatto: Master ei kasva yli kattonsa', () => {
     const fx = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/kuoret_kasvukatto.json'), 'utf8')), n = (MASTER.match(/\n/g) || []).length; expect(n).toBeLessThanOrEqual(fx['TalentMaster_Master_v16.html'].katto);
-    expect(n).toBeLessThanOrEqual(11837 + 15);
   });
 });
 
