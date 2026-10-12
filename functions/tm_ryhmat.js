@@ -30,7 +30,7 @@
     ry_virhe_kuvaus: 'Kuvaus on enintään 200 merkkiä.', ry_virhe_tyyppi: 'Tuntematon ryhmätyyppi.', ry_tallennettu: 'Ryhmä tallennettu ✓', ry_ei_oikeutta: 'Voit muokata vain ryhmiä, joissa olet valmentajana.',
     kn_kenelle: 'Kenelle', kn_joukkue: 'Joukkue', kn_joukkueet: 'Useampi joukkue', kn_ryhma: 'Ryhmä', kn_pelaajat: 'Poimitut pelaajat', kn_henkilokunta: 'Vain valmennus / henkilökunta',
     kn_henkilokunta_ohje: 'Ei näy pelaajalle eikä huoltajalle.', kn_valitse_ryhma: '— valitse ryhmä —', kn_ei_ryhmia: 'Ei ryhmiä — luo ryhmä VP:n Ryhmät-osiossa.', kn_jasenia: 'jäsentä', kn_valitse_joukkueet: 'Valitse joukkueet', kn_valitse_pelaajat: 'Valitse pelaajat (Ctrl/⌘ = useampi)',
-    kn_virhe_ryhma: 'Valitse ryhmä.', kn_virhe_joukkueet: 'Valitse vähintään yksi joukkue.', kn_virhe_pelaajat: 'Valitse vähintään yksi pelaaja.', kn_omat_ryhmat: 'Omat ryhmät', kn_jasen_joukkue: 'joukkue',
+    kn_virhe_ryhma: 'Valitse ryhmä.', kn_virhe_joukkueet: 'Valitse vähintään yksi joukkue.', kn_virhe_joukkue: 'Valitse joukkue — harjoitus ja ottelu tallennetaan aina joukkueelle.', kn_virhe_pelaajat: 'Valitse vähintään yksi pelaaja.', kn_omat_ryhmat: 'Omat ryhmät', kn_jasen_joukkue: 'joukkue',
     ry_vahvista_arkisto: 'Arkistoidaanko ryhmä? Ryhmän tapahtumat säilyvät.', ry_arkistoitu_toast: 'Ryhmä arkistoitu ✓', ry_palautettu_toast: 'Ryhmä palautettu ✓', ry_lataa: 'Ladataan ryhmiä…'
   };
   var MAX_NIMI = 60, MAX_KUVAUS = 200, MAX_PELAAJAT = 200, MAX_VALMENTAJAT = 10;
@@ -136,6 +136,8 @@
   function tmJaadytysKentat(ids, nytISO) { return { pelaajat_id: (Array.isArray(ids) ? ids : []).slice(), jaadytetty: nytISO || new Date().toISOString() }; }
   /* valinta: { tapa:'joukkue'|'joukkueet'|'ryhma'|'pelaajat'|'henkilokunta', joukkue (slug, tapa joukkue), joukkueNimet:{id→nimi}, joukkueet:[id], ryhma_id, pelaajat_id:[] }
      ctx: { ryhmat:[{id,nimi,…}], ryhmaIdt:[ids] (ryhmän jäsenet valmiiksi laskettuna), oletusPelaajat:[ids] (tapa joukkue: olemassa oleva pelaajat_id-logiikka) } → { ok, osa:{joukkue, joukkue_nimi, joukkueet, pelaajat_id, kohde, nakyvyys} } | { ok:false, syy } */
+  var JOUKKUEPAKKO = ['harjoitus', 'ottelu'];   // aamutreeni (poimitut), ryhmä/pelaajat/henkilökunta-tavat ja muut tyypit ilman pakkoa
+  function tmTapahtumaVaatiiJoukkueen(tyyppi, aamu) { return !aamu && JOUKKUEPAKKO.indexOf(String(tyyppi == null ? '' : tyyppi).trim().toLowerCase()) >= 0; }
   function tmKenelleDoc(v, ctx) {
     v = v || {}; ctx = ctx || {}; var nimet = v.joukkueNimet || {}, tapa = v.tapa || 'joukkue';
     if (tapa === 'joukkue_hk') {   // D242: joukkueen valmennus — kohde { tyyppi:'henkilokunta', joukkue }, nakyvyys henkilokunta (palaveri-tyypeille)
@@ -149,9 +151,10 @@
     }
     if (tapa === 'pelaajat') { var p = _uniq(v.pelaajat_id, 1000); if (!p.length) return { ok: false, syy: 'pelaajat' }; return { ok: true, osa: { joukkue: null, joukkue_nimi: null, joukkueet: [], pelaajat_id: p, kohde: { tyyppi: 'pelaajat' }, nakyvyys: 'kaikki' } }; }
     if (tapa === 'joukkueet') { var j = _uniq(v.joukkueet, 50); if (!j.length) return { ok: false, syy: 'joukkueet' }; return { ok: true, osa: { joukkue: null, joukkue_nimi: j.map(function (id) { return nimet[id] || id; }).join(' · '), joukkueet: j, pelaajat_id: [], kohde: { tyyppi: 'joukkueet' }, nakyvyys: 'kaikki' } }; }
-    var js = v.joukkue || ''; return { ok: true, osa: { joukkue: js || null, joukkue_nimi: js ? (nimet[js] || js) : null, joukkueet: js ? [js] : [], pelaajat_id: _uniq(ctx.oletusPelaajat, 1000), kohde: { tyyppi: 'joukkue' }, nakyvyys: 'kaikki' } };
+    var js = v.joukkue || ''; if (!js && tmTapahtumaVaatiiJoukkueen(ctx.tyyppi, ctx.aamu)) return { ok: false, syy: 'joukkue' };   // K35-12 #3a: harjoitus/ottelu aina joukkueelle (doc-id)
+    return { ok: true, osa: { joukkue: js || null, joukkue_nimi: js ? (nimet[js] || js) : null, joukkueet: js ? [js] : [], pelaajat_id: _uniq(ctx.oletusPelaajat, 1000), kohde: { tyyppi: 'joukkue' }, nakyvyys: 'kaikki' } };
   }
-  function tmKenelleVirhe(syy, opts) { return _txt(opts, { ryhma: 'kn_virhe_ryhma', joukkueet: 'kn_virhe_joukkueet', pelaajat: 'kn_virhe_pelaajat' }[syy] || 'kn_virhe_ryhma'); }
+  function tmKenelleVirhe(syy, opts) { return _txt(opts, { ryhma: 'kn_virhe_ryhma', joukkue: 'kn_virhe_joukkue', joukkueet: 'kn_virhe_joukkueet', pelaajat: 'kn_virhe_pelaajat' }[syy] || 'kn_virhe_ryhma'); }
   /* "Kenelle" -lomakeosio. opts: { esc, t, tapa (oletus 'joukkue'), joukkueNimet:{id→nimi}, ryhmat:[…], pelaajat:[{id,nimi,joukkue}], jasenMaara(ryhma)→n, sallitut:[tavat] (oletus kaikki), joukkueTapaNimi } */
   function tmKenelleHTML(opts) {
     opts = opts || {}; var esc = opts.esc || _esc, T = function (k) { return esc(_txt(opts, k)); }, tapa = opts.tapa || 'joukkue', sal = opts.sallitut || ['joukkue', 'joukkueet', 'ryhma', 'pelaajat', 'henkilokunta'];   /* + 'joukkue_hk' (opts.joukkueHkNimi = "Joukkueen valmennus (X)"; vain palaveri-tyypeille, D242) */
@@ -229,6 +232,6 @@
 
   var API = { FI: FI, MAX_NIMI: MAX_NIMI, MAX_PELAAJAT: MAX_PELAAJAT, MAX_VALMENTAJAT: MAX_VALMENTAJAT, tmRyhmaSaaLuoda: tmRyhmaSaaLuoda, tmRyhmaSaaMuokata: tmRyhmaSaaMuokata, tmRyhmaSyote: tmRyhmaSyote, tmRyhmaVirhe: tmRyhmaVirhe,
     tmRyhmaJasenet: tmRyhmaJasenet, tmKohdePelaajat: tmKohdePelaajat, tmTapahtumaOhi: tmTapahtumaOhi, tmKokoonpano: tmKokoonpano, tmSynkkaaTapahtumat: tmSynkkaaTapahtumat, tmTapahtumaKuuluuPelaajalle: tmTapahtumaKuuluuPelaajalle,
-    tmRyhmaListaHTML: tmRyhmaListaHTML, HK_TYYPIT: HK_TYYPIT, tmOletusNakyvyys: tmOletusNakyvyys, tmNakyvyys: tmNakyvyys, tmNakyyPelaajalle: tmNakyyPelaajalle, tmNakyyKalenterissa: tmNakyyKalenterissa, tmVoiJaadyttaa: tmVoiJaadyttaa, tmJaadytysKentat: tmJaadytysKentat, tmKenelleDoc: tmKenelleDoc, tmKenelleVirhe: tmKenelleVirhe, tmKenelleHTML: tmKenelleHTML, tmKenelleNayta: tmKenelleNayta, tmKenelleLue: tmKenelleLue, tmRyhmaLomakeHTML: tmRyhmaLomakeHTML };
+    tmRyhmaListaHTML: tmRyhmaListaHTML, HK_TYYPIT: HK_TYYPIT, tmOletusNakyvyys: tmOletusNakyvyys, tmNakyvyys: tmNakyvyys, tmNakyyPelaajalle: tmNakyyPelaajalle, tmNakyyKalenterissa: tmNakyyKalenterissa, tmVoiJaadyttaa: tmVoiJaadyttaa, tmJaadytysKentat: tmJaadytysKentat, tmKenelleDoc: tmKenelleDoc, tmTapahtumaVaatiiJoukkueen: tmTapahtumaVaatiiJoukkueen, tmKenelleVirhe: tmKenelleVirhe, tmKenelleHTML: tmKenelleHTML, tmKenelleNayta: tmKenelleNayta, tmKenelleLue: tmKenelleLue, tmRyhmaLomakeHTML: tmRyhmaLomakeHTML };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.TM_RYHMAT = API;
 })(typeof window !== 'undefined' ? window : this);

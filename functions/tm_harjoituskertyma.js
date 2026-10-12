@@ -91,6 +91,18 @@
     lista.forEach(function (v) { var k = korit[v] || _tyhjaKori(), o = 0; OHJATTU_PROS.concat(['ottelu']).forEach(function (c) { o += (k[c].paik || 0) + (k[c].myoh || 0); }); viikot.push({ vk: v, ohjattu: o, omatoimi: k.omatoimi.n, min: k.omatoimi.min, srpe: null }); });
     return { vk4: _valmis(vk4), kausi: _valmis(kausi), viikot: viikot, kausiAvain: tmKertymaKausiAvain(tanaan) };
   }
+  /* K35-12 #1: pelaajan viimeisin päättynyt ohjattu tapahtuma, jolle läsnäoloa ei ole kirjattu (lasnaolo_kooste puuttuu/tyhjä) → id tai null. Linkki "Kirjaa läsnäolot". */
+  function tmKertymaKirjaamaton(tapahtumat, pelaaja, joukkueDocs, nyt) {
+    var KP = _KP(), n = nyt != null ? +nyt : Date.now(), paras = null, parasMs = -1;
+    (Array.isArray(tapahtumat) ? tapahtumat : []).forEach(function (ev) {
+      if (!ev || ev.poistettu === true || ev.tila === 'peruttu' || !tmKertymaKategoria(ev)) return;
+      if (pelaaja && KP.tmKuuluuPelaajalle && !KP.tmKuuluuPelaajalle(ev, pelaaja, joukkueDocs || [])) return;
+      var k = ev.lasnaolo_kooste; if (k && (k.paikalla || k.myohassa || k.poissa)) return;
+      var loppu = ev._paattyyMs != null ? ev._paattyyMs : (ev.paattyy ? _ms(ev.paattyy) : _ms(ev.alkaa)); if (loppu == null || loppu >= n || loppu <= parasMs) return;
+      paras = ev.id; parasMs = loppu;
+    });
+    return paras;
+  }
   function tmKertyma(a) { return tmKertymaKoreista(tmKertymaKorit(a), a && a.nyt, { kausiAlku: a && a.kausiAlku }); }
 
   /* Pulssi (joukkue): jokaisen pelaajan vk4 → joukkueen ohjattu läsnäolo-% ja alle 70 % olevat (indeksit; näytetään vain valmentajalle) */
@@ -112,6 +124,6 @@
   function tmKertymaLueJoukkue(db, sid, pidt, nyt) {   // Pulssi: pelaajakohtaiset vk4-summat (taulukko pidt-järjestyksessä) → tmKertymaJoukkue
     return Promise.all((pidt || []).map(function (pid) { return tmKertymaLueKooste(db, sid, pid, nyt).then(function (k) { return k && k.vk4; }); })).then(tmKertymaJoukkue);
   }
-  var API = { tmKertymaLueKooste: tmKertymaLueKooste, tmKertymaLueCallable: tmKertymaLueCallable, tmKertymaLueJoukkue: tmKertymaLueJoukkue, KATEGORIAT: KATEGORIAT, tmKertymaPaiva: _paiva, tmKertymaVkAvain: tmKertymaVkAvain, tmKertymaVkRajat: tmKertymaVkRajat, tmKertymaKausiAvain: tmKertymaKausiAvain, tmKertymaKausiAlku: tmKertymaKausiAlku, tmKertymaKategoria: tmKertymaKategoria, tmKertymaPoissaSyy: tmKertymaPoissaSyy, tmViikkoKori: tmViikkoKori, tmKertymaKorit: tmKertymaKorit, tmKertymaKoreista: tmKertymaKoreista, tmKertyma: tmKertyma, tmKertymaJoukkue: tmKertymaJoukkue };
+  var API = { tmKertymaKirjaamaton: tmKertymaKirjaamaton, tmKertymaLueKooste: tmKertymaLueKooste, tmKertymaLueCallable: tmKertymaLueCallable, tmKertymaLueJoukkue: tmKertymaLueJoukkue, KATEGORIAT: KATEGORIAT, tmKertymaPaiva: _paiva, tmKertymaVkAvain: tmKertymaVkAvain, tmKertymaVkRajat: tmKertymaVkRajat, tmKertymaKausiAvain: tmKertymaKausiAvain, tmKertymaKausiAlku: tmKertymaKausiAlku, tmKertymaKategoria: tmKertymaKategoria, tmKertymaPoissaSyy: tmKertymaPoissaSyy, tmViikkoKori: tmViikkoKori, tmKertymaKorit: tmKertymaKorit, tmKertymaKoreista: tmKertymaKoreista, tmKertyma: tmKertyma, tmKertymaJoukkue: tmKertymaJoukkue };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else if (root) root.TM_HARJOITUSKERTYMA = API;
 })(typeof window !== 'undefined' ? window : null);

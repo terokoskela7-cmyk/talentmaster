@@ -54,7 +54,7 @@ describe('seuraava', () => {
   });
   it('tulossa/estynyt-luvut ja estyneiden nimet (lyhennetty) + syy jos annettu', () => {
     const m = mal({ tapahtumat: [ev('b', '2026-10-16')], saatavuus: { b: { tulossa: ['p0', 'p1'], estynyt: [{ nimi: 'Beni Berg', syy: 'koe' }, { nimi: 'Gus Grön' }] } } });
-    expect(m.seuraava).toMatchObject({ tulossa: 2, estynyt: 2 }); expect(m.seuraava.estyneet).toEqual([{ nimi: 'Beni B.', syy: 'koe' }, { nimi: 'Gus G.', syy: '' }]);
+    expect(m.seuraava).toMatchObject({ tulossa: 2, vahvistanut: 2, pelaajia: 6, saatavuusTiedossa: true, estynyt: 2 }); expect(m.seuraava.estyneet).toEqual([{ nimi: 'Beni B.', syy: 'koe' }, { nimi: 'Gus G.', syy: '' }]);
   });
   it('ei tapahtumia → seuraava null', () => { expect(mal().seuraava).toBeNull(); });
 });

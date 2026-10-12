@@ -19,7 +19,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('V-KOTI A · s
         await p.goto('file://' + sivu(MASTER, JUURI, { teema, rooli: 'valmentaja', kutsu: KUTSU })); await p.waitForSelector('#kotiView .vk', { timeout: 15000 });
         const t = await p.locator('#kotiView').innerText();
         ['SEURAAVA', 'TEHTÄVÄT', 'TÄMÄ VIIKKO', 'SYKE', 'Muistakaa palaverit'].forEach((s) => expect(t.toUpperCase()).toContain(s.toUpperCase()));
-        expect(t).toMatch(/9 tulossa · 1 estynyt/); expect(t).toContain('Beni B. (koe)'); expect(await p.locator('#kotiView .vk-pv').count()).toBe(7); expect(await p.locator('#kotiView .vk-pv.t').count()).toBe(1);
+        expect(t).toMatch(/\d+ pelaajaa · 9 vahvistanut · 1 estynyt/); expect(t).toContain('Beni B. (koe)'); expect(await p.locator('#kotiView .vk-pv').count()).toBe(7); expect(await p.locator('#kotiView .vk-pv.t').count()).toBe(1);
         expect(await p.locator('#kotiView .vk-teht').count()).toBeLessThanOrEqual(3); expect(await p.locator('#kotiView .vk-nosto').count()).toBeLessThanOrEqual(4);
         expect(await p.evaluate(() => document.querySelector('#kotiView .coach-self-card, #kotiView .koti-strippi-alas'))).toBeNull();   // vanha profiilikortti/D1 ka -rivi ei Kodissa
         expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);

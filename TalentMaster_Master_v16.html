@@ -3777,7 +3777,7 @@ async function _kalSuodata(uudet) {   // joukkue-/ryhmärajaus (tmNakyyKalenteri
   const _omatR = (await _mRyHaeLista()).map(function (r) { return r.id; });   // R1 PR 2: ryhmätapahtuma vain ryhmän valmentajalle/johdolle/luojalle
   return uudet.filter(function(t) {
     if (window.TM_RYHMAT && !window.TM_RYHMAT.tmNakyyKalenterissa(t, { uid: _uid, johto: _mRyJohto(), ryhmaIdt: _omatR, omatJoukkueet: [_calJoukkueId(), _joukkue].filter(Boolean), omatPelaajat: (_pelaajatData || []).map(function (p) { return p.id; }) })) return false;
-    return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue || (t.kohde && t.kohde.tyyppi === 'ryhma');   // ryhmätapahtumalla ei joukkuetta → ei joukkuesuodatusta
+    return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || window.TM_KALENTERI_KYSELYT.tmTapahtumaJoukkueelle(t, { id: _calJoukkueId(), nimi: _joukkue }) || (t.kohde && t.kohde.tyyppi === 'ryhma');   // ryhmätapahtumalla ei joukkuetta → ei joukkuesuodatusta
   }).sort(function(a,b) { return (a.pvm||'').localeCompare(b.pvm||''); });
 }
 function _calVarmistaIkkuna(viikkoIso) { if (!_kalLataa && _seuraId && !_demo && _kalLadattu && window.TM_KALENTERI_LATAUS.tmLatausPuuttuva(_kalLadattu, window.TM_KALENTERI_LATAUS.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: viikkoIso, ladattu: _kalLadattu })).length) _lataaKalenteriTapahtumat(viikkoIso); }
@@ -6691,7 +6691,7 @@ function _mKertymaTayta(p) {
   const el = document.getElementById('_mKertymaCard'); if (!el) return; const N = window.TM_HARJOITUSKERTYMA_NAKYMA;
   if (!document.getElementById('hkCss')) { const st = document.createElement('style'); st.id = 'hkCss'; st.textContent = N.tmKertymaCSS(); document.head.appendChild(st); }
   if (_demo || !_seuraId) { el.innerHTML = N.tmKertymaMasterHTML(window.TM_HARJOITUSKERTYMA.tmKertyma({ tapahtumat: [], nyt: Date.now() }), { t: masterT }); return; }
-  window.TM_HARJOITUSKERTYMA.tmKertymaLueKooste(_db, _seuraId, p.id, Date.now()).then(k => { const e = document.getElementById('_mKertymaCard'), w = document.getElementById('_mKertymaWrap'); if (w && !k) w.style.display = 'none'; if (e) e.innerHTML = k ? N.tmKertymaMasterHTML(k, { t: masterT }) : ''; });   // K35-11 #6: puuttuva kooste → tyhjä tila (näytetään); vain lukuvirhe (null, esim. oikeus) → lohko ja otsikko piiloon, ei kaatumista
+  window.TM_HARJOITUSKERTYMA.tmKertymaLueKooste(_db, _seuraId, p.id, Date.now()).then(k => { const e = document.getElementById('_mKertymaCard'), w = document.getElementById('_mKertymaWrap'); if (w && !k) w.style.display = 'none'; if (e) { const _eid = k ? window.TM_HARJOITUSKERTYMA.tmKertymaKirjaamaton(_kalenteriTapahtumat || [], p, _mJoukkueDocs, Date.now()) : null; e.innerHTML = k ? N.tmKertymaMasterHTML(k, { t: masterT, kirjaaLinkki: _eid ? "calEventClick('" + String(_eid).replace(/'/g, '') + "')" : null }) : ''; } });   // K35-11 #6: puuttuva kooste → tyhjä tila (näytetään); vain lukuvirhe (null, esim. oikeus) → lohko ja otsikko piiloon, ei kaatumista
 }
 function _ktNayttoHTML(p) {
   const e = _mEsc, o = _mPinfoOsat(p), pid = e(p.id), nakyy = (typeof _prVoiNahda === 'function' && _prVoiNahda(p));
@@ -10040,7 +10040,7 @@ function renderKuorma() {
   var now = Date.now(), d7 = now - 7 * 86400000, d14 = now - 14 * 86400000;
   var HARJ = { harjoitus: 1, ottelu: 1, talenttileiri: 1 };
   var rosterN = (_pelaajatData || []).length;
-  var sj = function(t) { return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue; };
+  var sj = function(t) { return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || window.TM_KALENTERI_KYSELYT.tmTapahtumaJoukkueelle(t, { id: _calJoukkueId(), nimi: _joukkue }); };
   var fA = function(k) { return (k.fiilinki != null ? k.fiilinki : (k.fiilis != null ? k.fiilis : 0)); };
   var avg = function(a) { return a.length ? (a.reduce(function(x, y) { return x + y; }, 0) / a.length) : null; };
   var r1 = function(x) { return Math.round(x * 10) / 10; };
@@ -10219,7 +10219,7 @@ function renderCal() {
 
   const todayStr = tmPaivaIso(today), mondayIso = tmPaivaIso(monday); _calVarmistaIkkuna(mondayIso);   // K35-10: selaus ikkunan ulkopuolelle hakee puuttuvan välin
   // K35-6a: viikko = päiväsarakkeet (D182, lib/tm_kalenteri_nakyma.js); testitapahtumat koko päivän riville; Täytä viikko -kortti + esikatselu (lib/tm_kalenteri_taytto.js, D184)
-  const suodataJoukkue = t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
+  const suodataJoukkue = t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || window.TM_KALENTERI_KYSELYT.tmTapahtumaJoukkueelle(t, { id: _calJoukkueId(), nimi: _joukkue });
   const testit = (_testitapahtumat || []).filter(suodataJoukkue).map(t => ({ id: t.id, tyyppi: 'testitapahtuma', koko_paiva: true, nimi: _protokollaLyhenne(t.protokolla), pvm: t.pvm, joukkue_nimi: t.joukkue_nimi || t.joukkue || '' }));
   let kalTap = (_kalenteriTapahtumat || []).filter(suodataJoukkue);
   if (_demo && typeof DEMO !== 'undefined' && DEMO.cal) kalTap = kalTap.concat((DEMO.cal.events || []).map((e, i) => ({ id: 'demo' + i, tyyppi: e.type !== 'match' ? 'harjoitus' : 'ottelu', nimi: masterT(e.title||''), paikka: masterT(e.meta||''), pvm: tmPaivaIso(new Date(monday.getTime() + e.day * 86400000 + 43200000)), alkaa: String(e.hour).padStart(2, '0') + ':00' })));
@@ -10405,7 +10405,7 @@ function calEventClick(tapahtumaId) {
     poistaBtn.style.cssText = 'padding:10px 14px;background:rgba(240,78,78,.1);border:0.5px solid rgba(240,78,78,.4);border-radius:6px;color:#F04E4E;cursor:pointer';
     poistaBtn.onclick = function() { _calPoistaTapahtuma(t, modal); };
     btnRivi.appendChild(poistaBtn);
-  }
+  } else if (!_demo && _seuraId) { var _pe = window.TM_KALENTERI_KYSELYT.tmPoistoEste(t, { uid: _uid, johto: _calJohtoRooli(), sa: _superAdmin }); if (_pe) { var _ph = document.createElement('div'); _ph.style.cssText = 'font-size:12px;color:var(--ink3);margin-top:8px'; _ph.textContent = masterT(_pe.syy); box.appendChild(_ph); } }   // K35-12 #4: syy näkyviin, Poista piilossa
   var suljeBtn = document.createElement('button');
   suljeBtn.textContent = masterT('Sulje');
   suljeBtn.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer';
@@ -10656,7 +10656,7 @@ function _calPoistaTapahtuma(t, modal) {
       toast(masterT('Poistettu (') + docit.length + ')', 'ok');
       if (modal) modal.remove();
       await _lataaKalenteriTapahtumat();
-    } catch (e) { toast(masterT('Poisto epäonnistui: ') + e.message, 'err'); }
+    } catch (e) { toast(e && e.code === 'permission-denied' ? masterT(window.TM_KALENTERI_KYSELYT.POISTO_SYY) : masterT('Poisto epäonnistui: ') + e.message, 'err'); }   // K35-12 #4
   });
 }
 
@@ -11096,8 +11096,8 @@ function _avaaUusiTapahtuma(pvm, klo) {
         };
         // R1 PR 2: Kenelle → kohdekentät (joukkue/joukkueet/pelaajat_id/kohde/nakyvyys); ryhmätapahtumassa pelaajat_id = ryhmän jäsenet nyt (elävä kunnes jäädytetään läsnäolossa)
         if (_om) { Object.assign(doc, _om.doc, { alkaa: firebase.firestore.Timestamp.fromDate(new Date(_om.alkaa + ':00')), paattyy: firebase.firestore.Timestamp.fromDate(new Date(_om.paattyy + ':00')) }); }
-        else { var _kv = window.TM_RYHMAT.tmKenelleLue(knWrap), _jn = {}; if (_joukkue) _jn[_joukkue] = _joukkue; if (_kv.tapa === 'joukkue_hk') { _jn = {}; _jn[_calJoukkueId()] = _joukkue; } var _rr0 = (window._mRyLista || []).filter(function (x) { return x.id === _kv.ryhma_id; })[0];
-          var _kd = window.TM_RYHMAT.tmKenelleDoc(Object.assign(_kv, { joukkue: _kv.tapa === 'joukkue_hk' ? (_calJoukkueId() || '') : (_joukkue || ''), joukkueNimet: _jn }), { ryhmat: window._mRyLista || [], ryhmaIdt: _rr0 ? await _mRyJasenIdt(_rr0) : [], oletusPelaajat: doc.pelaajat_id });
+        else { var _kv = window.TM_RYHMAT.tmKenelleLue(knWrap), _jn = {}, _jid = _calJoukkueId(); (_mJoukkueDocs || []).forEach(function (d) { _jn[d.id] = d.nimi; }); if (_jid && !_jn[_jid]) _jn[_jid] = _joukkue; if (_kv.tapa === 'joukkue_hk') { _jn = {}; _jn[_calJoukkueId()] = _joukkue; } var _rr0 = (window._mRyLista || []).filter(function (x) { return x.id === _kv.ryhma_id; })[0];
+          var _kd = window.TM_RYHMAT.tmKenelleDoc(Object.assign(_kv, { joukkue: _kv.tapa === 'joukkue_hk' ? (_calJoukkueId() || '') : (_jid || ''), joukkueNimet: _jn }), { tyyppi: valittuTyyppi, aamu: !!_aamu, ryhmat: window._mRyLista || [], ryhmaIdt: _rr0 ? await _mRyJasenIdt(_rr0) : [], oletusPelaajat: doc.pelaajat_id });
           if (!_kd.ok) { toast(masterT(window.TM_RYHMAT.tmKenelleVirhe(_kd.syy, { t: masterT })), 'err'); tallBtn.disabled = false; tallBtn.textContent = masterT('Tallenna'); return; }
           Object.assign(doc, _kd.osa); if (_aamu) Object.assign(doc, window.TM_AAMUTREENI.tmAamuOsa(nimi)); }   // aamutreeni: alalaji 'aamutreeni', kohde poimitut pelaajat
         // P7-c.2: logistiikka (additiivinen; vain ei-tyhjät kentät). Sama kalenteri-dokki → ei Rules-muutosta.
