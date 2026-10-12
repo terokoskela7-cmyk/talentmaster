@@ -12,11 +12,37 @@
  * ilmoitus (objekti, ADDITIIVINEN, sv-läpiajo PR 2 / vaihtoehto A): { tyyppi: 'huomenna'|'peruttu'|'muutos', nimi, aika, paikka } — RAKENTEINEN sisältö, josta Pelaaja ja Vanhempi
  *   kokoavat tekstin omalla kielellään (lib/tm_kalenteri_ilmoitus.js tmIlmoitusRivi + t()). `teksti` kirjoitetaan edelleen (suomi) varakäyttöön: vanhat välimuistissa olevat
  *   clientit ja vanhat dokumentit näyttävät sen sellaisenaan. Rakenne sisältää vain nimen/ajan/paikan (GDPR, kuten teksti).
+ * VIIKKOILMOITUS (K35-6c · D192): Täytä viikko / Monista vahvistaa eräksi tapahtumia (kaikilla `viikko_era`) → perheille YKSI ilmoitus per kohde + ISO-viikko, ei yksi per tapahtuma.
+ *   Tunniste viikko_<kohdeId>_<YYYY-Www> (kohde = joukkueen doc-id tai ryhmän id); create() → toinen erä samalle viikolle EI tee uutta eikä nollaa luettua. Fan-out kerran: marker seurat/{sid}/notifikaatio_erat/<kohdeId>_<viikko>.
+ *   Sisältö vain { tyyppi:'viikko', viikko, maara } — ei nimiä (GDPR; ryhmän tapahtuma neutraalisti). Päättynyt/menneen viikon täyttö ei ilmoita.
  * Vartija vertaa tapahtuman PÄÄTTYMISEEN (helsinki_paiva.tapahtumaPaattyy), ei alkuun. GDPR: teksti = nimi/aika/paikka.
  */
-const { kelloHelsinki, onKellonaika, tapahtumaPaattyy } = require('./helsinki_paiva');
+const { kelloHelsinki, onKellonaika, tapahtumaPaattyy, viikonRajat } = require('./helsinki_paiva');
+const joukkueLib = require('./tm_joukkue');
 
 function notifDocId(tyyppi, evId) { return tyyppi + '_' + evId; }
+
+/* Viikkoilmoituksen kohde: ryhmätapahtuma → { tyyppi:'ryhma', id }; joukkuetapahtuma → joukkueen doc-id (joukkue voi olla id TAI nimi; joukkueet[] varalla); ei kohdetta (aamutreeni, henkilökunta) → null. */
+function viikkoKohde(ev, joukkueDocs) {
+  if (!ev) return null; const k = ev.kohde || {};
+  if (k.tyyppi === 'ryhma' && typeof k.ryhma_id === 'string' && k.ryhma_id) return { tyyppi: 'ryhma', id: k.ryhma_id };
+  const ehdokkaat = [ev.joukkue].concat(Array.isArray(ev.joukkueet) ? ev.joukkueet : []).filter((x) => typeof x === 'string' && x.trim());
+  for (const x of ehdokkaat) { const d = joukkueLib.tmEtsiJoukkueDoc(x, joukkueDocs || []); if (d) return { tyyppi: 'joukkue', id: String(d.id) }; }
+  return null;
+}
+/* Päätös: { tyyppi:'viikko', teksti (fi varakäyttö), ilmoitus, avain (= evId-osa dokumenttitunnisteeseen), linkki, alkaa } | null (ei ilmoitettavaa). */
+function viikkoPaatos(ev, kohde, maara, nyt) {
+  if (!ev || !kohde || ev.poistettu === true || ev.tila === 'peruttu' || ev.tila === 'peruutettu' || ev.nakyvyys === 'henkilokunta') return null;
+  const loppu = tapahtumaPaattyy(ev); if (loppu && loppu.getTime() < (nyt || new Date()).getTime()) return null;   // menneen viikon täyttö ei ilmoita
+  const a = ev.alkaa && (typeof ev.alkaa.toMillis === 'function' ? ev.alkaa.toMillis() : (ev.alkaa instanceof Date ? ev.alkaa.getTime() : null)); if (a == null) return null;
+  const tunniste = viikonRajat(a).tunniste, vk = Number(tunniste.slice(6));
+  return { tyyppi: 'viikko', teksti: 'Uusi viikko-ohjelma: viikko ' + vk, ilmoitus: { tyyppi: 'viikko', viikko: tunniste, maara: Math.max(1, Number(maara) || 1) }, avain: kohde.id + '_' + tunniste, linkki: 'kalenteri:viikko:' + tunniste, alkaa: null };
+}
+/* Fan-out-varaus: marker-dokumentin create() — vain ensimmäinen kutsu (saman erän muut onCreate-ajot) palauttaa true. */
+async function varaaViikkoErä(erat, avain, fv) {
+  try { await erat.doc(avain).create({ luotu: fv.serverTimestamp() }); return true; }
+  catch (e) { if (e && (e.code === 6 || e.code === 'already-exists' || /ALREADY_EXISTS|already exists/i.test(String(e.message)))) return false; throw e; }
+}
 
 function _klo(ev) {
   const a = ev && ev.alkaa && (typeof ev.alkaa.toDate === 'function' ? ev.alkaa.toDate() : ev.alkaa);
@@ -63,14 +89,15 @@ async function kirjoitaNotif(col, paatos, evId, fv) {
   const id = notifDocId(paatos.tyyppi, evId);
   const ref = col.doc(id);
   const data = {
-    tyyppi: paatos.tyyppi, teksti: String(paatos.teksti || '').slice(0, 200), linkki: 'kalenteri:' + evId,
+    tyyppi: paatos.tyyppi, teksti: String(paatos.teksti || '').slice(0, 200), linkki: paatos.linkki || ('kalenteri:' + evId),
     dedupe: id, tapahtuma_alkaa: paatos.alkaa || null, luotu: fv.serverTimestamp(), luettu: false,
   };
   if (paatos.ilmoitus) {   // rakenteinen sisältö (vaihtoehto A) — merkkijonot rajattu, vain nimi/aika/paikka
     const o = paatos.ilmoitus, rajaa = (s, n) => String(s == null ? '' : s).slice(0, n);
     data.ilmoitus = { tyyppi: rajaa(o.tyyppi, 12), nimi: rajaa(o.nimi, 120), aika: rajaa(o.aika, 8), paikka: rajaa(o.paikka, 120) };
+    if (o.tyyppi === 'viikko') data.ilmoitus = { tyyppi: 'viikko', viikko: rajaa(o.viikko, 10), maara: Math.min(99, Math.max(1, Number(o.maara) || 1)) };   // vain viikko + lukumäärä (ei nimiä)
   }
-  if (paatos.tyyppi === 'muistutus') {
+  if (paatos.tyyppi === 'muistutus' || paatos.tyyppi === 'viikko') {   // create(): ajo toistuu turvallisesti, luettua ei nollata
     try { await ref.create(data); return true; }
     catch (e) { if (e && (e.code === 6 || e.code === 'already-exists' || /ALREADY_EXISTS|already exists/i.test(String(e.message)))) return false; throw e; }
   }
@@ -79,4 +106,4 @@ async function kirjoitaNotif(col, paatos, evId, fv) {
   return true;
 }
 
-module.exports = { notifDocId, muistutusPaatos, muutosPaatos, kirjoitaNotif };
+module.exports = { notifDocId, muistutusPaatos, muutosPaatos, kirjoitaNotif, viikkoKohde, viikkoPaatos, varaaViikkoErä };
