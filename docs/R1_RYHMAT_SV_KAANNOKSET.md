@@ -60,6 +60,7 @@ Sanasto: **ryhmä** = grupp · **maalivahti** = målvakt · **talenttiohjelma** 
 | `kn_valitse_joukkueet` | Valitse joukkueet | _(sv — Gemini)_ |
 | `kn_valitse_pelaajat` | Valitse pelaajat (Ctrl/⌘ = useampi) | _(sv — Gemini)_ |
 | `kn_virhe_ryhma` | Valitse ryhmä. | _(sv — Gemini)_ |
+| `kn_virhe_joukkue` | Valitse joukkue — harjoitus ja ottelu tallennetaan aina joukkueelle. | _(sv — Gemini)_ |
 | `kn_virhe_joukkueet` | Valitse vähintään yksi joukkue. | _(sv — Gemini)_ |
 | `kn_virhe_pelaajat` | Valitse vähintään yksi pelaaja. | _(sv — Gemini)_ |
 | `kn_omat_ryhmat` | Omat ryhmät | _(sv — Gemini)_ |
