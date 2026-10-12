@@ -1,5 +1,7 @@
 # R6.4 Mediaviesti M1 — käännöslista Geminille (sv)
 
+> **Tila 12.10.2026 (Sibbo-klippipolku):** tämän listan sv-rivit on viety `lib/tm_lib_i18n.js`:ään (Gemini-erä 2026-10-08) — alla oleva taulukko on historiaa. Uudet avaimet `mv_media_video/kuva/linkki` (tunnistusrivin mediatyyppi) odottavat Geminiä: `docs/i18n/sv_kaannoserae_36.json`. Päästä päähän -portti: `tests/klippi_sv_selain.test.js`.
+
 **Sibbo-Vargarna on ruotsinkielinen seura (käyttö 1.11.2026, Sibbo ensin).** Code kirjoittaa vain fi; sv tuodaan Geminiltä samaan PR:ään ennen mergeä (D55). Sv-arvot jätetty määrittelemättä — koodi putoaa fi-tekstiin.
 Sanasto: **klippi** = klipp · **kysymys** = fråga · **saate** = följebrev/kommentar · **kuittaus** = kvittens · **ydinvahvuus** (henkilökunta) / **vahvuus** (pelaaja) — ei "ase" (D54) · pelaajanimet: Onnistuminen = Lyckat · Katsotaan yhdessä = Vi tittar tillsammans · Tilanne = Situationen.
 Ohjeet kysymyspohjille: lyhyt, avoin, ei vertailua muihin, ei lukuja; 3 rekisteriä (Leikkijä U8–12 = lekfull ton / Rakentaja U13–15 / Showcase U16+) × 3 klippityyppiä × 3 kysymystä = 27 kysymystä.
@@ -81,6 +83,9 @@ Henkilökunnan tekstit (`mv_*`) kulkevat `masterT`/`vpT`-avaimina (fi-teksti = a
 | `mv_klipit` | Klipit | _(sv — Gemini)_ |
 | `mv_ei_klippeja` | Ei klippejä vielä. | _(sv — Gemini)_ |
 | `mv_lisaa` | Lisää klippi | _(sv — Gemini)_ |
+| `mv_media_video` | video | _(sv — Gemini, erä 36)_ |
+| `mv_media_kuva` | kuva | _(sv — Gemini, erä 36)_ |
+| `mv_media_linkki` | linkki | _(sv — Gemini, erä 36)_ |
 | `mv_pohja_onnistui_leikkija_1` | Mitä teit tässä hyvin? | _(sv — Gemini)_ |
 | `mv_pohja_onnistui_leikkija_2` | Mistä tämä tuntui kivalta? | _(sv — Gemini)_ |
 | `mv_pohja_onnistui_leikkija_3` | Mitä katsoit ennen kuin teit sen? | _(sv — Gemini)_ |
