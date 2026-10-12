@@ -11123,20 +11123,14 @@ function _avaaUusiTapahtuma(pvm, klo) {
           toast(masterT('✓ Tapahtuma tallennettu: ') + nimi, 'ok');
         } else {
           var _pv = toistPaattyyInp.value || window.TM_KALENTERI_MALLI.tmKalKaudenLoppu(new Date());
-          var _starts = _aamu ? window.TM_AAMUTREENI.tmAamuAlut(pvmVal, _aamuPv) : [pvmVal], _batch = _db.batch(), _col = _db.collection('seurat').doc(_seuraId).collection('kalenteri'), _n = 0, _kat = false;   // aamutreeni: jokaiselle valitulle viikonpäivälle oma sarja
+          var _starts = _aamu ? window.TM_AAMUTREENI.tmAamuAlut(pvmVal, _aamuPv) : [pvmVal], _batch = _db.batch(), _col = _db.collection('seurat').doc(_seuraId).collection('kalenteri'), _n = 0, _kat = false, _sarjaVirhe = false;   // aamutreeni: jokaiselle valitulle viikonpäivälle oma sarja
           _starts.forEach(function(st) {
             var _rr = TM_KALENTERI.tmKalenteriOccurrences(st, _calCadence, _pv, 60), _sid = TM_KALENTERI.tmSarjaId(Date.now(), Math.random().toString(36).slice(2, 8)), _pn = TM_KALENTERI.tmToistuvuusPaiva(st);   // Bugi 1b — valittu alkupäivä
             _n += _rr.pvmt.length; _kat = _kat || _rr.katkaistu;
-            _rr.pvmt.forEach(function(op) {
-              var d2 = Object.assign({}, doc, {
-                alkaa: firebase.firestore.Timestamp.fromDate(new Date(op + 'T' + (alkaa || '00:00') + ':00')),
-                paattyy: firebase.firestore.Timestamp.fromDate(new Date(op + 'T' + (paattyy || alkaa || '00:00') + ':00')),
-                toistuvuus: { tyyppi: _calCadence, paiva: _pn, paattyy: _pv },
-                toistuvuus_sarja_id: _sid
-              });
-              _batch.set(_col.doc(), d2);
-            });
+            var _sd = window.TM_KALENTERI_MALLI.tmSarjaDokit(doc, { tyyppi: valittuTyyppi, aamu: _aamu, pvmt: _rr.pvmt, alkaa: alkaa, paattyy: paattyy, kadenssi: _calCadence, paiva: _pn, paattyyPvm: _pv, sarjaId: _sid, ts: function(d) { return firebase.firestore.Timestamp.fromDate(d); } });   // K35-13 #2: joukkue-pakko jokaiseen sarjan tapahtumaan
+            if (!_sd.ok) { _sarjaVirhe = true; return; } _sd.docs.forEach(function(d2) { _batch.set(_col.doc(), d2); });
           });
+          if (_sarjaVirhe) { toast(masterT(window.TM_RYHMAT.tmKenelleVirhe('joukkue', { t: masterT })), 'err'); tallBtn.disabled = false; tallBtn.textContent = masterT('Tallenna'); return; }
           await _batch.commit();
           toast('✓ ' + _n + masterT(' tapahtumaa tallennettu') + (_kat ? masterT(' (katkaistu 60:een)') : ''), 'ok');
         }
