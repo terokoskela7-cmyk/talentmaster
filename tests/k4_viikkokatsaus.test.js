@@ -221,7 +221,7 @@ describe('Pelaaja_v7 — sunnuntain viikkokatsaus', () => {
   it('lähdetaso: kortti rA1Kentta-näkymän kärjessä (ennen Kenttä-osiota), skripti ladataan ?v=2 (K3-bumppi), SW-allowlist + cache; K4-lohkossa ei kirjaukset-polkua eikä _tmKirjaa-kutsua; rA1() ei sisällä K4:ää', () => {
     const i = SRC.indexOf('${_p7VkHTML(x, jf, tanaan, o)}'), j = SRC.indexOf('${K.tmTanaanKenttaHTML('); expect(i).toBeGreaterThan(-1); expect(i).toBeLessThan(j);
     expect(SRC).toContain('<script src="lib/tm_viikkokatsaus.js?v=2"></script>');
-    const sw = lue('sw_pelaaja.js'); expect(sw).toContain('viikkokatsaus)\\.js'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[7-9]|[89]\d)'/);
+    const sw = lue('sw_pelaaja.js'); expect(sw).toContain('viikkokatsaus)\\.js'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[7-9]|[89]\d|\d{3,})'/);
     const blokki = SRC.slice(SRC.indexOf('═══ K4 — sunnuntain viikkokatsaus'), SRC.indexOf('function rA1Kentta() {')); expect(blokki.length).toBeGreaterThan(500);
     expect(blokki).not.toMatch(/collection\('kirjaukset'\)|_tmKirjaa\(|_tallennaKirjaus\(|merge: *true/); expect(blokki).toContain("collection('viikkokatsaukset')");
     expect(pura('function rA1()')).not.toMatch(/K4|viikkokatsaus|_p7Vk/);

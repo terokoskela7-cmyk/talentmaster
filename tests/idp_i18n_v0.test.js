@@ -90,8 +90,8 @@ describe('i18n V0 — keskitetty kieli-init seurat/{id}.kieli:stä', () => {
 describe('i18n V0 — SW-cache + allowlist + re-export + migraatioskripti', () => {
   it('SW cachet bumpattu + tm_lang allowlistissa (offline)', () => {
     const p = root('sw_pelaaja.js'), v = root('sw_vanhempi.js');
-    expect(p).toMatch(/const CACHE = 'tm-pelaaja-v(1[2-9]|[2-9]\d)'/);   // ≥v12 (löysä: kestää V1-A→v13 ym. bumpit)
-    expect(v).toMatch(/const CACHE = 'tm-vanhempi-v([6-9]|[1-9]\d)'/);   // ≥v6 (löysä: kestää V1-B→v7 ym. bumpit)
+    expect(p).toMatch(/const CACHE = 'tm-pelaaja-v(1[2-9]|[2-9]\d|\d{3,})'/);   // ≥v12 (löysä: kestää V1-A→v13 ym. bumpit)
+    expect(v).toMatch(/const CACHE = 'tm-vanhempi-v([6-9]|[1-9]\d|\d{3,})'/);   // ≥v6 (löysä: kestää V1-B→v7 ym. bumpit)
     // Polkumuoto vaihtui alipolkuriippumattomaksi (hosting-kannettavuus): allowlist matchaa polun
     // LOPPUUN, joten sama SW toimii Pages-alipolussa JA juuressa. Väite säilyy (tm_lang on
     // offline-cachessa) ja VAHVISTUU: alipolkuetuliite ei saa palata, muuten juuritarjoilu hajoaa.

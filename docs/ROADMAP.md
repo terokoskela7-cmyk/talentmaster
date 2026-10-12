@@ -1,5 +1,5 @@
 # TalentMaster™ — Kehityssuunnitelma (Roadmap)
-## Päivitetty 2026-10-11
+## Päivitetty 2026-10-12
 
 ---
 
@@ -44,6 +44,17 @@
 - **K35-2 / 2b** Masterin kalenteri: tyypit ja värit rekisteristä, tapahtumat klo 06–22 eivät katoa, koko päivän tapahtumat ja monipäiväinen tauko omalle rivilleen, paikka ja päivä muokattaviksi, tuodun tapahtuman lähdekentät lukittuina, tyyppimuutos ei muuta näkyvyyttä huomaamatta, modaalit mahtuvat ruutuun (#1002, #1005).
 - **K35-3** `lib/tm_viikkopohja.js`: Palloliiton pohjat → seuran skeema, Täytä viikko -logiikka (ottelusta laskettu MD, palautuminen MD+1, tauot, päällekkäisyydet), omatoiminen tuntimäärä (#1003).
 - **K35-4** Palloliiton 6 pohjaa ja pelimuodot FC Demoon (`scripts/lataa_viikkopohjat.js`, vain seura `demo`; ajettu 11.10.) (#1004, #1006). Skriptien ADC-korjaus (#1007).
+
+### ✅ Valmis (11.–12.10., kalenteri ja valmentajan sivu)
+- **K35-6a/6b/6e:** viikko päiväsarakkeina + Täytä viikko + Monista, siirto vetämällä ja "Siirrä…" (#1019), läsnäolot oletuksena kaikki paikalla (#1008, #1013).
+- **K35-6d:** joukkueen omat (D240–D242), aamutreenit poimituille pelaajille = harjoituksen esiasetus (#1020).
+- **K35-6f harjoituskertymä** (#1021, #1023): viikkokorit triggerillä (`pelaajat/{pid}/kooste/kertyma_{kausi}`), Master-kortti + Pulssi + Pelaaja + Vanhempi, siirto/peruminen päivittää korit. Rules v3.59–v3.60.
+- **K35-10 / 7b** (#1023): Master lataa −8…+26 vk (laajenee selatessa, monipäiväiset 2. kyselyllä), iCal lukee vain ikkunan pelaajat, "Lisää kalenteriini" Pelaajaan, Vanhempaan ja Masteriin (Apple/Outlook/Google-napit #1025), RPE-kalibraatio omalla kyselyllä kauden alusta.
+- **K35-11–13** (#1025, #1026, #1028): Kodin Seuraava-bugi (joukkue id/nimi), Harjoittelu-lohkon tyhjä tila, "16 pelaajaa · n vahvistanut · m estynyt", joukkue aina doc-id:nä (lomake, sarja, Täytä viikko), poisto-oikeuden syy näkyviin, skriptit `korjaa_kalenterin_joukkue.js` ja `siivoa_testitapahtumat.js` (soft-delete).
+- **V-KOTI A + B** (#1022, #1024, #1027, #1029, #1030): Koti = seuraava, viikko, max 3 tehtävää (FLEI < 40 aina ylin), pelaajanostot nimillä, syke. Uusi vasen laita (D243), "+ Havainto" (D244), mobiilialapalkki, reittien ohjaus, joukkuevalitsin id:llä. **Lippu `liput.valmentaja_v2` päällä: demo ja kpv (12.10.).**
+- **Laatuportti:** lib-muutos ilman `?v`-nostoa kaatuu nyt (append-only `lib_versiot_historia.json`, #1030). Löytyi 16 välimuistiin jäänyttä latausta.
+- **KPV:n testidata siivottu 12.10.:** 73 harjoitusta + 4 muuta testitapahtumaa soft-deletellä, kertymä laskettu uudelleen (160 pelaajaa). KPV:n kalenteri on tyhjä → oikeat treenit Täytä viikolla.
+- **Päätös 12.10.:** valmentaja poistaa/muokkaa vain itse luomiaan tapahtumia; johto ja SA kaikkia (Rules ennallaan, syy näytetään UI:ssa).
 
 ### 🗓 Päätökset 11.10.
 - **Masterin tumma teema on luettavuuden mittapuu** molemmille sovelluksille (lämmin ink, selvä ink/ink2-ero, korttipinnat).
@@ -131,16 +142,17 @@ Kalenteri on yksi kokoelma (`seurat/{sid}/kalenteri`), jota VP ja valmentaja kä
 | Vaihe | Milloin | Mitä |
 |---|---|---|
 | K35-1…4 | ✅ 11.10. | Ks. Valmis (11.10., kalenteri). |
-| **K35-6a** | loka | Masterin viikko päiväsarakkeina (D182) + Täytä viikko → esikatselu → Vahvista (D184). Monista viikko. Tuntiruudukko pois. |
-| K35-6b | loka–marras | Siirto vetämällä Outlookin tapaan, aamutreenit poimituille pelaajille. |
+| K35-6a | ✅ 12.10. | Viikko päiväsarakkeina, Täytä viikko, Monista. |
+| K35-6b | ✅ 12.10. | Siirto vetämällä (#1019), aamutreenit poimituille (#1020). |
 | K35-6c | marras | Ryhmän vastaava suunnittelee ryhmän treenit (D196, Rules) + perheille yksi viikkoilmoitus (D192, functions). |
-| **K35-6d** | marras | **Joukkueen omat (Tero 11.10., D240–D242):** D240 valmentaja asettaa omalle joukkueelleen *Vapaan* (koko päivä, voi kestää useita päiviä; sama tauko-tekniikka joukkueeseen rajattuna) — seuran lomat edelleen vain VP. D241 *Erikoisohjelma* (leiri, turnaus, kotiharjoitteluviikko, kevennysviikko, muu): Täytä viikko ohittaa leiri/turnaus/kotiviikko-päivät, kevennysviikolla yksi harjoitus vähemmän (pohjan viimeinen MD-päivä pois). D242 *Joukkueen valmennuspalaveri* vain oman joukkueen valmentajille (+ johto), ei koko seuran henkilökunnalle. Rules: koko seuran tauko vain johto; valmentaja vain oma joukkue. Kausisuunnitelma (VP: lomat + kauden jaksot) Seuran linja -sivulla (mockup 37 §3). |
-| **V-KOTI** | loka–marras | **Valmentajan sivun uusi rakenne (Tero 12.10., mockup hyväksytty, FC Demo U13):** D243 valmentajan navigaatio = Koti · Viestit · Kalenteri · Joukkue \| Pelaajat · Ryhmät \| Työkalut ▸ (VP:n rakenne); D244 "+ Havainto" aina näkyvä pääpainike (desktop yläreuna, mobiili alapalkin keskellä); D245 Koti = "mitä teen nyt": seuraava tapahtuma, viikko, max 3 tehtävää, pelaajanostot nimillä. **PR A** Koti v2 (`lib/tm_valmentaja_koti[_nakyma].js`, toimii nykyisessä navigaatiossa) · **PR B** Navigaatio v2 lipun `liput.valmentaja_v2` takana (FC Demo → Sibbo → muut). **D245-täydennys (Tero 12.10.):** turva- ja kehityssignaalit takaisin Kodin TEHTÄVINÄ: FLEI < 40 (klinikkalähetys, turvasignaali, aina ylin) ja D3-itsearvio odottaa; prioriteetti FLEI < 40 > läsnäolot vahvistamatta > jakso päättyy ≤ 5 pv > havainnot puuttuu > D3 odottaa > huoltajaviesti > klippi; max 3 näkyvissä + "Näytä kaikki (n)". Joukkueen aktiivinen jakso Kotiin (päättymispäivä + viikko n/N) YHDESTÄ lähteestä `tmJoukkueenJakso` (lib/tm_joukkuejakso.js), jota Koti ja Kausi/jaksokooste käyttävät. |
-| **Läsnäolot** | loka | Läsnäolo oletuksena "kaikki paikalla" (valmentaja muuttaa poikkeukset, tallennus vain kuittauksella); kortissa "✓ 12/16" ja päättyneessä merkitsemättömässä "Merkitse läsnäolot". Myöhemmin valmentajan Tänään -muistutus (D142) ja RSVP-estynyt esivalintana (D189). |
+| K35-6d | ✅ 12.10. | Joukkueen omat D240–D242. |
+| V-KOTI | ✅ 12.10. | Koti + navigaatio v2 (D243–D245), lippu demo + kpv. Seuraavaksi Sibbo ja muut seurat. |
+| Läsnäolot + kertymä | ✅ 12.10. | Oletus kaikki paikalla, harjoituskertymä K35-6f (valmentaja, pelaaja, huoltaja). |
+| **K35-11b** | loka | Kuukausinäkymä (nyt placeholder) + "Lisää kalenteriini" 403 → selkeä syy, nappi piiloon SA:lta / toisen seuran käyttäjältä. |
 | K35-5 | marras | TASO-ottelut kalenteriin (lähde omistaa ajan, TM sisällön, D181). |
-| **Kalenterin lataus rajatuksi** | ennen K35-6c | Master hakee nyt seuran koko kalenterin (`where poistettu == false`). Rajaus aikaväliin + joukkueeseen ennen kuin seuroja ja kausia kertyy. Sama B4:n kanssa. |
-| **K35-7a** | loka–marras | iCal-syöte palvelimella: oma salainen linkki pelaajalle, huoltajalle (per lapsi) ja valmentajalle; ei muiden nimiä; linkin uusiminen mitätöi vanhan. Outlook/Google/iPhone päivittyvät automaattisesti (viive tunteja, viime hetken muutokset ilmoituksina). **D190 kuitattu 11.10.** |
-| K35-7b | 6a:n jälkeen | "Lisää kalenteriini" Pelaajaan, Vanhempaan ja Masteriin. |
+| Kalenterin lataus rajatuksi | ✅ 12.10. | K35-10 (#1023). |
+| K35-7a | ✅ 11.10. | iCal-syöte palvelimella (D190). |
+| K35-7b | ✅ 12.10. | "Lisää kalenteriini" + Apple/Outlook/Google-napit. |
 | **K35-9a Outlook → TM** | 7a:n jälkeen | Valmentajan/VP:n työkalenteri TM:ään (D191 tarkennus, Tero 11.10.): Outlookin julkaistu iCal-linkki (vain varattu-tieto), palvelin hakee tunnin välein, tallennetaan vain varatut ajat ilman otsikoita, näkyy vain omistajalle "Varattu", Täytä viikko ja luonti varoittavat päällekkäisyydestä. VP näkee valmentajan varaukset vain valmentajan luvalla, oletus pois (Tero 11.10.). M365-ympäristö voi estää julkaisun → Microsoft Graph myöhemmin. |
 | K35-8 | joulu (R1) | VP:n Kalenteri-sivu: seuran viikko, kausi, Seuran linja -työkalu (mockup 37, D199), kuormanäkymä (D197), testijaksot (D198). |
 | K35-9…11 | 2027 | iCal-tuonti (JOPOX), MyClub API, kuorma rinnakkain (RPE valmentaja + pelaajat). |
@@ -164,7 +176,9 @@ Kalenteri on yksi kokoelma (`seurat/{sid}/kalenteri`), jota VP ja valmentaja kä
 | 2.11.2026 | KPV:n tuorein tekniikkakisa (2.11.2025) täyttää 12 kk → muistutus syttyy | — |
 | ennen 10.11. | K3-käsitesti KPV:llä (ensimmäiset jaksot päättyvät ~17.11.) | Tero |
 | ~15.11. | S2: PM tarkistaa pulssin oikeilla neljän viikon luvuilla | PM |
-| loka–marras | **Kalenteri K35-6a/b/c** (Täytä viikko, siirto vetämällä, ryhmän vastaava) · K35-5 TASO · kalenterin lataus rajatuksi | Code → Tero |
+| loka | **Seuraavat Codelle:** K35-11b kuukausinäkymä + 403 · Sibbon 1.11. -valmius ruotsiksi (klippipolku päästä päähän, sv-vienti) · K35-6c ryhmän vastaava | Code → Tero |
+| loka | Lippu `valmentaja_v2` Sibbolle kun klippipolku sv on läpi · sv-erät 29–34 Geminille · P13:n oikeat treenit Täytä viikolla | Tero |
+| marraskuu | K35-9a Outlook → TM (seurojen vastaukset JOPOX/MyClub/Outlook ensin) · K35-5 TASO | Code → Tero |
 | marraskuu | Ydinvahvuuden alue klikkaamalla, PR B (aluejako A + maalivahti pelimuodon mukaan; mockup 34 hyväksytty; Rules) · keräilykortti + PHV pelaajalle (mockup 36, PR C) · Muistuta pelaajaa (PR D) | Code, Tero |
 | **1.12.** | Vanha pelaajakortti pois (D49) · Seuran pulssi S2 | Code |
 | joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106, VP:n Kalenteri + Seuran linja K35-8) · S3 tavoitetasot · K5 Leikkijä + huoltaja · Kenttä aktiiviseksi (D98 + D107: reitti, osamerkit, tavoitteet kentältä; alue klikkaamalla jo marraskuussa) · pelaajan ehdotus "missä tykkään pelata" | Code |

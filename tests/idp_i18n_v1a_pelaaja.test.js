@@ -88,7 +88,7 @@ describe('Pelaaja_v7 — kielivalitsin FI/SV/EN (ei DE) + ydinpinta + cache-bust
     const v = PEL.match(/lib\/tm_lang\.js\?v=(\d+)/);
     expect(v).toBeTruthy();
     expect(Number(v[1])).toBeGreaterThanOrEqual(2);
-    const c = readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8').match(/const CACHE = 'tm-pelaaja-v(\d+)'/);
+    const c = readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8').match(/const CACHE = 'tm-pelaaja-v(\d+|\d{3,})'/);
     expect(c).toBeTruthy();
     expect(Number(c[1])).toBeGreaterThanOrEqual(13);
   });
