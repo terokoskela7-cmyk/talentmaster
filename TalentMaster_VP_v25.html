@@ -22,7 +22,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>   <!-- Vaihe A: ääripalautteen audio-upload (tmAani.lataa). VP:N OMA SDK-versio, EI Masterin 9.22.1 (§38 sekaversio). -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
-<script src="lib/tm_ryhmat.js?v=4"></script>   <!-- R1: ryhmät (D33) -->
+<script src="lib/tm_ryhmat.js?v=5"></script>   <!-- R1: ryhmät (D33) -->
 <script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
 <script src="lib/tm_mediaviesti.js?v=3"></script>   <!-- R6.4 mediaviesti -->
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
@@ -21760,7 +21760,7 @@ function _ryRender() {
     const joukkueet = Array.from(new Set(_ryPelaajat().map(function (p) { return p.joukkue; }).filter(Boolean))).sort();
     const valm = (_valmentajat || []).map(function (v) { return { id: v.id, nimi: v.nimi, rooli: v.rooli }; });
     el.innerHTML = R.tmRyhmaLomakeHTML(window._ryTila, { esc: _jsvEsc, t: vpT, pelaajat: _ryPelaajat(), joukkueet: joukkueet, valmentajat: valm, nimiFn: '_ryNimi', kuvausFn: '_ryKuvaus', tyyppiFn: '_ryTyyppi', hakuFn: '_ryHaku', joukkueFn: '_ryJoukkue', valitseFn: '_ryValitse',
-      lisaaNakyvatFn: '_ryLisaaNakyvat', tyhjennaFn: '_ryTyhjenna', valmentajaFn: '_ryValmentaja', tallennaFn: '_ryTallenna', peruutaFn: '_ryPeruuta' });
+      lisaaNakyvatFn: '_ryLisaaNakyvat', tyhjennaFn: '_ryTyhjenna', valmentajaFn: '_ryValmentaja', vastaavaFn: '_ryVastaava', tallennaFn: '_ryTallenna', peruutaFn: '_ryPeruuta' });
     return;
   }
   el.innerHTML = R.tmRyhmaListaHTML(window._ryLista, _ryOpts());
@@ -21778,7 +21778,7 @@ window._ryUusi = function () { window._ryTila = { id: null, nimi: '', tyyppi: 'l
 window._ryMuokkaa = function (id) {
   const r = (window._ryLista || []).filter(function (x) { return x.id === id; })[0]; if (!r) return;
   if (!window.TM_RYHMAT.tmRyhmaSaaMuokata(r, _ryCtx())) { if (typeof toast === 'function') toast(vpT(window.TM_RYHMAT.FI.ry_ei_oikeutta), 'error'); return; }
-  window._ryTila = { id: r.id, nimi: r.nimi, tyyppi: r.tyyppi, kuvaus: r.kuvaus || '', pelaajat_id: (r.pelaajat_id || []).slice(), valmentajat: (r.valmentajat || []).slice(), haku: '', joukkue: '', aktiivinen: r.aktiivinen !== false }; _ryRender();
+  window._ryTila = { id: r.id, nimi: r.nimi, tyyppi: r.tyyppi, kuvaus: r.kuvaus || '', pelaajat_id: (r.pelaajat_id || []).slice(), valmentajat: (r.valmentajat || []).slice(), vastuu_uid: r.vastuu_uid || '', haku: '', joukkue: '', aktiivinen: r.aktiivinen !== false }; _ryRender();
 };
 window._ryNimi = function (v) { if (window._ryTila) window._ryTila.nimi = String(v || ''); };
 window._ryKuvaus = function (v) { if (window._ryTila) window._ryTila.kuvaus = String(v || ''); };
@@ -21791,14 +21791,15 @@ window._ryLisaaNakyvat = function () {
   _ryPelaajat().filter(function (p) { return (!S.joukkue || norm(p.joukkue) === norm(S.joukkue)) && (!haku || norm(p.nimi).indexOf(haku) >= 0); }).forEach(function (p) { if (S.pelaajat_id.indexOf(p.id) < 0 && S.pelaajat_id.length < window.TM_RYHMAT.MAX_PELAAJAT) S.pelaajat_id.push(p.id); }); _ryRender();
 };
 window._ryTyhjenna = function () { if (window._ryTila) { window._ryTila.pelaajat_id = []; _ryRender(); } };
-window._ryValmentaja = function (uid) { const S = window._ryTila; if (!S) return; const i = S.valmentajat.indexOf(uid); if (i >= 0) S.valmentajat.splice(i, 1); else S.valmentajat.push(uid); };
+window._ryValmentaja = function (uid) { const S = window._ryTila; if (!S) return; const i = S.valmentajat.indexOf(uid); if (i >= 0) { S.valmentajat.splice(i, 1); if (S.vastuu_uid === uid) S.vastuu_uid = ''; } else S.valmentajat.push(uid); };
+window._ryVastaava = function (uid) { const S = window._ryTila; if (S) S.vastuu_uid = uid || ''; };   // K35-6c (D196)
 window._ryPeruuta = function () { window._ryTila = null; _ryRender(); };
 async function _ryKirjoita(id, data, viesti, onnistui) {   // yksi kirjoitus; virhe → toast + koodi (D53), lomake jää auki
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); if (onnistui) onnistui(); return true; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     const col = db.collection('seurat').doc(_seuraId).collection('ryhmat'), ts = firebase.firestore.FieldValue.serverTimestamp();
-    if (id) await col.doc(id).update(Object.assign({}, data, { muokattu: ts }));
+    if (id) await col.doc(id).update(Object.assign({}, data, { muokattu: ts }, data.valmentajat && !data.vastuu_uid ? { vastuu_uid: firebase.firestore.FieldValue.delete() } : {}));   // täysi muokkaus ilman vastaavaa → kenttä pois (Rules: vastuu_uid ∈ valmentajat)
     else await col.add(Object.assign({}, data, { luoja_uid: _uid, luotu: ts, muokattu: ts }));
     if (onnistui) onnistui(); if (id && data.pelaajat_id) await _rySynkkaa(id, data).catch(function (e) { console.warn('[ryhmät] synkka:', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); });
     if (typeof toast === 'function') toast(viesti, 'ok'); await _ryLataa(); return true;

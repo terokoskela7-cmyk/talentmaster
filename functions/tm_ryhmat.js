@@ -21,7 +21,7 @@
   'use strict';
   var FI = {
     ry_otsikko: 'Ryhmät', ry_ohje: 'Ryhmä kokoaa pelaajia eri joukkueista ja ikäluokista (esim. maalivahdit, talenttiryhmä). Ryhmälle voi luoda tapahtumia ja kirjata niihin läsnäolon.',
-    ry_uusi: '+ Uusi ryhmä', ry_ei_ryhmia: 'Ei ryhmiä vielä', ry_jasenia: 'jäsentä', ry_valmentajat: 'Valmentajat', ry_muokkaa: 'Muokkaa', ry_arkistoi: 'Arkistoi', ry_palauta: 'Palauta', ry_arkistoitu: 'Arkistoitu',
+    ry_uusi: '+ Uusi ryhmä', ry_ei_ryhmia: 'Ei ryhmiä vielä', ry_jasenia: 'jäsentä', ry_valmentajat: 'Valmentajat', ry_vastaava: 'Ryhmän vastaava', ry_vastaava_ohje: 'Vastaava suunnittelee ryhmän treenit: hän voi muokata ja poistaa ryhmän tapahtumat (ei tarvitse olla niiden luoja).', ry_ei_vastaavaa: '— Ei vastaavaa —', ry_muokkaa: 'Muokkaa', ry_arkistoi: 'Arkistoi', ry_palauta: 'Palauta', ry_arkistoitu: 'Arkistoitu',
     ry_talenttiryhma: 'Talenttiohjelma (sääntö)', ry_tyyppi_lista: 'Lista', ry_tyyppi_saanto: 'Sääntö: talenttiohjelma', ry_nimi: 'Nimi', ry_kuvaus: 'Kuvaus (valinnainen)', ry_tyyppi: 'Tyyppi',
     ry_saanto_ohje: 'Jäsenet ovat kaikki talenttiohjelman pelaajat — lista päivittyy automaattisesti.', ry_pelaajat: 'Pelaajat', ry_haku: 'Hae pelaajaa…', ry_kaikki_joukkueet: 'Kaikki joukkueet',
     ry_valittu: 'valittu', ry_lisaa_nakyvat: 'Lisää näkyvät', ry_tyhjenna: 'Tyhjennä valinnat', ry_tallenna: 'Tallenna ryhmä', ry_peruuta: 'Peruuta', ry_ei_pelaajia: 'Ei pelaajia hakuehdoilla.',
@@ -60,10 +60,16 @@
     if (vm.length > MAX_VALMENTAJAT) return { ok: false, syy: 'valmentajat' };
     var pel = tyyppi === 'saanto' ? [] : _uniq(syote.pelaajat_id, MAX_PELAAJAT);
     if (tyyppi === 'lista' && (!pel.length || pel.length > MAX_PELAAJAT)) return { ok: false, syy: 'pelaajat' };
-    var data = { nimi: nimi, tyyppi: tyyppi, pelaajat_id: pel, valmentajat: vm, aktiivinen: syote.aktiivinen !== false };
+    var data = { nimi: nimi, tyyppi: tyyppi, pelaajat_id: pel, valmentajat: vm, aktiivinen: syote.aktiivinen !== false }, vu = _str(syote.vastuu_uid);
+    if (vu && vm.indexOf(vu) >= 0) data.vastuu_uid = vu;   // K35-6c (D196): vastaava on ryhmän valmentaja; poistettu valmentaja → vastaava putoaa pois (Rules: vastuu_uid ∈ valmentajat)
     if (tyyppi === 'saanto') data.saanto = { kentta: 'talenttiOhjelma', arvo: true };
     if (kuvaus) data.kuvaus = kuvaus;
     return { ok: true, data: data };
+  }
+  /* K35-6c (D196): onko käyttäjä ryhmän VASTAAVA (ryhmat.vastuu_uid)? ev = tapahtuma → sen ryhmä; ryhmat = käyttäjän näkemät ryhmädokit. Peilaa Rules v3.61 ryhmanVastaavaTapahtumassa. */
+  function tmRyhmaVastaa(ev, ryhmat, uid) {
+    var rid = ev && ev.kohde && ev.kohde.tyyppi === 'ryhma' ? ev.kohde.ryhma_id : null; if (!rid || !uid) return false;
+    return (ryhmat || []).some(function (r) { return r && r.id === rid && r.vastuu_uid === uid; });
   }
   function tmRyhmaVirhe(syy, opts) { return _txt(opts, { nimi: 'ry_virhe_nimi', pelaajat: 'ry_virhe_pelaajat', valmentajat: 'ry_virhe_valmentajat', kuvaus: 'ry_virhe_kuvaus', tyyppi: 'ry_virhe_tyyppi' }[syy] || 'ry_virhe_nimi'); }
 
@@ -226,11 +232,13 @@
     var vm = {}; (S.valmentajat || []).forEach(function (u) { vm[u] = 1; });
     h += '<div style="' + rasti + '">' + T('ry_valmentajat') + '</div><div style="font-size:12px;color:var(--ink3);margin-bottom:4px">' + T('ry_valmentajat_ohje') + '</div>'
       + ((opts.valmentajat || []).length ? '<div data-ry-valmentajat>' + opts.valmentajat.map(function (v) { return '<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13px;color:var(--ink);cursor:pointer"><input type="checkbox" data-ry-valmentaja="' + esc(v.id) + '"' + (vm[v.id] ? ' checked' : '') + ' onchange="' + esc(opts.valmentajaFn + "('" + v.id + "')") + '"> ' + esc(v.nimi) + ' <span style="color:var(--ink3);font-size:11.5px">' + esc(v.rooli || '') + '</span></label>'; }).join('') + '</div>' : '<div style="font-size:12.5px;color:var(--ink3)">' + T('ry_ei_valmentajia') + '</div>')
+      + (opts.vastaavaFn && (S.valmentajat || []).length ? '<div style="' + rasti + '">' + T('ry_vastaava') + '</div><select data-ry-vastaava onchange="' + esc(opts.vastaavaFn) + '(this.value)" style="' + kentta + ';max-width:320px"><option value="">' + T('ry_ei_vastaavaa') + '</option>'
+        + (S.valmentajat || []).map(function (u) { var v = (opts.valmentajat || []).filter(function (x) { return x.id === u; })[0]; return '<option value="' + esc(u) + '"' + (S.vastuu_uid === u ? ' selected' : '') + '>' + esc(v ? v.nimi : u) + '</option>'; }).join('') + '</select><div style="font-size:12px;color:var(--ink3);margin-top:4px">' + T('ry_vastaava_ohje') + '</div>' : '')
       + '<div style="display:flex;gap:8px;margin-top:16px"><button type="button" data-ry-tallenna style="' + NAPPI_ENS + '" onclick="' + esc(opts.tallennaFn) + '()">' + T('ry_tallenna') + '</button><button type="button" data-ry-peruuta style="' + NAPPI + '" onclick="' + esc(opts.peruutaFn) + '()">' + T('ry_peruuta') + '</button></div></div>';
     return h;
   }
 
-  var API = { FI: FI, MAX_NIMI: MAX_NIMI, MAX_PELAAJAT: MAX_PELAAJAT, MAX_VALMENTAJAT: MAX_VALMENTAJAT, tmRyhmaSaaLuoda: tmRyhmaSaaLuoda, tmRyhmaSaaMuokata: tmRyhmaSaaMuokata, tmRyhmaSyote: tmRyhmaSyote, tmRyhmaVirhe: tmRyhmaVirhe,
+  var API = { FI: FI, MAX_NIMI: MAX_NIMI, MAX_PELAAJAT: MAX_PELAAJAT, MAX_VALMENTAJAT: MAX_VALMENTAJAT, tmRyhmaSaaLuoda: tmRyhmaSaaLuoda, tmRyhmaSaaMuokata: tmRyhmaSaaMuokata, tmRyhmaSyote: tmRyhmaSyote, tmRyhmaVirhe: tmRyhmaVirhe, tmRyhmaVastaa: tmRyhmaVastaa,
     tmRyhmaJasenet: tmRyhmaJasenet, tmKohdePelaajat: tmKohdePelaajat, tmTapahtumaOhi: tmTapahtumaOhi, tmKokoonpano: tmKokoonpano, tmSynkkaaTapahtumat: tmSynkkaaTapahtumat, tmTapahtumaKuuluuPelaajalle: tmTapahtumaKuuluuPelaajalle,
     tmRyhmaListaHTML: tmRyhmaListaHTML, HK_TYYPIT: HK_TYYPIT, tmOletusNakyvyys: tmOletusNakyvyys, tmNakyvyys: tmNakyvyys, tmNakyyPelaajalle: tmNakyyPelaajalle, tmNakyyKalenterissa: tmNakyyKalenterissa, tmVoiJaadyttaa: tmVoiJaadyttaa, tmJaadytysKentat: tmJaadytysKentat, tmKenelleDoc: tmKenelleDoc, tmTapahtumaVaatiiJoukkueen: tmTapahtumaVaatiiJoukkueen, tmKenelleVirhe: tmKenelleVirhe, tmKenelleHTML: tmKenelleHTML, tmKenelleNayta: tmKenelleNayta, tmKenelleLue: tmKenelleLue, tmRyhmaLomakeHTML: tmRyhmaLomakeHTML };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.TM_RYHMAT = API;

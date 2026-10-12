@@ -1,9 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.60
+// TalentMaster™ — firestore.rules v3.61
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.60 → v3.61 (K35-6c · D196 ryhmän vastaava, ei migraatiota — uusi kenttä on valinnainen):
+//   · seurat/{sid}/ryhmat/{id}: UUSI valinnainen kenttä `vastuu_uid` (string; pitää olla ryhmän valmentajat[]:ssä). Ryhmän vastaava = se valmentaja joka suunnittelee ryhmän treenit.
+//   · seurat/{sid}/kalenteri/{id} update: ryhmän VASTAAVA (ryhmat/{rid}.vastuu_uid == uid, valmennusrooli omassa seurassa) saa päivittää KOKONAAN (nimi, aika, paikka, tila, poistettu = soft-delete)
+//     ryhmätapahtumaa jonka kohde.ryhma_id on hänen ryhmänsä — ilman että on tapahtuman luoja. Estot: kohde (tyyppi + ryhma_id) ei saa muuttua (ei siirtoa toiseen ryhmään/joukkueeseen), luoja_uid ei muutu.
+//     Ryhmän muu valmentaja pysyy v3.47:n kokoonpano-/läsnäolo-oikeudessa (ei nimi/aika/poisto). Luonti ennallaan (luoja_uid == oma uid; vastaava luo omiin ryhmiinsä valmentajana).
 //
 // Muutokset v3.59 → v3.60 (K35-10 korjaus, ei migraatiota):
 //   · seurat/{sid}/pelaajat/{pid}/kooste/{id} read: lisätty talenttivalmentaja (oma seura) — v3.59:n kommentti lupasi sen, mutta onJohtoRooli kattaa vain vp/utj/seurasihteeri. Pelaaja/huoltaja edelleen vain callablella; write false.
@@ -885,13 +891,14 @@ service cloud.firestore {
     /* v3.47 (R1) — ryhmät. Rakenne ja koot; listan alkioiden tyyppiä (uid/pelaajaId-merkkijono) ei voi tarkistaa ilman silmukkaa → client + testit. */
     function ryhmaKelpaa() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['nimi', 'tyyppi', 'saanto', 'pelaajat_id', 'valmentajat', 'kuvaus', 'aktiivinen', 'luotu', 'luoja_uid', 'muokattu'])
+      return d.keys().hasOnly(['nimi', 'tyyppi', 'saanto', 'pelaajat_id', 'valmentajat', 'kuvaus', 'aktiivinen', 'luotu', 'luoja_uid', 'muokattu', 'vastuu_uid'])
           && d.keys().hasAll(['nimi', 'tyyppi', 'pelaajat_id', 'valmentajat', 'aktiivinen', 'luotu', 'luoja_uid', 'muokattu'])
           && d.nimi is string && d.nimi.size() >= 1 && d.nimi.size() <= 60
           && d.tyyppi in ['lista', 'saanto']
           && d.pelaajat_id is list && d.pelaajat_id.size() <= 200
           && d.valmentajat is list && d.valmentajat.size() <= 10
           && d.aktiivinen is bool
+          && (!('vastuu_uid' in d) || (d.vastuu_uid is string && d.vastuu_uid in d.valmentajat))   // v3.61 (D196): vastaava on ryhmän valmentaja
           && d.luoja_uid is string
           && d.luotu is timestamp && d.muokattu is timestamp && d.muokattu == request.time
           && (!('kuvaus' in d) || (d.kuvaus is string && d.kuvaus.size() <= 200))
@@ -910,6 +917,11 @@ service cloud.firestore {
           && resource.data.kohde.ryhma_id.size() > 0
           && exists(/databases/$(database)/documents/seurat/$(seuraId)/ryhmat/$(resource.data.kohde.ryhma_id))
           && request.auth.uid in ryhmaDoc(seuraId, resource.data.kohde.ryhma_id).valmentajat;
+    }
+    /* v3.61 (K35-6c, D196): onko kirjautunut käyttäjä NYKYISEN ryhmätapahtuman ryhmän VASTAAVA (ryhmat/{rid}.vastuu_uid == uid). */
+    function ryhmanVastaavaTapahtumassa(seuraId) {
+      return ryhmanValmentajaTapahtumassa(seuraId)
+          && ryhmaDoc(seuraId, resource.data.kohde.ryhma_id).get('vastuu_uid', '') == request.auth.uid;
     }
     /* v3.44 — viikkokatsaus (K4): yksi vastaus {osa, teksti, arvo}. Taulukkoindeksit käsin (säännöissä ei silmukkaa). */
     function vkVastausKelpaa(v) {
@@ -1959,7 +1971,12 @@ service cloud.firestore {
                           && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['pelaajat_id', 'jaadytetty', 'paivitetty', 'muokkaaja_uid', 'lasnaolo_kooste'])
                           && (resource.data.get('jaadytetty', null) == null
-                              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pelaajat_id', 'jaadytetty']))));
+                              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pelaajat_id', 'jaadytetty'])))
+                      // v3.61 (K35-6c, D196): ryhmän VASTAAVA — täysi muokkaus + soft-delete omaan ryhmän tapahtumaan (ei tarvitse olla luoja); kohde ja luoja_uid lukittu.
+                      || (onOmanSeuranValmentaja(seuraId) && ryhmanVastaavaTapahtumassa(seuraId)
+                          && request.resource.data.get('kohde', {}).get('tyyppi', '') == 'ryhma'
+                          && request.resource.data.kohde.get('ryhma_id', '') == resource.data.kohde.ryhma_id
+                          && request.resource.data.get('luoja_uid', '') == resource.data.get('luoja_uid', '')));
 
         // Ei hard-deletea — soft-delete (poistettu:true) update-kautta
         allow delete: if onSuperAdmin();

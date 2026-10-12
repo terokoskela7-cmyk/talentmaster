@@ -117,7 +117,7 @@ function ymp({ rooli = 'vp', uid = 'vp-uid', kaada = false, ryhmat = [], demo = 
   const docRef = (id) => ({ update: (d) => kirjoita('update:' + id)(d) });
   const db = { collection: () => ({ doc: () => ({ collection: () => ({ get: async () => { log.haettu++; return { docs: ryhmat.map((r) => ({ id: r.id, data: () => { const { id, ...x } = r; return x; } })) }; }, add: (d) => kirjoita('add')(d), doc: docRef }) }) }) };
   const sb = { window: { TM_RYHMAT: R, _vpRooli: rooli, _vpSA: false }, document: { getElementById: (id) => (id === 'ryhmatSisalto' ? (els.s = els.s || { innerHTML: '' }) : null), querySelector: () => null }, console: { warn: (...a) => log.warn.push(a) }, Object, Array, Set, Date, JSON, Math, Promise, String, Number,
-    _uid: uid, _seuraId: 'sibbo', _isDemoMode: demo, db, firebase: { auth: () => ({ currentUser: { getIdToken: async () => 't' } }), firestore: { FieldValue: { serverTimestamp: () => 'TS' } } }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), toast: (t, k) => log.toast.push([t, k]), vpT: (x) => x, _jsvEsc: (s) => String(s == null ? '' : s), confirm: () => true,
+    _uid: uid, _seuraId: 'sibbo', _isDemoMode: demo, db, firebase: { auth: () => ({ currentUser: { getIdToken: async () => 't' } }), firestore: { FieldValue: { serverTimestamp: () => 'TS', delete: () => 'DEL' } } }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), toast: (t, k) => log.toast.push([t, k]), vpT: (x) => x, _jsvEsc: (s) => String(s == null ? '' : s), confirm: () => true,
     _pelaajat: PEL, _valmentajat: [{ id: 'vp-uid', nimi: 'Vera VP', rooli: 'vp' }, { id: 'mv-uid', nimi: 'Mikko MV', rooli: 'valmentaja' }], _valmentajatKaikki: [{ id: 'mv-uid', nimi: 'Mikko MV' }], _tmHenkiloNimi: (p) => 'Pelaaja ' + p.id };
   vm.createContext(sb);
   const i = VP.indexOf('/* ═══ R1 — Seuran ryhmät'), j = VP.indexOf('function setWs(ws', i); vm.runInContext(VP.slice(i, j) + '\nthis.__ry=window;', sb);
@@ -139,7 +139,7 @@ describe('VP_v25 · Ryhmät-osio (vm)', () => {
   it('MUOKKAA: update() (ei add), luoja_uid/luotu eivät lähde mukaan; ei-ryhmän-valmentaja ei pääse muokkaamaan; arkistointi/palautus = aktiivinen-kenttä', async () => {
     const e = ymp({ rooli: 'valmentaja', uid: 'mv-uid', ryhmat: [RY(), RY({ id: 'toinen', nimi: 'Toinen', valmentajat: ['joku-muu'] })] }); await e.sb._ryLataa();
     e.w._ryMuokkaa('toinen'); expect(e.w._ryTila).toBeNull(); expect(e.log.toast.at(-1)[1]).toBe('error');
-    e.w._ryMuokkaa('mv'); expect(e.w._ryTila.id).toBe('mv'); e.w._ryNimi('Maalivahdit U13–15'); await e.w._ryTallenna(); const [op, d] = e.log.kirj[0]; expect(op).toBe('update:mv'); expect(d).toMatchObject({ nimi: 'Maalivahdit U13–15', muokattu: 'TS' }); expect('luoja_uid' in d).toBe(false); expect('luotu' in d).toBe(false);
+    e.w._ryMuokkaa('mv'); expect(e.w._ryTila.id).toBe('mv'); e.w._ryNimi('Maalivahdit U13–15'); await e.w._ryTallenna(); const [op, d] = e.log.kirj[0]; expect(op).toBe('update:mv'); expect(d).toMatchObject({ nimi: 'Maalivahdit U13–15', muokattu: 'TS', vastuu_uid: 'DEL' }); expect('luoja_uid' in d).toBe(false); expect('luotu' in d).toBe(false);
     await e.w._ryArkistoi('mv'); expect(e.log.kirj.at(-1)).toEqual(['update:mv', { aktiivinen: false, muokattu: 'TS' }]); await e.w._ryPalauta('mv'); expect(e.log.kirj.at(-1)[1].aktiivinen).toBe(true);
   });
   it('VALIDOINTI ENNEN KIRJOITUSTA: tyhjä nimi / ei pelaajia → toast, EI kirjoitusta, lomake auki', async () => {
@@ -162,7 +162,7 @@ describe('Lähdetarkistukset', () => {
     expect(VP).toContain('data-ws="ryhmat" onclick="setWs(\'ryhmat\')"'); expect(VP).toContain('id="ws-ryhmat"'); expect(VP).toContain("if (ws === 'ryhmat') { window._ryTila = null; _ryRender(); _ryLataa(); }"); expect(VP).toMatch(/<script src="lib\/tm_ryhmat\.js\?v=\d+"><\/script>/);
   });
   it('Rules v3.49: ryhmat-säännöt + kalenterin ryhmätapahtumapoikkeus + versio', () => {
-    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore.rules v3.(49|50|51|52|53|54|55|56|57|58|59|60)/); expect(r).toContain('match /ryhmat/{ryhmaId}'); expect(r).toContain('function ryhmaKelpaa()'); expect(r).toContain('ryhmanValmentajaTapahtumassa(seuraId)'); expect(r).toContain('Seuran pulssi (S1) siirtyy v3.50:een');
+    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore.rules v3.(49|50|51|52|53|54|55|56|57|58|59|60|61)/); expect(r).toContain('match /ryhmat/{ryhmaId}'); expect(r).toContain('function ryhmaKelpaa()'); expect(r).toContain('ryhmanValmentajaTapahtumassa(seuraId)'); expect(r).toContain('Seuran pulssi (S1) siirtyy v3.50:een');
   });
   it('Geminin käännöslista: kaikki ry_*-avaimet + ruudun otsikot listassa (sv jää määrittelemättä)', () => {
     const d = lue('docs/R1_RYHMAT_SV_KAANNOKSET.md'); for (const k of Object.keys(R.FI)) expect(d, k).toContain('`' + k + '`'); expect(d).toContain('Ryhmät'); expect(d).toContain('Maalivahdit, talenttiryhmä ja muut ryhmät joukkueiden yli');
