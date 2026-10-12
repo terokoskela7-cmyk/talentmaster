@@ -9,13 +9,13 @@ const require = createRequire(import.meta.url);
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..'), MASTER = readFileSync(join(JUURI, 'TalentMaster_Master_v16.html'), 'utf8');
 const CHROME = [process.env.TM_CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean).find((p) => existsSync(p));
 const LIPPU = { 'seurat/demo': { nimi: 'FC Demo', liput: { valmentaja_v2: true } } };
-const KUTSU = (ryhmia) => 'window._mRyLista=' + (ryhmia ? '[{id:"g1",nimi:"MV-ryhmä",pelaajat_id:["p1","p2"],aktiivinen:true}]' : '[]') + ';window.__od=[];openDrill=function(t){window.__od.push(t)};'
+const KUTSU = (ryhmia, oikeaDrill) => 'window._mRyLista=' + (ryhmia ? '[{id:"g1",nimi:"MV-ryhmä",pelaajat_id:["p1","p2"],aktiivinen:true}]' : '[]') + ';window.__od=[];' + (oikeaDrill ? '_initKeyboard();' : 'openDrill=function(t){window.__od.push(t)};')
   + 'TM_VALMENTAJA_NAV.tmNavAsenna({db:_db,seuraId:"demo",t:masterT,ws:function(){return _ws},ryhmia:function(){return _mRyHaeLista().then(function(l){return l.length>0})}}).then(function(on){window.__navOn=on;if(on)setWs(TM_VALMENTAJA_NAV.tmNavReitti(_ws).ws)});'
   + 'TM_VALMENTAJA_NAV.tmNavBadge&&0;window.__badge=function(n){TM_VALMENTAJA_NAV.tmNavBadge(n)};';
 const NAKYMAT = ['koti', 'inbox', 'cal', 'pulse', 'season', 'dev', 'ryhmat', 'testit', 'kuorma'];
 const kaynnista = async (selain, opts, koko) => {
   const sk = await selain.newContext({ viewport: koko }), p = await sk.newPage(); const virheet = []; p.on('pageerror', (e) => virheet.push(e.message));
-  await p.goto('file://' + sivu(MASTER, JUURI, Object.assign({ rooli: 'valmentaja', kutsu: KUTSU(opts.ryhmia), dokit: opts.lippu ? LIPPU : {} }, opts))); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 15000 });
+  await p.goto('file://' + sivu(MASTER, JUURI, Object.assign({ rooli: 'valmentaja', kutsu: (opts.valitsin || '') + KUTSU(opts.ryhmia, opts.oikeaDrill), dokit: opts.lippu ? LIPPU : {} }, opts))); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 15000 });
   await p.waitForFunction(() => window.__navOn !== undefined, null, { timeout: 15000 }); return { sk, p, virheet };
 };
 const aktiivinenNakyma = (p) => p.evaluate(() => ({ ws: _ws, nakyma: (document.querySelector('.ws-view.active') || {}).dataset && document.querySelector('.ws-view.active').dataset.view }));
@@ -33,7 +33,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('V-KOTI B · s
     await avaa(); try {
       const { sk, p, virheet } = await kaynnista(selain, { lippu: true, ryhmia: true }, { width: 1280, height: 900 });
       expect(await p.evaluate(() => window.__navOn)).toBe(true); expect(await p.evaluate(() => document.body.classList.contains('nav-v2'))).toBe(true);
-      expect(await p.locator('.wsbar').isVisible()).toBe(false); expect(await p.locator('.sb-nav').isVisible()).toBe(false);
+      expect(await p.locator('.wsbar').isVisible()).toBe(false); expect(await p.locator('.sb-nav').isVisible()).toBe(false);   // ei valitsimia → koko vanha nav piilossa
       const rivit = async () => (await p.locator('#nvSide .nv-item, #nvSide .nv-otsikko').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim());
       const alku = await rivit(); expect(alku.slice(0, 6)).toEqual(['Koti', 'Viestit', 'Kalenteri', 'Joukkue', 'Pelaajat', 'Ryhmät']); expect(alku[6]).toMatch(/^TYÖKALUT \(6\)|^Työkalut \(6\)/i); expect(alku.length).toBe(8);   // + Asetukset; työkalut kiinni
       expect(await p.locator('#nvSide .nv-tyokalut').count()).toBe(0);
@@ -95,4 +95,46 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('V-KOTI B · s
       }
     } finally { await selain.close(); }
   }, 300000);
+  it('LIVE #1 valitsin: seura-/joukkuevalitsin näkyy laidan ylälaidassa (desktop) ja vetolaatikon ylälaidassa (mobiili); joukkueen vaihto päivittää Koti/Kalenteri/Joukkue', async () => {
+    const valitsin = 'window.__r={koti:0,cal:0,pulse:0};var _rk=renderKoti,_rc=renderCal,_rp=renderPulse;renderKoti=function(){window.__r.koti++;return _rk.apply(this,arguments)};renderCal=function(){window.__r.cal++;return _rc.apply(this,arguments)};renderPulse=function(){window.__r.pulse++;return _rp.apply(this,arguments)};'
+      + '_lataaPelaajat=async function(){};_lataaTestitapahtumat=async function(){};_lataaKalenteriTapahtumat=async function(){};document.getElementById("sbSeura").textContent="FC Demo";_rakennaSAJoukkueValitsin("demo",{});';
+    const kokoelmat = { 'seurat/demo/pelaajat': [{ id: 'p1', data: { joukkue: 'Demo U13' } }, { id: 'p5', data: { joukkue: 'Demo U14' } }] };
+    await avaa(); try {
+      for (const koko of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+        const { sk, p } = await kaynnista(selain, { lippu: true, ryhmia: false, valitsin, kokoelmat }, koko); await p.waitForSelector('#sa-joukkue-valitsin', { state: 'attached' });
+        const mobiili = koko.width < 800; if (mobiili) { await p.locator('#nvMob .nv-mitem').last().click(); await p.waitForTimeout(350); }
+        const sel = p.locator('#sa-joukkue-valitsin'); expect(await sel.isVisible(), 'valitsin näkyy ' + koko.width).toBe(true);
+        const y = (await sel.boundingBox()).y, joukkue = await p.locator('#nvSide [data-nv="joukkue"]').boundingBox(); expect(y).toBeLessThan(joukkue.y);   // laidan ylälaidassa, valikon yläpuolella
+        expect(await p.locator('.sb-seura').isVisible()).toBe(false);   // valitsin nimen tilalle
+        if (process.env.TM_KUVAT === '1') { mkdirSync(join(JUURI, 'docs/ui-kuvat/v-koti-b'), { recursive: true }); await p.screenshot({ path: join(JUURI, `docs/ui-kuvat/v-koti-b/valitsin_${koko.width}_dark.png`) }); }
+        await p.evaluate(() => { window.__r = { koti: 0, cal: 0, pulse: 0 }; }); await sel.selectOption('DEMO U14'); await p.waitForFunction(() => window.__r.koti > 0 && window.__r.cal > 0 && window.__r.pulse > 0, null, { timeout: 8000 });
+        expect(await p.evaluate(() => _joukkue)).toBe('DEMO U14'); await sk.close();
+      }
+    } finally { await selain.close(); }
+  }, 180000);
+  it('LIVE #2 mobiili: ei hampurilaista, ei Komennot ⌘K < 800 px (desktopilla Komennot säilyy); #4 profiilikortti pois joka näkymästä', async () => {
+    await avaa(); try {
+      for (const koko of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
+        const { sk, p } = await kaynnista(selain, { lippu: true, ryhmia: true }, koko); const mob = koko.width < 800;
+        expect(await p.locator('.nav-burger').isVisible()).toBe(false); expect(await p.locator('.cmd-btn').isVisible()).toBe(!mob);
+        await p.evaluate(() => { window._valmentajaData = { etunimi: 'Rasmus', sukunimi: 'B', rooli: 'vp' }; });
+        for (const ws of NAKYMAT) { await p.evaluate((w) => { setWs(w); renderCoachSelfCard(); }, ws); expect(await p.locator('#coachSelfCard').isVisible(), ws + ' ' + koko.width).toBe(false); }
+        await sk.close();
+      }
+      const { sk, p } = await kaynnista(selain, { lippu: false, ryhmia: false }, { width: 390, height: 844 }); expect(await p.locator('.nav-burger').isVisible()).toBe(true); await sk.close();   // lippu pois → vanha ennallaan
+    } finally { await selain.close(); }
+  }, 180000);
+  it('LIVE #3 Esc sulkee havaintomodaalin (valinta ja upotettu pikakortti) ja fokus palaa + Havainto -painikkeeseen (desktop + mobiili)', async () => {
+    await avaa(); try {
+      for (const koko of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+        const { sk, p } = await kaynnista(selain, { lippu: true, ryhmia: false, oikeaDrill: true }, koko), plus = koko.width < 800 ? '#nvMob .nv-mplus' : '#nvPlus .nv-plus';
+        await p.locator(plus).click(); await p.waitForSelector('#_tmPhValinta'); await p.keyboard.press('Escape'); expect(await p.locator('#_tmPhValinta').count()).toBe(0);
+        expect(await p.evaluate((s) => document.activeElement === document.querySelector(s), plus)).toBe(true);
+        await p.evaluate(() => _avaaPikakorttiUpotettu('')); await p.waitForSelector('#_pkModal'); expect(await p.evaluate(() => typeof window._pkSulje)).toBe('function'); await p.locator(plus).focus().catch(() => {});
+        await p.evaluate(() => document.activeElement && document.activeElement.blur()); await p.keyboard.press('Escape'); await p.waitForFunction(() => !document.getElementById('_pkModal')); expect(await p.evaluate((s) => document.activeElement === document.querySelector(s), plus)).toBe(true);
+        await p.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))); expect(await p.locator('#_pkModal, #_tmPhValinta').count()).toBe(0);   // ei modaalia: Esc ei riko mitään
+        await sk.close();
+      }
+    } finally { await selain.close(); }
+  }, 180000);
 });

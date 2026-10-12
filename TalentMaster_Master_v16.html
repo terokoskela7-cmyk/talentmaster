@@ -11552,7 +11552,7 @@ function _avaaPikakorttiUpotettu(pid) {
   modal.id = '_pkModal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9600;display:flex;align-items:center;justify-content:center;padding:12px';
   // Sulku (× / tausta / tm:adar:saved) → päivitä pikakentät myös manuaalisesti (fallback jos pikakortti ei postita viestiä).
-  var _pkClose = function () { document.getElementById('_pkModal')?.remove(); _pikakorttiRefresh(pid); };
+  var _pkClose = function () { document.getElementById('_pkModal')?.remove(); _pikakorttiRefresh(pid); }; window._pkSulje = _pkClose;
   modal.addEventListener('click', function (e) { if (e.target === modal) _pkClose(); });
   var box = document.createElement('div');
   box.style.cssText = 'background:var(--card);border:.5px solid var(--border);border-radius:12px;width:520px;max-width:100%;height:88vh;overflow:hidden;display:flex;flex-direction:column';
@@ -11584,6 +11584,7 @@ function _avaaPikakorttiUpotettu(pid) {
            Rules tekee saman päätöksen samasta lähteestä. Ks. window._tmClaimRooli yllä. */
         w._tmRooli = window._tmClaimRooli || null;   // Vaihe B: arvioijan rooli havaintoon (tekija_rooli)
         w._tmEmbedded = true;
+        w.document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && window.TM_VALMENTAJA_NAV) window.TM_VALMENTAJA_NAV.tmNavHavaintoEsc(document, window); });   // fokus iframessa → Esc sulkee silti
       }
     } catch (e) { console.warn('[pikakortti-inject]', e && e.message); }
   };
@@ -11802,6 +11803,7 @@ function _initKeyboard() {
     }
     // ESC → sulje kaikki
     if (e.key === 'Escape') {
+      if (window.TM_VALMENTAJA_NAV && window.TM_VALMENTAJA_NAV.tmNavHavaintoEsc(document, window)) return;   // V-KOTI B: havaintomodaali + fokus takaisin + Havainto
       closeDrill();
       closeCmd();
       return;
