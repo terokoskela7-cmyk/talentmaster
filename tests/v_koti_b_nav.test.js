@@ -125,3 +125,28 @@ describe('live-tarkistus (FC Demo): valitsin, mobiili, Esc, profiilikortti, Kodi
     expect(kolme).toContain('Aloita kolmella askeleella: lisää pelaajat joukkueeseen'); expect(kolme.indexOf('Täytä viikko')).toBeLessThan(kolme.indexOf('Uusi havainto'));
   });
 });
+
+describe('#1029-live: joukkuevalitsin id/nimi, kirjainkoosta riippumaton täsmäys (tm_joukkue.js)', () => {
+  const J = require('../lib/tm_joukkue.js'), K = require('../lib/tm_valmentaja_koti.js'), KN = require('../lib/tm_valmentaja_koti_nakyma.js');
+  const DOCS = [{ id: 'demo_u15', nimi: 'FC Demo U15' }, { id: 'demo_u14', nimi: 'FC Demo U14' }];
+  const pel = (n, j, ids) => ({ id: 'p' + n, joukkue: j, joukkueet: ids });
+  it('tmEtsiJoukkueDoc: id täsmä, nimi mikä tahansa kirjainkoko ("FC DEMO U15"), välilyönnit; ei osumaa → null', () => {
+    ['demo_u15', 'FC Demo U15', 'FC DEMO U15', ' fc  demo u15 '].forEach((x) => expect(J.tmEtsiJoukkueDoc(x, DOCS).id, x).toBe('demo_u15')); expect(J.tmEtsiJoukkueDoc('Muu', DOCS)).toBeNull(); expect(J.tmEtsiJoukkueDoc('', DOCS)).toBeNull(); expect(J.tmEtsiJoukkueDoc('x', null)).toBeNull();
+  });
+  it('tmOnJoukkueessa: SA-valitsimen vanha isoilla kirjoitettu arvo löytää pelaajat (joukkue "FC Demo U15" / joukkueet [demo_u15]); id ja nimi toimivat; toisen joukkueen pelaaja ei', () => {
+    const p = pel(1, 'FC Demo U15', ['demo_u15']), q = pel(2, 'FC Demo U14', ['demo_u14']);
+    ['FC DEMO U15', 'FC Demo U15', 'demo_u15'].forEach((x) => { expect(J.tmOnJoukkueessa(p, x, DOCS), x).toBe(true); expect(J.tmOnJoukkueessa(q, x, DOCS), x).toBe(false); });
+    expect(J.tmOnJoukkueessa(pel(3, 'FC Demo U15', []), 'demo_u15', DOCS)).toBe(true);   // legacy: vain nimi pelaajalla → kanonisoituu docille
+  });
+  it('ilman joukkue-doceja: normalisoitu nimivertailu legacy-kenttiin', () => { expect(J.tmOnJoukkueessa(pel(1, 'FC Demo U15', []), 'FC DEMO U15', null)).toBe(true); expect(J.tmOnJoukkueessa(pel(1, 'FC Demo U14', []), 'FC DEMO U15', [])).toBe(false); });
+  it('SA valitsee U15 → Kodissa 4 pelaajaa (ei tyhjä "lisää pelaajat" -tilaa): malli saa joukkueen docista, pelaajat täsmäävät id:llä', () => {
+    const kaikki = [1, 2, 3, 4].map((n) => pel(n, 'FC Demo U15', ['demo_u15'])).concat([5, 6].map((n) => pel(n, 'FC Demo U14', ['demo_u14']))), jd = J.tmEtsiJoukkueDoc('FC DEMO U15', DOCS);
+    const rajattu = kaikki.filter((x) => J.tmOnJoukkueessa(x, 'FC DEMO U15', DOCS)).map((x) => ({ id: x.id, nimi: 'Pelaaja ' + x.id })); expect(rajattu).toHaveLength(4);
+    const m = K.tmKotiMalli({ nyt: Date.UTC(2026, 9, 14), joukkue: { id: jd.id, nimi: jd.nimi }, pelaajat: rajattu, tapahtumat: [], uusi: !rajattu.length });
+    expect(m.syke.pelaajia).toBe(4); expect(m.tyhja).toBeNull(); expect(KN.tmKotiHTML(m, { t: (x) => x, on: () => 'x()' })).not.toMatch(/lisää pelaajat/i);
+  });
+  it('Master: valitsin kirjoittaa option.value = doc-id, _joukkue = docin nimi; _mOnJoukkueessa ja Kodin jd käyttävät libin täsmäystä', () => {
+    expect(MASTER).toContain('opt.value = j.id;'); expect(MASTER).toContain('opt.textContent = j.nimi;'); expect(MASTER).toContain('_joukkue = vj ? vj.nimi : null;'); expect(MASTER).toContain('return tmOnJoukkueessa(p, joukkue, _mJoukkueDocs);'); expect(MASTER).toContain('const jd = tmEtsiJoukkueDoc(_joukkue, _mJoukkueDocs)');
+    expect(MASTER).not.toContain('(_mJoukkueDocs || []).find(j => j.nimi === _joukkue)');
+  });
+});
