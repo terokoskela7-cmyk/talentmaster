@@ -141,6 +141,23 @@ function tmHenkiloJoukkueTeksti(d, tyhja) {
      · joukkueet[] puuttuu/tyhjä (legacy-pelaaja ennen §18:aa) → `joukkue`-nimi kanonisoidaan docia vasten (yksi tunniste) — EI muuten: nimi ei koskaan LISÄÄ jäsenyyttä listaan, jossa on tunnisteita.
      · joukkueDocs puuttuu tai on tyhjä → joukkueet[] sellaisenaan (merkkijonoina); nimeä ei voi ratkaista.
    Ei koske `joukkue`-kenttää ryhmittelyssä: vartija tests/joukkuejasenyys_yksi_saanto.test.js. */
+// V-KOTI B live (#1029): joukkue-arvo voi olla doc-id TAI nimi missä tahansa kirjainkoossa (SA-valitsin antoi "FC DEMO U15", pelaajalla "FC Demo U15" / ['demo_u15']). YKSI täsmäys Masterille ja Kodille.
+//   tmEtsiJoukkueDoc(joukkue, docs) → koko doc ({id, nimi, …}) id:llä (täsmä) tai normalisoidulla nimellä; ei osumaa → null.
+function tmEtsiJoukkueDoc(joukkue, docs) {
+  if (joukkue == null || joukkue === '' || !Array.isArray(docs)) return null;
+  var s = String(joukkue), i, k;
+  for (i = 0; i < docs.length; i++) if (docs[i] && String(docs[i].id) === s) return docs[i];
+  k = tmNormJoukkueAvain(s); if (!k) return null;
+  for (i = 0; i < docs.length; i++) if (docs[i] && tmNormJoukkueAvain(docs[i].nimi) === k) return docs[i];
+  return null;
+}
+//   tmOnJoukkueessa(p, joukkue, docs) → kuuluuko pelaaja joukkueeseen (jäsenyys tunnisteesta; ilman doc-osumaa normalisoitu nimivertailu legacy-kenttiin).
+function tmOnJoukkueessa(p, joukkue, docs) {
+  if (!p) return false; var d = tmEtsiJoukkueDoc(joukkue, docs);
+  if (d) return tmPelaajanJoukkueet(p, docs).indexOf(String(d.id)) >= 0;
+  var k = tmNormJoukkueAvain(joukkue); if (!k) return false;
+  return [p.joukkue, p.joukkueNimi].concat(Array.isArray(p.joukkueetNimet) ? p.joukkueetNimet : [], Array.isArray(p.joukkueet) ? p.joukkueet : []).some(function (n) { return tmNormJoukkueAvain(n) === k; });
+}
 function tmPelaajanJoukkueet(p, joukkueDocs) {
   if (!p) return [];
   var docs = (Array.isArray(joukkueDocs) && joukkueDocs.length) ? joukkueDocs : null, ids = Array.isArray(p.joukkueet) ? p.joukkueet : [], ulos = [], nahty = {};
@@ -251,6 +268,8 @@ if (typeof module !== 'undefined' && module.exports) {
     tmPuhdistaJoukkueetIdt: tmPuhdistaJoukkueetIdt,
     lajitteleJoukkueetIkaluokittain: lajitteleJoukkueetIkaluokittain,
     tmPelaajanJoukkueet: tmPelaajanJoukkueet,
+    tmEtsiJoukkueDoc: tmEtsiJoukkueDoc,
+    tmOnJoukkueessa: tmOnJoukkueessa,
     tmJasenyysPaivitys: tmJasenyysPaivitys,
     tmJasenyysDiagnoosi: tmJasenyysDiagnoosi,
     tmJasenyysRaportti: tmJasenyysRaportti,

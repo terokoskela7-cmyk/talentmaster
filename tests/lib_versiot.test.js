@@ -55,3 +55,27 @@ describe('portin logiikka (synteettinen repo)', () => {
     } finally { rmSync(d, { recursive: true, force: true }); }
   });
 });
+
+describe('HISTORIA-VARTIJA (append-only; #1029-opetus: fixturen uudelleengenerointi ei saa riittää)', () => {
+  it('todellinen repo: jokaisen (sivu, tiedosto, ?v) kirjattu hash = levyn sisältö — kaatuu jos tiedosto muuttui mutta ?v ei noussut, vaikka lib_versiot.json generoitaisiin uudelleen', () => {
+    const ero = LV.historiaEro(LV.lueHistoria(), LV.laske()); expect(ero.map((e) => e.viesti)).toEqual([]);
+  });
+  it('historia kattaa jokaisen listan rivin ?v:llä ja hash täsmää listaan (lista ei voi ohittaa historiaa)', () => {
+    const h = LV.lueHistoria(); for (const x of LV.lueLista()) { if (x.v === null) continue; expect((h[x.sivu + '|' + x.tiedosto] || {})[x.v], x.sivu + ' ' + x.tiedosto + ' ?v=' + x.v).toBe(x.hash); }
+  });
+  const rakenna = (a, v) => { const d = mkdtempSync(join(tmpdir(), 'libh-')); mkdirSync(join(d, 'lib')); writeFileSync(join(d, 'lib/a.js'), a); writeFileSync(join(d, 'sivu.html'), '<script src="lib/a.js?v=' + v + '"></script>'); return d; };
+  it('synteettinen: sisältö muuttuu samalla ?v:llä → muuttui_ilman_bumppia vaikka lista generoitaisiin uudelleen; laajennaHistoria ei koskaan ylikirjoita; ?v-nosto → vain "ei historiassa" (vanhentunut) kunnes kirjataan', () => {
+    const d = rakenna('A1', 1); try {
+      const nyt1 = LV.laske(d, ['sivu.html']), hist1 = LV.laajennaHistoria({}, nyt1); expect(LV.historiaEro(hist1, nyt1)).toEqual([]);
+      writeFileSync(join(d, 'lib/a.js'), 'A2'); const nyt2 = LV.laske(d, ['sivu.html']);
+      const e = LV.historiaEro(hist1, nyt2); expect(e).toHaveLength(1); expect(e[0]).toMatchObject({ tyyppi: 'muuttui_ilman_bumppia', tiedosto: 'lib/a.js' }); expect(e[0].viesti).toMatch(/ei noussut/);
+      expect(LV.historiaEro(LV.laajennaHistoria(hist1, nyt2), nyt2).map((x) => x.tyyppi)).toEqual(['muuttui_ilman_bumppia']);   // "uudelleengenerointi" (laajenna) ei ylikirjoita vanhaa → yhä punainen
+      writeFileSync(join(d, 'sivu.html'), '<script src="lib/a.js?v=2"></script>'); const nyt3 = LV.laske(d, ['sivu.html']);
+      expect(LV.historiaEro(hist1, nyt3).map((x) => x.tyyppi)).toEqual(['vanhentunut']); expect(LV.historiaEro(LV.laajennaHistoria(hist1, nyt3), nyt3)).toEqual([]);   // bumppi + kirjaus → vihreä
+      const h3 = LV.laajennaHistoria(hist1, nyt3); expect(h3['sivu.html|lib/a.js']).toEqual({ 1: nyt1[0].hash, 2: nyt3[0].hash });   // vanha v säilyy
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  it('CLI --kirjoita kieltäytyy kun historia ristiriidassa (ei kirjoita listaa ilman ?v-nostoa)', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'scripts', 'lib_versiot.js'), 'utf8'); expect(src).toMatch(/tyyppi === 'muuttui_ilman_bumppia'\);[\s\S]{0,200}Keskeytetty: bumppaa \?v ensin/);
+  });
+});

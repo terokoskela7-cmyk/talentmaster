@@ -137,4 +137,18 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('V-KOTI B · s
       }
     } finally { await selain.close(); }
   }, 180000);
+  it('LIVE #1029: SA valitsee U15 (value = doc-id, teksti = nimi) → Kodissa 4 pelaajaa, ei "lisää pelaajat"; vaihto U14 → 2 pelaajaa', async () => {
+    const docs = 'var __jd=[{id:"demo_u15",nimi:"FC Demo U15"},{id:"demo_u14",nimi:"FC Demo U14"}];_mJoukkueDocs=__jd;_mLataaJoukkueDocs=async function(){return __jd};_mJoukkueDocsSeura=_seuraId;'
+      + 'var __pel=[1,2,3,4].map(function(n){return{id:"a"+n,etunimi:"U15-"+n,sukunimi:"Pelaaja",joukkue:"FC Demo U15",joukkueet:["demo_u15"]}}).concat([1,2].map(function(n){return{id:"b"+n,etunimi:"U14-"+n,sukunimi:"Pelaaja",joukkue:"FC Demo U14",joukkueet:["demo_u14"]}}));_pelaajatData=__pel.slice();_kalenteriTapahtumat=[];'
+      + '_lataaPelaajat=async function(){_pelaajatData=__pel.slice()};_lataaTestitapahtumat=async function(){};_lataaKalenteriTapahtumat=async function(){};document.getElementById("sbSeura").textContent="FC Demo";_rakennaSAJoukkueValitsin("demo",{oletusKaikki:true});';
+    const kokoelmat = { 'seurat/demo/joukkueet': [{ id: 'demo_u15', data: { nimi: 'FC Demo U15' } }, { id: 'demo_u14', data: { nimi: 'FC Demo U14' } }] };
+    await avaa(); try {
+      const { sk, p } = await kaynnista(selain, { lippu: true, ryhmia: false, valitsin: docs, kokoelmat }, { width: 1280, height: 900 }); await p.waitForSelector('#sa-joukkue-valitsin', { state: 'attached' });
+      expect(await p.evaluate(() => Array.from(document.querySelectorAll('#sa-joukkue-valitsin option')).map((o) => o.value + '|' + o.textContent))).toEqual(['|— Kaikki joukkueet —', 'demo_u14|FC Demo U14', 'demo_u15|FC Demo U15']);
+      await p.locator('#sa-joukkue-valitsin').selectOption('demo_u15'); await p.waitForFunction(() => /0\/4(?!\d)/.test(document.getElementById('kotiView').innerText), null, { timeout: 8000 });
+      const t = await p.locator('#kotiView').innerText(); expect(t).toMatch(/0\/4(?!\d)/); expect(t).not.toMatch(/lisää pelaajat/i); expect(await p.evaluate(() => _joukkue)).toBe('FC Demo U15');
+      await p.locator('#sa-joukkue-valitsin').selectOption('demo_u14'); await p.waitForFunction(() => /0\/2(?!\d)/.test(document.getElementById('kotiView').innerText), null, { timeout: 8000 });
+      await sk.close();
+    } finally { await selain.close(); }
+  }, 180000);
 });
