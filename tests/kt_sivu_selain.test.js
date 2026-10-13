@@ -18,7 +18,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       expect(await p.locator('#nvSide .nv-item.active').innerText()).toBe('Pelaajat');
       expect(await p.locator('#ktsOtsikko').innerText()).toBe('Pelaajat › Bertta Bergh');
       expect(await p.locator('#nvPlus .nv-plus').isVisible()).toBe(true);   // + Havainto (D244)
-      expect(await p.locator('[data-kt-valilehti]').allInnerTexts()).toEqual(['Tänään', 'Polku', 'Näyttö']);
+      expect(await p.locator('[data-kt-valilehti]').allInnerTexts()).toEqual(['Tänään', 'Polku', 'Mittaukset']);
       expect(await p.locator('.kt-ot .kt-meta').first().innerText()).toBe('2/3');   // vain Demo U13: p1, p2, p3 (p9 on toisessa joukkueessa)
       expect(await p.locator('[data-kt-edellinen]').getAttribute('aria-label')).toBe('Edellinen pelaaja: Aatu Aalto');
       expect(await p.locator('[data-kt-seuraava]').getAttribute('aria-label')).toBe('Seuraava pelaaja: Cecil Carlsson');
@@ -70,7 +70,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
         expect(await p.locator('.kt-sig [data-kt-havainto-inline] [data-kt-havainto-arvo]').allInnerTexts()).toEqual(['Ei vielä', 'Ohjatusti', 'Itsenäisesti']);   // ei "Merkitse havainto" -väliaskelta
         await p.locator('.kt-sig [data-kt-havainto-arvo="2"]').click(); await p.waitForFunction(() => window.__kirj.length > 0, null, { timeout: 8000 });
         const k = await p.evaluate(() => window.__kirj); expect(k).toHaveLength(1); expect(k[0].path).toBe('seurat/demo/pelaajat/p2');
-        const rivi = k[0].update['jaksofokus.osa_havainnot.y_h1.a.u1']; expect(rivi).toMatchObject({ arvo: 2, rooli }); expect(rivi.pvm).toBe('2026-10-19'); expect(rivi.lause).toBeUndefined();
+        const P = 'jaksofokus.osa_havainnot.y_h1.a.u1.', u = k[0].update; expect(u[P + 'arvo']).toBe(2); expect(u[P + 'rooli']).toBe(rooli); expect(u[P + 'pvm']).toBe('2026-10-19'); expect(Object.keys(u).some((x) => /\.lause$/.test(x))).toBe(false);   // B2b: vain arvo, pvm, rooli
         expect(await hash(p)).toBe('#pelaaja/p2/tanaan'); expect(await p.locator('[data-kt-valilehti][aria-selected="true"]').innerText()).toBe('Tänään');
         expect(await p.locator('#toast-wrap .toast-item').innerText()).toMatch(/^Tallennettu\s*·\s*Kumoa$/); expect(await p.locator('[data-kt-kumoa]').count()).toBe(1);
         await sk.close();
@@ -109,7 +109,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       await p.locator('input[name="ktHavArvo"][value="2"]').check(); await p.locator('#ktHavLause').fill('Tämä on heikkous'); await p.locator('[data-kt-havainto-sheet-tallenna]').click(); expect(await p.locator('[data-kt-havainto-virhe]').innerText()).toMatch(/heikkou/);
       await p.locator('#ktHavLause').fill('Katsoi hyvin ylös ennen vastaanottoa'); await p.locator('[data-kt-havainto-sheet-tallenna]').click();
       await p.waitForFunction(() => window.__kirj.length === 1, null, { timeout: 8000 }); expect(await p.locator('[data-ts-sheet]').count()).toBe(0);
-      expect((await p.evaluate(() => window.__kirj[0].update))['jaksofokus.osa_havainnot.y_h1.a.u1']).toMatchObject({ arvo: 2, lause: 'Katsoi hyvin ylös ennen vastaanottoa' }); await sk.close();
+      { const u = await p.evaluate(() => window.__kirj[0].update); expect(u['jaksofokus.osa_havainnot.y_h1.a.u1.arvo']).toBe(2); expect(u['jaksofokus.osa_havainnot.y_h1.a.u1.lause']).toBe('Katsoi hyvin ylös ennen vastaanottoa'); } await sk.close();
     } finally { await selain.close(); }
   }, 60000);
   it('B2 · D100: sulkeminen (‹ Sulje, Esc, tausta) SÄILYTTÄÄ luonnoksen; "Luonnos säilytetty" avaajan vieressä; Hylkää luonnos / Tallenna tyhjentää; yksi sheet kerrallaan', async () => {

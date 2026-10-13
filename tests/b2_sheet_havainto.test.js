@@ -48,8 +48,8 @@ describe('tmKtTallennaOsaArvio: lause + Kumoa', () => {
   const JF = { konsepti_avain: 'kons', alkoi: '2026-10-05T08:00:00', kesto_vk: 6, osa_havainnot: {}, osa_arviot: {} };
   it('lause tallentuu omaan riviin (trimmattuna); ilman lausetta ei lause-kenttää; eiToastia → ei oma toast', async () => {
     const a = mk(JF, 'valmentaja', 'u1'); expect(await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 2, '  Hyvä  ')).toBe(true);
-    expect(a.kirj[0]['jaksofokus.osa_havainnot.kons.k1.u1']).toEqual({ arvo: 2, pvm: '2026-10-19', rooli: 'valmentaja', lause: 'Hyvä' }); expect(a.ilm).toEqual([]);
-    const b = mk(JF, 'valmentaja', 'u1'); await KT.tmKtTallennaOsaArvio(b.d, b.p, 'kons', 'k1', 3); expect(b.kirj[0]['jaksofokus.osa_havainnot.kons.k1.u1'].lause).toBeUndefined(); expect('lause' in b.kirj[0]['jaksofokus.osa_havainnot.kons.k1.u1']).toBe(false);
+    const P = 'jaksofokus.osa_havainnot.kons.k1.u1.'; expect(a.kirj[0][P + 'arvo']).toBe(2); expect(a.kirj[0][P + 'pvm']).toBe('2026-10-19'); expect(a.kirj[0][P + 'rooli']).toBe('valmentaja'); expect(a.kirj[0][P + 'lause']).toBe('Hyvä'); expect(a.p.jaksofokus.osa_havainnot.kons.k1.u1).toEqual({ arvo: 2, pvm: '2026-10-19', rooli: 'valmentaja', lause: 'Hyvä' }); expect(a.ilm).toEqual([]);
+    const b = mk(JF, 'valmentaja', 'u1'); await KT.tmKtTallennaOsaArvio(b.d, b.p, 'kons', 'k1', 3); expect(Object.keys(b.kirj[0]).filter((k) => /\.lause$/.test(k))).toEqual([]); expect(b.p.jaksofokus.osa_havainnot.kons.k1.u1.lause).toBeUndefined();
   });
   it('Kumoa: ei aiempaa → oma rivi + voimassa oleva arvo poistetaan; paikallinen tila palaa; kirjoitus vain oikeaan polkuun', async () => {
     const a = mk(JF, 'valmentaja', 'u1'); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 2); expect(a.p.jaksofokus.osa_arviot.kons.k1).toBe(2);
@@ -59,11 +59,25 @@ describe('tmKtTallennaOsaArvio: lause + Kumoa', () => {
   it('Kumoa: aiempi oma rivi + aiempi arvokartta palautetaan täsmälleen', async () => {
     const jf = Object.assign({}, JF, { osa_havainnot: { kons: { k1: { u1: { arvo: 1, pvm: '2026-10-01', rooli: 'valmentaja' } } } }, osa_arviot: { kons: { k1: 1, k2: 3 } } });
     const a = mk(jf, 'valmentaja', 'u1'); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 3, 'Uusi'); expect(a.p.jaksofokus.osa_arviot.kons).toEqual({ k1: 3, k2: 3 });
-    await a.kumoa()(); expect(a.kirj[1]).toEqual({ 'jaksofokus.osa_havainnot.kons.k1.u1': { arvo: 1, pvm: '2026-10-01', rooli: 'valmentaja' }, 'jaksofokus.osa_arviot.kons': { k1: 1, k2: 3 } }); expect(a.p.jaksofokus.osa_arviot.kons).toEqual({ k1: 1, k2: 3 }); expect(a.p.jaksofokus.osa_havainnot.kons.k1.u1.lause).toBeUndefined();
+    await a.kumoa()(); expect(a.kirj[1]).toEqual({ 'jaksofokus.osa_havainnot.kons.k1.u1.arvo': 1, 'jaksofokus.osa_havainnot.kons.k1.u1.pvm': '2026-10-01', 'jaksofokus.osa_havainnot.kons.k1.u1.rooli': 'valmentaja', 'jaksofokus.osa_havainnot.kons.k1.u1.lause': 'DEL', 'jaksofokus.osa_arviot.kons': { k1: 1, k2: 3 } }); expect(a.p.jaksofokus.osa_arviot.kons).toEqual({ k1: 1, k2: 3 }); expect(a.p.jaksofokus.osa_havainnot.kons.k1.u1.lause).toBeUndefined();
   });
   it('VP ei korvaa valmentajan arviota — eikä Kumoa kirjoita sitä: vain VP:n oma rivi poistetaan', async () => {
     const jf = Object.assign({}, JF, { osa_havainnot: { kons: { k1: { valm: { arvo: 2, pvm: '2026-09-20', rooli: 'valmentaja' } } } }, osa_arviot: { kons: { k1: 2 } } });
-    const a = mk(jf, 'vp', 'vp1'); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 3); expect(Object.keys(a.kirj[0])).toEqual(['jaksofokus.osa_havainnot.kons.k1.vp1']); await a.kumoa()(); expect(Object.keys(a.kirj[1])).toEqual(['jaksofokus.osa_havainnot.kons.k1.vp1']); expect(a.p.jaksofokus.osa_arviot.kons.k1).toBe(2);
+    const a = mk(jf, 'vp', 'vp1'); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 3); expect(Object.keys(a.kirj[0]).every((k) => k.indexOf('jaksofokus.osa_havainnot.kons.k1.vp1.') === 0)).toBe(true); expect(Object.keys(a.kirj[0]).some((k) => /osa_arviot/.test(k))).toBe(false); await a.kumoa()(); expect(a.kirj[1]).toEqual({ 'jaksofokus.osa_havainnot.kons.k1.vp1': 'DEL' }); expect(a.p.jaksofokus.osa_arviot.kons.k1).toBe(2);
+  });
+  it('B2b · NAPAUTUS EI PYYHI LAUSETTA: aiempi lause säilyy; kirjoitus sisältää vain arvo, pvm, rooli; Kumoa palauttaa vain arvon (pvm, rooli) eikä koske lauseeseen', async () => {
+    const jf = Object.assign({}, JF, { osa_havainnot: { kons: { k1: { u1: { arvo: 1, pvm: '2026-10-01', rooli: 'valmentaja', lause: 'Katsoi hyvin ylös' } } } }, osa_arviot: { kons: { k1: 1 } } });
+    const a = mk(jf, 'valmentaja', 'u1'); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 3);
+    expect(Object.keys(a.kirj[0]).sort()).toEqual(['jaksofokus.osa_arviot.kons', 'jaksofokus.osa_havainnot.kons.k1.u1.arvo', 'jaksofokus.osa_havainnot.kons.k1.u1.pvm', 'jaksofokus.osa_havainnot.kons.k1.u1.rooli']);   // ei .lause, ei koko rivin korvausta
+    expect(a.p.jaksofokus.osa_havainnot.kons.k1.u1).toEqual({ arvo: 3, pvm: '2026-10-19', rooli: 'valmentaja', lause: 'Katsoi hyvin ylös' });
+    await a.kumoa()(); expect(Object.keys(a.kirj[1]).some((k) => /\.lause$/.test(k))).toBe(false); expect(a.kirj[1]['jaksofokus.osa_havainnot.kons.k1.u1.arvo']).toBe(1);
+    expect(a.p.jaksofokus.osa_havainnot.kons.k1.u1).toEqual({ arvo: 1, pvm: '2026-10-01', rooli: 'valmentaja', lause: 'Katsoi hyvin ylös' });
+  });
+  it('B2b · lauseen kanssa tallennus + Kumoa palauttaa myös lauseen (aiempi lause takaisin / pois)', async () => {
+    const jf = Object.assign({}, JF, { osa_havainnot: { kons: { k1: { u1: { arvo: 1, pvm: '2026-10-01', rooli: 'valmentaja', lause: 'Vanha' } } } }, osa_arviot: { kons: { k1: 1 } } });
+    const a = mk(jf, 'valmentaja', 'u1'); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 2, 'Uusi'); expect(a.p.jaksofokus.osa_havainnot.kons.k1.u1.lause).toBe('Uusi');
+    await a.kumoa()(); expect(a.kirj[1]['jaksofokus.osa_havainnot.kons.k1.u1.lause']).toBe('Vanha'); expect(a.p.jaksofokus.osa_havainnot.kons.k1.u1.lause).toBe('Vanha');
+    const b = mk(JF, 'valmentaja', 'u1'); await KT.tmKtTallennaOsaArvio(b.d, b.p, 'kons', 'k1', 2, 'Vain uusi'); await b.kumoa()(); expect(b.kirj[1]).toEqual({ 'jaksofokus.osa_havainnot.kons.k1.u1': 'DEL', 'jaksofokus.osa_arviot.kons': 'DEL' });
   });
   it('ilman kumoaFn-kutsujaa (Master/VP vanha näkymä) käytös ennallaan: oma toast "Osa-arvio tallennettu ✓"; sisäkkäinen konsepti-avain (piste) ei tarjoa Kumoa:a', async () => {
     const a = mk(JF, 'valmentaja', 'u1'); delete a.d.kumoaFn; delete a.d.eiToastia; a.d.viesti = 'Tallennettu'; await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 2); expect(a.ilm).toEqual(['Tallennettu ✓']); expect(a.kumoa()).toBeNull();
@@ -80,4 +94,24 @@ describe('Tänään inline-tila vs. vanha paneeli', () => {
     const v = KT.tmKtTanaanKoko(p, tila, ctx({})); expect(v).not.toContain('data-kt-havainto-inline'); expect(v).toContain('data-kt-signaali-nappi="havainto"');
   });
   it('inline vain kirjoittajalle: voiKirjoittaa=false → ei nappeja', () => { const h = KT.tmKtTanaanKoko(p, tila, ctx({ inline: true, voiKirjoittaa: false })); expect(h).not.toContain('data-kt-havainto-inline'); expect(h).not.toContain('data-kt-havainto-arvo'); });
+});
+
+describe('B2b · toastin ajastin: pysähtyy hiiren/fokuksen ajaksi (a11y)', () => {
+  const H = require('../lib/tm_kt_havainto.js');
+  function mk() {
+    const kuuntelijat = {}, el = { addEventListener: (n, f) => { kuuntelijat[n] = f; } };
+    const ajat = []; let nro = 0; const ajastus = { set: (f, ms) => { const id = ++nro; ajat.push({ id, f, ms, elossa: true }); return id; }, clear: (id) => { ajat.find((a) => a.id === id).elossa = false; } };
+    let valmis = 0; const a = H.tmKtToastAjastin(el, 5000, () => { valmis++; }, ajastus);
+    return { kuuntelijat, ajat, a, valmis: () => valmis, laukaise: () => { const t = ajat.filter((x) => x.elossa).pop(); if (t) { t.elossa = false; t.f(); } } };
+  }
+  it('ilman vuorovaikutusta toast sulkeutuu 5 s jälkeen', () => { const m = mk(); expect(m.ajat[0].ms).toBe(5000); m.laukaise(); expect(m.valmis()).toBe(1); });
+  it('hiiri toastin päällä pysäyttää ajastimen; poistuminen käynnistää täyden 5 s uudelleen', () => {
+    const m = mk(); m.kuuntelijat.mouseenter(); expect(m.ajat.filter((x) => x.elossa).length).toBe(0); m.laukaise(); expect(m.valmis()).toBe(0);
+    m.kuuntelijat.mouseleave(); const uusi = m.ajat.filter((x) => x.elossa); expect(uusi.length).toBe(1); expect(uusi[0].ms).toBe(5000); m.laukaise(); expect(m.valmis()).toBe(1);
+  });
+  it('fokus Kumoa-napissa pysäyttää; fokuksen poistuessa jatkuu; hiiri+fokus yhdessä: jatkuu vasta kun kumpikaan ei ole päällä', () => {
+    const m = mk(); m.kuuntelijat.focusin(); expect(m.ajat.filter((x) => x.elossa).length).toBe(0);
+    m.kuuntelijat.mouseenter(); m.kuuntelijat.focusout(); expect(m.ajat.filter((x) => x.elossa).length).toBe(0); m.kuuntelijat.mouseleave(); expect(m.ajat.filter((x) => x.elossa).length).toBe(1);
+  });
+  it('peru() lopettaa lopullisesti (ei sulkua jälkeenpäin)', () => { const m = mk(); m.a.peru(); m.kuuntelijat.mouseleave(); expect(m.ajat.filter((x) => x.elossa).length).toBe(0); expect(m.valmis()).toBe(0); });
 });
