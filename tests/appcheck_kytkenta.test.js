@@ -45,10 +45,12 @@ describe('kohdejoukko (johdettu datasta, ei kovakoodattu)', () => {
      Portti punersi sen automaattisesti, kun tiedosto ilmestyi juureen: se on tämän testin tarkoitus. */
   /* 20 compat (2026-10): TalentMaster_IDP_Kortti_v4.html arkistoitu (korvattu VP_v25:n työpöydällä + Masterin IDP-kortilla). */
   /* 19 compat (2026-10): TalentMaster_UTJ_v1.html arkistoitu (docs/UTJ_TALTEEN.md). */
-  it('22 elävää appia = 20 compat + 2 modular (+ Huoltajakutsu)', () => {
-    expect(compat.length, 'compat-appeja').toBe(20);
+  /* 21 compat (2026-10): TalentMaster_Kehitystyopoyta.html (kierros B · B7) — uusi appi, App Check kytketty 10.7.1:llä. */
+  it('23 elävää appia = 21 compat + 2 modular (+ Huoltajakutsu)', () => {
+    expect(compat.length, 'compat-appeja').toBe(21);
     expect(scope.filter((n) => MODULAR.includes(n)).length, 'modular-appeja').toBe(2);
-    expect(scope.length).toBe(22);
+    expect(scope.length).toBe(23);
+    expect(compat, 'Kehitystyöpöytä-sivu kuuluu joukkoon').toContain('TalentMaster_Kehitystyopoyta.html');
     expect(compat, 'kenttätyökalu kuuluu joukkoon').toContain('TalentMaster_Pelihavainto_Kentta.html');
     expect(compat, 'de-bundlattu ADAR kuuluu joukkoon').toContain('TalentMaster_ADAR_Pikakortti.html');
   });

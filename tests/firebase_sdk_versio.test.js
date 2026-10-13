@@ -50,10 +50,11 @@ const MODULAR = KAIKKI.filter((n) => TIEDOT[n].modular);
 describe('kohdejoukko (johdettu datasta)', () => {
   // 20 compat (2026-10): TalentMaster_IDP_Kortti_v4.html arkistoitu (docs/IDP_YHDISTAMINEN.md), oli 21.
   // 19 compat (2026-10): TalentMaster_UTJ_v1.html arkistoitu (docs/UTJ_TALTEEN.md).
-  it('EI VACUOUS: 20 compat + 2 modular = 22 elävää sivua (sama luku kuin App Check -portissa)', () => {
-    expect(COMPAT.length).toBe(20);
+  // 21 compat (2026-10): TalentMaster_Kehitystyopoyta.html (kierros B · B7) — uusi appi suoraan kohdeversiossa 10.7.1.
+  it('EI VACUOUS: 21 compat + 2 modular = 23 elävää sivua (sama luku kuin App Check -portissa)', () => {
+    expect(COMPAT.length).toBe(21);
     expect(MODULAR.length).toBe(2);
-    expect(KAIKKI.length).toBe(22);
+    expect(KAIKKI.length).toBe(23);
   });
   it('archive/ ei ole mukana', () => { expect(KAIKKI.some((n) => n.includes('/'))).toBe(false); });
 });
@@ -96,7 +97,7 @@ describe('versiot', () => {
     expect(Object.keys(MIGRAATIOLISTA)).toHaveLength(9);
     expect([...new Set(Object.values(MIGRAATIOLISTA).map((m) => m.era))].sort()).toEqual([2, 3, 4, 5, 6]);
   });
-  it('listan ulkopuolisia compat-sivuja on 11 (jo kohdeversiossa; Huoltajakutsu 10.10.2026; IDP_Kortti_v4 ja UTJ_v1 arkistoitu 2026-10)', () => {
-    expect(COMPAT.filter((n) => !MIGRAATIOLISTA[n])).toHaveLength(11);
+  it('listan ulkopuolisia compat-sivuja on 12 (jo kohdeversiossa; Huoltajakutsu 10.10.2026; Kehitystyöpöytä 13.10.2026; IDP_Kortti_v4 ja UTJ_v1 arkistoitu 2026-10)', () => {
+    expect(COMPAT.filter((n) => !MIGRAATIOLISTA[n])).toHaveLength(12);
   });
 });
