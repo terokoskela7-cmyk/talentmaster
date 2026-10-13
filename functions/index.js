@@ -1517,6 +1517,7 @@ exports.tasoHaeMaatcheck = functions
     return null;
   });
 */
+const _tasoKal = require('./kalenteri_taso'), _tasoDeps = { functions, db, tasoHae, FieldValue: admin.firestore.FieldValue, Timestamp: admin.firestore.Timestamp };
 exports.tasoHaeSeuranOttelut = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
@@ -1536,8 +1537,10 @@ exports.tasoHaeSeuranOttelut = functions
         'TASO API-avain tai Club ID puuttuu. Aseta ne Seura-asetuksissa.');
     }
     const lkm = await paivitaSeuranOttelut(seuraId, seuraData.taso_api_key, seuraData.taso_club_id);
-    return { ok: true, ottelut: lkm, seuraId };
+    const kalenteri = await _tasoKal.ajaSeura(_tasoDeps, seuraId, Date.now()).catch((e) => ({ virhe: e.message }));   // K35-5: sama haku kalenteriin (yhdistetyt joukkueet)
+    return { ok: true, ottelut: lkm, seuraId, kalenteri };
   });
+Object.assign(exports, _tasoKal.luo(_tasoDeps));   // kalenteriTasoSynkka (ajastettu, K35-5)
 // ============================================================
 // AI PROXY — SULJETTU
 // ============================================================
