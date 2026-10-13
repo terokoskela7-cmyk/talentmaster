@@ -60,7 +60,7 @@ Repossa ei ole harjoitteita. `spl_viikkopohjat_2023.json` on "johdettu tiivistel
 - Tiedoston otsikko ja kommentit nimeävät rakenteellisiksi lähteiksi **Fulham FC Academy Home Practice** (T-harjoite kuukausimalli, "REPEAT INDIVIDUAL NEED"), **Noordster Basis Techniek Training** (8 sarjaa, 3 tasoa) ja **Everton Stage -progression** (stage 1–5, `EVERTON_LISAYKSET`). Nevanlinna 2014 on mainittu kahdessa kuvauksessa ja on `LISENSSIT.md`:ssä.
 - Tekstit ovat suomeksi, kolmella ikävaihe-ohjeella, "tarina"/"cue"-kentillä ja omalla `phv`-lisällä (`phv`-kenttä on tiedoston oman kommentin mukaan "lisäarvo Evertoniin verrattuna"). Se viittaa omaan muotoiluun, mutta ei todista sitä.
 - Fulhamia, Noordsteria ja Evertonia **ei ole `LISENSSIT.md`:ssä**; sama sivu toteaa, ettei ulkopuolista sisältöä lisätä ennen lupaa. Jokaisella harjoitteella on YouTube-id (`yt`), eli ulkopuolisia videoita viitataan.
-- **Suositus:** pidä fysiikkaharjoitteet pois toimintakortista (kuten briefissä) kunnes (a) Tero vahvistaa tekstien alkuperän (oma vai ei) ja (b) videolinkkien käyttöoikeus on selvitetty.
+- **Suositus (päivitetty 13.10.):** fysiikkalinja on Teron oma aineisto (kohta 13), joten tekstit saa näyttää. Fulham/Noordster/Everton-rakennemallien rivi `LISENSSIT.md`-luonnoksessa (6.3) ja YouTube-videolinkkien käyttöoikeus jäävät Teron päätettäväksi.
 
 **6.2 HPP-kuntoutuspankki.** Tiedoston otsikko: "TalentMaster-järjestelmän ja **HPP ELITE -klinikan yhteinen** protokolladata"; lähde "HPP ELITE v9 harjoitekirjasto (Excel, 53 harjoitetta)"; 45 harjoitetta, osa "HPP ELITE -spesifit … suoraan HPP ELITE v9 -kirjastosta". Se on siis klinikan aineistoa, ei TalentMasterin omaa, eikä lupaa ole kirjattu. Ei toimintakortille.
 
@@ -138,7 +138,7 @@ Lukujen valossa: kumpikaan avain (`konsepti`, `painopiste`) ei ole käytössä, 
 5. **Pelaajan silmin:** vain TalentMaster-data (`tmTtPelaaja()`): cuet ja konseptipelin nimi. Seuran harjoitetta ei näytetä pelaajalle, snapshotia ei tehdä nyt.
 6. **Video:** "Katso video" vain jos linkki on olemassa (KPV:llä ei yhtään); kuvan näyttö ennallaan.
 7. **https:** uusi `video_url`-syöttö hyväksyy vain https; muiden linkkien nykyistä validointia ei muuteta.
-8. **Lisenssit:** fysiikkapankki (`harjoitelogiikka_v4.js`) ja HPP-pankki eivät näy uudessa näkymässä. `LISENSSIT.md`-luonnos (kohta 6.3) jää raporttiin; Tero päättää kirjauksen.
+8. **Lisenssit:** ~~fysiikkapankki ei näy uudessa näkymässä~~ — **kumottu 13.10. (kohta 13):** fysiikkalinja on Teron / TalentMasterid Oy:n omaa aineistoa, ja fysiikkaharjoitteet saa näyttää toimintakortissa. **HPP-pankki ei näy uudessa näkymässä**; sen `LISENSSIT.md`-luonnos (kohta 6.3) jää raporttiin.
 9. **Tuontiskriptit:** `lupa`- ja `video_url`-kenttien lisäys `tuo_harjoitepankki.js`:ään on oma pieni PR B4:n jälkeen.
 
 ## 12. KPV: pelikonteksti-arvot (vain luvut; Teron 13.10. ajama vain luku -skripti)
@@ -167,3 +167,10 @@ KPV:n harjoitepankissa 124 harjoitetta; **pelikonteksti täytetty 89:llä (18 er
 | Peliosuus | 1 | 0 / 0 | ≤9: 1 |
 
 Yhteensä 18 arvoa. Taulu on pohja seurakohtaiselle vastaavuudelle `pelikonteksti → Y-konsepti` (ROADMAP: "Konseptivastaavuus (seura)"); **vastaavuuksia ei ole arvattu** — sisällön päättää Tero KPV-linjan tarkistuksessa.
+
+## 13. Uudet päätökset (Tero 13.10.)
+
+1. **Konsepti tuodaan lähteestä, ei vastaavuustaululla.** Erillistä taulua ja `konfiguraatio/konseptivastaavuus`-dokumenttia ei tehdä (korvaa ROADMAP-rivin "Konseptivastaavuus (seura)"). Vientipohjiin (Teemat, Identiteettiharjoitteet, harjoituspankki) tulee sarake "Mitä harjoitellaan" (pudotusvalikko: D248:n 14 nimeä + "ei TalentMaster-konseptia") ja pankkiin sarake `lahde_tyyppi` (oma / SoccerTutor / SPL-pohja). `tuo_valmennuslinja.js` ja `tuo_harjoitepankki.js` muuntavat nimen avaimeksi ja kirjoittavat `konsepti`, `lahde_tyyppi`, `video_url`. SoccerTutor-harjoitteista tuodaan vain nimi ja kuva (ei tekstejä). Tero esitäyttää KPV:n konseptit KPV-linjan tarkistuksessa, seura kuittaa kuittausmallilla. Arvio ~0,5 pv; ROADMAP-rivi "Konsepti vientipohjaan" (B4:n jälkeen). KPV:n kuittauspohjassa 89 riviä (kohta 12).
+2. **Fysiikkalinja on Teron omaa aineistoa** (`harjoitelogiikka_v4.js` + SJK/KPV-vientipohjan fysiikkasisältö; Tero Koskela / TalentMasterid Oy). Käyttö sallittu anonyymisti kaikille seuroille; **fysiikkaharjoitteet saa näyttää toimintakortissa** (kumoaa kohdan 11 päätöksen 8 fysiikan osalta). Kirjattu `docs/LISENSSIT.md`:hen. Fysiikkaharjoite näkyy, kun jakso on fyysinen tai pelaajalla on kasvupyrähdysmerkintä. HPP-pankki pysyy poissa.
+3. **D248 Sanasto** (07, lukittu 13.10.): käyttöliittymän tekstit arkikielelle (Mitä harjoitellaan · Ydinasiat · Kysy pelaajalta · Peliharjoite · osaa jo / tällä viikolla / myöhemmin · Mittaukset · Jakson arviointi · Pelaajan lupaus · Huomio …); kenttien nimet tietokannassa eivät muutu. Uusi sivu (B3/B4) ottaa sanaston käyttöön heti; vanhat näkymät sitä mukaa kuin uusitaan.
+4. **Toimintakortin tekstit D248:n mukaan** (B3/B4); muuten kohdan 11 päätökset ennallaan.
