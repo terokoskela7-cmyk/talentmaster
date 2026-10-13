@@ -1,6 +1,6 @@
 # 40 · Harjoitteiden lähteet toimintakorttia varten — selvitys (vaihe 1)
 
-**Tila:** raportti ennen toteutusta (docs-PR, ei sovelluskoodia). Päivätty 14.10.2026. Live-luvut: Teron ajamat vain luku -skriptit (ei kirjoituksia; vain lukuja, kenttänimiä ja lyhyitä luokitteluarvoja, ei harjoitetekstejä); lähde `lahteet.json` + `lahteet2.json`.
+**Tila:** raportti ennen toteutusta (docs-PR, ei sovelluskoodia). Päivätty 14.10.2026. Live-luvut: Teron 14.10. ajamat vain luku -skriptit (ei kirjoituksia; vain lukuja, kenttänimiä ja lyhyitä luokitteluarvoja, ei harjoitetekstejä); lähde `lahteet.json` + `lahteet2.json`. Skriptit eivät ole PR:ssä.
 **Ristiriidat briefin kanssa on koottu kohtaan 9. Niitä ei ole ratkaistu.**
 
 ## 1. Tiivistelmä
@@ -82,20 +82,38 @@ Repossa ei ole harjoitteita. `spl_viikkopohjat_2023.json` on "johdettu tiivistel
 
 ## 8. Yhdistäminen: teema/konsepti → harjoite
 
-Nykyiset avaimet: `konsepti` (KPV 35 harjoitetta, SJK 34), `ketju`, `kehityskohde` (kaikilla; ketju/kehityskohde = fysiikkapuolen avaimia), `pelikonteksti` + `painopiste` + `tags` + `ryhma` (KPV 89, `kpvh_*`), `pelivaihe` 1. `valmennuslinja/teemat.jaksot[]` sisältää `konsepti`-kentän (Rules-kommentti v3.40). `ohjelmat.teema_avain` = fy_* tai konseptiavain; `jaksofokus.konsepti_avain` on TM:n konseptiavain (`y_h1`).
-**Yhteinen avain on olemassa vain osittain** (KPV `konsepti` 35/124). ⏳ Täydennetään `lahteet2.json`-luvuilla: monta näistä osuu Y-konseptiin, ja monellako on painopiste.
+**Kenttien todellinen täyttö (KPV 124 / SJK 34; ei-tyhjät arvot):**
+
+| Kenttä | KPV | SJK | Huomio |
+|---|---|---|---|
+| `teema_avain` | – (kenttää ei ole) | – | on vain `ohjelmat`-dokumenteissa, ja siellä **0/15** täytetty |
+| `konsepti` | **1** (arvo "Hyökkäys", ei TM-konseptiavain) | 0 | kenttä on olemassa 35 dokumentissa, mutta tyhjänä |
+| `painopiste` | **0** | – | kenttä on olemassa 89 dokumentissa, mutta tyhjänä |
+| `pelikonteksti` | 89 | 0 | 18 eri arvoa (alla) |
+| `tags` | 89 | 0 | pallollinen 49, 1v1 42, havainnointi 16, tuki 14, hyökkäys 14, viimeistely 13, fyysinen 12, puolustus 12, pelijärjestelmä 1 |
+| `ketju` | 34 | 34 | SFL 13, LL 10, DIAG 6, DFL 3, SBL 2 (fysiikka, ei konsepti) |
+| `kehityskohde` | 0 | 0 | |
+| `pelivaihe` | 1 ("Hyökkäys") | 0 | |
+| `ika_min` | 14 | 0 | |
+| `video_url` | **0** | **0** | |
+| `kuva_url` | 81 (Storage-polku) | 0 | |
+
+`pelikonteksti`-arvot (KPV, 89 harjoitetta): 1v1 hyökkääminen 13, 1v1 puolustaminen 10, Laukominen 8, Kuljettaminen 7, Alkulämmittely 7, Harhauttaminen 6, Kääntyminen 6, Syöttäminen ja 1. kosketus 6, Suojaaminen 5, Syöttöpelit 5, Nopeus ja ketteryys 4, Kuljetus ja kääntyminen 2, Kuljetus ja laukaus 2, Kuljetus ja syöttö 2, Kuljetus ja harhautus 2, Kuljetus ja suojaaminen 2, Peliosuus 1, Murtautuminen ja maalinteko 1.
+`valmennuslinja/teemat.jaksot[]` sisältää kentän `konsepti` (id, joukkue, jakso, viikot, alkaa, paattyy, teema, konsepti, …), mutta sitä ei ole täytetty (KPV 7 hyväksyttyä jaksoa: 0; SJK 7 luonnosta: 0). Ohjelmien liikkeillä (150 kpl / seura) on kentät `video_url` ja `kuva_url`.
+
+**Vastaus kysymykseen 7 (vain luvut): KPV:n 105 hyväksytystä harjoitteesta Y-konseptiin osuu 0** (`teema_avain`-kenttää ei ole; `konsepti` täytetty 1 harjoitteella eikä sen arvo ole konseptiavain; `painopiste` täytetty 0:lla). Osumia konseptia kohti: 0 kaikilla 14 konseptilla. **Yhteistä avainta ei siis ole nyt**; lähin ehdokas on `pelikonteksti` (89 harjoitetta, 18 arvoa) + `tags`, jotka vaativat vastaavuustaulun TM-konsepteihin (vaihtoehto a).
 
 | Vaihtoehto | Mitä | Työmäärä | Arvio |
 |---|---|---|---|
 | (a) Vastaavuustaulu konsepti → harjoite-id:t lähteittäin | seuran dokumentti `konfiguraatio/harjoitelahteet` tai oma `konsepti → [id]` | Pieni: lib-funktio + taulu + testit ≈ 1–1,5 pv; täyttö käsin per seura (Linjapankki voi tuottaa) | Joustava, harjoitteiden dokumentteihin ei kosketa; ei laajene automaattisesti |
 | (b) Tagit harjoitteisiin (`konsepti`/`konsepti_osa`) | kenttä pankin harjoitteeseen | Keskisuuri: tuonti + normalisointi + Rules (valmentaja saa taggata?) ≈ 2–3 pv; vaatii tuonnin uudelleenajon | Skaalautuu; osakohdistus (a/b/c) vaatii uuden kentän, jota ei nyt ole |
 
-Suositus riippuu `lahteet2.json`:n luvuista (kohdistuuko `konsepti` jo riittävään osaan). **Ei ratkaistu tässä.**
+Lukujen valossa: kumpikaan avain (`konsepti`, `painopiste`) ei ole käytössä, joten (b) vaatisi kentän täytön 89+ harjoitteelle, kun taas (a) voi lähteä liikkeelle 18 `pelikonteksti`-arvosta (taulu pelikonteksti → Y-konsepti, ≈ 18 riviä KPV:lle; jokainen seura tarvitsee oman taulunsa). Kumpikaan ei kohdista osaan (a/b/c/d). **Ei ratkaistu tässä.**
 
 ## 9. Ristiriidat briefin kanssa (raportoitu, ei ratkaistu)
 
-1. **`teema_avain` ei ole harjoitepankin kenttä.** KPV:n 124 dokumentissa on `konsepti` (35 dokumentissa, mm. Ketteryys/Rutiinit-tuonti), ei `teema_avain`ia. `teema_avain` on vain `ohjelmat`-dokumenteissa. Briefin kysymys 7 ("teema_avain-kentällä osuu Y-konseptiin") luetaan siksi kentälle `konsepti`; luvut ⏳.
-2. **`painopiste` ei kohdista osaan (a/b/c/d).** Se on vapaa teksti-/luokitteluarvo (`tmHarjoiteHaku` käyttää sitä haun pisteytykseen, ei osakohdistukseen); osakohdistukseen ei ole kenttää.
+1. **`teema_avain` ei ole harjoitepankin kenttä.** KPV:n 124 dokumentissa on `konsepti` (kenttä 35 dokumentissa, **täytetty 1:ssä**, arvo "Hyökkäys"), ei `teema_avain`ia. `teema_avain` on vain `ohjelmat`-dokumenteissa (täytetty 0/15). Vaiheen 2 ensimmäinen lähdeehto ("teema_avain vastaa jakson konseptia") **ei täyty yhdelläkään KPV:n harjoitteella**; seura → TM-järjestys antaisi nykydatalla aina TM-konseptipelin.
+2. **`painopiste` ei kohdista osaan (a/b/c/d).** Kenttä on olemassa 89:ssä KPV-dokumentissa mutta **täytetty 0:ssa** (KPV: 0/124; seuraa kohden täytettyjä: 0). Se on lisäksi vapaa luokittelu (`tmHarjoiteHaku` käyttää sitä haun pisteytykseen), eikä osakohdistukseen ole kenttää.
 3. **Kysymykset ≠ osat:** 3 kysymystä per konsepti, 3–7 osaa. Ei kohdistettavissa.
 4. **Kirjoitusoikeus:** brief sallii valmentajan `video_url`-kirjoituksen; nykyiset Rules sallivat harjoitepankin kirjoituksen vain VP/UTJ/SA → Rules-muutos tarvitaan (kohta 7). Seurasihteeri voi kirjoittaa `konfiguraatio/harjoitelahteet`, vaikka brief sanoo "vain ylläpitäjä".
 5. **Pelaajan silmin ja pankki:** pelaaja ei voi lukea `kaytto: joukkue` -harjoitteita (KPV 123/124) → pelaajan oman näkymän data vain `tmTtPelaaja()`:sta (TM-konseptipeli), ellei harjoitteesta tehdä snapshotia.
@@ -105,7 +123,20 @@ Suositus riippuu `lahteet2.json`:n luvuista (kohdistuuko `konsepti` jo riittäv�
 
 ## 10. Vaiheen 2 riskit
 
-- Hyväksytyistä KPV-harjoitteista vain osa (⏳) kohdistuu konseptiin → muille näytetään konseptipeli tai pelkkä cue.
+- Hyväksytyistä KPV-harjoitteista **0 kohdistuu konseptiin** nykyisillä kentillä → ilman vastaavuustaulua tai täyttöä kaikille näytetään konseptipeli.
 - Sibbo: Y-konseptit ovat ruotsiksi (14/14), mutta seuran oma linja puuttuu kokonaan; lähdejärjestys "seura → TM" tuottaa Sibbolle aina TM-konseptipelin.
+- Videot: ei yhtään `video_url`:ia KPV:llä eikä SJK:lla, joten "Katso video" on aluksi tyhjä kaikille; konseptipeleillä ei voi olla seuran linkkiä. Pelaajalle (kaytto) 123/124 KPV-harjoitteesta ei ole lukuoikeutta.
 - Ruotsin avaimet vaiheessa 2: uudet fi-avaimet → `SV_ODOTTAA` + Gemini-erä.
 - Kolmas osapuoli: KPV:llä 1 `kolmas_osapuoli`-harjoite (luonnos) — ei näytetä (luonnos).
+
+## 11. Päätökset kohtaan 9 (Tero/PM 14.10.; vaihe 2 hyväksytty näillä)
+
+1. **Hakukenttä:** harjoite haetaan pankin kentällä `konsepti`, ei `teema_avain`. *(Seuraus: KPV:llä kenttä on täytetty 1/124:ssä, joten ennen täyttöä tai vastaavuustaulua näkyy TM-konseptipeli.)*
+2. **Ei osakohtaisia harjoitteita.** Harjoite näytetään vain jakson tasolla; pankkiin ei lisätä osa-kenttää nyt (kirjataan myöhemmäksi).
+3. **Cuet jakson tasolla:** "Miten valmennetaan" -lohkossa kaikki kolme kysymystä + harjoite. Osarivit avautuvat edelleen, mutta vain osan teksti, tila ja viikkohavainto — ei cueta.
+4. **Rules:** valmentajalle ei löysennetä. "+ Lisää video" näkyy vain niille, joilla on jo kirjoitusoikeus pankkiin (VP, UTJ, SA). `konfiguraatio/harjoitelahteet` kiristetään niin, että kirjoittaa vain SA ja VP — **samassa PR:ssä kuin testivastaavan kiristys**. Siihen asti dokumenttia ei kirjoiteta käyttöliittymästä, ja oletusjärjestys (seura → TalentMaster) on koodissa.
+5. **Pelaajan silmin:** vain TalentMaster-data (`tmTtPelaaja()`): cuet ja konseptipelin nimi. Seuran harjoitetta ei näytetä pelaajalle, snapshotia ei tehdä nyt.
+6. **Video:** "Katso video" vain jos linkki on olemassa (KPV:llä ei yhtään); kuvan näyttö ennallaan.
+7. **https:** uusi `video_url`-syöttö hyväksyy vain https; muiden linkkien nykyistä validointia ei muuteta.
+8. **Lisenssit:** fysiikkapankki (`harjoitelogiikka_v4.js`) ja HPP-pankki eivät näy uudessa näkymässä. `LISENSSIT.md`-luonnos (kohta 6.3) jää raporttiin; Tero päättää kirjauksen.
+9. **Tuontiskriptit:** `lupa`- ja `video_url`-kenttien lisäys `tuo_harjoitepankki.js`:ään on oma pieni PR B4:n jälkeen.
