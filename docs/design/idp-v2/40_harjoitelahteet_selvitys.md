@@ -1,6 +1,6 @@
 # 40 · Harjoitteiden lähteet toimintakorttia varten — selvitys (vaihe 1)
 
-**Tila:** raportti ennen toteutusta (docs-PR, ei sovelluskoodia). Päivätty 14.10.2026. Live-luvut: Teron 14.10. ajamat vain luku -skriptit (ei kirjoituksia; vain lukuja, kenttänimiä ja lyhyitä luokitteluarvoja, ei harjoitetekstejä); lähde `lahteet.json` + `lahteet2.json`. Skriptit eivät ole PR:ssä.
+**Tila:** raportti ennen toteutusta (docs-PR, ei sovelluskoodia). Päivätty 13.10.2026. Live-luvut: Teron 13.10. ajamat vain luku -skriptit (ei kirjoituksia; vain lukuja, kenttänimiä ja lyhyitä luokitteluarvoja, ei harjoitetekstejä); lähde `lahteet.json` + `lahteet2.json`. Skriptit eivät ole PR:ssä.
 **Ristiriidat briefin kanssa on koottu kohtaan 9. Niitä ei ole ratkaistu.**
 
 ## 1. Tiivistelmä
@@ -129,7 +129,7 @@ Lukujen valossa: kumpikaan avain (`konsepti`, `painopiste`) ei ole käytössä, 
 - Ruotsin avaimet vaiheessa 2: uudet fi-avaimet → `SV_ODOTTAA` + Gemini-erä.
 - Kolmas osapuoli: KPV:llä 1 `kolmas_osapuoli`-harjoite (luonnos) — ei näytetä (luonnos).
 
-## 11. Päätökset kohtaan 9 (Tero/PM 14.10.; vaihe 2 hyväksytty näillä)
+## 11. Päätökset kohtaan 9 (Tero/PM 13.10.; vaihe 2 hyväksytty näillä)
 
 1. **Hakukenttä:** harjoite haetaan pankin kentällä `konsepti`, ei `teema_avain`. *(Seuraus: KPV:llä kenttä on täytetty 1/124:ssä, joten ennen täyttöä tai vastaavuustaulua näkyy TM-konseptipeli.)*
 2. **Ei osakohtaisia harjoitteita.** Harjoite näytetään vain jakson tasolla; pankkiin ei lisätä osa-kenttää nyt (kirjataan myöhemmäksi).
