@@ -42,7 +42,9 @@ export const SV_ODOTTAA = [
   'Tervetuloa', 'Tilanne', 'Tuore tulos, ei kehityskohde.', 'Täytä viikko', 'Uusi havainto', 'Vahvista läsnäolot', 'Vastaa', 'Vastaamatta yli vuorokauden',
   'Viikko on tyhjä.', 'ei vielä mitattu', 'estynyt', 'huoltaja', 'jakso päättyi', 'jakso päättyy', 'kypsyys ratkaisee', 'päättyy',
   'seuraava tekniikkakisa päivittää', 'sääntöryhmä', 'vahvistanut', '{n} ilman tulosta', '{n} kypsyys ratkaisee', '{n} tulosta yli {kk} kk vanhoja',
-  '{n}/{yht} mitattu tuoreesti'
+  '{n}/{yht} mitattu tuoreesti',
+  /* Kierros B (PH-pelaajat + pre-harkan alaotsikot): */
+  '2×5 per puoli.', '3 lähtöä 70%. Takaketju herkkä.', 'ADAR — peliäly liittyy liikkeeseen', 'Aamu', 'Clamshell + sivulankku', 'Clamshell 2×12 per puoli. Sivulankku 2×20s per puoli.', 'Ei testidataa', 'Ei testidataa — oletus DFL', 'Ikätasolla', 'Joukkueen heikoin: {emoji} {nimi} · ka {ka}p · nostetaan', 'Joukkueen vahvin: {emoji} {nimi} · ka {ka}p · pidetään terävänä', 'Normaali — isometriset ovat turvallisia.', 'Reaktiolähtö — pallo maahan', 'Sivuhyppely + luisteluaskeleet', 'Valmistaa koko joukkueen — etenkin heikointa ketjua', 'Valmistaa koko joukkueen — etenkin {nimi}', '⚠️ PHV — seuraa intensiteettiä, ei maksimia', '⚠️ {n} PHV-pelaajaa joukkueessa — intensiteetti 70%'
 ];
 
 /* sv-resoluutio Nodessa samalla järjestyksellä kuin masterT: lib-avain → COMMON → TM_MASTER_I18N → (puuttuu) */
@@ -111,6 +113,8 @@ const PELAAJAT = [   // Kausi-näkymää varten D1/D2-tuloksia: tuore kehityskoh
   pv({ id: 'p5', etunimi: 'Otto', sukunimi: 'Dahl', tki_viimeisin: 47, tki_pvm: '2025-05-20', d2_taso: 3, d2_lahde: 'tk', d2_pvm: '2025-05-20' }),
   pv({ id: 'p6', etunimi: 'Vera', sukunimi: 'Sund' })
 ];
+/* Kierros B: kolme mitattua PH-pelaajaa (≥ 3 → phvRajoitus: PHV-muistutus pre-harkassa) + FLEI-ketjuarvot (heikoin ≠ vahvin → alaotsikot "Joukkueen vahvin/heikoin: …") */
+const PH_PELAAJAT = [['ph7', 'Nils', 'Ek'], ['ph8', 'Ola', 'Dahl'], ['ph9', 'Sam', 'Lund']].map(([id, e, s], i) => pv({ id, etunimi: e, sukunimi: s, syntymaVuosi: 2012, flei_viimeisin: 60, flei_ketjut: { sbl: 2.8 - i * 0.1, sfl: 2.4, ll: 1.3 + i * 0.1, diag: 2.0, dfl: 2.2 }, phv_tila: 'PH', biologinenIka_viimeisin: { phv_tila_koodi: 'PH', pvm: TUORE } }));
 const JDOC = { id: 'demo_u13', nimi: 'Demo U13', ika: 'U13', pelimuoto: '8v8', jaksofokus: { alku: '2026-09-24', kesto_vk: 4, osa_alueet: { tekninen_taktinen: { nimi: 'Demo U13' } } } };
 /* sivulla ajettava data: tapahtumat (tänään päättynyt treeni → läsnäolot, aamutreeni, ottelu la → MD-merkinnät), kirjaukset (kehu), viestit, saatavuus */
 const DATA = 'var __d=function(o,h,m){var t=new Date(Date.now()+o*864e5);t.setHours(h,m||0,0,0);return t},__mk=function(id,o,h,e){var a=__d(o,h),b=new Date(a.getTime()+90*6e4),z=function(n){return("0"+n).slice(-2)};return Object.assign({id:id,nimi:"",tyyppi:"harjoitus",pvm:tmPaivaIso(a),alkaa:z(h)+":00",paattyy:z(h+1)+":30",_alkaaMs:a.getTime(),_paattyyMs:b.getTime(),joukkue:"Demo U13",joukkueet:["demo_u13"],paikka:"Arena 2"},e||{})};'
@@ -177,6 +181,10 @@ async function desktopPolku(selain, kieli) {
   // (d) Joukkue: Tilanne + Kausi ja jaksot
   await p.evaluate(() => setWs('pulse')); await p.waitForTimeout(200); await k(p, 'Joukkue / Tilanne', RUNKO); await toastit('Tilanne');
   await p.locator('[data-nv-v="kausi"]').click(); await p.waitForTimeout(200); await k(p, 'Joukkue / Kausi ja jaksot', RUNKO); await toastit('Kausi');
+  // (d2) Kausi PH-pelaajilla: pre-harkka PHV-muistutuksella + alaotsikot (Joukkueen vahvin/heikoin, Valmistaa koko joukkueen …)
+  await p.evaluate((ph) => { window.__aseta({ pelaajat: window.__PEL.concat(ph) }); setWs('season'); renderSeason(); }, PH_PELAAJAT); await p.waitForTimeout(300);
+  await k(p, 'Joukkue / Kausi ja jaksot (PH-pelaajat, pre-harkka)', RUNKO); await toastit('Kausi PH');
+  const harkka = await p.evaluate(() => (document.getElementById('seasonHarkka') || {}).innerText || ''); 
   // (f) Ryhmät-näkymä (ryhmä + sääntöryhmä) + tyhjä tila
   await p.locator('[data-nv="ryhmat"]').click(); await p.waitForFunction(() => document.querySelector('#ryhmatView .nv-ryhma-nimi')); await k(p, 'Ryhmät', '#ryhmatView, #nvTabs');
   await p.evaluate(() => { document.getElementById('ryhmatView').innerHTML = TM_VALMENTAJA_NAV.tmRyhmatHTML([], {}, { t: masterT }); }); await k(p, 'Ryhmät (tyhjä)', '#ryhmatView');
@@ -186,7 +194,7 @@ async function desktopPolku(selain, kieli) {
   await p.evaluate(async () => { document.getElementById('valm-joukkue-valitsin').remove(); const s = document.createElement('select'); s.id = 'sa-joukkue-sel'; s.innerHTML = '<option value="demo">FC Demo</option>'; document.querySelector('.sb-nav').insertBefore(s, document.querySelector('.sb-nav').firstChild); await _rakennaSAJoukkueValitsin('demo', { oletusKaikki: true }); setWs('koti'); });
   expect(await p.locator('#sa-joukkue-valitsin').isVisible()).toBe(true); await k(p, 'Valitsin (SA)', '#sidebar'); await toastit('Valitsin');
   const puuttuu = await p.evaluate(() => Object.keys(window.__puuttuu || {})); await sk.close();
-  return { kerätyt, virheet: suodata(virheet), puuttuu };
+  return { kerätyt, virheet: suodata(virheet), puuttuu, harkka };
 }
 
 /* ── (e) mobiili 390: alapalkki, Viestit-nappi, Valikko-vetolaatikko (+ valitsin + kielivalitsin), + Havainto ── */
@@ -244,7 +252,9 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('V-KOTI sv · 
     const selain = await kaynnista(); try {
       const sv = await desktopPolku(selain, 'sv'); const r = suomiJaanteet(sv.kerätyt, NIMET); raportti('desktop sv', r, sv.kerätyt, sv.puuttuu);
       expect(sv.kerätyt.length).toBeGreaterThan(150); expect(sv.virheet).toEqual([]); expect(r).toEqual([]);
-      const fi = await desktopPolku(selain, 'fi'); expect(suomiJaanteet(fi.kerätyt, NIMET).length, 'negatiivitesti: fi-tilassa tunnistin löytää suomen').toBeGreaterThan(40);
+      for (const x of [sv.harkka]) { expect(x, 'pre-harkka renderöi alaotsikot (ka-luku + ketju)').toMatch(/ka \d/); expect(x).toMatch(/3/); expect((x.match(/ka \d/g) || []).length, 'vahvin + heikoin').toBeGreaterThanOrEqual(2); expect(x, 'ADAR-alaotsikko').toMatch(/ADAR|peliäly|spelintelligens/i); }
+      const fi = await desktopPolku(selain, 'fi'); expect(fi.harkka).toContain('Joukkueen vahvin:'); expect(fi.harkka).toContain('Joukkueen heikoin:'); expect(fi.harkka).toContain('Valmistaa koko joukkueen — etenkin'); expect(fi.harkka).toContain('ADAR — peliäly liittyy liikkeeseen'); expect(fi.harkka).toMatch(/3 PHV-pelaajaa joukkueessa/);
+      expect(suomiJaanteet(fi.kerätyt, NIMET).length, 'negatiivitesti: fi-tilassa tunnistin löytää suomen').toBeGreaterThan(40);
     } finally { await selain.close(); }
   }, 300000);
   it('mobiili 390: alapalkki, Viestit-nappi, Valikko-vetolaatikko (valitsin + kielivalitsin), Joukkue, + Havainto — ei suomea eikä englantia sv-tilassa', async () => {
