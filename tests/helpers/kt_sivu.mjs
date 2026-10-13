@@ -21,7 +21,7 @@ export const PELAAJAT = [
 ];
 export const DOKIT = (opts) => Object.assign({
   'seurat/demo': { nimi: 'Demo FC', kieli: 'fi' },
-  'seurat/demo/liput/julkiset': { kentta: true, valmentaja_v2: opts.lippu !== false },
+  'seurat/demo/liput/julkiset': { kentta: true, valmentaja_v2: opts.vkoti !== false, kehitystyopoyta_v2: opts.lippu !== false },
   'seurat/demo/kayttajat/u1': { rooli: opts.rooli === 'vp' ? 'vp' : 'valmentaja', joukkueet: ['demo_u13'], joukkue: 'Demo U13', etunimi: 'Testi', sukunimi: 'Valmentaja' },
   'seurat/demo/joukkueet/demo_u13': { nimi: 'Demo U13', ika: 'U13' },
   'seurat/demo/joukkueet/demo_u15': { nimi: 'Demo U15', ika: 'U15' },

@@ -34,9 +34,10 @@ describe('B7 · linkit ja parametrit', () => {
     expect(KS.tmKtMasterParametrit('?ws=<script>')).toBeNull(); expect(KS.tmKtMasterParametrit('?ws=xyz')).toBeNull(); expect(KS.tmKtMasterParametrit('')).toBeNull();
     expect(KS.tmKtMasterParametrit('?ws=dev&toiminto=poista')).toEqual({ ws: 'dev', toiminto: null });
   });
-  it('tmKtSivuLippuOn: vain täsmälleen true; liput/julkiset voittaa vanhan seurat.liput', () => {
-    expect(KS.tmKtSivuLippuOn({ valmentaja_v2: true }, null)).toBe(true); expect(KS.tmKtSivuLippuOn({ valmentaja_v2: false }, { liput: { valmentaja_v2: true } })).toBe(false);
-    expect(KS.tmKtSivuLippuOn(null, { liput: { valmentaja_v2: true } })).toBe(true); expect(KS.tmKtSivuLippuOn({ valmentaja_v2: 'true' }, null)).toBe(false); expect(KS.tmKtSivuLippuOn(null, null)).toBe(false);
+  it('tmKtSivuLippuOn: OMA lippu kehitystyopoyta_v2 (täsmälleen true); valmentaja_v2 EI avaa sivua; liput/julkiset voittaa vanhan seurat.liput', () => {
+    expect(KS.tmKtSivuLippuOn({ kehitystyopoyta_v2: true }, null)).toBe(true); expect(KS.tmKtSivuLippuOn({ kehitystyopoyta_v2: false }, { liput: { kehitystyopoyta_v2: true } })).toBe(false);
+    expect(KS.tmKtSivuLippuOn(null, { liput: { kehitystyopoyta_v2: true } })).toBe(true); expect(KS.tmKtSivuLippuOn({ kehitystyopoyta_v2: 'true' }, null)).toBe(false); expect(KS.tmKtSivuLippuOn(null, null)).toBe(false);
+    expect(KS.tmKtSivuLippuOn({ valmentaja_v2: true }, null)).toBe(false); expect(KS.tmKtSivuLippuOn({ valmentaja_v2: true, kentta: true }, { liput: { valmentaja_v2: true } })).toBe(false);   // V-KOTI päällä, työpöytä pois → vanha näkymä
   });
   it('tmKtSivuLaajuus: johto/talenttivalmentaja/SA = seura, valmentaja = joukkue, muut ei sivulle', () => {
     ['vp', 'urheilutoimenjohtaja', 'seurasihteeri', 'talenttivalmentaja', 'super_admin'].forEach((r) => expect(KS.tmKtSivuLaajuus(r)).toBe('seura'));
@@ -106,20 +107,20 @@ describe('B7 · sivun perusvaatimukset', () => {
     expect(SIVU_HTML).toContain('K.tmKtTallennaOsaArvio('); expect(SIVU_HTML).toContain('voi: _voiKirjoittaa'); expect(pura(SIVU_HTML, 'function _voiKirjoittaa(p)')).toContain('tmPelaajaOikeus');
   });
 });
-describe('B7 · Master ja VP linkittävät uuteen sivuun lipun valmentaja_v2 takana', () => {
-  it('Master pickPlayer: lippu päällä (window._tmNavV2) → uusi sivu; muuten ennallaan (V4 / vanha näkymä)', () => {
+describe('B7 · Master ja VP linkittävät uuteen sivuun lipun kehitystyopoyta_v2 takana (ei valmentaja_v2)', () => {
+  it('Master pickPlayer: lippu päällä (window._tmKtSivu = kehitystyopoyta_v2) → uusi sivu; V-KOTI (_tmNavV2) yksin ei riitä; muuten ennallaan (V4 / vanha näkymä)', () => {
     const f = pura(MASTER, 'function pickPlayer(pid)');
     for (const [nav, odotettu] of [[true, 'TalentMaster_Kehitystyopoyta.html#pelaaja/p1/tanaan'], [false, null]]) {
-      const loki = { href: null, ktAvaa: 0, renderDev: 0 }, ctx = { window: { _tmNavV2: nav, TM_KT_SIVU: KS, _ktLippu: false, location: {} }, _demo: false, _seuraId: 's', renderDev: () => loki.renderDev++, _ktKaynnista: undefined };
+      const loki = { href: null, ktAvaa: 0, renderDev: 0 }, ctx = { window: { _tmNavV2: true, _tmKtSivu: nav, TM_KT_SIVU: KS, _ktLippu: false, location: {} }, _demo: false, _seuraId: 's', renderDev: () => loki.renderDev++, _ktKaynnista: undefined };
       Object.defineProperty(ctx.window.location, 'href', { set: (v) => { loki.href = v; }, get: () => '' }); vm.createContext(ctx); vm.runInContext(f + '\npickPlayer("p1");', ctx);
       expect(loki.href).toBe(odotettu); expect(loki.renderDev).toBe(nav ? 0 : 1);
     }
   });
   it('Master: valintalippu luetaan tmNavAsenna-tuloksesta ja paluuparametrit (?ws=…) käsitellään vasta kun navigaatio on päällä', () => {
-    expect(MASTER).toMatch(/\.then\(on => \{ window\._tmNavV2 = !!on; if \(on\) \{ setWs\([^)]*\)\.ws\); _mKtSivuParametrit\(\); \} \}\)/);
+    expect(MASTER).toMatch(/window\._tmNavV2 = !!on; if \(on\) setWs\([^)]*\)\.ws\); _mKtSivuParametrit\(\);/); expect(MASTER).toMatch(/window\._tmKtSivu = !!\(l && l\.kehitystyopoyta_v2 === true\)/);
     expect(pura(MASTER, 'function _mKtSivuParametrit()')).toContain('tmKtMasterParametrit(location.search)');
   });
-  it('VP _ktAvaa: valmentaja_v2 → uusi sivu (myös ilman kentta-lippua); lippu pois → vanha reititin ennallaan', () => {
+  it('VP _ktAvaa: kehitystyopoyta_v2 → uusi sivu (myös ilman kentta-lippua); lippu pois → vanha reititin ennallaan', () => {
     const f = pura(VP, 'window._ktAvaa = function (pid, valilehti)') + ';';
     for (const [sivu, kentta] of [[true, false], [false, true], [false, false]]) {
       const loki = { href: null, avaa: [] }, ctx = { window: { _ktSivuLippu: sivu, _ktLippu: kentta, TM_KT_SIVU: KS, location: {} }, _ktS: { reititin: { avaa: (...a) => { loki.avaa.push(a); return true; } } } };
@@ -127,7 +128,7 @@ describe('B7 · Master ja VP linkittävät uuteen sivuun lipun valmentaja_v2 tak
       if (sivu) { expect(loki.href).toBe('TalentMaster_Kehitystyopoyta.html#pelaaja/p1/polku'); expect(loki.avaa).toEqual([]); } else { expect(loki.href).toBeNull(); expect(loki.avaa).toEqual(kentta ? [['p1', 'polku']] : []); }
     }
   });
-  it('VP: valmentaja_v2 luetaan liput-objektista ennen kentta-ehtoa (jotta uusi sivu avautuu myös ilman V4-lippua)', () => {
+  it('VP: kehitystyopoyta_v2 luetaan liput-objektista ennen kentta-ehtoa (jotta uusi sivu avautuu myös ilman V4-lippua)', () => {
     const f = pura(VP, 'async function _ktKaynnista()'); expect(f.indexOf('_ktSivuLippu')).toBeLessThan(f.indexOf('liput.kentta !== true'));
   });
   it('molemmat lataavat lib/tm_kt_sivu.js ?v:llä', () => { for (const s of [MASTER, VP]) expect(s).toMatch(/<script src="lib\/tm_kt_sivu\.js\?v=\d+"><\/script>/); });

@@ -37,6 +37,18 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 60000);
+  it('V-KOTI PÄÄLLÄ (valmentaja_v2) mutta kehitystyopoyta_v2 POIS → vanha näkymä: ei työpöytää, ei kuorta; ohje + linkki Masteriin', async () => {
+    await avaa(); try {
+      const { sk, p, virheet } = await kaynnista(selain, { rooli: 'valmentaja', vkoti: true, lippu: false, hash: '#pelaaja/p2/tanaan' }); await p.waitForSelector('.kts-viesti', { timeout: 15000 });
+      expect(await p.locator('.kt-nimi, #nvSide, .nv-plus').count()).toBe(0); expect(await p.locator('.kts-viesti a').getAttribute('href')).toBe('TalentMaster_Master_v16.html#pelaaja/p2/tanaan'); expect(SUODATA(virheet)).toEqual([]); await sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
+  it('kehitystyopoyta_v2 PÄÄLLÄ ilman valmentaja_v2:ta: työpöytä aukeaa (oma lippu riittää), V-KOTI-kuorta ei asenneta', async () => {
+    await avaa(); try {
+      const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', vkoti: false, lippu: true, hash: '#pelaaja/p2/tanaan' }); await odota(p);
+      expect(await p.locator('.kt-nimi').innerText()).toBe('Bertta Bergh'); expect(await p.locator('#nvSide').count()).toBe(0); await sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
   it('EI KIRJAUTUNUT: ohje kirjautua (ei dataa, ei kuorta)', async () => {
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, { kirjautunut: false }); await p.waitForSelector('.kts-viesti', { timeout: 15000 });
