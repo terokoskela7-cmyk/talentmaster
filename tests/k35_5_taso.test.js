@@ -7,7 +7,7 @@ describe('yksi sääntö: LAHTEEN_KENTAT', () => {
     const m = /var LAHTEEN_KENTAT = (\[[^\]]*\])/.exec(LIB); expect(m).not.toBeNull(); expect(FN.LAHTEEN_KENTAT).toEqual((0, eval)(m[1]));
   });
   it('index.js: callable ajaa kalenterisynkan, ajastettu kalenteriTasoSynkka luodaan moduulista (ohut rivi); vanha tapahtumat-haku säilyy', () => {
-    expect(IDX).toContain("_tasoKal = require('./kalenteri_taso')"); expect(IDX).toContain('_tasoKal.ajaSeura(_tasoDeps, seuraId, Date.now())'); expect(IDX).toContain('Object.assign(exports, _tasoKal.luo(_tasoDeps));'); expect(IDX).toContain('paivitaSeuranOttelut(seuraId, seuraData.taso_api_key');
+    expect(IDX).toContain("_tasoKal = require('./kalenteri_taso')"); expect(IDX).toContain('_tasoKal.ajaSeura(_tasoDeps, seuraId, Date.now())'); expect(IDX).toContain('Object.assign(exports, _tasoKal.luo(_tasoDeps)'); expect(IDX).toContain('paivitaSeuranOttelut(seuraId, _tasoAvain, seuraData.taso_club_id)');   // avain server-only (turvallisuus-PR)
     expect(Object.keys(FN.luo({ functions: { region: () => ({ pubsub: { schedule: () => ({ timeZone: () => ({ onRun: (f) => f }) }) } }) }, db: {} }))).toEqual(['kalenteriTasoSynkka']);
   });
 });
