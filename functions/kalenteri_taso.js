@@ -104,11 +104,11 @@ async function haeOttelut(tasoHae, apiKey, clubId, kausi, kartta) {
 function kausiTunniste(nyt) { const d = nyt || new Date(), v = d.getFullYear(); return d.getMonth() < 7 ? (v - 1) + '-' + v : v + '-' + (v + 1); }
 
 async function ajaSeura(deps, seuraId, nyt) {   // lukee seura-dokin avaimet + kartan, hakee, synkkaa; palauttaa tuloksen tai null (ei avaimia/karttaa)
-  const { db, tasoHae } = deps, sd = await db.collection('seurat').doc(seuraId).get(), s = sd.data() || {};
-  if (!s.taso_api_key || !s.taso_club_id) return null;
+  const { db, tasoHae } = deps, sd = await db.collection('seurat').doc(seuraId).get(), s = sd.data() || {}, avain = deps.tasoAvain ? await deps.tasoAvain(db, seuraId, s) : s.taso_api_key;   // deps.tasoAvain = server-only avain (salaiset/integraatiot; turvallisuus-PR)
+  if (!avain || !s.taso_club_id) return null;
   const cfg = await db.collection('seurat').doc(seuraId).collection('konfiguraatio').doc('kalenterilahteet').get(), kartta = (cfg.exists && ((cfg.data() || {}).taso || {}).joukkueet) || {};
   if (!Object.keys(kartta).length) return null;
-  const ottelut = await haeOttelut(tasoHae, s.taso_api_key, s.taso_club_id, kausiTunniste(new Date(nyt)), kartta);
+  const ottelut = await haeOttelut(tasoHae, avain, s.taso_club_id, kausiTunniste(new Date(nyt)), kartta);
   return synkkaaSeura(deps, seuraId, ottelut, nyt);
 }
 
