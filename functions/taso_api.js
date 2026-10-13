@@ -6,6 +6,7 @@
  *   · Kausi: jalkapallon season_id = kalenterivuosi ("2026") — ei "2025-2026"
  *   · getMatches EI ota season_id:tä: haetaan team_id + start_date + end_date (tänään − 30 pv … tänään + 180 pv)
  *   · Ottelun kentät: match_id, date (YYYY-MM-DD), time (HH:MM[:SS], puuttuva/tyhjä = koko päivä), team_A_id/team_A_name (koti), team_B_id/team_B_name (vieras), venue_name, status
+ *   · getClub: joukkueet club.teams[]; tulos fs_A/fs_B
  *   · Perutuksi: Canceled, Suspended, Abandoned (PERUTTU_RE; Reschedule EI ole peruttu)
  */
 const https = require('https');
@@ -42,4 +43,8 @@ function otteluKentat(o) {
   const k = /^(\d{1,2}):(\d{2})/.exec(String(o.time == null ? '' : o.time).trim());
   return { id: String(o.match_id), pvm: pvm[1], kello: k ? _p2(+k[1]) + ':' + k[2] : null, koti: { id: o.team_A_id != null ? String(o.team_A_id) : '', nimi: o.team_A_name || '' }, vieras: { id: o.team_B_id != null ? String(o.team_B_id) : '', nimi: o.team_B_name || '' }, paikka: o.venue_name || null, status: String(o.status || '') };
 }
-module.exports = { TASO_BASE, HAKU_TAAKSE_PV, HAKU_ETEEN_PV, PERUTTU_RE, tasoHae, kausiTunniste, hakuIkkuna, otteluKentat };
+/** getClub-vastaus → joukkuelista. Dokumentaatio: joukkueet ovat polussa club.teams[] (team_id, team_name, category_id, category_name, competition_id, competition_name). */
+function klubinJoukkueet(r) { const t = r && r.club && Array.isArray(r.club.teams) ? r.club.teams : []; return t.filter((x) => x && x.team_id != null); }
+/** Ottelun tulos "koti–vieras" kentistä fs_A / fs_B (lopputulos); null jos ei vielä tulosta. */
+function otteluTulos(o) { return o && o.fs_A != null && o.fs_A !== '' && o.fs_B != null && o.fs_B !== '' ? o.fs_A + '–' + o.fs_B : null; }
+module.exports = { klubinJoukkueet, otteluTulos, TASO_BASE, HAKU_TAAKSE_PV, HAKU_ETEEN_PV, PERUTTU_RE, tasoHae, kausiTunniste, hakuIkkuna, otteluKentat };

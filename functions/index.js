@@ -1404,10 +1404,10 @@ exports.haeAuditLoki = functions
 // ─────────────────────────────────────────────────────────────────────────────
 // TASO-INTEGRAATIO — Palloliiton tulospalvelu
 // ─────────────────────────────────────────────────────────────────────────────
-const { tasoHae, kausiTunniste: tasoKausi, hakuIkkuna: tasoHakuIkkuna, otteluKentat: tasoOtteluKentat } = require('./taso_api');   // YKSI osoite/haku/kausi/kenttämuoto (docs/integraatiot/TASO_API.md)
+const { tasoHae, kausiTunniste: tasoKausi, hakuIkkuna: tasoHakuIkkuna, otteluKentat: tasoOtteluKentat, klubinJoukkueet: tasoKlubinJoukkueet, otteluTulos: tasoTulos } = require('./taso_api');   // YKSI osoite/haku/kausi/kenttämuoto (docs/integraatiot/TASO_API.md)
 function tasoOtteluTapahtumaksi(ottelu, seuraId) {
   const k = tasoOtteluKentat(ottelu); if (!k) return null;
-  const tulos = (ottelu.home_goals != null && ottelu.away_goals != null) ? `${ottelu.home_goals}–${ottelu.away_goals}` : null, tanaan = new Date().toISOString().substring(0, 10);
+  const tulos = tasoTulos(ottelu), tanaan = new Date().toISOString().substring(0, 10);
   return {
     tyyppi:         'ottelu',
     lahde:          'taso',
@@ -1429,7 +1429,7 @@ async function paivitaSeuranOttelut(seuraId, apiKey, clubId) {
   let ottelut = [];
   try {
     const klubiData = await tasoHae('getClub', { club_id: clubId, season_id: kausi }, apiKey);
-    for (const joukkue of (klubiData.teams || [])) {
+    for (const joukkue of tasoKlubinJoukkueet(klubiData)) {
       try {
         const matchData = await tasoHae('getMatches', { team_id: joukkue.team_id, start_date: ikkuna.start_date, end_date: ikkuna.end_date }, apiKey);
         ottelut = ottelut.concat((matchData.matches || []).map(o => ({ ...o, _joukkueNimi: joukkue.team_name || joukkue.name })));

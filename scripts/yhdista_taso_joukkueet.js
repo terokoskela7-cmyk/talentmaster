@@ -24,7 +24,7 @@ async function aja({ db, tasoHae, FieldValue, seura, listaa, kartta, kirjoita, l
     const avain = await require('../functions/salaiset.js').tasoAvain(db, seura, s);   // server-only avain (salaiset/integraatiot); varalla vanha seura-dokin kenttä
     if (!avain || !s.taso_club_id) throw new Error('Seuralla ei ole TASO-avainta / taso_club_id:tä.');
     const kausi = TASO.kausiTunniste(Date.now()), r = await tasoHae('getClub', { club_id: s.taso_club_id, season_id: kausi }, avain);
-    loki('TASO-joukkueet (kausi ' + kausi + '): team_id · team_name · category_name'); (r.teams || []).forEach((t) => loki('  ' + t.team_id + ' · ' + (t.team_name || t.name || '') + ' · ' + (t.category_name || '') + (nyk[t.team_id] ? '  → ' + nyk[t.team_id] : '')));
+    loki('TASO-joukkueet (kausi ' + kausi + '): team_id · team_name · category_name'); TASO.klubinJoukkueet(r).forEach((t) => loki('  ' + t.team_id + ' · ' + (t.team_name || '') + ' · ' + (t.category_name || '') + (nyk[t.team_id] ? '  → ' + nyk[t.team_id] : '')));
     loki('Nykyinen kartta: ' + JSON.stringify(nyk)); return { nyk };
   }
   const jsn = await sref.collection('joukkueet').get(), idt = new Set(); jsn.forEach((d) => idt.add(d.id));

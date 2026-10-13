@@ -1,0 +1,3072 @@
+aso API
+API Endpoint
+FORMAT: 1A HOST: https://[organiser_url, ask from tuki@torneopal.fi]
+
+Most API calls require an api_key. You need to get this key from the competition organiser.
+
+Use the api_key only between your server and the competition server. Never embed the key to a web page or an application.
+
+Results are cached for up to 1 minute unless otherwise stated.
+
+Pagination: page_size and page_number parameters are available in most calls. Use page_size to set the maximum number of results per page, and page_number to retrieve a specific page of results.
+
+Competition ¶
+##MD Competition list
+
+Competition list ¶
+GET /taso/rest/getCompetitions?api_key=&season_id=2015&organiser=spl&current=1&competition_type=tournament&official=1&competition_officiality=hobby&owner=me
+Responses200
+Body
+{
+  "call": {
+    "method": "getCompetitions",
+    "status": "ok",
+    "result_count": 2
+  },
+  "competitions": [
+    {
+      "competition_id": "spljp15",
+      "competition_name": "SPL Jalkapallo 2015",
+      "competition_result_service_name": "",
+      "competition_type": "league",
+      "competition_status": "published",
+      "season_id": "2015",
+      "organiser": "spl",
+      "sport_id": "football",
+      "official_competition": 1,
+      "competition_location_id": "0",
+      "competition_location_name": "",
+      "competition_city_id": "0",
+      "competition_city_name": "",
+      "competition_region_id": "",
+      "competition_logo": "",
+      "resultsite": ""
+    },
+    {
+      "competition_id": "splcup15",
+      "competition_name": "SPL Suomen Cup 2015",
+      "competition_result_service_name": "",
+      "competition_type": "tournament",
+      "competition_status": "published",
+      "season_id": "2015",
+      "organiser": "spl",
+      "sport_id": "football",
+      "official_competition": 1,
+      "competition_location_id": "0",
+      "competition_location_name": "",
+      "competition_city_id": "0",
+      "competition_city_name": "",
+      "competition_region_id": "",
+      "competition_logo": "",
+      "resultsite": ""
+    }
+  ]
+}
+Get competitionsGET/taso/rest/getCompetitions{?api_key,season_id,organiser,current,competition_type,official,competition_officiality,owner}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+season_id
+string (optional) Example: 2015
+Filter by season
+
+organiser
+string (optional) Example: spl
+Filter by organiser
+
+current
+number (optional) Example: 1
+Show only current competitions (not archived)
+
+competition_type
+string (optional) Example: tournament
+Filter by type [tournament,league]
+
+official
+number (optional) Example: 1
+Show only official competitions
+
+competition_officiality
+string (optional) Example: hobby
+Filter by officiality
+
+owner
+string (optional) Example: me
+Filter by owner (use ‘me’ for current user, id for specific)
+
+Competition ¶
+GET /taso/rest/getCompetition?api_key=&competition_id=
+Responses200
+Body
+{
+  "call": {
+    "method": "getCompetition",
+    "status": "ok",
+    "parameters": {
+      "competition_id": "example_competition_123"
+    }
+  },
+  "competition": {
+    "competition_id": "example_competition_123",
+    "competition_name": "Example Tournament",
+    "competition_country": "FIN",
+    "competition_status": "published",
+    "competition_visibility": "visible",
+    "season_id": "2024",
+    "organiser": "example_org",
+    "organiser_name": "Example Organiser",
+    "organiser_privacy": "https://example.org/privacy",
+    "sport_id": "1",
+    "results_www": "https://example.org/results",
+    "status": "1",
+    "alternative_www": [],
+    "www": "https://example.org",
+    "banner": "https://cdn.torneopal.fi/bootstrap/example_org/example_competition_123/header-banner.png",
+    "mobile_banner": "https://cdn.torneopal.fi/bootstrap/example_org/example_competition_123/header-banner-mobi.png",
+    "competition_type": "tournament",
+    "competition_location_id": "0",
+    "competition_location_name": "Example Venue",
+    "competition_city_id": "0",
+    "competition_city_name": "Example City",
+    "competition_region_id": "",
+    "competition_start_date": "2024-01-15",
+    "competition_end_date": "2024-01-20",
+    "competition_match_days": [],
+    "results": "1",
+    "points_per_win": "3",
+    "points_per_draw": "1",
+    "points_per_loss": "0",
+    "points_per_forfeit": "0",
+    "points_per_shootout_win": "2",
+    "info": "Tournament description",
+    "long_info": "Tournament description",
+    "rules": "Tournament rules",
+    "rules_fi": "Tournament rules",
+    "rules_en": "Tournament rules",
+    "registration_status": "active",
+    "registration_start": "2023-12-01 00:00:00",
+    "registration_finish": "2024-01-10 00:00:00",
+    "registration_description": "Registration instructions",
+    "official_competition": true,
+    "sponsors": [],
+    "regions": [],
+    "categories": [],
+    "clubs": [],
+    "areas": [],
+    "meals": [],
+    "tournament_passes": [],
+    "galleries": []
+  }
+}
+Get competition detailsGET/taso/rest/getCompetition{?api_key,competition_id}
+Notes:
+
+rules_<language_code> fields are returned per configured language of the competition (e.g. rules_fi, rules_en).
+
+regions, categories and clubs are only returned when requested via the extra_fields query parameter (comma separated, e.g. extra_fields=regions,categories,clubs).
+
+areas is only returned for competitions organised by a private organiser.
+
+meals is only returned for competitions with accommodation/product rights enabled.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (required) 
+Competition identifier
+
+Season list ¶
+GET /taso/rest/getSeasons?api_key=&sport_id=football
+Responses200
+Headers
+Content-Type: application/json
+Body
+seasons: [
+    {
+        "season_id": "2015",
+        "season_description": "Jalkapallo 2015",
+        "sport_id": "football"
+    },
+    {
+        "season_id": "2016",
+        "season_description": "Jalkapallo 2016",
+        "sport_id": "football"
+    },
+    {
+        "season_id": "2016-17",
+        "season_description": "Futsal 2016-17",
+        "sport_id": "futsal"
+    },
+    {
+        "season_id": "2017",
+        "season_description": "Jalkapallo 2017",
+        "sport_id": "football"
+    }
+]
+Get seasonsGET/taso/rest/getSeasons{?api_key,sport_id}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+sport_id
+string (optional) Example: football
+Only list current seasons a specific sport (see getSports)
+
+GetSeason ¶
+GET /taso/rest/getSeason?season_id=2015
+Responses200
+Headers
+Content-Type: application/json
+Body
+"season": 
+{
+  "season_id": "2021"}
+Get seasonGET/taso/rest/getSeason{?season_id}
+Field	Type	Description
+URI ParametersHide
+season_id
+string (required) Example: 2015
+Season to show
+
+Beach tournaments ¶
+GET /taso/rest/getBeachTournaments?api_key=&date=2024-07-15&year=2024&category=M&type=1&name=
+Responses200
+Body
+{
+  "call": {
+    "method": "getBeachTournaments",
+    "status": "ok"
+  },
+  "tournaments": [
+    {
+      "competition_id": "beach2024",
+      "category_group_id": "1",
+      "category_group_name": "Miehet",
+      "category_id": "M1",
+      "category_name": "Example category",
+      "category_logo": "",
+      "ranking_date": "2024-07-15",
+      "main_start_date": "2024-07-15",
+      "main_end_date": "2024-07-16",
+      "max_teams": "16",
+      "age_group": "",
+      "team_count": "8",
+      "category_status": "published",
+      "registration_end_date": "2024-07-10 00:00:00"
+    }
+  ]
+}
+Get beach tournamentsGET/taso/rest/getBeachTournaments{?api_key,date,year,category,type,name}
+Notes:
+
+registration_end_date is only included when the date parameter is not given.
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+date
+string (optional) Example: 2024-07-15
+Filter to tournaments played on this date (format YYYY-MM-DD). When given, year, category, type and name are ignored.
+
+year
+string (optional) Example: 2024
+Filter by year (part of the competition_id, e.g. beach2024). Defaults to current year.
+
+category
+string (optional) Example: M
+Filter by category group [M,N,P,P18,P16,P14,P12,T,T18,T16,T14,T12,MA,N35,N40,N45,N50,N55,N60,M35,M40,M45,M50,M55,M60,M65,M70,M75,M80]
+
+type
+string (optional) Example: 1
+Filter by series type [1,2,3,4,5,6]
+
+name
+string (optional) 
+Filter by category name (partial match)
+
+Competition types ¶
+GET /taso/rest/getCompetitionTypes?api_key=
+Responses200
+Body
+{
+  "call": {
+    "method": "getCompetitionTypes",
+    "status": "ok"
+  },
+  "types": [
+    {
+      "competition_type_id": "tournament",
+      "competition_type_name": "Tournament"
+    },
+    {
+      "competition_type_id": "league",
+      "competition_type_name": "League"
+    }
+  ]
+}
+Get competition typesGET/taso/rest/getCompetitionTypes{?api_key}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+Organisers ¶
+GET /taso/rest/getOrganisers?api_key=
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "status": "OK"
+  },
+  "organisers": [
+    {
+      "organiser": "sphelsinkis",
+      "organiser_name": "Helsinki",
+      "organiser_type": "region"
+    },
+    {
+      "organiser": "kuusysi",
+      "organiser_name": "FC Kuusysi",
+      "organiser_type": "club"
+    }
+  ]
+}
+Get organisersGET/taso/rest/getOrganisers{?api_key}
+Returns a list of all organisers ordered by name. Each organiser has a type of region or club.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+Champions ¶
+GET /taso/rest/getChampions
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "champions": [
+    {
+      "season_id": "2021",
+      "sport_id": "football",
+      "competition_id": "spljp21",
+      "competition_ńame": "SPL Jalkapallo 2021",
+      "category_id": "MSC",
+      "category_name": "Miesten Suomen Cup",
+      "club_id": "2963",
+      "team_id": "60756",
+      "team_name": "KuPS",
+      "champion_category_id": "MSC"
+    }
+  ]
+}
+Get championsGET/taso/rest/getChampions
+Field	Type	Description
+season_id	string	
+sport_id	string	
+competition_id	string	
+competition_name	string	
+category_id	string	
+category_name	string	
+club_id	string	
+team_id	string	
+team_name	string	
+champion_category_id	string	
+Category ¶
+##MD Category list
+
+Category list ¶
+GET /taso/rest/getCategories?api_key=&competition_id=spljp15&category_id=VL&season_id=2015&all_current=1&extra_fields=groups,teams,phases
+Responses200400404
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "method": "getCategories",
+    "status": "ok",
+    "parameters": {
+      "competition_id": "vb2025a"
+    },
+    "result_count": 2
+  },
+  "categories": [
+    {
+      "competition_id": "vb2025a",
+      "competition_name": "Volleyball 2025",
+      "season_id": "2025",
+      "region_id": "1",
+      "region_name": "Helsinki",
+      "category_id": "A",
+      "category_name": "A-sarja",
+      "category_abbrevation": "A",
+      "tournament_logo": "",
+      "category_group": "1",
+      "category_group_name": "Miehet",
+      "category_group_id": "1",
+      "district_id": "",
+      "category_group_name_en": "Men",
+      "category_notice": "",
+      "display_order": "1",
+      "season_order": "1",
+      "category_age_group": "M",
+      "category_gender": "M",
+      "category_gender_fi": "Miehet",
+      "category_logo": "",
+      "organiser": "lpl",
+      "organiser_name": "Lentopalloliitto",
+      "category_status": "published",
+      "competition_status": "published",
+      "main_competition_id": "",
+      "main_category_id": "",
+      "period_count": "3",
+      "period_time_min": "25",
+      "group_count": "4",
+      "team_count": "8",
+      "team_price": "0",
+      "max_teams": "",
+      "team_count_max": "16",
+      "players_aside": "6",
+      "players_substitutes": "6",
+      "substitions": "6",
+      "substitutions": "6",
+      "sport": "volleyball",
+      "sport_id": "lentopallo",
+      "competition_type": "league",
+      "competition_officiality": "official",
+      "stats_level": "goals,assists,",
+      "player_statistics_visibility": "all",
+      "category_group_levels": [],
+      "category_level": "common",
+      "category_name_translations": {},
+      "category_link": "a-sarja",
+      "authorized": "1",
+      "published": "fixture",
+      "statistics_level": "extended",
+      "player_statistics_level": "normal",
+      "substitution_method": "normal",
+      "ranking": [],
+      "has_pools": false,
+      "show_points_per_match": 0,
+      "playing_method": "normal",
+      "player_info": [],
+      "hideregistrations": false
+    }
+  ]
+}
+Get categoriesGET/taso/rest/getCategories{?api_key,competition_id,category_id,season_id,all_current,extra_fields}
+Returns a list of categories (series/leagues) with comprehensive metadata including competition info, sport, gender, age group, team counts, statistics configuration, and ranking rules. Supports filtering by competition, category, season, or all current categories. Use extra_fields to include nested groups, teams, or phases per category. At least one of competition_id, category_id, season_id, or all_current is required.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (optional) Example: spljp15
+Competition id. Can be comma-separated for multiple competitions.
+
+category_id
+string (optional) Example: VL
+Category id
+
+season_id
+string (optional) Example: 2015
+Season id. Can be comma-separated for multiple seasons.
+
+all_current
+number (optional) Example: 1
+Set to 1 to get all current (non-archived, non-hidden) categories.
+
+extra_fields
+string (optional) Example: groups,teams,phases
+Comma separated list of nested structures to include. Available: groups, teams, phases. These are loaded via getCategory for each result, so use sparingly with large category lists.
+
+Category ¶
+GET /taso/rest/getCategory?api_key=&competition_id=spljp15&category_id=VL&matches=1&lang=en&player_statistics_team_id=60808
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "method": "getCategory",
+    "status": "ok",
+    "parameters": {
+      "competition_id": "spljp15",
+      "category_id": "VL"
+    }
+  },
+  "category": {
+    "competition_id": "spljp15",
+    "competition_name": "SPL Jalkapallo 2015",
+    "competition_result_service_name": "",
+    "competition_type": "league",
+    "organiser": "spl",
+    "organiser_private": false,
+    "season_id": "2015",
+    "sport_id": "jalkapallo",
+    "category_id": "VL",
+    "category_abbrevation": "VL",
+    "category_name": "Veikkausliiga",
+    "category_logo": "",
+    "category_logo_dark_bg": "",
+    "category_notice": "",
+    "category_notice_full": "",
+    "statistics_level": "normal",
+    "player_statistics_level": "normal",
+    "playing_method": "normal",
+    "calculate_points": true,
+    "teams": [
+      {
+        "team_id": "60731",
+        "team_name": "HJK",
+        "club_id": "1",
+        "final_standing": "",
+        "crest": "https://cdn.torneopal.fi/logo/palloliitto/1x.png",
+        "crest_dark_bg": "",
+        "matches_played": 0
+      }
+    ],
+    "groups": [
+      {
+        "competition_id": "spljp15",
+        "category_id": "VL",
+        "category_name": "Veikkausliiga",
+        "group_type": "group_stage",
+        "group_id": "1",
+        "group_name": "A",
+        "group_notice": "",
+        "group_notice_full": "",
+        "playing_method": "normal"
+      }
+    ],
+    "phases": [
+      {
+        "competition_id": "spljp15",
+        "category_id": "VL",
+        "phase_id": "1",
+        "phase_number": "1",
+        "phase_name": "Alkulohko",
+        "phase_order": "1"
+      }
+    ],
+    "player_statistics": [],
+    "official_statistics": [],
+    "sponsors": [],
+    "info": {
+      "some_rules": "",
+      "right_to_play": "",
+      "playing_method": "",
+      "links": []
+    }
+  }
+}
+Get categoryGET/taso/rest/getCategory{?api_key,competition_id,category_id,matches,lang,player_statistics_team_id}
+Field	Type	Description
+competition_id	string	ID of the competition
+competition_name	string	Name of the competition
+competition_result_service_name	string	Name in result service, can be empty
+competition_type	string	“league” or “tournament”
+organiser	string	ID of the organiser
+organiser_private	boolean	Whether organiser is private
+season_id	string	Season ID
+sport_id	string	Sport ID
+category_id	string	Category ID (unique in competition)
+category_abbrevation	string	Abbreviation for display
+category_name	string	Name of the category
+category_logo	string	URL of category logo
+category_logo_dark_bg	string	URL of category logo for dark backgrounds
+category_notice	string	Short notice
+category_notice_full	string	Full notice
+statistics_level	string	Level of match statistics
+player_statistics_level	string	Level of player statistics
+playing_method	string	“normal” or “mini-tournament”
+calculate_points	boolean	Whether standings are calculated
+teams	array	Teams in the category
+groups	array	Groups in the category
+phases	array	Phases/stages in the category
+player_statistics	array	Player statistics (when available)
+official_statistics	array	Official statistics (when available)
+sponsors	array	Sponsors for the category
+info	object	Additional info (some_rules, right_to_play, playing_method, links)
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (required) Example: spljp15
+Competition id
+
+category_id
+string (required) Example: VL
+Category id
+
+extra_fields (optional, string, `club_officials`)
+string (required) 
+Comma-separated extra fields to include
+
+exclude_fields (optional, string, `player_statistics`)
+string (required) 
+Comma-separated fields to exclude
+
+matches
+string (optional) Example: 1
+1=list matches, group=list matches ordered by group
+
+lang
+string (optional) Example: en
+Language for category_name
+
+player_statistics_team_id
+number (optional) Example: 60808
+Filter player statistics by team
+
+Category team count options ¶
+GET /taso/rest/getCategoryTeamCountOptions?api_key=
+Responses200
+Body
+{
+  "call": {
+    "method": "getCategoryTeamCountOptions",
+    "status": "ok"
+  },
+  "options": [
+    {
+      "team_count": "2"
+    },
+    {
+      "team_count": "3"
+    },
+    {
+      "team_count": "4"
+    },
+    {
+      "team_count": "5"
+    },
+    {
+      "team_count": "6"
+    },
+    {
+      "team_count": "8"
+    },
+    {
+      "team_count": "12"
+    },
+    {
+      "team_count": "16"
+    }
+  ]
+}
+Get category team count optionsGET/taso/rest/getCategoryTeamCountOptions{?api_key}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+Category playing methods ¶
+GET /taso/rest/getCategoryPlayingMethods?api_key=&team_count=8
+Responses200
+Body
+{
+  "call": {
+    "method": "getCategoryPlayingMethods",
+    "status": "ok"
+  },
+  "methods": [
+    {
+      "playing_method_id": "8_1",
+      "playing_method_name": "8 teams, 2 groups",
+      "playing_method_description": "Two groups of 4, then knockout",
+      "match_count": 12,
+      "team_count": 8,
+      "stages": [
+        {
+          "stage_id": "1",
+          "groups": [
+            {
+              "group_id": "A",
+              "group_name": "Group A",
+              "group_stage": "1",
+              "group_type": "group_stage",
+              "number_of_teams": 4,
+              "teams": [
+                {
+                  "team_sequence": "1",
+                  "team_description": "1",
+                  "team_id": "0",
+                  "team_name": "Team 1"
+                }
+              ],
+              "matches": [
+                {
+                  "match_number": "1",
+                  "round_id": "1",
+                  "team_A_sequence": "1",
+                  "team_A_description": "1",
+                  "team_A_winner_of_match": 0,
+                  "team_A_looser_of_match": 0,
+                  "team_B_sequence": "2",
+                  "team_B_description": "2",
+                  "team_B_winner_of_match": 0,
+                  "team_B_looser_of_match": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+Get category playing methodsGET/taso/rest/getCategoryPlayingMethods{?api_key,team_count}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+team_count
+string (required) Example: 8
+Number of teams
+
+Category tree ¶
+GET /taso/rest/getCategoryTree?api_key=&sport_id=football&season_id=2015
+Responses200
+Body
+{
+  "call": {
+    "method": "getCategoryTree",
+    "status": "ok",
+    "sport_id": "football",
+    "season_id": "2015"
+  },
+  "sport_id": "football",
+  "season_id": "2015",
+  "items": [
+    {
+      "competition_id": "spljp15",
+      "competition_name": "SPL Jalkapallo 2015",
+      "category_id": "VL",
+      "category_name": "Veikkausliiga",
+      "category_group_id": "1",
+      "category_group_name": "Miehet",
+      "organiser": "spl",
+      "competition_type": "league"
+    }
+  ],
+  "levels": [
+    {
+      "name": "SPL",
+      "id": "spl",
+      "l1": [
+        {
+          "name": "Jalkapallo",
+          "id": "football",
+          "l2": [
+            {
+              "name": "Miehet",
+              "id": "M",
+              "l3": [
+                {
+                  "name": "Veikkausliiga",
+                  "id": "VL",
+                  "competition_id": "spljp15"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+Get category treeGET/taso/rest/getCategoryTree{?api_key,sport_id,season_id}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+sport_id
+string (required) Example: football
+Sport id
+
+season_id
+string (required) Example: 2015
+Season id
+
+Group ¶
+Group ¶
+GET /taso/rest/getGroup?api_key=&competition_id=spljp15&category_id=LC&group_id=1&matches=1
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "group": {
+    "competition_id": "spljp15",
+    "competition_name": "SPL Jalkapallo 2015",
+    "season_id": "2015",
+    "category_id": "LC",
+    "category_name": "Liigacup",
+    "group_type": "additional_group_stage",
+    "category_notice": "",
+    "category_notice_full": "",
+    "group_id": "1",
+    "group_name": "A",
+    "group_notice": "",
+    "group_notice_full": "",
+    "teams": [
+      {
+        "team_id": "60731",
+        "team_name": "HJK",
+        "current_standing": 1,
+        "starting_points": 0,
+        "points": 4,
+        "matches_played": 2,
+        "matches_won": 1,
+        "matches_tied": 1,
+        "matches_lost": 0
+      }
+    ],
+    "live_standings": [
+      {
+        "team_id": "60731",
+        "team_name": "HJK",
+        "current_standing": 1,
+        "starting_points": 0,
+        "points": 6,
+        "matches_played": 4,
+        "matches_won": 1,
+        "matches_tied": 3,
+        "matches_lost": 0,
+        "goals_for": 6,
+        "goals_against": 4,
+        "points_home": 2,
+        "matches_played_home": 2,
+        "matches_won_home": 0,
+        "matches_tied_home": 2,
+        "matches_lost_home": 0,
+        "goals_for_home": 4,
+        "goals_against_home": 4,
+        "points_away": 4,
+        "matches_played_away": 2,
+        "matches_won_away": 1,
+        "matches_tied_away": 1,
+        "matches_lost_away": 0,
+        "goals_for_away": 2,
+        "goals_against_away": 0
+      }
+    ],
+    "player_statistics": [
+      {
+        "player_id": "326097",
+        "player_name": "Ibiyomi Michael",
+        "first_name": "Michael",
+        "last_name": "Ibiyomi",
+        "team_id": "60973",
+        "team_name": "RoPS",
+        "goals": "3",
+        "assists": "0",
+        "warnings": "0",
+        "suspensions": "0",
+        "playing_time": "123"
+      }
+    ]
+  }
+}
+Get groupGET/taso/rest/getGroup{?api_key,competition_id,category_id,group_id,matches}
+Field	Type	Description
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (required) Example: spljp15
+Competition id
+
+category_id
+string (required) Example: LC
+Category id
+
+group_id
+string (required) Example: 1
+Group id
+
+matches
+string (optional) Example: 1
+1=list matches
+
+Group list ¶
+GET /taso/rest/getGroups?api_key=&competition_id=spljp15&category_id=VL&group_id=1
+Responses200
+Body
+{
+  "call": {
+    "method": "getGroups",
+    "status": "ok"
+  },
+  "groups": [
+    {
+      "competition_id": "spljp15",
+      "category_id": "VL",
+      "category_name": "Veikkausliiga",
+      "group_type": "group_stage",
+      "group_id": "1",
+      "group_name": "A",
+      "group_notice": "",
+      "group_notice_full": "",
+      "teams": [
+        {
+          "team_id": "60731",
+          "team_name": "HJK",
+          "current_standing": 1,
+          "points": 4,
+          "matches_played": 2,
+          "matches_won": 1,
+          "matches_tied": 1,
+          "matches_lost": 0
+        }
+      ],
+      "team_count_max": 12
+    }
+  ]
+}
+Get groupsGET/taso/rest/getGroups{?api_key,competition_id,category_id,group_id}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (required) Example: spljp15
+Competition id
+
+category_id
+string (optional) Example: VL
+Category id
+
+group_id
+string (optional) Example: 1
+Group id
+
+Team ¶
+Team ¶
+GET /taso/rest/getTeam?api_key=&team_id=&team_qrcode=&competition_id=spljp15&category_id=VL&roster=&season_id=
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "team": {
+    "team_id": "92187",
+    "team_name": "RIlves",
+    "club_id": "61",
+    "club_name": "RIlves",
+    "home_venue_id": null,
+    "home_venue_name": null,
+    "players": [
+      {
+        "player_id": "395382",
+        "first_name": "Jere",
+        "last_name": "Koponen",
+        "shirt_number": "1",
+        "shirt_name": "",
+        "captain": "",
+        "position": "maalivahti",
+        "birthday": "1992-05-23",
+        "birthyear": "1992",
+        "height": "187",
+        "weight": "81",
+        "nationality": "FI",
+        "matches": "0",
+        "goals": "0",
+        "assists": "0",
+        "warnings": "0",
+        "suspensions": "0",
+        "playing_time": "0",
+        "img_url": null
+      }
+    ],
+    "officials": [
+      {
+        "official_id": "14465",
+        "first_name": "Hannu",
+        "last_name": "Vento",
+        "official_role": "Huoltaja"
+      }
+    ],
+    "categories": [
+      {
+        "competition_id": "itajalkapallo2016",
+        "competition_name": "Itä-Suomi Jalkapallo 2016",
+        "competition_season": "2016",
+        "competition_status": "published",
+        "category_id": "M3",
+        "category_name": "Kolmonen",
+        "category_team_name": "PK-37"
+      }
+    ]
+  }
+}
+TeamGET/taso/rest/getTeam{?api_key,team_id,team_qrcode,competition_id,category_id,roster,season_id}
+Field	Type	Description
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+team_id
+string (optional) 
+Team ID to get current roster
+
+team_qrcode
+string (optional) 
+Team QR code to get authenticated information about the team (passes etc)
+
+competition_id
+number (optional) Example: spljp15
+Competition ID to get history data from match reports, if set then category_id is also required
+
+category_id
+number (optional) Example: VL
+Category ID to get history data from match reports, required if competition_id is set. When this is set players will include all players who have played on this category, even if they’re not in current roster. If this is empty then players element will include current roster.
+
+roster
+string (optional) 
+Get team roster for a specific season or ‘current’
+
+season_id
+string (optional) 
+Get team data for a specific season
+
+Teams ¶
+GET /taso/rest/getTeams?api_key=&competition_id=spljp15&category_id=MRC
+Responses200
+Headers
+Content-Type: application/json
+Body
+teams: [
+    {
+        "team_id": "66820",
+        "club_id": "70",
+        "team_name": "EPS",
+        "category_id": "MRC"
+    },
+    {
+        "team_id": "66827",
+        "club_id": "71",
+        "team_name": "HONKA",
+        "category_id": "MRC"
+    }
+]
+Get teamsGET/taso/rest/getTeams{?api_key,competition_id,category_id}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+number (required) Example: spljp15
+Competition ID
+
+category_id
+number (optional) Example: MRC
+Category ID
+
+Next matches ¶
+GET /taso/rest/getNextMatches?api_key=&team_id=60808&team_type=national
+Responses200400
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {},
+  "matches": [
+    {
+      "match_id": "782770",
+      "competition_id": "vb2025n",
+      "category_id": "U15T",
+      "group_id": "267",
+      "date": "2026-04-11",
+      "time": "09:00:00",
+      "team_A_id": "58682",
+      "team_A_name": "PeTä/Diamonds/C",
+      "team_B_id": "58652",
+      "team_B_name": "VanLe/1",
+      "venue_name": "Karkkilan liikuntahalli",
+      "status": "Scheduled"
+    }
+  ]
+}
+Get next matchesGET/taso/rest/getNextMatches{?api_key,team_id,team_type}
+Returns the next upcoming match for each specified team. When team_type=national, returns matches for Finnish national teams (Huuhkajat, Helmarit, men’s and women’s futsal). Otherwise, accepts a comma-separated list of team ids. Only unplayed matches from today onwards are returned.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+team_id
+string (optional) Example: 60808
+Team id or comma-separated list of team ids. Required when team_type is not ‘national’.
+
+team_type
+string (optional) Example: national
+Team type, use ‘national’ for national teams. Overrides team_id with predefined national team ids.
+
+Player ¶
+Player ¶
+GET /taso/rest/getPlayer?api_key=&player_id=60987
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "player": {
+    "player_id": "84102",
+    "first_name": "LASSI",
+    "last_name": "NURMOS",
+    "club_id": "1",
+    "club_name": "HJK",
+    "birthday": "1980-01-01",
+    "birthyear": "1980",
+    "nationality": "FI",
+    "img_url": "https://torneopal-sentinelsoftware.netdna-ssl.com/img/player/palloliitto/84102_7faaa184c46bb2efd4b2090c9a6c2c7c.jpg",
+    "teams": [
+      {
+        "team_id": "25094",
+        "team_name": "HJK",
+        "club_id": "1",
+        "club_name": "HJK",
+        "shirt_number": "4",
+        "captain": "C",
+        "position": "defender"
+      }
+    ],
+    "matches": [
+      {
+        "match_id": "276155",
+        "match_number": "273",
+        "competition_id": "spljp15",
+        "competition_name": "SPL Jalkapallo 2015",
+        "category_id": "LC",
+        "category_name": "Liigacup",
+        "group_id": "1",
+        "group_name": "Liigacup",
+        "date": "2015-01-14",
+        "team_id": "25094",
+        "team_name": "HJK",
+        "player_goals": "1",
+        "player_warnings": "1",
+        "player_suspensions": "0"
+      }
+    ]
+  }
+}
+Get playerGET/taso/rest/getPlayer{?api_key,player_id}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+player_id
+number (required) Example: 60987
+Player ID
+
+Get Ranking ¶
+Returns beach volleyball ranking for a given ranking group and optional date snapshot.
+
+Match ¶
+Match list ¶
+GET /taso/rest/getMatches?api_key=&competition_id=spljp15&category_id=VL&date=2015-04-23&start_date=2015-04-01&end_date=2015-04-30&venue_id=2497&team_id=60808&group_id=1&match_number=5253
+Responses200
+Body
+{
+  "call": {
+    "method": "getMatches",
+    "status": "ok",
+    "result_count": 1
+  },
+  "matches": [
+    {
+      "match_id": "276155",
+      "match_number": "273",
+      "competition_id": "spljp15",
+      "competition_name": "SPL Jalkapallo 2015",
+      "category_id": "VL",
+      "category_name": "Veikkausliiga",
+      "group_id": "1",
+      "group_name": "A",
+      "date": "2015-04-23",
+      "time": "18:00",
+      "venue_id": "2497",
+      "venue_name": "Telia 5G Areena",
+      "team_A_id": "60731",
+      "team_A_name": "HJK",
+      "team_B_id": "60808",
+      "team_B_name": "RoPS",
+      "fs_A": "2",
+      "fs_B": "1",
+      "status": "Played",
+      "referee_id": "",
+      "referee_name": ""
+    }
+  ]
+}
+Get matchesGET/taso/rest/getMatches{?api_key,competition_id,category_id,date,start_date,end_date,venue_id,team_id,group_id,match_number}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (optional) Example: spljp15
+Competition id
+
+category_id
+string (optional) Example: VL
+Category id
+
+date
+string (optional) Example: 2015-04-23
+Filter by date
+
+start_date
+string (optional) Example: 2015-04-01
+Filter by start date
+
+end_date
+string (optional) Example: 2015-04-30
+Filter by end date
+
+venue_id
+string (optional) Example: 2497
+Filter by venue
+
+team_id
+string (optional) Example: 60808
+Filter by team
+
+group_id
+string (optional) Example: 1
+Filter by group
+
+match_number
+string (optional) Example: 5253
+Filter by match number
+
+Score ¶
+Get current score of one match. This result is never cached and can be polled frequently (max rate 1 per second)
+
+GET /taso/rest/getScore?api_key=&match_id=1
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "score": {
+    "match_id": "782770",
+    "last_modified": "2026-08-01 15:06:33",
+    "match_number": "25789",
+    "competition_id": "vb2025n",
+    "competition_season": "",
+    "organiser": "lpl",
+    "country": "",
+    "category_id": "U15T",
+    "category_name": "U15T (Ct)",
+    "category_abbrevation": "",
+    "category_name_translations": "",
+    "group_id": "267",
+    "group_name": "Sijat 134-143 E",
+    "cross_groups": "",
+    "venue_id": "213",
+    "venue_name": "Karkkilan liikuntahalli",
+    "venue_lat": "60.53376334691",
+    "venue_lon": "24.209814557506",
+    "venue_country": "",
+    "venue_time_zone": "",
+    "venue_time_zone_offset": "+03:00",
+    "date": "2026-04-11",
+    "time": "09:00:00",
+    "week": "15",
+    "dow": "7",
+    "playing_time_min": "0",
+    "reschedule": "0",
+    "team_A_id": "58682",
+    "team_A_name": "PeTä/Diamonds/C (Y)",
+    "team_A_abbrevation": "",
+    "team_A_description": "Sijat 134-143 E/1",
+    "team_A_description_en": "PeTä/Diamonds/C (Y)",
+    "club_A_crest": "https://cdn.torneopal.net/logo/lentopallo/118x.png",
+    "club_A_crest_darg_bg": "",
+    "team_B_id": "58652",
+    "team_B_name": "VanLe/1 (Y)",
+    "team_B_abbrevation": "",
+    "team_B_description": "Sijat 134-143 E/2",
+    "team_B_description_en": "",
+    "club_B_crest": "https://cdn.torneopal.net/logo/lentopallo/176x.png",
+    "club_B_crest_dark_bg": "",
+    "status": "Played",
+    "matchcard_status": "",
+    "forfeit_A": "",
+    "forfeit_B": "",
+    "disqualify_A": "",
+    "disqualify_B": "",
+    "lineups_filled": 1,
+    "lineups_confirmed": 0,
+    "lineups_confirmed_A": 0,
+    "lineups_confirmed_B": 0,
+    "winner": "Home",
+    "winner_id": "58682",
+    "points_A": "",
+    "points_B": "",
+    "final_position_win": "",
+    "final_position_lost": "",
+    "live_period": "3",
+    "live_time": "00:00:00",
+    "live_time_mmss": "",
+    "live_timeouts_A": 0,
+    "live_timeouts_B": 0,
+    "live_timeout_skip_A": 0,
+    "live_timeout_skip_B": 0,
+    "periods_played": 2,
+    "live_timer_start": "0000-00-00 00:00:00",
+    "live_timer_start_time": "00:00:00",
+    "live_timer_on": "0",
+    "live_fouls_A": 0,
+    "live_fouls_B": 0,
+    "walkover": 0,
+    "live_A": "2",
+    "live_B": "0",
+    "fs_A": "2",
+    "fs_B": "0",
+    "live_ps_A": "",
+    "live_ps_B": "",
+    "live_serve_team": "",
+    "hts_A": "0",
+    "hts_B": "0",
+    "ns_A": "",
+    "ns_B": "",
+    "es_A": "",
+    "es_B": "",
+    "ps_A": "",
+    "ps_B": "",
+    "suspensions_A": "",
+    "suspensions_B": "",
+    "fouls_A": "",
+    "fouls_B": "",
+    "p1s_A": "25",
+    "p1s_B": "8",
+    "p1_winner": "A",
+    "p2s_A": "25",
+    "p2s_B": "22",
+    "p2_winner": "A",
+    "p3s_A": "",
+    "p3s_B": "",
+    "p3_winner": "",
+    "p4s_A": "",
+    "p4s_B": "",
+    "p4_winner": "",
+    "p5s_A": "",
+    "p5s_B": "",
+    "p5_winner": "",
+    "fairplay_A": "0",
+    "fairplay_B": "0",
+    "live_rotation_A": [
+      "3",
+      "6"
+    ],
+    "live_rotation_B": [
+      "7",
+      "2"
+    ],
+    "timestamp": "1787168495-0-0",
+    "version_hash": "d57b91b3319e56dbb7527909a02d4a66"
+  }
+}
+Get scoreGET/taso/rest/getScore{?api_key,match_id}
+Field	Type	Description
+match_id	string	Match identifier
+match_number	string	Public match number
+competition_id	string	Competition identifier
+category_id	string	Category identifier
+team_A_id	string	Home team identifier
+team_A_name	string	Home team name
+team_B_id	string	Away team identifier
+team_B_name	string	Away team name
+status	string	Match status (Planned, Fixture, Live, Break, Played, Cancelled)
+live_period	string	Current period number when match is live (-1 when not live)
+live_time	string	Current playing time (HH:MM:SS) when match is live
+live_time_mmss	string	Current playing time (MM:SS) when match is live
+live_timer_start	string	Timer start timestamp
+live_timer_start_time	string	Timer start time
+live_timer_on	string	Timer running status (0=stopped, 1=running)
+live_fouls_A	string	Current fouls for team A (sport-specific)
+live_fouls_B	string	Current fouls for team B (sport-specific)
+live_A	string	Current live score for team A (sport-specific, e.g., sets in volleyball)
+live_B	string	Current live score for team B (sport-specific)
+fs_A	string	Final score for team A
+fs_B	string	Final score for team B
+live_ps_A	string	Current penalty score for team A
+live_ps_B	string	Current penalty score for team B
+live_serve_team	string	Team currently serving (sport-specific)
+hts_A	string	Half-time score for team A
+hts_B	string	Half-time score for team B
+es_A	string	Extra time score for team A
+es_B	string	Extra time score for team B
+ps_A	string	Penalty shootout score for team A
+ps_B	string	Penalty shootout score for team B
+p1s_A	string	Period 1 score for team A
+p1s_B	string	Period 1 score for team B
+p2s_A	string	Period 2 score for team A
+p2s_B	string	Period 2 score for team B
+p3s_A	string	Period 3 score for team A
+p3s_B	string	Period 3 score for team B
+p4s_A	string	Period 4 score for team A
+p4s_B	string	Period 4 score for team B
+p5s_A	string	Period 5 score for team A
+p5s_B	string	Period 5 score for team B
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+match_id
+number (required) Example: 1
+Match ID
+
+Get match count ¶
+GET /taso/rest/getMatchCount?api_key=&date=2026-01-15&start_date=2026-01-01&end_date=2026-01-31
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "status": "ok"
+  },
+  "dates": [
+    {
+      "date": "2026-01-15",
+      "match_count": "42"
+    },
+    {
+      "date": "2026-01-16",
+      "match_count": "38"
+    }
+  ]
+}
+Get match countGET/taso/rest/getMatchCount{?api_key,date,start_date,end_date}
+Returns the number of published matches per date within the specified date range. Only matches from published competitions, categories, and groups are counted. If date is specified, it overrides start_date and end_date. At least one valid date parameter is required.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+date
+string (optional) Example: 2026-01-15
+Specific date to count matches for. If specified, overrides start_date and end_date
+
+start_date
+string (optional) Example: 2026-01-01
+Start date of the date range (YYYY-MM-DD)
+
+end_date
+string (optional) Example: 2026-01-31
+End date of the date range (YYYY-MM-DD)
+
+GetMatch ¶
+GET /taso/rest/getMatch?api_key=&match_id=1
+Responses200
+Headers
+Content-Type: application/json
+Get matchGET/taso/rest/getMatch{?api_key,match_id}
+Field	Type	Description
+match_id	string	Unique ID of the match
+match_number	string	Public match number
+match_report	string	Link to the scanned match report
+aggregate_match	string	
+competition_id	string	
+competition_name	string	
+competition_logo	string	
+competition_status	string	
+competition_officiality	string	
+season_id	string	
+organiser	string	
+organiser_private	string	
+category_id	string	
+category_name	string	
+category_logo	string	
+category_group	string	
+category_group_name	string	
+category_group_name_en	string	
+category_live	string	
+calculate_points	string	
+season_order	string	
+group_id	string	
+group_name	string	
+group_type	string	
+round_id	string	
+round_name	string	
+round_date_begin	string	
+round_date_end	string	
+round_team_id	string	
+round_club_id	string	
+round_club_name	string	
+stage	string	
+stage_name	string	
+standings_name	string	
+date	string	
+time	string	
+reschedule	string	
+time_reservation_start	string	
+time_end	string	
+time_zone	string	
+time_zone_offset	string	
+sunset	string	
+club_A_id	string	
+club_A_name	string	
+club_A_abbrevation	string	
+club_A_www	string	
+club_A_crest	string	
+team_A_id	string	
+team_A_name	string	
+team_A_abbrevation	string	
+team_A_www	string	
+club_A_distance	string	
+team_A_home_venue_id	string	
+club_B_id	string	
+club_B_name	string	
+club_B_abbrevation	string	
+club_B_www	string	
+club_B_distance	string	
+club_B_crest	string	
+team_B_id	string	
+team_B_name	string	
+team_B_abbrevation	string	
+team_B_www	string	
+statistics_level	string	[concise=no event times,normal,extended=fouls, corners, off-sides, shots etc]
+events_display	string	
+status	string	[Fixture,Planned,Live,Break,Played,Canceled,Suspended,Abandoned,Reschedule]
+winner	string	[Home,Tie,Away,empty]
+winner_id	string	Id of the winning team or - if tied
+walkover	string	
+fs_A	string	Final score Team A
+fs_B	string	Final score Team B
+hts_A	string	Half-time score Team A
+hts_B	string	Half-time score Team B
+ns_A	string	Score after normal play Team A
+ns_B	string	Score after normal play Team B
+es_A	string	Total score after extra-time Team A
+es_B	string	Total score after extra-time Team B
+ps_A	string	Penalty shootout score Team A
+ps_B	string	Penalty shootout score Team B
+suspensions_A	string	
+suspensions_B	string	
+suspensions_officials_A	string	
+suspensions_officials_B	string	
+match_type	string	
+best_of_match	string	
+best_of_count	string	
+can_start_live	string	
+lineups_filled	string	
+best_of_sequence	string	
+track_scorers	string	
+track_assists	string	
+starting_players	string	
+sport_id	string	
+match_report_exists	string	
+p1_start_team	string	
+p1_start_time	string	
+p1_end_time	string	
+p1_duration	string	
+p1s_A	string	
+p1s_B	string	
+p1_winner	string	“”/A/B
+p2_start_team	string	
+p2_start_time	string	
+p2_end_time	string	
+p2_duration	string	
+p2s_A	string	
+p2s_B	string	
+p2_winner	string	“”/A/B
+p3_start_team	string	
+p3_start_time	string	
+p3_end_time	string	
+p3_duration	string	
+p3s_A	string	
+p3s_B	string	
+p3_winner	string	“”/A/B
+p4_start_team	string	
+p4_start_time	string	
+p4_end_time	string	
+p4_duration	string	
+p4s_A	string	
+p4s_B	string	
+p4_winner	string	“”/A/B
+p5_start_team	string	
+p5_start_time	string	
+p5_end_time	string	
+p5_duration	string	
+p5s_A	string	
+p5s_B	string	
+p5_winner	string	“”/A/B
+position_name	string	
+players_aside	string	
+serve_order	string	
+players_substitutes	string	
+substitutions	string	
+max_fouls	string	
+max_timeouts	string	
+referee_1_id	string	Id of the refereer
+referee_1_name	string	Name of referee
+referee_1_player_id	string	Player id of referee
+referee_2_id	string	Name of the 2nd referee observer
+referee_2_name	string	Name of the assistant referee observer
+referee_2_player_id	string	Player id of assistant referee observer
+assistant_referee_1_id	string	Id of the primary assistant referee
+assistant_referee_1_name	string	Name of the primary assistant referee
+assistant_referee_1_player_id	string	Player id of primary assistant referee
+assistant_referee_2_id	string	Id of the secondary assistant referee
+assistant_referee_2_name	string	Name of the secondary assistant referee
+assistant_referee_2_player_id	string	Player id of secondary assistant referee
+referee_1_join	string	ID of the joined match for referee assignment
+referee_2_join	string	ID of the joined match for referee assignment
+assistant_referee_1_join	string	ID of the joined match for referee assignment
+assistant_referee_2_join	string	ID of the joined match for referee assignment
+venue_id	string	
+venue_name	string	
+venue_name_competition	string	
+venue_city_name	string	
+venue_city_id	string	
+venue_area_id	string	
+venue_area_referee_club_id	string	
+venue_area_name	string	
+venue_location_id	string	
+venue_location_name	string	
+venue_suburb_name	string	
+attendance	string	
+referee_classification	string	
+report_result	string	
+playing_time_min	string	
+period_count	string	Number of periods
+win_period_count	string	Number of periods neede to win
+period_count_fixed	string	Always play fixed amount of periods (volleyball)
+period_min	string	Length of a single perid in minutes
+extra_period_count	string	Number of extra-time periods
+extra_period_min	string	Length of a single extra-time period in minutes
+ps_count	string	
+live_period	string	
+live_time	string	
+live_time_mmss	string	
+live_minutes	string	
+live_A	string	
+live_B	string	
+live_ps_A	string	
+live_ps_B	string	
+live_timeouts_A	string	
+live_timeouts_B	string	
+live_timeout_skip_A	string	
+live_timeout_skip_B	string	
+live_serve_team	string	
+live_fouls_A	string	
+live_fouls_B	string	
+live_timer_start	string	
+live_timer_start_time	string	
+live_timer_on	string	
+temperature	string	
+weather	string	
+stream_url	string	
+ticket_url	string	
+stream	string	
+stream_media	string	
+stream_media_name	string	
+stream_img	string	
+tv	string	
+notice	string	
+result_notice	string	
+stamp	string	
+assign_referee_1	string	
+referee_1_distance	string	
+referee_fee	string	
+assign_referee_2	string	
+referee_2_distance	string	
+assign_assistant_referee_1	string	
+assistant_referee_1_distance	string	
+assign_assistant_referee_2	string	
+assistant_referee_2_distance	string	
+assistant_referee_fee	string	
+referee_observer_id	string	ID of the assistant referee observer
+referee_observer_name	string	Name of the assistant referee observer
+assistant_referee_observer_id	string	ID of the assistant referee observer
+assistant_referee_observer_name	string	Name of the assistant referee observer
+assign_assistant_referee_observer	string	
+fourth_official_id	string	ID of the fourth official
+fourth_official_name	string	Name of the fourth official
+fourth_official_player_id	string	Player id of the fourth official
+assign_assistant_fourth_official	string	
+delegate_1_id	string	ID of the the match delegate 1
+delegate_1_name	string	Name of the match delegate 1
+assign_assistant_delegate_1	string	
+delegate_2_id	string	ID of the the match delegate 2
+delegate_2_name	string	Name of the the match delegate 2
+assign_assistant_delegate_2	string	
+internal_note	string	
+timestamp	string	
+venue_images	Array	
+match_parts	Array	
+aggregate_match_status	string	
+aggregate_match_score_A	string	
+aggregate_match_score_B	string	
+aggregate_match_score_parts	Array	
+best_of_needed	string	
+best_of_score_A	string	
+best_of_score_B	string	
+allow_referee_edit	string	
+allow_match_edit	string	
+lineups	Array	
+lineup_officials	Array	
+lineups_published	string	
+goals	Array	
+bookings	Array	
+events	Array	
+substitution_events	Array	
+awards	Array	
+rights	Array	
+kits	Array	Array
+period_lengths_sec	Array	
+match_length_sec	string	
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+match_id
+number (required) Example: 1
+Match ID
+
+Multi matches ¶
+GET /taso/rest/getMultiMatches?api_key=&parameters=
+Responses200
+Body
+{
+  "call": {
+    "method": "getMultiMatches",
+    "status": "ok",
+    "result_count": 2
+  },
+  "matches": [
+    {
+      "match_id": "276155",
+      "match_number": "273",
+      "competition_id": "spljp15",
+      "category_id": "VL",
+      "date": "2015-04-23",
+      "time": "18:00",
+      "venue_id": "2497",
+      "team_A_id": "60731",
+      "team_A_name": "HJK",
+      "team_B_id": "60808",
+      "team_B_name": "RoPS",
+      "fs_A": "2",
+      "fs_B": "1",
+      "status": "Played"
+    },
+    {
+      "match_id": "276160",
+      "match_number": "280",
+      "competition_id": "spljp15",
+      "category_id": "VL",
+      "date": "2015-04-30",
+      "time": "20:00",
+      "venue_id": "2497",
+      "team_A_id": "60731",
+      "team_A_name": "HJK",
+      "team_B_id": "60973",
+      "team_B_name": "RoPS",
+      "fs_A": "",
+      "fs_B": "",
+      "status": "Fixture"
+    }
+  ]
+}
+Get multi matchesGET/taso/rest/getMultiMatches{?api_key,parameters}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+parameters
+array (required) 
+Array of parameter sets for multiple match queries
+
+Get Map Matches ¶
+GET /taso/rest/getMapMatches?api_key=&date=2026-01-15
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "venue_name": "Hartwall Areena",
+        "matches": "09:00, U15T, Team A - Team B<br>10:00, U15T, Team C - Team D<br>"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.95,
+          60.2
+        ]
+      },
+      "id": "782770"
+    }
+  ]
+}
+Get Map MatchesGET/taso/rest/getMapMatches{?api_key,date}
+Returns matches grouped by venue as a GeoJSON FeatureCollection for map display. Each feature represents a venue with match details in the properties.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+date
+string (optional) Example: 2026-01-15
+Date in YYYY-MM-DD format. Defaults to today.
+
+Calendar ¶
+GET /taso/rest/getCalendar?api_key=&start_date=2026-01-01&end_date=2026-01-31&date=today&calendarmonth=1-2026&category_id=NSC,MSC&sport_id=beach
+Responses200400
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "calendarmonth": "1-2026",
+    "start_date": "2025-12-29",
+    "end_date": "2026-02-01",
+    "result_count": 2
+  },
+  "matches": [
+    {
+      "otteluid": "782770",
+      "turnaus": "vb2025n",
+      "sarja": "U15T",
+      "lohko": "267",
+      "pvm": "2026-01-15",
+      "klo": "18:00:00",
+      "kentta": "213",
+      "sarjanimi": "U15T",
+      "kotijoukkue": "58682",
+      "kotinimi": "PeTä/Diamonds/C",
+      "vierasjoukkue": "58652",
+      "vierasnimi": "VanLe/1"
+    }
+  ],
+  "beach_tournaments": [
+    {
+      "competition_id": "beach2026",
+      "category_id": "B1",
+      "category_name": "Beach 1",
+      "date": "2026-01-15"
+    }
+  ]
+}
+Get calendarGET/taso/rest/getCalendar{?api_key,start_date,end_date,date,calendarmonth,category_id,sport_id}
+Returns matches within a date range for calendar display. Supports filtering by category and sport. When calendarmonth is provided, the date range is expanded to full calendar weeks (Monday to Sunday). When sport_id=beach, also returns beach_tournaments array with category dates. Only published, non-test, non-rescheduled matches from public competitions are included.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+start_date
+string (required) Example: 2026-01-01
+Start date (YYYY-MM-DD). Can be derived from calendarmonth or date.
+
+end_date
+string (required) Example: 2026-01-31
+End date (YYYY-MM-DD). Can be derived from calendarmonth or date.
+
+date
+string (optional) Example: today
+Single date filter. Use today for current date. Sets both start_date and end_date.
+
+calendarmonth
+string (optional) Example: 1-2026
+Month and year as M-YYYY or M/YYYY. Expands to full calendar week range (Mon-Sun).
+
+category_id
+string (optional) Example: NSC,MSC
+Comma-separated category ids to filter by.
+
+sport_id
+string (optional) Example: beach
+Sport id to filter by. Use beach to include beach tournament category dates.
+
+Club ¶
+##MD Club list
+
+Club list ¶
+GET /taso/rest/getClubs?api_key=&competition_id=spljp15&season_id=2015&district=splhelsinki
+Responses200
+Body
+{
+  "call": {
+    "method": "getClubs",
+    "status": "ok"
+  },
+  "clubs": [
+    {
+      "club_id": "1",
+      "club_sport_id": "1",
+      "name": "HJK",
+      "abbrevation": "HJK",
+      "www": "https://www.hjk.fi",
+      "crest": "https://cdn.torneopal.fi/logo/palloliitto/1x.png",
+      "district": "splhelsinki",
+      "city_id": "91",
+      "city_name": "Helsinki",
+      "team_categories": [
+        "VL",
+        "Y1"
+      ],
+      "team_age_groups": [
+        {
+          "gender": "men",
+          "age_group": "",
+          "sport": "football"
+        }
+      ],
+      "sports": [
+        "football",
+        "futsal"
+      ]
+    }
+  ]
+}
+Get clubsGET/taso/rest/getClubs{?api_key,competition_id,season_id,district}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (optional) Example: spljp15
+Competition id
+
+season_id
+string (optional) Example: 2015
+Season id
+
+district
+string (optional) Example: splhelsinki
+Filter by district
+
+Club ¶
+GET /taso/rest/getClub?api_key=&club_id=2970&club_sport_id=&season_id=2023-2024&competition_id=comp123&extra_fields=field1,field2
+Responses200
+Body
+{
+  "call": {
+    "method": "getClub",
+    "status": "ok"
+  },
+  "club": {
+    "club_id": "2970",
+    "name": "Example Club",
+    "abbrevation": "EXC",
+    "www": "https://www.example.fi",
+    "crest": "https://cdn.torneopal.fi/logo/palloliitto/2970x.png",
+    "sub_title": "",
+    "district": "splhelsinki",
+    "contact_name": "John Doe",
+    "contact_address": "Mannerheimintie 1",
+    "contact_zipcode": "00100",
+    "contact_city": "Helsinki",
+    "contact_phone": "+358 40 123 4567",
+    "contact_email": "info@example.fi",
+    "information": "",
+    "officials": [],
+    "category_groups": [],
+    "teams": [
+      {
+        "team_id": "60808",
+        "team_name": "Example Team",
+        "category_id": "VL",
+        "category_name": "Veikkausliiga",
+        "competition_id": "spljp15",
+        "competition_name": "SPL Jalkapallo 2015"
+      }
+    ]
+  }
+}
+Get clubGET/taso/rest/getClub{?api_key,club_id,club_sport_id,season_id,competition_id,extra_fields}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+club_id
+number (optional) Example: 2970
+Club ID. This parameter is not used with Club API Keys. Call will always return your own club when called with Club API Key.
+
+club_sport_id
+number (optional) 
+Club SportID. This parameter is not used with Club API Keys. Call will always return your own club when called with Club API Key.
+
+season_id
+string (optional) Example: 2023-2024
+Season ID
+
+competition_id
+string (optional) Example: comp123
+Competition ID
+
+extra_fields
+string (optional) Example: field1,field2
+Comma separated list of extra fields to include
+
+Sport ¶
+Sports ¶
+GET /taso/rest/getSports
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "method": "getSports",
+    "status": "ok"
+  },
+  "sports": [
+    {
+      "sport_id": "football",
+      "sport_name": "Football",
+      "sport_name_fi": "Jalkapallo"
+    }
+  ]
+}
+Schema
+{
+  "call": {
+    "method": "getSports",
+    "status": "ok"
+  },
+  "sports": [
+    {
+      "sport_id": "ID of the sport",
+      "sport_name": "English name of the sport",
+      "sport_name_fi": "Finnish name of the sport"
+    }
+  ]
+}
+Get sportsGET/taso/rest/getSports
+Venue ¶
+Venue regions ¶
+GET /taso/rest/getVenueRegions?api_key=&competition_id=spljp15&category_id=M1
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "method": "getVenueRegions",
+    "status": "ok",
+    "result_count": 2
+  },
+  "regions": [
+    {
+      "region_id": "1",
+      "region_name": "Töölö",
+      "competition_id": ""
+    },
+    {
+      "region_id": "2",
+      "region_name": "Kallio",
+      "competition_id": ""
+    }
+  ]
+}
+Get venue regionsGET/taso/rest/getVenueRegions{?api_key,competition_id,category_id}
+Field	Type	Description
+region_id	string	ID of the venue region
+region_name	string	Name of the venue region
+competition_id	string	Competition id the region belongs to (empty for common regions)
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (optional) Example: spljp15
+Competition id; if omitted, returns common venue regions
+
+category_id
+string (optional) Example: M1
+Category id; only used when competition_id is given
+
+Venue events ¶
+GET /taso/rest/getVenueEvents?api_key=&venue_id=2497&date=23.04.2015
+Responses200
+Body
+{
+  "call": {
+    "status": "ok",
+    "result_count": 2
+  },
+  "events": [
+    {
+      "venue_id": "2497",
+      "date": "2015-04-23",
+      "time_start": "18:00",
+      "time_end": "20:00",
+      "reason": "harjoitus",
+      "time_reservation_start": "18:00",
+      "time_reservation_end": "20:00"
+    },
+    {
+      "venue_id": "2497",
+      "date": "2015-04-23",
+      "time_start": "20:00",
+      "time_end": "22:00",
+      "reason": "otteluvaraus",
+      "time_reservation_start": "20:00",
+      "time_reservation_end": "22:00"
+    }
+  ]
+}
+Get venue eventsGET/taso/rest/getVenueEvents{?api_key,venue_id,date}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+venue_id
+string (required) Example: 2497
+Venue id
+
+date
+string (required) Example: 23.04.2015
+Date in DD.MM.YYYY format
+
+Venue ¶
+Get detailed information about a specific venue including location, facilities, partitions, and optionally matches.
+
+GET /taso/rest/getVenue?api_key=&venue_id=123&competition_id=spljp15&matches=1
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "venue_id": "123",
+  "venue_name": "Pallokenttä",
+  "venue_name_official": "Official Stadium Name",
+  "venue_address": "Kenttätie 1",
+  "location_id": "456",
+  "location_name": "Sports Center",
+  "venue_zipcode": "00100",
+  "venue_city": "Helsinki",
+  "venue_city_id": "091",
+  "venue_city_name": "Helsinki",
+  "venue_suburb_name": "Kallio",
+  "venue_lat": "60.1699",
+  "venue_lon": "24.9384",
+  "venue_region": "1",
+  "venue_region_name": "Uusimaa",
+  "venue_district": "2",
+  "venue_district_name": "Helsinki",
+  "venue_lights": "1",
+  "venue_covered": "0",
+  "venue_size": "11v11",
+  "www": "https://example.com",
+  "venue_images": [
+    "image1.jpg",
+    "image2.jpg"
+  ],
+  "venue_partitions": [
+    {
+      "venue_id": "123a",
+      "venue_name": "Field A",
+      "venue_size": "7v7"
+    }
+  ],
+  "home_venue": [
+    {
+      "type": "club",
+      "id": "61",
+      "name": "Example Club",
+      "club_id": "61"
+    }
+  ],
+  "matches": [
+    {
+      "match_id": "12345",
+      "home_team": "Team A",
+      "away_team": "Team B",
+      "date": "2025-05-15",
+      "time": "18:00"
+    }
+  ]
+}
+VenueGET/taso/rest/getVenue{?api_key,venue_id,competition_id,matches}
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+venue_id
+string (required) Example: 123
+Venue identifier
+
+competition_id
+string (optional) Example: spljp15
+Competition ID for venue context
+
+matches
+number (optional) Example: 1
+Include matches at this venue (1=include matches)
+
+Venue list ¶
+GET /taso/rest/getVenues?api_key=&competition_id=spljp15&district=splvaasa&venue_id=2497&city_id=91&location_id=123&category_id=M1&page_size=100
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "method": "getVenues",
+    "status": "ok",
+    "result_count": 1
+  },
+  "venues": [
+    {
+      "venue_id": "2497",
+      "venue_name": "Telia 5G Areena, Helsinki",
+      "venue_name_official": "Telia 5G Areena",
+      "venue_address": "Urheilukatu 5",
+      "location_id": "1",
+      "location_name": "Töölö",
+      "venue_zipcode": "00250",
+      "venue_city": "Helsinki",
+      "venue_city_id": "91",
+      "venue_city_name": "Helsinki",
+      "venue_suburb_name": "Töölö",
+      "venue_lat": "60.185854953551",
+      "venue_lon": "24.923453144872",
+      "venue_place": "",
+      "venue_place_name": "",
+      "venue_region": "101",
+      "venue_region_name": "Hki Töölö",
+      "venue_district": "splhelsinki",
+      "venue_district_name": "Helsinki",
+      "venue_mainvenue_id": "",
+      "venue_mainvenue_name": "",
+      "venue_rootvenue_id": "",
+      "venue_rootvenue_name": "",
+      "venue_length": "",
+      "venue_width": "",
+      "venue_height": "",
+      "venue_surface": "football turf",
+      "venue_surface_fi": "jalkapallonurmi",
+      "venue_lights": "1",
+      "venue_covered": "0",
+      "venue_seats": "10770",
+      "venue_warm": "",
+      "venue_size": "11v11",
+      "www": "http://www.5gareena.fi",
+      "venue_images": [
+        {
+          "url": "https://cdn.torneopal.net/img/palloliitto/pitch/2497.jpg"
+        }
+      ],
+      "venue_properties": {
+        "lights": "1",
+        "covered": "0",
+        "seats": "10770",
+        "warm": "0"
+      },
+      "venue_properties_fi": {
+        "Valaistu": "1",
+        "Katettu": "0",
+        "Katsomo": "10770",
+        "Lämmitys": "0"
+      }
+    }
+  ]
+}
+Schema
+{
+  "type": "object",
+  "properties": {
+    "call": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "result_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "venues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "venue_id": {
+            "description": "Unique id (in the competition if competition_id was provided)",
+            "type": "string"
+          },
+          "venue_name": {
+            "description": "Name (may be overridden by competition-specific custom name)",
+            "type": "string"
+          },
+          "venue_name_official": {
+            "description": "Official venue name (only when a custom name override is in place)",
+            "type": "string"
+          },
+          "venue_address": {
+            "description": "Address",
+            "type": "string"
+          },
+          "location_id": {
+            "description": "Location id",
+            "type": "string"
+          },
+          "location_name": {
+            "description": "Location name",
+            "type": "string"
+          },
+          "venue_zipcode": {
+            "description": "Zip code",
+            "type": "string"
+          },
+          "venue_city": {
+            "description": "City",
+            "type": "string"
+          },
+          "venue_city_id": {
+            "description": "City code",
+            "type": "string"
+          },
+          "venue_city_name": {
+            "description": "City name",
+            "type": "string"
+          },
+          "venue_suburb_name": {
+            "description": "Suburb name",
+            "type": "string"
+          },
+          "venue_lat": {
+            "description": "Latitude",
+            "type": "string"
+          },
+          "venue_lon": {
+            "description": "Longitude",
+            "type": "string"
+          },
+          "venue_place": {
+            "description": "Common id for the venues in the same address",
+            "type": "string"
+          },
+          "venue_place_name": {
+            "description": "Common name for the venues in the same address",
+            "type": "string"
+          },
+          "venue_region": {
+            "description": "Region id",
+            "type": "string"
+          },
+          "venue_region_name": {
+            "description": "Region name",
+            "type": "string"
+          },
+          "venue_district": {
+            "description": "District id",
+            "type": "string"
+          },
+          "venue_district_name": {
+            "description": "District name",
+            "type": "string"
+          },
+          "venue_mainvenue_id": {
+            "description": "Main venue id this venue belongs to",
+            "type": "string"
+          },
+          "venue_mainvenue_name": {
+            "description": "Main venue name",
+            "type": "string"
+          },
+          "venue_rootvenue_id": {
+            "description": "Root venue id (top-level grouping)",
+            "type": "string"
+          },
+          "venue_rootvenue_name": {
+            "description": "Root venue name",
+            "type": "string"
+          },
+          "venue_length": {
+            "description": "Length in meters",
+            "type": "string"
+          },
+          "venue_width": {
+            "description": "Width in meters",
+            "type": "string"
+          },
+          "venue_height": {
+            "description": "Height in meters",
+            "type": "string"
+          },
+          "venue_surface": {
+            "description": "Type of surface, one of [artificial turf,football turf,grass,gravel,plastic,wood,parquet,concrete]",
+            "type": "string"
+          },
+          "venue_surface_fi": {
+            "description": "Type of surface in Finnish",
+            "type": "string"
+          },
+          "venue_lights": {
+            "description": "Lights 1=yes, 0=no, empty=don't know",
+            "type": "string"
+          },
+          "venue_covered": {
+            "description": "Is the pitch covered, 1=yes, 0=no, empty=don't know",
+            "type": "string"
+          },
+          "venue_seats": {
+            "description": "Number of seats, empty=don't know",
+            "type": "string"
+          },
+          "venue_warm": {
+            "description": "Is the covered pitch warm in winter 1=yes, 0=no, empty=don't know",
+            "type": "string"
+          },
+          "venue_size": {
+            "description": "Venue size category (e.g. 11v11, 8v8, 7v7)",
+            "type": "string"
+          },
+          "www": {
+            "description": "Venue website URL",
+            "type": "string"
+          },
+          "venue_images": {
+            "description": "Array of venue image objects with a `url` field",
+            "type": "array"
+          },
+          "venue_properties": {
+            "description": "Venue properties object with `lights`, `covered`, `seats`, `warm` fields",
+            "type": "object"
+          },
+          "venue_properties_fi": {
+            "description": "Venue properties object with Finnish labels: `Valaistu`, `Katettu`, `Katsomo`, `Lämmitys`",
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}
+Get venuesGET/taso/rest/getVenues{?api_key,competition_id,district,venue_id,city_id,location_id,category_id,page_size}
+Returns the list of venues (pitches/fields). When competition_id is given, returns venues used by that competition; otherwise returns common/shared venues. Results can be filtered by venue_id, city_id, location_id, district and category_id (the last one only for the palloliitto database together with competition_id). The number of results can be limited with page_size.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (optional) Example: spljp15
+Competition id, if not provided then returns common venues
+
+district
+string (optional) Example: splvaasa
+Filter by district
+
+venue_id
+string (optional) Example: 2497
+Filter by venue id
+
+city_id
+number (optional) Example: 91
+Filter by city code
+
+location_id
+number (optional) Example: 123
+Filter by location id
+
+category_id
+string (optional) Example: M1
+Filter by category (only when competition_id is given, for palloliitto database)
+
+page_size
+number (optional) Example: 100
+Limit number of results
+
+Other ¶
+District list ¶
+GET /taso/rest/getDistricts
+Responses200
+Headers
+Content-Type: application/json
+Body
+districts: [
+    {
+        "district": "sphelsinki",
+        "district_name": "Helsinki"
+    },
+    {
+        "district": "sphitasuomi",
+        "district_name": "Itä-Suomi"
+    }
+]
+Get districtsGET/taso/rest/getDistricts
+Field	Type	Description
+district	string	ID of the distrct
+district_name	string	Name of the district
+Get organiser ¶
+GET /taso/rest/getOrganiser?api_key=&organiser=spl
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "status": "OK"
+  },
+  "organiser": {
+    "organiser": "spl",
+    "organiser_name": "Suomen Palloliitto",
+    "organiser_type": "liitto",
+    "country": "FI",
+    "privacy_statement": "",
+    "sponsors": [],
+    "contact": {}
+  }
+}
+Get organiserGET/taso/rest/getOrganiser{?api_key,organiser}
+Returns detailed information about a specific organiser by id.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+organiser
+string (required) Example: spl
+Organiser id
+
+Area ¶
+GET /taso/rest/getArea?api_key=&area_id=1&competition_id=spljp15
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {},
+  "area": {
+    "area_id": "1",
+    "area_name": "Kamppi",
+    "area_address": "Kamppi, Helsinki",
+    "area_city_name": "Helsinki"
+  }
+}
+Get areaGET/taso/rest/getArea{?api_key,area_id,competition_id}
+Returns information about a specific area (pitch area) within a competition.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+area_id
+string (required) Example: 1
+Area id
+
+competition_id
+string (required) Example: spljp15
+Competition id
+
+City ¶
+GET /taso/rest/getCity?api_key=&city_id=91
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "method": "getCity",
+    "status": "ok"
+  },
+  "city": {
+    "city_id": "91",
+    "city_name": "Helsinki",
+    "locations": [],
+    "venues": [],
+    "clubs": []
+  }
+}
+Get cityGET/taso/rest/getCity{?api_key,city_id}
+Field	Type	Description
+city_id	int	City code
+city_name	string	Name of the city
+locations	array	Locations in the city (see getLocations)
+venues	array	Venues in the city (see getVenues)
+clubs	array	Clubs in the city (see getClubs)
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+city_id
+number (required) Example: 91
+City code
+
+Cities ¶
+GET /taso/rest/getCities?api_key=&city_id=91
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "method": "getCities",
+    "status": "ok"
+  },
+  "cities": [
+    {
+      "city_id": "91",
+      "name": "Helsinki",
+      "area": "splhelsinki",
+      "area_name": "Helsinki",
+      "pitch_count": {
+        "grass": 12,
+        "artificial": 8,
+        "gravel": 3,
+        "indoorvenue": 2,
+        "futsal": 5,
+        "total": 30
+      },
+      "clubs": 45
+    },
+    {
+      "city_id": "92",
+      "name": "Espoo",
+      "area": "splespoo",
+      "area_name": "Espoo",
+      "pitch_count": {
+        "grass": 6,
+        "artificial": 4,
+        "gravel": 1,
+        "indoorvenue": 1,
+        "futsal": 2,
+        "total": 14
+      },
+      "clubs": 20
+    }
+  ]
+}
+Get citiesGET/taso/rest/getCities{?api_key,city_id}
+Field	Type	Description
+city_id	int	City code
+name	string	Name of the city
+area	string	District/area ID the city belongs to
+area_name	string	Name of the district/area
+pitch_count	object	Counts of venues by surface type
+pitch_count.grass	int	Number of grass pitches
+pitch_count.artificial	int	Number of artificial turf pitches
+pitch_count.gravel	int	Number of gravel pitches
+pitch_count.indoorvenue	int	Number of indoor venues
+pitch_count.futsal	int	Number of futsal venues (palloliitto only)
+pitch_count.beach	int	Number of beach venues (lentopallo only)
+pitch_count.total	int	Total number of pitches
+clubs	int	Number of clubs in the city
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+city_id
+number (optional) Example: 91
+Filter by city code
+
+Location ¶
+GET /taso/rest/getLocation?api_key=&location_id=1
+Responses200401404
+Headers
+Content-Type: application/json
+Body
+{
+  "location": {
+    "location_id": "1",
+    "location_name": "Example Stadium",
+    "location_address": "Example Street 1",
+    "location_zipcode": "00100",
+    "location_city": "Helsinki",
+    "location_city_id": "091",
+    "location_city_name": "Helsinki",
+    "location_suburb_name": "Kamppi",
+    "district_id": "1",
+    "district_id2": "2",
+    "area_name": "Helsinki",
+    "location_lat": "60.1699",
+    "location_lon": "24.9384",
+    "location_phone": "+358 123 456 789",
+    "location_www": "https://example.com",
+    "location_notice": "Additional information",
+    "location_external_id": "EXT123",
+    "location_images": [
+      {
+        "url": "https://cdn.torneopal.fi/img/database/place/1/image.jpg"
+      }
+    ],
+    "home_location": [
+      {
+        "type": "club",
+        "id": "123",
+        "name": "Example Club",
+        "club_id": "123"
+      },
+      {
+        "type": "team",
+        "id": "456",
+        "name": "Example Team",
+        "club_id": "123"
+      }
+    ]
+  }
+}
+Get LocationGET/taso/rest/getLocation{?api_key,location_id}
+Returns detailed information about a specific location including its basic details, images, and associated clubs and teams that use it as their home location. The response includes geographical coordinates and contact information.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+location_id
+number (required) Example: 1
+Location identifier
+
+Get referee clubs ¶
+GET /taso/rest/getRefereeClubs?api_key=
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {},
+  "referee_clubs": [
+    {
+      "referee_club_id": "1",
+      "referee_club_name": "Espoo",
+      "referee_club_official_name": "Espoon Koripalloilijat",
+      "district_id": "1",
+      "district_name": "Uusimaa",
+      "locations": [
+        {
+          "location_id": "101",
+          "location_name": "Espoonlahden urheiluhalli"
+        },
+        {
+          "location_id": "102",
+          "location_name": "Leppävaaran urheiluhalli"
+        }
+      ]
+    }
+  ]
+}
+Get referee clubsGET/taso/rest/getRefereeClubs{?api_key}
+Returns a list of referee clubs with their associated locations (venues). Each club includes district information and an array of locations where referees can be assigned. Only non-archived clubs with a name are included.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+News list ¶
+GET /taso/rest/getNews?api_key=&competition_id=spljp15&organiser_id=spl&club_id=82&content=1
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "result_count": 2
+  },
+  "news": [
+    {
+      "news_id": "456",
+      "competition_id": "spljp15",
+      "category_id": "NSC",
+      "category_name": "Suomen Cup",
+      "category_abbreviation": "NSC",
+      "title": "Kauden avaus",
+      "ingress": "Kauden ensimmäinen ottelu...",
+      "published": "2026-01-15",
+      "href": "/fi/uutiset/kauden-avaus",
+      "type": "news",
+      "img": "https://cdn.torneopal.net/img/news/456.jpg",
+      "body": "Täysi artikkeli teksti..."
+    },
+    {
+      "news_id": "457",
+      "competition_id": "",
+      "category_id": "",
+      "category_name": "",
+      "category_abbreviation": "",
+      "title": "Turnaussäännöt päivitetty",
+      "ingress": "",
+      "published": "2026-01-10",
+      "href": "",
+      "type": "info",
+      "img": ""
+    }
+  ]
+}
+Get newsGET/taso/rest/getNews{?api_key,competition_id,organiser_id,club_id,content}
+Returns a list of news articles filtered by competition, organiser, or club. When no filter is provided, returns organisation-level news. The body field is only included when content=1. Articles are ordered by their sort order.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+competition_id
+string (optional) Example: spljp15
+Competition id. Filters news by competition.
+
+organiser_id
+string (optional) Example: spl
+Organiser id. Filters news by organiser. Takes precedence over competition_id.
+
+club_id
+string (optional) Example: 82
+Club id. Filters news by club. Takes precedence over organiser_id.
+
+content
+number (optional) Example: 1
+Set to 1 to include the full article body in the response.
+
+News item ¶
+GET /taso/rest/getNewsItem?api_key=&news_id=1
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {},
+  "newsitem": {
+    "news_id": "456",
+    "competition_id": "spljp15",
+    "category_id": "NSC",
+    "title": "Kauden avaus",
+    "ingress": "Kauden ensimmäinen ottelu...",
+    "published": "2026-01-15",
+    "img": "https://cdn.torneopal.net/img/news/456.jpg",
+    "body": "Täysi artikkeli teksti...",
+    "url": "/fi/uutiset/kauden-avaus"
+  }
+}
+Get news itemGET/taso/rest/getNewsItem{?api_key,news_id}
+Returns a single news article by id. Supports special string values for news_id: flash returns SPL flash news, whatsnew returns the “what’s new” article, and operatinginstructions returns operating instructions (hb database only). If the news item is not found, returns call.status set to error.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+news_id
+string (required) Example: 1
+News id. Can be numeric, or special values flash, whatsnew, or operatinginstructions (hb only).
+
+Info ¶
+GET /taso/rest/getInfo?api_key=&info_id=1
+Responses200404
+Headers
+Content-Type: application/json
+Body
+{
+  "info": {
+    "info_id": "1",
+    "competition_id": "spljp15",
+    "title": "Example Info Page",
+    "img": "path/to/image.jpg",
+    "body": "<p>Information content with formatted text and links</p>"
+  }
+}
+Get InfoGET/taso/rest/getInfo{?api_key,info_id}
+Returns information page content with formatted body text. External links in the body are automatically set to open in new tabs.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+info_id
+number (required) Example: 1
+Info page identifier
+
+Calendar events ¶
+GET /taso/rest/getCalendarEvents?api_key=&club_id=82&calendarmonth=1/2026&start_date=2026-01-01&combined=1
+Responses200400
+Headers
+Content-Type: application/json
+Body
+{
+  "call": {
+    "result_count": 2
+  },
+  "events": [
+    {
+      "event_id": "501",
+      "event_organizer_type": "",
+      "event_organizer_id": "82",
+      "event_organizer_name": "Espoon Koripalloilijat",
+      "event_date_start": "2026-01-15",
+      "event_date_end": "2026-01-17",
+      "event_name": "Espoo Tournament",
+      "event_url": "https://example.com/tournament",
+      "event_status": "published",
+      "event_archived": "0",
+      "event_description": "",
+      "event_age_groups": "",
+      "event_target_groups": "",
+      "event_city": "",
+      "event_city_id": "",
+      "event_sport": "",
+      "event_type": "",
+      "event_info_contact": "",
+      "event_registration_method": "",
+      "event_registration_end": "",
+      "event_creator": "",
+      "event_publisher": "",
+      "event_accept_publish": ""
+    }
+  ]
+}
+Get calendar eventsGET/taso/rest/getCalendarEvents{?api_key,club_id,calendarmonth,start_date,combined}
+Returns calendar events (tournaments, courses, etc.) with optional filtering by club, month, or date range. When combined=1, consecutive events with the same name are merged into a single multi-day event. Non-admin users only see published events unless filtering by their own club.
+
+URI ParametersHide
+api_key
+string (required) 
+API key got from provider
+
+club_id
+number (optional) Example: 82
+Club id. Filters events by club as organizer.
+
+calendarmonth
+string (optional) Example: 1/2026
+Month and year as M/YYYY. Filters events within that month.
+
+start_date
+string (optional) Example: 2026-01-01
+Start date filter (YYYY-MM-DD).
+
+combined
+number (optional) Example: 1
+Set to 1 to merge consecutive same-name events into a single multi-day event. Also extends start_date back by one month.
+
+Get Weather ¶
+GET /taso/rest/getWeather?lat=&lon=
+Responses200
+Headers
+Content-Type: application/json
+Body
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      0,
+      0
+    ]
+  },
+  "properties": {
+    "meta": {
+      "updated_at": "2026-08-19T19:15:24Z",
+      "units": {
+        "air_pressure_at_sea_level": "hPa",
+        "air_temperature": "celsius",
+        "cloud_area_fraction": "%",
+        "precipitation_amount": "mm",
+        "relative_humidity": "%",
+        "wind_from_direction": "degrees",
+        "wind_speed": "m/s"
+      }
+    },
+    "timeseries": [
+      {
+        "time": "2026-08-19T19:00:00Z",
+        "data": {
+          "instant": {
+            "details": null
+          },
+          "next_12_hours": {
+            "summary": null,
+            "details": null
+          },
+          "next_1_hours": {
+            "summary": null,
+            "details": null
+          },
+          "next_6_hours": {
+            "summary": null,
+            "details": null
+          }
+        }
+      },
+      {
+        "time": "2026-08-19T20:00:00Z",
+        "data": {
+          "instant": {
+            "details": null
+          },
+          "next_12_hours": {
+            "summary": null,
+            "details": null
+          },
+          "next_1_hours": {
+            "summary": null,
+            "details": null
+          },
+          "next_6_hours": {
+            "summary": null,
+            "details": null
+          }
+        }
+      }
+    ]
+  }
+}
+Get WeatherGET/taso/rest/getWeather{?lat,lon}
+Returns weather.
+
+URI ParametersHide
+lat
+number (optional) 
+lon
+number (optional) 
