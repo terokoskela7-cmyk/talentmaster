@@ -161,3 +161,23 @@ Pelaajalle ei lukuja eikä vertailua (§7.22).
 | `kp_valinta_rakentaja_2` | Arvasin | _(sv — Gemini)_ |
 | `kp_valinta_rakentaja_3` | En muista | _(sv — Gemini)_ |
 
+## Erä 42 — klippi ryhmälle + oma videoklippi -varaus (docs/i18n/sv_kaannoserae_42_gemini.json)
+
+| Avain | fi | sv |
+|---|---|---|
+| `mv_ryhma` | Ryhmä | _(sv — Gemini, erä 42)_ |
+| `mv_valitse_ryhma` | — valitse ryhmä — | _(sv — Gemini, erä 42)_ |
+| `mv_ei_ryhmia` | Ei ryhmiä, joille voit lähettää klippejä. | _(sv — Gemini, erä 42)_ |
+| `mv_ryhma_yhteenveto` | {n} pelaajaa, joista {m} odottaa lupaa | _(sv — Gemini, erä 42)_ |
+| `mv_ryhma_yhteenveto_ei_lupaa` | {n} pelaajaa | _(sv — Gemini, erä 42)_ |
+| `mv_virhe_ryhma` | Valitse ryhmä. | _(sv — Gemini, erä 42)_ |
+| `mv_virhe_ryhma_tyhja` | Ryhmässä ei ole pelaajia. | _(sv — Gemini, erä 42)_ |
+| `mv_rivi_ryhma` | {nimi} · {v}/{n} vastannut | _(sv — Gemini, erä 42)_ |
+| `mv_lahetetty_ryhma` | Klippi lähetetty ryhmälle {nimi} ({n} pelaajaa) ✓ | _(sv — Gemini, erä 42)_ |
+| `mv_oma_video` | Oma videoklippi ({min}–{max} s) | _(sv — Gemini, erä 42)_ |
+| `mv_oma_video_tulossa` | Tulossa | _(sv — Gemini, erä 42)_ |
+| `mv_oma_video_ei_kaytossa` | Lisäpalvelu. Ei käytössä seurallasi. | _(sv — Gemini, erä 42)_ |
+| `mv_oma_video_tarjous` | Lisäpalvelu, josta peritään lisämaksu. Pyydä tarjous TalentMasterilta. | _(sv — Gemini, erä 42)_ |
+| `mv_oma_video_pyyda` | Pyydä tarjous | _(sv — Gemini, erä 42)_ |
+| `mv_oma_video_aihe` | Oma videoklippi – {seura} | _(sv — Gemini, erä 42)_ |
+| `mv_virhe_lahde` | Oma videoklippi ei ole vielä käytössä. | _(sv — Gemini, erä 42)_ |

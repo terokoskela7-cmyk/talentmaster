@@ -44,7 +44,7 @@ describe('2 · näkyvyys: poimittu pelaaja ja huoltaja näkevät, muut pelaajat 
     const ev = aamu(), ok = (c) => R.tmNakyyKalenterissa(ev, c);
     expect(ok({ uid: 'v2', omatPelaajat: ['p2', 'p7'] })).toBe(true); expect(ok({ uid: 'v3', omatPelaajat: ['p8'] })).toBe(false); expect(ok({ uid: 'v3', omatPelaajat: [] })).toBe(false); expect(ok({ uid: 'u1', omatPelaajat: [] })).toBe(true); expect(ok({ uid: 'vp', johto: true })).toBe(true);
   });
-  it('Rules ennallaan: pelaajat-kohde ei vaadi Rules-muutosta (valmentaja luo luoja_uid == uid; pelaaja/huoltaja eivät lue suoraan)', () => { expect(lue('tm_admin/firestore.rules')).toMatch(/firestore\.rules v3\.(5[0-9]|60|61|62)/); expect(lue('tm_admin/firestore.rules')).not.toContain('aamutreeni'); });
+  it('Rules ennallaan: pelaajat-kohde ei vaadi Rules-muutosta (valmentaja luo luoja_uid == uid; pelaaja/huoltaja eivät lue suoraan)', () => { expect(lue('tm_admin/firestore.rules')).toMatch(/firestore\.rules v3\.(5[0-9]|60|61|62|63)/); expect(lue('tm_admin/firestore.rules')).not.toContain('aamutreeni'); });
 });
 
 describe('3 · kortti viikkonäkymässä', () => {

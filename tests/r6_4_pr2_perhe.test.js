@@ -167,7 +167,7 @@ describe('Pelaaja_v7 · Valmentajalta klippi (vm: sivun oikea koodi)', () => {
   it('LUKUVIRHE → kortti puuttuu (ei rikkinäistä ruutua), ei heitä', async () => { const e = pelaajaYmp({ docs: docs(), lukuVirhe: 'permission-denied' }); await e.f.ladataan(true); expect(e.els.p7KpKortti.innerHTML).toBe(''); });
   it('"valmentaja lukenut" näkyy kun vastaus on luettu (seuraava luku)', async () => { const e = pelaajaYmp({ docs: [klippi(), vastaus({ luettu: true })] }); await e.f.ladataan(true); expect(e.els.p7KpKortti.innerHTML).toContain('Vastasit'); expect(e.els.p7KpKortti.innerHTML).toContain('valmentaja lukenut'); });
   it('Tänään-sijoitus: kortti renderöidään rA1Kentta():ssa; libit ladataan ennen sivun koodia; SW allowlist + cache-versio', () => {
-    expect(PE).toContain('${_p7KpHTML()}'); expect(PE.indexOf('lib/tm_mediaviesti.js?v=4')).toBeGreaterThan(0); expect(PE.indexOf('lib/tm_klippi_perhe.js?v=2')).toBeGreaterThan(0);
+    expect(PE).toContain('${_p7KpHTML()}'); expect(PE.indexOf('lib/tm_mediaviesti.js?v=5')).toBeGreaterThan(0); expect(PE.indexOf('lib/tm_klippi_perhe.js?v=2')).toBeGreaterThan(0);
     const sw = lue('sw_pelaaja.js'); expect(sw).toContain("/lib/tm_klippi_perhe.js"); expect(sw).toContain("/lib/tm_mediaviesti.js"); expect(sw).toMatch(/CACHE = 'tm-pelaaja-v(8[1-9]|9\d|\d{3,})/);
   });
 });
@@ -240,11 +240,11 @@ describe('Lukukuittaus: valmentaja avaa ketjun → pelaajan vastaus merkitään 
 });
 describe('Rules v3.51 + versiot', () => {
   it('Rules v3.51: huoltajan viestiluku vaatii suostumuksen KAIKILTA viesteiltä; changelog kertoo kyselyvuodon', () => {
-    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore\.rules v3\.(5[123456789]|60|61|62)/); expect(r).toContain('Muutokset v3.50 → v3.51'); expect(r).not.toMatch(/resource\.data\.get\('tyyppi', ''\) != 'klippi'\s*\/\/ v3\.50 \(D58\)/);
+    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore\.rules v3\.(5[123456789]|60|61|62|63)/); expect(r).toContain('Muutokset v3.50 → v3.51'); expect(r).not.toMatch(/resource\.data\.get\('tyyppi', ''\) != 'klippi'\s*\/\/ v3\.50 \(D58\)/);
     expect(r).toContain("pelaajaData(seuraId, resource.data.get('pelaajaId', '')).get('suostumusTila', '') == 'annettu');   // v3.51");
   });
   it('lib-versiot: tm_mediaviesti v2 kaikissa neljässä sovelluksessa (Master, VP, Pelaaja, Vanhempi); tm_klippi_perhe v1 Pelaajassa + Vanhemmassa', () => {
-    for (const s of [MA, VP, PE, VA]) expect(s).toContain('lib/tm_mediaviesti.js?v=4'); for (const s of [PE, VA]) expect(s).toContain('lib/tm_klippi_perhe.js?v=2');
+    for (const s of [MA, VP, PE, VA]) expect(s).toContain('lib/tm_mediaviesti.js?v=5'); for (const s of [PE, VA]) expect(s).toContain('lib/tm_klippi_perhe.js?v=2');
     for (const s of [MA, VP]) expect(s).not.toContain('tm_klippi_perhe');   // henkilökunta ei lataa pelaajan/perheen libiä
   });
 });

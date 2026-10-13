@@ -1,10 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.62
+// TalentMaster™ — firestore.rules v3.63
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.62 → v3.63 (klippi ryhmälle + oma videoklippi -varaus, additiivinen §11; ei migraatiota):
+//   · viestit tyyppi 'klippi': valinnainen kohde {tyyppi:'ryhma', ryhma_id, nimi} — ryhmän on oltava olemassa omassa seurassa, aktiivinen, nimen on täsmättävä ryhmädokumentin nimeen, ja lähettäjän SA / johto /
+//     ryhmän valmentaja (valmentajat[], sis. vastaava vastuu_uid v3.61) / valmentaja-rooli (valmentaja, talenttivalmentaja, fysiikkavalmentaja). "Kaikki jäsenet hänen joukkueissaan" -ehto on UI:n (lib/tm_klippi_ryhma.js):
+//     Rules ei tunne valmentajan joukkuetta; yksittäinen klippi pelaajalle on ollut sallittu koko henkilökunnalle jo v3.50:stä.
+//   · viestit tyyppi 'klippi': valinnainen lahde ∈ ['linkki'] — 'oma_video' (klippilataus v2, lisäpalvelu) EI vielä sallittu; v2 laajentaa listan. Muut klippikentät ennallaan.
 // Muutokset v3.61 → v3.62 (turvallisuus: server-only integraatioavaimet, ei migraatiota Rulesissa — datan siirto scripts/siirra_integraatioavaimet.js):
 //   · seurat/{sid}/salaiset/{dokId} (UUSI blokki): allow read, write: if false — KAIKILTA selaimilta, myös SA:lta ja johdolta. Vain Admin SDK (Cloud Functions) lukee/kirjoittaa.
 //     Kotipaikka ulkoisten palveluiden avaimille (salaiset/integraatiot.taso_api_key); aiemmin taso_api_key oli seura-dokissa jonka koko seuran henkilökunta luki selaimella.
@@ -742,7 +747,17 @@ service cloud.firestore {
           && (!('kuittaus' in d) || d.kuittaus is bool)
           && (d.tyyppi == 'klippi_vastaus' || onLapsenHuoltaja(seuraId, d.pelaajaId));   // kuittaus (katsoimme yhdessä) vain huoltajalta
     }
-    function klippiLuontiKelpaa() {
+    /* v3.63: klipin ryhmäkohde — ryhmä on olemassa, aktiivinen, nimi täsmää; lähettäjä SA / johto / ryhmän valmentaja / valmentaja-rooli. */
+    function klippiKohdeKelpaa(seuraId, k) {
+      return k is map && k.keys().hasOnly(['tyyppi', 'ryhma_id', 'nimi']) && k.keys().hasAll(['tyyppi', 'ryhma_id', 'nimi'])
+          && k.tyyppi == 'ryhma' && k.ryhma_id is string && k.ryhma_id.size() > 0 && k.ryhma_id.size() <= 128 && k.nimi is string && k.nimi.size() > 0 && k.nimi.size() <= 60
+          && exists(/databases/$(database)/documents/seurat/$(seuraId)/ryhmat/$(k.ryhma_id))
+          && ryhmaDoc(seuraId, k.ryhma_id).get('nimi', '') == k.nimi
+          && ryhmaDoc(seuraId, k.ryhma_id).get('aktiivinen', true) == true
+          && (onSuperAdmin() || onJohtoRooli() || request.auth.uid in ryhmaDoc(seuraId, k.ryhma_id).get('valmentajat', [])
+              || request.auth.token.get('rooli', '') in ['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja']);
+    }
+    function klippiLuontiKelpaa(seuraId) {
       let d = request.resource.data;
       return d.url is string && d.url.size() <= 500 && d.url.matches('^https://.+')
           && d.domain is string && d.domain.size() > 0 && d.domain.size() <= 253
@@ -758,7 +773,9 @@ service cloud.firestore {
           && d.tila == 'lahetetty'
           && (!('kohta_s' in d) || d.kohta_s is int)
           && (!('osa' in d) || d.osa in ['a', 'b', 'c'])
-          && (!('tukitavoite_id' in d) || d.tukitavoite_id is string);
+          && (!('tukitavoite_id' in d) || d.tukitavoite_id is string)
+          && (!('lahde' in d) || d.lahde == 'linkki')
+          && (!('kohde' in d) || klippiKohdeKelpaa(seuraId, d.kohde));
     }
     function viestiPelaajanLuonti(seuraId) {
       return ((request.resource.data.keys().hasOnly(['tyyppi','pelaajaId','jakso','osa','luettu','vastaanottajaUid','lahettajaUid','fromRole','fromNimi','teksti','nakyvyys','aika'])
@@ -2134,7 +2151,7 @@ service cloud.firestore {
                           && request.resource.data.lahettajaUid == request.auth.uid
                           && request.resource.data.get('nakyvyys', 'henkilokunta') in ['henkilokunta', 'pelaaja', 'huoltaja']
                           && !(request.resource.data.get('tyyppi', '') in ['klippi_vastaus', 'klippi_kuittaus'])   // v3.50: vastaukset ovat pelaajan/huoltajan
-                          && (request.resource.data.get('tyyppi', '') != 'klippi' || klippiLuontiKelpaa())))
+                          && (request.resource.data.get('tyyppi', '') != 'klippi' || klippiLuontiKelpaa(seuraId))))
                       || viestiPelaajanLuonti(seuraId))
                       && aikaLuontiKelpaa();                          // A5-jälki
         /* v3.39 — vastaanottaja saa muuttaa VAIN `luettu`-merkinnän (bool). Aiemmin mitä tahansa kenttää → hän olisi voinut vaihtaa nakyvyys:'henkilokunta' → 'pelaaja' (VP:n yksityinen viesti
