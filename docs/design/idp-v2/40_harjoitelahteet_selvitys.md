@@ -140,3 +140,30 @@ Lukujen valossa: kumpikaan avain (`konsepti`, `painopiste`) ei ole käytössä, 
 7. **https:** uusi `video_url`-syöttö hyväksyy vain https; muiden linkkien nykyistä validointia ei muuteta.
 8. **Lisenssit:** fysiikkapankki (`harjoitelogiikka_v4.js`) ja HPP-pankki eivät näy uudessa näkymässä. `LISENSSIT.md`-luonnos (kohta 6.3) jää raporttiin; Tero päättää kirjauksen.
 9. **Tuontiskriptit:** `lupa`- ja `video_url`-kenttien lisäys `tuo_harjoitepankki.js`:ään on oma pieni PR B4:n jälkeen.
+
+## 12. KPV: pelikonteksti-arvot (vain luvut; Teron 13.10. ajama vain luku -skripti)
+
+KPV:n harjoitepankissa 124 harjoitetta; **pelikonteksti täytetty 89:llä (18 eri arvoa)**, joista hyväksyttyjä 88, luonnoksia 1 ja arkistoituja 0. Hyväksyttyjä harjoitteita on yhteensä 105 (arkistoimattomia 88); **loput 17 hyväksyttyä ja kaikki 35 arkistoitua harjoitetta ovat ilman pelikontekstia** (Ketteryys/Rutiinit-tuonti ym.). Ikäväli = `ika_min`–`ika_max`; "≤N" tarkoittaa, että `ika_min` on tyhjä ja `ika_max` = N (`ika_min` on täytetty vain 14 KPV-harjoitteella). Ikäjakauma on laskettu kaikista kyseisen arvon harjoitteista (luonnos mukaan lukien; muutos on vain "1v1 hyökkääminen", jossa on yksi luonnos, ikäväli 8–19).
+
+| pelikonteksti | hyväksytty (määrä) | luonnos / arkistoitu | ikäväli (harjoitteiden määrä) |
+|---|---|---|---|
+| 1v1 hyökkääminen | 12 | 1 / 0 | 8–13: 6; ≤9: 6; 8–19: 1 |
+| 1v1 puolustaminen | 10 | 0 / 0 | ≤9: 5; ≤13: 4; ≤7: 1 |
+| Laukominen | 8 | 0 / 0 | ≤9: 4; ≤11: 3; ≤7: 1 |
+| Alkulämmittely | 7 | 0 / 0 | ≤13: 7 |
+| Kuljettaminen | 7 | 0 / 0 | ≤11: 3; ≤7: 2; ≤9: 2 |
+| Harhauttaminen | 6 | 0 / 0 | ≤9: 6 |
+| Kääntyminen | 6 | 0 / 0 | ≤11: 2; ≤9: 2; ≤13: 1; ≤19: 1 |
+| Syöttäminen ja 1. kosketus | 6 | 0 / 0 | ≤11: 3; ≤9: 2; ≤13: 1 |
+| Suojaaminen | 5 | 0 / 0 | ≤11: 3; ≤9: 2 |
+| Syöttöpelit | 5 | 0 / 0 | 8–13: 5 |
+| Nopeus ja ketteryys | 4 | 0 / 0 | ≤9: 3; ≤11: 1 |
+| Kuljetus ja harhautus | 2 | 0 / 0 | ≤11: 1; ≤9: 1 |
+| Kuljetus ja kääntyminen | 2 | 0 / 0 | ≤9: 2 |
+| Kuljetus ja laukaus | 2 | 0 / 0 | ≤9: 2 |
+| Kuljetus ja suojaaminen | 2 | 0 / 0 | ≤11: 2 |
+| Kuljetus ja syöttö | 2 | 0 / 0 | ≤11: 1; ≤9: 1 |
+| Murtautuminen ja maalinteko | 1 | 0 / 0 | 10–13: 1 |
+| Peliosuus | 1 | 0 / 0 | ≤9: 1 |
+
+Yhteensä 18 arvoa. Taulu on pohja seurakohtaiselle vastaavuudelle `pelikonteksti → Y-konsepti` (ROADMAP: "Konseptivastaavuus (seura)"); **vastaavuuksia ei ole arvattu** — sisällön päättää Tero KPV-linjan tarkistuksessa.
