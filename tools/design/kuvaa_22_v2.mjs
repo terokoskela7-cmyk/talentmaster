@@ -15,18 +15,19 @@ function chromiumPolku() {
 }
 const virheet = [];
 async function avaa(browser, w, h) {
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, colorScheme: 'dark' });
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, colorScheme: TEEMA });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => virheet.push('pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/fonts\.g|net::ERR/.test(m.text())) virheet.push('console: ' + m.text()); });
   await page.goto(HTML, { waitUntil: 'load' });
-  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+  await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), TEEMA);
   await page.addStyleTag({ content: '.wrap{max-width:none!important;padding:0!important}' });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(400);
   return page;
 }
-const kuva = async (page, sel, nimi) => { await page.locator(sel).screenshot({ path: path.join(UT, '22_v2_' + nimi + '_dark.png'), animations: 'disabled' }); console.log('→', nimi, fs.statSync(path.join(UT, '22_v2_' + nimi + '_dark.png')).size); };
+let TEEMA = 'dark';
+const kuva = async (page, sel, nimi) => { const f = path.join(UT, '22_v2_' + nimi + '_' + TEEMA + '.png'); await page.locator(sel).screenshot({ path: f, animations: 'disabled' }); console.log('→', nimi, TEEMA, fs.statSync(f).size); };
 const aani = async (page, v) => { await page.click('#ctl [data-aa="' + v + '"]'); await page.waitForTimeout(150); };
 
 const browser = await chromium.launch({ executablePath: chromiumPolku(), headless: true });
@@ -37,6 +38,8 @@ try {
   await kuva(p, '#vk-b', 'polku_1280');
   await aani(p, 'ei'); await kuva(p, '#vk-b', 'polku_ei_aanta_1280'); await aani(p, 'on');
   await kuva(p, '#vk-c', 'naytto_1280');
+  /* viikkohavainto yhdellä napautuksella → toast "Tallennettu · Kumoa" */
+  await p.click('#vk-a [data-hv="itsenaisesti"]'); await p.waitForTimeout(200); await kuva(p, '#vk-a', 'tanaan_toast_1280');
   /* sheet-demo: Aloita jakso → kirjoita → sulje → avaa uudelleen */
   await p.click('#ctl5 [data-dv="d"]');
   await p.click('#ctl5 [data-sh="aloita"]');
@@ -55,6 +58,8 @@ try {
   await p.addStyleTag({ content: '#s5{padding:24px 28px 8px}' });
   await kuva(p, '#s5', 'sheetit_1280');
   await p.context().close();
+  /* ── 1280 vaalea: Tänään + Polku ── */
+  TEEMA = 'light'; p = await avaa(browser, 1280, 900); await kuva(p, '#vk-a', 'tanaan_1280'); await kuva(p, '#vk-b', 'polku_1280'); await p.context().close(); TEEMA = 'dark';
   /* ── 390 ── */
   p = await avaa(browser, 390, 844);
   await kuva(p, '#vk-m0', 'tanaan_m390');
