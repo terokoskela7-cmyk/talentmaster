@@ -22,6 +22,7 @@ describe('UI (taso_seura_ui.html): avain ei kulje selaimen kautta muuten kuin ca
 });
 describe('functions kytkentä', () => {
   it('tasoHaeSeuranOttelut lukee avaimen _salaiset.tasoAvain:lla; asetaTasoAsetukset exportataan moduulista', () => { expect(IDX).toContain('_salaiset.tasoAvain(db, seuraId, seuraData)'); expect(IDX).toContain('_salaiset.luo({ functions, db, admin, tarkistaOikeus })'); expect(IDX).not.toMatch(/seuraData\.taso_api_key/); });
+  it('K35-5: ajastettu synkka ja callable-synkka saavat avaimen _tasoDeps.tasoAvain-koukulla (server-only), ei seura-dokin kentästä', () => { expect(IDX).toContain('tasoAvain: _salaiset.tasoAvain'); const KT = fs.readFileSync(path.join(__dirname, '..', 'functions', 'kalenteri_taso.js'), 'utf8'); expect(KT).toContain('deps.tasoAvain ? await deps.tasoAvain(db, seuraId, s)'); });
 });
 describe('scripts/siirra_integraatioavaimet.js', () => {
   it('suunnittele: taso_api_key + *_secret/*_token siirrettäviä (vain pituus, ei arvoa); club_id ym. ei; tyhjä/ei-merkkijono ohitetaan; eri arvo salaisessa dokissa → ristiriita', () => {
