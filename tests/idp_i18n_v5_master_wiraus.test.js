@@ -77,7 +77,7 @@ describe('Master B2a: koti-klusteri (hero/greeting/date/Aloita tästä/signaalit
     expect(HTML).toContain("masterT(' pelaajaa kehon valmius alle 40 (klinikkalähetys)')");
     expect(HTML).toContain("masterT('Mitä sinun pitää tehdä')");
     expect(HTML).toContain("masterT('Katso oman joukkueesi pelaajat')");
-    expect(HTML).toContain('masterT(pv)');   // _setDate viikonpäivä
+    expect(HTML).toContain('tmPaivaOtsikko(d, kieli, masterT)');   // _setDate: viikonpäivä + kuukausi lib/tm_paiva_otsikko.js:n kautta (fi: masterT-reitti, sv: jaettu tmPvmFmt)
     // B1-jäänteet: ws-tab Inbox → Viestit(Meddelanden); tabbar Lisää → Valikko(Meny)
     expect(HTML).toContain('<span data-i18n="Viestit">Viestit</span>');
     expect(HTML).toContain('<span class="tb-lbl" data-i18n="Valikko">Valikko</span>');
