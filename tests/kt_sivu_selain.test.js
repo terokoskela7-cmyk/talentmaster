@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
-import { kaynnista, selainKaynnista, CHROME, JUURI } from './helpers/kt_sivu.mjs';
+import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT } from './helpers/kt_sivu.mjs';
 const KUVAT = join(JUURI, 'docs', 'ui-kuvat', 'b7-kehitystyopoyta');
 const SUODATA = (v) => v.filter((e) => !/sentry|integrity|Failed to load resource|net::ERR/i.test(e));
 const odota = (p) => p.waitForSelector('.kt-nimi', { timeout: 15000 });
@@ -63,19 +63,84 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       r = await kaynnista(selain, { rooli: 'super_admin', hash: '#pelaaja/p1/tanaan' }); await odota(r.p); expect(await r.p.locator('.kt-nimi').innerText()).toBe('Aatu Aalto'); await r.sk.close();
     } finally { await selain.close(); }
   }, 120000);
-  it('VIIKKOHAVAINTO (VP ja valmentaja): "Merkitse havainto" → Ohjatusti kirjoittaa osa_havainnot oman uid:n alle; ei vaihda välilehteä', async () => {
+  it('B2 · VIIKKOHAVAINTO YHDELLÄ NAPAUTUKSELLA (VP ja valmentaja): napit suoraan signaalikortissa; yksi napautus kirjoittaa osa_havainnot oman uid:n alle; "Tallennettu · Kumoa"; välilehti ei vaihdu', async () => {
     await avaa(); try {
       for (const rooli of ['valmentaja', 'vp']) {
         const { sk, p } = await kaynnista(selain, { rooli, hash: '#pelaaja/p2/tanaan' }); await odota(p);
-        await p.locator('[data-kt-ensisijainen="havainto"]').click(); await p.waitForSelector('[data-kt-havainto-paneeli]');
-        await p.locator('[data-kt-havainto-arvo="2"]').click(); await p.waitForFunction(() => window.__kirj.length > 0, null, { timeout: 8000 });
+        expect(await p.locator('.kt-sig [data-kt-havainto-inline] [data-kt-havainto-arvo]').allInnerTexts()).toEqual(['Ei vielä', 'Ohjatusti', 'Itsenäisesti']);   // ei "Merkitse havainto" -väliaskelta
+        await p.locator('.kt-sig [data-kt-havainto-arvo="2"]').click(); await p.waitForFunction(() => window.__kirj.length > 0, null, { timeout: 8000 });
         const k = await p.evaluate(() => window.__kirj); expect(k).toHaveLength(1); expect(k[0].path).toBe('seurat/demo/pelaajat/p2');
-        const avaimet = Object.keys(k[0].update); expect(avaimet.some((a) => /^jaksofokus\.osa_havainnot\.y_h1\.a\.u1$/.test(a)), rooli).toBe(true);
-        expect(k[0].update['jaksofokus.osa_havainnot.y_h1.a.u1'].rooli).toBe(rooli); expect(k[0].update['jaksofokus.osa_havainnot.y_h1.a.u1'].arvo).toBe(2);
-        expect(await hash(p)).toBe('#pelaaja/p2/tanaan'); expect(await p.locator('[data-kt-valilehti][aria-selected="true"]').innerText()).toBe('Tänään'); await sk.close();
+        const rivi = k[0].update['jaksofokus.osa_havainnot.y_h1.a.u1']; expect(rivi).toMatchObject({ arvo: 2, rooli }); expect(rivi.pvm).toBe('2026-10-19'); expect(rivi.lause).toBeUndefined();
+        expect(await hash(p)).toBe('#pelaaja/p2/tanaan'); expect(await p.locator('[data-kt-valilehti][aria-selected="true"]').innerText()).toBe('Tänään');
+        expect(await p.locator('#toast-wrap .toast-item').innerText()).toMatch(/^Tallennettu\s*·\s*Kumoa$/); expect(await p.locator('[data-kt-kumoa]').count()).toBe(1);
+        await sk.close();
       }
     } finally { await selain.close(); }
   }, 120000);
+  it('B2 · KUMOA (5 s): palauttaa oman rivin (ei ollut → poistetaan) ja voimassa olevan arvon; toast katoaa 5 s jälkeen; kumottu-ilmoitus', async () => {
+    await avaa(); try {
+      const { sk, p } = await kaynnista(selain, { hash: '#pelaaja/p2/tanaan' }); await odota(p);
+      await p.locator('.kt-sig [data-kt-havainto-arvo="3"]').click(); await p.waitForSelector('[data-kt-kumoa]');
+      await p.locator('[data-kt-kumoa]').click(); await p.waitForFunction(() => window.__kirj.length === 2, null, { timeout: 8000 });
+      const u = await p.evaluate(() => window.__kirj[1].update); expect(u['jaksofokus.osa_havainnot.y_h1.a.u1']).toBe('DEL'); expect(u['jaksofokus.osa_arviot.y_h1']).toBe('DEL');   // ei aiempaa → kentät poistetaan
+      await p.waitForFunction(() => /Kumottu/.test(document.querySelector('#toast-wrap').innerText), null, { timeout: 5000 });
+      expect(await p.locator('.kt-sig [data-kt-havainto-arvo="3"].q').count()).toBe(1);   // paikallinen tila palasi: valinta ei enää korostettu
+      await sk.close();
+      const r2 = await kaynnista(selain, { hash: '#pelaaja/p2/tanaan' }); await odota(r2.p); await r2.p.locator('.kt-sig [data-kt-havainto-arvo="1"]').click(); await r2.p.waitForSelector('[data-kt-kumoa]');
+      await r2.p.waitForFunction(() => !document.querySelector('[data-kt-kumoa]'), null, { timeout: 7000 });   // 5 s → toast pois, Kumoa ei enää tarjolla
+      expect(await r2.p.evaluate(() => window.__kirj.length)).toBe(1); await r2.sk.close();
+    } finally { await selain.close(); }
+  }, 120000);
+  it('B2 · KUMOA palauttaa EDELLISEN arvon: valmentajan aiempi rivi säilyy kun VP kirjoittaa ja kumoaa (VP ei korvaa valmentajaa)', async () => {
+    await avaa(); try {
+      const pel = JSON.parse(JSON.stringify(PELAAJAT)); pel[1].jaksofokus.osa_havainnot = { y_h1: { a: { valm9: { arvo: 2, pvm: '2026-09-25', rooli: 'valmentaja' } } } }; pel[1].jaksofokus.osa_arviot = { y_h1: { a: 2 } };
+      const { sk, p } = await kaynnista(selain, { rooli: 'vp', hash: '#pelaaja/p2/tanaan', pelaajat: pel }); await odota(p);
+      await p.locator('.kt-sig [data-kt-havainto-arvo="3"]').click(); await p.waitForSelector('[data-kt-kumoa]');
+      const k1 = await p.evaluate(() => window.__kirj[0].update); expect(k1['jaksofokus.osa_arviot.y_h1']).toBeUndefined();   // VP ei kirjoita voimassa olevaa arvoa valmentajan päälle
+      await p.locator('[data-kt-kumoa]').click(); await p.waitForFunction(() => window.__kirj.length === 2, null, { timeout: 8000 });
+      const k2 = await p.evaluate(() => window.__kirj[1].update); expect(k2['jaksofokus.osa_havainnot.y_h1.a.u1']).toBe('DEL'); expect(Object.keys(k2)).toEqual(['jaksofokus.osa_havainnot.y_h1.a.u1']); await sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
+  it('B2 · "+ Lause tai klippi" → lyhyt alasheet: valinta + lause tallentuu samaan omaan riviin; KIELLETYT-sana ja yli 140 merkkiä estetään; valinta pakollinen', async () => {
+    await avaa(); try {
+      const { sk, p } = await kaynnista(selain, { hash: '#pelaaja/p2/tanaan' }); await odota(p);
+      await p.locator('[data-kt-havainto-lisaa]').click(); await p.waitForSelector('[data-ts-sheet]');
+      expect(await p.locator('.ts-lyhyt').count()).toBe(1); await p.locator('[data-kt-havainto-sheet-tallenna]').click(); expect(await p.locator('[data-kt-havainto-virhe]').innerText()).toBe('Valitse ensin, näkyikö osa.');
+      await p.locator('input[name="ktHavArvo"][value="2"]').check(); await p.locator('#ktHavLause').fill('Tämä on heikkous'); await p.locator('[data-kt-havainto-sheet-tallenna]').click(); expect(await p.locator('[data-kt-havainto-virhe]').innerText()).toMatch(/heikkou/);
+      await p.locator('#ktHavLause').fill('Katsoi hyvin ylös ennen vastaanottoa'); await p.locator('[data-kt-havainto-sheet-tallenna]').click();
+      await p.waitForFunction(() => window.__kirj.length === 1, null, { timeout: 8000 }); expect(await p.locator('[data-ts-sheet]').count()).toBe(0);
+      expect((await p.evaluate(() => window.__kirj[0].update))['jaksofokus.osa_havainnot.y_h1.a.u1']).toMatchObject({ arvo: 2, lause: 'Katsoi hyvin ylös ennen vastaanottoa' }); await sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
+  it('B2 · D100: sulkeminen (‹ Sulje, Esc, tausta) SÄILYTTÄÄ luonnoksen; "Luonnos säilytetty" avaajan vieressä; Hylkää luonnos / Tallenna tyhjentää; yksi sheet kerrallaan', async () => {
+    await avaa(); try {
+      const { sk, p } = await kaynnista(selain, { hash: '#pelaaja/p2/tanaan' }); await odota(p);
+      const avaaSheet = async () => { await p.locator('[data-kt-havainto-lisaa]').click(); await p.waitForSelector('[data-ts-sheet]'); };
+      await avaaSheet(); await p.locator('#ktHavLause').fill('Luonnoksen teksti'); await p.locator('input[name="ktHavArvo"][value="3"]').check();
+      for (const tapa of ['sulje', 'esc', 'tausta']) {
+        if (tapa === 'sulje') await p.locator('[data-ts-sulje]').click(); else if (tapa === 'esc') await p.keyboard.press('Escape'); else await p.locator('[data-ts-tausta]').click({ position: { x: 5, y: 5 } });
+        await p.waitForFunction(() => !document.querySelector('[data-ts-sheet]')); expect(await p.locator('.ts-luonnos-merkki').innerText(), tapa).toBe('Luonnos säilytetty');
+        await avaaSheet(); expect(await p.locator('#ktHavLause').inputValue(), tapa).toBe('Luonnoksen teksti'); expect(await p.locator('input[name="ktHavArvo"][value="3"]').isChecked(), tapa).toBe(true); expect(await p.locator('[data-ts-luonnos]').innerText()).toBe('Luonnos säilytetty');
+      }
+      expect(await p.evaluate(() => window.__kirj.length)).toBe(0);   // mitään ei kirjoitettu sulkemalla
+      await p.locator('[data-ts-hylkaa]').click(); await p.waitForFunction(() => !document.querySelector('[data-ts-sheet]')); expect(await p.locator('.ts-luonnos-merkki').count()).toBe(0);
+      await avaaSheet(); expect(await p.locator('#ktHavLause').inputValue()).toBe(''); expect(await p.locator('[data-ts-luonnos]').count()).toBe(0);
+      await p.keyboard.press('Escape'); await p.waitForFunction(() => !document.querySelector('[data-ts-sheet]')); expect(await p.locator('.ts-luonnos-merkki').count()).toBe(0);   // koskematon sheet ei jätä luonnosta
+      await sk.close();
+    } finally { await selain.close(); }
+  }, 90000);
+  it('B2 · sheet-asettelu: 390 px lyhyt = alasheet pohjassa (kahva, ≤ 70 % korkeus), 1280 = keskitetty dialogi ≤ 540 px; kosketuskohteet ≥ 44 px; fokus palaa avaajalle', async () => {
+    await avaa(); try {
+      let r = await kaynnista(selain, { leveys: 390, korkeus: 844, hash: '#pelaaja/p2/tanaan' }); await odota(r.p);
+      await r.p.locator('[data-kt-havainto-lisaa]').click(); await r.p.waitForSelector('[data-ts-sheet]');
+      const m = await r.p.evaluate(() => { const b = document.querySelector('[data-ts-sheet]').getBoundingClientRect(); return { alas: Math.round(b.bottom), korkeus: Math.round(b.height), leveys: Math.round(b.width), kahva: getComputedStyle(document.querySelector('.ts-kahva')).display, pienet: Array.from(document.querySelectorAll('[data-ts-sheet] button, [data-ts-sheet] label.kt-btn')).filter((e) => e.getBoundingClientRect().height < 43).map((e) => e.textContent.trim()) }; });
+      expect(m.alas).toBe(844); expect(m.korkeus).toBeLessThanOrEqual(Math.round(844 * 0.7) + 1); expect(m.leveys).toBe(390); expect(m.kahva).not.toBe('none'); expect(m.pienet).toEqual([]);
+      await r.p.keyboard.press('Escape'); await r.p.waitForFunction(() => !document.querySelector('[data-ts-sheet]')); expect(await r.p.evaluate(() => document.activeElement && document.activeElement.hasAttribute('data-kt-havainto-lisaa'))).toBe(true); await r.sk.close();
+      r = await kaynnista(selain, { leveys: 1280, korkeus: 900, hash: '#pelaaja/p2/tanaan' }); await odota(r.p); await r.p.locator('[data-kt-havainto-lisaa]').click(); await r.p.waitForSelector('[data-ts-sheet]');
+      const d = await r.p.evaluate(() => { const b = document.querySelector('[data-ts-sheet]').getBoundingClientRect(); return { leveys: Math.round(b.width), keskella: Math.abs((b.left + b.width / 2) - window.innerWidth / 2) < 2, pystyKeskella: Math.abs((b.top + b.height / 2) - window.innerHeight / 2) < window.innerHeight * 0.3 }; });
+      expect(d.leveys).toBeLessThanOrEqual(540); expect(d.keskella).toBe(true); expect(d.pystyKeskella).toBe(true); await r.sk.close();
+    } finally { await selain.close(); }
+  }, 90000);
   it('PELAAJA EI KIRJOITA: pelaajan rooli ei pääse sivulle (ei työpöytää, ei kirjoitusta)', async () => {
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, { rooli: 'pelaaja', hash: '#pelaaja/p2/tanaan' }); await p.waitForSelector('.kts-viesti', { timeout: 15000 });
@@ -111,11 +176,16 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 60000);
-  it.skipIf(process.env.TM_KUVAT !== '1')('KUVAT: 1280 + 390 × tumma + vaalea (Tänään)', async () => {
-    mkdirSync(KUVAT, { recursive: true }); await avaa(); try {
-      for (const [leveys, korkeus] of [[1280, 900], [390, 844]]) for (const teema of ['dark', 'light']) {
-        const { sk, p } = await kaynnista(selain, { leveys, korkeus, teema, hash: '#pelaaja/p2/tanaan' }); await odota(p); await p.waitForTimeout(400);
-        await p.screenshot({ path: join(KUVAT, 'b7_tanaan_' + leveys + '_' + teema + '.png') }); await sk.close();
+  it.skipIf(process.env.TM_KUVAT !== '1')('KUVAT (B2): 1280 + 390 tumma — Tänään inline-napit, lyhyt alasheet, luonnos säilytetty', async () => {
+    const UT = join(JUURI, 'docs', 'ui-kuvat', 'b2-sheet-havainto'); mkdirSync(UT, { recursive: true }); await avaa(); try {
+      for (const [leveys, korkeus] of [[1280, 900], [390, 844]]) {
+        const { sk, p } = await kaynnista(selain, { leveys, korkeus, teema: 'dark', hash: '#pelaaja/p2/tanaan' }); await odota(p); await p.waitForTimeout(300);
+        await p.screenshot({ path: join(UT, 'b2_tanaan_inline_' + leveys + '_dark.png') });
+        await p.locator('[data-kt-havainto-lisaa]').click(); await p.waitForSelector('[data-ts-sheet]'); await p.locator('input[name="ktHavArvo"][value="2"]').check(); await p.locator('#ktHavLause').fill('Katsoi hyvin ylös ennen vastaanottoa'); await p.waitForTimeout(200);
+        await p.screenshot({ path: join(UT, 'b2_sheet_lyhyt_' + leveys + '_dark.png') });
+        await p.keyboard.press('Escape'); await p.waitForTimeout(200); await p.screenshot({ path: join(UT, 'b2_luonnos_sailytetty_' + leveys + '_dark.png') });
+        await p.locator('.kt-sig [data-kt-havainto-arvo="3"]').click(); await p.waitForSelector('[data-kt-kumoa]'); await p.screenshot({ path: join(UT, 'b2_tallennettu_kumoa_' + leveys + '_dark.png') });
+        await sk.close();
       }
     } finally { await selain.close(); }
   }, 120000);
