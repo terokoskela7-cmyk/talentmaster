@@ -34,9 +34,9 @@
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt (CPD-raportin "Kausi:") — sama lähde kuin VP/Admin -->
 <script src="lib/tm_lang.js?v=39"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_lib_i18n.js?v=3"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
+<script src="lib/tm_lib_i18n.js?v=4"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="lib/tm_i18n_common.js?v=12"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=30"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=31"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_eerikkila_normit.js?v=55"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_normisto.js?v=5"></script>   <!-- PR 3b: kolme kerrosta — normisto + seuran linja (docs/NORMISTO_JA_SEURAN_LINJA.md) -->
@@ -6348,7 +6348,7 @@ function _ttKorttiHTML(p) {
   const harj = _mTtHarjNayta(item.avain);
   const pelimuoto = (item.pelimuoto && item.pelimuoto.length) ? item.pelimuoto.join(' → ') : '';
   const dimLbl = item.faasi === 'hyokkays' ? masterT('hyökkäys') : item.faasi === 'puolustus' ? masterT('puolustus') : (item.ryhma || '');
-  const tavoite3 = (typeof TM_TT_ASTEIKKO !== 'undefined' && TM_TT_ASTEIKKO.tasot) ? TM_TT_ASTEIKKO.tasot[3] : masterT('näkyy itsenäisesti');
+  const tavoite3 = _ttS().ttSv('asteikko', 'taso.3') || ((typeof TM_TT_ASTEIKKO !== 'undefined' && TM_TT_ASTEIKKO.tasot) ? TM_TT_ASTEIKKO.tasot[3] : masterT('näkyy itsenäisesti'));   // sv: curriculum-sidecar (asteikko.taso.3); fi ennallaan
   // §28-kypsyysvahti: tt = teknis-taktinen (taitoikkuna) → ei fyysistä geittiä; jaksofokus-vk näytöllä.
   let h = '<div style="grid-column:1/-1;margin-top:12px">';
   // Jaksofokus-header (amber)
@@ -6673,9 +6673,12 @@ function _ktPelaajat() { return Array.isArray(_pelaajatData) ? _pelaajatData : [
 function _ktOpts() { return { esc: _mEsc, t: masterT, edellinenFn: '_ktEdellinen', seuraavaFn: '_ktSeuraava', valilehtiFn: '_ktValilehti', toimiFn: '_ktToimi', silminFn: '_ktSilmin', suljeFn: '_ktSulje' }; }
 function _ktOikeusCtx() { return { rooli: _rooli, sa: !!_superAdmin, seuraId: _seuraId, omaJoukkueet: _joukkue ? [_joukkue] : null }; }   // sama sääntö kuin _prVoiNahda (!_joukkue → ei rajausta)
 function _ktTanaanHTML(p, tila) {   // mockup 22 osio 1: koko Tänään libissä (tmKtTanaanKoko); viikkohavaintopaneeli sama kuin VP:ssä (A13 jatko 3)
+  /* näyttökopio: tallennettu jaksofokus.konsepti_nimi (fi) → katsojan kielellä avaimella (_mKonseptiNimiNayta); fi-tilassa sama olio, kirjoituspolut eivät näe kopiota */
+  const jf0 = p && p.jaksofokus, n0 = (jf0 && jf0.konsepti_avain && typeof _mKonseptiNimiNayta === 'function') ? _mKonseptiNimiNayta(jf0.konsepti_avain, jf0.konsepti_nimi) : null;
+  const pn = (n0 && n0 !== jf0.konsepti_nimi) ? Object.assign({}, p, { jaksofokus: Object.assign({}, jf0, { konsepti_nimi: n0 }) }) : p;
   const K = window.TM_KEHITYSTYOPOYTA; if (!window._mHenkilosto && typeof _mLataaHenkilosto === 'function') _mLataaHenkilosto();   // merkitsijöiden nimet (D108)
   const kenttaFn = function (alue, pp) { return (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ase: { alue: alue, nimi: (pp && pp.ydinvahvuus && pp.ydinvahvuus.kuvaus) || '', tila: 'ok' }, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: masterT }) : ''; };   // D98: kenttä piirtyy VAIN kun ydinvahvuus.alue on (ei tyhjää kenttää); muuten jaksokortti (lib)
-  return K.tmKtTanaanKoko(p, tila, { esc: _mEsc, t: masterT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
+  return K.tmKtTanaanKoko(pn, tila, { esc: _mEsc, t: masterT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
     paneeli: true, rooli: _superAdmin ? 'super_admin' : _rooli, uid: _uid, nimet: function (u) { const h = (window._mHenkilosto || []).find(function (x) { return x.id === u; }); return h ? h.nimi : ''; }, voiKirjoittaa: _ktVoiKirjoittaa(p), kenttaFn: kenttaFn, kaanon: (typeof tmKonseptiKaanon === 'function') ? _mTtKaanonNayta : null, tanaan: tmPaivaIso(new Date()),
     sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), kalenteri: (typeof _kalenteriTapahtumat !== 'undefined' ? _kalenteriTapahtumat : null), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });   // K35-1: tauko + seuraava harjoitus (tmKtKalenteri)
 }
@@ -7653,13 +7656,13 @@ function _msMesoKaariHTML(p) {
     var dBadge = (e.delta_mitattu && typeof e.delta_mitattu.muutos === 'number') ? (' · Δ ' + (e.delta_mitattu.muutos > 0 ? '+' : '') + e.delta_mitattu.muutos) : '';
     h += '<div style="min-width:128px;flex:0 0 auto;background:var(--ov-1,rgba(255,255,255,.04));border:.5px solid rgba(61,163,93,.3);border-radius:10px;padding:9px 11px;margin-right:8px;position:relative">'
       + '<span style="position:absolute;top:8px;right:9px;font-size:12px;color:var(--teal)">' + _dIc(e.domeeni) + ' ' + (TIC[e.tulos] || '·') + '</span>'
-      + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:26px">' + esc(e.konsepti_nimi || e.konsepti_avain) + '</div>'
+      + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:26px">' + esc(_mKonseptiNimiNayta(e.konsepti_avain, e.konsepti_nimi) || e.konsepti_avain) + '</div>'
       + '<div style="font-size:9.5px;color:var(--ink3);margin-top:1px">' + (e.harjoituksia || 0) + masterT(' harj') + (lasnaPct != null ? masterT(' · läsnä ') + lasnaPct + '%' : '') + dBadge + '</div></div>';
     if (i < hist.length - 1 || (p && p.jaksofokus)) h += '<div style="display:flex;align-items:center;color:var(--ink3);margin-right:8px">→</div>';
   });
   if (p && p.jaksofokus) h += '<div style="min-width:128px;flex:0 0 auto;background:linear-gradient(150deg,rgba(224,160,64,.07),var(--ov-1,rgba(255,255,255,.04)));border:.5px solid rgba(224,160,64,.4);border-radius:10px;padding:9px 11px;position:relative">'
     + '<span style="position:absolute;top:8px;right:9px;font-size:12px">' + _dIc(p.jaksofokus.domeeni) + ' ◷</span>'
-    + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:26px">' + esc(p.jaksofokus.konsepti_nimi || p.jaksofokus.konsepti_avain) + '</div>'
+    + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:26px">' + esc(_mKonseptiNimiNayta(p.jaksofokus.konsepti_avain, p.jaksofokus.konsepti_nimi) || p.jaksofokus.konsepti_avain) + '</div>'
     + '<div style="font-size:9.5px;color:var(--ink3);margin-top:1px">' + masterT('nykyinen jakso') + '</div></div>';
   h += '</div></div>';
   return h;

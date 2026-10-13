@@ -40,7 +40,9 @@ describe('Gemini-erä 2 — master_kartta', () => {
     // erän 2 tyhjät rivit täyttyivät erässä 3 (docs/i18n/sv_kaannoserae_3.json master_kartta; vienti scripts/i18n_vie_sv_era3.cjs) → ei vanhentunut
     const era3 = JSON.parse(lue('docs/i18n/sv_kaannoserae_3.json')).osiot.master_kartta.rivit;
     const libKaytossa = Object.assign({}, ERA31J.osiot['lib.tm_kalenteri_tilaus_ui'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_29.json')).osiot['lib.tm_harjoituskertyma_nakyma'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_30.json')).osiot['lib.tm_valmentaja_koti_nakyma'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_18.json')).osiot['lib.tm_nakyma_ryhmat'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_24.json')).osiot['lib.tm_kalenteri_nakyma'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_25.json')).osiot['lib.tm_kalenteri_omat'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_26.json')).osiot['lib.tm_kalenteri_nakyma'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_27.json')).osiot['lib.tm_kalenteri_siirto'].rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_28.json')).osiot['lib.tm_aamutreeni'].rivit);   // lib käyttää näitä masterT:n kautta (extractor skannaa vain HTML:n)
-    const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv && !(era3[fi] && era3[fi].sv) && !libKaytossa[fi]);
+    // erän 19 osavienti (scripts/i18n_vie_sv_era19_osa.cjs, 17 master_kartta-riviä): sv koodissa = palautuksen sv; erätiedostot täyttyvät koko erän viennissä (i18n_kooste.cjs era19-vie) → ei vanhentunut
+    const era19 = JSON.parse(lue('docs/i18n/sv_kaannoserae_19_palautus.json')).osiot.master_kartta.rivit, era19osa = new Set(require('../scripts/i18n_vie_sv_era19_osa.cjs').MASTER_AVAIMET);
+    const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv && !(era3[fi] && era3[fi].sv) && !(era19osa.has(fi) && era19[fi] && era19[fi].sv) && !libKaytossa[fi]);
     expect(vanhentuneet).toEqual([]);
   });
   it('EI VACUOUS: poiminta löytää satoja avaimia ja uudet PR 3 -avaimet', () => {
