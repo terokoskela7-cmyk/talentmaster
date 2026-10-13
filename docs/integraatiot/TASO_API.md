@@ -1,6 +1,6 @@
 # TASO API (Palloliiton tulospalvelu, Torneopal) — integraation käyttämät osat
 
-> **Lähde ja luotettavuus:** tämä on **yhteenveto Teron 13.10.2026 toimittamasta virallisesta TASO API -dokumentaatiosta** (kentät, kausi, haku, tilat, osoite) sellaisena kuin se välitettiin Codelle tekstinä. **Alkuperäinen dokumentaatiotiedosto ei tullut Codelle** — liitä se tähän kansioon (esim. `TASO_API_virallinen.md/.pdf`) ja korvaa/tarkista tämän tiedoston kohdat sen mukaan. Testifixturet (`functions/test/fixtures/taso_getMatches.json`, `taso_getClub.json`) on rakennettu tämän yhteenvedon kentistä; vaihda ne dokumentaation esimerkkivastauksiin, kun ne ovat repossa.
+> **Lähde:** virallinen dokumentaatio `TASO_API_dokumentaatio.txt` (tässä kansiossa). Tämä tiedosto on yhteenveto integraation käyttämistä osista; testifixturet (`functions/test/fixtures/taso_getMatches|getClub|getNextMatches|getTeam.json`) ovat dokumentaation esimerkkivastauksia sellaisenaan.
 
 Koodi: `functions/taso_api.js` (osoite, haku, kausi, hakuikkuna, kenttämuoto — YKSI paikka), `functions/kalenteri_taso.js` (K35-5 kalenterisynkka), `functions/index.js` (`paivitaSeuranOttelut`, vanha `tapahtumat`-haku), `scripts/yhdista_taso_joukkueet.js`.
 
@@ -11,12 +11,14 @@ Koodi: `functions/taso_api.js` (osoite, haku, kausi, hakuikkuna, kenttämuoto �
 Jalkapallon `season_id` = **kalenterivuosi** merkkijonona, esim. `"2026"` (ei `"2025-2026"`). `kausiTunniste(nyt)` = Helsingin kalenterivuosi.
 
 ## getClub(club_id, season_id)
-Palauttaa seuran joukkueet (`teams[]`): `team_id`, `team_name`, `category_name`. `scripts/yhdista_taso_joukkueet.js --listaa` tulostaa nämä (`getClub(club_id, season_id="2026")`).
+Palauttaa seuran joukkueet polussa **`club.teams[]`** (ei ylätasolla): `team_id`, `team_name`, `category_id`, `category_name`, `competition_id`, `competition_name`. `klubinJoukkueet()` (`taso_api.js`). `scripts/yhdista_taso_joukkueet.js --listaa` tulostaa nämä (`getClub(club_id, season_id="2026")`).
 
 ## getMatches
 - **Ei ota `season_id`:tä.** Haetaan `team_id` + `start_date` + `end_date` (YYYY-MM-DD): **tänään − 30 pv … tänään + 180 pv** (`hakuIkkuna()`).
 - Ottelun (`matches[]`) kentät: `match_id`, `date` (YYYY-MM-DD), `time` (HH:MM tai HH:MM:SS), `team_A_id` / `team_A_name` (**koti**), `team_B_id` / `team_B_name` (**vieras**), `venue_name`, `status`. **Ei** `match_time`, `home_team_*`, `away_team_*`.
 - `time` puuttuu tai on tyhjä → ottelu merkitään **koko päiväksi** (`koko_paiva: true`, alkaa 00:00, päättyy 23:59 Helsingin aikaa). Muuten kesto oletuksena 90 min (TASO ei anna päättymisaikaa).
+- Tulos: `fs_A` (koti) – `fs_B` (vieras); `otteluTulos()`. (Ei `home_goals`/`away_goals`.)
+- `getNextMatches(team_id)` palauttaa samat ottelukentät (status esim. `Scheduled`); `getTeam` palauttaa joukkueen (`team.team_id`, `club_id`, `categories[]`, `players[]`) — integraatio ei käytä näitä.
 - Ajat ovat Helsingin paikallisaikaa.
 
 ## Tilat (`status`)
