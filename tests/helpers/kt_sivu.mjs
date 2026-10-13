@@ -10,7 +10,7 @@ export const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const SIVU = 'file://' + join(JUURI, 'TalentMaster_Kehitystyopoyta.html');
 export const CHROME = [process.env.TM_CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].filter(Boolean).find((p) => existsSync(p));
 const NYT = Date.parse('2026-10-19T09:00:00+03:00');
-const ALKOI = new Date(NYT - 14 * 86400000).toISOString();
+const ALKOI = new Date(NYT - 16 * 86400000).toISOString();
 
 export const PELAAJAT = [
   { id: 'p1', etunimi: 'Aatu', sukunimi: 'Aalto', syntymaVuosi: 2013, sukupuoli: 'M', joukkue: 'Demo U13', joukkueet: ['demo_u13'] },
