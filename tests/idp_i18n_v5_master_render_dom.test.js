@@ -144,7 +144,7 @@ describe('Master render-kielineutraali-gate (Erä 3 DoD-ydin)', () => {
     }
 
     const PROD = /X-Factor|Hidden Gem|Underdog|Continuing Professional Development/;
-    const ENUM_FIELD = /(?:kind|tila|domeeni|malli|lahde|faasi|ketju|otsikko|protokolla)\s*:\s*$/;
+    const ENUM_FIELD = /(?:(?:kind|tila|domeeni|malli|lahde|faasi|ketju|otsikko|protokolla)\s*:|where\('nakyvyys',\s*'in',\s*\[(?:'\w+',\s*)*)\s*$/;   // + Firestore-kyselyn data-enum (nakyvyys in ['pelaaja','huoltaja']) — ei näyttöteksti; 'huoltaja' sai sv:n erässä 40
     const CMP = /[=!]==?\s*$/;
     // ANKKUROIDUT allowlist-alueet. Aiemmin nämä olivat kovakoodattuja rivinumeroita, jotka
     // ajautuivat aina kun scriptiin lisättiin koodia — silloin gate punertui kolmesta AIDOSTI

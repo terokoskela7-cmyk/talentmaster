@@ -31,20 +31,25 @@ const CMN = require('../lib/tm_i18n_common.js'), MI = require('../lib/tm_master_
 /* Erätiedostot: uudet rivit docs/i18n/sv_kaannoserae_38.json (Havainto, Tilanne, huoltaja, TM_SELITTEET, pre-harkka); muut ovat jo aiemmissa erissä sv tyhjänä
    (30/32/33/34 nav+koti, 18 tm_nakyma_ryhmat + master, 19_gemini, 28 Aamutreeni, 29 estynyt, 15 vp_kartta; 'Ryhmät': Gemini-sv on VP-kartassa, ei Masterin) → viittaus, ei duplikaattia. */
 export const SV_ODOTTAA = [
-  '30% KOHDENNETTU', '360° hengitys + cat-cow + dead bug', '360° palleahengitys 3×5. Dead bug 3×5 per puoli. Cat-cow 3×8.', '70% VAHVUUS', 'AKTIVOINTI', 'Aamutreeni',
-  'Aloita kahdella askeleella: täytä viikon harjoitukset kalenteriin ja kirjaa ensimmäinen havainto.',
-  'Aloita kolmella askeleella: lisää pelaajat joukkueeseen, täytä viikon harjoitukset kalenteriin ja kirjaa ensimmäinen havainto.', 'Avaa Pulssi', 'Avaa jakso', 'Avaa kalenteri',
-  'D1 Fyysinen — testitasojen keskiarvo, 1–5 (3 = ikäluokan keskitaso)', 'D2 Tekninen — TKI- tai SM-testipohjainen, 1–5 (3 = ikäluokan keskitaso)', 'D3-itsearvio odottaa',
-  'Ei havaintoa 30 pv', 'Ei luokkaa', 'Ei omatoimisia 3 viikkoon', 'Ei tulevia tapahtumia. Lisää harjoitus tai ottelu kalenteriin.', 'Eniten omatoimisia tällä viikolla — kehu?', 'Havainto', 'Jaa klippi',
-  'Jakson kooste tehty', 'Jakson viikko', 'Kausi ja jaksot', 'Kehon valmius alle 40 (klinikkalähetys)', 'Klippi odottaa jakamista', 'Kuorma ja fiilis', 'Lankku + bird dog', 'Lukemattomat viestit',
-  'Läsnä alle puolessa treeneistä (4 vk)', 'Läsnäolo 4 vk', 'Normaali, ei maksiminopeus.', 'Normaali, pidennä kestoa.', 'Näytä kaikki', 'Omatoimisia tällä viikolla', 'PELILLINEN KYTKENTÄ',
-  'Pelaajat, joihin kannattaa tarttua', 'Pieni alue, 1 kosketus. Keskellä vaihtuu häviäjä.', 'Rondo 4v1', 'Ryhmät', 'Sinulla ei ole ryhmiä.', 'Syke', 'T-rata hidas', 'Tehtävät',
-  'Tervetuloa', 'Tilanne', 'Tuore tulos, ei kehityskohde.', 'Täytä viikko', 'Uusi havainto', 'Vahvista läsnäolot', 'Vastaa', 'Vastaamatta yli vuorokauden',
-  'Viikko on tyhjä.', 'ei vielä mitattu', 'estynyt', 'huoltaja', 'jakso päättyi', 'jakso päättyy', 'kypsyys ratkaisee', 'päättyy',
-  'seuraava tekniikkakisa päivittää', 'sääntöryhmä', 'vahvistanut', '{n} ilman tulosta', '{n} kypsyys ratkaisee', '{n} tulosta yli {kk} kk vanhoja',
-  '{n}/{yht} mitattu tuoreesti',
-  /* Kierros B (PH-pelaajat + pre-harkan alaotsikot): */
-  '2×5 per puoli.', '3 lähtöä 70%. Takaketju herkkä.', 'ADAR — peliäly liittyy liikkeeseen', 'Aamu', 'Clamshell + sivulankku', 'Clamshell 2×12 per puoli. Sivulankku 2×20s per puoli.', 'Ei testidataa', 'Ei testidataa — oletus DFL', 'Ikätasolla', 'Joukkueen heikoin: {emoji} {nimi} · ka {ka}p · nostetaan', 'Joukkueen vahvin: {emoji} {nimi} · ka {ka}p · pidetään terävänä', 'Normaali — isometriset ovat turvallisia.', 'Reaktiolähtö — pallo maahan', 'Sivuhyppely + luisteluaskeleet', 'Valmistaa koko joukkueen — etenkin heikointa ketjua', 'Valmistaa koko joukkueen — etenkin {nimi}', '⚠️ PHV — seuraa intensiteettiä, ei maksimia', '⚠️ {n} PHV-pelaajaa joukkueessa — intensiteetti 70%'
+  /* Odottaa erän 41 palautusta (docs/i18n/sv_kaannoserae_41_gemini.json): pre-harkan PH-variantit + PHV-muistutukset, alaotsikot, Aamu, Ikätasolla. Erän 40 (67 riviä) vietiin scripts/i18n_vie_sv_era40.cjs:llä. */
+  '2×5 per puoli.',
+  '3 lähtöä 70%. Takaketju herkkä.',
+  'ADAR — peliäly liittyy liikkeeseen',
+  'Aamu',
+  'Clamshell + sivulankku',
+  'Clamshell 2×12 per puoli. Sivulankku 2×20s per puoli.',
+  'Ei testidataa',
+  'Ei testidataa — oletus DFL',
+  'Ikätasolla',
+  'Joukkueen heikoin: {emoji} {nimi} · ka {ka}p · nostetaan',
+  'Joukkueen vahvin: {emoji} {nimi} · ka {ka}p · pidetään terävänä',
+  'Normaali — isometriset ovat turvallisia.',
+  'Reaktiolähtö — pallo maahan',
+  'Sivuhyppely + luisteluaskeleet',
+  'Valmistaa koko joukkueen — etenkin heikointa ketjua',
+  'Valmistaa koko joukkueen — etenkin {nimi}',
+  '⚠️ PHV — seuraa intensiteettiä, ei maksimia',
+  '⚠️ {n} PHV-pelaajaa joukkueessa — intensiteetti 70%',
 ];
 
 /* sv-resoluutio Nodessa samalla järjestyksellä kuin masterT: lib-avain → COMMON → TM_MASTER_I18N → (puuttuu) */
