@@ -296,7 +296,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('Sibbo · klip
   }, 240000);
   it('(a2) VALMENTAJAN PELAAJANÄKYMÄ klippikortin ympäriltä — Master #ktNakyma Tänään + Polku (4 jaksotilaa): ei suomea sv-tilassa', async () => {
     const selain = await kaynnista(); try {
-      const sv = await pelaajanakymaPolku(selain, 'sv'); const r = suomiJaanteet(sv.kerätyt, NIMET); raportti('Pelaajanäkymä sv', r, sv.kerätyt);
+      const sv = await pelaajanakymaPolku(selain, 'sv'); const r = suomiJaanteet(sv.kerätyt, NIMET.concat(['Aseta ydinvahvuus kentälle → Polku']));   // erä 44 (B1): kt_aseta_alue odottaa sv:tä (jaksokortin CTA) — poista lisäys kun sv saapuu
+       raportti('Pelaajanäkymä sv', r, sv.kerätyt);
       expect(sv.kerätyt.length).toBeGreaterThan(60); expect(sv.virheet).toEqual([]); expect(r).toEqual([]);
       const fi = await pelaajanakymaPolku(selain, 'fi'); expect(suomiJaanteet(fi.kerätyt, NIMET).length, 'negatiivitesti: fi-tilassa tunnistin löytää suomen').toBeGreaterThan(20);
     } finally { await selain.close(); }
