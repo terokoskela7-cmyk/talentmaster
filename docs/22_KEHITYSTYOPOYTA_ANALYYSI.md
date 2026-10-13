@@ -81,7 +81,7 @@ Vastaus Teron kysymykseen "toimiiko kokonaisuutena": ei, koska kolme välilehte�
 
 **Polku — "Missä pelaaja on ja mihin menossa?"**
 - Yksi jana ylhäältä alas: **Kausi** (tavoite + pelaajan omin sanoin, lähtötaso vain jos mitattu; ei "2/5"-oletusta) → **Jakso nyt** (ainoa paikka, jossa konseptin nimi on otsikkona; osat, viikkohavainto, klipit tämän jakson kontekstissa, tukitavoite) → **Tämä viikko** (pelaajan viikko lukuna: harjoitukset joukkueen viikosta 14 + omatoimi + viikkokatsaus; ei 7 tyhjää ruutua) → **Historia** (suljetut jaksot haaleina + kevyen katselmuksen lauseet).
-- Klipit siirtyvät Jakso nyt -kortin sisään; Pelaajan ääni poistuu, kunnes kirjoituspolku on (kausitavoitteen "omin sanoin" riittää); Seuraava askel ei toistu Polussa.
+- Klipit siirtyvät Jakso nyt -kortin sisään; Pelaajan ääni -placeholder poistui korjauskierroksella A; kierroksella B (D105, muutettu 13.10.) Polku saa **Pelaajan ääni** -lohkon, joka kokoaa olemassa olevat pelaajan tekstit (klippivastaukset, D3-itsearvio, viikkokatsaus, kausitavoite omin sanoin; enintään 3 uusinta, lähde + päivä; ei kirjoituskenttää; 0 lähdettä → lohko ei näy); Seuraava askel ei toistu Polussa.
 - Viikon rakenne (7 pv, Täytä viikko, kuorma, läsnäolo) siirtyy **joukkueen viikkoon (14)**, jossa se kuuluu. Pelaajan Polussa näkyy vain tämän pelaajan viikko lukuna ja "Avaa joukkueen viikko".
 - Muokkaus sheetteinä (Aloita jakso, Merkitse viikkohavainto, Sulje jakso, Siirrä ydinvahvuutta kentällä) samalla komponentilla VP:lle ja valmentajalle (D4).
 
@@ -104,7 +104,7 @@ Vastaus Teron kysymykseen "toimiiko kokonaisuutena": ei, koska kolme välilehte�
 | **D102** | Näyttö = 5 todistekorttia + Profiili + "Näytä kaikki mittaukset"; jokaisessa luvussa päivämäärä; PHV luetaan kerran | 32 lohkoa / 150–200 lukua ilman toimintaohjetta | 13 §6:n 8 lohkoa → 5 + 1; 18 §7 "siirrä" → "siirrä ja tiivistä" |
 | **D103** | Kolme kysymystä näytetään aina lähteen ja päivän kanssa; "Ei vielä tietoa" korvataan "kuka · milloin" | käyttäjä ei tiedä, mistä tieto tulee | 13 §1 elementtitaulukko täydentyy |
 | **D104** | Kausitavoitteen lukua ei näytetä, jos lähtötaso ei ole mitattu ("tavoite taso 2 · lähtötaso mitataan katselmuksessa") | 2/5 on oletus, ei mittaus | 15/01 täsmennys |
-| **D105** | Pelaajan ääni -lohko ja viikkorefleksio poistuvat Polusta, kunnes niille on kirjoituspolku (pelaaja-app) | placeholder lupaa toimintoa, jota ei ole | 13 §2 "kauden ääni" = kausitavoitteen "omin sanoin" |
+| **D105** *(muutettu 13.10.)* | Pelaajan ääni Polussa kokoaa olemassa olevat pelaajan tekstit (klippivastaukset viestit, D3-itsearvio, viikkokatsaus, kausitavoite omin sanoin), enintään 3 uusinta, lähde + päivä; ei uutta kirjoituskenttää. 0 lähdettä → lohko ei näy | lupaus ei ylitä dataa: näytetään vain mitä pelaaja on jo kirjoittanut; ei tyhjää placeholderia | 13 §2 "kauden ääni" = kausitavoitteen "omin sanoin" + muut lähteet |
 | **D106** | VP ja Master renderöivät kaikki kolme välilehteä samasta `lib/`-moduulista; kuoret pienenevät (R1) | kasvukatto 437/225 riviä; D38 ei toteudu Näytössä | ei muutu |
 
 Lukittuja päätöksiä ei tarvitse avata. D52 (Polku/Näyttö ladataan vasta avattaessa) pysyy: todistekortit lataavat `testitulokset`-sarjan kerran.
