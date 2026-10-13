@@ -1,9 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.61
+// TalentMaster™ — firestore.rules v3.62
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.61 → v3.62 (turvallisuus: server-only integraatioavaimet, ei migraatiota Rulesissa — datan siirto scripts/siirra_integraatioavaimet.js):
+//   · seurat/{sid}/salaiset/{dokId} (UUSI blokki): allow read, write: if false — KAIKILTA selaimilta, myös SA:lta ja johdolta. Vain Admin SDK (Cloud Functions) lukee/kirjoittaa.
+//     Kotipaikka ulkoisten palveluiden avaimille (salaiset/integraatiot.taso_api_key); aiemmin taso_api_key oli seura-dokissa jonka koko seuran henkilökunta luki selaimella.
 //
 // Muutokset v3.60 → v3.61 (K35-6c · D196 ryhmän vastaava, ei migraatiota — uusi kenttä on valinnainen):
 //   · seurat/{sid}/ryhmat/{id}: UUSI valinnainen kenttä `vastuu_uid` (string; pitää olla ryhmän valmentajat[]:ssä). Ryhmän vastaava = se valmentaja joka suunnittelee ryhmän treenit.
@@ -1024,6 +1028,11 @@ service cloud.firestore {
     match /seurat/{seuraId} {
       allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
       allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+
+      // ── SALAISET (v3.62) — server-only: ulkoisten palveluiden avaimet. EI mikään selain (SA, johto, valmentaja, pelaaja, huoltaja) lue eikä kirjoita; vain Admin SDK. ──
+      match /salaiset/{dokId} {
+        allow read, write: if false;
+      }
 
       // ── KAAVIOT (v3.6) — seurakohtaiset teknis-taktiset kaaviot + review-silmukka ──
       // Kaksikerros: kanoninen /kaaviot/{avain} (master) + tämä seurataso (omat + override).

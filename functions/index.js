@@ -1517,7 +1517,8 @@ exports.tasoHaeMaatcheck = functions
     return null;
   });
 */
-const _tasoKal = require('./kalenteri_taso'), _tasoDeps = { functions, db, tasoHae, FieldValue: admin.firestore.FieldValue, Timestamp: admin.firestore.Timestamp };
+const _salaiset = require('./salaiset');
+const _tasoKal = require('./kalenteri_taso'), _tasoDeps = { functions, db, tasoHae, FieldValue: admin.firestore.FieldValue, Timestamp: admin.firestore.Timestamp, tasoAvain: _salaiset.tasoAvain };   // tasoAvain: server-only avain (salaiset/integraatiot)
 exports.tasoHaeSeuranOttelut = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
@@ -1532,15 +1533,16 @@ exports.tasoHaeSeuranOttelut = functions
     }
     const seuraDoc  = await db.collection('seurat').doc(seuraId).get();
     const seuraData = seuraDoc.data() || {};
-    if (!seuraData.taso_api_key || !seuraData.taso_club_id) {
+    const _tasoAvain = await _salaiset.tasoAvain(db, seuraId, seuraData);   // server-only: salaiset/integraatiot (varalla vanha seura-dokin kenttä siirtymän ajan)
+    if (!_tasoAvain || !seuraData.taso_club_id) {
       throw new functions.https.HttpsError('failed-precondition',
         'TASO API-avain tai Club ID puuttuu. Aseta ne Seura-asetuksissa.');
     }
-    const lkm = await paivitaSeuranOttelut(seuraId, seuraData.taso_api_key, seuraData.taso_club_id);
+    const lkm = await paivitaSeuranOttelut(seuraId, _tasoAvain, seuraData.taso_club_id);
     const kalenteri = await _tasoKal.ajaSeura(_tasoDeps, seuraId, Date.now()).catch((e) => ({ virhe: e.message }));   // K35-5: sama haku kalenteriin (yhdistetyt joukkueet)
     return { ok: true, ottelut: lkm, seuraId, kalenteri };
   });
-Object.assign(exports, _tasoKal.luo(_tasoDeps));   // kalenteriTasoSynkka (ajastettu, K35-5)
+Object.assign(exports, _tasoKal.luo(_tasoDeps), _salaiset.luo({ functions, db, admin, tarkistaOikeus }));   // kalenteriTasoSynkka (K35-5) + asetaTasoAsetukset (avain kirjoitetaan vain palvelimella)
 // ============================================================
 // AI PROXY — SULJETTU
 // ============================================================
