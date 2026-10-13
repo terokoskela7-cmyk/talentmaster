@@ -147,8 +147,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_polun_tila.js?v=2"></script>   <!-- Polun tila + kolme kysymystä (13 §1) -->
 <script src="lib/tm_tanaan_signaali.js?v=9"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
 <script src="lib/tm_kevyt_katselmus.js?v=2"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
-<script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
+<script src="lib/tm_kentta.js?v=4"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
+<script src="lib/tm_kentta_spec.js?v=1"></script>   <!-- B1: Kenttä-spec pelaajadokumentista (alue → ase, jakso → reitti, viikot, osat, historia; yksi adapteri) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
 <script src="lib/tm_kt_komponentit.js?v=4"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
 <script src="lib/tm_kalenteri_tyypit.js?v=4"></script>   <!-- K35-1: kalenterin tyyppirekisteri (D186) -->
@@ -165,7 +166,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=5"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
 <script src="lib/tm_kalenteri_omat.js?v=2"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
-<script src="lib/tm_kehitystyopoyta.js?v=16"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
+<script src="lib/tm_kehitystyopoyta.js?v=17"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
@@ -6679,7 +6680,7 @@ function _ktTanaanHTML(p, tila) {   // mockup 22 osio 1: koko Tänään libissä
   const jf0 = p && p.jaksofokus, n0 = (jf0 && jf0.konsepti_avain && typeof _mKonseptiNimiNayta === 'function') ? _mKonseptiNimiNayta(jf0.konsepti_avain, jf0.konsepti_nimi) : null;
   const pn = (n0 && n0 !== jf0.konsepti_nimi) ? Object.assign({}, p, { jaksofokus: Object.assign({}, jf0, { konsepti_nimi: n0 }) }) : p;
   const K = window.TM_KEHITYSTYOPOYTA; if (!window._mHenkilosto && typeof _mLataaHenkilosto === 'function') _mLataaHenkilosto();   // merkitsijöiden nimet (D108)
-  const kenttaFn = function (alue, pp) { return (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ase: { alue: alue, nimi: (pp && pp.ydinvahvuus && pp.ydinvahvuus.kuvaus) || '', tila: 'ok' }, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: masterT }) : ''; };   // D98: kenttä piirtyy VAIN kun ydinvahvuus.alue on (ei tyhjää kenttää); muuten jaksokortti (lib)
+  const kenttaFn = function (alue, pp, spec) { return (typeof window.tmKentta === 'function') ? window.tmKentta(spec || { koko: 'puoli', ase: { alue: alue, nimi: (pp && pp.ydinvahvuus && pp.ydinvahvuus.kuvaus) || '', tila: 'ok' }, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: masterT }) : ''; };   // D98 + B1: kenttä piirtyy VAIN kun ydinvahvuus.alue on (ei tyhjää kenttää); muuten jaksokortti + CTA (lib). spec = lib/tm_kentta_spec.js (ase + reitti + viikkomerkit + osat + historia); ilman sitä vanha ase-vain-spec
   return K.tmKtTanaanKoko(pn, tila, { esc: _mEsc, t: masterT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
     paneeli: true, rooli: _superAdmin ? 'super_admin' : _rooli, uid: _uid, nimet: function (u) { const h = (window._mHenkilosto || []).find(function (x) { return x.id === u; }); return h ? h.nimi : ''; }, voiKirjoittaa: _ktVoiKirjoittaa(p), kenttaFn: kenttaFn, kaanon: (typeof tmKonseptiKaanon === 'function') ? _mTtKaanonNayta : null, tanaan: tmPaivaIso(new Date()),
     sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), kalenteri: (typeof _kalenteriTapahtumat !== 'undefined' ? _kalenteriTapahtumat : null), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });   // K35-1: tauko + seuraava harjoitus (tmKtKalenteri)
