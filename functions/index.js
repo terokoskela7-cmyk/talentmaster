@@ -1404,69 +1404,35 @@ exports.haeAuditLoki = functions
 // ─────────────────────────────────────────────────────────────────────────────
 // TASO-INTEGRAATIO — Palloliiton tulospalvelu
 // ─────────────────────────────────────────────────────────────────────────────
-const TASO_BASE = 'https://spl.torneopal.fi/taso/rest';
-async function tasoHae(endpoint, params, apiKey) {
-  const qs  = new URLSearchParams({ api_key: apiKey, ...params }).toString();
-  const url = `${TASO_BASE}/${endpoint}?${qs}`;
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) {
-            reject(new Error(`TASO API virhe: ${parsed.error}`));
-          } else {
-            resolve(parsed);
-          }
-        } catch (e) {
-          reject(new Error(`TASO vastaus ei ole JSON: ${data.substring(0, 200)}`));
-        }
-      });
-    }).on('error', reject);
-  });
-}
+const { tasoHae, kausiTunniste: tasoKausi, hakuIkkuna: tasoHakuIkkuna, otteluKentat: tasoOtteluKentat } = require('./taso_api');   // YKSI osoite/haku/kausi/kenttämuoto (docs/integraatiot/TASO_API.md)
 function tasoOtteluTapahtumaksi(ottelu, seuraId) {
-  const pvm   = ottelu.match_time ? ottelu.match_time.substring(0, 10) : null;
-  const kello = ottelu.match_time ? ottelu.match_time.substring(11, 16) : null;
-  const koti  = ottelu.home_team_name || '';
-  const vieras = ottelu.away_team_name || '';
-  const tulos = (ottelu.home_goals != null && ottelu.away_goals != null)
-    ? `${ottelu.home_goals}–${ottelu.away_goals}` : null;
-  const tanaan = new Date().toISOString().substring(0, 10);
+  const k = tasoOtteluKentat(ottelu); if (!k) return null;
+  const tulos = (ottelu.home_goals != null && ottelu.away_goals != null) ? `${ottelu.home_goals}–${ottelu.away_goals}` : null, tanaan = new Date().toISOString().substring(0, 10);
   return {
     tyyppi:         'ottelu',
     lahde:          'taso',
-    taso_ottelu_id: String(ottelu.match_id),
-    nimi:           `${koti} – ${vieras}`,
-    pvm, aika: kello,
-    kotiJoukkue: koti, vierasJoukkue: vieras,
-    kentta: ottelu.venue_name || null,
+    taso_ottelu_id: k.id,
+    nimi:           `${k.koti.nimi} – ${k.vieras.nimi}`,
+    pvm: k.pvm, aika: k.kello,   // aika null = koko päivä
+    kotiJoukkue: k.koti.nimi, vierasJoukkue: k.vieras.nimi,
+    kentta: k.paikka,
     sarja:  ottelu.category_name || null,
     tulos,
-    tila: tulos ? 'valmis' : (pvm && pvm < tanaan) ? 'pelattu' : 'suunniteltu',
+    tila: tulos ? 'valmis' : k.pvm < tanaan ? 'pelattu' : 'suunniteltu',
     seuraId,
     paivitetty: admin.firestore.FieldValue.serverTimestamp(),
   };
 }
 async function paivitaSeuranOttelut(seuraId, apiKey, clubId) {
   console.log(`[TASO] Seura: ${seuraId}, club_id: ${clubId}`);
-  const nyt   = new Date();
-  const vuosi = nyt.getFullYear();
-  const kausi = nyt.getMonth() < 7 ? `${vuosi-1}-${vuosi}` : `${vuosi}-${vuosi+1}`;
+  const kausi = tasoKausi(Date.now()), ikkuna = tasoHakuIkkuna(Date.now());   // kausi = kalenterivuosi; getMatches: start_date/end_date (ei season_id:tä)
   let ottelut = [];
   try {
     const klubiData = await tasoHae('getClub', { club_id: clubId, season_id: kausi }, apiKey);
-    const joukkueet = klubiData.teams || [];
-    for (const joukkue of joukkueet) {
+    for (const joukkue of (klubiData.teams || [])) {
       try {
-        const matchData = await tasoHae('getMatches', {
-          team_id: joukkue.team_id, season_id: kausi,
-        }, apiKey);
-        ottelut = ottelut.concat((matchData.matches || []).map(o => ({
-          ...o, _joukkueNimi: joukkue.team_name || joukkue.name,
-        })));
+        const matchData = await tasoHae('getMatches', { team_id: joukkue.team_id, start_date: ikkuna.start_date, end_date: ikkuna.end_date }, apiKey);
+        ottelut = ottelut.concat((matchData.matches || []).map(o => ({ ...o, _joukkueNimi: joukkue.team_name || joukkue.name })));
         await new Promise(r => setTimeout(r, 150));
       } catch (e) {
         console.warn(`[TASO] Joukkue ${joukkue.team_id} epäonnistui:`, e.message);
@@ -1474,7 +1440,7 @@ async function paivitaSeuranOttelut(seuraId, apiKey, clubId) {
     }
   } catch (e) {
     console.warn('[TASO] getClub epäonnistui, fallback:', e.message);
-    const matchData = await tasoHae('getMatches', { club_id: clubId, season_id: kausi }, apiKey);
+    const matchData = await tasoHae('getMatches', { club_id: clubId, start_date: ikkuna.start_date, end_date: ikkuna.end_date }, apiKey);
     ottelut = matchData.matches || [];
   }
   if (ottelut.length === 0) return 0;
@@ -1482,8 +1448,8 @@ async function paivitaSeuranOttelut(seuraId, apiKey, clubId) {
   for (let i = 0; i < ottelut.length; i += 400) {
     const batch = db.batch();
     for (const ottelu of ottelut.slice(i, i+400)) {
-      batch.set(tapahtumatRef.doc(`taso_${ottelu.match_id}`),
-        tasoOtteluTapahtumaksi(ottelu, seuraId), { merge: true });
+      const ev = tasoOtteluTapahtumaksi(ottelu, seuraId); if (!ev) continue;   // ei match_id:tä / kelvollista päivää
+      batch.set(tapahtumatRef.doc(`taso_${ottelu.match_id}`), ev, { merge: true });
     }
     await batch.commit();
   }
