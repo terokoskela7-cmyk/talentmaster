@@ -65,7 +65,7 @@ function muutosPaatos(before, after, nyt) {
   before = before || {}; after = after || {};
   const loppu = tapahtumaPaattyy(after);
   if (loppu && loppu.getTime() < (nyt || new Date()).getTime()) return null;   // päättynyt → ei ilmoiteta (koko päivän / kesken oleva ilmoitetaan)
-  const peruttu = !before.poistettu && after.poistettu === true;
+  const peruttu = (!before.poistettu && after.poistettu === true) || (!after.poistettu && before.tila !== 'peruttu' && after.tila === 'peruttu');   // K35-5: lähde (TASO) perumassa asettaa tila:'peruttu' (ei soft-deletea)
   const bMs = (before.alkaa && before.alkaa.toMillis) ? before.alkaa.toMillis() : null;
   const aMs = (after.alkaa && after.alkaa.toMillis) ? after.alkaa.toMillis() : null;
   const aikaMuuttui = !after.poistettu && bMs !== aMs;
