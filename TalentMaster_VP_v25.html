@@ -154,6 +154,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_kentta_spec.js?v=1"></script>   <!-- B1: Kenttä-spec pelaajadokumentista (alue → ase, jakso → reitti, viikot, osat, historia; yksi adapteri) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
+<script src="lib/tm_kt_sivu.js?v=2"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit (lippu kehitystyopoyta_v2) -->
 <script src="lib/tm_vp_navi.js?v=3"></script>   <!-- S2c PR 2: navigaatio v3 (D135) + Viestit v0 — rakenne ja reitit libissä -->
 <script src="lib/tm_vp_tilanne.js?v=13"></script>   <!-- S2c PR 1: Tilanne = kausi (D123) — malli + HTML libissä -->
 <script src="lib/tm_kt_komponentit.js?v=4"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
@@ -11101,16 +11102,20 @@ async function _ktKaynnista() {   // kutsutaan pelaajien latauksen jälkeen; lip
   if (window._ktLippu && _ktS.reititin) { _ktPaivita(); return; }
   if (_ktS.kaynnistyy) return; _ktS.kaynnistyy = true;
   try {
-    const liput = await _vpLataaLiput(); if (liput.kentta !== true) return;
+    const liput = await _vpLataaLiput(); window._ktSivuLippu = liput.kehitystyopoyta_v2 === true;   // B7: lippu päällä → pelaajan työpöytä on oma sivu (lib/tm_kt_sivu.js)
+    if (liput.kentta !== true) return;
     window._ktLippu = true;
     _ktS.reititin = window.TM_HASH_REITITIN.tmHashReititin({ win: window, lippu: function () { return window._ktLippu === true; }, onReitti: _ktReitti, onTyhja: _ktTyhja });
     _ktS.reititin.liita();
   } catch (e) { console.warn('[V4a] käynnistys:', e); }
   finally { _ktS.kaynnistyy = false; }
 }
-window._ktAvaa = function (pid, valilehti) { return window._ktLippu && _ktS.reititin ? _ktS.reititin.avaa(pid, valilehti || 'tanaan') : false; };
+window._ktAvaa = function (pid, valilehti) {
+  if (window._ktSivuLippu && window.TM_KT_SIVU) { const l = window.TM_KT_SIVU.tmKtSivuLinkki(pid, valilehti || 'tanaan'); if (l) { window.location.href = l; return true; } }   // B7 (D106/D246): lippu kehitystyopoyta_v2 → oma sivu
+  return window._ktLippu && _ktS.reititin ? _ktS.reititin.avaa(pid, valilehti || 'tanaan') : false;
+};
 window._ktAvaaIdx = function (idx) {   // vanha pelaajarivin avaus (indeksi _jsvPelaajat-listassa) → uusi näkymä
-  const l = Array.isArray(window._jsvPelaajat) ? window._jsvPelaajat : []; if (!window._ktLippu || !l.length) return false;
+  const l = Array.isArray(window._jsvPelaajat) ? window._jsvPelaajat : []; if (!(window._ktLippu || window._ktSivuLippu) || !l.length) return false;
   const p = l[((idx % l.length) + l.length) % l.length]; return !!(p && window._ktAvaa(p.id, 'tanaan'));
 };
 window._ktSulje = function () { if (_ktS.reititin) _ktS.reititin.sulje(); };
@@ -15632,7 +15637,7 @@ function _vpKorttiValmista(p) {
   p._kehRenderTunnus = undefined;
 }
 window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
-  if (window._ktLippu && typeof window._ktAvaaIdx === 'function' && window._ktAvaaIdx(idx)) return;   // V4a: lipulla koko ruudun näkymä (URL #pelaaja/{pid}/tanaan); vanha pelaajamodaali vain lipun ollessa pois
+  if ((window._ktLippu || window._ktSivuLippu) && typeof window._ktAvaaIdx === 'function' && window._ktAvaaIdx(idx)) return;   // V4a: lipulla koko ruudun näkymä (URL #pelaaja/{pid}/tanaan); vanha pelaajamodaali vain lipun ollessa pois
   const lista = window._jsvPelaajat || [];
   const nP = lista.length;
   if (!nP) return;

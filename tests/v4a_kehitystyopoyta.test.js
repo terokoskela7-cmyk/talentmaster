@@ -235,7 +235,7 @@ describe('Kytkennät (lähdetarkistukset) — lippu pois → ennallaan', () => {
     expect(MASTER).toContain("tilakone: window._ktLippu === true"); expect(MASTER).toMatch(/_paivitaKaikkiNakymat\(\);\s*\n\s*if \(typeof _ktKaynnista === 'function'\) _ktKaynnista\(\);/);
   });
   it('VP: _avaaPerPelaajaPikakatsaus ohjaa uuteen näkymään VAIN lipulla — vanha pelaajamodaali muuten ennallaan (testi 10)', () => {
-    const f = pala(VP, 'window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {', 'const nP = lista.length;'); expect(f).toMatch(/if \(window\._ktLippu && typeof window\._ktAvaaIdx === 'function' && window\._ktAvaaIdx\(idx\)\) return;/); expect(f).toContain("const lista = window._jsvPelaajat || [];");
+    const f = pala(VP, 'window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {', 'const nP = lista.length;'); expect(f).toMatch(/if \(\(window\._ktLippu \|\| window\._ktSivuLippu\) && typeof window\._ktAvaaIdx === 'function' && window\._ktAvaaIdx\(idx\)\) return;/);   // B7: lippu valmentaja_v2 → oma sivu (sama "vain lipulla" -ehto) expect(f).toContain("const lista = window._jsvPelaajat || [];");
     expect(VP).toMatch(/if \(typeof _ktKaynnista === 'function'\) _ktKaynnista\(\);/);
   });
   it('skriptit + ?v: molemmat lataavat uudet libit; tokenit (D10) sivun CSS:ssä; Archivo-fontti omalta palvelimelta', () => {
