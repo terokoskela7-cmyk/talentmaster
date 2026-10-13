@@ -31,25 +31,7 @@ const CMN = require('../lib/tm_i18n_common.js'), MI = require('../lib/tm_master_
 /* Erätiedostot: uudet rivit docs/i18n/sv_kaannoserae_38.json (Havainto, Tilanne, huoltaja, TM_SELITTEET, pre-harkka); muut ovat jo aiemmissa erissä sv tyhjänä
    (30/32/33/34 nav+koti, 18 tm_nakyma_ryhmat + master, 19_gemini, 28 Aamutreeni, 29 estynyt, 15 vp_kartta; 'Ryhmät': Gemini-sv on VP-kartassa, ei Masterin) → viittaus, ei duplikaattia. */
 export const SV_ODOTTAA = [
-  /* Odottaa erän 41 palautusta (docs/i18n/sv_kaannoserae_41_gemini.json): pre-harkan PH-variantit + PHV-muistutukset, alaotsikot, Aamu, Ikätasolla. Erän 40 (67 riviä) vietiin scripts/i18n_vie_sv_era40.cjs:llä. */
-  '2×5 per puoli.',
-  '3 lähtöä 70%. Takaketju herkkä.',
-  'ADAR — peliäly liittyy liikkeeseen',
-  'Aamu',
-  'Clamshell + sivulankku',
-  'Clamshell 2×12 per puoli. Sivulankku 2×20s per puoli.',
-  'Ei testidataa',
-  'Ei testidataa — oletus DFL',
-  'Ikätasolla',
-  'Joukkueen heikoin: {emoji} {nimi} · ka {ka}p · nostetaan',
-  'Joukkueen vahvin: {emoji} {nimi} · ka {ka}p · pidetään terävänä',
-  'Normaali — isometriset ovat turvallisia.',
-  'Reaktiolähtö — pallo maahan',
-  'Sivuhyppely + luisteluaskeleet',
-  'Valmistaa koko joukkueen — etenkin heikointa ketjua',
-  'Valmistaa koko joukkueen — etenkin {nimi}',
-  '⚠️ PHV — seuraa intensiteettiä, ei maksimia',
-  '⚠️ {n} PHV-pelaajaa joukkueessa — intensiteetti 70%',
+  /* TYHJÄ (13.10.2026): erä 41 vietiin (scripts/i18n_vie_sv_era41.cjs) → ei yhtään Geminiltä odottavaa avainta. Uusi masterT-avain ilman sv:tä → lisää tähän kunnes sv saapuu. */
 ];
 
 /* sv-resoluutio Nodessa samalla järjestyksellä kuin masterT: lib-avain → COMMON → TM_MASTER_I18N → (puuttuu) */
@@ -257,7 +239,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('V-KOTI sv · 
     const selain = await kaynnista(); try {
       const sv = await desktopPolku(selain, 'sv'); const r = suomiJaanteet(sv.kerätyt, NIMET); raportti('desktop sv', r, sv.kerätyt, sv.puuttuu);
       expect(sv.kerätyt.length).toBeGreaterThan(150); expect(sv.virheet).toEqual([]); expect(r).toEqual([]);
-      for (const x of [sv.harkka]) { expect(x, 'pre-harkka renderöi alaotsikot (ka-luku + ketju)').toMatch(/ka \d/); expect(x).toMatch(/3/); expect((x.match(/ka \d/g) || []).length, 'vahvin + heikoin').toBeGreaterThanOrEqual(2); expect(x, 'ADAR-alaotsikko').toMatch(/ADAR|peliäly|spelintelligens/i); }
+      for (const x of [sv.harkka]) { expect(x, 'pre-harkka renderöi alaotsikot (keskiarvo-luku + ketju)').toMatch(/snitt \d/); expect(x).toMatch(/3/); expect((x.match(/snitt \d/g) || []).length, 'vahvin + heikoin (erä 41: sv "snitt", ei enää fi "ka")').toBeGreaterThanOrEqual(2); expect(x, 'ADAR-alaotsikko').toMatch(/ADAR|peliäly|spelintelligens/i); }
       const fi = await desktopPolku(selain, 'fi'); expect(fi.harkka).toContain('Joukkueen vahvin:'); expect(fi.harkka).toContain('Joukkueen heikoin:'); expect(fi.harkka).toContain('Valmistaa koko joukkueen — etenkin'); expect(fi.harkka).toContain('ADAR — peliäly liittyy liikkeeseen'); expect(fi.harkka).toMatch(/3 PHV-pelaajaa joukkueessa/);
       expect(suomiJaanteet(fi.kerätyt, NIMET).length, 'negatiivitesti: fi-tilassa tunnistin löytää suomen').toBeGreaterThan(40);
     } finally { await selain.close(); }

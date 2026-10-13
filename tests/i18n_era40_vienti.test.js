@@ -1,4 +1,4 @@
-/* sv-erä 40 vienti (scripts/i18n_vie_sv_era40.cjs): 67 Gemini-riviä → TM_MASTER_I18N.sv merkki merkiltä; idempotentti; dedupe-invariantti; sv-portin odotuslista = 18 (erä 41). */
+/* sv-erä 40 vienti (scripts/i18n_vie_sv_era40.cjs): 67 Gemini-riviä → TM_MASTER_I18N.sv merkki merkiltä; idempotentti; dedupe-invariantti; sv-portin odotuslista = 0 (erä 41 viety). */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -18,9 +18,8 @@ describe('erä 40 vienti', () => {
   });
   it('dedupe-invariantti: Masterin avaimet eivät ole lukitussa yhteisessä glossaarissa', () => { rivit.forEach(([fi]) => expect(typeof CMN[fi], fi).not.toBe('string')); });
   it('idempotentti: uusi kuiva-ajo ei lisää mitään (kaikki jo viety), ei virheitä', () => { const r = V.vie({}); expect(r.virheet).toEqual([]); expect(r.lisatty).toEqual([]); expect(r.ohitettu).toHaveLength(67); expect(r.kirjoitettu).toBe(false); });
-  it('sv-portin odotuslista on 18 (V-KOTI; odottaa erän 41 palautusta) eikä sisällä yhtään erän 40 avainta', () => {
-    const s = lue('tests/v_koti_sv_selain.test.js'), a = s.indexOf('export const SV_ODOTTAA = ['), b = s.indexOf('\n];', a) + 3, lista = (0, eval)('(' + s.slice(a, b).replace('export const SV_ODOTTAA = ', '').replace(/;$/, '') + ')');
-    expect(lista).toHaveLength(18); const e40 = new Set(rivit.map(([fi]) => fi)); lista.forEach((k) => expect(e40.has(k), k).toBe(false));
-    const e41 = Object.values(JSON.parse(lue('docs/i18n/sv_kaannoserae_41_gemini.json')).osiot).flatMap((o) => Object.keys(o.rivit)); expect([...lista].sort()).toEqual([...e41].sort());   // lista = erä 41 täsmälleen
+  it('sv-portin odotuslista on tyhjä (erä 41 vietiin) eikä sisällä yhtään erän 40 avainta', () => {
+    const t = lue('tests/v_koti_sv_selain.test.js'), a = t.indexOf('export const SV_ODOTTAA = ['), b = t.indexOf('\n];', a) + 3, lista = (0, eval)('(' + t.slice(a, b).replace('export const SV_ODOTTAA = ', '').replace(/;$/, '') + ')');
+    expect(lista).toEqual([]);
   });
 });
