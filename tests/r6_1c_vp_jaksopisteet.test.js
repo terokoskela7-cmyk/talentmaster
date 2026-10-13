@@ -140,13 +140,13 @@ describe('V7 _vpJfOsaArvioSet — dot-polku jaksofokus.osa_arviot.<konsepti>', (
   it('päivittää VAIN konseptin osa-arviot dot-polulla (ei koko jaksofokus-karttaa, ei syvämergeä); lokaali + Aloitus-näyttö päivittyvät', async () => {
     const e = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } });
     e.sb.window._vpJfOsaArvioSet(PID, 'y_h2', 'b', 3); await lopeta();
-    expect(e.kirj.length).toBe(1); expect(e.kirj[0].path).toBe(POLKU); expect(Object.keys(e.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot.y_h2', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid']); expect(e.kirj[0].data['jaksofokus.osa_arviot.y_h2']).toEqual({ a: 2, b: 3 });   // D108: + oma rivi osa_havainnot (uid = kirjautunut)
-    expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid']).toMatchObject({ arvo: 3, rooli: 'tuntematon' }); expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid'].pvm).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(e.kirj.length).toBe(1); expect(e.kirj[0].path).toBe(POLKU); expect(Object.keys(e.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot.y_h2', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid.arvo', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid.pvm', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid.rooli']); expect(e.kirj[0].data['jaksofokus.osa_arviot.y_h2']).toEqual({ a: 2, b: 3 });   // D108: + oma rivi osa_havainnot (uid = kirjautunut)
+    expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid.arvo']).toBe(3); expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid.rooli']).toBe('tuntematon'); expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid.pvm']).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(e.p.jaksofokus.osa_arviot.y_h2).toEqual({ a: 2, b: 3 }); expect(e.log.renderit).toBeGreaterThan(0);
   });
   it('uusi konsepti: oma alipolku; avain jossa piste → koko osa_arviot-kartta (dot-polku ei hajoa)', async () => {
     const a = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } }); a.sb.window._vpJfOsaArvioSet(PID, 'y_h3', 'a', 1); await lopeta();
-    expect(Object.keys(a.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot.y_h3', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid']);
+    expect(Object.keys(a.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot.y_h3', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid.arvo', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid.pvm', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid.rooli']);
     const b = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } }); b.sb.window._vpJfOsaArvioSet(PID, 'y.h3', 'a', 1); await lopeta();
     expect(Object.keys(b.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot', 'jaksofokus.osa_havainnot']); expect(b.kirj[0].data['jaksofokus.osa_arviot']).toMatchObject({ 'y.h3': { a: 1 } });
   });
