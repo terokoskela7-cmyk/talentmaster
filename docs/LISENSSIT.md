@@ -8,6 +8,7 @@ Tämä tiedosto kirjaa ulkopuolisen sisällön käyttöluvat TalentMasterissa ja
 |---|---|---|---|---|
 | Nuorten fyysinen harjoittelu jalkapallossa (2014) | Jaakko Nevanlinna | Harjoitemoottorin (`harjoitelogiikka_v4.js`) fysiikkasisältö ja progressiot, ikävaiheiden painopisteet (`lib/tm_ketju_matriisi.js`) | Lupa käyttöön TalentMasterin moottorissa | 6.10.2026 (Tero Koskela) |
 | Sama aineisto | Jaakko Nevanlinna | SJK-junioreiden seurasisältönä (`seurat/sjk/…`) | Lupa käyttöön SJK:n seurasisältönä | 6.10.2026 (Tero Koskela) |
+| **Fysiikkalinja** (`harjoitelogiikka_v4.js` ja SJK/KPV-vientipohjan fysiikkasisältö) | Tero Koskela / TalentMasterid Oy | Oma aineisto. Käyttö sallittu anonyymisti kaikille seuroille; fysiikkaharjoitteet saa näyttää kehitystyöpöydän toimintakortissa | Omistajan päätös | 13.10.2026 (Tero Koskela) |
 
 Ravitsemusosio (aineiston diat 157–192) ei ole käytössä.
 
