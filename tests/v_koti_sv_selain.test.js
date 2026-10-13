@@ -34,14 +34,14 @@ export const SV_ODOTTAA = [
   '30% KOHDENNETTU', '360° hengitys + cat-cow + dead bug', '360° palleahengitys 3×5. Dead bug 3×5 per puoli. Cat-cow 3×8.', '70% VAHVUUS', 'AKTIVOINTI', 'Aamutreeni',
   'Aloita kahdella askeleella: täytä viikon harjoitukset kalenteriin ja kirjaa ensimmäinen havainto.',
   'Aloita kolmella askeleella: lisää pelaajat joukkueeseen, täytä viikon harjoitukset kalenteriin ja kirjaa ensimmäinen havainto.', 'Avaa Pulssi', 'Avaa jakso', 'Avaa kalenteri',
-  'D1 Fyysinen — testitasojen keskiarvo, 1–5 (3 = ikäluokan keskitaso)', 'D2 Tekninen — TKI- tai SM-testipohjainen, 1–5 (3 = ikäluokan keskitaso)', 'D2 Tekninen — luokitus', 'D3-itsearvio odottaa',
+  'D1 Fyysinen — testitasojen keskiarvo, 1–5 (3 = ikäluokan keskitaso)', 'D2 Tekninen — TKI- tai SM-testipohjainen, 1–5 (3 = ikäluokan keskitaso)', 'D3-itsearvio odottaa',
   'Ei havaintoa 30 pv', 'Ei luokkaa', 'Ei omatoimisia 3 viikkoon', 'Ei tulevia tapahtumia. Lisää harjoitus tai ottelu kalenteriin.', 'Eniten omatoimisia tällä viikolla — kehu?', 'Havainto', 'Jaa klippi',
   'Jakson kooste tehty', 'Jakson viikko', 'Kausi ja jaksot', 'Kehon valmius alle 40 (klinikkalähetys)', 'Klippi odottaa jakamista', 'Kuorma ja fiilis', 'Lankku + bird dog', 'Lukemattomat viestit',
   'Läsnä alle puolessa treeneistä (4 vk)', 'Läsnäolo 4 vk', 'Normaali, ei maksiminopeus.', 'Normaali, pidennä kestoa.', 'Näytä kaikki', 'Omatoimisia tällä viikolla', 'PELILLINEN KYTKENTÄ',
   'Pelaajat, joihin kannattaa tarttua', 'Pieni alue, 1 kosketus. Keskellä vaihtuu häviäjä.', 'Rondo 4v1', 'Ryhmät', 'Sinulla ei ole ryhmiä.', 'Syke', 'T-rata hidas', 'Tehtävät',
-  'Tekniikka kehityskohteena', 'Tervetuloa', 'Tilanne', 'Tuore tulos, ei kehityskohde.', 'Täytä viikko', 'Uusi havainto', 'Vahvista läsnäolot', 'Vastaa', 'Vastaamatta yli vuorokauden',
-  'Viikko on tyhjä.', 'ei vielä mitattu', 'estynyt', 'huoltaja', 'jakso päättyi', 'jakso päättyy', 'kypsyys ratkaisee', 'mitattu {n}/{yht} · alle kattavuusrajan (70 %) — osuutta ei näytetä', 'päättyy',
-  'seuraava tekniikkakisa päivittää', 'sääntöryhmä', 'vahvistanut', '{n} ilman tulosta', '{n} kypsyys ratkaisee', '{n} pelaajalla vain yli {kk} kk vanha tulos', '{n} tulosta yli {kk} kk vanhoja',
+  'Tervetuloa', 'Tilanne', 'Tuore tulos, ei kehityskohde.', 'Täytä viikko', 'Uusi havainto', 'Vahvista läsnäolot', 'Vastaa', 'Vastaamatta yli vuorokauden',
+  'Viikko on tyhjä.', 'ei vielä mitattu', 'estynyt', 'huoltaja', 'jakso päättyi', 'jakso päättyy', 'kypsyys ratkaisee', 'päättyy',
+  'seuraava tekniikkakisa päivittää', 'sääntöryhmä', 'vahvistanut', '{n} ilman tulosta', '{n} kypsyys ratkaisee', '{n} tulosta yli {kk} kk vanhoja',
   '{n}/{yht} mitattu tuoreesti'
 ];
 
