@@ -4,7 +4,7 @@
   
   Riippuvuudet:
   - Firebase Firestore (_db tai firebase.firestore())
-  - Firebase Functions (firebase.functions())
+  - Firebase Functions (firebase.app().functions('europe-west1'))
   - _seuraId tai vastaava muuttuja
 -->
 
@@ -121,9 +121,10 @@ async function lataaTasoAsetukset(seuraId) {
     const snap = await db.collection('seurat').doc(seuraId).get();
     const d = snap.data() || {};
     
-    // API-avain näytetään peitettyinä tähtinä jos asetettu
-    if (d.taso_api_key) {
-      document.getElementById('tasoApiKey').placeholder = '••••••••••••••••••••••• (asetettu)';
+    // API-avain on server-only (seurat/{sid}/salaiset/integraatiot; Rules estää selainluvun) → UI näyttää vain "asetettu ✓" lipusta taso_avain_asetettu
+    const avainAsetettu = d.taso_avain_asetettu === true;
+    if (avainAsetettu) {
+      document.getElementById('tasoApiKey').placeholder = 'asetettu ✓ (uusi avain korvaa vanhan)';
       document.getElementById('tasoApiKey').dataset.asetettu = '1';
     }
     if (d.taso_club_id) {
@@ -132,11 +133,11 @@ async function lataaTasoAsetukset(seuraId) {
     
     // Tila-badge
     const badge = document.getElementById('tasoTilaBadge');
-    if (d.taso_api_key && d.taso_club_id) {
+    if (avainAsetettu && d.taso_club_id) {
       badge.textContent = '✓ Konfiguroitu';
       badge.style.background = 'rgba(46,213,115,.1)';
       badge.style.color = 'var(--green)';
-    } else if (d.taso_api_key || d.taso_club_id) {
+    } else if (avainAsetettu || d.taso_club_id) {
       badge.textContent = '⚠ Puutteellinen';
       badge.style.background = 'rgba(255,165,2,.1)';
       badge.style.color = 'var(--amber)';
@@ -176,17 +177,16 @@ async function tallennaTasoAsetukset() {
   }
   
   try {
-    const db = firebase.firestore();
     // Haetaan seuraId — eri lähteitä eri näkymissä
     const seuraId = window._seuraId || window._aktivSeura || 
                     (window._user && window._user.seuraId);
     if (!seuraId) throw new Error('SeuraId ei löydy.');
     
-    const paivitys = { taso_club_id: clubId };
-    // Päivitetään avain vain jos käyttäjä on syöttänyt uuden
-    if (apiKey) paivitys.taso_api_key = apiKey;
-    
-    await db.collection('seurat').doc(seuraId).update(paivitys);
+    // Avain kirjoitetaan VAIN callablella (Admin SDK → salaiset/integraatiot); selain ei koskaan lue eikä kirjoita avainta. Vain uusi avain lähetetään; tyhjä = ennallaan.
+    const fn = firebase.app().functions('europe-west1').httpsCallable('asetaTasoAsetukset');
+    const data = { seuraId, clubId };
+    if (apiKey) data.apiKey = apiKey;
+    await fn(data);
     
     // Päivitetään badge
     const badge = document.getElementById('tasoTilaBadge');
@@ -197,10 +197,10 @@ async function tallennaTasoAsetukset() {
     onnEl.textContent = '✓ Asetukset tallennettu! Ottelut päivittyvät automaattisesti huomenna klo 6.';
     onnEl.style.display = 'block';
     
-    // Merkitään avain asetetuksi
+    // Merkitään avain asetetuksi (kenttä tyhjennetään heti; arvoa ei säilytetä selaimessa)
     if (apiKey) {
       document.getElementById('tasoApiKey').value = '';
-      document.getElementById('tasoApiKey').placeholder = '••••••••••••••••••••••• (asetettu)';
+      document.getElementById('tasoApiKey').placeholder = 'asetettu ✓ (uusi avain korvaa vanhan)';
       document.getElementById('tasoApiKey').dataset.asetettu = '1';
     }
   } catch(e) {
@@ -224,7 +224,7 @@ async function haeTasoOttelutNyt() {
     const seuraId = window._seuraId || window._aktivSeura;
     if (!seuraId) throw new Error('SeuraId ei löydy.');
     
-    const fn = firebase.functions().httpsCallable('tasoHaeSeuranOttelut');
+    const fn = firebase.app().functions('europe-west1').httpsCallable('tasoHaeSeuranOttelut');
     const tulos = await fn({ seuraId });
     
     onnEl.textContent = `✓ Haettu ${tulos.data.ottelut} ottelua! Tarkista kalenteri.`;

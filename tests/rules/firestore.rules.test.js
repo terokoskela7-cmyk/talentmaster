@@ -5380,3 +5380,28 @@ describe('v3.61 · K35-6c (D196): ryhmän VASTAAVA (ryhmat.vastuu_uid) muokkaa j
     await assertSucceeds(updateDoc(r(vpContext(SEURA_A).firestore(), RID), { vastuu_uid: MUU_UID, muokattu: serverTimestamp() })); await assertFails(updateDoc(r(vpContext(SEURA_A).firestore(), RID), { vastuu_uid: 'ulkopuolinen', muokattu: serverTimestamp() }));
   });
 });
+
+describe('v3.62 · seurat/{sid}/salaiset/{dokId}: server-only — mikään selain ei lue eikä kirjoita (valmentaja, johto, SA, pelaaja, huoltaja)', () => {
+  const polku = (db, sid = SEURA_A) => doc(db, 'seurat', sid, 'salaiset', 'integraatiot');
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(polku(c.firestore()), { taso_api_key: 'SALAINEN-AVAIN-123' }); });
+  });
+  it('LUKU: valmentaja ✗, talenttivalmentaja ✗, johto (VP) ✗, SA ✗, seurasihteeri ✗, pelaaja ✗, huoltaja ✗, toisen seuran VP ✗, kirjautumaton ✗ — dokumentti ei vuoda kenellekään', async () => {
+    for (const [nimi, db] of [['valmentaja', valmentajaContext(VALM_A_UID, SEURA_A).firestore()], ['talenttivalmentaja', talenttivalmentajaContext('tv-1', SEURA_A).firestore()], ['VP', vpContext(SEURA_A).firestore()], ['SA', saContext().firestore()], ['sihteeri', sihteeriContext(SEURA_A).firestore()],
+      ['pelaaja', pelaajaItseContext().firestore()], ['huoltaja', huoltajaContext().firestore()], ['toisen seuran VP', vpContext(SEURA_B).firestore()], ['kirjautumaton', unauthContext().firestore()]]) { await assertFails(getDoc(polku(db))); void nimi; }
+  });
+  it('KIRJOITUS: create/update/delete ✗ kaikilta (myös SA ja johto) — avain asetetaan vain callablella (Admin SDK)', async () => {
+    for (const db of [valmentajaContext(VALM_A_UID, SEURA_A).firestore(), vpContext(SEURA_A).firestore(), saContext().firestore(), sihteeriContext(SEURA_A).firestore(), pelaajaItseContext().firestore()]) {
+      await assertFails(setDoc(polku(db), { taso_api_key: 'x' })); await assertFails(updateDoc(polku(db), { taso_api_key: 'x' })); await assertFails(deleteDoc(polku(db)));
+      await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'salaiset', 'muu'), { a: 1 }));   // mikä tahansa dokumentti salaiset-kokoelmassa
+    }
+  });
+  it('LIST/kysely ✗ (koko kokoelma ja collectionGroup); seura-dokin lukeminen toimii ennallaan (taso_club_id + taso_avain_asetettu), mutta avain ei ole siellä', async () => {
+    await assertFails(getDocs(collection(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'seurat', SEURA_A, 'salaiset'))); await assertFails(getDocs(collection(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'salaiset')));
+    await assertSucceeds(getDoc(doc(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'seurat', SEURA_A)));
+  });
+  it('Admin SDK (rules disabled) lukee ja kirjoittaa edelleen — palvelin toimii', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { const s = await getDoc(polku(c.firestore())); expect(s.data().taso_api_key).toBe('SALAINEN-AVAIN-123'); await updateDoc(polku(c.firestore()), { taso_api_key: 'uusi' }); });
+  });
+});

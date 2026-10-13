@@ -1517,6 +1517,7 @@ exports.tasoHaeMaatcheck = functions
     return null;
   });
 */
+const _salaiset = require('./salaiset');
 exports.tasoHaeSeuranOttelut = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
@@ -1531,13 +1532,15 @@ exports.tasoHaeSeuranOttelut = functions
     }
     const seuraDoc  = await db.collection('seurat').doc(seuraId).get();
     const seuraData = seuraDoc.data() || {};
-    if (!seuraData.taso_api_key || !seuraData.taso_club_id) {
+    const _tasoAvain = await _salaiset.tasoAvain(db, seuraId, seuraData);   // server-only: salaiset/integraatiot (varalla vanha seura-dokin kenttä siirtymän ajan)
+    if (!_tasoAvain || !seuraData.taso_club_id) {
       throw new functions.https.HttpsError('failed-precondition',
         'TASO API-avain tai Club ID puuttuu. Aseta ne Seura-asetuksissa.');
     }
-    const lkm = await paivitaSeuranOttelut(seuraId, seuraData.taso_api_key, seuraData.taso_club_id);
+    const lkm = await paivitaSeuranOttelut(seuraId, _tasoAvain, seuraData.taso_club_id);
     return { ok: true, ottelut: lkm, seuraId };
   });
+Object.assign(exports, _salaiset.luo({ functions, db, admin, tarkistaOikeus }));   // asetaTasoAsetukset (avain kirjoitetaan vain palvelimella)
 // ============================================================
 // AI PROXY — SULJETTU
 // ============================================================
