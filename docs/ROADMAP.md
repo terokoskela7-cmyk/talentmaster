@@ -113,7 +113,7 @@
 |---|---|---|
 | yksi totuus näkymissä | ✅ #985–#989 | Ks. Valmis (loka 9.–11.). |
 | **sv-erä 19 Geminille** | heti | Kaikki tyhjät sv-avaimet yhteen pakettiin (`docs/i18n/sv_kaannoserae_19_gemini.json`) + ohje + tuontiskripti (kuiva-ajo). Tero vie Geminille, tuonti omana PR:nä. Code ei kirjoita ruotsia. |
-| **tmTasoVari** | ennen 1.11. | Yksi tasoväri ja yksi kattavuussääntö (D125) koko sovelluksessa. Viisi kynnysjoukkoa yhteen. Loput 6 kk:n rajat → VANHA_KK / MUISTUTUS_KK. Puuttuva data ei ole punaista. §7.22: ei pelaajalle. |
+| **tmTasoVari** | ✅ 11.10. (#992) | Yksi tasoväri ja yksi kattavuussääntö (D125) koko sovelluksessa. Viisi kynnysjoukkoa yhteen. Loput 6 kk:n rajat → VANHA_KK / MUISTUTUS_KK. Puuttuva data ei ole punaista. §7.22: ei pelaajalle. |
 | **Kehitystyöpöytä, Tänään** | ennen 1.11. | Ei tyhjää kenttää (jaksokortti), Seuraava askel -kortille nappi (D100), kysymyskortit samaan anatomiaan (D103), osat: viikon osa tealina, viimeisin arvio, "arviot eroavat", ei "SA"-tekstiä seuran käyttäjälle. |
 | **Ydinvahvuuden alue klikkaamalla** | 1.11. jälkeen | D172–D174: aluejako = pelipaikka-alueet + maalivahti, pelimuodon mukaan (5v5 ei aluevalintaa · 8v8 6 · 11v11 8). Mockup 34 ✅ (#996) → PR B: aluejaot normistoon, `joukkueet/{jid}.pelimuoto`, Rules + testit. |
 | Kenttä aktiiviseksi (R1) | joulukuu | Reitti, viikkomerkit ja osat kentällä (D98, D107) + pelaajan ehdotus "missä tykkään pelata" → valmentaja vahvistaa. |
@@ -146,10 +146,12 @@ Kalenteri on yksi kokoelma (`seurat/{sid}/kalenteri`), jota VP ja valmentaja kä
 | K35-6b | ✅ 12.10. | Siirto vetämällä (#1019), aamutreenit poimituille (#1020). |
 | K35-6c | marras | Ryhmän vastaava suunnittelee ryhmän treenit (D196, Rules) + perheille yksi viikkoilmoitus (D192, functions). |
 | K35-6d | ✅ 12.10. | Joukkueen omat D240–D242. |
-| V-KOTI | ✅ 12.10. | Koti + navigaatio v2 (D243–D245), lippu demo + kpv. Seuraavaksi Sibbo ja muut seurat. |
+| V-KOTI | ✅ 12.10. | Koti + navigaatio v2 (D243–D245), lippu demo + kpv. sv-portti ✅ (erä 41 odottaa Geminiltä → sitten Sibbon lippu). Seuraavaksi Sibbo ja muut seurat. |
+| Integraatioavaimet server-only | ✅ 13.10. (#1043) | `taso_api_key` pois seura-dokista → `seurat/{sid}/salaiset/integraatiot` (Rules v3.62: ei selainlukua); callable `asetaTasoAsetukset`; migraatio `scripts/siirra_integraatioavaimet.js` (Tero ajaa, kuiva-ajo ensin). |
+| Klippi ryhmälle | PR auki (Rules v3.63) | M1-klippiin vastaanottajaksi Ryhmä (puretaan pelaajiksi lähetyshetkellä, oma ketju/pelaaja; kohde {ryhma_id,nimi}); "n pelaajaa, joista m odottaa lupaa"; ryhmärivi "Maalivahdit · 4/6 vastannut". + Oma videoklippi (10–15 s, lisäpalvelu) -varaus lipun `liput.klippi_oma_video` takana (v2 toteuttaa latauksen). sv: erä 42. |
 | Läsnäolot + kertymä | ✅ 12.10. | Oletus kaikki paikalla, harjoituskertymä K35-6f (valmentaja, pelaaja, huoltaja). |
-| **K35-11b** | loka | Kuukausinäkymä (nyt placeholder) + "Lisää kalenteriini" 403 → selkeä syy, nappi piiloon SA:lta / toisen seuran käyttäjältä. |
-| K35-5 | marras | TASO-ottelut kalenteriin (lähde omistaa ajan, TM sisällön, D181). |
+| **K35-11b** | ✅ 12.10. (#1032) | Kuukausinäkymä (nyt placeholder) + "Lisää kalenteriini" 403 → selkeä syy, nappi piiloon SA:lta / toisen seuran käyttäjältä. |
+| K35-5 | koodi ✅ 13.10. (#1042–#1045); käyttöönotto odottaa TASO-avaimen käyttöoikeutta | TASO-ottelut kalenteriin (lähde omistaa ajan, TM sisällön, D181). Viralliset kentät/haku: docs/integraatiot/TASO_API.md. |
 | Kalenterin lataus rajatuksi | ✅ 12.10. | K35-10 (#1023). |
 | K35-7a | ✅ 11.10. | iCal-syöte palvelimella (D190). |
 | K35-7b | ✅ 12.10. | "Lisää kalenteriini" + Apple/Outlook/Google-napit. |
@@ -171,7 +173,7 @@ Kalenteri on yksi kokoelma (`seurat/{sid}/kalenteri`), jota VP ja valmentaja kä
 | ennen 1.11. | Tyhjät joukkueet pois: KPV `kpv_t8`, `kpv_u8` ("KPV U8" → P-nimeäminen), SJK `sjk_p12`, `sjk_p13` | Tero |
 | ennen 1.11. | KPV ja Sibbo: sopimusten avoimet päätökset (käyttöönottohinta, laskutus aktiivisista pelaajista, tuntihinta, koulutustunnit, ruotsinkielinen versio, Y-tunnus) | Tero |
 | tällä viikolla | **Sibbon klippien läpiajo ruotsiksi** (FC Demo, sv, ~15 min): valmentaja (Master) lähettää Veo-linkin aikakohdalla testipelaajalle → pelaaja (Pelaaja_v7) avaa oikeasta kohdasta ja vastaa → huoltaja (Vanhempi) kuittaa "Katsoimme yhdessä" (U8–12) → valmentaja sulkee ketjun → sama puhelimella. Koodi valmis (M1 #884/#888, sv 100 %). | Tero |
-| ennen 1.11. | **Sibbon klippien käyttöönoton ehdot:** 1) Veo: ✅ ottelun tai klipin voi jakaa julkisella linkillä (Tero 11.10.; käyttöönottosuunnitelma tehty) · 2) huoltajien suostumukset annettu (ilman sitä klippi "odottaa lupaa") · 3) pelaajien ja perheiden tunnukset · 4) ryhmälle lähetys puuttuu M1:stä (nyt "Valitut…"); jos Sibbo tarvitsee 1.11., se ohittaa K35-6:n | Tero + Joakim |
+| ennen 1.11. | **Sibbon klippien käyttöönoton ehdot:** 1) Veo: ✅ ottelun tai klipin voi jakaa julkisella linkillä (Tero 11.10.; käyttöönottosuunnitelma tehty) · 2) huoltajien suostumukset annettu (ilman sitä klippi "odottaa lupaa") · 3) pelaajien ja perheiden tunnukset · 4) ryhmälle lähetys: ✅ koodi valmis (PR "Klippi ryhmälle", Rules v3.63; sv-erä 42 Geminille) | Tero + Joakim |
 | **1.11.** | **Sibbo:** ryhmät (maalivahdit, talenttiryhmä), **klipit pelaajille (Veo-linkki + kysymys) = Sibbon päätarve**, ruotsi | — |
 | 2.11.2026 | KPV:n tuorein tekniikkakisa (2.11.2025) täyttää 12 kk → muistutus syttyy | — |
 | ennen 10.11. | K3-käsitesti KPV:llä (ensimmäiset jaksot päättyvät ~17.11.) | Tero |

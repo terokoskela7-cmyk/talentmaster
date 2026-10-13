@@ -23,7 +23,7 @@ const CHROME = [process.env.TM_CHROME_PATH, '/Applications/Google Chrome.app/Con
 const MV = require('../lib/tm_mediaviesti.js'), KP = require('../lib/tm_klippi_perhe.js'), LIB = require('../lib/tm_lib_i18n.js'), LANG = require('../lib/tm_lang.js');
 
 /* Klippipolun lib-avaimet, joille sv puuttuu (docs/i18n/sv_kaannoserae_36.json → Gemini). Elävä: sv saapui → poista rivi (testi alla kaatuu muuten). */
-export const SV_ODOTTAA = ['mv_media_video', 'mv_media_kuva', 'mv_media_linkki'];
+export const SV_ODOTTAA = ['mv_media_video', 'mv_media_kuva', 'mv_media_linkki', 'mv_ryhma', 'mv_valitse_ryhma', 'mv_ei_ryhmia', 'mv_ryhma_yhteenveto', 'mv_ryhma_yhteenveto_ei_lupaa', 'mv_virhe_ryhma', 'mv_virhe_ryhma_tyhja', 'mv_rivi_ryhma', 'mv_lahetetty_ryhma', 'mv_oma_video', 'mv_oma_video_tulossa', 'mv_oma_video_ei_kaytossa', 'mv_oma_video_tarjous', 'mv_oma_video_pyyda', 'mv_oma_video_aihe', 'mv_virhe_lahde'];   // erä 42: ryhmäklippi + oma videoklippi -varaus (sv_kaannoserae_42_gemini.json)
 /* Valmentajan pelaajanäkymän Masterin fi-tekstiavaimet (masterT), joille sv puuttuu Master-kartasta (docs/i18n/sv_kaannoserae_37.json → Gemini). Elävä: sv saapui → poista rivi. */
 export const MASTER_SV_ODOTTAA = ['ei asetettu'];   // lib/tm_vastuuhenkilo.js t('ei asetettu') masterT:n kautta (IDP-kortin Vastuuhenkilö-rivi)
 const MA_SV = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;
@@ -44,7 +44,7 @@ const SANA_RE = new RegExp('(^|[^\\p{L}])(' + SANAT.join('|') + ')($|[^\\p{L}])'
 const VIIKONPAIVA_RE = /(^|[^\p{L}])(su|ma|ti|ke|to|pe|la) \d{1,2}\.\d{1,2}\./u;
 const AVAIN_RE = /\b(mv|kp)_[a-z0-9_]+\b|\b(pelaaja|vanhempi)\.[a-z0-9_]+\b/;
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const ODOTTAA_RE = SV_ODOTTAA.map((k) => String(MV.FI[k] || KP.FI[k] || k)).concat(MASTER_SV_ODOTTAA).map((x) => new RegExp('(^|[^\\p{L}])' + esc(x) + '($|[^\\p{L}])', 'gu'));   // Geminiltä odottavat: fi sallittu kunnes sv saapuu
+const ODOTTAA_RE = SV_ODOTTAA.map((k) => String(MV.FI[k] || KP.FI[k] || k)).concat(MASTER_SV_ODOTTAA).map((x) => new RegExp('(^|[^\\p{L}])' + esc(x).replace(/\\\{\w+\\\}/g, '.+?') + '($|[^\\p{L}])', 'gu'));   // {muuttuja} fi-mallissa = mikä tahansa teksti (esim. 'Oma videoklippi ({min}–{max} s)')   // Geminiltä odottavat: fi sallittu kunnes sv saapuu
 const PALAT = Object.entries(FI_TEKSTIT).flatMap(([k, v]) => String(v).split(/\{\w+\}/).map((x) => x.trim()).filter((x) => (x.match(/\p{L}/gu) || []).length >= 4).map((x) => [k, new RegExp('(^|[^\\p{L}])' + esc(x) + '($|[^\\p{L}])', 'u')]));
 export function suomiJaanteet(kerätyt, sallitut) {
   const ok = (t) => (sallitut || []).some((s) => t.indexOf(s) >= 0 && t.replace(s, '').replace(/[\s·—–:,.()„“"'0-9✓＋+@-]/g, '').length === 0);
@@ -76,7 +76,7 @@ const MASTER_PELAAJAT = [
   { id: 'p3', etunimi: 'Noel', sukunimi: 'Ek', syntymaVuosi: vuosi - 13, joukkue: 'Sibbo Demo', joukkueet: ['demo_sb'], suostumusTila: 'odottaa' },
   { id: 'p4', etunimi: 'Ines', sukunimi: 'Holm', syntymaVuosi: vuosi - 16, joukkue: 'Sibbo Demo', joukkueet: ['demo_sb'], suostumusTila: 'annettu' }
 ];
-const NIMET = ['Alva Berg', 'Elis Lund', 'Noel Ek', 'Ines Holm', 'Alva', 'Elis', 'Noel', 'Ines', 'Berg', 'Lund', 'Ek', 'Holm', 'Sibbo Demo', 'Alex Coach', 'app.veo.co', 'example.org', 'kuvat.example.org', '👍'];
+const NIMET = ['Alva Berg', 'Elis Lund', 'Noel Ek', 'Ines Holm', 'Alva', 'Elis', 'Noel', 'Ines', 'Berg', 'Lund', 'Ek', 'Holm', 'Sibbo Demo', 'Alex Coach', 'Maalivahdit', 'app.veo.co', 'example.org', 'kuvat.example.org', '👍'];
 const klippi = (id, o) => Object.assign({ id, tyyppi: 'klippi', url: 'https://app.veo.co/matches/1/?t=75', domain: 'app.veo.co', mediatyyppi: 'video', kohta_s: 75, klippityyppi: 'onnistui', kysymys: pohjaFi('onnistui', 'rakentaja', 1), kysymys_avain: 'mv_pohja_onnistui_rakentaja_1', klippi_id: 'kl_' + id, vastaanottajaUid: 'u1', lahettajaUid: 'u1', fromRole: 'valmentaja', fromNimi: 'Alex Coach', tila: 'lahetetty', nakyvyys: 'pelaaja', luettu: false, saate: '👍', aika: NYT - H, nakyva_alkaen: NYT - H }, o);
 const vastaus = (id, kid, o) => Object.assign({ id, tyyppi: 'klippi_vastaus', vastaus_viestille: kid, vastaanottajaUid: 'u1', nakyvyys: 'pelaaja', luettu: false, aika: NYT - H / 2 }, o);
 const MASTER_DOKIT = [
@@ -124,6 +124,22 @@ async function masterPolku(selain, kieli) {
   await p.locator('#_mvModal [data-mv-kohde="valitut"]').click(); await p.locator('#_mvModal [data-mv-pelaaja="p3"]').check(); await k(p, 'Sheet valitut + ei suostumusta', '#_mvModal');
   await p.locator('#_mvModal [data-mv-kohde="joukkue"]').click(); await k(p, 'Sheet koko joukkue', '#_mvModal');
   await p.evaluate(() => _mvSulje());
+  // Klippi RYHMÄLLE + oma videoklippi -varaus (Sibbo 1.11.): ryhmävalinta, "n pelaajaa, joista m odottaa lupaa", lähetys, ryhmärivi ("Maalivahdit · 1/3 vastannut") + purku pelaajakohtaisiksi; lisäpalveluvaihtoehto kolmessa tilassa
+  const RYHMA_DATA = { ryhmat: [{ id: 'mv', nimi: 'Maalivahdit', tyyppi: 'lista', pelaajat_id: ['p1', 'p2', 'p3'], valmentajat: ['u1'], aktiivinen: true }], lippu: false, pelaajat: MASTER_PELAAJAT };
+  const avaaRyhma = async (d, rooli) => { await p.evaluate(() => _mvAvaa('p1')); await odota(p, 150); await p.evaluate(([d, rooli]) => { const S = window._mvTila, c = _mvKrCtx(); if (rooli) c.rooli = rooli; window.TM_KLIPPI_RYHMA.tmKrAsetaSheet(S, d, c); _mvRender(); }, [d, rooli]); };
+  await avaaRyhma(RYHMA_DATA); await k(p, 'Sheet (ryhmä tarjolla, oma video lukittu valmentajalle)', '#_mvModal');
+  expect(await p.locator('#_mvModal [data-mv-oma-nappi]').isDisabled()).toBe(true); expect(await p.locator('#_mvModal [data-mv-oma-tarjous]').count()).toBe(0);
+  await p.locator('#_mvModal [data-mv-kohde="ryhma"]').click(); await k(p, 'Sheet ryhmä (ei valittu)', '#_mvModal');
+  await p.locator('#_mvModal [data-mv-ryhma-valinta]').selectOption('mv'); await k(p, 'Sheet ryhmä valittu (yhteenveto)', '#_mvModal');
+  expect((await p.locator('#_mvModal [data-mv-ryhma-yhteenveto]').textContent()).replace(/\D+/g, ' ').trim()).toBe('3 1');   // 3 pelaajaa, joista 1 odottaa lupaa
+  await p.evaluate(() => { Object.assign(window._mvTila, { url: 'https://app.veo.co/m/1', kysymysAvain: 'mv_pohja_onnistui_rakentaja_1' }); _mvPaivitaTila(window._mvTila); return _mvLaheta(); }); await odota(p); await toastit('Ryhmälähetys ok');
+  await p.evaluate(() => { _mvAvaa('p1'); }); await odota(p, 150); await p.evaluate((d) => { const S = window._mvTila; window.TM_KLIPPI_RYHMA.tmKrAsetaSheet(S, d, _mvKrCtx()); S.kohde = 'ryhma'; Object.assign(S, { url: 'https://app.veo.co/m/1', kysymysAvain: 'mv_pohja_onnistui_rakentaja_1' }); return _mvLaheta(); }, RYHMA_DATA); await odota(p); await toastit('Ryhmälähetys: ryhmä valitsematta'); await p.evaluate(() => _mvSulje());
+  await avaaRyhma(Object.assign({}, RYHMA_DATA, { ryhmat: [] }), 'vp'); await k(p, 'Sheet (ei ryhmiä; oma video: johto näkee lisämaksutekstin + tarjouslinkin)', '#_mvModal');
+  expect(await p.locator('#_mvModal [data-mv-oma-tarjous]').count()).toBe(1); expect(await p.locator('#_mvModal [data-mv-oma-tarjous]').getAttribute('href')).toMatch(/^mailto:[^?]+\?subject=/); await p.evaluate(() => _mvSulje());
+  await avaaRyhma(Object.assign({}, RYHMA_DATA, { lippu: true })); await k(p, 'Sheet (oma video: lippu päällä → Tulossa)', '#_mvModal'); expect(await p.locator('#_mvModal [data-mv-oma-tila]').getAttribute('data-mv-oma-tila')).toBe('tulossa'); await p.evaluate(() => _mvSulje());
+  await p.evaluate((q) => { const M = window.TM_MEDIAVIESTI, x = M.tmMvKlippiDokumentit({ url: 'https://app.veo.co/m/1', klippityyppi: 'onnistui', kysymys: q, kysymys_avain: 'mv_pohja_onnistui_rakentaja_1', kohde: { tyyppi: 'ryhma', ryhma_id: 'mv', nimi: 'Maalivahdit' }, vastaanottajat: ['p1', 'p2', 'p3'].map((id) => ({ pelaajaId: id, ika: 12, vastaanottajaUid: 'u1' })) }, { nyt: new Date(), lahettajaUid: 'u1', klippi_id: 'kl_ryhma' });
+    x.dokit.forEach((d, i) => window._mvDokit.push(Object.assign({ id: 'ry' + i, aika: Date.now() }, d))); window._mvDokit.push({ id: 'ryv', tyyppi: 'klippi_vastaus', vastaus_viestille: 'ry0', pelaajaId: 'p1', vastaanottajaUid: 'u1', valinta: '👍', aika: Date.now() }); renderInbox(); }, pohjaFi('onnistui', 'rakentaja', 1));
+  await k(p, 'Inbox ryhmärivi', '#inboxList [data-viesti-tyyppi="klippi"]'); expect(await p.locator('#inboxList [data-mv-rivi="kl_ryhma"]').textContent()).toContain('Maalivahdit · 1/3'); await p.evaluate(() => _mvAvaaKetju('kl_ryhma')); await k(p, 'Ryhmäklipin pelaajakohtainen purku', '#_mvKetju'); await p.evaluate(() => _mvKetjuSulje());
   // Lähetysvirheet (validointi ennen kirjoitusta) + onnistumiset + kirjoitusvirhe
   const laheta = (S) => p.evaluate((S) => { _mvAvaa('p1'); Object.assign(window._mvTila, S); _mvPaivitaTila(window._mvTila); return _mvLaheta(); }, S);
   await laheta({ url: '' }); await toastit('Lähetys: linkki tyhjä');

@@ -5405,3 +5405,44 @@ describe('v3.62 · seurat/{sid}/salaiset/{dokId}: server-only — mikään selai
     await testEnv.withSecurityRulesDisabled(async (c) => { const s = await getDoc(polku(c.firestore())); expect(s.data().taso_api_key).toBe('SALAINEN-AVAIN-123'); await updateDoc(polku(c.firestore()), { taso_api_key: 'uusi' }); });
   });
 });
+
+describe('v3.63 · viestit klippi: kohde {tyyppi:ryhma} (klippi ryhmälle) + lahde (oma videoklippi -varaus)', () => {
+  const RID = 'maalivahdit', RID_POIS = 'arkisto', VAST_UID = 'valm-vastaava-063', OMA_UID = 'valm-oma-063', MUU_UID = 'valm-muu-063', ISO = new Date('2026-11-04T07:00:00Z');
+  const v = (db, id) => doc(db, 'seurat', SEURA_A, 'viestit', id);
+  const klippi = (o = {}) => ({ tyyppi: 'klippi', url: 'https://app.veo.co/matches/x/clip/y?t=12', domain: 'app.veo.co', mediatyyppi: 'video', kohta_s: 12, klippityyppi: 'onnistui', kysymys: 'Mitä näit?', klippi_id: 'kl-r1', pelaajaId: PELAAJA_UID, nakyvyys: 'pelaaja',
+    vastaanottajaUid: VAST_UID, lahettajaUid: VAST_UID, fromRole: 'valmentaja', tila: 'lahetetty', nakyva_alkaen: ISO, luettu: false, aika: serverTimestamp(), lahde: 'linkki', kohde: { tyyppi: 'ryhma', ryhma_id: RID, nimi: 'Maalivahdit' }, ...o });
+  const ryhma = (o = {}) => ({ nimi: 'Maalivahdit', tyyppi: 'lista', pelaajat_id: [PELAAJA_UID], valmentajat: [VAST_UID, OMA_UID], vastuu_uid: VAST_UID, aktiivinen: true, luoja_uid: VP_A_UID, luotu: new Date(), muokattu: new Date(), ...o });
+  const dbVast = () => valmentajaContext(VAST_UID, SEURA_A).firestore(), dbOma = () => valmentajaContext(OMA_UID, SEURA_A).firestore(), dbMuu = () => valmentajaContext(MUU_UID, SEURA_A).firestore(), dbVp = () => vpContext(SEURA_A).firestore();
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+      await setDoc(doc(f, 'seurat', SEURA_A, 'ryhmat', RID), ryhma()); await setDoc(doc(f, 'seurat', SEURA_A, 'ryhmat', RID_POIS), ryhma({ nimi: 'Arkisto', aktiivinen: false })); });
+  });
+  it('RYHMÄKLIPPI: ryhmän vastaava, ryhmän oma valmentaja, ryhmän ulkopuolinen valmentaja (UI rajaa joukkueen mukaan) ja VP luovat klipin kohde ryhmä; sama klippi_id monelle pelaajalle', async () => {
+    await assertSucceeds(setDoc(v(dbVast(), 'r1'), klippi())); await assertSucceeds(setDoc(v(dbOma(), 'r2'), klippi({ vastaanottajaUid: OMA_UID, lahettajaUid: OMA_UID })));
+    await assertSucceeds(setDoc(v(dbMuu(), 'r3'), klippi({ vastaanottajaUid: MUU_UID, lahettajaUid: MUU_UID }))); await assertSucceeds(setDoc(v(dbVp(), 'r4'), klippi({ vastaanottajaUid: VP_A_UID, lahettajaUid: VP_A_UID })));
+    await assertSucceeds(setDoc(v(dbVast(), 'r5'), klippi({ pelaajaId: PELAAJA_A2_UID })));   // sama klippi_id, toinen pelaaja — oma ketju
+  });
+  it('KOHDE-VALIDOINTI: olematon ryhmä ✗ · arkistoitu (aktiivinen:false) ✗ · nimi ei täsmää ryhmädokumenttiin ✗ · ylimääräinen kenttä ✗ · puuttuva kenttä ✗ · tyyppi≠ryhma ✗ · ei map ✗', async () => {
+    const k = (o) => klippi({ kohde: { tyyppi: 'ryhma', ryhma_id: RID, nimi: 'Maalivahdit', ...o } });
+    await assertFails(setDoc(v(dbVast(), 'a1'), k({ ryhma_id: 'ei-ole' }))); await assertFails(setDoc(v(dbVast(), 'a2'), k({ ryhma_id: RID_POIS, nimi: 'Arkisto' }))); await assertFails(setDoc(v(dbVast(), 'a3'), k({ nimi: 'Kaapattu nimi' })));
+    await assertFails(setDoc(v(dbVast(), 'a4'), k({ extra: 1 }))); await assertFails(setDoc(v(dbVast(), 'a5'), klippi({ kohde: { tyyppi: 'ryhma', ryhma_id: RID } }))); await assertFails(setDoc(v(dbVast(), 'a6'), k({ tyyppi: 'joukkue' })));
+    await assertFails(setDoc(v(dbVast(), 'a7'), klippi({ kohde: 'maalivahdit' }))); await assertFails(setDoc(v(dbVast(), 'a8'), k({ nimi: 'x'.repeat(61) })));
+  });
+  it('ROOLI: ryhmäkohteella vain SA / johto / ryhmän valmentaja / valmentaja-rooli; testivastaava ja fysioterapeutti ✗ (yksittäinen klippi ilman kohdetta ennallaan); pelaaja ja huoltaja eivät luo klippiä', async () => {
+    const tv = testivastaavaContext(SEURA_A).firestore(), fy = fysioterapeuttiContext('fysio-063', SEURA_A).firestore(), tal = talenttivalmentajaContext('tal-063', SEURA_A).firestore();
+    await assertFails(setDoc(v(tv, 'o1'), klippi({ lahettajaUid: TESTI_UID })));
+    await assertFails(setDoc(v(fy, 'o2'), klippi({ lahettajaUid: 'fysio-063' }))); await assertSucceeds(setDoc(v(tal, 'o3'), klippi({ lahettajaUid: 'tal-063' })));
+    await assertFails(setDoc(v(pelaajaItseContext().firestore(), 'o4'), klippi())); await assertFails(setDoc(v(huoltajaContext().firestore(), 'o5'), klippi()));
+    const { kohde, ...ilman } = klippi({ lahettajaUid: 'fysio-063' }); await assertSucceeds(setDoc(v(fy, 'o6'), ilman));   // ennallaan: ilman ryhmäkohdetta kuten v3.50
+    await assertSucceeds(setDoc(v(saContext().firestore(), 'o7'), klippi({ lahettajaUid: SA_UID })));
+  });
+  it('TOISEN SEURAN ryhmä ✗: kohde viittaa ryhmään, jota ei ole OMASSA seurassa (ryhmädokumentti haetaan lähettäjän seurasta)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_B, 'ryhmat', 'vain-b'), ryhma({ nimi: 'B-ryhmä' })); });
+    await assertFails(setDoc(v(dbVast(), 'x1'), klippi({ kohde: { tyyppi: 'ryhma', ryhma_id: 'vain-b', nimi: 'B-ryhmä' } })));
+  });
+  it('LAHDE: lahde "linkki" ✓ ja puuttuva ✓ (vanhat klipit); "oma_video" ✗ (klippilataus v2 ei vielä); muu arvo ✗', async () => {
+    await assertSucceeds(setDoc(v(dbVast(), 'l1'), klippi({ lahde: 'linkki' }))); const { lahde, ...ilman } = klippi(); await assertSucceeds(setDoc(v(dbVast(), 'l2'), ilman));
+    await assertFails(setDoc(v(dbVast(), 'l3'), klippi({ lahde: 'oma_video' }))); await assertFails(setDoc(v(dbVast(), 'l4'), klippi({ lahde: 'muu' }))); await assertFails(setDoc(v(dbVast(), 'l5'), klippi({ lahde: null })));
+  });
+});
