@@ -4560,6 +4560,14 @@ describe('T1 · harjoitepankki: uudet kentät (pelikonteksti, alue_m, tasot, vuo
     await assertSucceeds(getDoc(hp(pel, 'p_koti'))); await assertFails(getDoc(hp(pel, 'p_joukkue'))); await assertFails(getDoc(hp(pel, 'p_luonnos')));
     for (const c of [vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A)]) { await assertSucceeds(getDoc(hp(c.firestore(), 'p_joukkue'))); await assertSucceeds(getDoc(hp(c.firestore(), 'p_luonnos'))); }
   });
+  it('B3/B4 "+ Lisää video": video_url + paivitetty -osapäivitys seuran harjoitteeseen: VP ✓, SA ✓, valmentaja ✗, talenttivalmentaja ✗, toisen seuran VP ✗ (Rules ennallaan; valmentajalle ei löysennetä)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'harjoitepankki', 'vh1'), { nimi: 'Seinäsyöttö', tyyppi: 'T', tila: 'hyvaksytty', kaytto: 'joukkue', lahde: 'seura', konsepti: 'y_h1' }); });
+    const osa = { video_url: 'https://www.youtube.com/watch?v=abc', paivitetty: '2026-10-14T10:00:00.000Z' };
+    await assertSucceeds(updateDoc(hp(vpContext(SEURA_A).firestore(), 'vh1'), osa)); await assertSucceeds(updateDoc(hp(saContext().firestore(), 'vh1'), Object.assign({}, osa, { video_url: 'https://youtu.be/x' })));
+    await assertFails(updateDoc(hp(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'vh1'), osa)); await assertFails(updateDoc(hp(talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore(), 'vh1'), osa));
+    await assertFails(updateDoc(hp(vpContext(SEURA_B).firestore(), 'vh1'), osa));
+    await testEnv.withSecurityRulesDisabled(async (c) => { const d = (await getDoc(hp(c.firestore(), 'vh1'))).data(); expect(d.video_url).toBe('https://youtu.be/x'); expect(d.nimi).toBe('Seinäsyöttö'); });
+  });
 });
 
 /* ══ Rules v3.40 · Seuran linja (B PR1, Tero 6.10.2026): valmennuslinja/{ikavaiheet,teemat}, harjoitepankki, arviointikehys, ohjelmat — ERISTYS seurojen välillä ══
