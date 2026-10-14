@@ -17,7 +17,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       expect(await p.locator('#nvSide .nv-item').allInnerTexts()).toEqual(['Koti', 'Viestit', 'Kalenteri', 'Joukkue', 'Pelaajat', 'Asetukset']);
       expect(await p.locator('#nvSide .nv-item.active').innerText()).toBe('Pelaajat');
       expect(await p.locator('#ktsOtsikko').innerText()).toBe('Pelaajat › Bertta Bergh');
-      expect(await p.locator('#nvPlus .nv-plus').isVisible()).toBe(true);   // + Havainto (D244)
+      expect(await p.locator('#nvSide .nv-plus').isVisible()).toBe(true);   // + Havainto (D244)
       expect(await p.locator('[data-kt-valilehti]').allInnerTexts()).toEqual(['Tänään', 'Polku', 'Mittaukset']);
       expect(await p.locator('.kt-ot .kt-meta').first().innerText()).toBe('2/3');   // vain Demo U13: p1, p2, p3 (p9 on toisessa joukkueessa)
       expect(await p.locator('[data-kt-edellinen]').getAttribute('aria-label')).toBe('Edellinen pelaaja: Aatu Aalto');
