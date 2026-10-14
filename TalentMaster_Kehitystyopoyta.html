@@ -68,6 +68,8 @@
 <script src="lib/tm_sheet.js?v=1"></script>
 <script src="lib/tm_kt_havainto.js?v=2"></script>
 <script src="lib/tm_kt_jakso.js?v=1"></script>
+<script src="lib/tm_kalenteri_lataus.js?v=1"></script>
+<script src="lib/tm_kt_arviointi.js?v=2"></script>
 <script src="lib/tm_kt_sivu.js?v=2"></script>
 <style>
 /* ── TOKENEET (samat kuin Master_v16; ei uusia) ── */
@@ -114,6 +116,7 @@ a { color:inherit; text-decoration:none; }
 .toast-item { display:flex; align-items:center; background:var(--card2); border:.5px solid var(--line2); border-radius:8px; padding:10px 16px; font-size:var(--fs-body); box-shadow:var(--shadow); max-width:min(92vw,420px); }
 /* ── ULKOASU (mockup 22 v2, D147/D244/D112; B2c): täytetty nappi (--fill) + valkoinen teksti kummassakin teemassa; yläotsikot ink3; turkoosi vain toiminnoille ja aktiiviselle valinnalle ── */
 .kt-nappi-ens, .kt-btn:not(.q):not(.g), .nv-plus, .nv-mplus, .kts-nappi-ens, button[data-aj-tallenna], .ts-tallenna { background:var(--fill) !important; border-color:var(--fill) !important; color:var(--on-fill) !important; }
+button[data-kvk-arvo][aria-pressed="true"] { background:var(--fill) !important; border-color:var(--fill) !important; color:var(--on-fill) !important; }   /* valittu vastaus = täytetty (--fill) + valkoinen, kuten muutkin täytetyt napit */
 #ktJuuri .kt-eb, #ktJuuri .kt-otsikko-pieni { color:var(--ink3); }
 /* sisältö alkaa samasta vasemmasta reunasta kuin murupolku, nimi ja välilehdet (24 px) */
 #ktJuuri .kt-ot { padding:10px 24px 0; }
@@ -307,6 +310,23 @@ function _jaksoSheet() { return _jaksoInst || (_jaksoInst = window.TM_KT_JAKSO.t
   henkilosto: async function () { if (_henkilosto) return _henkilosto; try { const sn = await _db.collection('seurat').doc(_seuraId).collection('kayttajat').get(); _henkilosto = sn.docs.map(function (d) { const x = d.data() || {}; return { id: d.id, nimi: String(x.nimi || ((x.etunimi || '') + ' ' + (x.sukunimi || ''))).trim(), rooli: x.rooli || '', aktiivinen: x.aktiivinen !== false }; }); } catch (e) { _henkilosto = []; } return _henkilosto; },   // valmentaja ei listaa kayttajat (Rules) → tyhjä lista, lomake toimii
   virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); } })); }
 window._ktJaksoTallenna = function (pid) { return _jaksoSheet().tallenna(pid); }; window._ktJaksoSulje = function () { _jaksoSheet().sulje(); };
+/* B2c: Jakson arviointi (Sulje jakso) sheetinä (lib/tm_kt_arviointi.js; sama sisältö ja batch-kirjoitus kuin Masterin kevyessä katselmuksessa) */
+async function _ktSessiot(jf, alkoi, loppu) {   // jakson väliin osuneet teemaharjoitukset (best effort: virhe → tyhjä lista, sulku onnistuu silti)
+  const L = window.TM_KALENTERI_LATAUS; if (!L || !alkoi || !_seuraId || !jf || !jf.konsepti_avain) return [];
+  const v = { alku: new Date(alkoi + 'T00:00:00').getTime(), loppu: new Date(loppu + 'T23:59:59').getTime() };
+  const docs = await L.tmLataaIkkuna(_db, _seuraId, [v], firebase.firestore.Timestamp);
+  return L.tmLatausSuodata(docs.map(function (d) { const x = d.data(), a = x.alkaa && x.alkaa.toDate ? x.alkaa.toDate() : null; return Object.assign({ id: d.id }, x, { pvm: a ? tmPaivaIso(a) : '' }); }))
+    .filter(function (t) { return t.treeniteema && t.treeniteema.avain === jf.konsepti_avain && t.pvm >= alkoi && t.pvm <= loppu; })
+    .map(function (t) { return { id: t.id, treeniteema: t.treeniteema, pelaajat_id: t.pelaajat_id || [], pvm: t.pvm }; });
+}
+let _arvInst = null;
+function _arviointiSheet() {
+  return _arvInst || (_arvInst = window.TM_KT_ARVIOINTI.tmKtArviointiSheet({ db: _db, sid: _seuraId, doc: document, t: TT, esc: _e, rooli: _rooli, superAdmin: _superAdmin, sheet: _sheet, toast: function (m) { toast(m); }, nayta: function () { _nayta(); },
+    pelaaja: _pelaaja, joukkueDocs: _joukkueDocs, nimi: _nimi, kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, nyt: function () { return new Date(); }, paivaIso: tmPaivaIso, verkossa: function () { return navigator.onLine !== false; },
+    auth: function () { return _auth.currentUser; }, FV: firebase.firestore.FieldValue, haeSessiot: _ktSessiot, virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); } }));
+}
+window._ktArvVastaus = function (a, v) { _arviointiSheet().vastaus(a, v); }; window._ktArvLause = function (v) { _arviointiSheet().lause(v); }; window._ktArvEhdotus = function (i) { _arviointiSheet().ehdotus(i); };
+window._ktArvTallenna = function () { return _arviointiSheet().tallenna(); }; window._ktArvSulje = function () { _arviointiSheet().sulje(); };
 function _havaintoOsa(p, koodi) { const jf = p && p.jaksofokus, osat = jf ? K.tmKtOsat(jf, { kaanon: _kaanon }) : []; return { osat: osat, osa: osat.filter(function (o) { return o.koodi === koodi; })[0] || (koodi ? null : K.tmKtViikonOsa(osat)) }; }
 window._ktHavaintoLisaa = function (pid, koodi) {   // "+ Lause tai klippi" ja Osat-rivi: lyhyt alasheet (valinta, lause, VEO-linkki)
   const p = _pelaaja(pid); if (!p || !_voiKirjoittaa(p) || !p.jaksofokus || !p.jaksofokus.konsepti_avain) return false;
@@ -337,8 +357,10 @@ window._ktVahvistaSitoumus = async function (pid) {
   } catch (e) { console.warn('[A1] vahvistaSitoumus:', e && e.message); toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(TT('Vahvistus epäonnistui'), e)); }
 };
 window._ktToimi = function (pid, avain) {
+  document.querySelectorAll('.kt-valikko[open]').forEach(function (d) { d.removeAttribute('open'); });   // ⋯-valikko sulkeutuu kun toiminto valitaan (sheet ei jää valikon taakse)
   if (avain === 'havainto') return window._ktHavaintoLisaa(pid);
   if (avain === 'aloita' || avain === 'vahvista' || avain === 'muokkaa') return _voiKirjoittaa(_pelaaja(pid)) ? _jaksoSheet().avaa(pid) : false;   // B2b: sheet (D100)
+  if (avain === 'sulje') return _voiKirjoittaa(_pelaaja(pid)) ? _arviointiSheet().avaa(pid) : false;   // B2c: Jakson arviointi sheetinä (D100)
   if (avain === 'vahvista_sitoumus') return window._ktVahvistaSitoumus(pid);
   if (avain === 'jatka' || avain === 'avaa_polku' || avain === 'kuorma') return window._ktValilehti(pid, 'polku');
   return _vanhaan(pid);
