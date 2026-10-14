@@ -187,7 +187,7 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
     [PE, VH].forEach((h) => {
       expect(h).toMatch(/--chalk:rgba\(242,239,230,\.55\); --chalk2:rgba\(242,239,230,\.28\)/);
       expect(h).toMatch(/:root\[data-theme="light"\] \{ --chalk:rgba\(28,28,26,\.45\); --chalk2:rgba\(28,28,26,\.2\); --amber-dim:rgba\(224,160,64,\.2\); \}/);
-      expect(h).toContain('<script src="lib/tm_kentta.js?v=4"></script>');
+      expect(h).toContain('<script src="lib/tm_kentta.js?v=5"></script>');
     });
     expect(PE).toMatch(/--amber-dim: rgba\(224,160,64,\.16\)/); expect(VH).toMatch(/--amber-dim:rgba\(224,160,64,\.16\)/);
   });
