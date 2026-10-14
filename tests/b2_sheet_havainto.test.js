@@ -38,12 +38,14 @@ describe('tm_kt_havainto', () => {
 });
 describe('tmKtTallennaOsaArvio: lause + Kumoa', () => {
   const mk = (jf, rooli, uid) => {
-    const kirj = []; let kumoa = null, naytetty = 0, ilm = [];
+    const kirj = [], vk = []; let kumoa = null, naytetty = 0, ilm = [];
+    const _s = (u) => { const o = {}, v = {}; Object.keys(u).forEach((k) => { (/osa_havainnot_vk/.test(k) ? v : o)[k] = u[k]; }); return [o, v]; };   // B2c: viikkohistoria-polut erillään (vanhat odotukset koskevat nykytilaa)
+
     const p = { id: 'p1', jaksofokus: JSON.parse(JSON.stringify(jf)) };
-    const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ update: async (u) => { kirj.push(u); } }) }) }) }) };
+    const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ update: async (u) => { const [o, v] = _s(u); kirj.push(o); vk.push(v); } }) }) }) }) };
     const cu = { uid, getIdToken: async () => 't', getIdTokenResult: async () => ({ claims: { rooli } }) };
     const d = { db, sid: 's', auth: () => cu, KS, rooli, uid, nyt: () => new Date(2026, 9, 19), eiToastia: true, poista: 'DEL', kumoaFn: (f) => { kumoa = f; }, toast: (m) => ilm.push(m), nayta: () => { naytetty++; }, t: (k) => k };
-    return { p, d, kirj, kumoa: () => kumoa, naytetty: () => naytetty, ilm };
+    return { p, d, kirj, vk, kumoa: () => kumoa, naytetty: () => naytetty, ilm };
   };
   const JF = { konsepti_avain: 'kons', alkoi: '2026-10-05T08:00:00', kesto_vk: 6, osa_havainnot: {}, osa_arviot: {} };
   it('lause tallentuu omaan riviin (trimmattuna); ilman lausetta ei lause-kenttää; eiToastia → ei oma toast', async () => {

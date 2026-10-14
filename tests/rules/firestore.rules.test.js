@@ -794,6 +794,14 @@ describe('A13 jatko 4 (D108) — jaksofokus.osa_havainnot.<konsepti>.<koodi>.<ui
     await assertFails(updateDoc(ref(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), rivi(VALM_B_UID)));
     await testEnv.withSecurityRulesDisabled(async (c) => { const jf = (await getDoc(ref(c.firestore()))).data().jaksofokus; expect(Object.keys(jf.osa_havainnot.y_h2.a).sort()).toEqual(['vp-uid', VALM_A_UID].sort()); });
   });
+  it('B2c: viikkohistoria jaksofokus.osa_havainnot_vk.<konsepti>.<koodi>.<vvvv-Www>.<uid>.{arvo,pvm,rooli,lause}: sama kirjoittajajoukko kuin osa_havainnot — valmentaja ✓, VP ✓, pelaaja ✗, toisen seuran valmentaja ✗ (Rules ennallaan, ei versionostoa)', async () => {
+    const vk = (uid, rooli) => ({ ['jaksofokus.osa_havainnot_vk.y_h2.a.2026-W43.' + uid + '.arvo']: 2, ['jaksofokus.osa_havainnot_vk.y_h2.a.2026-W43.' + uid + '.pvm']: '2026-10-19', ['jaksofokus.osa_havainnot_vk.y_h2.a.2026-W43.' + uid + '.rooli']: rooli, ['jaksofokus.osa_havainnot.y_h2.a.' + uid + '.arvo']: 2 });
+    await assertSucceeds(updateDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), vk(VALM_A_UID, 'valmentaja')));
+    await assertSucceeds(updateDoc(ref(vpContext(SEURA_A).firestore()), vk('vp-uid', 'vp')));
+    await assertFails(updateDoc(ref(pelaajaItseContext().firestore()), vk(PELAAJA_UID, 'valmentaja')));
+    await assertFails(updateDoc(ref(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), vk(VALM_B_UID, 'valmentaja')));
+    await testEnv.withSecurityRulesDisabled(async (c) => { const jf = (await getDoc(ref(c.firestore()))).data().jaksofokus; expect(Object.keys(jf.osa_havainnot_vk.y_h2.a['2026-W43']).sort()).toEqual(['vp-uid', VALM_A_UID].sort()); expect(jf.osa_havainnot_vk.y_h2.a['2026-W43'][VALM_A_UID]).toEqual({ arvo: 2, pvm: '2026-10-19', rooli: 'valmentaja' }); });
+  });
   it('HAVAINTO: toisen uid:n rivin kirjoitusta ei voi estää Rulesissa kohtuudella (dot-polun sisäkkäiset avaimet ovat tuntemattomia: konsepti × koodi × uid; Rules ei silmukoi) → rajaus on kirjoitusytimessä (tmKtTallennaOsaArvio kirjoittaa vain auth.uid:n alle, testattu libissä); ei Rules-muutosta', async () => {
     const valm = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertSucceeds(updateDoc(ref(valm), { 'jaksofokus.osa_havainnot.y_h2.a.jonkun-toisen-uid': { arvo: 1, pvm: '2026-10-09', rooli: 'vp' } }));   // dokumentoi nykytila
