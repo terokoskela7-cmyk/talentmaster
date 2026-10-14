@@ -56,6 +56,36 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('PR B · ydinv
       expect(await b.p.locator('[data-ka-muoto]').allInnerTexts()).toEqual(['11v11', '8v8']); expect(await b.p.locator('[data-ka-alue]').count()).toBe(8); await b.p.locator('[data-ka-muoto="8v8"]').click(); expect(await b.p.locator('[data-ka-alue]').count()).toBe(6); await b.sk.close();
     } finally { await selain.close(); }
   }, 60000);
+  it('JAKSOTON: ei aluetta → linkki "Aseta ydinvahvuus kentälle" Seuraava askel -kortin ALLE (ei Jakso-korttia); klikkaus avaa sheetin; tallennuksen jälkeen Kenttä (alue, ei reittiä) + "Aloita jakso ydinvahvuudesta"', async () => {
+    await avaa(); try {
+      const { sk, p } = await kaynnista(selain, Object.assign({ rooli: 'valmentaja', hash: '#pelaaja/p1/tanaan' }, muoto('8v8'))); await odota(p);
+      expect(await p.locator('[data-kt-jaksokortti]').count()).toBe(0); expect(await p.locator('.kt-sig [data-kt-signaali-nappi="aloita"]').count()).toBe(1);
+      const sig = await p.locator('.kt-sig').boundingBox(), link = await p.locator(LINKKI).boundingBox(); expect(link.y).toBeGreaterThanOrEqual(sig.y + sig.height - 1);   // kortin alla
+      expect(await p.locator('.kt-sig [data-kt-aseta-alue]').count()).toBe(0);
+      await p.locator(LINKKI).click(); await p.waitForSelector('[data-ka-sheet]'); await p.locator('[data-ka-alue="keskusta"]').click(); await p.locator('[data-ka-tallenna]').click();
+      await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 }); await p.waitForSelector('[data-ka-sheet]', { state: 'detached' });
+      expect(await p.locator('.kt-t-kentta .kt svg').count()).toBe(1); expect(await p.locator('.kt-tanaan.kt-ei-kenttaa').count()).toBe(0); expect(await p.locator(LINKKI).count()).toBe(0);
+      expect(await p.locator('.kt-sig .kt-sig-h').innerText()).toBe('Aloita jakso ydinvahvuudesta'); expect(await p.locator('.kt-sig .kt-sig-why').innerText()).toMatch(/^Ydinvahvuus on merkitty kentälle .* Jaksoa ei ole aloitettu\.$/);
+      expect(await p.locator('.kt-t-kentta .kt-reitti, .kt-t-kentta [class*="kt-vk"]').count()).toBe(0);   // alue, ei reittiä eikä viikkomerkkejä
+      expect(await p.locator('.kt-sig [data-kt-signaali-nappi="aloita"]').count()).toBe(1); await sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
+  it('JAKSOTON + alue asetettu: Kenttä näkyy, linkki ei näy; Seuraava askel = "Aloita jakso ydinvahvuudesta" + merkintäpäivä ja ydinvahvuuden nimi; Aloita jakso -nappi avaa jakso-sheetin', async () => {
+    await avaa(); try {
+      const yv = { kuvaus: 'Kuljetus', alue: { x: 25, y: 35, w: 50, h: 61 }, alue_avain: 'keskusta', asetti_uid: 'u1', asetettu_pvm: '2026-09-24' };
+      const pelaajat = PELAAJAT.map((x) => x.id === 'p1' ? Object.assign({}, x, { ydinvahvuus: yv }) : x);
+      const { sk, p } = await kaynnista(selain, Object.assign({ rooli: 'vp', hash: '#pelaaja/p1/tanaan', pelaajat }, muoto('8v8'))); await odota(p);
+      expect(await p.locator('.kt-t-kentta .kt svg').count()).toBe(1); expect(await p.locator(LINKKI).count()).toBe(0); expect(await p.locator('[data-kt-jaksokortti]').count()).toBe(0);
+      expect(await p.locator('.kt-sig .kt-sig-h').innerText()).toBe('Aloita jakso ydinvahvuudesta'); expect(await p.locator('.kt-sig .kt-sig-why').innerText()).toMatch(/Ydinvahvuus "Kuljetus" on merkitty kentälle 24\.9\./);
+      await p.locator('.kt-sig [data-kt-signaali-nappi="aloita"]').click(); await p.waitForSelector('#_ajTaito'); await sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
+  it('JAKSOTON + 5v5: ei linkkiä lainkaan (ei Seuraava askel -kortin alla eikä muuallakaan)', async () => {
+    await avaa(); try {
+      const { sk, p } = await kaynnista(selain, Object.assign({ rooli: 'valmentaja', hash: '#pelaaja/p1/tanaan' }, muoto('5v5'))); await odota(p);
+      expect(await p.locator(LINKKI).count()).toBe(0); expect(await p.locator('[data-kt-alue-cta]').count()).toBe(0); expect(await p.locator('.kt-sig [data-kt-signaali-nappi="aloita"]').count()).toBe(1); expect(await p.locator('.kt-tanaan.kt-ei-kenttaa').count()).toBe(1); await sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
   it('luonnos: valittu alue säilyy kun sheet suljetaan (ei kirjoitusta) ja avataan uudelleen', async () => {
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, Object.assign({ rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan' }, muoto('8v8'))); await odota(p);
@@ -93,6 +123,10 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('PR B · ydinv
         await p.locator(LINKKI).click(); await p.waitForSelector('[data-ka-sheet]'); await p.waitForTimeout(300); await p.screenshot({ path: join(KUVAT, 'sheet-auki-' + n + '.png') });
         await p.locator('[data-ka-alue="keskusta"]').click(); await p.waitForTimeout(200); await p.screenshot({ path: join(KUVAT, 'sheet-valittu-' + n + '.png') });
         await p.locator('[data-ka-tallenna]').click(); await p.waitForSelector('[data-ka-sheet]', { state: 'detached' }); await p.waitForTimeout(500); await p.screenshot({ path: join(KUVAT, 'tanaan-tallennuksen-jalkeen-' + n + '.png') }); await sk.close();
+        const j = await kaynnista(selain, Object.assign({ rooli: 'valmentaja', hash: '#pelaaja/p1/tanaan', leveys: w, korkeus: h }, muoto('11v11'))); await odota(j.p);
+        await j.p.screenshot({ path: join(KUVAT, 'jaksoton-ei-aluetta-' + n + '.png') });   // linkki Seuraava askel -kortin alla
+        await j.p.locator(LINKKI).click(); await j.p.waitForSelector('[data-ka-sheet]'); await j.p.locator('[data-ka-alue="keskusta"]').click(); await j.p.locator('[data-ka-tallenna]').click(); await j.p.waitForSelector('[data-ka-sheet]', { state: 'detached' }); await j.p.waitForTimeout(500);
+        await j.p.screenshot({ path: join(KUVAT, 'jaksoton-alue-asetettu-' + n + '.png')}); await j.sk.close();
       }
     } finally { await selain.close(); }
   }, 120000);
