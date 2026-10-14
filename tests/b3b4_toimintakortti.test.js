@@ -101,6 +101,17 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('toimintakortt
       const b = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan' }); await odota(b.p); expect(await b.p.locator('[data-kt-tk-fysiikka]').count()).toBe(0); await b.sk.close();
     } finally { await selain.close(); }
   }, 90000);
+  it('kasvupyrähdys (PH, mitattu): "ei" -harjoite pois, kevennetty lähteen ohjeella, korvaava ehdotus; ei tunnisteita näkyvissä; lib ladattu selaimessa', async () => {
+    await avaa(); try {
+      const pel = (jf, lisa) => PELAAJAT.map((x) => x.id === 'p2' ? Object.assign({}, x, lisa || {}, { jaksofokus: Object.assign({}, x.jaksofokus, jf) }) : x);
+      const oh = { nimi: 'Voima', liikkeet: [{ liike: 'Nordic Hamstring', toistot: '3×5' }, { liike: 'Naruhypyt + pohjeeksentrinen' }, { liike: 'Kyykky' }] };
+      const a = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: pel({ domeeni: 'fyysinen', ohjelma: oh }, { phv_tila: 'PH', biologinenIka_viimeisin: { offset: 0, pvm: '2026-09-01' } }) }); await odota(a.p);
+      expect(await a.p.evaluate(() => typeof window.TM_KASVUPYRAHDYS)).toBe('object');
+      const t = await a.p.locator('[data-kt-tk-fysiikka]').innerText();
+      expect(t).not.toMatch(/Nordic Hamstring/); expect(t).toMatch(/Kyykky/); expect(t).toMatch(/Kevennettynä: Naruhypyt 2×10s/); expect(t).toMatch(/Vaihtoehto kasvuaikana/); expect(t).toMatch(/Takareisisilta/);
+      expect(t).not.toMatch(/\b(SBL|SFL|EX_[A-Z_]+|D\.sbl\.\d)\b/); await a.sk.close();
+    } finally { await selain.close(); }
+  }, 90000);
   it('TM_KUVAT=1 · kuvat 1280 + 390 (tumma): toimintakortti seuran harjoitteella + videolla, TalentMaster-peliharjoite, Pelaajan silmin', async () => {
     if (!process.env.TM_KUVAT) return; mkdirSync(KUVAT, { recursive: true }); await avaa(); try {
       for (const [n, w, h] of [['1280', 1280, 900], ['390', 390, 844]]) {
@@ -109,6 +120,16 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('toimintakortt
           const { sk, p } = await kaynnista(selain, { rooli, hash: '#pelaaja/p2/tanaan', leveys: w, korkeus: h, dokit: d }); await odota(p); if (silmin) { await p.locator('[data-kt-silmin]').click(); await p.waitForSelector('[data-kt-toimintakortti][data-kt-silmin]'); }
           await p.locator('[data-kt-toimintakortti]').scrollIntoViewIfNeeded(); await p.waitForTimeout(250); await p.screenshot({ path: join(KUVAT, 'toimintakortti-' + nimi + '-' + n + '.png') }); await sk.close();
         }
+      }
+    } finally { await selain.close(); }
+  }, 180000);
+  it('TM_KUVAT=1 · kuvat 1280 + 390: fysiikkaosio kasvupyrähdyspelaajalla (NYT) ja ilman', async () => {
+    if (!process.env.TM_KUVAT) return; mkdirSync(KUVAT, { recursive: true }); await avaa(); try {
+      const pel = (jf, lisa) => PELAAJAT.map((x) => x.id === 'p2' ? Object.assign({}, x, lisa || {}, { jaksofokus: Object.assign({}, x.jaksofokus, jf) }) : x);
+      const oh = { nimi: 'Voima', liikkeet: [{ liike: 'Nordic Hamstring', toistot: '3×5' }, { liike: 'Naruhypyt + pohjeeksentrinen' }, { liike: 'Kyykky', toistot: '3×8' }] };
+      for (const [n, w, h] of [['1280', 1280, 900], ['390', 390, 844]]) for (const [nimi, lisa] of [['kasvupyrahdys-nyt', { phv_tila: 'PH', biologinenIka_viimeisin: { offset: 0, pvm: '2026-09-01' } }], ['ei-kasvupyrahdysta', {}]]) {
+        const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', leveys: w, korkeus: h, pelaajat: pel({ domeeni: 'fyysinen', ohjelma: oh }, lisa) }); await odota(p);
+        await p.locator('[data-kt-tk-fysiikka]').scrollIntoViewIfNeeded(); await p.waitForTimeout(250); await p.screenshot({ path: join(KUVAT, 'fysiikka-' + nimi + '-' + n + '.png') }); await sk.close();
       }
     } finally { await selain.close(); }
   }, 180000);
