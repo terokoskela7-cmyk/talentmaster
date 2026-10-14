@@ -113,8 +113,9 @@ describe.each([['master', 'Master_v16'], ['vp', 'VP_v25']])('%s · jakson aloitu
       expect(e.log.modalHtml).toContain('data-aj-tuki'); expect(e.log.modalHtml).toContain('Muut vaihtoehdot ('); expect(e.log.modalHtml).toContain('Kirjoita oma'); expect(e.log.modalHtml).toContain('id="_ajAlku"');
     });
     it('HAUT RINNAKKAIN: viiveellä (15 ms/luku) viisi Firestore-lukua on käynnissä yhtä aikaa; kokonaisaika ≈ yksi luku, ei viisi peräkkäin', async () => {
-      const S = OLETUS(); S.viive = true; const e = rakenna(sov, { rooli, S }); const t0 = Date.now(); await e.avaa(); const kesto = Date.now() - t0;
-      expect(e.log.maksimi).toBeGreaterThanOrEqual(5); expect(e.log.modalHtml).toContain('data-aj-tuki'); expect(kesto).toBeLessThan(15 * 5 + 15);
+      const S = OLETUS(); S.viive = true; const e = rakenna(sov, { rooli, S }); await e.avaa();
+      /* Rinnakkaisuus todistetaan tilalla, ei kellolla: lukulaskuri (log.maksimi) kirjaa montako lukua on samanaikaisesti käynnissä. Seinäkelloraja (< 90 ms) kaatui satunnaisesti kuormitetussa CI:ssä eikä todistanut mitään lisää. */
+      expect(e.log.maksimi).toBeGreaterThanOrEqual(5); expect(e.log.modalHtml).toContain('data-aj-tuki');
     });
     it('TALLENNUS: YKSI update pelaajadokkiin — jaksofokus (tukitavoitteet + yhteensopiva tukiosa + joukkuejakso_viite + kotiharjoitteet snapshot) + ydinvahvuus; paikallinen tila vasta onnistumisen jälkeen; modaali sulkeutuu', async () => {
       const e = rakenna(sov, { rooli, kentat: KENTAT({ _ajTtV_0: '1', _ajTtP_0: 'Jotta kuljetuksesi vie maalille asti, kehosi pysyy hallinnassa', _ajTtH_0_0: '1' }) }); await e.avaa(); expect(e.log.modal).toBeTruthy(); await e.tallenna(); await lopeta();

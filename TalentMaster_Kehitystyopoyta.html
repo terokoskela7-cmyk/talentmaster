@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Kehitystyöpöytä</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791967832168';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});})();</script>
+(function(){var APP_VERSION='1791975697993';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});})();</script>
 <!-- Kehitystyöpöytä omana sivuna (kierros B · B7, D106/D246; docs/CODE_BRIEF_22_KEHITYSTYOPOYTA.md): V-KOTI-kuori (lib/tm_valmentaja_nav.js) + pelaajan työpöytä #pelaaja/{pid}/tanaan|polku|naytto.
      Näkyy vain kun liput.kehitystyopoyta_v2 on päällä (V-KOTI-kuori erikseen valmentaja_v2:lla); Master ja VP linkittävät tänne (Pelaajat → pelaaja). Sivun lataus-/reititysglue: lib/tm_kt_sivu.js. B1–B6 rakennetaan suoraan tälle sivulle. -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -21,7 +21,7 @@
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_istunto.js?v=1"></script>
 <script src="lib/tm_lang.js?v=39"></script>
-<script src="lib/tm_lib_i18n.js?v=4"></script>
+<script src="lib/tm_lib_i18n.js?v=5"></script>
 <script src="lib/tm_i18n_common.js?v=12"></script>
 <script src="lib/tm_master_i18n.js?v=33"></script>
 <script src="lib/tm_phv_tila.js?v=2"></script>
@@ -64,10 +64,12 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>
 <script src="lib/tm_seuraava_askel.js?v=3"></script>
 <script src="lib/tm_fyysteemat.js?v=4"></script>
-<script src="lib/tm_sanasto.js?v=2"></script>
+<script src="lib/tm_sanasto.js?v=3"></script>
 <script src="lib/tm_sheet.js?v=1"></script>
 <script src="lib/tm_kt_havainto.js?v=2"></script>
 <script src="lib/tm_kt_jakso.js?v=2"></script>
+<script src="lib/tm_kalenteri_lataus.js?v=1"></script>
+<script src="lib/tm_kt_arviointi.js?v=2"></script>
 <script src="lib/tm_kt_alue.js?v=2"></script>
 <script src="lib/tm_kt_sivu.js?v=2"></script>
 <style>
@@ -115,6 +117,7 @@ a { color:inherit; text-decoration:none; }
 .toast-item { display:flex; align-items:center; background:var(--card2); border:.5px solid var(--line2); border-radius:8px; padding:10px 16px; font-size:var(--fs-body); box-shadow:var(--shadow); max-width:min(92vw,420px); }
 /* ── ULKOASU (mockup 22 v2, D147/D244/D112; B2c): täytetty nappi (--fill) + valkoinen teksti kummassakin teemassa; yläotsikot ink3; turkoosi vain toiminnoille ja aktiiviselle valinnalle ── */
 .kt-nappi-ens, .kt-btn:not(.q):not(.g), .nv-plus, .nv-mplus, .kts-nappi-ens, button[data-aj-tallenna], .ts-tallenna { background:var(--fill) !important; border-color:var(--fill) !important; color:var(--on-fill) !important; }
+button[data-kvk-arvo][aria-pressed="true"] { background:var(--fill) !important; border-color:var(--fill) !important; color:var(--on-fill) !important; }   /* valittu vastaus = täytetty (--fill) + valkoinen, kuten muutkin täytetyt napit */
 #ktJuuri .kt-eb, #ktJuuri .kt-otsikko-pieni { color:var(--ink3); }
 /* sisältö alkaa samasta vasemmasta reunasta kuin murupolku, nimi ja välilehdet (24 px) */
 #ktJuuri .kt-ot { padding:10px 24px 0; }
@@ -312,6 +315,23 @@ function _jaksoSheet() { return _jaksoInst || (_jaksoInst = window.TM_KT_JAKSO.t
   henkilosto: async function () { if (_henkilosto) return _henkilosto; try { const sn = await _db.collection('seurat').doc(_seuraId).collection('kayttajat').get(); _henkilosto = sn.docs.map(function (d) { const x = d.data() || {}; return { id: d.id, nimi: String(x.nimi || ((x.etunimi || '') + ' ' + (x.sukunimi || ''))).trim(), rooli: x.rooli || '', aktiivinen: x.aktiivinen !== false }; }); } catch (e) { _henkilosto = []; } return _henkilosto; },   // valmentaja ei listaa kayttajat (Rules) → tyhjä lista, lomake toimii
   virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); } })); }
 window._ktJaksoTallenna = function (pid) { return _jaksoSheet().tallenna(pid); }; window._ktJaksoSulje = function () { _jaksoSheet().sulje(); };
+/* B2c: Jakson arviointi (Sulje jakso) sheetinä (lib/tm_kt_arviointi.js; sama sisältö ja batch-kirjoitus kuin Masterin kevyessä katselmuksessa) */
+async function _ktSessiot(jf, alkoi, loppu) {   // jakson väliin osuneet teemaharjoitukset (best effort: virhe → tyhjä lista, sulku onnistuu silti)
+  const L = window.TM_KALENTERI_LATAUS; if (!L || !alkoi || !_seuraId || !jf || !jf.konsepti_avain) return [];
+  const v = { alku: new Date(alkoi + 'T00:00:00').getTime(), loppu: new Date(loppu + 'T23:59:59').getTime() };
+  const docs = await L.tmLataaIkkuna(_db, _seuraId, [v], firebase.firestore.Timestamp);
+  return L.tmLatausSuodata(docs.map(function (d) { const x = d.data(), a = x.alkaa && x.alkaa.toDate ? x.alkaa.toDate() : null; return Object.assign({ id: d.id }, x, { pvm: a ? tmPaivaIso(a) : '' }); }))
+    .filter(function (t) { return t.treeniteema && t.treeniteema.avain === jf.konsepti_avain && t.pvm >= alkoi && t.pvm <= loppu; })
+    .map(function (t) { return { id: t.id, treeniteema: t.treeniteema, pelaajat_id: t.pelaajat_id || [], pvm: t.pvm }; });
+}
+let _arvInst = null;
+function _arviointiSheet() {
+  return _arvInst || (_arvInst = window.TM_KT_ARVIOINTI.tmKtArviointiSheet({ db: _db, sid: _seuraId, doc: document, t: TT, esc: _e, rooli: _rooli, superAdmin: _superAdmin, sheet: _sheet, toast: function (m) { toast(m); }, nayta: function () { _nayta(); },
+    pelaaja: _pelaaja, joukkueDocs: _joukkueDocs, nimi: _nimi, kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, nyt: function () { return new Date(); }, paivaIso: tmPaivaIso, verkossa: function () { return navigator.onLine !== false; },
+    auth: function () { return _auth.currentUser; }, FV: firebase.firestore.FieldValue, haeSessiot: _ktSessiot, virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); } }));
+}
+window._ktArvVastaus = function (a, v) { _arviointiSheet().vastaus(a, v); }; window._ktArvLause = function (v) { _arviointiSheet().lause(v); }; window._ktArvEhdotus = function (i) { _arviointiSheet().ehdotus(i); };
+window._ktArvTallenna = function () { return _arviointiSheet().tallenna(); }; window._ktArvSulje = function () { _arviointiSheet().sulje(); };
 /* PR B (D172–D174): ydinvahvuuden alue klikkaamalla sheetinä (lib/tm_kt_alue.js); pelimuoto kysytään kerran ja tallennetaan joukkueet/{jid}.pelimuodot (B1) */
 function _ktJoukkueDoc(p) {
   const AJ = window.TM_ALOITA_JAKSO, slug = AJ && AJ.tmAjJoukkueId ? AJ.tmAjJoukkueId(p.joukkue || '') : null;
@@ -355,8 +375,10 @@ window._ktVahvistaSitoumus = async function (pid) {
   } catch (e) { console.warn('[A1] vahvistaSitoumus:', e && e.message); toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(TT('Vahvistus epäonnistui'), e)); }
 };
 window._ktToimi = function (pid, avain) {
+  document.querySelectorAll('.kt-valikko[open]').forEach(function (d) { d.removeAttribute('open'); });   // ⋯-valikko sulkeutuu kun toiminto valitaan (sheet ei jää valikon taakse)
   if (avain === 'havainto') return window._ktHavaintoLisaa(pid);
   if (avain === 'aloita' || avain === 'vahvista' || avain === 'muokkaa') return _voiKirjoittaa(_pelaaja(pid)) ? _jaksoSheet().avaa(pid) : false;   // B2b: sheet (D100)
+  if (avain === 'sulje') return _voiKirjoittaa(_pelaaja(pid)) ? _arviointiSheet().avaa(pid) : false;   // B2c: Jakson arviointi sheetinä (D100)
   if (avain === 'aseta_alue') return _voiKirjoittaa(_pelaaja(pid)) && _alueMahdollinen(_pelaaja(pid)) ? _alueSheet().avaa(pid) : false;   // PR B: alue klikkaamalla (D100-sheet)
   if (avain === 'vahvista_sitoumus') return window._ktVahvistaSitoumus(pid);
   if (avain === 'jatka' || avain === 'avaa_polku' || avain === 'kuorma') return window._ktValilehti(pid, 'polku');
