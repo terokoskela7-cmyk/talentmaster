@@ -217,7 +217,7 @@ describe('lähdevartijat', () => {
     const w = pura('async function _mKirjoitaJaksofokus(');
     expect(w).toMatch(/\.update\(upd\)/); expect(w).toMatch(/arrayUnion\.apply\(null, rivit\)/);   // R6.1b: v.historiaLisays[] → arrayUnion(...rivit) expect(w).not.toMatch(/serverTimestamp|\.set\(/);
   });
-  it('lib ?v nostettu (Master + VP lataavat tm_jaksokooste.js?v=2)', () => {
-    expect(MASTER).toContain('lib/tm_jaksokooste.js?v=2'); expect(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_VP_v25.html'), 'utf8')).toContain('lib/tm_jaksokooste.js?v=2');
+  it('lib ?v nostettu (Master + VP lataavat tm_jaksokooste.js?v=3)', () => {
+    expect(MASTER).toContain('lib/tm_jaksokooste.js?v=3'); expect(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_VP_v25.html'), 'utf8')).toContain('lib/tm_jaksokooste.js?v=3');
   });
 });
