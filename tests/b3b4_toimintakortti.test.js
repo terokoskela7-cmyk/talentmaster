@@ -123,4 +123,14 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('toimintakortt
       }
     } finally { await selain.close(); }
   }, 180000);
+  it('TM_KUVAT=1 · kuvat 1280 + 390: fysiikkaosio kasvupyrähdyspelaajalla (NYT) ja ilman', async () => {
+    if (!process.env.TM_KUVAT) return; mkdirSync(KUVAT, { recursive: true }); await avaa(); try {
+      const pel = (jf, lisa) => PELAAJAT.map((x) => x.id === 'p2' ? Object.assign({}, x, lisa || {}, { jaksofokus: Object.assign({}, x.jaksofokus, jf) }) : x);
+      const oh = { nimi: 'Voima', liikkeet: [{ liike: 'Nordic Hamstring', toistot: '3×5' }, { liike: 'Naruhypyt + pohjeeksentrinen' }, { liike: 'Kyykky', toistot: '3×8' }] };
+      for (const [n, w, h] of [['1280', 1280, 900], ['390', 390, 844]]) for (const [nimi, lisa] of [['kasvupyrahdys-nyt', { phv_tila: 'PH', biologinenIka_viimeisin: { offset: 0, pvm: '2026-09-01' } }], ['ei-kasvupyrahdysta', {}]]) {
+        const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', leveys: w, korkeus: h, pelaajat: pel({ domeeni: 'fyysinen', ohjelma: oh }, lisa) }); await odota(p);
+        await p.locator('[data-kt-tk-fysiikka]').scrollIntoViewIfNeeded(); await p.waitForTimeout(250); await p.screenshot({ path: join(KUVAT, 'fysiikka-' + nimi + '-' + n + '.png') }); await sk.close();
+      }
+    } finally { await selain.close(); }
+  }, 180000);
 });
