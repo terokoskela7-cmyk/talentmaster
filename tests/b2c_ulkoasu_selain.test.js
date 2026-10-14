@@ -90,4 +90,15 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · ulkoas
       await b.sk.close();
     } finally { await selain.close(); }
   }, 60000);
+  it('B2c-3: merkintälista käyttää havaintonapin sanoja + tekijän roolia; tila-sarakkeessa tila-sanasto', async () => {
+    await avaa(); try {
+      const pel = PELAAJAT.map((x) => x.id === 'p2' ? Object.assign({}, x, { jaksofokus: Object.assign({}, x.jaksofokus, { osa_arviot: { y_h1: { a: 3 } }, osa_havainnot: { y_h1: { a: { vp1: { arvo: 3, pvm: '2026-10-09', rooli: 'vp' }, v1: { arvo: 1, pvm: '2026-10-14', rooli: 'valmentaja' } } } } }) }) : x);
+      const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: pel }); await odota(p);
+      const rivi = p.locator('[data-kt-osa="a"]'), txt = (sel) => rivi.locator(sel).evaluate((e) => e.textContent.replace(/\s+/g, ' '));
+      expect(await txt('[data-kt-merkinnat]')).toMatch(/^ei vielä · valmentaja 14\.10\./); expect(await txt('[data-kt-kaikki-arviot]')).toMatch(/itsenäisesti · VP 9\.10\./);
+      expect(await rivi.locator('.kt-osa-st').innerText()).toBe('osaa jo');
+      expect(await p.locator('[data-kt-merkinnat], [data-kt-kaikki-arviot]').evaluateAll((e) => e.map((x) => x.textContent).join(' '))).not.toMatch(/myöhemmin|osaa jo|tällä viikolla/);
+      await sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
 });
