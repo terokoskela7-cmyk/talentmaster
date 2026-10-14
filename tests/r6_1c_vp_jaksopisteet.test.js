@@ -140,13 +140,13 @@ describe('V7 _vpJfOsaArvioSet — dot-polku jaksofokus.osa_arviot.<konsepti>', (
   it('päivittää VAIN konseptin osa-arviot dot-polulla (ei koko jaksofokus-karttaa, ei syvämergeä); lokaali + Aloitus-näyttö päivittyvät', async () => {
     const e = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } });
     e.sb.window._vpJfOsaArvioSet(PID, 'y_h2', 'b', 3); await lopeta();
-    expect(e.kirj.length).toBe(1); expect(e.kirj[0].path).toBe(POLKU); expect(Object.keys(e.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot.y_h2', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid.arvo', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid.pvm', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid.rooli']); expect(e.kirj[0].data['jaksofokus.osa_arviot.y_h2']).toEqual({ a: 2, b: 3 });   // D108: + oma rivi osa_havainnot (uid = kirjautunut)
+    expect(e.kirj.length).toBe(1); expect(e.kirj[0].path).toBe(POLKU); expect(Object.keys(e.kirj[0].data).filter((k) => !/osa_havainnot_vk/.test(k)).sort()).toEqual(['jaksofokus.osa_arviot.y_h2', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid.arvo', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid.pvm', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid.rooli']); expect(e.kirj[0].data['jaksofokus.osa_arviot.y_h2']).toEqual({ a: 2, b: 3 });   // D108: + oma rivi osa_havainnot (uid = kirjautunut)
     expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid.arvo']).toBe(3); expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid.rooli']).toBe('tuntematon'); expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid.pvm']).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(e.p.jaksofokus.osa_arviot.y_h2).toEqual({ a: 2, b: 3 }); expect(e.log.renderit).toBeGreaterThan(0);
   });
   it('uusi konsepti: oma alipolku; avain jossa piste → koko osa_arviot-kartta (dot-polku ei hajoa)', async () => {
     const a = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } }); a.sb.window._vpJfOsaArvioSet(PID, 'y_h3', 'a', 1); await lopeta();
-    expect(Object.keys(a.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot.y_h3', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid.arvo', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid.pvm', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid.rooli']);
+    expect(Object.keys(a.kirj[0].data).filter((k) => !/osa_havainnot_vk/.test(k)).sort()).toEqual(['jaksofokus.osa_arviot.y_h3', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid.arvo', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid.pvm', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid.rooli']);
     const b = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } }); b.sb.window._vpJfOsaArvioSet(PID, 'y.h3', 'a', 1); await lopeta();
     expect(Object.keys(b.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot', 'jaksofokus.osa_havainnot']); expect(b.kirj[0].data['jaksofokus.osa_arviot']).toMatchObject({ 'y.h3': { a: 1 } });
   });
@@ -202,10 +202,10 @@ describe('lähdevartijat: rinnakkainen logiikka pois', () => {
     ['_vpAsetaFyysFokus', '_vpOhjKaytaOhjelma', '_vpValitavoiteAktivoi', '_vpTtVieTreeniin', '_vpJfAsetaKehitysFokus', '_vpJfTavoitteetTallenna', '_vpJfOsaArvioSet', '_vpSulkuTallenna'].forEach((n) =>
       expect(pura('window.' + n + ' = ' + (n === '_vpValitavoiteAktivoi' || n === '_vpJfOsaArvioSet' ? '' : 'async ') + 'function'), n).not.toMatch(/tmHistoriaEntry|tmJaksonVaihto|tmSamaJakso|_vpTtKirjoita\(|set\(\{ jaksofokus|jaksofokus_historia: hist/));
   });
-  it('yhteiset kirjoittajat: update() (ei set-merge), arrayUnion.apply(null, rivit), POISTA → FieldValue.delete(); lib ?v=2', () => {
+  it('yhteiset kirjoittajat: update() (ei set-merge), arrayUnion.apply(null, rivit), POISTA → FieldValue.delete(); lib ?v=3', () => {
     const w = pura('async function _vpJfKirjoita(') + pura('async function _vpKirjoitaJaksofokus(');
     expect(w).toMatch(/\.update\(upd\)/); expect(w).toMatch(/arrayUnion\.apply\(null, rivit\)/); expect(w).not.toMatch(/\.set\(|serverTimestamp/);
-    expect(pura('function _vpJfPolut(')).toMatch(/FieldValue\.delete\(\)/); expect(VP).toContain('lib/tm_kehityssilmukka.js?v=2');
+    expect(pura('function _vpJfPolut(')).toMatch(/FieldValue\.delete\(\)/); expect(VP).toContain('lib/tm_kehityssilmukka.js?v=3');
   });
   it('_vpTtKirjoita jäi vain pelipaikkakirjoituksille (tt_positio_*)', () => {
     expect((VP.match(/_vpTtKirjoita\(pid, \{ tt_positio_/g) || []).length).toBe(2); expect(VP).not.toMatch(/_vpTtKirjoita\([^)]*jaksofokus/);

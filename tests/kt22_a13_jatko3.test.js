@@ -87,7 +87,8 @@ describe('2 · yksi kirjoitusydin', () => {
     const log = [], p = pel(); const ok = await KT.tmKtTallennaOsaArvio(deps(log, { uid: 'u1', rooli: 'valmentaja', nyt: () => new Date(2026, 9, 9, 12) }), p, 'kons', 'k3', 2);
     expect(ok).toBe(true); expect(p.jaksofokus.osa_arviot.kons).toEqual({ k1: 3, k2: 2, k3: 2 });
     expect(log.map((x) => x[0])).toEqual(['token', 'update', 'toast', 'paivita']); expect(log[0][1]).toBe(true);
-    expect(log[1][1]).toBe('seurat/kpv/pelaajat/' + PID); expect(log[1][2]).toEqual({ 'jaksofokus.osa_havainnot.kons.k3.u1.arvo': 2, 'jaksofokus.osa_havainnot.kons.k3.u1.pvm': '2026-10-09', 'jaksofokus.osa_havainnot.kons.k3.u1.rooli': 'valmentaja', 'jaksofokus.osa_arviot.kons': { k1: 3, k2: 2, k3: 2 } });   // B2b: vain omat kentät (rivin koko korvaus pyyhkisi aiemman lauseen) expect(log[2][1]).toBe('Osa-arvio tallennettu ✓');
+    expect(log[1][1]).toBe('seurat/kpv/pelaajat/' + PID); expect(log[1][2]).toEqual({ 'jaksofokus.osa_havainnot.kons.k3.u1.arvo': 2, 'jaksofokus.osa_havainnot.kons.k3.u1.pvm': '2026-10-09', 'jaksofokus.osa_havainnot.kons.k3.u1.rooli': 'valmentaja', 'jaksofokus.osa_havainnot_vk.kons.k3.2026-W41.u1.arvo': 2, 'jaksofokus.osa_havainnot_vk.kons.k3.2026-W41.u1.pvm': '2026-10-09', 'jaksofokus.osa_havainnot_vk.kons.k3.2026-W41.u1.rooli': 'valmentaja', 'jaksofokus.osa_arviot.kons': { k1: 3, k2: 2, k3: 2 } });   // B2b: vain omat kentät (rivin koko korvaus pyyhkisi aiemman lauseen); B2c: + viikkohistoria (ISO-viikko)
+    expect(log[2][1]).toBe('Osa-arvio tallennettu ✓');
   });
   it('demo: ei kirjoitusta, lokaali päivitys + toast; virhe: toast + false (paikallinen jää, kuten ennen); ei jaksoa / koodia → false ilman kirjoitusta', async () => {
     const l1 = [], p1 = pel(); expect(await KT.tmKtTallennaOsaArvio(deps(l1, { demo: true }), p1, 'kons', 'k3', 1)).toBe(true); expect(l1.some((x) => x[0] === 'update')).toBe(false); expect(p1.jaksofokus.osa_arviot.kons.k3).toBe(1);

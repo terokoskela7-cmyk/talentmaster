@@ -98,7 +98,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       await p.locator('.kt-sig [data-kt-havainto-arvo="3"]').click(); await p.waitForSelector('[data-kt-kumoa]');
       const k1 = await p.evaluate(() => window.__kirj[0].update); expect(k1['jaksofokus.osa_arviot.y_h1']).toBeUndefined();   // VP ei kirjoita voimassa olevaa arvoa valmentajan päälle
       await p.locator('[data-kt-kumoa]').click(); await p.waitForFunction(() => window.__kirj.length === 2, null, { timeout: 8000 });
-      const k2 = await p.evaluate(() => window.__kirj[1].update); expect(k2['jaksofokus.osa_havainnot.y_h1.a.u1']).toBe('DEL'); expect(Object.keys(k2)).toEqual(['jaksofokus.osa_havainnot.y_h1.a.u1']); await sk.close();
+      const k2 = await p.evaluate(() => window.__kirj[1].update); expect(k2['jaksofokus.osa_havainnot.y_h1.a.u1']).toBe('DEL'); expect(Object.keys(k2).filter((k) => !/osa_havainnot_vk/.test(k))).toEqual(['jaksofokus.osa_havainnot.y_h1.a.u1']); expect(Object.keys(k2).filter((k) => /osa_havainnot_vk/.test(k))).toEqual(['jaksofokus.osa_havainnot_vk.y_h1.a.2026-W43.u1']);   // B2c: viikkohistoria palautuu (ei aiempaa → poisto) await sk.close();
     } finally { await selain.close(); }
   }, 60000);
   it('B2 · "+ Lause tai klippi" → lyhyt alasheet: valinta + lause tallentuu samaan omaan riviin; KIELLETYT-sana ja yli 140 merkkiä estetään; valinta pakollinen', async () => {
