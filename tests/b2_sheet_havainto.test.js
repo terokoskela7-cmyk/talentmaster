@@ -115,3 +115,23 @@ describe('B2b · toastin ajastin: pysähtyy hiiren/fokuksen ajaksi (a11y)', () =
   });
   it('peru() lopettaa lopullisesti (ei sulkua jälkeenpäin)', () => { const m = mk(); m.a.peru(); m.kuuntelijat.mouseleave(); expect(m.ajat.filter((x) => x.elossa).length).toBe(0); expect(m.valmis()).toBe(0); });
 });
+
+describe('B2c · merkintälista ja "arviot eroavat" (v2): havaintonapin sanat + tekijän rooli; tila-sanasto vain tila-sarakkeessa', () => {
+  const O = { havainnot: [{ uid: 'u1', arvo: 1, pvm: '2026-10-14', rooli: 'valmentaja' }, { uid: 'u2', arvo: 3, pvm: '2026-10-09', rooli: 'vp' }, { uid: 'u3', arvo: 2, pvm: '2026-10-08', rooli: 'super_admin' }] };
+  const pvm = (x) => x.slice(8) + '.' + x.slice(5, 7) + '.';
+  it('v2: "ei vielä · valmentaja 14.10.", "itsenäisesti · VP 9.10.", "ohjatusti · SA 8.10." — rooli joka merkinnässä (myös ylläpito); eroavat-lista samat sanat', () => {
+    const m = KT.tmKtOsaMeta(O, { v2: true, pvmFn: pvm });
+    expect(m.meta).toBe('ei vielä · valmentaja 14.10.'); expect(m.kaikki).toEqual(['ei vielä · valmentaja 14.10.', 'itsenäisesti · VP 9.10.', 'ohjatusti · SA 8.10.']); expect(m.eroavat).toBe(true);
+    m.kaikki.forEach((x) => { expect(x).not.toMatch(/myöhemmin|osaa jo|tällä viikolla/); });
+  });
+  it('D248-sanaston kautta (uusi sivu): merkinnät pysyvät napin sanoina, vaikka kt_st_*-avaimet kartoittuvat tila-sanastoon (osaa jo / tällä viikolla / myöhemmin) — ne näkyvät vain tila-sarakkeessa', () => {
+    const SN = require('../lib/tm_sanasto.js'), t = SN.tmSanastoT((k) => k, { kieli: () => 'fi', fi: Object.assign({}, KT.FI) });
+    const html = KT.tmKtOsatHTML({ osat: [{ k: 'a', koodi: 'a', nimi: 'Osa A', tila: 'itsenaisesti', havainnot: O.havainnot }, { k: 'b', koodi: 'b', nimi: 'Osa B', tila: 'ei_viela', havainnot: [O.havainnot[0]] }] }, { v2: true, t, pvmFn: pvm });
+    const teksti = html.replace(/<[^>]+>/g, ''); expect(teksti).toContain('ei vielä · valmentaja 14.10.'); expect(teksti).toContain('itsenäisesti · VP 9.10.');
+    expect(html).toMatch(/kt-osa-st">osaa jo</); expect(html).toMatch(/kt-osa-st">myöhemmin</);   // tila-sarake: D248-tila-sanasto
+    expect(html.replace(/kt-osa-st">[^<]*</g, '')).not.toMatch(/myöhemmin|osaa jo/);   // ei muualla
+  });
+  it('vanhat näkymät (ilman v2) ennallaan: tila-sanat ja SA ilman roolia', () => {
+    const m = KT.tmKtOsaMeta(O, { pvmFn: pvm }); expect(m.meta).toBe('ei vielä · valmentaja 14.10.'); expect(m.kaikki[2]).toBe('ohjatusti · 8.10.');
+  });
+});
