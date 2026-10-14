@@ -108,7 +108,7 @@ describe('B2b · pelaajalle ei näytetä viikkohavainnon lausetta (ennen B3/B4-p
     const luku = (f) => readFileSync(join(JUURI, f), 'utf8');
     const kaikki = [...readdirSync(JUURI).filter((f) => /\.html$/.test(f)), ...readdirSync(join(JUURI, 'lib')).filter((f) => /\.js$/.test(f)).map((f) => 'lib/' + f)];
     const viittaa = kaikki.filter((f) => /osa_havainnot/.test(luku(f))).sort();
-    expect(viittaa).toEqual(['lib/tm_jaksokooste.js', 'lib/tm_kehityssilmukka.js', 'lib/tm_kehitystyopoyta.js', 'lib/tm_kt_havainto.js', 'lib/tm_seuraava_askel.js']);   // B2c: + viikkohistoria (osa_havainnot_vk) jaksohistoriassa   // uusi viittaaja pakottaa katsomaan, ettei lause päädy pelaajalle
+    expect(viittaa).toEqual(['lib/tm_jaksokooste.js', 'lib/tm_kehityssilmukka.js', 'lib/tm_kehitystyopoyta.js', 'lib/tm_kt_arviointi.js', 'lib/tm_kt_havainto.js', 'lib/tm_seuraava_askel.js']);   // B2c: + viikkohistoria (osa_havainnot_vk) jaksohistoriassa   // uusi viittaaja pakottaa katsomaan, ettei lause päädy pelaajalle
     const pelaajaLibit = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].map((f) => luku(f)).join('\n');
     for (const f of viittaa) expect(pelaajaLibit.indexOf(f.replace('lib/', 'lib/') + '?'), f + ' ladataan pelaajan/vanhemman appissa').toBe(-1);
     const fn = readdirSync(join(JUURI, 'functions')).filter((f) => /\.js$/.test(f)).map((f) => luku('functions/' + f)).join('\n'); expect(fn).not.toMatch(/osa_havainnot/);
