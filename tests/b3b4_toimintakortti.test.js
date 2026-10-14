@@ -126,9 +126,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('toimintakortt
   }, 90000);
   it('ENNEN ja JÄLKEEN (mitattu) → tavallinen ohjelma: ei "Kevennettynä", ei "Vaihtoehto kasvuaikana", ei merkintää', async () => {
     await avaa(); try {
-      const ennen = { nimi: 'Voima', liikkeet: [{ liike: 'Naruhypyt + pohjeeksentrinen' }, { liike: 'Kyykky — hallittu', toistot: '3×8' }] };   // Nordic on taulussa ENNEN = vain kevennettynä
-      const a = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: KP_PEL(KP_MITATTU('PRE', -1.6), ennen) }); await odota(a.p);
-      KP_TAVALLINEN(await a.p.locator('[data-kt-tk-fysiikka]').innerText(), ['Naruhypyt + pohjeeksentrinen', 'Kyykky — hallittu']); await a.sk.close();
+      const a = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: KP_PEL(KP_MITATTU('PRE', -1.6)) }); await odota(a.p);   // mitattu ENNEN-pelaaja näkee Nordic Hamstringin (Teron korjaus 14.10.: EX_NORDIC ENNEN = kyllä)
+      KP_TAVALLINEN(await a.p.locator('[data-kt-tk-fysiikka]').innerText(), ['Nordic Hamstring', 'Naruhypyt + pohjeeksentrinen', 'Kyykky — hallittu']); await a.sk.close();
       for (const k of [KP_MITATTU('POST', 0.8), KP_MITATTU('AN', 1.6)]) {
         const b = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: KP_PEL(k) }); await odota(b.p);
         KP_TAVALLINEN(await b.p.locator('[data-kt-tk-fysiikka]').innerText(), ['Nordic Hamstring', 'Naruhypyt + pohjeeksentrinen', 'Kyykky — hallittu']); await b.sk.close();
@@ -146,9 +145,9 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('toimintakortt
       }
     } finally { await selain.close(); }
   }, 180000);
-  it('TM_KUVAT=1 · kuvat 1280 + 390: fysiikkaosio — mittaamaton (merkintä), NYT ja JÄLKEEN', async () => {
+  it('TM_KUVAT=1 · kuvat 1280 + 390: fysiikkaosio — mittaamaton (merkintä), ENNEN, NYT ja JÄLKEEN', async () => {
     if (!process.env.TM_KUVAT) return; mkdirSync(KUVAT, { recursive: true }); await avaa(); try {
-      for (const [n, w, h] of [['1280', 1280, 900], ['390', 390, 844]]) for (const [nimi, lisa] of [['mittaamaton', {}], ['nyt', KP_MITATTU('PH', 0)], ['jalkeen', KP_MITATTU('POST', 0.8)]]) {
+      for (const [n, w, h] of [['1280', 1280, 900], ['390', 390, 844]]) for (const [nimi, lisa] of [['mittaamaton', {}], ['ennen', KP_MITATTU('PRE', -1.6)], ['nyt', KP_MITATTU('PH', 0)], ['jalkeen', KP_MITATTU('POST', 0.8)]]) {
         const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', leveys: w, korkeus: h, pelaajat: KP_PEL(lisa) }); await odota(p);
         await p.locator('[data-kt-tk-fysiikka]').scrollIntoViewIfNeeded(); await p.waitForTimeout(250); await p.screenshot({ path: join(KUVAT, 'fysiikka-' + nimi + '-' + n + '.png') }); await sk.close();
       }
