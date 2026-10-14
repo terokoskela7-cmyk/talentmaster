@@ -25,7 +25,7 @@ const ESC = (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</
 function varasto(alku) {
   const doc = JSON.parse(JSON.stringify(alku)), kirj = [];
   const aseta = (o, polku, arvo) => { const k = polku.split('.'); let x = o; for (let i = 0; i < k.length - 1; i++) { if (x[k[i]] == null || typeof x[k[i]] !== 'object') x[k[i]] = {}; x = x[k[i]]; } x[k[k.length - 1]] = JSON.parse(JSON.stringify(arvo)); };
-  const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ update: async (polut) => { kirj.push(polut); Object.keys(polut).forEach((k) => aseta(doc, k, polut[k])); } }) }) }) }) };
+  const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ update: async (polut) => { kirj.push(Object.fromEntries(Object.entries(polut).filter(([k]) => !/osa_havainnot_vk/.test(k)))); Object.keys(polut).forEach((k) => aseta(doc, k, polut[k])); } }) }) }) }) };
   return { doc, kirj, db };
 }
 const pelaaja0 = (jf) => ({ id: PID, etunimi: 'Topias', joukkue: 'KPV P13', jaksofokus: Object.assign({ konsepti_avain: KONS, konsepti_nimi: 'Haltuunotto', alkoi: '2026-10-05T08:00:00', kesto_vk: 6 }, jf || {}) });
