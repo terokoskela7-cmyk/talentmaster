@@ -5479,6 +5479,13 @@ describe('v3.64 · pelaajat: ydinvahvuus.alue {x,y,w,h} + asetti_uid + asetettu_
       expect((await lue()).ydinvahvuus).toMatchObject({ alue: ALUE, asetti_uid: uid, asetettu_pvm: '2026-10-14' });
     }
   });
+  it('PR B (D172–D174): alue_avain ydinvahvuuden sisaruskenttänä — valmentaja ✓, VP ✓, pelaaja ✗ (alueen muutos); pelimuodot kirjoitetaan joukkuedokkiin (v3.64) samalla oikeudella; Rules ennallaan', async () => {
+    for (const [ctx, uid] of [[vpContext(SEURA_A), VP_A_UID], [valmentajaContext(VALM_A_UID, SEURA_A), VALM_A_UID]]) {
+      await assertSucceeds(updateDoc(ref(ctx.firestore()), kirj(uid, { x: 25, y: 35, w: 50, h: 61 }, { 'ydinvahvuus.alue_avain': 'keskusta' })));
+      expect((await lue()).ydinvahvuus).toMatchObject({ alue: { x: 25, y: 35, w: 50, h: 61 }, alue_avain: 'keskusta', asetti_uid: uid });
+    }
+    await assertFails(updateDoc(ref(pelaajaItseContext().firestore()), kirj(PELAAJA_UID, ALUE, { 'ydinvahvuus.alue_avain': 'karki' })));
+  });
   it('EI KIRJOITTAJAT: toisen joukkueen valmentaja ✗, seurasihteeri ✗, fysioterapeutti ✗, testivastaava ✗, toisen seuran valmentaja ✗', async () => {
     await assertFails(updateDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_A2_UID), kirj(VALM_A_UID)));   // pelaaja eri joukkueessa (JOUKKUE_A2)
     await assertFails(updateDoc(ref(sihteeriContext(SEURA_A).firestore()), kirj(SIHTEERI_UID)));
