@@ -2,11 +2,15 @@
 /**
  * K35-6c (D192) — viikkoilmoitus: Täytä viikko -erä (viikko_era) → perheille YKSI ilmoitus per kohde + ISO-viikko. Päätöslogiikka (pure) + handler (stubattu admin).
  */
-const { test } = require('node:test');
+const { test, mock, after } = require('node:test');
 const assert = require('node:assert');
 const admin = require('firebase-admin');
 const N = require('../kalenteri_notif');
 const { viikonRajat } = require('../helsinki_paiva');
+
+/* Kiinteä kello: testin tapahtumat ovat nyt+30…+102 h, joten ajopäivä/-kellonaika ei saa päättää ylittävätkö ne ISO-viikon rajan (ke-ilta → 2 viikkoa → 2 ilmoitusta oikein, mutta testi odottaa 1). Ma 12.10.2026 09:00 Helsinki. */
+mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 9, 12, 6, 0) });
+after(() => mock.timers.reset());
 
 const DELETE = Symbol('delete'), STORE = new Map();
 const ts = (d) => ({ toDate: () => d, toMillis: () => d.getTime() });
