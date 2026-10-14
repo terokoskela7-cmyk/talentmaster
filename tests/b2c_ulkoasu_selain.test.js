@@ -67,14 +67,27 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · ulkoas
       const v = await p.evaluate(() => {
         const probe = document.createElement('i'); probe.style.color = 'var(--ink3)'; document.body.appendChild(probe); const ink3 = getComputedStyle(probe).color, amber = (probe.style.color = 'var(--amber)', getComputedStyle(probe).color); probe.remove();
         const cs = (s) => getComputedStyle(document.querySelector(s));
-        return { ink3, amber, eb: cs('.kt-eb').color, siru: cs('[data-kt-rivitila="ei_jaksoa"]').borderTopColor, sigBr: cs('.kt-sig').borderTopColor, sigStyle: cs('.kt-sig').borderTopStyle, jkBr: cs('.kt-jk').borderTopColor, sigW: cs('.kt-sig').borderTopWidth, jkW: cs('.kt-jk').borderTopWidth, sigR: cs('.kt-sig').borderTopLeftRadius, jkR: cs('.kt-jk').borderTopLeftRadius };
+        return { ink3, amber, eb: cs('.kt-eb').color, siru: cs('[data-kt-rivitila="ei_jaksoa"]').borderTopColor, sigBr: cs('.kt-sig').borderTopColor, sigStyle: cs('.kt-sig').borderTopStyle, sigW: cs('.kt-sig').borderTopWidth, sigR: cs('.kt-sig').borderTopLeftRadius };
       });
-      expect(v.eb).toBe(v.ink3); expect(v.siru).toBe(v.amber); expect(v.sigStyle).toBe('solid'); expect(v.sigBr).toBe(v.jkBr); expect(v.sigW).toBe(v.jkW); expect(v.sigR).toBe(v.jkR);
+      expect(v.eb).toBe(v.ink3); expect(v.siru).toBe(v.amber); expect(v.sigStyle).toBe('solid'); expect(v.sigW).toBe('1px'); expect(v.sigR).toBe('8px');
       await sk.close();
       const q = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan' }); await odota(q.p);
-      const w = await q.p.evaluate(() => { const cs = (s) => getComputedStyle(document.querySelector(s)); return [cs('.kt-sig').borderTopColor, cs('.kt-q').borderTopColor, cs('.kt-osa-r:not(.on)').borderTopColor, cs('.kt-jk').borderTopColor, cs('.kt-q').borderTopLeftRadius, cs('.kt-osa-r').borderTopLeftRadius, cs('.kt-jk').borderTopLeftRadius, cs('.kt-sig').borderTopWidth, cs('.kt-q').borderTopWidth, cs('.kt-osa-r').borderTopWidth]; });
+      const w = await q.p.evaluate(() => { const cs = (s) => getComputedStyle(document.querySelector(s)); return [cs('.kt-sig').borderTopColor, cs('.kt-q').borderTopColor, cs('.kt-osa-r:not(.on)').borderTopColor, cs('.kt-ev, .kt-q').borderTopColor, cs('.kt-q').borderTopLeftRadius, cs('.kt-osa-r').borderTopLeftRadius, cs('.kt-sig').borderTopLeftRadius, cs('.kt-sig').borderTopWidth, cs('.kt-q').borderTopWidth, cs('.kt-osa-r').borderTopWidth]; });
       expect(new Set(w.slice(0, 4)).size).toBe(1); expect(new Set(w.slice(4, 7)).size).toBe(1); expect(new Set(w.slice(7)).size).toBe(1);
       await q.sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
+  it('B2c-2: "arvioi"-teksti pois tila-sarakkeesta; Jakso-kortin sirut pois; ei jaksoa -tilassa vain YKSI kortti (Seuraava askel); sisältö enintään 960 px', async () => {
+    await avaa(); try {
+      const a = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', leveys: 1280 }); await odota(a.p);
+      const t = await a.p.evaluate(() => document.body.innerText); expect(t).not.toMatch(/\barvioi\b/); expect(await a.p.locator('[data-kt-jk-osa]').count()).toBe(0);
+      expect(await a.p.locator('.kt-osa-r:not(.on) .kt-osa-st').allInnerTexts()).toEqual(['', '', '', '']);   // arvioimaton osa = tyhjä tila
+      const lev = await a.p.evaluate(() => Math.round(document.querySelector('.kt-sivu:not([hidden])').getBoundingClientRect().width)); expect(lev).toBeLessThanOrEqual(960);
+      await a.sk.close();
+      const b = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p1/tanaan', leveys: 1280 }); await odota(b.p);
+      expect(await b.p.locator('.kt-tanaan .kt-ev, .kt-tanaan .kt-sig, .kt-tanaan .kt-q, .kt-tanaan [data-kt-jaksokortti]').count()).toBe(1);
+      expect(await b.p.locator('.kt-sig').count()).toBe(1); expect(await b.p.locator('[data-kt-jaksokortti]').count()).toBe(0);
+      await b.sk.close();
     } finally { await selain.close(); }
   }, 60000);
 });
