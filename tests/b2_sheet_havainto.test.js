@@ -130,7 +130,7 @@ describe('B2c · merkintälista ja "arviot eroavat" (v2): havaintonapin sanat + 
     const SN = require('../lib/tm_sanasto.js'), t = SN.tmSanastoT((k) => k, { kieli: () => 'fi', fi: Object.assign({}, KT.FI) });
     const html = KT.tmKtOsatHTML({ osat: [{ k: 'a', koodi: 'a', nimi: 'Osa A', tila: 'itsenaisesti', havainnot: O.havainnot }, { k: 'b', koodi: 'b', nimi: 'Osa B', tila: 'ei_viela', havainnot: [O.havainnot[0]] }] }, { v2: true, t, pvmFn: pvm });
     const teksti = html.replace(/<[^>]+>/g, ''); expect(teksti).toContain('ei vielä · valmentaja 14.10.'); expect(teksti).toContain('itsenäisesti · VP 9.10.');
-    expect(html).toMatch(/kt-osa-st">osaa jo</); expect(html).toMatch(/kt-osa-st">myöhemmin</);   // tila-sarake: D248-tila-sanasto
+    expect(html).toMatch(/kt-osa-st">✓ osaa jo</); expect(html).toMatch(/kt-osa-st">myöhemmin</);   // tila-sarake: D248-tila-sanasto
     expect(html.replace(/kt-osa-st">[^<]*</g, '')).not.toMatch(/myöhemmin|osaa jo/);   // ei muualla
   });
   it('vanhat näkymät (ilman v2) ennallaan: tila-sanat ja SA ilman roolia', () => {

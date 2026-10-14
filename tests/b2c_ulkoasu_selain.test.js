@@ -96,7 +96,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · ulkoas
       const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: pel }); await odota(p);
       const rivi = p.locator('[data-kt-osa="a"]'), txt = (sel) => rivi.locator(sel).evaluate((e) => e.textContent.replace(/\s+/g, ' '));
       expect(await txt('[data-kt-merkinnat]')).toMatch(/^ei vielä · valmentaja 14\.10\./); expect(await txt('[data-kt-kaikki-arviot]')).toMatch(/itsenäisesti · VP 9\.10\./);
-      expect(await rivi.locator('.kt-osa-st').innerText()).toBe('osaa jo');
+      expect(await rivi.locator('.kt-osa-st').innerText()).toBe('✓ osaa jo');
       expect(await p.locator('[data-kt-merkinnat], [data-kt-kaikki-arviot]').evaluateAll((e) => e.map((x) => x.textContent).join(' '))).not.toMatch(/myöhemmin|osaa jo|tällä viikolla/);
       await sk.close();
     } finally { await selain.close(); }
