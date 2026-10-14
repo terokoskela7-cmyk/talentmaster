@@ -115,7 +115,7 @@
 | **sv-erä 19 Geminille** | heti | Kaikki tyhjät sv-avaimet yhteen pakettiin (`docs/i18n/sv_kaannoserae_19_gemini.json`) + ohje + tuontiskripti (kuiva-ajo). Tero vie Geminille, tuonti omana PR:nä. Code ei kirjoita ruotsia. |
 | **tmTasoVari** | ✅ 11.10. (#992) | Yksi tasoväri ja yksi kattavuussääntö (D125) koko sovelluksessa. Viisi kynnysjoukkoa yhteen. Loput 6 kk:n rajat → VANHA_KK / MUISTUTUS_KK. Puuttuva data ei ole punaista. §7.22: ei pelaajalle. |
 | **Kehitystyöpöytä, Tänään** | ennen 1.11. | Ei tyhjää kenttää (jaksokortti), Seuraava askel -kortille nappi (D100), kysymyskortit samaan anatomiaan (D103), osat: viikon osa tealina, viimeisin arvio, "arviot eroavat", ei "SA"-tekstiä seuran käyttäjälle. |
-| **Ydinvahvuuden alue klikkaamalla** | 1.11. jälkeen | D172–D174: aluejako = pelipaikka-alueet + maalivahti, pelimuodon mukaan (5v5 ei aluevalintaa · 8v8 6 · 11v11 8). Mockup 34 ✅ (#996) → PR B: aluejaot normistoon, `joukkueet/{jid}.pelimuoto`, Rules + testit. |
+| **Ydinvahvuuden alue klikkaamalla** | lokakuu (aikaistettu 14.10.) | D172–D174: aluejako = pelipaikka-alueet + maalivahti, pelimuodon mukaan (5v5 ei aluevalintaa · 8v8 6 · 11v11 8). Mockup 34 ✅ (#996) → PR B: aluejaot normistoon, `joukkueet/{jid}.pelimuoto`, Rules + testit. |
 | Kenttä aktiiviseksi (R1) | joulukuu | Reitti, viikkomerkit ja osat kentällä (D98, D107) + pelaajan ehdotus "missä tykkään pelata" → valmentaja vahvistaa. |
 | Seuran oma normisto -asetukset | 1.11. jälkeen | `konfiguraatio/normit` + Rules + asetusnäkymä VP:lle (mockup ensin). |
 | Yhteinen sivupaneeli | 1.11. jälkeen | Ks. alla. |
@@ -183,9 +183,10 @@ Kalenteri on yksi kokoelma (`seurat/{sid}/kalenteri`), jota VP ja valmentaja kä
 | loka | **Seuraavat Codelle:** K35-11b kuukausinäkymä + 403 · Sibbon 1.11. -valmius ruotsiksi (klippipolku päästä päähän, sv-vienti) · K35-6c ryhmän vastaava | Code → Tero |
 | loka | Lippu `valmentaja_v2` Sibbolle kun klippipolku sv on läpi · sv-erät 29–34 Geminille · P13:n oikeat treenit Täytä viikolla | Tero |
 | marraskuu | K35-9a Outlook → TM (seurojen vastaukset JOPOX/MyClub/Outlook ensin) · K35-5 TASO | Code → Tero |
-| marraskuu | Ydinvahvuuden alue klikkaamalla, PR B (aluejako A + maalivahti pelimuodon mukaan; mockup 34 hyväksytty; Rules) · keräilykortti + PHV pelaajalle (mockup 36, PR C) · Muistuta pelaajaa (PR D) | Code, Tero |
+| loka | **Ydinvahvuuden alue klikkaamalla, PR B** (D172–D174, mockup 34; aikaistettu marraskuusta B2c:n perään, koska KPV-demo tarvitsee Kentän): sheet uudella sivulla, pelipaikka-alueet + maalivahti (8v8 6 · 11v11 8 · 5v5 ei aluevalintaa), pelimuoto kysytään kerran → `joukkueet/{jid}.pelimuodot`, tallennus `{x,y,w,h}` + `alue_avain`; Rules v3.64 riittää | Code → Tero |
+| marraskuu | keräilykortti + PHV pelaajalle (mockup 36, PR C) · Muistuta pelaajaa (PR D) | Code, Tero |
 | **1.12.** | Vanha pelaajakortti pois (D49) · Seuran pulssi S2 | Code |
-| joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106, VP:n Kalenteri + Seuran linja K35-8) · S3 tavoitetasot · K5 Leikkijä + huoltaja · Kenttä aktiiviseksi (D98 + D107: reitti, osamerkit, tavoitteet kentältä; alue klikkaamalla jo marraskuussa) · pelaajan ehdotus "missä tykkään pelata" | Code |
+| joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106, VP:n Kalenteri + Seuran linja K35-8) · S3 tavoitetasot · K5 Leikkijä + huoltaja · Kenttä aktiiviseksi (D98 + D107: reitti, osamerkit, tavoitteet kentältä; alue klikkaamalla jo lokakuussa) · pelaajan ehdotus "missä tykkään pelata" | Code |
 | tammikuu | R2 Master + Seura · portti uudelle suomelle päälle | Code |
 | tammikuu 2027 | **KPV:n seuraava tekniikkakisa** ennen 2.2.2027, jolloin 2.11.2025 tulokset vanhenevat (15 kk) ja D2-luokat putoavat "ei luokkaa" -tilaan | Tero + KPV |
 | kevät | R3 backend · S4 · ryhmät R2 (sääntöryhmät, IDP-ryhmät) · Pallo-Iirojen tuonti | — |
