@@ -38,7 +38,7 @@ describe('päätössäännöt', () => {
   const liike = (nimi) => ({ liike: nimi, toistot: '3×' });
   it('vaihe: PRE → ennen · PH → nyt · POST/AN → jälkeen · LAH ankarampi · tuntematon (mittaamaton ikkunassa, päätös B) → ankarin · null (normaali kuorma) → ei suodatusta', () => {
     expect(['PRE', 'PH', 'POST', 'AN', 'LAH', 'tuntematon', null].map(KP.tmKpVaihe)).toEqual(['e', 'n', 'j', 'j', 'EN', 'KAIKKI', null]);
-    const [nord] = KP.tmKpEtsi('Nordic Hamstring'); expect(['PRE', 'PH', 'POST', 'LAH', 'tuntematon', null].map((t) => KP.tmKpPaatos(nord, t))).toEqual(['v', 'e', 'k', 'e', 'e', 'k']);
+    const [nord] = KP.tmKpEtsi('Nordic Hamstring'); expect(['PRE', 'PH', 'POST', 'LAH', 'tuntematon', null].map((t) => KP.tmKpPaatos(nord, t))).toEqual(['k', 'e', 'k', 'e', 'e', 'k']);   // Teron korjaus 14.10.: EX_NORDIC ENNEN = kyllä
   });
   it('NYT = ei → liike ei näy; ENNEN/JÄLKEEN → näkyy (CMJ: ennen kyllä, nyt ei, jälkeen kyllä)', () => {
     expect(KP.tmKpSuodata([liike('Kevennyshyppy (CMJ)')], 'PH').liikkeet).toEqual([]);
@@ -47,7 +47,7 @@ describe('päätössäännöt', () => {
   });
   it('vain kevennettynä → lähteen oma ohje (kevennetty); lähteellä ei omaa ohjetta (kuntoutuspankki) → ei näytetä', () => {
     const r = KP.tmKpSuodata([liike('Naruhypyt + pohjeeksentrinen')], 'PH').liikkeet[0]; expect(r.kevennetty).toBe('Naruhypyt 2×10s kevyesti. Pohjeeksentrinen pois kasvuaikana.');
-    expect(KP.tmKpSuodata([liike('Nordic Hamstring')], 'PRE').liikkeet).toEqual([]);   // HPP: ennen = vain kevennettynä, mutta lähteellä ei kevennettyä ohjetta
+    expect(KP.tmKpSuodata([liike('Nordic Hamstring — täysi')], 'PRE').liikkeet).toEqual([]);   // HPP: ennen = vain kevennettynä, mutta lähteellä ei kevennettyä ohjetta
     expect(KP.tmKpSuodata([liike('Seuran oma kyykky')], 'PH').liikkeet).toHaveLength(1);   // tuntematon liike ei kosketa
   });
   it('sama harjoite (sama nimi, myös eri pankeissa) vain kerran; apufunktio huomioi jo käytetyt', () => {
@@ -73,6 +73,13 @@ describe('tavallinen ohjelma ja kasvuajan ohjelma (kuvapalaute 14.10.)', () => {
       const h = kortti(tila); for (const n of ['Nordic Hamstring', 'Naruhypyt + pohjeeksentrinen', 'Kyykky — hallittu']) expect(h, String(tila)).toContain(n);
       expect(h, String(tila)).not.toContain('data-kt-kevennetty'); expect(h, String(tila)).not.toContain('data-kt-vaihtoehdot'); expect(h, String(tila)).not.toMatch(/Kevennettynä|Vaihtoehto kasvuaikana|kasvuaikana/);
     }
+  });
+  it('mitattu ENNEN-pelaaja näkee Nordic Hamstringin tavallisena; NYT, LAH ja mittaamaton eivät näe sitä', () => {
+    const liike = (nimi) => ({ liike: nimi, toistot: '3×' }), nordic = (tila) => KP.tmKpSuodata([liike('Nordic Hamstring')], tila).liikkeet;
+    expect(nordic('PRE')).toEqual([{ liike: 'Nordic Hamstring', toistot: '3×' }]);   // sellaisenaan: ei kevennetty-kenttää
+    expect(nordic('POST')).toHaveLength(1); for (const tila of ['PH', 'LAH', 'tuntematon']) expect(nordic(tila), tila).toEqual([]);
+    const h = TK.tmKtToimintakorttiHTML(TK.tmKtToimintakortti({ id: 'p1', jaksofokus: { konsepti_avain: 'y_h1', domeeni: 'fyysinen', ohjelma: { liikkeet: [{ liike: 'Nordic Hamstring', toistot: '3×5' }] } } }, { tt: {}, phvTila: 'PRE', phv: 'PRE' }), {});
+    expect(h).toContain('Nordic Hamstring · 3×5'); expect(h).not.toMatch(/Kevennettynä|Vaihtoehto kasvuaikana/);
   });
   it('ENNEN (PRE): tavallinen niille joiden ENNEN-arvo on kyllä (pohjeeksentrinen, kyykky)', () => {
     const h = TK.tmKtToimintakorttiHTML(TK.tmKtToimintakortti({ id: 'p1', jaksofokus: { konsepti_avain: 'y_h1', domeeni: 'fyysinen', ohjelma: { liikkeet: [{ liike: 'Naruhypyt + pohjeeksentrinen' }, { liike: 'Kyykky — hallittu' }] } } }, { tt: {}, phvTila: 'PRE', phv: 'PRE' }), {});
