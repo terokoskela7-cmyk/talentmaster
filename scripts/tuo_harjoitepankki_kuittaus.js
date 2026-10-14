@@ -37,7 +37,8 @@ function lueTaulu(rivit) {
 function suunnittele(taulu, nykyinen) {
   const lue = nykyinen != null, rp = {
     yhteensa: taulu.length, duplikaatit: [], virheelliset: [],
-    kuittaus: { ok: 0, muutettu: 0, poista: 0, tyhja: 0, tuntematon: [] }, tuodaan: [], eiTuoda: { poista: [], tyhja: 0, tuntematon: [] }, ilmanDokumenttia: [], eiHyvaksytty: [], arkistoitu: [],
+    kuittaus: { ok: 0, muutettu: 0, poista: 0, tyhja: 0, tuntematon: [] }, tuodaan: [], eiTuoda: { poista: [], tyhja: 0, tuntematon: [] },
+    pankki: { luettu: lue, dokumentteja: lue ? Object.keys(nykyinen).length : null, ilmanDokumenttia: [], eiHyvaksytty: [], arkistoitu: [], eiTaulukossa: [], eiTaulukossaTilat: {} },   // vertailu KAIKILLE taulukon riveille kuittauksesta riippumatta (vain jos pankki luettiin)
     esitaytto: { konsepti: {}, konseptiYht: 0, eiKonseptia: [], eiKonseptiaTyypit: {}, tyhja: [], tuntematon: [], toissijainenAnnettu: 0, toissijainenTuntematon: [], toissijainenSamaKuinEnsisijainen: [] },
     lahde: { oma: 0, soccertutor: [], spl: 0, muu: 0, tyhjaMuuna: 0, tuntematon: [] }, video: { annettu: 0, https: 0, eiHttps: [] }, ika: { jasennetty: 0, jasentymaton: [], tyhja: [] },
   };
@@ -45,6 +46,7 @@ function suunnittele(taulu, nykyinen) {
   taulu.forEach((r) => {
     const id = r.id; if (!id || !ID_RE.test(id)) { rp.virheelliset.push(id || '(tyhjä id)'); return; }
     if (nahty[id]) { rp.duplikaatit.push(id); return; } nahty[id] = 1;
+    if (lue) { const d = nykyinen[id]; if (!d) rp.pankki.ilmanDokumenttia.push(id); else { if (d.arkistoitu === true) rp.pankki.arkistoitu.push(id); if (d.tila !== 'hyvaksytty') rp.pankki.eiHyvaksytty.push(id + ' (' + (d.tila || 'ei tilaa') + ')'); } }
     const ku = H.tmHarjoiteKuittaus(r.kuittaus), kons = H.tmHarjoiteKonsepti(r.mita), toiss = H.tmHarjoiteKonsepti(r.toissijainen), lt = H.tmHarjoiteLahdeTyyppi(r.lahde), ika = H.tmHarjoiteParsiIka(r.ika);
     // ── esitäytön kattavuus (riippumaton kuittauksesta) ──
     if (kons.tila === 'konsepti') { rp.esitaytto.konsepti[kons.avain] = (rp.esitaytto.konsepti[kons.avain] || 0) + 1; rp.esitaytto.konseptiYht++; } else if (kons.tila === 'ei_konseptia') { rp.esitaytto.eiKonseptia.push(id); const ty = norm(r.tyyppi) || '(tyyppi tyhjä)'; rp.esitaytto.eiKonseptiaTyypit[ty] = (rp.esitaytto.eiKonseptiaTyypit[ty] || 0) + 1; } else if (kons.tila === 'tyhja') rp.esitaytto.tyhja.push(id); else rp.esitaytto.tuntematon.push(id + ' ("' + norm(r.mita) + '")');
@@ -64,10 +66,11 @@ function suunnittele(taulu, nykyinen) {
       if (norm(r.video) && K.tmKtVideoKelpaa(r.video, { vainHttps: true })) patch.video_url = norm(r.video).trim();
       if (!ika._jasentymaton && (ika.ika_max != null || ika.ika_min != null)) { patch.ika_min = ika.ika_min; patch.ika_max = ika.ika_max; patch.ika_teksti = ika.ika_teksti; }
       rp.tuodaan.push(id);
-      if (lue) { const d = nykyinen[id]; if (!d) { rp.ilmanDokumenttia.push(id); patch = null; syy = 'ei dokumenttia pankissa'; } else { if (d.arkistoitu === true) rp.arkistoitu.push(id); if (d.tila !== 'hyvaksytty') rp.eiHyvaksytty.push(id); } }
+      if (lue && !nykyinen[id]) { patch = null; syy = 'ei dokumenttia pankissa'; }
     }
     rivit.push({ id, kuittaus: ku, tuodaan: !!patch, syy, patch });
   });
+  if (lue) Object.keys(nykyinen).forEach((id) => { if (nahty[id]) return; rp.pankki.eiTaulukossa.push(id); const d = nykyinen[id] || {}, t = d.arkistoitu === true ? 'arkistoitu' : (d.tila || 'ei tilaa'); rp.pankki.eiTaulukossaTilat[t] = (rp.pankki.eiTaulukossaTilat[t] || 0) + 1; });
   return { rivit, raportti: rp };
 }
 
@@ -87,8 +90,14 @@ function tulosta(r, opts) {
   L.push('\n[3] LÄHDE: oma ' + p.lahde.oma + ' · SoccerTutor ' + p.lahde.soccertutor.length + nimi(p.lahde.soccertutor) + ' · SPL ' + p.lahde.spl + ' · muu/en tiedä ' + p.lahde.muu + ' (joista tyhjä → muu ' + p.lahde.tyhjaMuuna + ') · tunnistamaton ' + p.lahde.tuntematon.length + nimi(p.lahde.tuntematon));
   L.push('[4] VIDEO_URL: annettu ' + p.video.annettu + ' · https ' + p.video.https + ' · ei-https (ei tuoda) ' + p.video.eiHttps.length + nimi(p.video.eiHttps));
   L.push('[5] IKÄKAISTA → ika_min/ika_max: jäsennetty ' + p.ika.jasennetty + ' · jäsentymätön ' + p.ika.jasentymaton.length + nimi(p.ika.jasentymaton) + ' · tyhjä ' + p.ika.tyhja.length + nimi(p.ika.tyhja));
-  if (p.ilmanDokumenttia.length || p.eiHyvaksytty.length || p.arkistoitu.length) L.push('[6] PANKKIA VASTEN (luettu): ilman dokumenttia ' + p.ilmanDokumenttia.length + nimi(p.ilmanDokumenttia) + ' · ei hyväksytty (ei näy toimintakortissa) ' + p.eiHyvaksytty.length + nimi(p.eiHyvaksytty) + ' · arkistoitu ' + p.arkistoitu.length + nimi(p.arkistoitu));
-  else L.push('[6] pankkia vasten ei verrattu (--ei-lue): dokumenttien olemassaolo, tila ja arkistointi tarkistetaan vasta luvussa.');
+  const k = p.pankki;
+  if (k.luettu) {
+    L.push('[6] PANKKIA VASTEN (luettu: ' + k.dokumentteja + ' dokumenttia; vertailu kaikille ' + (p.yhteensa - p.duplikaatit.length - p.virheelliset.length) + ' taulukon riville kuittauksesta riippumatta)');
+    L.push('  taulukon rivit ilman dokumenttia: ' + k.ilmanDokumenttia.length + nimi(k.ilmanDokumenttia));
+    L.push('  taulukon rivit joiden dokumentti ei ole hyväksytty (ei näy toimintakortissa): ' + k.eiHyvaksytty.length + nimi(k.eiHyvaksytty));
+    L.push('  taulukon rivit joiden dokumentti on arkistoitu: ' + k.arkistoitu.length + nimi(k.arkistoitu));
+    L.push('  pankin dokumentit joita taulukossa ei ole: ' + k.eiTaulukossa.length + (k.eiTaulukossa.length ? ' [' + Object.keys(k.eiTaulukossaTilat).sort().map((t) => t + ' ' + k.eiTaulukossaTilat[t]).join(' · ') + ']' : '') + nimi(k.eiTaulukossa));
+  } else L.push('[6] pankkia vasten ei verrattu (--ei-lue): dokumenttien olemassaolo, tila ja arkistointi tarkistetaan vasta luvussa.');
   return L.join('\n');
 }
 

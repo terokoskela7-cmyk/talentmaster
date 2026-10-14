@@ -49,10 +49,24 @@ describe('kuittaustuonti: kuivaharjoitus (suunnittele)', () => {
     expect(p('a_3')).toMatchObject({ lahde_tyyppi: 'soccertutor', kolmas_osapuoli: true, konsepti: 'y_h4' }); expect(p('a_4')).toMatchObject({ konsepti: null }); expect(p('a_5')).not.toHaveProperty('konsepti');
     expect(p('a_6')).not.toHaveProperty('video_url'); expect(r.raportti.video.eiHttps).toEqual(['a_6']); for (const id of ['a_1', 'a_2', 'a_3']) expect(p(id)).not.toHaveProperty('tila');
   });
-  it('linkitys id:llä pankin dokumenttiin: puuttuva dokumentti → ei kirjoiteta; ei-hyväksytty ja arkistoitu raportoidaan', () => {
-    const t = taulu([{ id: 'kpvh_01', mita: 'Syöttäminen', kuittaus: 'OK' }, { id: 'kpvh_02', mita: 'Syöttäminen', kuittaus: 'OK' }, { id: 'kpvh_03', mita: 'Syöttäminen', kuittaus: 'OK' }, { id: 'kpvh_04', mita: 'Syöttäminen', kuittaus: 'OK' }]);
-    const r = T.suunnittele(t, { kpvh_01: { tila: 'hyvaksytty' }, kpvh_02: { tila: 'luonnos' }, kpvh_03: { tila: 'hyvaksytty', arkistoitu: true } }), p = r.raportti;
-    expect(p.ilmanDokumenttia).toEqual(['kpvh_04']); expect(p.eiHyvaksytty).toEqual(['kpvh_02']); expect(p.arkistoitu).toEqual(['kpvh_03']); expect(r.rivit.find((x) => x.id === 'kpvh_04')).toMatchObject({ tuodaan: false, syy: 'ei dokumenttia pankissa' });
+  it('linkitys id:llä pankin dokumenttiin: tuotavalla rivillä puuttuva dokumentti → ei kirjoiteta', () => {
+    const t = taulu([{ id: 'kpvh_01', mita: 'Syöttäminen', kuittaus: 'OK' }, { id: 'kpvh_04', mita: 'Syöttäminen', kuittaus: 'OK' }]);
+    const r = T.suunnittele(t, { kpvh_01: { tila: 'hyvaksytty' } }); expect(r.raportti.pankki.ilmanDokumenttia).toEqual(['kpvh_04']); expect(r.rivit.find((x) => x.id === 'kpvh_04')).toMatchObject({ tuodaan: false, syy: 'ei dokumenttia pankissa' }); expect(r.rivit.find((x) => x.id === 'kpvh_01').tuodaan).toBe(true);
+  });
+  it('[6] PANKKI LUETTU, EI KUITTAUKSIA: vertailu tehdään kaikille taulukon riveille (ilman dokumenttia, ei hyväksytty, arkistoitu) + pankin dokumentit joita taulukossa ei ole; ei väitä "--ei-lue"', () => {
+    const t = taulu([{ id: 'd_1', mita: 'Syöttäminen' }, { id: 'd_2', mita: 'Syöttäminen' }, { id: 'd_3', mita: 'Syöttäminen' }, { id: 'd_4', mita: 'Syöttäminen' }, { id: 'd_5', mita: 'Syöttäminen' }]);   // kuittaus tyhjä kaikilla
+    const kanta = { d_1: { tila: 'hyvaksytty' }, d_2: { tila: 'luonnos' }, d_3: { tila: 'hyvaksytty', arkistoitu: true }, d_5: { tila: 'hyvaksytty' }, x_1: { tila: 'hyvaksytty' }, x_2: { tila: 'luonnos' }, x_3: { tila: 'hyvaksytty', arkistoitu: true } };
+    const r = T.suunnittele(t, kanta), k = r.raportti.pankki; expect(r.raportti.tuodaan).toEqual([]);
+    expect(k).toMatchObject({ luettu: true, dokumentteja: 7, ilmanDokumenttia: ['d_4'], eiHyvaksytty: ['d_2 (luonnos)'], arkistoitu: ['d_3'], eiTaulukossa: ['x_1', 'x_2', 'x_3'], eiTaulukossaTilat: { hyvaksytty: 1, luonnos: 1, arkistoitu: 1 } });
+    const out = T.tulosta(r, { seura: 'testi' }); expect(out).not.toContain('--ei-lue'); expect(out).toContain('PANKKIA VASTEN (luettu: 7 dokumenttia'); expect(out).toContain('ilman dokumenttia: 1 (d_4)'); expect(out).toContain('ei ole hyväksytty (ei näy toimintakortissa): 1 (d_2 (luonnos))'); expect(out).toContain('arkistoitu: 1 (d_3)'); expect(out).toContain('taulukossa ei ole: 3 [arkistoitu 1 · hyvaksytty 1 · luonnos 1] (x_1; x_2; x_3)');
+  });
+  it('[6] PANKKI LUETTU, KAIKKI OK: luvut näytetään myös nollina (ei piiloon)', () => {
+    const r = T.suunnittele(taulu([{ id: 'e_1', mita: 'Syöttäminen' }]), { e_1: { tila: 'hyvaksytty' } }), out = T.tulosta(r, { seura: 'testi' });
+    expect(out).toContain('ilman dokumenttia: 0'); expect(out).toContain('ei ole hyväksytty (ei näy toimintakortissa): 0'); expect(out).toContain('on arkistoitu: 0'); expect(out).toContain('taulukossa ei ole: 0'); expect(out).not.toContain('--ei-lue');
+  });
+  it('[6] PANKKIA EI LUETTU: "ei verrattu (--ei-lue)" vain silloin', () => {
+    const r = T.suunnittele(taulu([{ id: 'f_1', mita: 'Syöttäminen', kuittaus: 'OK' }]), null), out = T.tulosta(r, { seura: 'testi' });
+    expect(r.raportti.pankki).toMatchObject({ luettu: false, dokumentteja: null }); expect(out).toContain('ei verrattu (--ei-lue)'); expect(out).not.toContain('PANKKIA VASTEN');
   });
   it('esitäytön kattavuus riippumatta kuittauksesta: konsepti-osumat, "ei konseptia" (+ pankin tyyppi syynä), tyhjät, tunnistamattomat, toissijainen; duplikaatti-id ja virheellinen id', () => {
     const r = T.suunnittele(taulu([{ id: 'b_1', mita: 'Syöttäminen', toiss: 'Syöttäminen' }, { id: 'b_2', mita: 'ei TalentMaster-konseptia', tyyppi: 'Lämmittely' }, { id: 'b_3', mita: '' }, { id: 'b_4', mita: 'Outo', toiss: 'Outo2' }, { id: 'b_1', mita: 'Maalinteko' }, { id: 'Väärä Id', mita: 'x' }]), null), e = r.raportti.esitaytto;
