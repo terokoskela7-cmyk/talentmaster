@@ -48,15 +48,15 @@
 <script src="lib/tm_polun_tila.js?v=2"></script>
 <script src="lib/tm_tanaan_signaali.js?v=9"></script>
 <script src="lib/tm_kevyt_katselmus.js?v=2"></script>
-<script src="lib/tm_kentta.js?v=4"></script>
+<script src="lib/tm_kentta.js?v=5"></script>
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>
-<script src="lib/tm_kentta_spec.js?v=1"></script>
+<script src="lib/tm_kentta_spec.js?v=2"></script>
 <script src="lib/tm_hash_reititin.js?v=1"></script>
 <script src="lib/tm_kt_komponentit.js?v=4"></script>
 <script src="lib/tm_kalenteri_tyypit.js?v=4"></script>
 <script src="lib/tm_kalenteri_kyselyt.js?v=3"></script>
 <script src="lib/tm_valmentaja_nav.js?v=3"></script>
-<script src="lib/tm_kehitystyopoyta.js?v=25"></script>
+<script src="lib/tm_kehitystyopoyta.js?v=26"></script>
 <script src="lib/tm_jakso_malli.js?v=4"></script>
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>
 <script src="lib/tm_koti_oletus.js?v=1"></script>
@@ -290,7 +290,7 @@ function _tanaanHTML(p0, tila) {
   const p = _naytto(p0);
   const kaanon = _kaanon;
   const _kenttaMenu = function (pp) { return (_voiKirjoittaa(pp) && _alueMahdollinen(pp)) ? '<details class="kt-valikko kts-kentta-valikko"><summary class="kt-nappi kt-nappi-kuva" aria-label="' + _e(T('ka_valikko')) + '">⋯</summary><div class="kt-valikko-lista" role="menu"><button type="button" role="menuitem" data-kt-vaihda-alue onclick="_ktToimi(' + _e(JSON.stringify(pp.id)) + ',\'aseta_alue\')">' + _e(T('ka_vaihda')) + '</button></div></details>' : ''; };
-  const kenttaFn = function (alue, pp, spec) { return '<div class="kts-kentta">' + _kenttaMenu(pp) + ((typeof window.tmKentta === 'function') ? window.tmKentta(spec || { koko: 'puoli', ase: { alue: alue, nimi: (pp && pp.ydinvahvuus && pp.ydinvahvuus.kuvaus) || '', tila: 'ok' }, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: TT }) : '') + '</div>'; };   // D98 + B1: kenttä piirtyy VAIN kun ydinvahvuus.alue on asetettu; spec = lib/tm_kentta_spec.js (ase + reitti + viikkomerkit + osat + historia)
+  const kenttaFn = function (alue, pp, spec) { return '<div class="kts-kentta">' + _kenttaMenu(pp) + ((typeof window.tmKentta === 'function') ? window.tmKentta(spec || { koko: 'puoli', ase: { alue: alue, nimi: (pp && pp.ydinvahvuus && pp.ydinvahvuus.kuvaus) || '', tila: 'ok' }, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: TT, osaPisteet: true, osaFn: '_ktHavaintoLisaa', pid: pp.id, osaNimi: function (t) { return K.tmKtOsaJako(t).nimi; }, osaTila: function (tila) { return T({ itsenaisesti: 'kt_st_itsenaisesti', nyt: 'kt_st_viikon_osa', ohjatusti: 'kt_st_ohjatusti', ei_viela: 'kt_st_ei_viela' }[tila] || ''); } }) : '') + '</div>'; };   // ydinasiapisteet: napautus = sama funktio kuin osarivin napautus   // D98 + B1: kenttä piirtyy VAIN kun ydinvahvuus.alue on asetettu; spec = lib/tm_kentta_spec.js (ase + reitti + viikkomerkit + osat + historia)
   return K.tmKtTanaanKoko(p, tila, { v2: true, alueMahdollinen: _alueMahdollinen(p), esc: _e, t: TT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoLisaa', lisaFn: '_ktHavaintoLisaa', inline: true, tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
     paneeli: true, rooli: _rooli, uid: _uid, nimet: function () { return ''; }, voiKirjoittaa: _voiKirjoittaa(p), kenttaFn: kenttaFn, kaanon: kaanon, tanaan: tmPaivaIso(new Date()),
     sigCtx: _sigCtx(p), vk: _vkKooste(p, tila), kalenteri: null, havainto: { auki: _S.havaintoAuki === p.id, osa: _S.havaintoOsa } });
