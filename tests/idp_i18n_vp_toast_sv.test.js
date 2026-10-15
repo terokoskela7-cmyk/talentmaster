@@ -118,17 +118,7 @@ describe('ilmoituskanavat · kattavuus', () => {
    Uusi toast-teksti, jonka sv on Gemini-erässä. Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana:
    jos käännös ilmestyy, alempi testi punertaa ja rivi on poistettava listalta. */
 const SV_ODOTTAA_SANKTIOINTIA = [
-  // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
-  // Tyhjä (sv-erä 3 vietiin): 'Sitoumus on edelliseltä jaksolta' ja 'VP-kalibraatio kuuluu VP:lle' saapuivat vp_kartta-osiossa.
-  // Erä 5 (docs/i18n/sv_kaannoserae_5.json, S2 PR 1): sv tyhjä kunnes Gemini palauttaa.
-  'Päivitetään koostetta…',
-  // Erä 9 (docs/i18n/sv_kaannoserae_9.json, S2c PR 2): Viestit v0 -toast.
-  'Lukukuittaus ei tallentunut — viesti pysyy lukemattomana.',
-  'Viesti tallentui historiaan mutta ei valmentajan Inboxiin — yritä uudelleen.',
-  // Erä 6 (docs/i18n/sv_kaannoserae_6.json, S2 PR 2): kuittauksen toastit.
-  // Erä 17 (docs/i18n/sv_kaannoserae_17.json, Koti D171): Seuran tauko -lomakkeen toast.
-  'Viimeinen päivä ei voi olla ennen alkua',
-  'Siirretty ensi viikolle', 'Kuitattu', 'Kuittaus ei tallentunut — tarkista yhteys ja yritä uudelleen.',
+  // Tyhjä 15.10.2026: erän 19 palautus (vp_kartta) vietiin scripts/i18n_vie_sv_era53_19.cjs:llä; uusi sanktiointia odottava avain → lisää tähän.
 ];
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {

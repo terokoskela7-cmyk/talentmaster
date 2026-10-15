@@ -12,20 +12,22 @@ Generoitu `node scripts/ui_kuvat_sibbo_sv.mjs`. Kieli sv, vain demo-data (ei oik
 | ![03-huoltaja](03-huoltaja-dark-1280.webp) `03-huoltaja-dark-1280.webp` | dark | 1280 | 9 |
 | ![04-suostumus](04-suostumus-dark-390.webp) `04-suostumus-dark-390.webp` | dark | 390 | 15 |
 | ![04-suostumus](04-suostumus-dark-1280.webp) `04-suostumus-dark-1280.webp` | dark | 1280 | 15 |
+| ![04b-suostumus-validointiviesti](04b-suostumus-validointiviesti-dark-390.webp) `04b-suostumus-validointiviesti-dark-390.webp` | dark | 390 | 15 |
+| ![04b-suostumus-validointiviesti](04b-suostumus-validointiviesti-dark-1280.webp) `04b-suostumus-validointiviesti-dark-1280.webp` | dark | 1280 | 15 |
 | ![05-valmentaja-pelaajakortti](05-valmentaja-pelaajakortti-dark-390.webp) `05-valmentaja-pelaajakortti-dark-390.webp` | dark | 390 | 3 |
 | ![05-valmentaja-pelaajakortti](05-valmentaja-pelaajakortti-dark-1280.webp) `05-valmentaja-pelaajakortti-dark-1280.webp` | dark | 1280 | 2 |
 | ![05-valmentaja-pelaajakortti](05-valmentaja-pelaajakortti-light-390.webp) `05-valmentaja-pelaajakortti-light-390.webp` | light | 390 | 3 |
 | ![05-valmentaja-pelaajakortti](05-valmentaja-pelaajakortti-light-1280.webp) `05-valmentaja-pelaajakortti-light-1280.webp` | light | 1280 | 2 |
 | ![06-pelihavainto-tyokalu](06-pelihavainto-tyokalu-dark-390.webp) `06-pelihavainto-tyokalu-dark-390.webp` | dark | 390 | 1 |
 | ![06-pelihavainto-tyokalu](06-pelihavainto-tyokalu-dark-1280.webp) `06-pelihavainto-tyokalu-dark-1280.webp` | dark | 1280 | 1 |
-| ![07-harjoitusarviointi](07-harjoitusarviointi-dark-390.webp) `07-harjoitusarviointi-dark-390.webp` | dark | 390 | 20 |
-| ![07-harjoitusarviointi](07-harjoitusarviointi-dark-1280.webp) `07-harjoitusarviointi-dark-1280.webp` | dark | 1280 | 19 |
-| ![07-harjoitusarviointi](07-harjoitusarviointi-light-390.webp) `07-harjoitusarviointi-light-390.webp` | light | 390 | 20 |
-| ![07-harjoitusarviointi](07-harjoitusarviointi-light-1280.webp) `07-harjoitusarviointi-light-1280.webp` | light | 1280 | 19 |
-| ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-dark-390.webp) `08-vp-joukkuenakyma-dark-390.webp` | dark | 390 | 4 |
-| ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-dark-1280.webp) `08-vp-joukkuenakyma-dark-1280.webp` | dark | 1280 | 3 |
-| ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-light-390.webp) `08-vp-joukkuenakyma-light-390.webp` | light | 390 | 4 |
-| ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-light-1280.webp) `08-vp-joukkuenakyma-light-1280.webp` | light | 1280 | 3 |
+| ![07-harjoitusarviointi](07-harjoitusarviointi-dark-390.webp) `07-harjoitusarviointi-dark-390.webp` | dark | 390 | 4 |
+| ![07-harjoitusarviointi](07-harjoitusarviointi-dark-1280.webp) `07-harjoitusarviointi-dark-1280.webp` | dark | 1280 | 3 |
+| ![07-harjoitusarviointi](07-harjoitusarviointi-light-390.webp) `07-harjoitusarviointi-light-390.webp` | light | 390 | 4 |
+| ![07-harjoitusarviointi](07-harjoitusarviointi-light-1280.webp) `07-harjoitusarviointi-light-1280.webp` | light | 1280 | 3 |
+| ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-dark-390.webp) `08-vp-joukkuenakyma-dark-390.webp` | dark | 390 | 3 |
+| ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-dark-1280.webp) `08-vp-joukkuenakyma-dark-1280.webp` | dark | 1280 | 2 |
+| ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-light-390.webp) `08-vp-joukkuenakyma-light-390.webp` | light | 390 | 3 |
+| ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-light-1280.webp) `08-vp-joukkuenakyma-light-1280.webp` | light | 1280 | 2 |
 
 ## Jäänteet kuvittain
 
@@ -113,6 +115,40 @@ Generoitu `node scripts/ui_kuvat_sibbo_sv.mjs`. Kieli sv, vain demo-data (ei oik
 - (aria-label) Kuukausi
 - (placeholder) oma.osoite@email.fi
 
+### 04b-suostumus-validointiviesti-dark-390.webp
+- (teksti) Valmis
+- (teksti) Pelaajan tiedot
+- (teksti) Raportit toimitetaan tähän -- alle 18v käytetään huoltajan osoitetta
+- (teksti) Joukkue
+- (teksti) Seura
+- (teksti) (Palloliiton pelaajatunnus)
+- (teksti) PalloID löytyy Palloliiton pelaajasivulta. Jätä tyhjäksi jos ei tiedossa.
+- (teksti) Biologisen iän arviointi (vapaaehtoinen)
+- (teksti) Vanhempien pituustiedot mahdollistavat biologisen iän arvioinnin myöhemmin. Vapaaehtoinen. Tiedot ovat luottamuksellisia eikä niitä jaeta ko
+- (teksti) Ei tiedossa
+- (teksti) Pelaaja on adoptoitu tai biologisten vanhempien tietoja ei ole saatavilla
+- (teksti) Seuraava
+- (aria-label) Päivä
+- (aria-label) Kuukausi
+- (placeholder) oma.osoite@email.fi
+
+### 04b-suostumus-validointiviesti-dark-1280.webp
+- (teksti) Valmis
+- (teksti) Pelaajan tiedot
+- (teksti) Raportit toimitetaan tähän -- alle 18v käytetään huoltajan osoitetta
+- (teksti) Joukkue
+- (teksti) Seura
+- (teksti) (Palloliiton pelaajatunnus)
+- (teksti) PalloID löytyy Palloliiton pelaajasivulta. Jätä tyhjäksi jos ei tiedossa.
+- (teksti) Biologisen iän arviointi (vapaaehtoinen)
+- (teksti) Vanhempien pituustiedot mahdollistavat biologisen iän arvioinnin myöhemmin. Vapaaehtoinen. Tiedot ovat luottamuksellisia eikä niitä jaeta ko
+- (teksti) Ei tiedossa
+- (teksti) Pelaaja on adoptoitu tai biologisten vanhempien tietoja ei ole saatavilla
+- (teksti) Seuraava
+- (aria-label) Päivä
+- (aria-label) Kuukausi
+- (placeholder) oma.osoite@email.fi
+
 ### 05-valmentaja-pelaajakortti-dark-390.webp
 - (teksti) Harjoitettavuuskartoitus U13–15 · öppen
 - (teksti) Nopeustestien kehitys +0.18 s 10 m:llä — tekniikkamuutos välitilasta.
@@ -138,110 +174,42 @@ Generoitu `node scripts/ui_kuvat_sibbo_sv.mjs`. Kieli sv, vain demo-data (ei oik
 - (teksti) Kohdennettu pelihavainto
 
 ### 07-harjoitusarviointi-dark-390.webp
-- (teksti) ilman suostumusta
-- (teksti) Arvioi harjoitus
-- (teksti) A · Harjoittelun laatu
-- (teksti) B · Valmennustaidot
-- (teksti) Joukkue
-- (teksti) Valmentaja
-- (teksti) Vuorovaikutus aktiivista ja kannustavaa; palaute oppimista tukevaa; huomioi kaikki pelaajat
-- (teksti) Pelaajat ovat harjoitusajasta liikkeessä
-- (teksti) Liikkumisen määrä kellolla; aktiivinen lajinomainen liikkuminen, ei turhaa odottelua
-- (teksti) Keskim. pallokosketukset/harjoitus. 1 = 100 kosketusta … 10 = 1000
-- (teksti) Pelaajien toiminta on täysivauhtista
-- (teksti) Maalintekoa mahdollistava harjoittelu
-- (teksti) Osuus harjoitteista joissa pelinomaista viimeistelyä. 2/4 harjoitetta = 50 %
-- (teksti) Seuran oma tavoite
-- (teksti) Seuran oma tavoite (konfiguraatio)
-- (teksti) Annetaanko henkilökohtainen palaute valmentajalle / tiimille
 - (teksti) Tallenna arviointi
 - (aria-label) Avaa valikko
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 07-harjoitusarviointi-dark-1280.webp
-- (teksti) ilman suostumusta
-- (teksti) Arvioi harjoitus
-- (teksti) A · Harjoittelun laatu
-- (teksti) B · Valmennustaidot
-- (teksti) Joukkue
-- (teksti) Valmentaja
-- (teksti) Vuorovaikutus aktiivista ja kannustavaa; palaute oppimista tukevaa; huomioi kaikki pelaajat
-- (teksti) Pelaajat ovat harjoitusajasta liikkeessä
-- (teksti) Liikkumisen määrä kellolla; aktiivinen lajinomainen liikkuminen, ei turhaa odottelua
-- (teksti) Keskim. pallokosketukset/harjoitus. 1 = 100 kosketusta … 10 = 1000
-- (teksti) Pelaajien toiminta on täysivauhtista
-- (teksti) Maalintekoa mahdollistava harjoittelu
-- (teksti) Osuus harjoitteista joissa pelinomaista viimeistelyä. 2/4 harjoitetta = 50 %
-- (teksti) Seuran oma tavoite
-- (teksti) Seuran oma tavoite (konfiguraatio)
-- (teksti) Annetaanko henkilökohtainen palaute valmentajalle / tiimille
 - (teksti) Tallenna arviointi
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 07-harjoitusarviointi-light-390.webp
-- (teksti) ilman suostumusta
-- (teksti) Arvioi harjoitus
-- (teksti) A · Harjoittelun laatu
-- (teksti) B · Valmennustaidot
-- (teksti) Joukkue
-- (teksti) Valmentaja
-- (teksti) Vuorovaikutus aktiivista ja kannustavaa; palaute oppimista tukevaa; huomioi kaikki pelaajat
-- (teksti) Pelaajat ovat harjoitusajasta liikkeessä
-- (teksti) Liikkumisen määrä kellolla; aktiivinen lajinomainen liikkuminen, ei turhaa odottelua
-- (teksti) Keskim. pallokosketukset/harjoitus. 1 = 100 kosketusta … 10 = 1000
-- (teksti) Pelaajien toiminta on täysivauhtista
-- (teksti) Maalintekoa mahdollistava harjoittelu
-- (teksti) Osuus harjoitteista joissa pelinomaista viimeistelyä. 2/4 harjoitetta = 50 %
-- (teksti) Seuran oma tavoite
-- (teksti) Seuran oma tavoite (konfiguraatio)
-- (teksti) Annetaanko henkilökohtainen palaute valmentajalle / tiimille
 - (teksti) Tallenna arviointi
 - (aria-label) Avaa valikko
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 07-harjoitusarviointi-light-1280.webp
-- (teksti) ilman suostumusta
-- (teksti) Arvioi harjoitus
-- (teksti) A · Harjoittelun laatu
-- (teksti) B · Valmennustaidot
-- (teksti) Joukkue
-- (teksti) Valmentaja
-- (teksti) Vuorovaikutus aktiivista ja kannustavaa; palaute oppimista tukevaa; huomioi kaikki pelaajat
-- (teksti) Pelaajat ovat harjoitusajasta liikkeessä
-- (teksti) Liikkumisen määrä kellolla; aktiivinen lajinomainen liikkuminen, ei turhaa odottelua
-- (teksti) Keskim. pallokosketukset/harjoitus. 1 = 100 kosketusta … 10 = 1000
-- (teksti) Pelaajien toiminta on täysivauhtista
-- (teksti) Maalintekoa mahdollistava harjoittelu
-- (teksti) Osuus harjoitteista joissa pelinomaista viimeistelyä. 2/4 harjoitetta = 50 %
-- (teksti) Seuran oma tavoite
-- (teksti) Seuran oma tavoite (konfiguraatio)
-- (teksti) Annetaanko henkilökohtainen palaute valmentajalle / tiimille
 - (teksti) Tallenna arviointi
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 08-vp-joukkuenakyma-dark-390.webp
-- (teksti) ilman suostumusta
 - (aria-label) Avaa valikko
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 08-vp-joukkuenakyma-dark-1280.webp
-- (teksti) ilman suostumusta
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 08-vp-joukkuenakyma-light-390.webp
-- (teksti) ilman suostumusta
 - (aria-label) Avaa valikko
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 08-vp-joukkuenakyma-light-1280.webp
-- (teksti) ilman suostumusta
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 

@@ -125,7 +125,7 @@ describe('tuplapainallus', () => {
     };
     vm.createContext(ctx);
     vm.runInContext('var _lahetysKaynnissa = false, _lahetettyOnnistuneesti = false;\n'
-      + pura('function _poistaRistiriitaIlmoitus() {') + '\n' + pura('function _naytaRistiriitaIlmoitus(viesti) {') + '\n'
+      + pura('function _st(k, fi) {') + '\n' + pura('function _poistaRistiriitaIlmoitus() {') + '\n' + pura('function _naytaRistiriitaIlmoitus(viesti) {') + '\n'
       + pura('function _onPelaajaRistiriita(err) {') + '\n' + pura('function toStep3() {') + '\nthis.t3 = toStep3;', ctx);
     ctx.t3(); ctx.t3();
     expect(kutsut.filter((k) => k === 'vahvista')).toHaveLength(1);

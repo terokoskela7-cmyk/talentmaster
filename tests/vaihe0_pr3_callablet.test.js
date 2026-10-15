@@ -257,7 +257,7 @@ describe('Rekisterointi_Suostumus · ei QR:ää, kopiointia eikä PIN:iä sivull
   const S = readFileSync(join(ROOT, 'TalentMaster_Rekisterointi_Suostumus.html'), 'utf8');
   it('sivu ei lue eikä näytä linkkiä/PIN:iä', () => {
     expect(S).not.toMatch(/passwordResetLink|res\.data\.pin|_suostumusResetLinkki|_suostumusPin|qrserver/);
-    expect(S).toContain('Tunnukset l&auml;hetetty s&auml;hk&ouml;postiisi');
-    expect(S).toContain('Pyyd&auml; seuraa l&auml;hett&auml;m&auml;&auml;n tunnukset uudelleen');
+    expect(S).toContain("_st('suostumus.tunnukset_lahetetty','Tunnukset lähetetty sähköpostiisi')");   // reititetty (Sibbo-reititys); fi-varateksti = entinen teksti
+    expect(S).toContain("_st('suostumus.pyyda_seuraa','Pyydä seuraa lähettämään tunnukset uudelleen')");
   });
 });

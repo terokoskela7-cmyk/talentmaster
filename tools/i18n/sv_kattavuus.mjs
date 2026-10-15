@@ -35,9 +35,9 @@ export const NAKYMAT = [
 const RUNTIME_PROTOTYYPIT = ['pelaaja/haptic', 'pelaaja/offline', 'pelaaja/parent', 'pelaaja/vapaa', 'pelaaja/haaste'];
 
 /* ── Lähetetyt erät (odottaa palautusta): 51 ja 52. Muiden erien tyhjät sv-rivit raportoidaan erikseen ("muu erä"), ei lasketa odottaviksi. ── */
-const ODOTTAVAT_ERAT = [];   // 51 ja 52 palautettiin ja vietiin samassa PR:ssä (scripts/i18n_vie_sv_era51_52.cjs) → ei odottavia; lisää tähän kun erä lähtee (esim. 53)
-const ERA_OMA = 53;
-function eratIndeksi() {
+const ODOTTAVAT_ERAT = [54];   // 51–53 palautettiin ja vietiin (scripts/i18n_vie_sv_era51_52.cjs, i18n_vie_sv_era53_19.cjs); 54 = Sibbo-reitityksen uudet avaimet (lähetetään) → rivit "odottaa"
+const ERA_OMA = 54;   // erä 54 on scripts/i18n_luo_gemini_era54.mjs:n OMA tuloste: generaattori laskee ilmanOmaaEraa:true (muuten rivit näkyisivät jo odottavina)
+function eratIndeksi(ilmanOmaa) {
   const ulos = { odottaa: { avain: new Set(), fi: new Set() }, muu: { avain: new Map(), fi: new Map() }, palautettu: { avain: new Map(), fi: new Map() } };
   // Gemini-palautukset (docs/i18n/*palautus*.json): sv täytetty mutta EI välttämättä viety koodiin (osavienti) → "palautettu, ei viety"
   for (const f of readdirSync(join(JUURI, 'docs/i18n')).filter((x) => /palautus.*\.json$/.test(x))) {
@@ -48,7 +48,7 @@ function eratIndeksi() {
   }
   for (const f of readdirSync(join(JUURI, 'docs/i18n'))) {
     const m = /^sv_kaannoserae_(\d+)_gemini\.json$/.exec(f); if (!m) continue; const n = Number(m[1]);
-    if (n === ERA_OMA) continue;   // erä 53 on tämän raportin OMA tuloste (scripts/i18n_luo_gemini_era53.mjs): ei lasketa lähetetyksi
+    if (ilmanOmaa && n === ERA_OMA) continue;   // generaattori: oma tuloste ei saa vaikuttaa omaan syötteeseensä
     let j; try { j = JSON.parse(lue('docs/i18n/' + f)); } catch (e) { continue; }
     const kohde = ODOTTAVAT_ERAT.includes(n) ? ulos.odottaa : null;
     for (const [osio, o] of Object.entries(j.osiot || {})) {
@@ -108,6 +108,28 @@ export function svIndeksi() {
   return { on: (teksti) => idx.has(_norm(teksti)) };
 }
 
+/* ── Harjoitusarviointilomake (lib/tm_harjoitusarviointi.js): lomakkeen tekstit = _T('…')-literaalit + kriteeritaulut (kysymys/kuvaus/matala/korkea). Avain = fi-teksti; sv tarvitaan SEKÄ masterT- että vpT-ketjussa
+   (oma kartta → TM_I18N_COMMON → TM_LIB_I18N). ── */
+export function harjoitusarviointiAvaimet() {
+  const src = lue('lib/tm_harjoitusarviointi.js'), set = new Set();
+  for (const m of src.matchAll(/_T\('((?:[^'\\]|\\.)*)'\)/g)) set.add(m[1].replace(/\\'/g, "'"));
+  const a = src.indexOf('function KRITEERIT_A'), b = src.indexOf('// ── DOM → tila'), blk = src.slice(a, b);
+  for (const m of blk.matchAll(/(?:kysymys|kuvaus|matala|korkea): (?:L \? )?'((?:[^'\\]|\\.)*)'/g)) set.add(m[1]);
+  for (const m of blk.matchAll(/L \? '([^']*)' : '([^']*)'/g)) { set.add(m[1]); set.add(m[2]); }
+  set.delete('');
+  const ketju = (f, n) => { try { return require('../../' + f)[n].sv || {}; } catch (e) { return {}; } };
+  const C = ketju('lib/tm_i18n_common.js', 'TM_I18N_COMMON'), L = ketju('lib/tm_lib_i18n.js', 'TM_LIB_I18N'), M = ketju('lib/tm_master_i18n.js', 'TM_MASTER_I18N'), V = ketju('lib/tm_vp_i18n.js', 'TM_VP_I18N');
+  const on = (K, k) => [K, C, L].some((x) => typeof x[k] === 'string' && x[k] !== '');
+  return [...set].map((fi) => ({ fi, master: on(M, fi), vp: on(V, fi), viite: (typeof V[fi] === 'string' && V[fi]) || (typeof M[fi] === 'string' && M[fi]) || null }));
+}
+/** Libin kuluttamat näkymäkohtaiset lisäavaimet (reititys lib → masterT/vpT, ei näy HTML:n literaaleina): { fi, router } */
+const LISA_AVAIMET = { kehitystyopoyta: [{ fi: 'Leikkijä', router: 'master' }, { fi: 'Rakentaja', router: 'master' }, { fi: 'Showcase', router: 'master' }] };
+export function lisaAvaimetPuuttuu(id) {
+  const ketju = (f, n) => { try { return require('../../' + f)[n].sv || {}; } catch (e) { return {}; } };
+  const C = ketju('lib/tm_i18n_common.js', 'TM_I18N_COMMON'), L = ketju('lib/tm_lib_i18n.js', 'TM_LIB_I18N'), M = ketju('lib/tm_master_i18n.js', 'TM_MASTER_I18N'), V = ketju('lib/tm_vp_i18n.js', 'TM_VP_I18N');
+  return (LISA_AVAIMET[id] || []).map((x) => { const K = x.router === 'master' ? M : V; return { fi: x.fi, router: x.router, ok: [K, C, L].some((y) => typeof y[x.fi] === 'string' && y[x.fi] !== ''), viite: (typeof V[x.fi] === 'string' && V[x.fi]) || null }; });
+}
+
 /* ── kovakoodattu suomi: staattinen (HTML + libit) ── */
 function skannaa(tiedostot, S, onLib, svI) {
   const rivit = [];
@@ -123,8 +145,9 @@ function skannaa(tiedostot, S, onLib, svI) {
   return rivit;
 }
 
-function laske(lapiajoPolku) {
-  const era = eratIndeksi(), lang = langAvaimet(), libit = libAvaimet(), S = lataaSallitut(), svI = svIndeksi();
+function laske(lapiajoPolku, opts) {
+  opts = opts || {};
+  const era = eratIndeksi(!!opts.ilmanOmaaEraa), lang = langAvaimet(), libit = libAvaimet(), S = lataaSallitut(), svI = svIndeksi();
   const lapiajo = existsSync(lapiajoPolku) ? JSON.parse(readFileSync(lapiajoPolku, 'utf8')) : null;
   const tulos = [];
   for (const n of NAKYMAT) {
@@ -140,6 +163,8 @@ function laske(lapiajoPolku) {
     for (const l of libNimet) for (const [k, r] of Object.entries(libit[l] || {})) rivit.push({ lahde: 'lib.' + l, avain: k, fi: r.fi, tila: r.sv ? 'ok' : tila(k, r.fi) });
     // reititinkartta
     if (n.router) { const r = reititinPuuttuu(n.router), puuttuu = new Set(r.puuttuu); for (const fi of r.kaikki) rivit.push({ lahde: 'kartta.' + n.router, avain: fi, fi, tila: puuttuu.has(fi) ? tila(fi, fi) : 'ok' }); }
+    if (n.id === 'harjoitusarviointi') for (const r of harjoitusarviointiAvaimet()) rivit.push({ lahde: 'lib.tm_harjoitusarviointi', avain: r.fi, fi: r.fi, tila: (r.master && r.vp) ? 'ok' : tila(r.fi, r.fi) });
+    for (const r of lisaAvaimetPuuttuu(n.id)) rivit.push({ lahde: 'lib.' + n.id + '.lisa', avain: r.fi, fi: r.fi, tila: r.ok ? 'ok' : tila(r.fi, r.fi) });
     // dedup (sama lahde+avain)
     const nahty = new Set(), uniq = rivit.filter((r) => { const id = r.lahde + '|' + r.avain; if (nahty.has(id)) return false; nahty.add(id); return true; });
     const luku = (t) => uniq.filter((r) => r.tila === t).length;

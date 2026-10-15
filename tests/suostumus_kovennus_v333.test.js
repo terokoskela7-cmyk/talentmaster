@@ -112,7 +112,7 @@ describe('suostumuslomake: ei pelaajan luontia selaimesta; "Pyydä seuralta uusi
     const ctx = { el: (id) => (id === 'v1' ? v1 : els[id] || null), t: (k) => k,
       document: { createElement: () => ({ style: {}, setAttribute() {} }) } };
     vm.createContext(ctx);
-    vm.runInContext(pura('function _uusiKutsuViesti() {') + '\n' + pura('function _naytaUusiKutsuIlmoitus() {') + '\nthis.nayta = _naytaUusiKutsuIlmoitus;', ctx);
+    vm.runInContext(pura('function _st(k, fi) {') + '\n' + pura('function _uusiKutsuViesti() {') + '\n' + pura('function _naytaUusiKutsuIlmoitus() {') + '\nthis.nayta = _naytaUusiKutsuIlmoitus;', ctx);
     ctx.nayta();
     expect(v1.lisatty.textContent).toMatch(/^Pyydä seuralta uusi kutsu\./);
     expect(LOMAKE).toContain('if (_seuraId && !_pelaajaId) _naytaUusiKutsuIlmoitus();');

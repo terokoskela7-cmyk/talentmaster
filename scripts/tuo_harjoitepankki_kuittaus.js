@@ -35,6 +35,7 @@ function lueTaulu(rivit, opts) {
   const peruste = (x) => norm(x).replace(/\s*\([^)]*\)\s*$/, '');
   return rivit.slice(1).filter((r) => r.some((c) => norm(c))).map((r) => {
     const o = {}; Object.keys(kartta).forEach((k) => { o[k] = norm(r[kartta[k]]); });
+    if (o.kuittaus && am.kuittaus[am.n(o.kuittaus)]) o.kuittaus = am.kuittaus[am.n(o.kuittaus)];   // sv-näyttöarvo → sisäinen arvo (OK · Muutettu · Poista); fi-arvot ennallaan
     ['mita', 'toissijainen'].forEach((k) => { if (o[k] && am.konsepti[am.n(o[k])]) o[k] = am.konsepti[am.n(o[k])]; });
     if (o.lahde && am.lahde[am.n(peruste(o.lahde))]) o.lahde = am.lahde[am.n(peruste(o.lahde))];
     return o;

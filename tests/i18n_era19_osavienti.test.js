@@ -34,6 +34,7 @@ describe('sv-erä 19 — osavienti (24 riviä)', () => {
     const muut = [];
     for (const [o, v] of Object.entries(P.osiot)) for (const [a, r] of Object.entries(v.rivit)) {
       if (osa.has(o + ' :: ' + a)) continue; const k = koodissa(o, a); if (k === undefined) continue;
+      if (o === 'vp_kartta' && k === r.sv) continue;   // vietiin 15.10.2026 scripts/i18n_vie_sv_era53_19.cjs:llä (VP-rivit)
       const e3 = E3.osiot[o] && E3.osiot[o].rivit[a];
       if (!(e3 && e3.sv === k && r.sv === k)) muut.push(o + ' :: ' + a);
     }

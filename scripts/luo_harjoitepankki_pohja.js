@@ -29,7 +29,7 @@ function luoPohja(opts) {
   const kt = K.kielitaulu(opts.kieli || 'fi', opts.sanasto ? { sanasto: opts.sanasto } : undefined);
   if (kt.puuttuu.length && !opts.salliPuutteet) throw new Error('sv-pohja: ' + kt.puuttuu.length + ' tekstiä puuttuu (Gemini-erä 53 ei vielä viety: scripts/i18n_vie_sv_vientipohja.cjs): ' + kt.puuttuu.slice(0, 8).join(', ') + (kt.puuttuu.length > 8 ? ' …' : '') + '. Ohita vain --salli-puutteet.');
   const c = K.pohjaSisalto(kt, seura, null), vl = c.valilehdet;
-  const listat = []; for (let i = 0; i < c.konseptit.length; i++) listat.push([c.konseptit[i], c.lahteet[i] || '', KUITTAUKSET[i] || '']);
+  const listat = []; for (let i = 0; i < c.konseptit.length; i++) listat.push([c.konseptit[i], c.lahteet[i] || '', c.kuittaukset[i] || '']);   // kuittaus: näyttöarvo (sv-pohjassa ruotsiksi kun erä 54 viety); tuonti tallentaa aina OK · Muutettu · Poista
   const alue = (col) => col + '2:' + col + (n + 1), L = lainaa(vl.listat);
   return kirjoitaXlsx({ sheets: [
     { nimi: vl.ohje, rivit: c.ohje.map((t) => [t]), leveys: [130], rivita: true },

@@ -68,7 +68,7 @@ function lomake(arvot, ika) {
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext('var _lahetysKaynnissa = false, _lahetettyOnnistuneesti = false;\n'
     + pura(LOMAKE, 'function val(id) {') + '\n' + pura(LOMAKE, 'function _ikaVuosina(d) {') + '\n' + pura(LOMAKE, 'function _naytaHuoltajakortti(age) {') + '\n'
-    + 'var SYN_ALKUVUOSI = 1990;\n' + ['function _synTt(k, fi) {', 'function _synVirheTeksti() {', 'function _synTila() {', 'function _synKorosta(paalla, teksti) {'].map((x) => pura(LOMAKE, x)).join('\n') + '\n'
+    + 'var SYN_ALKUVUOSI = 1990;\n' + ['function _st(k, fi) {', 'function _synTt(k, fi) {', 'function _synVirheTeksti() {', 'function _synTila() {', 'function _synKorosta(paalla, teksti) {'].map((x) => pura(LOMAKE, x)).join('\n') + '\n'
     + pura(LOMAKE, 'function onAge() {') + '\n' + pura(LOMAKE, 'function toStep2() {') + '\n'
     + pura(LOMAKE, 'function _poistaRistiriitaIlmoitus() {') + '\n' + pura(LOMAKE, 'function _naytaRistiriitaIlmoitus(viesti) {') + '\n'
     + pura(LOMAKE, 'function _onPelaajaRistiriita(err) {') + '\n' + pura(LOMAKE, 'function toStep3() {')

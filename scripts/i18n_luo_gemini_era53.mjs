@@ -15,6 +15,7 @@ const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (n, d) => { const a = process.argv.find((x) => x.startsWith('--' + n + '=')); return a ? a.slice(n.length + 3) : d; };
 const OUT = join(ROOT, arg('tiedosto', 'docs/i18n/sv_kaannoserae_53_gemini.json'));
+if (!arg('tiedosto', null) && existsSync(join(ROOT, 'docs/i18n/sv_kaannoserae_53_palautus.json'))) { console.error('Erä 53 on lähetetty ja palautettu (docs/i18n/sv_kaannoserae_53_palautus.json) — lähetettyä erätiedostoa ei regeneroida. Seuraava erä: scripts/i18n_luo_gemini_era54.mjs.'); process.exit(3); }
 const _log = console.log; console.log = (...a) => { if (!String(a[0]).startsWith('[TM Lang]') && !String(a[0]).startsWith('[tm-')) _log(...a); };
 const lue = (f) => JSON.parse(readFileSync(join(ROOT, f), 'utf8'));
 const dec = (x) => String(x).replace(/&auml;/g, 'ä').replace(/&ouml;/g, 'ö').replace(/&Auml;/g, 'Ä').replace(/&Ouml;/g, 'Ö').replace(/&aring;/g, 'å').replace(/&mdash;/g, '—').replace(/&rarr;/g, '→').replace(/&rdquo;|&ldquo;/g, '"').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();

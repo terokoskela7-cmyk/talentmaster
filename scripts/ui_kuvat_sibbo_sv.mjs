@@ -20,11 +20,12 @@ const KUVAT = [
   { id: '02-pelaaja-pelialy-kortti', sivu: 'TalentMaster_Pelaaja_v7.html', kysely: '?demo=1', entry: "demoKirjaudu('aleksi')", sisaan: SULJE_TERVETULO, js: ["go('card')"] },
   { id: '03-huoltaja', sivu: 'TalentMaster_Vanhempi_v2.html', kysely: '?demo=1', entry: '0', js: ["setAge('u12'); go('koti')"] },
   { id: '04-suostumus', sivu: 'TalentMaster_Rekisterointi_Suostumus.html', kysely: '', entry: '0', js: [] },
+  { id: '04b-suostumus-validointiviesti', sivu: 'TalentMaster_Rekisterointi_Suostumus.html', kysely: '', entry: '0', js: ["toStep2()"] },   // tyhjä lomake → dynaaminen virhetoast (reititetty _st-kutsulla)
   { id: '05-valmentaja-pelaajakortti', sivu: 'TalentMaster_Master_v16.html', kysely: '?demo=1', entry: 'loginDemo()', lokalisoi: "typeof masterLokalisoi === 'function' && masterLokalisoi()", vaalea: true, js: ["setWs('dev')", "(function(){var e=document.querySelector('[onclick*=\"renderDev(\"]');if(e)e.click();})()"] },
   { id: '06-pelihavainto-tyokalu', sivu: 'TalentMaster_Pelihavainto_Kentta.html', kysely: '', entry: '0', js: [] },
   { id: '07-harjoitusarviointi', sivu: 'TalentMaster_VP_v25.html', kysely: '?demo=1', entry: 'demoMode()', lokalisoi: "typeof vpLokalisoi === 'function' && vpLokalisoi()", vaalea: true,
     // demo-tila estää vpAvaaHarjoitusarvioinnin (vaatii auth + seuran) → avataan jaettu lomakekomponentti suoraan demo-kontekstilla (ei Firestorea, ei tallennusta)
-    js: ["TM_HARJOITUS.avaa({ db: null, firebase: null, seuraId: 'demo', config: null, konteksti: { joukkue: 'U12', valmentaja: 'Demo Valmentaja', valmentajaUid: 'demo' }, joukkueet: [{ id: 'u12', nimi: 'U12' }], valmentajat: [{ uid: 'demo', nimi: 'Demo Valmentaja', joukkue: 'U12' }] })"], vahvista: '#haModal' },
+    js: ["TM_HARJOITUS.avaa({ db: null, firebase: null, t: vpT, seuraId: 'demo', config: null, konteksti: { joukkue: 'U12', valmentaja: 'Demo Valmentaja', valmentajaUid: 'demo' }, joukkueet: [{ id: 'u12', nimi: 'U12' }], valmentajat: [{ uid: 'demo', nimi: 'Demo Valmentaja', joukkue: 'U12' }] })"], vahvista: '#haModal' },
   { id: '08-vp-joukkuenakyma', sivu: 'TalentMaster_VP_v25.html', kysely: '?demo=1', entry: 'demoMode()', lokalisoi: "typeof vpLokalisoi === 'function' && vpLokalisoi()", vaalea: true, js: ["setWs('koti')"] },
 ];
 const LEVEYDET = [390, 1280];

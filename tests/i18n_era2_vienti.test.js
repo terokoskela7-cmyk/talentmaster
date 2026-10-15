@@ -27,7 +27,8 @@ describe('Gemini-erä 2 — vienti', () => {
     expect(kaikki.length - tyhjat.length).toBe(1331);
     // erän 2 tyhjät tm_lang-rivit täyttyivät erässä 3 (vietiin scripts/i18n_vie_sv_era3.cjs) → ne + mahdollinen odotuslista
     const ERA3 = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_3.json'), 'utf8')).osiot.tm_lang.rivit;
-    const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').concat(Object.keys(ERA3).filter((p) => ERA3[p].sv)).map((p) => 'tm_lang::' + p);
+    const ERA54 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_54_gemini.json'), 'utf8')).osiot.tm_lang.rivit));   // erän 54 avaimet (Sibbo-reititys) kuuluvat erään 54
+    const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').filter((p) => !ERA54.has(p)).concat(Object.keys(ERA3).filter((p) => ERA3[p].sv)).map((p) => 'tm_lang::' + p);
     const tmLangTyhjat = tyhjat.filter(([o]) => o === 'tm_lang').map(([o, a]) => o + '::' + a).sort();
     expect(tmLangTyhjat).toEqual(ODOTTAA.slice().sort());
   });
