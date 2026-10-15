@@ -16,18 +16,36 @@ const fs = require('fs');
 const { lueXlsx } = require('./xlsx_luku');
 const H = require('../lib/tm_harjoitepankki.js');
 const K = require('../lib/tm_kt_toimintakortti.js');
+const VK = require('./vientipohja_kieli');   // pohjan kielitaulu: sv-pohja luetaan samoin kuin fi-pohja
 
 const ALIAS = { id: 'id', nimi: 'nimi', pankki: 'pankki', teema: 'teema', teema_kpv: 'teema', tyyppi: 'tyyppi', ika: 'ika', ikakaista: 'ika', tavoite: 'tavoite', mita_harjoitellaan: 'mita', toissijainen: 'toissijainen', lahde: 'lahde', video_url: 'video', kuittaus: 'kuittaus', kommentti: 'kommentti' };
 const norm = (v) => String(v == null ? '' : v).trim();
 const otsikko = (h) => norm(h).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\(.*?\)/g, (m) => '_' + m.replace(/[()]/g, '')).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 const ID_RE = /^[a-z0-9_]+$/;
 
-/** xlsx-välilehti (rivit[][]) → [{id, nimi, mita, toissijainen, lahde, video, kuittaus, ika, …}]; puuttuva vaadittu sarake → heittää. */
-function lueTaulu(rivit) {
+/** xlsx-välilehti (rivit[][]) → [{id, nimi, mita, toissijainen, lahde, video, kuittaus, ika, …}]; puuttuva vaadittu sarake → heittää.
+ *  Pohjan kieli (fi | sv) tunnistetaan otsikoista ja listojen arvoista kielitaulun (scripts/vientipohja_kieli.js) kautta: sv-otsikot → samat sisäiset avaimet, sv-arvot (Mitä harjoitellaan, Lähde) → fi-arvot,
+ *  joten loppu tuonti (suunnittele) toimii identtisesti. opts.sanasto = testisanasto (VK.kielitaulu). */
+function lueTaulu(rivit, opts) {
   if (!rivit || !rivit.length) throw new Error('tyhjä välilehti');
-  const kartta = {}; rivit[0].forEach((h, i) => { const k = ALIAS[otsikko(h)] || ALIAS[otsikko(h).replace(/_.*$/, '')]; if (k && kartta[k] == null) kartta[k] = i; });
+  const sv = VK.kielitaulu('sv', opts && opts.sanasto ? { sanasto: opts.sanasto } : undefined), svAlias = VK.otsikkoAliasit(sv, otsikko), am = VK.arvoKartat(sv);
+  const avainOtsikolle = (h) => { const n = otsikko(h), kanta = n.replace(/_.*$/, ''); return ALIAS[n] || svAlias[n] || ALIAS[kanta] || svAlias[kanta]; };
+  const kartta = {}; rivit[0].forEach((h, i) => { const k = avainOtsikolle(h); if (k && kartta[k] == null) kartta[k] = i; });
   const puuttuu = ['id', 'nimi', 'mita', 'kuittaus'].filter((k) => kartta[k] == null); if (puuttuu.length) throw new Error('puuttuvat sarakkeet: ' + puuttuu.join(', '));
-  return rivit.slice(1).filter((r) => r.some((c) => norm(c))).map((r) => { const o = {}; Object.keys(kartta).forEach((k) => { o[k] = norm(r[kartta[k]]); }); return o; });
+  const peruste = (x) => norm(x).replace(/\s*\([^)]*\)\s*$/, '');
+  return rivit.slice(1).filter((r) => r.some((c) => norm(c))).map((r) => {
+    const o = {}; Object.keys(kartta).forEach((k) => { o[k] = norm(r[kartta[k]]); });
+    ['mita', 'toissijainen'].forEach((k) => { if (o[k] && am.konsepti[am.n(o[k])]) o[k] = am.konsepti[am.n(o[k])]; });
+    if (o.lahde && am.lahde[am.n(peruste(o.lahde))]) o.lahde = am.lahde[am.n(peruste(o.lahde))];
+    return o;
+  });
+}
+/** Työkirjan välilehdet → harjoitetaulu: välilehti nimeltä Harjoitteet (fi tai sv), muuten ensimmäinen jonka otsikot kelpaavat (OHJE-välilehti ei kelpaa). */
+function valitseTaulu(sheets, opts) {
+  const taulut = [VK.kielitaulu('fi'), VK.kielitaulu('sv', opts && opts.sanasto ? { sanasto: opts.sanasto } : undefined)], nimet = Object.keys(sheets);
+  const nimi = nimet.find((n) => VK.valilehdenRooli(n, taulut) === 'harjoitteet') || nimet.find((n) => { try { lueTaulu(sheets[n], opts); return true; } catch (e) { return false; } });
+  if (!nimi) throw new Error('Harjoitteet-välilehteä ei löydy (eikä mitään välilehteä jonka otsikot kelpaavat)');
+  return lueTaulu(sheets[nimi], opts);
 }
 
 /**
@@ -107,7 +125,7 @@ async function main(args) {
   const o = argv(args);
   if (!o.seura || !o.tiedosto) { console.error('Käyttö: node scripts/tuo_harjoitepankki_kuittaus.js --seura <seuraId> --tiedosto <xlsx> [--ei-lue] [--apply]'); return 2; }
   if (!/^[a-z0-9_]+$/.test(o.seura)) { console.error('Kelpaamaton --seura'); return 2; }
-  const x = lueXlsx(fs.readFileSync(o.tiedosto)), taulu = lueTaulu(x.sheets.Harjoitteet || x.sheets[Object.keys(x.sheets)[0]]);
+  const x = lueXlsx(fs.readFileSync(o.tiedosto)), taulu = valitseTaulu(x.sheets);
   let db = null, admin = null, nykyinen = null;
   if (!o['ei-lue'] || o.apply) {
     admin = require('firebase-admin'); admin.initializeApp({ credential: admin.credential.applicationDefault() }); db = admin.firestore();   // gcloud ADC (ei SA-avainta)
@@ -125,5 +143,5 @@ async function main(args) {
   if (k) await batch.commit(); console.log('\nKirjoitettu ' + n + ' dokumenttia (' + juuri + ').'); return 0;
 }
 
-module.exports = { lueTaulu, suunnittele, tulosta, argv, ALIAS };
+module.exports = { lueTaulu, valitseTaulu, suunnittele, tulosta, argv, ALIAS };
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c)).catch((e) => { console.error(e && e.stack || e); process.exit(1); });
