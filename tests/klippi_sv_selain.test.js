@@ -22,8 +22,8 @@ const lue = (f) => readFileSync(join(JUURI, f), 'utf8');
 const CHROME = [process.env.TM_CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean).find((p) => existsSync(p));
 const MV = require('../lib/tm_mediaviesti.js'), KP = require('../lib/tm_klippi_perhe.js'), LIB = require('../lib/tm_lib_i18n.js'), LANG = require('../lib/tm_lang.js');
 
-/* Klippipolun lib-avaimet, joille sv puuttuu (docs/i18n/sv_kaannoserae_36.json → Gemini). Elävä: sv saapui → poista rivi (testi alla kaatuu muuten). */
-export const SV_ODOTTAA = ['mv_media_video', 'mv_media_kuva', 'mv_media_linkki', 'mv_ryhma', 'mv_valitse_ryhma', 'mv_ei_ryhmia', 'mv_ryhma_yhteenveto', 'mv_ryhma_yhteenveto_ei_lupaa', 'mv_virhe_ryhma', 'mv_virhe_ryhma_tyhja', 'mv_rivi_ryhma', 'mv_lahetetty_ryhma', 'mv_oma_video', 'mv_oma_video_tulossa', 'mv_oma_video_ei_kaytossa', 'mv_oma_video_tarjous', 'mv_oma_video_pyyda', 'mv_oma_video_aihe', 'mv_virhe_lahde'];   // erä 42: ryhmäklippi + oma videoklippi -varaus (sv_kaannoserae_42_gemini.json)
+/* Klippipolun lib-avaimet, joille sv puuttuu (docs/i18n/sv_kaannoserae_36.json → Gemini; 15.10.2026 erät 51+52 vietiin). Elävä: sv saapui → poista rivi (testi alla kaatuu muuten). */
+export const SV_ODOTTAA = [];   // erä 42: ryhmäklippi + oma videoklippi -varaus (sv_kaannoserae_42_gemini.json)
 /* Valmentajan pelaajanäkymän Masterin fi-tekstiavaimet (masterT), joille sv puuttuu Master-kartasta (docs/i18n/sv_kaannoserae_37.json → Gemini). Elävä: sv saapui → poista rivi. */
 export const MASTER_SV_ODOTTAA = ['ei asetettu'];   // lib/tm_vastuuhenkilo.js t('ei asetettu') masterT:n kautta (IDP-kortin Vastuuhenkilö-rivi)
 const MA_SV = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;
