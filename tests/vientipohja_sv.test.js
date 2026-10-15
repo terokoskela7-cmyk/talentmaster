@@ -17,13 +17,14 @@ const fi = VK.kaannettavat();
 const tekstit = {}; for (const [id, f] of Object.entries(fi)) tekstit[id] = 'SV<' + id + '>' + (f.match(/\{\w+\}/g) || []).map((m) => ' (' + m + ')').join('');
 const konseptit = {}; H.KONSEPTIT.forEach(([, n], i) => { konseptit[n] = 'SVK' + (i + 1); });
 const SANASTO = { tekstit, konseptit };
-const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
+// hajautus PURETUSTA sisällöstä (deflate-tavut vaihtelevat zlib-version mukaan → CI ≠ paikallinen)
+const sha = (b) => { const z = lueZip(b), h = crypto.createHash('sha256'); for (const k of Object.keys(z).sort()) h.update(k + '\0').update(z[k]); return h.digest('hex'); };
 
 describe('fi-pohja ennallaan (refaktorointi kielitauluun)', () => {
-  it('tavutarkka: sama xlsx kuin ennen kielitaulua (SJK/120, KPV/oletus, Sibbo-Vargarna/150)', () => {
-    expect(sha(G.luoPohja({ seura: 'SJK', rivit: 120 }))).toBe('5865eab031f69a8a7036c53095e4995af082edaf4357a859df29cc712f85c41c');
-    expect(sha(G.luoPohja({ seura: 'KPV' }))).toBe('ceb169c46fc1d1befbdbd7e00540755d3bd32cf6aff317f8303290e765160ba3');
-    expect(sha(G.luoPohja({ seura: 'Sibbo-Vargarna', rivit: 150 }))).toBe('b804a02b7627e28c5a335b1d8c1ce5ab427361d7209ba49e4343932f4bf5e453');
+  it('sisältötarkka: sama xlsx kuin ennen kielitaulua (SJK/120, KPV/oletus, Sibbo-Vargarna/150)', () => {
+    expect(sha(G.luoPohja({ seura: 'SJK', rivit: 120 }))).toBe('3abf1c1333c8a50140c9f4c85ab0345ea4a529cf01f8aa68731e95f450b4c7f4');
+    expect(sha(G.luoPohja({ seura: 'KPV' }))).toBe('feaeae64cf0faaa7ea93afc46b83872e90ac547d5d663f160197274f813830e4');
+    expect(sha(G.luoPohja({ seura: 'Sibbo-Vargarna', rivit: 150 }))).toBe('9d702a6a0dc7da88cbbf80d566b34762ded22d92524785c8a551ebbcd3242ea7');
   });
   it('kieli: fi = oletus', () => { expect(sha(G.luoPohja({ seura: 'X', kieli: 'fi' }))).toBe(sha(G.luoPohja({ seura: 'X' }))); });
 });
