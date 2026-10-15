@@ -20,10 +20,10 @@ Generoitu `node scripts/ui_kuvat_sibbo_sv.mjs`. Kieli sv, vain demo-data (ei oik
 | ![05-valmentaja-pelaajakortti](05-valmentaja-pelaajakortti-light-1280.webp) `05-valmentaja-pelaajakortti-light-1280.webp` | light | 1280 | 2 |
 | ![06-pelihavainto-tyokalu](06-pelihavainto-tyokalu-dark-390.webp) `06-pelihavainto-tyokalu-dark-390.webp` | dark | 390 | 1 |
 | ![06-pelihavainto-tyokalu](06-pelihavainto-tyokalu-dark-1280.webp) `06-pelihavainto-tyokalu-dark-1280.webp` | dark | 1280 | 1 |
-| ![07-harjoitusarviointi](07-harjoitusarviointi-dark-390.webp) `07-harjoitusarviointi-dark-390.webp` | dark | 390 | 4 |
-| ![07-harjoitusarviointi](07-harjoitusarviointi-dark-1280.webp) `07-harjoitusarviointi-dark-1280.webp` | dark | 1280 | 3 |
-| ![07-harjoitusarviointi](07-harjoitusarviointi-light-390.webp) `07-harjoitusarviointi-light-390.webp` | light | 390 | 4 |
-| ![07-harjoitusarviointi](07-harjoitusarviointi-light-1280.webp) `07-harjoitusarviointi-light-1280.webp` | light | 1280 | 3 |
+| ![07-harjoitusarviointi](07-harjoitusarviointi-dark-390.webp) `07-harjoitusarviointi-dark-390.webp` | dark | 390 | 3 |
+| ![07-harjoitusarviointi](07-harjoitusarviointi-dark-1280.webp) `07-harjoitusarviointi-dark-1280.webp` | dark | 1280 | 2 |
+| ![07-harjoitusarviointi](07-harjoitusarviointi-light-390.webp) `07-harjoitusarviointi-light-390.webp` | light | 390 | 3 |
+| ![07-harjoitusarviointi](07-harjoitusarviointi-light-1280.webp) `07-harjoitusarviointi-light-1280.webp` | light | 1280 | 2 |
 | ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-dark-390.webp) `08-vp-joukkuenakyma-dark-390.webp` | dark | 390 | 3 |
 | ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-dark-1280.webp) `08-vp-joukkuenakyma-dark-1280.webp` | dark | 1280 | 2 |
 | ![08-vp-joukkuenakyma](08-vp-joukkuenakyma-light-390.webp) `08-vp-joukkuenakyma-light-390.webp` | light | 390 | 3 |
@@ -174,24 +174,20 @@ Generoitu `node scripts/ui_kuvat_sibbo_sv.mjs`. Kieli sv, vain demo-data (ei oik
 - (teksti) Kohdennettu pelihavainto
 
 ### 07-harjoitusarviointi-dark-390.webp
-- (teksti) Tallenna arviointi
 - (aria-label) Avaa valikko
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 07-harjoitusarviointi-dark-1280.webp
-- (teksti) Tallenna arviointi
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 07-harjoitusarviointi-light-390.webp
-- (teksti) Tallenna arviointi
 - (aria-label) Avaa valikko
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
 ### 07-harjoitusarviointi-light-1280.webp
-- (teksti) Tallenna arviointi
 - (aria-label) Ilmoitukset
 - (title) Suhteellinen ikävaikutus — syntymäkvartaali (Q1 alkuvuosi … Q4 loppuvuosi). Saman ikäluokan Q4 on biologisesti nuorempi → arviota korjataan 
 
