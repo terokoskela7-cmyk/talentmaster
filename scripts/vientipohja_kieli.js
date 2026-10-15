@@ -7,7 +7,9 @@
  * KÄÄNTYVÄT: muiden sarakkeiden otsikot, välilehtien nimet, OHJE-välilehden teksti, listojen näkyvät arvot (Mitä harjoitellaan, Lähde).
  *   · Mitä harjoitellaan -arvot: 14 konseptinimeä tulevat jo käännetystä sanastosta (lib/tm_lib_i18n.js sn_y_*); "ei TalentMaster-konseptia" ja muu tämän taulun sv tulee Gemini-erästä 53.
  *   · sv-tekstit: scripts/vientipohja_sv.json (tuonti: scripts/i18n_vie_sv_vientipohja.cjs ← Geminin palautus, osio "vientipohja"). Code EI kirjoita ruotsia (CLAUDE.md §0).
- * Paikanvaraajat: {seura} (seuran nimi), {muu} (listan arvo "muu / en tiedä" omalla kielellään), {n} (rivimäärä).
+ * KUITTAUS-ARVOT: tallennettava (sisäinen) arvo on aina OK · Muutettu · Poista; pohjan pudotusvalikossa näytettävä arvo (kuit_ok / kuit_muutettu / kuit_poista) voi olla sv. Tuonti hyväksyy kummankin kielen arvon ja
+ *   muuntaa ne sisäiseksi arvoksi (arvoKartat.kuittaus). Kunnes Gemini-erä 54 on viety, sv-pohjassa näytetään suomenkieliset kuittaus-arvot (valinnaiset tekstit).
+ * Paikanvaraajat: {seura} (seuran nimi), {muu} (listan arvo "muu / en tiedä" omalla kielellään), {n} (rivimäärä), {ok} {muutettu} {poista} (kuittaus-arvot omalla kielellään).
  */
 const fs = require('fs');
 const path = require('path');
@@ -37,6 +39,10 @@ const OHJE = [
   ['ohje_5', '5. KUITTAUS: OK · Muutettu · Poista. Vain OK ja Muutettu -rivit tuodaan; tyhjä kuittaus = ei vielä tarkistettu, jolloin rivi ei näy toimintakortissa. KOMMENTTI-sarakkeeseen voi kirjoittaa kysymyksen.'],
   '', ['ohje_ala', 'Älä poista, lajittele tai siirrä rivejä. Älä muuta sarakkeiden otsikoita.'], ['ohje_aika', 'Arvioitu aika: 30–45 min.'], '', ['ohje_vaihtoehdot_h', 'Mitä harjoitellaan -vaihtoehdot'],
 ];
+const OHJE_5V = ['ohje_5v', '5. KUITTAUS: {ok} · {muutettu} · {poista}. Vain {ok} ja {muutettu} -rivit tuodaan; tyhjä kuittaus = ei vielä tarkistettu, jolloin rivi ei näy toimintakortissa. KOMMENTTI-sarakkeeseen voi kirjoittaa kysymyksen.'];   // kuten ohje_5, mutta arvot paikanvaraajina (sv: ruotsinkieliset näyttöarvot)
+const KUIT_IDT = [['ok', 'kuit_ok', 'OK'], ['muutettu', 'kuit_muutettu', 'Muutettu'], ['poista', 'kuit_poista', 'Poista']];
+/** Valinnaiset tekstit: puuttuva sv EI estä sv-pohjaa (kuittaus-näyttöarvot ja ohje_5v tulevat erästä 54; siihen asti suomenkieliset arvot + ohje_5). */
+const VALINNAISET = ['kuit_ok', 'kuit_muutettu', 'kuit_poista', 'ohje_5v'];
 const OHJE_N = ['ohje_mita_t_n', 'Tässä ovat {seura}:n harjoituspankin harjoitteet ({n}). Kahteen sarakkeeseen kysytään teiltä tieto, jota ei ole alkuperäisessä aineistossa.'];   // vain kun rivimäärä annetaan (CLI ei anna)
 
 /** Kaikki käännettävät tekstit: id → fi (koneluettavat sarakenimet ja kuittaus-arvot eivät kuulu tänne). */
@@ -45,7 +51,8 @@ function kaannettavat() {
   SARAKKEET.forEach(([, id, fi, kone]) => { if (!kone) t[id] = fi; });
   LAHTEET.forEach(([, id, fi]) => { t[id] = fi; });
   Object.keys(VALILEHDET).forEach((k) => { t[VALILEHDET[k][0]] = VALILEHDET[k][1]; });
-  OHJE.forEach((r) => { if (r) t[r[0]] = r[1]; }); t[OHJE_N[0]] = OHJE_N[1];
+  OHJE.forEach((r) => { if (r) t[r[0]] = r[1]; }); t[OHJE_N[0]] = OHJE_N[1]; t[OHJE_5V[0]] = OHJE_5V[1];
+  KUIT_IDT.forEach(([, id, fi]) => { t[id] = fi; });
   t.ei_konseptia = H.EI_KONSEPTIA;
   return t;
 }
@@ -63,14 +70,15 @@ function svKonseptit() {
  */
 function kielitaulu(kieli, opts) {
   kieli = kieli || 'fi'; const fi = kaannettavat();
-  if (kieli === 'fi') return { kieli, t: (id) => fi[id], konsepti: (n) => n, puuttuu: [] };
+  if (kieli === 'fi') return { kieli, t: (id) => fi[id], on: () => true, konsepti: (n) => n, puuttuu: [] };
   if (kieli !== 'sv') throw new Error('Tuntematon kieli: ' + kieli + ' (fi | sv)');
   const s = opts && opts.sanasto ? opts.sanasto : { tekstit: lataaSv(), konseptit: svKonseptit() };
   const puuttuu = [];
-  Object.keys(fi).forEach((id) => { if (!(typeof s.tekstit[id] === 'string' && s.tekstit[id].trim())) puuttuu.push(id); });
+  Object.keys(fi).forEach((id) => { if (VALINNAISET.indexOf(id) < 0 && !(typeof s.tekstit[id] === 'string' && s.tekstit[id].trim())) puuttuu.push(id); });
   H.KONSEPTIT.forEach(([, nimi]) => { if (!(s.konseptit && typeof s.konseptit[nimi] === 'string' && s.konseptit[nimi].trim())) puuttuu.push('konsepti:' + nimi); });
   return {
     kieli, puuttuu,
+    on: (id) => typeof s.tekstit[id] === 'string' && s.tekstit[id].trim() !== '',
     t: (id) => (typeof s.tekstit[id] === 'string' && s.tekstit[id].trim() ? s.tekstit[id] : fi[id]),
     konsepti: (nimi) => (s.konseptit && typeof s.konseptit[nimi] === 'string' && s.konseptit[nimi].trim() ? s.konseptit[nimi] : nimi),
   };
@@ -80,12 +88,14 @@ const mallista = (m, v) => String(m).replace(/\{(\w+)\}/g, (x, k) => (v && v[k] 
 /** Pohjan sisältö kielellä: otsikot, lähteet, välilehdet, OHJE-rivit, konseptilista — kaikki valmiina kirjoitettavaksi. */
 function pohjaSisalto(kt, seura, n) {
   const v = { seura };
-  const muu = mallista(kt.t('lah_muu'), v), v2 = { seura, muu, n };
+  const muu = mallista(kt.t('lah_muu'), v), kuit = KUIT_IDT.map(([, id]) => kt.t(id)), v2 = { seura, muu, n, ok: kuit[0], muutettu: kuit[1], poista: kuit[2] };
   const otsikot = SARAKKEET.map(([, id, fi, kone]) => (kone ? fi : mallista(kt.t(id), v)));
   const lahteet = LAHTEET.map(([, id]) => mallista(kt.t(id), v));
   const konseptit = H.KONSEPTIT.map((k) => kt.konsepti(k[1])).concat([kt.t('ei_konseptia')]);
-  const ohje = OHJE.map((r) => (r ? (r[0] === 'ohje_mita_t' && n ? mallista(kt.t(OHJE_N[0]), v2) : mallista(kt.t(r[0]), v2)) : '')).concat(konseptit.map((x) => '• ' + x));
-  return { otsikot, lahteet, konseptit, ohje, valilehdet: { ohje: kt.t(VALILEHDET.ohje[0]), harjoitteet: kt.t(VALILEHDET.harjoitteet[0]), listat: kt.t(VALILEHDET.listat[0]) } };
+  // rivi 5: ohje_5v (arvot paikanvaraajina) kun sen sv on saatavilla (tai fi); muuten Gemini-erän 53 ohje_5
+  const rivi5 = (kt.kieli === 'fi' || kt.on('ohje_5v')) ? 'ohje_5v' : 'ohje_5';
+  const ohje = OHJE.map((r) => (r ? (r[0] === 'ohje_mita_t' && n ? mallista(kt.t(OHJE_N[0]), v2) : r[0] === 'ohje_5' ? mallista(kt.t(rivi5), v2) : mallista(kt.t(r[0]), v2)) : '')).concat(konseptit.map((x) => '• ' + x));
+  return { otsikot, lahteet, konseptit, kuittaukset: kuit, ohje, valilehdet: { ohje: kt.t(VALILEHDET.ohje[0]), harjoitteet: kt.t(VALILEHDET.harjoitteet[0]), listat: kt.t(VALILEHDET.listat[0]) } };
 }
 
 /** Takaisinluku: sv (tai fi) otsikkoteksti → tuonnin sisäinen avain. norm = tuontiskriptin otsikko()-normalisointi. Palauttaa { normalisoitu → avain }. */
@@ -100,7 +110,8 @@ function arvoKartat(kt) {
   const konsepti = {}; H.KONSEPTIT.forEach((k) => { konsepti[n(kt.konsepti(k[1]))] = k[1]; });
   konsepti[n(kt.t('ei_konseptia'))] = H.EI_KONSEPTIA;
   const lahde = {}; LAHTEET.forEach(([, id, fi]) => { const peruste = (x) => n(String(x).replace(/\s*\(\{seura\}\)\s*$/, '').replace(/\s*\([^)]*\)\s*$/, '')); lahde[peruste(kt.t(id))] = String(fi).replace(/\s*\(\{seura\}\)\s*$/, ''); });
-  return { konsepti, lahde, n };
+  const kuittaus = {}; KUIT_IDT.forEach(([, id, fi]) => { kuittaus[n(kt.t(id))] = fi; });   // sv-näyttöarvo → sisäinen arvo (OK · Muutettu · Poista)
+  return { konsepti, lahde, kuittaus, n };
 }
 /** Välilehden nimi → rooli (ohje | harjoitteet | listat) fi- tai sv-nimellä. */
 function valilehdenRooli(nimi, taulut) {
@@ -108,4 +119,4 @@ function valilehdenRooli(nimi, taulut) {
   return null;
 }
 
-module.exports = { SARAKKEET, LAHTEET, VALILEHDET, OHJE, KUITTAUKSET, SV_TIEDOSTO, kaannettavat, kielitaulu, pohjaSisalto, otsikkoAliasit, arvoKartat, valilehdenRooli, mallista, svKonseptit, lataaSv };
+module.exports = { VALINNAISET, KUIT_IDT, SARAKKEET, LAHTEET, VALILEHDET, OHJE, KUITTAUKSET, SV_TIEDOSTO, kaannettavat, kielitaulu, pohjaSisalto, otsikkoAliasit, arvoKartat, valilehdenRooli, mallista, svKonseptit, lataaSv };

@@ -38,8 +38,8 @@ describe('sv-pohja: rakenne', () => {
     expect(ots[1]).toBe('SV<ots_nimi>'); expect(ots[11]).toBe('SV<ots_kuittaus>');
     const l = x.sheets['SV<val_listat>'];
     expect(l.map((r) => r[0]).slice(0, 14)).toEqual(Array.from({ length: 14 }, (_, i) => 'SVK' + (i + 1))); expect(l[14][0]).toBe('SV<ei_konseptia>');
-    expect(l.map((r) => r[2]).filter(Boolean)).toEqual(['OK', 'Muutettu', 'Poista']);   // kuittaus-arvot ennallaan
-    const o = x.sheets['SV<val_ohje>'].map((r) => r[0]); expect(o[0]).toBe('SV<ohje_otsikko> (SJK)'); expect(o.filter((t) => /^• /.test(t))).toHaveLength(15); expect(o.join('\n')).toContain('SV<ohje_3> (SJK) (SV<lah_muu>)');   // {muu} → listan sv-arvo
+    expect(l.map((r) => r[2]).filter(Boolean)).toEqual(['SV<kuit_ok>', 'SV<kuit_muutettu>', 'SV<kuit_poista>']);   // näyttöarvot sv; tallennettava arvo pysyy OK · Muutettu · Poista (tuonti muuntaa, ks. alla)
+    const o = x.sheets['SV<val_ohje>'].map((r) => r[0]); expect(o[0]).toBe('SV<ohje_otsikko> (SJK)'); expect(o.filter((t) => /^• /.test(t))).toHaveLength(15); expect(o.join('\n')).toContain('SV<ohje_3> (SJK) (SV<lah_muu>)'); expect(o.join('\n')).toContain('SV<ohje_5v> (SV<kuit_ok>) (SV<kuit_muutettu>) (SV<kuit_poista>)');   // rivi 5: arvot omalla kielellä   // {muu} → listan sv-arvo
   });
   it('pudotusvalikot viittaavat sv-välilehteen (lainausmerkit kun nimessä muuta kuin ASCII-kirjaimia/numeroita); fi-kaava ennallaan', () => {
     const xml = lueZip(buf)['xl/worksheets/sheet2.xml'].toString('utf8');
@@ -61,16 +61,16 @@ function mkd() { return mkdtempSync(join(tmpdir(), 'vps-')); }
 describe('kuittaustuonti: sv-pohja → dry-run → sama tulos kuin fi-pohja', () => {
   // sama sisältö kahdella kielellä: otsikot + data-rivit (sv: sv-arvot listoista); kierto oikean xlsx:n läpi
   const rivit = [
-    { id: 'kpvh_01', nimi: 'A', mita: 0, toiss: 2, lahde: 'oma', video: 'https://youtu.be/x', ika: 'alle 8, 8–9', kuittaus: 'OK' },
-    { id: 'kpvh_02', nimi: 'B', mita: 1, toiss: -1, lahde: 'soccertutor', video: '', ika: '10–11', kuittaus: 'Muutettu' },
-    { id: 'kpvh_03', nimi: 'C', mita: 14, toiss: -1, lahde: 'muu', video: 'http://eihttps.fi', ika: '', kuittaus: 'Poista' },
-    { id: 'kpvh_04', nimi: 'D', mita: 3, toiss: -1, lahde: '', video: '', ika: '12–13', kuittaus: '' },
+    { id: 'kpvh_01', nimi: 'A', mita: 0, toiss: 2, lahde: 'oma', video: 'https://youtu.be/x', ika: 'alle 8, 8–9', kuittaus: 0 },
+    { id: 'kpvh_02', nimi: 'B', mita: 1, toiss: -1, lahde: 'soccertutor', video: '', ika: '10–11', kuittaus: 1 },
+    { id: 'kpvh_03', nimi: 'C', mita: 14, toiss: -1, lahde: 'muu', video: 'http://eihttps.fi', ika: '', kuittaus: 2 },
+    { id: 'kpvh_04', nimi: 'D', mita: 3, toiss: -1, lahde: '', video: '', ika: '12–13', kuittaus: -1 },
   ];
   function tyokirja(kieli) {
     const pohja = lueXlsx(G.luoPohja(kieli === 'sv' ? { seura: 'SJK', kieli: 'sv', sanasto: SANASTO } : { seura: 'SJK' })), nimet = Object.keys(pohja.sheets);
     const harj = nimet.find((n) => n === (kieli === 'sv' ? 'SV<val_harjoitteet>' : 'Harjoitteet')), ots = pohja.sheets[harj][0];
     const listat = pohja.sheets[nimet.find((n) => n === (kieli === 'sv' ? 'SV<val_listat>' : 'listat'))], kons = (i) => (i < 0 ? '' : listat[i][0]), lah = { oma: listat[0][1].replace(/\(.*\)/, '(SJK)') , soccertutor: listat[1][1], spl: listat[2][1], muu: listat[3][1], '': '' };
-    const data = rivit.map((r) => ots.map((h, c) => ({ 0: r.id, 1: r.nimi, 2: 'P', 3: 'T', 4: 'Tekniikka', 5: r.ika, 6: 'tavoite', 7: kons(r.mita), 8: kons(r.toiss), 9: lah[r.lahde], 10: r.video, 11: r.kuittaus, 12: '' }[c])));
+    const data = rivit.map((r) => ots.map((h, c) => ({ 0: r.id, 1: r.nimi, 2: 'P', 3: 'T', 4: 'Tekniikka', 5: r.ika, 6: 'tavoite', 7: kons(r.mita), 8: kons(r.toiss), 9: lah[r.lahde], 10: r.video, 11: r.kuittaus < 0 ? '' : listat[r.kuittaus][2], 12: '' }[c])));
     // OHJE ensin (kuten oikeassa pohjassa) → tuonnin on löydettävä Harjoitteet-välilehti nimellä, ei ensimmäisenä
     return lueXlsx(kirjoitaXlsx({ sheets: [{ nimi: nimet.find((n) => /ohje/i.test(n)), rivit: pohja.sheets[nimet.find((n) => /ohje/i.test(n))] }, { nimi: harj, rivit: [ots].concat(data) }, { nimi: nimet.find((n) => /listat/i.test(n)), rivit: listat }] })).sheets;
   }
@@ -80,6 +80,19 @@ describe('kuittaustuonti: sv-pohja → dry-run → sama tulos kuin fi-pohja', ()
     expect(T.tulosta(svR, { seura: 'sjk' })).toBe(T.tulosta(fiR, { seura: 'sjk' }));
     expect(fiR.raportti.tuodaan).toEqual(['kpvh_01', 'kpvh_02']); expect(svR.rivit.find((x) => x.id === 'kpvh_01').patch).toMatchObject({ konsepti: 'y_h0', konsepti_toissijainen: 'y_h2', lahde_tyyppi: 'oma', video_url: 'https://youtu.be/x' });
     expect(svR.rivit.find((x) => x.id === 'kpvh_03').patch).toBeNull(); expect(svR.raportti.esitaytto.eiKonseptia).toEqual(['kpvh_03']);
+  });
+  it('KUITTAUS-ALIAKSET: sv-näyttöarvot (SV<kuit_*>) → sama dry-run kuin fi-arvoilla; tallennettava arvo ennallaan; fi-arvot toimivat myös sv-pohjassa; sekaisin käytettynä', () => {
+    const fiR = T.suunnittele(T.valitseTaulu(tyokirja('fi')), null), sv = tyokirja('sv'), svNimi = 'SV<val_harjoitteet>';
+    expect(sv[svNimi].map((r) => r[11] || '').slice(1)).toEqual(['SV<kuit_ok>', 'SV<kuit_muutettu>', 'SV<kuit_poista>', '']);   // pohjaan kirjoitetut arvot ovat sv
+    const svR = T.suunnittele(T.valitseTaulu(sv, { sanasto: SANASTO }), null); expect(svR.raportti.kuittaus).toEqual(fiR.raportti.kuittaus); expect(svR.rivit.map((x) => x.kuittaus)).toEqual(fiR.rivit.map((x) => x.kuittaus));   // sisäinen: ok · muutettu · poista · tyhja
+    // fi-arvot sv-pohjassa
+    const sekoitettu = { [svNimi]: sv[svNimi].map((r, i) => (i === 0 ? r : r.map((c, j) => (j === 11 ? ({ 'SV<kuit_ok>': 'OK', 'SV<kuit_muutettu>': 'SV<kuit_muutettu>', 'SV<kuit_poista>': 'Poista' }[c] ?? c) : c)))) };
+    expect(T.suunnittele(T.valitseTaulu(sekoitettu, { sanasto: SANASTO }), null).raportti.kuittaus).toEqual(fiR.raportti.kuittaus);
+  });
+  it('ilman erää 54 (kuittaus-näyttöarvot puuttuvat sv-taulusta): sv-pohja rakentuu, kuittaus-arvot suomeksi, rivi 5 = ohje_5 — ei "puuttuu"-virhettä', () => {
+    const ilman = { tekstit: Object.fromEntries(Object.entries(tekstit).filter(([id]) => !VK.VALINNAISET.includes(id))), konseptit };
+    const x2 = lueXlsx(G.luoPohja({ seura: 'SJK', kieli: 'sv', sanasto: ilman })); expect(x2.sheets['SV<val_listat>'].map((r) => r[2]).filter(Boolean)).toEqual(['OK', 'Muutettu', 'Poista']);
+    expect(x2.sheets['SV<val_ohje>'].map((r) => r[0]).join('\n')).toContain('SV<ohje_5>'); expect(x2.sheets['SV<val_ohje>'].map((r) => r[0]).join('\n')).not.toContain('ohje_5v');
   });
   it('sv-otsikot tunnistetaan (ei vain fi): sv-taulukko ilman sanastoa ei kelpaa, sanaston kanssa kelpaa; fi-taulu kelpaa molemmilla', () => {
     const sv = tyokirja('sv'); expect(() => T.valitseTaulu({ 'SV<val_harjoitteet>': sv['SV<val_harjoitteet>'] })).toThrow(/puuttuvat sarakkeet|ei löydy/);
@@ -105,7 +118,7 @@ describe('sv-tekstien vienti (Gemini-erä 53 → scripts/vientipohja_sv.json)', 
   });
   it('erä 53: osio vientipohja sisältää täsmälleen käännettävät tekstit, sv tyhjä (Code ei kirjoita ruotsia)', () => {
     const E = JSON.parse(readFileSync(join(JUURI, 'docs/i18n/sv_kaannoserae_53_gemini.json'), 'utf8')).osiot.vientipohja.rivit;
-    expect(Object.keys(E).sort()).toEqual(Object.keys(fi).sort()); for (const [id, r] of Object.entries(E)) { expect(r.fi, id).toBe(fi[id]); if (!Object.keys(VK.lataaSv()).length) expect(r.sv, id).toBe(''); }
+    expect(Object.keys(E).sort()).toEqual(Object.keys(fi).filter((id) => !VK.VALINNAISET.includes(id)).sort());   // valinnaiset (kuittaus-aliakset, ohje_5v) tulevat erästä 54 for (const [id, r] of Object.entries(E)) { expect(r.fi, id).toBe(fi[id]); expect(r.sv, id).toBe('');   // lähetetty erätiedosto jää tyhjäksi; sv on palautuksessa ja scripts/vientipohja_sv.json:ssa }
     for (const k of ['id', 'video_url', 'OK', 'Muutettu', 'Poista']) expect(Object.values(E).map((r) => r.fi)).not.toContain(k);   // sisäiset avaimet eivät mene käännettäviksi
   });
 });

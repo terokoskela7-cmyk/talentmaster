@@ -10,7 +10,7 @@
 <script>window.TM_SENTRY={app:'rekisterointi'};</script>
 <script src="https://browser.sentry-cdn.com/10.58.0/bundle.min.js" integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB" crossorigin="anonymous"></script>
 <script src="tm_sentry.js?v=3"></script>
-<script src="lib/tm_lang.js?v=39"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
+<script src="lib/tm_lang.js?v=40"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -350,10 +350,10 @@ window.addEventListener('DOMContentLoaded', function() {
     var _esitaytetty = !!(_urlParams.etunimi || _urlParams.hEmail || _urlParams.seura);
     var _tt = function (k, fi) { var v = (typeof t === 'function') ? t(k) : null; return (v && v !== k) ? v : fi; };
     var _io = document.createElement('div'); _io.className = 'info-t';
-    _io.textContent = _esitaytetty ? ('Kutsu ' + (_urlParams.seura || 'seuralta')) : _tt('suostumus.qr_info_otsikko', 'Lupa pelaajan tunnuksiin');
+    _io.textContent = _esitaytetty ? (_st('suostumus.kutsu_alku', 'Kutsu') + ' ' + (_urlParams.seura || _st('suostumus.kutsu_seuralta', 'seuralta'))) : _tt('suostumus.qr_info_otsikko', 'Lupa pelaajan tunnuksiin');
     var _ip = document.createElement('p');
     _ip.textContent = _esitaytetty
-      ? 'Seura on esitäyttänyt osan tiedoista puolestasi. Tarkista tiedot ja täydennä puuttuvat kentät.'
+      ? _st('suostumus.esitaytetty_info', 'Seura on esitäyttänyt osan tiedoista puolestasi. Tarkista tiedot ja täydennä puuttuvat kentät.')
       : _tt('suostumus.qr_info_teksti', 'Täytä lapsen tiedot ja oma sähköpostiosoitteesi. Käytä samaa sähköpostia, jonka annoit seuralle.');
     infoDiv.appendChild(_io); infoDiv.appendChild(_ip);
     var wrap = document.querySelector('.wrap');
@@ -400,6 +400,8 @@ function _naytaHuoltajakortti(age) {
 /* Syntymäaika kolmella valikolla (1.10.2026). Piilotettu i_syn = YYYY-MM-DD vain kun päivämäärä on olemassa
    eikä ole tulevaisuudessa; muuten tyhjä. Vuodet kuluvasta vuodesta taaksepäin vuoteen SYN_ALKUVUOSI. */
 var SYN_ALKUVUOSI = 1990;
+/* Suostumuslomakkeen dynaamiset viestit (Sibbo-reititys): avain + alkuperäinen suomi varalle → fi-tuloste täsmälleen ennallaan, myös jos avain puuttuu (vanha välimuisti). */
+function _st(k, fi) { var v = (typeof t === 'function') ? t(k) : null; return (v && v !== k) ? v : fi; }
 function _synTt(k, fi) { var v = (typeof t === 'function') ? t(k) : null; return (v && v !== k) ? v : fi; }
 function _synVirheTeksti() { return _synTt('suostumus.syn_tarkista', 'Tarkista syntymäaika'); }
 function _synKuukaudet() {
@@ -478,9 +480,7 @@ function _naytaRistiriitaIlmoitus(viesti) {
 }
 /* Linkissä ei pelaajan tunnistetta (Rules v3.33): lomake ei voi luoda pelaajaa → pyydetään uusi kutsu. */
 function _uusiKutsuViesti() {
-  var v = (typeof t === 'function') ? t('suostumus.pyyda_uusi_kutsu') : null;
-  return (v && v !== 'suostumus.pyyda_uusi_kutsu') ? v
-    : 'Pyydä seuralta uusi kutsu. Tästä linkistä puuttuu pelaajan tunniste, joten lomaketta ei voi lähettää.';
+  return _st('suostumus.pyyda_uusi_kutsu', 'Pyydä seuralta uusi kutsu. Tästä linkistä puuttuu pelaajan tunniste, joten lomaketta ei voi lähettää.');
 }
 /* Suostumuksen uusiminen (2.10.2026): Seura lisää kutsulinkkiin suostumusAnnettu=YYYY-MM-DD (tai 'annettu'), kun
    pelaajalla on jo voimassa oleva suostumus → selite ennen lomaketta. Vain näyttö; vahvistaSuostumus päättää. */
@@ -534,7 +534,7 @@ function toStep2() {
   });
   var syn = _synTila();
   if (!syn.taysi) { _synKorosta(true, ''); ok = false; }
-  if (!ok) { toast('Täytä pakolliset kentät (merkitty *)', true); return; }
+  if (!ok) { toast(_st('suostumus.virhe_pakolliset', 'Täytä pakolliset kentät (merkitty *)'), true); return; }
   // Mahdoton päivä (31.2.) tai tulevaisuus → hylätään; yläraja = kuluva päivä (ei kovakoodattua vuotta).
   if (!syn.kelpaa) { _synKorosta(true, _synVirheTeksti()); toast(_synVirheTeksti(), true); return; }
   _synKorosta(false);
@@ -552,7 +552,7 @@ function toStep2() {
         else e.classList.remove('err');
       });
       if (!hOk) {
-        toast('Täytä huoltajan etunimi, sukunimi ja sähköposti', true);
+        toast(_st('suostumus.virhe_huoltaja_kaikki', 'Täytä huoltajan etunimi, sukunimi ja sähköposti'), true);
         if (el('hcard') && el('hcard').scrollIntoView) el('hcard').scrollIntoView({ block: 'center' });
         return;
       }
@@ -616,7 +616,7 @@ function toStep3() {
   var aitiPituus = _biPituus('i_aiti', 'i_aiti_ei');
   // Pehmeä varoitus epätavallisesta arvosta — EI estä tallennusta
   var biEpailyttava = [isaPituus, aitiPituus].some(function(v){ return v != null && (v < 150 || v > 200); });
-  if (biEpailyttava) toast('Tarkistathan vanhemman pituusmittauksen (epätavallinen arvo) — tallennetaan silti', false);
+  if (biEpailyttava) toast(_st('suostumus.pituus_varoitus', 'Tarkistathan vanhemman pituusmittauksen (epätavallinen arvo) — tallennetaan silti'), false);
   var bioPituudet = {
     isa_pituus_cm:           isaPituus,
     aiti_pituus_cm:          aitiPituus,
@@ -631,18 +631,18 @@ function toStep3() {
   if (_lahetysKaynnissa || _lahetettyOnnistuneesti) return;   // tuplapainallus / jo lähetetty
   var _antajaTarkistus = age < 18 ? (val('h_etu') + ' ' + val('h_suku')).trim() : (val('i_etu') + ' ' + val('i_suku')).trim();
   if (age < 18 && (!val('h_etu') || !val('h_suku'))) {
-    toast('Täytä huoltajan etunimi ja sukunimi', true);
+    toast(_st('suostumus.virhe_huoltaja_nimi', 'Täytä huoltajan etunimi ja sukunimi'), true);
     setStep(1); _naytaHuoltajakortti(age);
     return;
   }
-  if (!_antajaTarkistus) { toast('Suostumuksen antajan nimi puuttuu', true); return; }
-  if (_antajaTarkistus.length > 100 || /[<>]/.test(_antajaTarkistus)) { toast('Tarkista nimi: enintään 100 merkkiä, ei merkkejä < tai >', true); return; }
+  if (!_antajaTarkistus) { toast(_st('suostumus.virhe_antaja_puuttuu', 'Suostumuksen antajan nimi puuttuu'), true); return; }
+  if (_antajaTarkistus.length > 100 || /[<>]/.test(_antajaTarkistus)) { toast(_st('suostumus.virhe_nimi_pituus', 'Tarkista nimi: enintään 100 merkkiä, ei merkkejä < tai >'), true); return; }
   // Rules v3.33: lomake ei luo pelaajaa selaimesta. Ilman pelaajan tunnistetta linkki on vanha → uusi kutsu seuralta.
   if (_fbDb && _seuraId && !dokumenttiId) { var _uk = _uusiKutsuViesti(); toast(_uk, true); _naytaRistiriitaIlmoitus(_uk); return; }
   _lahetysKaynnissa = true;
   _poistaRistiriitaIlmoitus();
   var nappi = el('btnok');
-  if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan...'; }
+  if (nappi) { nappi.disabled = true; nappi.textContent = _st('suostumus.tallennetaan', 'Tallennetaan...'); }
 
   var tallennusPromise;
 
@@ -719,17 +719,17 @@ function toStep3() {
       // joka tiesi seuraId + pelaajaId + huoltajaEmail (luettavissa anonyymisti v3.28:aan asti).
 
       el('receipt').innerHTML =
-        '<div class="rrow"><span class="rk">Rekisteröintitunnus</span><span class="rv">'+rid+'</span></div>'
-        +'<div class="rrow"><span class="rk">Nimi</span><span class="rv">'+val('i_etu')+' '+val('i_suku')+'</span></div>'
-        +'<div class="rrow"><span class="rk">Seura</span><span class="rv">'+(val('i_seura')||'-')+'</span></div>'
-        +'<div class="rrow"><span class="rk">Joukkue</span><span class="rv">'+(val('i_jou')||'-')+'</span></div>'
-        +'<div class="rrow"><span class="rk">Ikä</span><span class="rv">'+age+' vuotta</span></div>'
-        +'<div class="rrow"><span class="rk">Raportit lähetetään</span><span class="rv">'+(raporttiEmail||'-')+'</span></div>'
-        +'<div class="rrow"><span class="rk">Suostumukset</span><span class="rv" style="color:var(--green)">'+suostumusNimet.length+' kpl hyväksytty</span></div>'
-        +'<div class="rrow"><span class="rk">Aikaleima</span><span class="rv">'+aikaleima+'</span></div>'
+        '<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_tunnus','Rekisteröintitunnus')+'</span><span class="rv">'+rid+'</span></div>'
+        +'<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_nimi','Nimi')+'</span><span class="rv">'+val('i_etu')+' '+val('i_suku')+'</span></div>'
+        +'<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_seura','Seura')+'</span><span class="rv">'+(val('i_seura')||'-')+'</span></div>'
+        +'<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_joukkue','Joukkue')+'</span><span class="rv">'+(val('i_jou')||'-')+'</span></div>'
+        +'<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_ika','Ikä')+'</span><span class="rv">'+age+' '+_st('suostumus.kuitti_vuotta','vuotta')+'</span></div>'
+        +'<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_raportit','Raportit lähetetään')+'</span><span class="rv">'+(raporttiEmail||'-')+'</span></div>'
+        +'<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_suostumukset','Suostumukset')+'</span><span class="rv" style="color:var(--green)">'+suostumusNimet.length+' '+_st('suostumus.kuitti_hyvaksytty','kpl hyväksytty')+'</span></div>'
+        +'<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_aikaleima','Aikaleima')+'</span><span class="rv">'+aikaleima+'</span></div>'
         +(_seuraId
-          ?'<div class="rrow"><span class="rk">Tallennettu</span><span class="rv" style="color:var(--teal)">TalentMaster-rekisteriin</span></div>'
-          :'<div class="rrow"><span class="rk">Tila</span><span class="rv" style="color:var(--amber)">Odottaa synkronointia</span></div>');
+          ?'<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_tallennettu','Tallennettu')+'</span><span class="rv" style="color:var(--teal)">'+_st('suostumus.kuitti_rekisteriin','TalentMaster-rekisteriin')+'</span></div>'
+          :'<div class="rrow"><span class="rk">'+_st('suostumus.kuitti_tila','Tila')+'</span><span class="rv" style="color:var(--amber)">'+_st('suostumus.kuitti_odottaa','Odottaa synkronointia')+'</span></div>');
 
       // Salasanaohje — todenmukainen viesti emailLahetetty-lipun mukaan (ei luvata sähköpostia ellei lähetetty).
       var _siEl = document.getElementById('salasanaInfo');
@@ -738,14 +738,14 @@ function toStep3() {
         var _em = _esE(raporttiEmail || _urlParams.hEmail || '');   // #60: bare 'hEmail' oli määrittelemätön → oikea lähde _urlParams.hEmail (URL-param, ks. rivi 288)
         var _emEl = _em ? ('<strong style="color:var(--teal)">' + _em + '</strong>') : '';
         if (window._suostumusEmailLahetetty === true) {
-          _siEl.innerHTML = '<div class="info-t" style="color:var(--teal)">&#9989; Tunnukset l&auml;hetetty s&auml;hk&ouml;postiisi</div>'
-            + '<p style="color:#7ecfc0;line-height:1.8;">L&auml;hetimme salasanalinkin ja pelaajan PIN-koodin' + (_em ? (' osoitteeseen ' + _emEl) : ' s&auml;hk&ouml;postiisi') + '. Avaa viesti ja aseta salasanasi.<br>'
-            + (window._suostumusLinkkiPv === 7 ? '<strong>Linkki on voimassa 7 p&auml;iv&auml;&auml;</strong> &mdash; voit avata sen vaikka vasta illalla.<br>' : '<strong>Linkki on voimassa 1 tunnin.</strong> Jos se ehtii vanheta, avaa <a href="TalentMaster_Vanhempi_v2.html" style="color:var(--teal)">vanhemman sivu</a> ja valitse &rdquo;Unohdin salasanan&rdquo; &mdash; saat uuden linkin.<br>')
-            + 'Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash; kirjaudu samalla s&auml;hk&ouml;postiosoitteella ja uudella salasanalla.</p>';
+          _siEl.innerHTML = '<div class="info-t" style="color:var(--teal)">&#9989; '+_st('suostumus.tunnukset_lahetetty','Tunnukset lähetetty sähköpostiisi')+'</div>'
+            + '<p style="color:#7ecfc0;line-height:1.8;">'+_st('suostumus.lahetys_alku','Lähetimme salasanalinkin ja pelaajan PIN-koodin') + (_em ? (' ' + _st('suostumus.osoitteeseen','osoitteeseen') + ' ' + _emEl) : ' ' + _st('suostumus.sahkopostiisi','sähköpostiisi')) + _st('suostumus.lahetys_loppu','. Avaa viesti ja aseta salasanasi.') + '<br>'
+            + (window._suostumusLinkkiPv === 7 ? '<strong>' + _st('suostumus.linkki_7pv','Linkki on voimassa 7 päivää') + '</strong> ' + _st('suostumus.linkki_7pv_loppu','— voit avata sen vaikka vasta illalla.') + '<br>' : '<strong>' + _st('suostumus.linkki_1h','Linkki on voimassa 1 tunnin.') + '</strong> ' + _st('suostumus.linkki_vanhene','Jos se ehtii vanheta, avaa') + ' <a href="TalentMaster_Vanhempi_v2.html" style="color:var(--teal)">' + _st('suostumus.linkki_vanhemman_sivu','vanhemman sivu') + '</a> ' + _st('suostumus.linkki_unohdin','ja valitse ”Unohdin salasanan” — saat uuden linkin.') + '<br>')
+            + _st('suostumus.salasana_asetettu','Salasanan asetettuasi pääset vanhemman näkymään — kirjaudu samalla sähköpostiosoitteella ja uudella salasanalla.') + '</p>';
         } else if (window._suostumusKutsuflow === true) {
-          _siEl.innerHTML = '<div class="info-t" style="color:var(--amber)">&#9888; S&auml;hk&ouml;posti ei l&auml;htenyt</div>'
-            + '<p style="color:#7ecfc0;line-height:1.8;">Suostumus on tallennettu, mutta tunnusten l&auml;hetys' + (_em ? (' osoitteeseen ' + _emEl) : '') + ' ep&auml;onnistui. '
-            + '<strong>Pyyd&auml; seuraa l&auml;hett&auml;m&auml;&auml;n tunnukset uudelleen</strong> (seuran hallinta &rarr; pelaaja &rarr; l&auml;het&auml; pelaajasivulinkki).</p>';
+          _siEl.innerHTML = '<div class="info-t" style="color:var(--amber)">&#9888; '+_st('suostumus.sahkoposti_ei_lahtenyt','Sähköposti ei lähtenyt')+'</div>'
+            + '<p style="color:#7ecfc0;line-height:1.8;">'+_st('suostumus.tallennettu_lahetys_alku','Suostumus on tallennettu, mutta tunnusten lähetys') + (_em ? (' ' + _st('suostumus.osoitteeseen','osoitteeseen') + ' ' + _emEl) : '') + ' ' + _st('suostumus.lahetys_virhe_loppu','epäonnistui.') + ' '
+            + '<strong>' + _st('suostumus.pyyda_seuraa','Pyydä seuraa lähettämään tunnukset uudelleen') + '</strong> ' + _st('suostumus.seuran_hallinta_ohje','(seuran hallinta → pelaaja → lähetä pelaajasivulinkki).') + '</p>';
         }
       }
       setStep(3);
@@ -761,48 +761,46 @@ function toStep3() {
       /* Sisarusbugi: lomakkeen nimi/syntymävuosi ei vastaa linkin pelaajaa → toisen lapsen kutsu.
          Pelaajan nimeä EI näytetä (palvelin ei sitä lähetäkään — vain syykoodi). */
       if (_onPelaajaRistiriita(err)) {
-        var _viesti = 'Tämä kutsulinkki koskee toista pelaajaa. Jos rekisteröit eri lasta, pyydä seuralta hänelle oma kutsu.';
+        var _viesti = _st('suostumus.kutsu_toinen_lapsi', 'Tämä kutsulinkki koskee toista pelaajaa. Jos rekisteröit eri lasta, pyydä seuralta hänelle oma kutsu.');
         toast(_viesti, true);
-        if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja lähetä'; }
+        if (nappi) { nappi.disabled = false; nappi.textContent = _st('suostumus.nappi_vahvista', 'Vahvista ja lähetä'); }
         _naytaRistiriitaIlmoitus(_viesti);
         return;
       }
       var _syy = (err && err.details && err.details.syy) || (err && err.message);
       var _kutsuViestit = {
-        kutsu_kaytetty: 'Tämä kutsulinkki on jo käytetty tai korvattu uudemmalla. Käytä seuran uusinta kutsua tai pyydä seuralta uusi.',
-        suostumus_jo_annettu: 'Suostumus on jo annettu tälle pelaajalle. Jos haluat muuttaa suostumusta, pyydä seuralta uusi kutsu.',
-        kutsu_ristiriita: 'Tämä kutsulinkki koskee toista pelaajaa. Pyydä seuralta oikea kutsu.',
+        kutsu_kaytetty: _st('suostumus.kutsu_kaytetty', 'Tämä kutsulinkki on jo käytetty tai korvattu uudemmalla. Käytä seuran uusinta kutsua tai pyydä seuralta uusi.'),
+        suostumus_jo_annettu: _st('suostumus.suostumus_jo_annettu', 'Suostumus on jo annettu tälle pelaajalle. Jos haluat muuttaa suostumusta, pyydä seuralta uusi kutsu.'),
+        kutsu_ristiriita: _st('suostumus.kutsu_ristiriita', 'Tämä kutsulinkki koskee toista pelaajaa. Pyydä seuralta oikea kutsu.'),
         // QR-kortti (PR B): ei paljasta tallennettua osoitetta; huoltaja voi korjata ja yrittää uudelleen.
-        email_ristiriita: (typeof t === 'function' && t('suostumus.email_ristiriita') !== 'suostumus.email_ristiriita')
-          ? t('suostumus.email_ristiriita')
-          : 'Sähköposti ei vastaa seuran tietoja. Käytä osoitetta, jonka annoit seuralle, tai ota yhteys joukkueenjohtajaan.'
+        email_ristiriita: _st('suostumus.email_ristiriita', 'Sähköposti ei vastaa seuran tietoja. Käytä osoitetta, jonka annoit seuralle, tai ota yhteys joukkueenjohtajaan.')
       };
       if (_syy === 'email_ristiriita') {   // korjattavissa → nappi pysyy käytössä, palataan sähköpostikenttään
         toast(_kutsuViestit.email_ristiriita, true);
         _naytaRistiriitaIlmoitus(_kutsuViestit.email_ristiriita);
-        if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja lähetä'; }
+        if (nappi) { nappi.disabled = false; nappi.textContent = _st('suostumus.nappi_vahvista', 'Vahvista ja lähetä'); }
         return;
       }
       if (_kutsuViestit[_syy]) {
         toast(_kutsuViestit[_syy], true);
         _naytaRistiriitaIlmoitus(_kutsuViestit[_syy]);
-        if (nappi) { nappi.disabled = true; nappi.textContent = 'Vahvista ja lähetä'; }
+        if (nappi) { nappi.disabled = true; nappi.textContent = _st('suostumus.nappi_vahvista', 'Vahvista ja lähetä'); }
         return;
       }
       if (_syy === 'antaja_virheellinen') {
-        toast('Tarkista huoltajan nimi: enintään 100 merkkiä, ei merkkejä < tai >', true);
-        if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja lähetä'; }
+        toast(_st('suostumus.virhe_huoltaja_nimi_pituus', 'Tarkista huoltajan nimi: enintään 100 merkkiä, ei merkkejä < tai >'), true);
+        if (nappi) { nappi.disabled = false; nappi.textContent = _st('suostumus.nappi_vahvista', 'Vahvista ja lähetä'); }
         setStep(1); onAge();
         return;
       }
       if (_syy === 'antaja_puuttuu') {
-        toast('Täytä huoltajan etunimi ja sukunimi', true);
-        if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja lähetä'; }
+        toast(_st('suostumus.virhe_huoltaja_nimi', 'Täytä huoltajan etunimi ja sukunimi'), true);
+        if (nappi) { nappi.disabled = false; nappi.textContent = _st('suostumus.nappi_vahvista', 'Vahvista ja lähetä'); }
         setStep(1); onAge();
         return;
       }
-      toast('Tallennus epäonnistui: ' + err.message, true);
-      if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja lähetä'; }
+      toast(_st('suostumus.tallennus_virhe', 'Tallennus epäonnistui:') + ' ' + err.message, true);
+      if (nappi) { nappi.disabled = false; nappi.textContent = _st('suostumus.nappi_vahvista', 'Vahvista ja lähetä'); }
     });
 }
 

@@ -44,7 +44,9 @@ describe('Gemini-erä 2 — master_kartta', () => {
     const era19 = JSON.parse(lue('docs/i18n/sv_kaannoserae_19_palautus.json')).osiot.master_kartta.rivit, era19osa = new Set(require('../scripts/i18n_vie_sv_era19_osa.cjs').MASTER_AVAIMET);
     // erän 40 vienti (scripts/i18n_vie_sv_era40.cjs, 67 riviä → TM_MASTER_I18N): erätiedostojen vanhat tyhjät rivit eivät ole vanhentuneita (erätiedostoja ei kosketa; kuten erät 3 ja 19-osa)
     const era40 = new Set(Object.values(JSON.parse(lue('docs/i18n/sv_kaannoserae_40_palautus.json')).osiot).flatMap((o) => Object.keys(o.rivit)));
-    const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv && !(era3[fi] && era3[fi].sv) && !(era19osa.has(fi) && era19[fi] && era19[fi].sv) && !era40.has(fi) && !libKaytossa[fi]);
+    // erän 53 vienti (scripts/i18n_vie_sv_era53_19.cjs, master_kartta 8 riviä): sv koodissa; erätiedosto jää tyhjäksi
+    const era53 = JSON.parse(lue('docs/i18n/sv_kaannoserae_53_palautus.json')).osiot.master_kartta.rivit;
+    const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv && !(era3[fi] && era3[fi].sv) && !(era19osa.has(fi) && era19[fi] && era19[fi].sv) && !era40.has(fi) && !(era53[fi] && era53[fi].sv) && !libKaytossa[fi]);
     expect(vanhentuneet).toEqual([]);
   });
   it('EI VACUOUS: poiminta löytää satoja avaimia ja uudet PR 3 -avaimet', () => {

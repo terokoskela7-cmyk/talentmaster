@@ -93,6 +93,6 @@ describe('vahvistaSuostumus · avoimet kutsut (ajettu)', () => {
 describe('suostumuslomake · selkokielinen viesti hylkäyksistä', () => {
   it('kutsu_kaytetty / suostumus_jo_annettu / kutsu_ristiriita näytetään ilmoituksena, ei raakana koodina', () => {
     const S = lue('TalentMaster_Rekisterointi_Suostumus.html');
-    for (const k of ['kutsu_kaytetty', 'suostumus_jo_annettu', 'kutsu_ristiriita']) expect(S).toMatch(new RegExp(k + ": '"));
+    for (const k of ['kutsu_kaytetty', 'suostumus_jo_annettu', 'kutsu_ristiriita']) expect(S).toMatch(new RegExp(k + ": _st\\('suostumus\\." + k + "', '"));   // viesti reititetty tm_lang:iin (Sibbo-reititys), varateksti = alkuperäinen fi
   });
 });

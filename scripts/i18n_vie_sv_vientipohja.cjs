@@ -16,6 +16,7 @@ function vie(opts) {
   const rivit = (P.osiot && P.osiot.vientipohja && P.osiot.vientipohja.rivit) || {}, fi = VK.kaannettavat(), virheet = [], tekstit = {};
   for (const [id, f] of Object.entries(fi)) {
     const r = rivit[id];
+    if (!r && VK.VALINNAISET.indexOf(id) >= 0) continue;   // valinnainen (kuittaus-näyttöarvot, ohje_5v): tulee erästä 54
     if (!r) { virheet.push(id + ': rivi puuttuu palautuksesta'); continue; }
     if (r.fi !== f) { virheet.push(id + ': fi ei vastaa kielitaulua'); continue; }
     if (typeof r.sv !== 'string' || !r.sv.trim()) { virheet.push(id + ': sv tyhjä'); continue; }

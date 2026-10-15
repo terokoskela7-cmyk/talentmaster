@@ -11,7 +11,9 @@ const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ERA = JSON.parse(readFileSync(join(juuri, 'docs/i18n/sv_kaannoserae_2.json'), 'utf8'));
 const L = require('../lib/tm_lang.js').TM_LANG;
-const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs');
+// erän 54 (Sibbo-reititys) avaimet ovat odotuslistalla mutta kuuluvat erään 54, eivät erään 2
+const ERA54 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_54_gemini.json'), 'utf8')).osiot.tm_lang.rivit));
+const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').filter((p) => !ERA54.has(p));
 const hae = (kieli, polku) => polku.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L[kieli]);
 const rivit = ERA.osiot.tm_lang.rivit;
 const ERA3 = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_3.json'), 'utf8'));
