@@ -54,21 +54,8 @@ describe('Gemini-erä 54 (Sibbo-reititys)', () => {
     const avaimet = new Set(vanhat.map(([k]) => k)), fit = new Set(vanhat.map(([, r]) => r.fi));
     for (const { osio, avain, r } of r54.filter((x) => x.osio !== 'vientipohja')) { expect(avaimet.has(avain), osio + ':' + avain).toBe(false); if (osio !== 'tm_lang') expect(fit.has(r.fi), osio + ':' + avain).toBe(false); }   // tm_lang-avain tarvitsee oman sv-rivinsä, vaikka sama suomi olisi jo toisessa kartassa
   });
-  it('tm_lang-rivit = sv-odotuslistan suostumus.*-avaimet, fi/en täsmäävät tm_lang.js:ään', () => {
-    const L = require_('../lib/tm_lang.js').TM_LANG, hae = (k, p) => p.split('.').reduce((o, x) => (o == null ? undefined : o[x]), L[k]), odotus = require_('./tm_lang_sv_odotuslista.cjs');
-    expect(Object.keys(E54.osiot.tm_lang.rivit).sort()).toEqual(odotus.slice().sort());
-    for (const [p, r] of Object.entries(E54.osiot.tm_lang.rivit)) { expect(r.fi, p).toBe(hae('fi', p)); expect(r.en, p).toBe(hae('en', p)); }
-  });
-  it('lib.tm_harjoitusarviointi: avain = fi; jokaiselta puuttuu sv vähintään yhdestä ketjusta (masterT/vpT) ja löytyy lomakkeen lähteestä; master_kartta: Masterin ketjusta puuttuu', () => {
-    const ha = readFileSync(join(JUURI, 'lib/tm_harjoitusarviointi.js'), 'utf8'), LIB = require_('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv, MA = require_('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv, VP = require_('../lib/tm_vp_i18n.js').TM_VP_I18N.sv, CO = require_('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv;
-    const on = (K, k) => [K, CO, LIB].some((x) => typeof x[k] === 'string' && x[k]);
-    for (const [k, r] of Object.entries(E54.osiot['lib.tm_harjoitusarviointi'].rivit)) { expect(r.fi).toBe(k); expect(ha.indexOf(k.replace(/'/g, "\\'")), k).toBeGreaterThan(-1); expect(on(MA, k) && on(VP, k), k).toBe(false); }
-    for (const k of Object.keys(E54.osiot.master_kartta.rivit)) expect(on(MA, k), k).toBe(false);
-  });
-  it('vientipohja: täsmälleen valinnaiset tekstit (kuittaus-aliakset + ohje_5v)', () => { expect(Object.keys(E54.osiot.vientipohja.rivit).sort()).toEqual(require_('../scripts/vientipohja_kieli.js').VALINNAISET.slice().sort()); });
-  it('DoD: harjoitusarviointi, suostumus ja kehitystyöpöytä = ok / odottaa (erä 54), ei kovakoodattuja rivejä, ei "puuttuu"', () => {
+  it('DoD: harjoitusarviointi, suostumus ja kehitystyöpöytä = ok (erä 54 viety), ei kovakoodattuja rivejä, ei "puuttuu"', () => {
     const T2 = laske(join(JUURI, 'docs/i18n/sv_lapiajo_tulos.json'));
-    for (const id of ['harjoitusarviointi', 'suostumus', 'kehitystyopoyta']) { const n = T2.nakymat.find((x) => x.id === id); expect(n.puuttuu, id).toBe(0); expect(n.kovakoodattuStaattinen, id).toEqual([]); expect(n.ok + n.odottaa, id).toBe(n.avaimia); }
-    expect(T2.nakymat.find((x) => x.id === 'harjoitusarviointi').odottaa).toBe(34);
+    for (const id of ['harjoitusarviointi', 'suostumus', 'kehitystyopoyta']) { const n = T2.nakymat.find((x) => x.id === id); expect(n.puuttuu, id).toBe(0); expect(n.kovakoodattuStaattinen, id).toEqual([]); expect(n.ok, id).toBe(n.avaimia); expect(n.odottaa, id).toBe(0); }   // erä 54 vietiin
   });
 });
