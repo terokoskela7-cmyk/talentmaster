@@ -10,6 +10,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { skannaaHtml, lataaSallitut, onSallittu } from './sv_staattinen.mjs';
+import { skannaaMarkup } from './sv_staattinen_markup.mjs';
 
 const require = createRequire(import.meta.url);
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -26,7 +27,7 @@ export const NAKYMAT = [
   { id: 'vp', nimi: 'VP_v25', html: ['TalentMaster_VP_v25.html'], router: 'vp', runtime: ['vp/'] },
   { id: 'adar', nimi: 'ADAR_Pikakortti + Pelihavainto_Kentta', html: ['TalentMaster_ADAR_Pikakortti.html', 'TalentMaster_Pelihavainto_Kentta.html'], router: 'henkilosto', runtime: ['adar/', 'pelihavainto/'], libs: ['tm_adar_tekstit'] },
   { id: 'harjoitusarviointi', nimi: 'Harjoitusarviointi (lib/tm_harjoitusarviointi.js, Master + VP)', html: [], libs: [], libSkanni: ['tm_harjoitusarviointi'], runtime: [] },
-  { id: 'suostumus', nimi: 'Suostumus- ja kutsuflow (Rekisterointi_Suostumus, Huoltajakutsu)', html: ['TalentMaster_Rekisterointi_Suostumus.html', 'TalentMaster_Huoltajakutsu.html'], lang: ['suostumus', 'huoltajakutsu', 'rekisterointi'], libs: [], runtime: [] },
+  { id: 'suostumus', nimi: 'Suostumus- ja kutsuflow (Rekisterointi_Suostumus, Huoltajakutsu)', html: ['TalentMaster_Rekisterointi_Suostumus.html', 'TalentMaster_Huoltajakutsu.html'], markup: ['TalentMaster_Rekisterointi_Suostumus.html'], lang: ['suostumus', 'huoltajakutsu', 'rekisterointi'], libs: [], runtime: [] },
   { id: 'toimintakortti', nimi: 'Toimintakortti + kasvupyrähdys-fysiikka (#1073–1075)', html: [], libs: ['tm_kt_toimintakortti', 'tm_kasvupyrahdys'], libSkanni: [], runtime: [] },
   { id: 'kehitystyopoyta', nimi: 'Kehitystyöpöytä (Kehitystyopoyta.html)', html: ['TalentMaster_Kehitystyopoyta.html'], router: 'masterKt', libs: ['tm_kehitystyopoyta', 'tm_kt_sivu', 'tm_kt_havainto', 'tm_kt_arviointi', 'tm_kt_alue'], libSkanni: ['tm_kehitystyopoyta', 'tm_kt_sivu', 'tm_kt_havainto', 'tm_kt_arviointi', 'tm_kt_alue'], runtime: [] },
 ];
@@ -173,6 +174,8 @@ function laske(lapiajoPolku, opts) {
     const muuEra = puuttuvat.filter((r) => era.muu.avain.has(r.avain) || era.muu.fi.has(r.fi)).map((r) => ({ avain: r.avain, era: era.muu.avain.get(r.avain) || era.muu.fi.get(r.fi) }));
     // kovakoodattu: staattinen
     const staat = [...skannaa(n.html, S, false, svI), ...skannaa((n.libSkanni || []).map((l) => 'lib/' + l + '.js'), S, true, svI)];
+    // staattinen MARKUP (HTML-runko; skannaaHtml lukee vain inline-skriptit) — vain näkymät joille `markup` on listattu (Sibbo 1.11. suostumus vaihe 1)
+    for (const f of n.markup || []) for (const x of skannaaMarkup(lue(f))) staat.push({ tiedosto: f, rivi: x.rivi, renderoija: '(markup) ' + x.tyyppi, tyyppi: x.tyyppi, teksti: x.teksti, svOn: svI.on(x.teksti) });
     // kovakoodattu: ajonaikainen (läpiajo, sv-tila, demo-data)
     const aja = { ui: [], data: [], prototyypit: [] };
     if (lapiajo) for (const [nim, v] of Object.entries(lapiajo.nakymat || {})) if ((n.runtime || []).some((p) => nim.startsWith(p))) for (const r of v.fi || []) {

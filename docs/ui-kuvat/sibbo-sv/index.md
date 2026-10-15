@@ -10,10 +10,10 @@ Generoitu `node scripts/ui_kuvat_sibbo_sv.mjs`. Kieli sv, vain demo-data (ei oik
 | ![02-pelaaja-pelialy-kortti](02-pelaaja-pelialy-kortti-dark-1280.webp) `02-pelaaja-pelialy-kortti-dark-1280.webp` | dark | 1280 | 5 |
 | ![03-huoltaja](03-huoltaja-dark-390.webp) `03-huoltaja-dark-390.webp` | dark | 390 | 9 |
 | ![03-huoltaja](03-huoltaja-dark-1280.webp) `03-huoltaja-dark-1280.webp` | dark | 1280 | 9 |
-| ![04-suostumus](04-suostumus-dark-390.webp) `04-suostumus-dark-390.webp` | dark | 390 | 15 |
-| ![04-suostumus](04-suostumus-dark-1280.webp) `04-suostumus-dark-1280.webp` | dark | 1280 | 15 |
-| ![04b-suostumus-validointiviesti](04b-suostumus-validointiviesti-dark-390.webp) `04b-suostumus-validointiviesti-dark-390.webp` | dark | 390 | 15 |
-| ![04b-suostumus-validointiviesti](04b-suostumus-validointiviesti-dark-1280.webp) `04b-suostumus-validointiviesti-dark-1280.webp` | dark | 1280 | 15 |
+| ![04-suostumus](04-suostumus-dark-390.webp) `04-suostumus-dark-390.webp` | dark | 390 | 0 |
+| ![04-suostumus](04-suostumus-dark-1280.webp) `04-suostumus-dark-1280.webp` | dark | 1280 | 0 |
+| ![04b-suostumus-validointiviesti](04b-suostumus-validointiviesti-dark-390.webp) `04b-suostumus-validointiviesti-dark-390.webp` | dark | 390 | 0 |
+| ![04b-suostumus-validointiviesti](04b-suostumus-validointiviesti-dark-1280.webp) `04b-suostumus-validointiviesti-dark-1280.webp` | dark | 1280 | 0 |
 | ![05-valmentaja-pelaajakortti](05-valmentaja-pelaajakortti-dark-390.webp) `05-valmentaja-pelaajakortti-dark-390.webp` | dark | 390 | 3 |
 | ![05-valmentaja-pelaajakortti](05-valmentaja-pelaajakortti-dark-1280.webp) `05-valmentaja-pelaajakortti-dark-1280.webp` | dark | 1280 | 2 |
 | ![05-valmentaja-pelaajakortti](05-valmentaja-pelaajakortti-light-390.webp) `05-valmentaja-pelaajakortti-light-390.webp` | light | 390 | 3 |
@@ -80,74 +80,6 @@ Generoitu `node scripts/ui_kuvat_sibbo_sv.mjs`. Kieli sv, vain demo-data (ei oik
 - (teksti) Kan lapsi komma?
 - (teksti) Ottelu vs FC Naapuri
 - (teksti) Nopeustestit
-
-### 04-suostumus-dark-390.webp
-- (teksti) Valmis
-- (teksti) Pelaajan tiedot
-- (teksti) Raportit toimitetaan tähän -- alle 18v käytetään huoltajan osoitetta
-- (teksti) Joukkue
-- (teksti) Seura
-- (teksti) (Palloliiton pelaajatunnus)
-- (teksti) PalloID löytyy Palloliiton pelaajasivulta. Jätä tyhjäksi jos ei tiedossa.
-- (teksti) Biologisen iän arviointi (vapaaehtoinen)
-- (teksti) Vanhempien pituustiedot mahdollistavat biologisen iän arvioinnin myöhemmin. Vapaaehtoinen. Tiedot ovat luottamuksellisia eikä niitä jaeta ko
-- (teksti) Ei tiedossa
-- (teksti) Pelaaja on adoptoitu tai biologisten vanhempien tietoja ei ole saatavilla
-- (teksti) Seuraava
-- (aria-label) Päivä
-- (aria-label) Kuukausi
-- (placeholder) oma.osoite@email.fi
-
-### 04-suostumus-dark-1280.webp
-- (teksti) Valmis
-- (teksti) Pelaajan tiedot
-- (teksti) Raportit toimitetaan tähän -- alle 18v käytetään huoltajan osoitetta
-- (teksti) Joukkue
-- (teksti) Seura
-- (teksti) (Palloliiton pelaajatunnus)
-- (teksti) PalloID löytyy Palloliiton pelaajasivulta. Jätä tyhjäksi jos ei tiedossa.
-- (teksti) Biologisen iän arviointi (vapaaehtoinen)
-- (teksti) Vanhempien pituustiedot mahdollistavat biologisen iän arvioinnin myöhemmin. Vapaaehtoinen. Tiedot ovat luottamuksellisia eikä niitä jaeta ko
-- (teksti) Ei tiedossa
-- (teksti) Pelaaja on adoptoitu tai biologisten vanhempien tietoja ei ole saatavilla
-- (teksti) Seuraava
-- (aria-label) Päivä
-- (aria-label) Kuukausi
-- (placeholder) oma.osoite@email.fi
-
-### 04b-suostumus-validointiviesti-dark-390.webp
-- (teksti) Valmis
-- (teksti) Pelaajan tiedot
-- (teksti) Raportit toimitetaan tähän -- alle 18v käytetään huoltajan osoitetta
-- (teksti) Joukkue
-- (teksti) Seura
-- (teksti) (Palloliiton pelaajatunnus)
-- (teksti) PalloID löytyy Palloliiton pelaajasivulta. Jätä tyhjäksi jos ei tiedossa.
-- (teksti) Biologisen iän arviointi (vapaaehtoinen)
-- (teksti) Vanhempien pituustiedot mahdollistavat biologisen iän arvioinnin myöhemmin. Vapaaehtoinen. Tiedot ovat luottamuksellisia eikä niitä jaeta ko
-- (teksti) Ei tiedossa
-- (teksti) Pelaaja on adoptoitu tai biologisten vanhempien tietoja ei ole saatavilla
-- (teksti) Seuraava
-- (aria-label) Päivä
-- (aria-label) Kuukausi
-- (placeholder) oma.osoite@email.fi
-
-### 04b-suostumus-validointiviesti-dark-1280.webp
-- (teksti) Valmis
-- (teksti) Pelaajan tiedot
-- (teksti) Raportit toimitetaan tähän -- alle 18v käytetään huoltajan osoitetta
-- (teksti) Joukkue
-- (teksti) Seura
-- (teksti) (Palloliiton pelaajatunnus)
-- (teksti) PalloID löytyy Palloliiton pelaajasivulta. Jätä tyhjäksi jos ei tiedossa.
-- (teksti) Biologisen iän arviointi (vapaaehtoinen)
-- (teksti) Vanhempien pituustiedot mahdollistavat biologisen iän arvioinnin myöhemmin. Vapaaehtoinen. Tiedot ovat luottamuksellisia eikä niitä jaeta ko
-- (teksti) Ei tiedossa
-- (teksti) Pelaaja on adoptoitu tai biologisten vanhempien tietoja ei ole saatavilla
-- (teksti) Seuraava
-- (aria-label) Päivä
-- (aria-label) Kuukausi
-- (placeholder) oma.osoite@email.fi
 
 ### 05-valmentaja-pelaajakortti-dark-390.webp
 - (teksti) Harjoitettavuuskartoitus U13–15 · öppen

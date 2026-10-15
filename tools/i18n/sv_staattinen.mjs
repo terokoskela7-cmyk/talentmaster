@@ -14,7 +14,7 @@ import { createRequire } from 'module';
    melua koodimaisista merkkijonoista. Varoitus: tunnistaa vain sanat jotka kielitiedostossa jo on; uudet sanat tulevat läpiajon heuristiikasta. */
 const fiVainSanasto = (() => {
   try {
-    const L = createRequire(import.meta.url)('../../lib/tm_lang.js').TM_LANG; const kerää = (o, ulos) => { for (const v of Object.values(o || {})) { if (typeof v === 'string') sanat(v).forEach((w) => { if (w.length >= 4) ulos.add(w); }); else if (v && typeof v === 'object') kerää(v, ulos); } return ulos; };
+    const L = createRequire(import.meta.url)('../../lib/tm_lang.js').TM_LANG; const kerää = (o, ulos) => { for (const [k, v] of Object.entries(o || {})) { if (k.startsWith('rek_')) continue; /* suostumus.rek_* (Sibbo 1.11.) pidetään sanaston ulkopuolella: muuten uudet fi-sanat paljastaisivat VP:n/Seuran vanhoja reitittämättömiä (kasvukatto, baselinea ei päivitetä) */ if (typeof v === 'string') sanat(v).forEach((w) => { if (w.length >= 4) ulos.add(w); }); else if (v && typeof v === 'object') kerää(v, ulos); } return ulos; };
     const fi = kerää(L.fi, new Set()), en = kerää(L.en, new Set()), ulos = new Set();
     for (const w of fi) if (!en.has(w) && /[a-zåäö]{4}/.test(w)) ulos.add(w);
     return ulos;
