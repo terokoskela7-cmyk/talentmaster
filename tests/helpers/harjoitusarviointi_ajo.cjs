@@ -15,7 +15,9 @@ function ajaa(src, opts) {
   for (const [nimi, kok] of Object.entries(KOKOONPANOT)) {
     const inner = { innerHTML: '' };
     const doc = { getElementById: (id) => (id === 'haInner' ? inner : null), createElement: () => ({ style: {}, set innerHTML(v) { this._h = v; }, get innerHTML() { return this._h; }, remove() {} }), body: { appendChild() {} } };
-    const ctx = { document: doc, console, toast() {}, alert() {}, normiIka: undefined }; ctx.window = ctx; vm.createContext(ctx);
+    const KIINTEA = new Date(2026, 9, 15, 12, 0, 0).getTime();   // lomake esitäyttää tämän päivän → kiinteä päivä, ettei fi-hajautus vanhene vuorokauden vaihtuessa
+    class KiinteaDate extends Date { constructor(...a) { if (a.length) super(...a); else super(KIINTEA); } static now() { return KIINTEA; } }
+    const ctx = { document: doc, console, toast() {}, alert() {}, normiIka: undefined, Date: KiinteaDate }; ctx.window = ctx; vm.createContext(ctx);
     vm.runInContext(src, ctx);
     const o = Object.assign({}, kok); delete o.jalkeen; if (opts.t) o.t = opts.t;
     ctx.TM_HARJOITUS.avaa(o);
