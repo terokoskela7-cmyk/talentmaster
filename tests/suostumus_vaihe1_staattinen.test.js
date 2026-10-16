@@ -95,11 +95,11 @@ describe('staattinen markup-skanneri', () => {
 describe('avaimet fi+en+sv (erä 55 viety)', () => {
   it(REK.length + ' uutta suostumus.rek_*-avainta: fi ja en ei-tyhjinä, sv viety erästä 55 (Geminin palautus)', () => {
     expect(REK.length).toBe(61);   // 59 (vaihe 1) + 2 uutta (erä 56)
-    for (const k of REK) { expect(L.fi.suostumus[k], k).toBeTruthy(); expect(L.en.suostumus[k], k).toBeTruthy(); if (!ERA56.includes(k)) expect(typeof L.sv.suostumus[k], 'sv ' + k).toBe('string'); else expect(L.sv.suostumus[k], 'sv ' + k).toBeUndefined(); }
+    for (const k of REK) { expect(L.fi.suostumus[k], k).toBeTruthy(); expect(L.en.suostumus[k], k).toBeTruthy(); expect(typeof L.sv.suostumus[k], 'sv ' + k).toBe('string'); }   // erät 55 + 56 viety
   });
   it('erä 55 palasi: yksikään rek_*-avain ei ole enää sv-odotuslistalla', () => {
     expect(REK.filter((k) => ODOTUS.includes('suostumus.' + k) && !ERA56.includes(k))).toEqual([]);
-    expect(ERA56.filter((k) => !ODOTUS.includes('suostumus.' + k))).toEqual([]);   // erän 56 avaimet odottavat Geminiä
+    expect(ERA56.filter((k) => ODOTUS.includes('suostumus.' + k))).toEqual([]);   // erä 56 palasi ja vietiin
   });
   it('lähetetty erä 55: rivit = rek_*-avaimet, sv tyhjä (lähetystiedosto säilyy sellaisenaan), konteksti + huom jokaisella rivillä', () => {
     const r = ERA55.osiot.tm_lang.rivit;
