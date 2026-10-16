@@ -14,10 +14,10 @@ Palveluun rekisteröitymisen yhteydessä pelaajan huoltajalta pyydetään suostu
 ## 1. Rekisterinpitäjä ja yhteystiedot
 TalentMasterID Oy · Y-tunnus 3616734-7 · Kotipaikka Vaasa
 Yhteyshenkilö: Tero Koskela · Sähköposti: **[TÄYDENNÄ: virallinen sähköposti]**
-Tietopyynnöt (tarkastus/siirto/poisto): **tietosuoja@talentmasterid.com** *(vaatii edelleenlähetyksen — vrt. dmarc@)*
+Tietopyynnöt (tarkastus/siirto/poisto): **talentmasterid@gmail.com**
 
 ## 2. Tietosuojasta vastaava henkilö
-**[TÄYDENNÄ: nimi]** · tietosuoja@talentmasterid.com · *(Tarve arvioida DPO:n muodollisesta nimeämisestä juristin kanssa.)*
+**[TÄYDENNÄ: nimi]** · talentmasterid@gmail.com · *(Tarve arvioida DPO:n muodollisesta nimeämisestä juristin kanssa.)*
 
 ## 3. Rekisterin tietosisältö
 Rekisteriin voidaan tallentaa: nimi, syntymäaika, yhteystiedot (sähköposti, tarvittaessa puhelin/osoite), yksilölliset
@@ -66,7 +66,7 @@ Rekisteröidyllä (alaikäisen osalta huoltajalla) on oikeus: tarkastaa tietonsa
 (**oikeus tulla unohdetuksi — toteutettu teknisesti**), saada tietonsa koneellisesti luettavassa muodossa ja siirtää ne
 (**datan siirrettävyys — toteutettu teknisesti**), rajoittaa tai vastustaa käsittelyä, sekä peruuttaa suostumus milloin
 tahansa. Rekisteröidyllä on oikeus tehdä valitus tietosuojavaltuutetun toimistolle. Oikeuksia käytetään osoitteesta
-tietosuoja@talentmasterid.com.
+talentmasterid@gmail.com.
 
 ## 12. Profilointi
 Henkilötietojen käsittely sisältää **profilointia**: Palvelu arvioi ja laskee automaattisesti pelaajan ominaisuuksia

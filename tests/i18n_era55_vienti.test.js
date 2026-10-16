@@ -16,6 +16,6 @@ describe('sv-erä 55 — vienti', () => {
     for (const [k, r] of Object.entries(P).filter(([k]) => !ERA56.has(k))) { const a = k.replace(/^suostumus\./, ''); expect(L.sv.suostumus[a], k).toBe(r.sv); expect(L.fi.suostumus[a], k).toBe(r.fi); expect(L.en.suostumus[a], k).toBe(r.en); }
   });
   it('sv-odotuslista ei sisällä erän 55 avaimia (paitsi erään 56 siirtyneet)', () => { expect(Object.keys(P).filter((k) => ODOTUS.includes(k) && !ERA56.has(k))).toEqual([]); });
-  it('erän 55 rivi rek_ts_sijainti_teksti on korvattu erällä 56: vanhaa sv-väitettä ("överförs inte utanför EU") ei ole koodissa', () => { expect(L.sv.suostumus.rek_ts_sijainti_teksti).toBeUndefined(); expect(JSON.stringify(L.fi.suostumus)).not.toContain('Tietoja ei siirretä EU:n ulkopuolelle'); });
+  it('erän 55 rivi rek_ts_sijainti_teksti on korvattu erällä 56: vanhaa sv-väitettä ("överförs inte utanför EU") ei ole koodissa', () => { expect(L.sv.suostumus.rek_ts_sijainti_teksti).not.toContain('inte utanför EU'); expect(JSON.stringify(L.fi.suostumus)).not.toContain('Tietoja ei siirretä EU:n ulkopuolelle'); });
   it('idempotentti', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.odotusPoistettu).toBe(0); });
 });
