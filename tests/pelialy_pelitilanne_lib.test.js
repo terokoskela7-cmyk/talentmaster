@@ -186,3 +186,33 @@ describe('REGRESSIOLUKKO — vanha havaintosetti, vanhat pikakentät bitti bitil
     expect(lahde.slice(lahde.indexOf('function tmAdarBand('), lahde.indexOf('function tmAdarNimet('))).not.toMatch(/pelitilanne/);
   });
 });
+
+describe('EN — pelitilanne- ja luotettavuustekstit (tm_adar_tekstit.EN)', () => {
+  const UUDET = Object.keys(TX.FI).filter((k) => /^adar_(pt|luot|jak)_/.test(k));
+  it('jokaisella uudella FI-avaimella on EN; {n}-paikkamerkit säilyvät; ei suomea (ä/ö) englannissa', () => {
+    expect(UUDET.length).toBe(31);
+    UUDET.forEach((k) => {
+      expect(typeof TX.EN[k], k).toBe('string');
+      expect(TX.EN[k].includes('{n}'), k).toBe(TX.FI[k].includes('{n}'));
+      expect(TX.EN[k], k).not.toMatch(/[äöÄÖ]/);
+    });
+    ['harjoitus', 'pienpeli', 'ottelu'].forEach((k) => expect(TX.EN['adar_konteksti_' + k]).toBeTruthy());
+  });
+  it('en-kieli: tmAdarT palauttaa EN; sv-kääntäjä voittaa EN:n; fi/puuttuva kieli → FI; avain ilman EN:ää → FI', () => {
+    expect(TX.tmAdarT('adar_pt_paine_kova', null, 'en')).toBe('High pressure');
+    expect(TX.tmAdarT('adar_pt_paine_kova', null, 'fi')).toBe('Kova paine');
+    expect(TX.tmAdarT('adar_pt_paine_kova', null)).toBe('Kova paine');
+    expect(TX.tmAdarT('adar_pt_paine_kova', () => 'sv-arvo', 'en')).toBe('sv-arvo');
+    expect(TX.tmAdarT('adar_A_q', null, 'en'), 'muut adar-tekstit en-tilassa suomeksi kuten ennen').toBe(TX.FI.adar_A_q);
+  });
+  it('en-yhteenveto ja jakaumarivi (lukunäkymä) lähtevät samasta kartasta', () => {
+    const en = (k) => TX.tmAdarT(k, null, 'en');
+    expect(P.tmPelitilanneYhteenveto('ottelu', { vaihe: ['siirtyma_puol'], paine: 'kova', otos: '3_5' }, en)).toBe('Match · Transition to defence · High pressure · 3–5 situations');
+    const pk = { adar_luotettavuus: { taso: 'ohut', syyt: ['yksi_arvioija', 'vain_harjoitus', 'hajonta'] }, adar_pvm: pv(2), adar_tilanne_jakauma: { ottelu: 4, harjoitus: 6 }, adar_vaihe_jakauma: { hyokkays: 3, siirtyma_puol: 5 } };
+    const r = P.tmAdarLuotettavuusRivit(pk, NYT, en);
+    expect(r.jakauma).toBe('Match 4 · Training 6 | Transitions 5 · Attack 3');
+    expect(r.tasoTeksti).toBe('Estimate reliability: thin');
+    expect(r.syyTekstit).toEqual(['One rater', 'Based on training only', 'Raters’ views differ']);
+    expect(r.huomio).toMatch(/not a grade/);
+  });
+});
