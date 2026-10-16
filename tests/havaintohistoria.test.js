@@ -67,7 +67,7 @@ describe('(1) tmHhRivit — normalisointi ja järjestys', () => {
 
   it('SÄHKÖPOSTI EI päädy tekijäksi (vanhat havainnot)', () => {
     const r = HH.tmHhRivit([{ id: 'a', teksti: 'x', tekija_nimi: 'talentmasterid@gmail.com' }]);
-    expect(r[0].tekija).toBe('Valmentaja');
+    expect(r[0].tekija, 'sähköposti ei päädy tekijäksi; puuttuva = null').toBeNull();
   });
 
   it('tekijä luetaan myös vanhasta valmentajaNimi-kentästä', () => {

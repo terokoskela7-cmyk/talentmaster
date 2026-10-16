@@ -178,8 +178,8 @@ describe('(T2-4) vartijat: ei "lähetetty"-toastia ennen awaitia', () => {
   });
 
   it('lib-versio nostettu molemmissa sivuissa (uudet funktiot, vanha lib = ReferenceError)', () => {
-    expect(MASTER).toContain('lib/tm_valmentajaviesti.js?v=3');
-    expect(VP).toContain('lib/tm_valmentajaviesti.js?v=3');
+    expect(MASTER).toContain('lib/tm_valmentajaviesti.js?v=4');
+    expect(VP).toContain('lib/tm_valmentajaviesti.js?v=4');
   });
 });
 

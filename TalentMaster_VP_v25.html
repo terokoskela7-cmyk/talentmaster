@@ -62,8 +62,9 @@
 <script src="lib/tm_pvm.js?v=7"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=6"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
-<script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
-<script src="lib/tm_valmentajaviesti.js?v=3"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
+<script src="lib/tm_tekija_nimi.js?v=1"></script>   <!-- tekijän nimi: tallennus (ei sähköpostia, puuttuva = null) + näyttö (käännetty oletus) -->
+<script src="lib/tm_havaintohistoria.js?v=2"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
+<script src="lib/tm_valmentajaviesti.js?v=4"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=15"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
@@ -5624,12 +5625,12 @@ window.avaaBioBanding = avaaBioBanding;
 /* VP:n oma nayttonimi kayttajat-dokumentista. Luetaan VAIN tarvittaessa (viestia
    lahetettaessa), eika sahkoposti kelpaa: lapsi nakee taman nimen kortissaan. */
 async function _vpOmaNimi() {
-  if (window._vpOmaNimiArvo) return window._vpOmaNimiArvo;
+  if (window._vpOmaNimiArvo !== undefined) return window._vpOmaNimiArvo;
   try {
     const d = await db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(_uid).get();
     const x = d.exists ? d.data() : {};
     window._vpOmaNimiArvo = tmViestiNimi([((x.etunimi || '') + ' ' + (x.sukunimi || '')).trim()]);
-  } catch (e) { window._vpOmaNimiArvo = 'Valmentaja'; }
+  } catch (e) { window._vpOmaNimiArvo = null; }   // puuttuva nimi = null (näyttö kääntää oletuksen)
   return window._vpOmaNimiArvo;
 }
 

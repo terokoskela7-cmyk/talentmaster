@@ -301,7 +301,7 @@ async function tmTallennaPlusMerkinta(kirjausData) {
       id: `local_${Date.now()}`,
       timestamp: Date.now(),
       tekija_uid: auth.user?.uid || 'pin',
-      tekija_nimi: auth.kayttaja?.nimi || window.kirjautunutKayttaja?.nimi || 'Valmentaja',
+      tekija_nimi: window.tmTekijaNimiTalletus([auth.kayttaja?.nimi, window.kirjautunutKayttaja?.nimi]),   // ei sähköpostia, puuttuva = null
       kirjautumistapa: auth.kirjautumistapa || 'pin',
       synkronoitu: false
     };
@@ -324,7 +324,7 @@ async function tmTallennaPlusMerkinta(kirjausData) {
     const firestoreData = {
       ...kirjausData,
       tekija_uid: auth.user.uid,
-      tekija_nimi: auth.kayttaja?.nimi || auth.user.email,
+      tekija_nimi: window.tmTekijaNimiTalletus([auth.kayttaja?.nimi]),   // EI sähköpostia (lapsi voi nähdä kentän); puuttuva = null
       tekija_rooli: auth.rooli,
       seuraId: auth.seuraId,
       luotu: firebase.firestore.FieldValue.serverTimestamp(),
