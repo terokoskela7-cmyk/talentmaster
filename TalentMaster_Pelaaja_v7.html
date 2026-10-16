@@ -543,7 +543,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=45"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
-<script src="lib/tm_lib_i18n.js?v=11"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
+<script src="lib/tm_lib_i18n.js?v=12"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_kentta.js?v=5"></script>
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1: liput/julkiset (pelaajalle luettava) -->
@@ -651,6 +651,17 @@ var _TMAP = {
   done:'yleiset.valmis', pause:'yleiset.tauko', resume:'yleiset.jatka', backHm:'yleiset.takaisin_kotiin'
 };
 const T = (k, m) => (typeof t === 'function' ? t(k.indexOf('.') >= 0 ? k : (_TMAP[k] || ('pelaaja.' + k)), m) : k);   // m = {muuttuja: arvo} → {muuttuja}-paikat; 'ryhmä.avain' kulkee sellaisenaan t():lle
+/* Pelipaikka: yksi kartta (lyhenne → T-avain). POS (rivi ~1719) ja kortin pelipaikkatekstit käyttävät samaa; data voi olla lyhenne ("KH") tai suomenkielinen kokonimi ("Laitahyökkääjä", tallennusmuoto) → sv/en: kielen mukainen kokonimi; fi: arvo sellaisenaan (ulkoasu ennallaan). Tuntematon arvo → sellaisenaan. */
+const _P7_POS_AVAIN = { KH:'keskushyokkaaja', H:'hyokkaaja', HM:'hyokkaava_keskik', KK:'keskikentta', KP:'keskuspuolustaja', LP:'laitapuolustaja', LH:'laitahyokkaaja', MV:'maalivahti', P:'puolustaja' };
+function _p7PosKartta() { const o = {}; Object.keys(_P7_POS_AVAIN).forEach(k => { o[k] = T(_P7_POS_AVAIN[k]); }); return o; }
+function _p7PaikkaNimi(v) {
+  if (v == null || v === '') return '';
+  if (_p7Kieli() === 'fi') return v;   // fi: arvo kuten ennen (lyhenne tai tallennettu kokonimi) — fi-ulkoasu ei muutu
+  const POS = _p7PosKartta(); if (POS[v]) return POS[v];
+  const fi = (window.TM_LANG && window.TM_LANG.fi && window.TM_LANG.fi.pelaaja) || {};   // suomenkielinen kokonimi → lyhenne → kielen mukainen nimi
+  const k = Object.keys(_P7_POS_AVAIN).filter(c => fi[_P7_POS_AVAIN[c]] === v)[0];
+  return k ? POS[k] : v;
+}
 // Aliakset funktioille, joissa paikallinen T/t (esim. const T = window.TM_TESTIT) varjostaa reitittimen
 const _pT = (k, m) => T(k, m), _pt = (k, m) => (typeof t === 'function' ? t(k, m) : k);
 function setLoc(l){
@@ -878,6 +889,7 @@ function rPin(){
       ? window.TM.microcycles.laskeViikkoTeema() : null;
     if (vt && vt.idoliNimi) { idolNimi = vt.idoliNimi; idolTeema = vt.teema || idolTeema; }
   } catch(e) { /* fallback */ }
+  idolNimi = _p7K1T(idolNimi); idolTeema = _p7K1T(idolTeema);   // lib-kartta (sv erä 59); hahmonimet ennallaan
   const idolAlku = (String(idolNimi).trim()[0] || 'B').toUpperCase();
   // §7.22-korjaus: hhTaso/xp-KPI-arvot poistettu pelaajapinnalta (ei tasolukuja/XP:tä lapselle). Firestore-data ennallaan.
   return `
@@ -1638,7 +1650,7 @@ function rKortti(){
   const naytaOvr = _fcNaytaOvr(F);
   const tila = _valmiusTila(p?.flei_viimeisin || 0);
   const nimi = (p?.etunimi || '–') + ' ' + ((p?.sukunimi || '')[0] || '') + (p?.sukunimi ? '.' : '');
-  const paikka = (p?.pelipaikka || '') + ((p?.joukkueId) ? ' · ' + String(p.joukkueId).toUpperCase() : '');
+  const paikka = _thEsc(_p7PaikkaNimi(p?.pelipaikka || '')) + ((p?.joukkueId) ? ' · ' + String(p.joukkueId).toUpperCase() : '');
   // Kortin sydän: Showcasessa OVR-luku + todellinen tier; muille laadullinen tila ilman lukua.
   const sydan = naytaOvr
     ? '<div style="font-family:var(--font-b);font-weight:900;font-size:64px;color:#B8860B;line-height:1">' + F.ovr + '</div>'
@@ -1716,7 +1728,7 @@ function rMinaProfiili() {
   const pelipaikka   = p.pelipaikka || p.positio || '—';
   // Pelipaikka: POS (lyhenne→kokonimi) + POS_REV (kokonimi→lyhenne). Grid=kokonimi, chip=lyhenne.
   // Toimii sekä lyhenne- ("LH") että kokonimi-datalle ("Laitahyökkääjä", meidän tallennusmuoto).
-  const POS = { KH:T('keskushyokkaaja'), H:T('hyokkaaja'), HM:T('hyokkaava_keskik'), KK:T('keskikentta'), KP:T('keskuspuolustaja'), LP:T('laitapuolustaja'), LH:T('laitahyokkaaja'), MV:T('maalivahti'), P:T('puolustaja') };
+  const POS = _p7PosKartta();
   const POS_REV = Object.fromEntries(Object.entries(POS).map(([k, v]) => [v, k]));
   const pelipaikkaPitka   = POS[pelipaikka] || pelipaikka;        // grid: kokonimi
   const pelipaikkaLyhenne = POS_REV[pelipaikka] || pelipaikka;    // chip: lyhenne
@@ -3432,7 +3444,7 @@ function rMinaHero() {
     headBlock = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;font-weight:400;color:' + ac + ';line-height:1.05">' + T('kortti_rakentuu').replace(' ', '<br>') + '</div>'
       + '<div style="font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:4px">' + T('n_osa_aluetta_avattu_hieno', { n: F.mitatut.length }) + '</div>';
   }
-  var posTxt = F.naytaPaikka ? ('⚡ ' + esc(p.pelipaikka)) : T('monipuolinen');
+  var posTxt = F.naytaPaikka ? ('⚡ ' + esc(_p7PaikkaNimi(p.pelipaikka))) : T('monipuolinen');
   var h = '<div onclick="naytaFcOverlay()" style="margin:14px 20px 0;border:1px solid ' + acDim + '.42);border-radius:12px;overflow:hidden;cursor:pointer;'
     + 'box-shadow:0 0 0 .5px ' + acDim + '.14),0 8px 26px rgba(0,0,0,.4);background:radial-gradient(130% 80% at 50% -10%,' + acDim + '.16),transparent 55%),linear-gradient(180deg,var(--bg3),#141311)">';
   // top
@@ -5781,6 +5793,7 @@ function _fcKorttiData(p) {
   // ── Idoli/unelma ──
   let idoli = 'Maestro', idolTeema = T('rohkea_joka_paikassa');
   try { const vt = (window.TM && window.TM.microcycles && window.TM.microcycles.laskeViikkoTeema) ? window.TM.microcycles.laskeViikkoTeema() : null; if (vt && vt.idoliNimi) { idoli = vt.idoliNimi; idolTeema = vt.teema || idolTeema; } } catch(e){}
+  idoli = _p7K1T(idoli); idolTeema = _p7K1T(idolTeema);   // IDOLIT-nimet (Viimeistelijä, Velho, Arkkitehti) + NIMIKKO_VIIKOT-teemat: lib-kartta (sv erä 59); hahmonimet (Maestro, Shadowstep…) ja kartaton teksti ennallaan
   // ── Avatar / nimi ──
   const ini = (((p.etunimi||'')[0]||'') + ((p.sukunimi||'')[0]||'')).toUpperCase() || 'TM';
   const nimi = (p.etunimi || T('pelaaja')) + (p.sukunimi ? (' ' + p.sukunimi[0] + '.') : '');
@@ -5917,7 +5930,7 @@ function naytaFcOverlay() {
     + '</div>';
   else headHtml = '<div class="fc-build">' + T('kortti_rakentuu').replace(' ', '<br>') + '</div><div class="fc-buildsub">' + T('n_osa_aluetta_avattu_hieno', { n: mitatut.length }) + '</div>';
   const posHtml = naytaPaikka
-    ? '<div class="fc-pill">⚡ ' + p.pelipaikka + '</div>'
+    ? '<div class="fc-pill">⚡ ' + _thEsc(_p7PaikkaNimi(p.pelipaikka)) + '</div>'
     : '<div class="fc-pill">' + T('monipuolinen') + '</div><div style="font-family:\'DM Sans\';font-size:8px;color:var(--ink3);margin-top:3px;text-align:right">' + T('kokeilee_kaikkia_paikkoja') + '</div>';
   const ikaTxt = (ika != null ? ('U' + ika) : '') + (naytaPaikka ? '' : (ika != null && ika <= 13 ? ' · 8v8' : ''));
 
@@ -5938,7 +5951,7 @@ function naytaFcOverlay() {
           '</div>' +
           '<div style="display:flex;justify-content:center;margin-top:5px"><div class="fc-av">' + ini + '</div></div>' +
           '<div style="text-align:center"><div class="fc-name">' + nimi + '</div>' +
-            '<div class="fc-namesub">' + (synttari ? T('hyvaa_syntymapaivaa_2') : (naytaPaikka ? p.pelipaikka : T('pelaa_joka_paikassa'))) + '</div></div>' +
+            '<div class="fc-namesub">' + (synttari ? T('hyvaa_syntymapaivaa_2') : (naytaPaikka ? _thEsc(_p7PaikkaNimi(p.pelipaikka)) : T('pelaa_joka_paikassa'))) + '</div></div>' +
           '<div class="fc-div"></div>' +
           '<div class="fc-dream"><div class="di">⭐</div><div><div class="dl">' + T('unelma') + '</div><div class="dm">' + T('kuin_b_idoli_b_teema', { idoli: idoli, teema: idolTeema }) + '</div></div></div>' +
           '<div class="fc-s5">' + dims.map(st).join('') + '</div>' +
