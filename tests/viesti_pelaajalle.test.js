@@ -197,6 +197,7 @@ describe('(4) Pelaaja: luettu ei katoa', () => {
     /* Aito ajo: render lukee `window._havKaikki`:n ja jakaa rivit kahteen osioon. */
     const runko = [
       pura(PELAAJA, 'function _mEscP(s) {'),
+      PELAAJA.slice(PELAAJA.indexOf('function _p7TekijaNimi('), PELAAJA.indexOf('\n', PELAAJA.indexOf('function _p7TekijaNimi('))),   // oikea helperi, tuotannon nimellä
       pura(PELAAJA, 'function _valmentajaltaRivit() {'),
       pura(PELAAJA, 'function rValmentajalta() {'),
     ].join('\n');
@@ -242,7 +243,7 @@ describe('(4) Pelaaja: luettu ei katoa', () => {
   it('XSS: pelaajalle renderöity teksti escapoidaan', () => {
     const f = pura(PELAAJA, 'function rValmentajalta() {');
     expect(f).toContain('_mEscP(r.teksti)');
-    expect(f).toContain('_mEscP(r.tekija)');
+    expect(f).toContain('_mEscP(_p7TekijaNimi(r.tekija))');   // escape säilyy; nimi kulkee käännöshelperin kautta
     const esc = pura(PELAAJA, 'function _mEscP(s) {');
     expect(esc).toContain('&lt;');
   });

@@ -339,8 +339,10 @@ async function _adarLataaOmatJoukkueet(seuraId, uid) {
 
 /* Havainnon tekijän nimi. LAPSI NÄKEE TÄMÄN kortissaan, joten sähköposti ei kelpaa:
    Topiaksen appissa luki "talentmasterid@gmail.com". Järjestys on
-   displayName → kayttajat/{uid} etunimi+sukunimi → 'Valmentaja'. Sähköpostia ei käytetä
-   missään haarassa, ei edes viimeisenä oljenkortena. */
+   displayName → kayttajat/{uid} etunimi+sukunimi → null. Sähköpostia ei käytetä
+   missään haarassa, ei edes viimeisenä oljenkortena. Puuttuva nimi tallentuu nullina, EI
+   suomenkielisenä 'Valmentaja'-tekstinä (se jäisi sv-lapselle kääntämättä): lukija
+   (pelaajakortti) näyttää neutraalin oletuksen omalla kielellään. */
 function _adarTekijaNimi(user) {
   /* `displayName` voi itsekin olla sähköposti (osa tunnuksista on luotu niin), joten
      @-merkin sisältävä arvo hylätään — muuten invariantti olisi vain aikomus. */
@@ -350,7 +352,7 @@ function _adarTekijaNimi(user) {
   };
   return kelpaa(user && user.displayName)
       || kelpaa(window._tmKayttajaNimi)
-      || 'Valmentaja';
+      || null;
 }
 
 /** Miksi kirjoitus estyi? Palauttaa käyttäjälle näytettävän syyn. */
