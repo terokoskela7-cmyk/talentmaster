@@ -24,6 +24,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { PT_WINDOW } from './helpers/pelitilanne_lib.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ADAR = readFileSync(join(juuri, 'TalentMaster_ADAR_Pikakortti.html'), 'utf8');
@@ -95,6 +96,7 @@ function ajaLapsiRealmissa() {
     _PH_DB: lapsiDb,
     _PH_AUTH: { currentUser: { uid: 'u1', displayName: 'Valle Valmentaja' } },
     window: {
+      ...PT_WINDOW,
       _tmDB: isaDb,                       // Masterin injektio — EI saa päätyä käyttöön
       _tmAuth: { currentUser: { uid: 'u1' } },
       _tmSeuraId: 'kpv', _tmRooli: 'valmentaja',

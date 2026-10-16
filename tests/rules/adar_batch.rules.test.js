@@ -9,7 +9,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { setDoc, doc, writeBatch, serverTimestamp, getDoc } from 'firebase/firestore';
+import { setDoc, doc, writeBatch, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -105,6 +105,30 @@ describe('ADAR-batch (havainto + adar_*) — KPV-valmentaja, Rules v3.36', () =>
     /* Ei vacuous: sama null-nimi väärän joukkueen valmentajalta hylätään (hylkäys tulee oikeudesta, ei nimestä). */
     await testEnv.clearFirestore(); await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u15'] });
     await assertFails(ajaBatch(ctxRooli(VALM, 'valmentaja'), null, { tekijaNimi: null }));
+  });
+  it('pelitilanne (Vaihe 1): kentän sisältävä luonti onnistuu valmentajalta (ei avainlistaa); null ja puuttuva kenttä myös; väärän joukkueen valmentaja ✗', async () => {
+    const PT = { vaihe: ['siirtyma_puol'], paine: 'kova', otos: '3_5' };
+    const kirjoita = (ctx, lisa) => setDoc(doc(ctx.firestore(), 'seurat', SEURA, 'pelaajat', TOPIAS, 'havainnot', 'pt1'), { ...havaintoData(VALM, 'valmentajat'), ...lisa });
+    await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
+    await assertSucceeds(kirjoita(ctxRooli(VALM, 'valmentaja'), { pelitilanne: PT }));
+    await testEnv.clearFirestore(); await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
+    await assertSucceeds(kirjoita(ctxRooli(VALM, 'valmentaja'), { pelitilanne: null }));
+    await testEnv.clearFirestore(); await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
+    await assertSucceeds(kirjoita(ctxRooli(VALM, 'valmentaja'), {}));   // vanha muoto: kenttää ei ole
+    await testEnv.clearFirestore(); await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u15'] });
+    await assertFails(kirjoita(ctxRooli(VALM, 'valmentaja'), { pelitilanne: PT }));   // ei vacuous: hylkäys tulee oikeudesta
+  });
+  it('pelitilanne: pelaaja EI kirjoita kenttää — ei luontina eikä päivityksenä (vain pelaaja_lukenut sallittu)', async () => {
+    await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'seurat', SEURA, 'pelaajat', TOPIAS, 'havainnot', 'pt2'), { ...havaintoData(VALM, 'pelaaja', null), luotu: new Date() });
+    });
+    const pelaaja = testEnv.authenticatedContext(TOPIAS, { rooli: 'pelaaja', pelaajaSeuraId: SEURA, pelaajaId: TOPIAS });
+    const ref = doc(pelaaja.firestore(), 'seurat', SEURA, 'pelaajat', TOPIAS, 'havainnot', 'pt2');
+    await assertFails(updateDoc(ref, { pelitilanne: { vaihe: [], paine: 'kova', otos: '6plus' } }));
+    await assertFails(updateDoc(ref, { pelitilanne: { vaihe: [], paine: 'kova', otos: '6plus' }, pelaaja_lukenut: true }));
+    await assertSucceeds(updateDoc(ref, { pelaaja_lukenut: true }));   // ei vacuous: sallittu polku toimii
+    await assertFails(setDoc(doc(pelaaja.firestore(), 'seurat', SEURA, 'pelaajat', TOPIAS, 'havainnot', 'pt3'), { ...havaintoData(TOPIAS, 'pelaaja'), pelitilanne: { vaihe: [], paine: null, otos: '1_2' } }));
   });
   it('VP ja talenttivalmentaja: batch läpi ilman joukkuekuulumista', async () => {
     await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });

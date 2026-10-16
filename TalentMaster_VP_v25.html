@@ -61,7 +61,9 @@
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=7"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
-<script src="lib/tm_pelialy_yksilo.js?v=6"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
+<script src="lib/tm_pelialy_yksilo.js?v=7"></script>
+<script src="lib/tm_adar_tekstit.js?v=3"></script>   <!-- Pelitilanne: luotettavuustekstit (FI-kartta + tmLibT) -->
+<script src="lib/tm_adar_pelitilanne.js?v=1"></script>   <!-- Pelitilanne Vaihe 1: luotettavuus + jakaumat (vain valmentajalle) -->   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_tekija_nimi.js?v=1"></script>   <!-- tekijän nimi: tallennus (ei sähköpostia, puuttuva = null) + näyttö (käännetty oletus) -->
 <script src="lib/tm_havaintohistoria.js?v=2"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
 <script src="lib/tm_valmentajaviesti.js?v=4"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
@@ -5717,7 +5719,9 @@ function _vpIdpTila(p, jonoIds) { if (!p) return 'puuttuu'; if (p.idpAktiivinen)
 // VAIN VP + Master (§7.22 — ei pelaajalle). Pisteitä ei renderöidä DOMiin lukossa.
 function _vpRistiinarvio(p) {
   const arvioijat = Array.isArray(p.adar_arvioijat) ? p.adar_arvioijat : [];
-  if (!arvioijat.length) return '';
+  /* Peliälyarvion LUOTETTAVUUS (Pelitilanne Vaihe 1; lib/tm_adar_pelitilanne.js): vain VP/valmentaja, ei pelaajalle (§7.22). Tekstit lib-kartasta (tmLibT). */
+  const luot = (typeof window.tmAdarLuotettavuusHTML === 'function') ? window.tmAdarLuotettavuusHTML(p, Date.now(), (typeof tmLibT === 'function' ? tmLibT : null), _jsvEsc) : '';
+  if (!arvioijat.length) return luot;
   const ROOLIM = { valmentaja: 'Valmentaja', talenttivalmentaja: 'Talenttiv.', vp: 'VP', urheilutoimenjohtaja: 'UTJ', fysiikkavalmentaja: 'Fys.val.', fysioterapeutti: 'Fysiot.' };
   const DIMK = { a: 'H', d: 'P', ac: 'T', r: 'A' };
   const avoin = window._vpSA || (typeof tmAdarRistiinarvioAvoin === 'function'
@@ -5745,7 +5749,7 @@ function _vpRistiinarvio(p) {
     + rows
     + (avoin && yhtLbl ? '<div style="font-size:11px;color:var(--ink3);margin-top:6px">' + yhtLbl + '</div>' : '')
     + (avoin && sig ? '<div style="font-size:12px;color:var(--teal);margin-top:7px;font-weight:600">💎 ' + vpT('Vahva ristiinarvio — peruste talenttinostolle') + '</div>' : '')
-    + '</div>';
+    + '</div>' + luot;
 }
 // 2d — pelipaikkalyhenteen näyttönimi (sama lista kuin Seura.html muokkausmodaali). Tuntematon vapaateksti → sellaisenaan.
 const _VP_POS_NIMI = { MV:'Maalivahti', KP:'Keskuspuolustaja', LP:'Laitapuolustaja', KK:'Keskikenttä', HM:'Hyökkäävä keskik.', LH:'Laitahyökkääjä', KH:'Keskushyökkääjä' };

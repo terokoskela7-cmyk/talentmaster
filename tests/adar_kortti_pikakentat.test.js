@@ -8,6 +8,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import vm from 'vm';
+import { PT_WINDOW } from './helpers/pelitilanne_lib.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ADAR = readFileSync(join(juuri, 'TalentMaster_ADAR_Pikakortti.html'), 'utf8');
@@ -61,7 +62,7 @@ describe('ADAR · _phTallenna ilmoittaa isännälle VASTA kuittauksen jälkeen',
       tmHT: (x) => x, console: { error() {}, warn() {} }, Date, Promise, Object, Array, String, JSON, setTimeout,
       navigator: { onLine: !offline },
       _PH_DB: {}, _PH_AUTH: { currentUser: { uid: 'u1', displayName: 'V' } },
-      window: { _tmSeuraId: 'kpv', _tmRooli: 'valmentaja', _pelaajaMap: { p1: {} }, firebase: { firestore: { FieldValue: { serverTimestamp: () => 1 } } },
+      window: { ...PT_WINDOW, _tmSeuraId: 'kpv', _tmRooli: 'valmentaja', _pelaajaMap: { p1: {} }, firebase: { firestore: { FieldValue: { serverTimestamp: () => 1 } } },
         _phTila: { pelaajaId: 'p1', porras: 1, porrasTallennettu: null, porrasNostettu: false, konteksti: 'harjoitus', pisteet: { A: 2 }, havaitut: {}, teksti: '', nakyvyys: false, tehdyt: {}, naytto: 'havainto', viimeisin: null, odottaa: false },
         parent: { postMessage: (m) => viestit.push(m) } },
       tmPaivaIso: () => '2026-10-04', _phDimit: () => ['A'], _nakArvo: () => 'valmentajat', _adarTekijaNimi: () => 'V', _adarEstonSyy: () => 'syy',
@@ -130,5 +131,47 @@ describe('Master · _pikakorttiValmis: pikakenttien varapolku ja lievä huomautu
     const failedHaara = lohko.slice(lohko.indexOf("tyyppi === 'tm:adar:failed'"), lohko.indexOf("document.getElementById('_pkModal')?.remove()"));
     expect(failedHaara).toContain('return;');
     expect(failedHaara).not.toContain('_pkModal');
+  });
+});
+
+describe('ADAR · _phTallenna kirjaa pelitilanteen (Vaihe 1)', () => {
+  async function tallenna(tila) {
+    let data = null;
+    const dok = { id: 'h1' };
+    const ctx = vm.createContext({
+      tmHT: (x) => x, console: { error() {}, warn() {} }, Date, Promise, Object, Array, String, JSON, setTimeout,
+      navigator: { onLine: true },
+      _PH_DB: {}, _PH_AUTH: { currentUser: { uid: 'u1', displayName: 'V', getIdToken: async () => 't' } },
+      window: { ...PT_WINDOW, _tmSeuraId: 'kpv', _tmRooli: 'valmentaja', _pelaajaMap: { p1: {} }, firebase: { firestore: { FieldValue: { serverTimestamp: () => 1 } } },
+        _phTila: Object.assign({ pelaajaId: 'p1', porras: 1, porrasTallennettu: null, porrasNostettu: false, konteksti: 'ottelu', pisteet: { A: 2 }, havaitut: {}, teksti: '', nakyvyys: false, tehdyt: {}, naytto: 'havainto', viimeisin: null, pelitilanne: { vaihe: [], paine: null, otos: null } }, tila),
+        parent: { postMessage() {} } },
+      tmPaivaIso: () => '2026-10-04', _phDimit: () => ['A'], _nakArvo: () => 'valmentajat', _adarTekijaNimi: () => 'V', _adarEstonSyy: () => '',
+      _showToast() {}, _phRender() {}, _phSeuraaKirjoitusta() {}, tmAdarBand: () => ['a'],
+      _luonnosKeraa: () => ({}), _luonnosMerkitse() {}, _luonnosTyhjenna() {}, _luonnosAvaa() {},
+      _phPelaajaRef: () => ({ collection: () => ({ doc: () => dok }) }),
+      _phKirjoitaHavaintoJaPikakentat: (ref, d) => { data = d; return new Promise(() => {}); },
+    });
+    ctx.window.window = ctx.window; ctx.window.parent.parent = null;
+    vm.runInContext(pura(ADAR, 'async function _phTallenna(') + '\nthis.f = _phTallenna;', ctx);
+    await ctx.f();
+    return { data, S: ctx.window._phTila };
+  }
+  it('EI VALINTOJA → pelitilanne: null (ei tyhjää mappia); vanhat kentät ennallaan', async () => {
+    const { data, S } = await tallenna({});
+    expect(data, 'tallennus ei ehtinyt batchiin').not.toBeNull();
+    expect(data.pelitilanne).toBeNull();
+    expect(data.konteksti).toBe('ottelu'); expect(data.tyyppi).toBe('adar_pikakortti'); expect(data.pisteet).toEqual({ A: 2 });
+    expect(S.viimeisin.pelitilanne, 'ok-yhteenveto + kumoa lukevat tätä').toBeNull();
+  });
+  it('porras 3: vaihe + paine + otos tallentuvat; viimeisin-tila saa saman arvon', async () => {
+    const { data, S } = await tallenna({ porras: 3, pelitilanne: { vaihe: ['siirtyma_puol', 'hyokkays'], paine: 'kova', otos: '3_5' } });
+    expect(data.pelitilanne).toEqual({ vaihe: ['siirtyma_puol', 'hyokkays'], paine: 'kova', otos: '3_5' });
+    expect(S.viimeisin.pelitilanne).toEqual(data.pelitilanne);
+  });
+  it('porras 1: vain otos tallentuu — aiemmalta (korkeamman portaan) pelaajalta säilynyt vaihe/paine EI vuoda tähän havaintoon', async () => {
+    const { data } = await tallenna({ porras: 1, pelitilanne: { vaihe: ['hyokkays'], paine: 'kova', otos: '6plus' } });
+    expect(data.pelitilanne).toEqual({ vaihe: [], paine: null, otos: '6plus' });
+    const b = await tallenna({ porras: 1, pelitilanne: { vaihe: ['hyokkays'], paine: 'kova', otos: null } });
+    expect(b.data.pelitilanne, 'porras 1 + vain näkymättömiä valintoja → null').toBeNull();
   });
 });

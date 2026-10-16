@@ -186,12 +186,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <script src="lib/tm_pvm.js?v=7"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
-<script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- Portaat + konsensus + pikakentät (PR 2A) -->
+<script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- Portaat + konsensus + pikakentät (PR 2A) -->
 <script src="lib/tm_lang.js?v=45"></script>   <!-- sv-läpiajo PR 4: kieli seuran kielestä (tmKieliInitSeura) -->
 <script src="lib/tm_i18n_common.js?v=12"></script>
 <script src="lib/tm_lib_i18n.js?v=12"></script>   <!-- jaettu kirjastokartta (tmLibT): ADAR-tekstit + nimikanoni -->
 <script src="lib/tm_henkilosto_i18n.js?v=6"></script>   <!-- tmHT: henkilöstösovellusten reititin -->
-<script src="lib/tm_adar_tekstit.js?v=2"></script>   <!-- ulottuvuustekstit FI-kartassa (ent. PH_TEKSTIT) -->
+<script src="lib/tm_adar_tekstit.js?v=3"></script>   <!-- ulottuvuustekstit FI-kartassa (ent. PH_TEKSTIT) -->
+<script src="lib/tm_adar_pelitilanne.js?v=1"></script>   <!-- pelitilanne (vaihe · paine · otos) + luotettavuus; vain kirjaus, konsensus ennallaan -->
 </head>
 <body>
 
@@ -617,6 +618,7 @@ window._phTila = {
   pelaajaId: null, haku: '',
   porras: 1, porrasTallennettu: null, ehdotusOhitettu: false, porrasNostettu: false,
   konteksti: 'harjoitus',
+  pelitilanne: { vaihe: [], paine: null, otos: null },   // säilyy pelaajalta toiselle kuten konteksti (Vaihe 1); tallennus vain portaalla näkyvistä kentistä
   pisteet: {}, havaitut: {}, auki: {}, vinkki: {}, teksti: '', nakyvyys: false,
   tehdyt: {}, sheet: false, peruttu: false,
   viimeisin: null, odottaa: false, virhe: null
@@ -691,9 +693,30 @@ function _phViimeksi(pid) {
   return { teksti: tmHT('{n} pv sitten').replace('{n}', pv), tanaan: false };
 }
 
+/* ── PELITILANNE (Vaihe 1) ───────────────────────────────────────────────────
+   Chip-rivit konteksti-rivin alla. PORRAS ratkaisee mitä näkyy (ei ikä): 1 → otos · 2 → + vaihe · 3–4 → + paine.
+   Kaikki valinnaista, ei estoa eikä huomautusta. Tallennettavat arvot ovat ASCII-avaimia (lib/tm_adar_pelitilanne.js), näyttö adar_pt_*-teksteistä. */
+function _phPelitilanneTila(raw) {
+  var r = raw || {};
+  return { vaihe: (r.vaihe || []).slice(), paine: r.paine || null, otos: r.otos || null };
+}
+function _phPelitilanneHtml() {
+  var S = window._phTila, nak = window.tmPelitilanneKentat(S.porras), pt = S.pelitilanne;
+  var rivi = function (kentta, avaimet, onValittu) {
+    return '<div><div class="lbl"><span>' + _phEsc(_phT('adar_pt_otsikko_' + kentta)) + '</span></div><div class="chips" role="group" aria-label="' + _phEsc(_phT('adar_pt_otsikko_' + kentta)) + '">'
+      + avaimet.map(function (a) {
+        return '<button class="chip" data-pt="' + kentta + '" data-v="' + a + '" aria-pressed="' + onValittu(a) + '">' + _phEsc(_phT('adar_pt_' + kentta + '_' + a)) + '</button>';
+      }).join('') + '</div></div>';
+  };
+  var h = rivi('otos', window.TM_ADAR_PELITILANNE.OTOKSET, function (a) { return pt.otos === a; });
+  if (nak.vaihe) h += rivi('vaihe', window.TM_ADAR_PELITILANNE.VAIHEET, function (a) { return pt.vaihe.indexOf(a) >= 0; });
+  if (nak.paine) h += rivi('paine', window.TM_ADAR_PELITILANNE.PAINEET, function (a) { return pt.paine === a; });
+  return h;
+}
+
 /* ── PELAAJAN AVAUS ──────────────────────────────────────────────────────────
    Nollaa pisteet, valinnat, tekstin ja näkyvyyden (oletus iästä), mutta säilyttää
-   kontekstin — sama harjoitus jatkuu seuraavalle pelaajalle. */
+   kontekstin JA pelitilanteen — sama harjoitus jatkuu seuraavalle pelaajalle. */
 function _phAvaaPelaaja(pid) {
   var S = window._phTila, p = _phPelaaja(pid);
   if (!p) return;
@@ -874,6 +897,8 @@ function _phRenderHavainto() {
       return '<button data-kx="' + o + '" aria-pressed="' + (S.konteksti === o) + '">' + _phEsc(_phT('adar_konteksti_' + o)) + '</button>';
     }).join('') + '</div></div>';
 
+  h += _phPelitilanneHtml();
+
   h += '<div><div class="lbl"><span>' + _phPorrasTeksti(S.porras) + '</span>'
     + '<button class="link" id="ph-porras">' + tmHT('Muuta porrasta') + '</button></div>' + _phTikkaat(S.porras);
 
@@ -956,6 +981,14 @@ function _phSidoHavainto() {
   juuri.querySelectorAll('[data-kx]').forEach(function (b) {
     b.onclick = function () { S.konteksti = b.getAttribute('data-kx'); _phRender(); _luonnosTallenna(); };
   });
+  juuri.querySelectorAll('[data-pt]').forEach(function (b) {
+    b.onclick = function () {
+      var kentta = b.getAttribute('data-pt'), arvo = b.getAttribute('data-v'), pt = S.pelitilanne;
+      if (kentta === 'vaihe') pt.vaihe = window.tmPelitilanneVaihe(pt.vaihe, arvo);   // enintään 2; kolmas vaihtaa vanhimman pois
+      else pt[kentta] = (pt[kentta] === arvo) ? null : arvo;                    // toinen napautus tyhjentää
+      _phRender(); _luonnosTallenna();
+    };
+  });
   juuri.querySelectorAll('[data-sc]').forEach(function (b) {
     b.onclick = function () {
       var k = b.getAttribute('data-sc'), v = Number(b.getAttribute('data-v'));
@@ -1028,6 +1061,8 @@ function _phRenderOk() {
       var avain = Object.keys(PH_KENTTA).filter(function (a) { return PH_KENTTA[a] === k; })[0];
       return (nimet[avain] || k).toLowerCase() + ' ' + osat[k];
     }).join(', ') + '</div>';
+  var _ptRivi = S.viimeisin ? window.tmPelitilanneYhteenveto(S.viimeisin.konteksti, S.viimeisin.pelitilanne, _phTr()) : '';
+  if (_ptRivi) h += '<p class="ok-teksti">' + _phEsc(_ptRivi) + '</p>';
   if (odottaa) {
     h += '<p class="ohje varo">' + tmHT('Ei verkkoa. Havainto lähtee automaattisesti, kun yhteys palaa.') + ' '
       + '' + tmHT('Voit jatkaa havainnointia normaalisti.') + '</p>';
@@ -1099,7 +1134,7 @@ async function _phPaivitaPikakentat(seuraId, pelaajaId, porras, kirjoitaPorras) 
        vanhalla portaalla, `havainto_porras_ehdotus.hist` kuvaisi edellistä ulottuvuutta
        (jolla on jo 3 havaintoa) ja Pelaaja_v7 näyttäisi uuden taidon heti vakiintuneena. */
     var kentat = (typeof tmAdarPikakentat === 'function')
-      ? tmAdarPikakentat(havainnot, ika, porras, { edellinen: _oldAv })
+      ? tmAdarPikakentat(havainnot, ika, porras, { edellinen: _oldAv, nowMs: Date.now() })
       : null;
     if (!kentat) return;
     if (kirjoitaPorras) kentat.havainto_porras = porras;
@@ -1133,7 +1168,7 @@ async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId,
     var _oldAv = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().adar_viimeisin) || null;
     havVanha = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().havainto_viimeisin_pvm) || null;
     kentat = (typeof tmAdarPikakentat === 'function')
-      ? tmAdarPikakentat(havainnot, _phIka(pelaajaId), porras, { edellinen: _oldAv }) : null;
+      ? tmAdarPikakentat(havainnot, _phIka(pelaajaId), porras, { edellinen: _oldAv, nowMs: Date.now() }) : null;
     if (kentat && kirjoitaPorras) kentat.havainto_porras = porras;
   } catch (e) { console.warn('[ADAR pikakentat]', e && (e.code || e.message)); kentat = null; }
   /* HAVAINTO + havainto_viimeisin_pvm SAMASSA BATCHISSA (§26): jokainen havainto päivittää havaintorytmin pikakentän atomisesti — ei "havainto tehty mutta rytmi
@@ -1203,6 +1238,8 @@ async function _phTallenna() {
     pisteet: pisteet,
     havaitut: havaitut,                       // "Mitä näit?" -valinnat tallentuvat nyt oikeasti
     konteksti: S.konteksti,
+    /* Vaihe 1: valinnainen, vain portaalla näkyvät kentät; ei valintoja → null (ei tyhjää mappia). Vanhat kentät ennallaan. */
+    pelitilanne: window.tmPelitilanneTalletus(S.pelitilanne, S.porras),
     narratiivi: S.teksti || '',
     /* VALMENTAJAN VALINTA, ei oletus: 'pelaaja' = lapsi näkee tekstin, 'valmentajat' = ei näe. */
     nakyvyys: _nakArvo(),
@@ -1257,7 +1294,7 @@ async function _phTallenna() {
 
   S.viimeisin = {
     ref: ref, pelaajaId: pelaajaId, pisteet: pisteet, havaitut: S.havaitut, teksti: S.teksti,
-    konteksti: S.konteksti, nakyvyys: data.nakyvyys, porras: S.porras,
+    konteksti: S.konteksti, pelitilanne: data.pelitilanne, nakyvyys: data.nakyvyys, porras: S.porras,
     porrasNostettu: S.porrasNostettu, porrasEnnen: S.porrasTallennettu,
     porrasKirjoitettu: porrasTallennetaan, ms: Date.now(), kumottu: false
   };
@@ -1327,6 +1364,7 @@ async function _phKumoa() {
   S.havaitut = v.havaitut || {};
   S.teksti = v.teksti || '';
   S.konteksti = v.konteksti;
+  S.pelitilanne = _phPelitilanneTila(v.pelitilanne);
   S.nakyvyys = (v.nakyvyys === 'pelaaja');
   S.porras = v.porras;
   S.porrasTallennettu = v.porrasEnnen;
@@ -1389,7 +1427,7 @@ function _luonnosKeraa() {
   return {
     pelaajaId: S.pelaajaId, naytto: S.naytto,
     porras: S.porras, porrasTallennettu: S.porrasTallennettu, porrasNostettu: S.porrasNostettu,
-    ehdotusOhitettu: S.ehdotusOhitettu, konteksti: S.konteksti,
+    ehdotusOhitettu: S.ehdotusOhitettu, konteksti: S.konteksti, pelitilanne: S.pelitilanne,
     pisteet: S.pisteet, havaitut: S.havaitut, teksti: S.teksti, nakyvyys: S.nakyvyys
   };
 }
@@ -1459,6 +1497,7 @@ function _luonnosAvaa(pid, hiljainen) {
   S.porrasNostettu = !!t.porrasNostettu;
   S.ehdotusOhitettu = !!t.ehdotusOhitettu;
   S.konteksti = t.konteksti || 'harjoitus';
+  S.pelitilanne = _phPelitilanneTila(t.pelitilanne);
   S.pisteet = t.pisteet || {};
   S.havaitut = t.havaitut || {};
   S.teksti = t.teksti || '';

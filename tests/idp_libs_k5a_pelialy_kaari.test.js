@@ -119,7 +119,7 @@ describe('kaappaus (adar_edellinen, §29 pvm-vahti — ei clobbaa uudelleenlaske
   it('ADAR_Pikakortti: ei omaa kaappausta — edellinen arvo välitetään libille', () => {
     expect(PIKAKORTTI, 'edellinen luetaan dokumentista (ei paikallisesta välimuistista)')
       .toContain("_oldAv = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().adar_viimeisin) || null;");
-    expect(PIKAKORTTI, 'kaappaus on delegoitava libille').toContain('{ edellinen: _oldAv }');
+    expect(PIKAKORTTI, 'kaappaus on delegoitava libille').toContain('{ edellinen: _oldAv, nowMs: Date.now() }');
     expect(PIKAKORTTI, 'pikakentät kirjoitetaan mergellä').toContain("pRef.set(kentat, { merge: true })");
     /* KOPIOVARTIJA: inline-konsensus ei saa palata (yhtä asiaa ei lasketa kahdessa paikassa). */
     expect(PIKAKORTTI, 'inline-konsensus palasi pikakorttiin').not.toContain('adar_yhtenevyys_taso:');

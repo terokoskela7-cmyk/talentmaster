@@ -65,10 +65,13 @@ describe('ADAR-pikakortti — tekstit libissä (lib/tm_adar_tekstit.js)', () => 
   });
   it('Gemini-erä 2: lib.tm_adar_tekstit kattaa jokaisen FI-avaimen ja fi täsmää', () => {
     const r = ERA.osiot['lib.tm_adar_tekstit'].rivit;
-    expect(Object.keys(r).sort()).toEqual(Object.keys(T.FI).sort());
+    /* erä 61 (pelitilanne, Vaihe 1) lisäsi uudet avaimet omaan erään → erä 2 kattaa FI:n ilman niitä */
+    const E61 = JSON.parse(lue('docs/i18n/sv_kaannoserae_61_gemini.json')).osiot['lib.tm_adar_tekstit'].rivit;
+    Object.keys(E61).forEach((a) => { expect(r[a], a + ' ei kuulu erään 2').toBeUndefined(); expect(E61[a].fi, a).toBe(T.FI[a]); });
+    expect(Object.keys(r).sort()).toEqual(Object.keys(T.FI).filter((a) => !E61[a]).sort());
     // erän 2 rivit, joiden fi muuttui (peliäly-tasokorjaus) → uusi fi + odottava sv erässä 58 (vanha sv poistettu libistä)
     const E58 = JSON.parse(lue('docs/i18n/sv_kaannoserae_58_gemini.json')).osiot['lib.tm_adar_tekstit'].rivit;
-    Object.keys(T.FI).forEach((a) => { if (E58[a]) { expect(E58[a].fi, a).toBe(T.FI[a]); expect(r[a].fi, a).not.toBe(T.FI[a]); } else expect(r[a].fi, a).toBe(T.FI[a]); });
+    Object.keys(T.FI).filter((a) => !E61[a]).forEach((a) => { if (E58[a]) { expect(E58[a].fi, a).toBe(T.FI[a]); expect(r[a].fi, a).not.toBe(T.FI[a]); } else expect(r[a].fi, a).toBe(T.FI[a]); });
     expect(Object.keys(E58).sort()).toEqual(['adar_D_d1', 'adar_D_d2', 'adar_D_d3', 'adar_D_v1', 'adar_D_v3', 'adar_R_d1', 'adar_R_d2', 'adar_R_d3']);
   });
   it('ADAR SW: uudet tiedostot allowlistissa ja cache nostettu', () => {
