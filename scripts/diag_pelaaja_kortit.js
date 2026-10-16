@@ -127,7 +127,7 @@ function fcDims(p) {             // :5159 (_fcKorttiData, vain 5D-tila + tier)
   }
   dims.push(d3 != null ? { key: 'PSY', tila: 'mitattu', counts: true, val: norm5(d3) } : { key: 'PSY', tila: 'seura avaa (🔒)', counts: false });
   const ad = p.adar_viimeisin;
-  if (ad && ad.yht != null) { const luot = (p.adar_havaintoja || 0) >= 3; dims.push({ key: 'ÄLY', tila: luot ? 'mitattu' : 'varhainen (ei laske)', counts: luot, val: Math.round((ad.yht / 3) * 99) }); }
+  if (ad && ad.yht != null) { const luot = (p.adar_havaintoja || 0) >= 3; dims.push({ key: 'ÄLY', tila: luot ? 'mitattu' : 'varhainen (ei laske)', counts: luot, val: require('../lib/tm_pelialy_yksilo.js').tmAdarNorm99(ad.yht) }); }
   else dims.push({ key: 'ÄLY', tila: 'tulossa (⏳)', counts: false });
   dims.push({ key: 'SOS', tila: 'seura avaa (🔒) — ei datalähdettä', counts: false });
   const mitatut = dims.filter((d) => d.counts).length;
