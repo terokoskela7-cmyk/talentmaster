@@ -19,7 +19,9 @@ function vie(opts) {
   opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [], langU = [];
   const P = JSON.parse(lue(PALAUTUS)).osiot.tm_lang;
   let sLang = lue('lib/tm_lang.js'); const L = lataaLang(sLang), hae = (k, p) => p.split('.').reduce((o, x) => (o == null ? undefined : o[x]), L[k]);
+  let korvattu = new Set(); try { korvattu = new Set(Object.keys(JSON.parse(lue('docs/i18n/sv_kaannoserae_56_gemini.json')).osiot.tm_lang.rivit)); } catch (e) { /* ei erää 56 */ }   // erä 56 korvaa muuttuneet rivit (tietosuojaikkuna) → ei viedä vanhaa sisältöä
   for (const [avain, r] of Object.entries(P.rivit)) {
+    if (korvattu.has(avain)) continue;
     if (!/^suostumus\.rek_/.test(avain)) { virheet.push('tm_lang ' + avain + ': ei suostumus.rek_-avain'); continue; }
     if (hae('fi', avain) !== r.fi) { virheet.push('tm_lang ' + avain + ': fi ei vastaa tm_lang.fi:tä'); continue; }
     const syy = sopii(r.fi, r.sv); if (syy) { virheet.push('tm_lang ' + avain + ': ' + syy); continue; }
@@ -36,7 +38,7 @@ function vie(opts) {
   const uL = lataaLang(sLang); for (const [a, sv] of langU) if (uL.sv.suostumus[a] !== sv) virheet.push('verifiointi tm_lang ' + a);
   if (virheet.length) return { virheet, lisatty: 0, ohitettu, kirjoitettu: false };
   let odotusPoistettu = 0, sOd = lue('tests/tm_lang_sv_odotuslista.cjs');
-  for (const [avain] of Object.entries(P.rivit)) { const rivi = "  '" + avain + "',\n"; if (sOd.includes(rivi)) { sOd = sOd.replace(rivi, ''); odotusPoistettu++; } }
+  for (const [avain] of Object.entries(P.rivit)) { if (korvattu.has(avain)) continue; const rivi = "  '" + avain + "',\n"; if (sOd.includes(rivi)) { sOd = sOd.replace(rivi, ''); odotusPoistettu++; } }
   sOd = sOd.replace(/  \/\/ Sibbo 1\.11\. vaihe 1: lomakkeen staattisen markupin avaimet \(erä 55; sv Geminiltä\)\n(?!  ')/, '');
   if (opts.kirjoita && langU.length) { fs.writeFileSync(path.join(juuri, 'lib/tm_lang.js'), sLang); }
   if (opts.kirjoita && odotusPoistettu) fs.writeFileSync(path.join(juuri, 'tests/tm_lang_sv_odotuslista.cjs'), sOd);

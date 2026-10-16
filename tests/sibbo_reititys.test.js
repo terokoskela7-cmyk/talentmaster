@@ -21,6 +21,12 @@ describe('harjoitusarviointilomake: fi-tuloste tavutarkasti ennallaan', () => {
   };
   const fi = ajaa(lue('lib/tm_harjoitusarviointi.js'));
   for (const [nimi, h] of Object.entries(HASHIT)) it(nimi + ': sama HTML kuin ennen reititystä (sha256)', () => { expect(sha(fi[nimi])).toBe(h); });
+  it('fi-tuloste ei riipu ajopäivästä: sama hajautus eri kellonajalla (lomake esitäyttää tämän päivän; apuohjelma kiinnittää ajan)', () => {
+    const Oikea = Date, T = new Oikea(2031, 0, 2, 3, 4, 5).getTime();
+    class Eri extends Oikea { constructor(...a) { if (a.length) super(...a); else super(T); } static now() { return T; } }
+    globalThis.Date = Eri;
+    try { const eri = ajaa(lue('lib/tm_harjoitusarviointi.js')); for (const [nimi, h] of Object.entries(HASHIT)) expect(sha(eri[nimi]), nimi).toBe(h); } finally { globalThis.Date = Oikea; }
+  });
   it('t palauttaa avaimen sellaisenaan (masterT/vpT-käytös puuttuvalle käännökselle) → sama HTML kuin ilman t:tä', () => {
     const r = ajaa(lue('lib/tm_harjoitusarviointi.js'), { t: (s) => s }); for (const k of Object.keys(HASHIT)) expect(r[k], k).toBe(fi[k]);
   });
