@@ -5,6 +5,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const lue = (f) => JSON.parse(readFileSync(new URL('../docs/i18n/' + f, import.meta.url), 'utf8')).osiot.tm_lang.rivit;
 const P = lue('sv_kaannoserae_55_palautus.json'), G = lue('sv_kaannoserae_55_gemini.json');
+const ERA56 = new Set(Object.keys(lue('sv_kaannoserae_56_gemini.json')));   // erässä 56 muuttunut/uusi → ei enää erän 55 sisältöä
 const V = require('../scripts/i18n_vie_sv_era55.cjs'), L = require('../lib/tm_lang.js').TM_LANG, ODOTUS = require('./tm_lang_sv_odotuslista.cjs');
 describe('sv-erä 55 — vienti', () => {
   it('palautus = lähetetty erä: samat 59 avainta, fi/en/huom muuttumattomat, sv täytetty kaikilla', () => {
@@ -12,8 +13,9 @@ describe('sv-erä 55 — vienti', () => {
     for (const [k, r] of Object.entries(P)) { expect(r.sv.trim(), k).not.toBe(''); for (const f of ['fi', 'en', 'huom']) expect(r[f], k + ' ' + f).toBe(G[k][f]); }
   });
   it('koodin sv = palautus merkki merkiltä; fi ja en ennallaan', () => {
-    for (const [k, r] of Object.entries(P)) { const a = k.replace(/^suostumus\./, ''); expect(L.sv.suostumus[a], k).toBe(r.sv); expect(L.fi.suostumus[a], k).toBe(r.fi); expect(L.en.suostumus[a], k).toBe(r.en); }
+    for (const [k, r] of Object.entries(P).filter(([k]) => !ERA56.has(k))) { const a = k.replace(/^suostumus\./, ''); expect(L.sv.suostumus[a], k).toBe(r.sv); expect(L.fi.suostumus[a], k).toBe(r.fi); expect(L.en.suostumus[a], k).toBe(r.en); }
   });
-  it('sv-odotuslista ei sisällä erän 55 avaimia', () => { expect(Object.keys(P).filter((k) => ODOTUS.includes(k))).toEqual([]); });
+  it('sv-odotuslista ei sisällä erän 55 avaimia (paitsi erään 56 siirtyneet)', () => { expect(Object.keys(P).filter((k) => ODOTUS.includes(k) && !ERA56.has(k))).toEqual([]); });
+  it('erän 55 rivi rek_ts_sijainti_teksti on korvattu erällä 56: vanhaa sv-väitettä ("överförs inte utanför EU") ei ole koodissa', () => { expect(L.sv.suostumus.rek_ts_sijainti_teksti).toBeUndefined(); expect(JSON.stringify(L.fi.suostumus)).not.toContain('Tietoja ei siirretä EU:n ulkopuolelle'); });
   it('idempotentti', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.odotusPoistettu).toBe(0); });
 });

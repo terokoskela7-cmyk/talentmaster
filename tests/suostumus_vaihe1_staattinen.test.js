@@ -27,8 +27,18 @@ const ERA55 = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannosera
 const RUNKO_FI_SHA256 = 'f988264399149be414ad34f59d4c0cf0add03942749be52be3d8b94a16e8deaf';
 const runko = (src) => {
   const a = src.indexOf('<body>'), b = src.indexOf('<script>\nvar firebaseConfig');
-  return src.slice(a, b).replace(/ data-i18n(?:-tn|-pl|-al|-ti)?="[^"]*"/g, '');
+  return muutokset(src.slice(a, b).replace(/ data-i18n(?:-tn|-pl|-al|-ti)?="[^"]*"/g, ''));
 };
+/* Sibbo-viimeistely 16.10.: tietosuojaikkunan KOLME tarkoituksellista fi-muutosta (Teron brief: väärä "ei siirretä EU:n ulkopuolelle" korjattu Liite 1:n mukaiseksi,
+   90 pv:n poisto, tietosuojaselosteen osoite). Ne puretaan takaisin ennen hajautusta → todistaa ettei MIKÄÄN MUU sivun fi-teksti muuttunut. */
+const SIJ_UUSI = 'Tiedot tallennetaan EU:ssa (Google Cloud, europe-west1). Tekoälyavustaja toimii EU:ssa (AWS, Tukholma). Sähköposti-ilmoitukset lähetetään SendGrid-palvelun kautta, jolloin vastaanottajan sähköpostiosoite käsitellään Yhdysvalloissa EU:n vakiosopimuslausekkeiden ja EU–US Data Privacy Frameworkin perusteella.';
+const SIJ_VANHA = 'Google Firebase (EU-alue). Tietoja ei siirretä EU:n ulkopuolelle.';
+function muutokset(h) {
+  const poistot = [[' <span>Suostumuksen peruutuksen jälkeen tiedot poistetaan 90 päivän kuluessa.</span>', ''],
+    ['\n      <p style="margin-top:8px"><strong style="color:var(--text)">Koko tietosuojaseloste:</strong> <span id="pm_tietosuoja_email" style="color:var(--teal)"></span></p>', ''], [SIJ_UUSI, SIJ_VANHA]];
+  for (const [a, b] of poistot) { expect(h.split(a).length - 1, 'odotettu tarkoituksellinen muutos puuttuu: ' + a.slice(0, 50)).toBe(1); h = h.replace(a, b); }
+  return h;
+}
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 
 const attr = (n, k) => (n.attrs || []).find((a) => a.name === k);
@@ -51,9 +61,10 @@ function reititetyt() {
   return ulos;
 }
 const REK = Object.keys(L.fi.suostumus).filter((k) => k.startsWith('rek_'));
+const ERA56 = Object.keys(JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_56_gemini.json'), 'utf8')).osiot.tm_lang.rivit).map((k) => k.slice(10));   // Sibbo-viimeistely: tietosuojaikkunan muuttunut + uudet avaimet, sv vielä Teron tarkistuksessa
 
 describe('fi-pariteetti — suomenkielinen sivu ei muutu sanaakaan', () => {
-  it('rungon HTML (data-i18n* poistettuna) on tavutarkasti sama kuin origin/main ennen reititystä', () => {
+  it('rungon HTML (data-i18n* poistettuna, tietosuojaikkunan 3 tarkoituksellista muutosta purettuna) on tavutarkasti sama kuin origin/main ennen reititystä', () => {
     expect(sha(runko(HTML))).toBe(RUNKO_FI_SHA256);
   });
   it('jokaisen reititetyn elementin markup-teksti = fi-avaimen arvo (renderöity fi = lähde)', () => {
@@ -83,16 +94,17 @@ describe('staattinen markup-skanneri', () => {
 
 describe('avaimet fi+en+sv (erä 55 viety)', () => {
   it(REK.length + ' uutta suostumus.rek_*-avainta: fi ja en ei-tyhjinä, sv viety erästä 55 (Geminin palautus)', () => {
-    expect(REK.length).toBe(59);
-    for (const k of REK) { expect(L.fi.suostumus[k], k).toBeTruthy(); expect(L.en.suostumus[k], k).toBeTruthy(); expect(typeof L.sv.suostumus[k], 'sv ' + k).toBe('string'); }
+    expect(REK.length).toBe(61);   // 59 (vaihe 1) + 2 uutta (erä 56)
+    for (const k of REK) { expect(L.fi.suostumus[k], k).toBeTruthy(); expect(L.en.suostumus[k], k).toBeTruthy(); if (!ERA56.includes(k)) expect(typeof L.sv.suostumus[k], 'sv ' + k).toBe('string'); else expect(L.sv.suostumus[k], 'sv ' + k).toBeUndefined(); }
   });
   it('erä 55 palasi: yksikään rek_*-avain ei ole enää sv-odotuslistalla', () => {
-    expect(REK.filter((k) => ODOTUS.includes('suostumus.' + k))).toEqual([]);
+    expect(REK.filter((k) => ODOTUS.includes('suostumus.' + k) && !ERA56.includes(k))).toEqual([]);
+    expect(ERA56.filter((k) => !ODOTUS.includes('suostumus.' + k))).toEqual([]);   // erän 56 avaimet odottavat Geminiä
   });
   it('lähetetty erä 55: rivit = rek_*-avaimet, sv tyhjä (lähetystiedosto säilyy sellaisenaan), konteksti + huom jokaisella rivillä', () => {
     const r = ERA55.osiot.tm_lang.rivit;
-    expect(Object.keys(r).sort()).toEqual(REK.map((k) => 'suostumus.' + k).sort());
-    for (const [k, x] of Object.entries(r)) { expect(x.sv, k).toBe(''); expect(x.fi, k).toBe(L.fi.suostumus[k.slice(10)]); expect(x.en, k).toBe(L.en.suostumus[k.slice(10)]); expect(x.huom.length, k).toBeGreaterThan(15); }
+    expect(Object.keys(r).sort()).toEqual(REK.filter((k) => k !== 'rek_ts_sailytysaika_90pv' && k !== 'rek_ts_koko_otsikko').map((k) => 'suostumus.' + k).sort());   // erän 55 lähetys ennallaan; 2 avainta tullut vasta erässä 56
+    for (const [k, x] of Object.entries(r)) { expect(x.sv, k).toBe(''); if (!ERA56.includes(k.slice(10))) { expect(x.fi, k).toBe(L.fi.suostumus[k.slice(10)]); expect(x.en, k).toBe(L.en.suostumus[k.slice(10)]); } expect(x.huom.length, k).toBeGreaterThan(15); }
     expect(ERA55._rivit_yhteensa).toBe(59); expect(ERA55.osiot.tm_lang._konteksti).toMatch(/huoltajan ensimmäinen näkymä/);
   });
   it('erä 55 ei toista erien 53 ja 54 rivejä', () => {
