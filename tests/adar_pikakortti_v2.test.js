@@ -613,7 +613,7 @@ describe('(pelitilanne) Pikakortti — chip-rivit', () => {
   const pelaajat = { p1: { nimi: 'Topias Koskela', syntymaVuosi: vuosiIalle(13), joukkueet: ['j1'], havainto_porras: 1 }, p2: { nimi: 'Eero Esimerkki', syntymaVuosi: vuosiIalle(13), joukkueet: ['j1'], havainto_porras: 3 } };
   const rivit = (h) => ['otos', 'vaihe', 'paine'].filter((k) => h.includes('data-pt="' + k + '"'));
   it('porras ratkaisee: 1 → vain otos · 2 → otos + vaihe · 3 ja 4 → kaikki kolme', () => {
-    const y = aja({ pelaajat }); y.api.avaa('p1');
+    const y = aja({ pelaajat }); y.api.avaa('p1'); y.api.S.ptAuki = true; y.api.render();
     expect(rivit(html(y)), 'porras 1').toEqual(['otos']);
     [[2, ['otos', 'vaihe']], [3, ['otos', 'vaihe', 'paine']], [4, ['otos', 'vaihe', 'paine']]].forEach(([porras, odotus]) => {
       y.api.S.porras = porras; y.api.render();
@@ -621,7 +621,7 @@ describe('(pelitilanne) Pikakortti — chip-rivit', () => {
     });
   });
   it('rivi on heti konteksti-rivin (Missä) alla, ennen portaan riviä; ei pakollisuutta (Tallenna ei riipu valinnoista)', () => {
-    const y = aja({ pelaajat }); y.api.avaa('p1'); y.api.S.porras = 3; y.api.S.pisteet = { A: 2 }; y.api.render();
+    const y = aja({ pelaajat }); y.api.avaa('p1'); y.api.S.ptAuki = true; y.api.S.porras = 3; y.api.S.pisteet = { A: 2 }; y.api.render();
     const h = html(y);
     expect(h.indexOf('data-kx="ottelu"')).toBeLessThan(h.indexOf('data-pt="otos"'));
     expect(h.indexOf('data-pt="paine"')).toBeLessThan(h.indexOf('id="ph-porras"'));
@@ -629,7 +629,7 @@ describe('(pelitilanne) Pikakortti — chip-rivit', () => {
     expect(h, 'ei punaista huomautusta pelitilanteesta').not.toMatch(/pelitilanne[^<]*puuttuu/i);
   });
   it('valinnat näkyvät painettuina (aria-pressed) ja vaihe-lista näyttää molemmat valinnat', () => {
-    const y = aja({ pelaajat }); y.api.avaa('p2');
+    const y = aja({ pelaajat }); y.api.avaa('p2'); y.api.S.ptAuki = true;
     Object.assign(y.api.S.pelitilanne, { vaihe: ['hyokkays', 'erikois'], paine: 'kova', otos: '3_5' }); y.api.render();
     const h = html(y);
     ['otos" data-v="3_5', 'vaihe" data-v="hyokkays', 'vaihe" data-v="erikois', 'paine" data-v="kova'].forEach((x) => expect(h, x).toMatch(new RegExp('data-pt="' + x + '" aria-pressed="true"')));
@@ -641,8 +641,26 @@ describe('(pelitilanne) Pikakortti — chip-rivit', () => {
     y.api.avaa('p2');
     expect(y.api.S.pelitilanne, 'pelitilanne hukkui pelaajan vaihdossa').toEqual({ vaihe: ['puolustus'], paine: 'kohtalainen', otos: '6plus' });
     expect(y.api.S.pisteet).toEqual({});
+    y.api.S.ptAuki = true; y.api.render();
     expect(rivit(html(y))).toEqual(['otos', 'vaihe', 'paine']);
   });
+  it('KIINNI OLETUKSENA: ei chip-rivejä, yksi Pelitilanne ▾ -rivi; valinnat tiiviinä tekstinä; auki/kiinni säilyy pelaajalta toiselle mutta ei luonnokseen', () => {
+    const y = aja({ pelaajat }); y.api.avaa('p2');
+    expect(y.api.S.ptAuki).toBe(false);
+    let h = html(y);
+    expect(rivit(h), 'chip-rivit näkyvät vaikka rivi on kiinni').toEqual([]);
+    expect(h).toContain('id="ph-pt-kansi" aria-expanded="false"');
+    expect(h).toMatch(/id="ph-pt-kansi"[^>]*><span>Pelitilanne<\/span>/);
+    Object.assign(y.api.S.pelitilanne, { vaihe: ['puolustus'], paine: 'kova', otos: '3_5' }); y.api.render();
+    expect(html(y), 'suljettu rivi näyttää valinnat').toContain('<span>Pelitilanne: 3–5 · Puolustus · Kova paine</span>');
+    expect(rivit(html(y))).toEqual([]);
+    y.api.S.ptAuki = true; y.api.render();
+    expect(rivit(html(y))).toEqual(['otos', 'vaihe', 'paine']);
+    y.api.avaa('p1');
+    expect(y.api.S.ptAuki, 'auki-tila säilyy pelaajalta toiselle').toBe(true);
+    expect(pura('function _luonnosKeraa(')).not.toContain('ptAuki');
+  });
+
   it('sv: chip-tekstit tulevat lib-kartasta (tmLibT), ei kovakoodattua suomea', () => {
     const koodi = ilmanKommentteja(SIVU);
     const f = koodi.slice(koodi.indexOf('function _phPelitilanneHtml('), koodi.indexOf('/* ── PELAAJAN AVAUS'));

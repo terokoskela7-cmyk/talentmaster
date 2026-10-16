@@ -95,12 +95,25 @@ describe('tmAdarLuotettavuus — jokainen syy erikseen + raja-arvot', () => {
     H[0].konteksti = 'pienpeli';
     expect(P.tmAdarLuotettavuus(H, kons(), NYT).syyt).toEqual([]);
   });
-  it('pieni_otos: YLI puolet otos 1_2 tai tuntematon (raja: tasan puolet ei riitä)', () => {
+  it('pieni_otos: vähintään 3 TUNNETTUA otosta ja YLI puolet niistä 1_2; tuntematon (vanha data) ei vaikuta tasoon', () => {
     const o = (otos) => hav({ konteksti: 'ottelu', pelitilanne: otos ? { vaihe: [], paine: null, otos } : null });
-    expect(P.tmAdarLuotettavuus([o('1_2'), o('6plus')], kons(), NYT).syyt, 'tasan 1/2').toEqual([]);
-    expect(P.tmAdarLuotettavuus([o('1_2'), o(null), o('6plus')], kons(), NYT).syyt, '2/3').toEqual(['pieni_otos']);
-    expect(P.tmAdarLuotettavuus([o(null), o(null)], kons(), NYT).syyt, 'tuntematon = vanha data').toEqual(['pieni_otos']);
-    expect(P.tmAdarLuotettavuus([o('3_5'), o('1_2'), o('3_5')], kons(), NYT).syyt, '1/3').toEqual([]);
+    const syyt = (l) => P.tmAdarLuotettavuus(l, kons(), NYT).syyt;
+    expect(syyt([o(null), o(null), o(null), o(null)]), 'vanha havaintosetti (kaikki tuntemattomia)').toEqual([]);
+    expect(syyt([o('1_2'), o('1_2'), o('1_2'), o('6plus')]), '4 tunnettua, 3 on 1_2').toEqual(['pieni_otos']);
+    expect(syyt([o('1_2'), o('1_2'), o(null), o(null), o(null), o(null), o(null)]), '2 tunnettua 1_2 + 5 tuntematonta').toEqual([]);
+    expect(syyt([o('1_2'), o('1_2'), o('1_2'), o(null), o(null)]), '3 tunnettua 1_2 + tuntemattomat: tuntematon ei auta eikä haittaa').toEqual(['pieni_otos']);
+    expect(syyt([o('1_2'), o('6plus'), o('1_2'), o('6plus')]), 'tasan puolet ei riitä').toEqual([]);
+    expect(syyt([o('3_5'), o('1_2'), o('3_5')]), '1/3').toEqual([]);
+    expect(syyt([o('1_2'), o('1_2')]), '2 tunnettua: alle minimin').toEqual([]);
+  });
+  it('tmPelitilanneTiivis: suljetun rivin teksti (otos lyhyenä, vaihe ja paine adar_pt_*-teksteistä; vain portaalla näkyvät kentät)', () => {
+    const pt = { vaihe: ['puolustus'], paine: 'kova', otos: '3_5' };
+    expect(P.tmPelitilanneTiivis(pt, 4)).toBe('Pelitilanne: 3–5 · Puolustus · Kova paine');
+    expect(P.tmPelitilanneTiivis(pt, 2)).toBe('Pelitilanne: 3–5 · Puolustus');
+    expect(P.tmPelitilanneTiivis(pt, 1)).toBe('Pelitilanne: 3–5');
+    expect(P.tmPelitilanneTiivis({ vaihe: [], paine: null, otos: null }, 4)).toBe('Pelitilanne');
+    expect(P.tmPelitilanneTiivis(null, 4)).toBe('Pelitilanne');
+    expect(P.tmPelitilanneTiivis({ vaihe: [], paine: null, otos: '6plus' }, 3)).toBe('Pelitilanne: 6+');
   });
   it('vanha: uusin havainto YLI 90 pv (raja: 90 → ei, 91 → syy); nowMs puuttuu → ei arvioida', () => {
     const lista = (n) => hyva().map((h) => Object.assign({}, h, { luotu: pv(n) }));
@@ -190,7 +203,7 @@ describe('REGRESSIOLUKKO — vanha havaintosetti, vanhat pikakentät bitti bitil
 describe('EN — pelitilanne- ja luotettavuustekstit (tm_adar_tekstit.EN)', () => {
   const UUDET = Object.keys(TX.FI).filter((k) => /^adar_(pt|luot|jak)_/.test(k));
   it('jokaisella uudella FI-avaimella on EN; {n}-paikkamerkit säilyvät; ei suomea (ä/ö) englannissa', () => {
-    expect(UUDET.length).toBe(31);
+    expect(UUDET.length).toBe(32);
     UUDET.forEach((k) => {
       expect(typeof TX.EN[k], k).toBe('string');
       expect(TX.EN[k].includes('{n}'), k).toBe(TX.FI[k].includes('{n}'));

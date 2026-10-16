@@ -20,6 +20,7 @@ const vanha = (osio, avain) => { const r = nyk && nyk.osiot && nyk.osiot[osio] &
 const PT = ' Pikakortin (valmentajan kenttätyökalu, kapea puhelinnäyttö) painike (chip); valinta tallentuu havaintoon ja näkyy tallennuksen jälkeen yhteenvetorivillä muodossa "Ottelu · Siirtymä puolustukseen · Kova paine · 3–5 tilannetta" (osat erotetaan " · "). Lyhyt, valmentajan kenttäkieltä.';
 const JAK = ' Peliälykortin (valmentaja/VP) rivin osa muodossa "Ottelu 4 · Pienpeli 2 · Harjoitus 6 | Siirtymät 5 · Hyökkäys 3 · Puolustus 2": nimi + lukumäärä. SÄILYTÄ paikkamerkki {n} täsmälleen ja sen paikka nimen jälkeen (lukumäärä sijoitetaan siihen koodissa).';
 const HUOM = {
+  adar_pt_otsikko: 'UUSI. Pikakortin kiinni olevan avattavan rivin otsikko, ja kun valintoja on tehty, kaksoispisteen perässä tiivis yhteenveto (esim. "Pelitilanne: 3–5 · Puolustus · Kova paine"). Yksi sana/lyhyt substantiivi: pelitilanne = spelsituation. Kapea puhelinnäyttö.',
   adar_pt_otsikko_vaihe: 'UUSI. Rivin otsikko (pieni, versaali tyyli). Kysytään: missä pelin vaiheessa havainto tehtiin (hyökkäys, puolustus, siirtymät, erikoistilanne). Lyhyt substantiivi-ilmaus.',
   adar_pt_otsikko_paine: 'UUSI. Rivin otsikko: kuinka paineessa pelaaja oli (vastustajan painostus). Yksi sana. Paine = vastustajan aiheuttama painostus pelitilanteessa (ei henkinen paine).',
   adar_pt_otsikko_otos: 'UUSI. Rivin otsikko: montako pelitilannetta havainto perustuu (1–2, 3–5, 6+). Lyhyt kysymys/otsikko.',

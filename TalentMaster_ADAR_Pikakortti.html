@@ -65,6 +65,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-siz
 .ph-title{flex:1;min-width:0}
 .ph-name{font-family:var(--font-serif);font-size:22px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ph-meta{font-family:var(--font-mono);font-size:10.5px;color:var(--ink3);letter-spacing:.04em}
+.pt-rivi{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:36px;margin-top:-8px;padding:0 10px;background:transparent;border:.5px solid var(--border);border-radius:2px;color:var(--ink2);font-family:var(--font-sans);font-size:12.5px;text-align:left;cursor:pointer}
+.pt-rivi span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ph-body{flex:1;overflow:auto;padding:14px 16px 20px;display:flex;flex-direction:column;gap:16px}
 .eyebrow{font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--acc)}
 .offl-merkki{color:var(--amber)}
@@ -191,8 +193,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <script src="lib/tm_i18n_common.js?v=12"></script>
 <script src="lib/tm_lib_i18n.js?v=12"></script>   <!-- jaettu kirjastokartta (tmLibT): ADAR-tekstit + nimikanoni -->
 <script src="lib/tm_henkilosto_i18n.js?v=6"></script>   <!-- tmHT: henkilöstösovellusten reititin -->
-<script src="lib/tm_adar_tekstit.js?v=4"></script>   <!-- ulottuvuustekstit FI-kartassa (ent. PH_TEKSTIT) -->
-<script src="lib/tm_adar_pelitilanne.js?v=1"></script>   <!-- pelitilanne (vaihe · paine · otos) + luotettavuus; vain kirjaus, konsensus ennallaan -->
+<script src="lib/tm_adar_tekstit.js?v=5"></script>   <!-- ulottuvuustekstit FI-kartassa (ent. PH_TEKSTIT) -->
+<script src="lib/tm_adar_pelitilanne.js?v=2"></script>   <!-- pelitilanne (vaihe · paine · otos) + luotettavuus; vain kirjaus, konsensus ennallaan -->
 </head>
 <body>
 
@@ -618,6 +620,7 @@ window._phTila = {
   pelaajaId: null, haku: '',
   porras: 1, porrasTallennettu: null, ehdotusOhitettu: false, porrasNostettu: false,
   konteksti: 'harjoitus',
+  ptAuki: false,   // Pelitilanne-rivin auki/kiinni: kiinni oletuksena, säilyy istunnon ajan; EI luonnokseen
   pelitilanne: { vaihe: [], paine: null, otos: null },   // säilyy pelaajalta toiselle kuten konteksti (Vaihe 1); tallennus vain portaalla näkyvistä kentistä
   pisteet: {}, havaitut: {}, auki: {}, vinkki: {}, teksti: '', nakyvyys: false,
   tehdyt: {}, sheet: false, peruttu: false,
@@ -702,13 +705,17 @@ function _phPelitilanneTila(raw) {
 }
 function _phPelitilanneHtml() {
   var S = window._phTila, nak = window.tmPelitilanneKentat(S.porras), pt = S.pelitilanne;
+  /* Yksi avattava rivi, kiinni oletuksena; suljettuna näyttää valinnat tiiviinä tekstinä. Avattuna porrassäännön mukaiset chip-rivit sellaisinaan. */
+  var otsikko = window.tmPelitilanneTiivis(pt, S.porras, _phTr());
+  var kansi = '<button type="button" class="pt-rivi" id="ph-pt-kansi" aria-expanded="' + !!S.ptAuki + '"><span>' + _phEsc(S.ptAuki ? _phT('adar_pt_otsikko') : otsikko) + '</span><span aria-hidden="true">' + (S.ptAuki ? '▴' : '▾') + '</span></button>';
+  if (!S.ptAuki) return kansi;
   var rivi = function (kentta, avaimet, onValittu) {
     return '<div><div class="lbl"><span>' + _phEsc(_phT('adar_pt_otsikko_' + kentta)) + '</span></div><div class="chips" role="group" aria-label="' + _phEsc(_phT('adar_pt_otsikko_' + kentta)) + '">'
       + avaimet.map(function (a) {
         return '<button class="chip" data-pt="' + kentta + '" data-v="' + a + '" aria-pressed="' + onValittu(a) + '">' + _phEsc(_phT('adar_pt_' + kentta + '_' + a)) + '</button>';
       }).join('') + '</div></div>';
   };
-  var h = rivi('otos', window.TM_ADAR_PELITILANNE.OTOKSET, function (a) { return pt.otos === a; });
+  var h = kansi + rivi('otos', window.TM_ADAR_PELITILANNE.OTOKSET, function (a) { return pt.otos === a; });
   if (nak.vaihe) h += rivi('vaihe', window.TM_ADAR_PELITILANNE.VAIHEET, function (a) { return pt.vaihe.indexOf(a) >= 0; });
   if (nak.paine) h += rivi('paine', window.TM_ADAR_PELITILANNE.PAINEET, function (a) { return pt.paine === a; });
   return h;
@@ -981,6 +988,8 @@ function _phSidoHavainto() {
   juuri.querySelectorAll('[data-kx]').forEach(function (b) {
     b.onclick = function () { S.konteksti = b.getAttribute('data-kx'); _phRender(); _luonnosTallenna(); };
   });
+  var ptk = document.getElementById('ph-pt-kansi');
+  if (ptk) ptk.onclick = function () { S.ptAuki = !S.ptAuki; _phRender(); };
   juuri.querySelectorAll('[data-pt]').forEach(function (b) {
     b.onclick = function () {
       var kentta = b.getAttribute('data-pt'), arvo = b.getAttribute('data-v'), pt = S.pelitilanne;
