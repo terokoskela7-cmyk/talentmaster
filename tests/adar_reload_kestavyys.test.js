@@ -163,7 +163,7 @@ function teeSandbox(opt) {
     'function _luonnosTyhjennaKuvaStore(',
     'function _luonnosKeraa(', 'function _luonnosLueKaikki(', 'function _luonnosKirjoitaKaikki(',
     'function _luonnosTallenna(', 'function _luonnosTyhjenna(', 'function _luonnosMerkitse(',
-    'function _luonnosAvaa(', 'function _luonnosHylkaa(', 'function _luonnosHuomautukset(', 'function _phHuomautusHtml(',
+    'function _phPelitilanneTila(', 'function _luonnosAvaa(', 'function _luonnosHylkaa(', 'function _luonnosHuomautukset(', 'function _phHuomautusHtml(',
     'async function _luonnosPalauta(', 'function _adarNaytaBanneri(',
   ].forEach((n) => vm.runInContext(funktio(n), sandbox));
 
@@ -185,6 +185,25 @@ describe('ADAR · reload-kestävyys', () => {
     expect(tila.pisteet.A).toBe(3);
     expect(tila.teksti).toBe('Hyvä skannaus ennen syöttöä.');
     expect(tila.havaitut.A).toEqual(['Katsoo ylös']);
+  });
+
+  it('PELITILANNE (Vaihe 1) palautuu reloadissa ja luonnoksessa; vanha luonnos ilman kenttää → tyhjä oletus', async () => {
+    const a = teeSandbox({});
+    Object.assign(a.sandbox._phTila, { pelaajaId: 'p1', porras: 3, konteksti: 'ottelu', pisteet: { A: 3 },
+      pelitilanne: { vaihe: ['hyokkays', 'siirtyma_puol'], paine: 'kova', otos: '3_5' } });
+    expect(a.sandbox._luonnosKeraa().pelitilanne, 'luonnos ei kerää pelitilannetta').toEqual({ vaihe: ['hyokkays', 'siirtyma_puol'], paine: 'kova', otos: '3_5' });
+    a.sandbox._luonnosTallenna();
+    await odota(500);
+    const b = teeSandbox({ localStorage: a.ls.data, idb: a.idbVarasto });
+    await b.sandbox._luonnosPalauta();
+    expect(b.sandbox._phTila.pelitilanne, 'pelitilanne hukkui reloadissa').toEqual({ vaihe: ['hyokkays', 'siirtyma_puol'], paine: 'kova', otos: '3_5' });
+    expect(b.sandbox._phTila.pelitilanne.vaihe, 'palautus jakaa viitteen luonnokseen').not.toBe(a.sandbox._phTila.pelitilanne.vaihe);
+    const c = teeSandbox({});
+    Object.assign(c.sandbox._phTila, { pelaajaId: 'p2', pisteet: { A: 1 } });
+    const vanhaTila = c.sandbox._luonnosKeraa(); delete vanhaTila.pelitilanne;
+    c.sandbox._luonnosKirjoitaKaikki({ p2: { tila: vanhaTila, aika: Date.now(), laheteys: 'luonnos' } });
+    c.sandbox._luonnosAvaa('p2', true);
+    expect(c.sandbox._phTila.pelitilanne).toEqual({ vaihe: [], paine: null, otos: null });
   });
 
   it('RELOAD ei hukkaa havaintoa — tila palautuu kokonaan', async () => {
