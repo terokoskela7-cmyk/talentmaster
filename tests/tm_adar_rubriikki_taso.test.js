@@ -6,49 +6,84 @@ const require = createRequire(import.meta.url);
 const A = require('../lib/tm_adar_rubriikki.js'), Y = require('../lib/tm_pelialy_yksilo.js');
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const havainto = (A_, D, Act, R, uid) => ({ uid: uid || 'v1', luotu: '2026-10-10T10:00:00Z', pisteet: { A: A_, D, Act, R } });
-/* sama ketju kuin Pelaaja_v7: konsensus (porras) → yht + heikoin → tmAdarTaso5 → alyTaso(taso, heikoin, heikoimman pisteet) */
-function kortti(h, ika, porras) {
-  const k = Y.tmAdarKonsensus([h], ika, porras), ad = { a: k.dimKonsensus.a, d: k.dimKonsensus.d, ac: k.dimKonsensus.ac, r: k.dimKonsensus.r, yht: k.yht };
-  const mit = [ad.a, ad.d, ad.ac, ad.r].filter((x) => typeof x === 'number');
-  return A.alyTaso(Y.tmAdarTaso5(ad.yht), k.heikoin, mit.length ? Math.min.apply(null, mit) : undefined);
+const hav3 = (a, d, ac, r, pvm) => ({ uid: 'v1', luotu: pvm, pisteet: { A: a, D: d, Act: ac, R: r } });
+/* sama ketju kuin Pelaaja_v7: konsensus (porras) → yht + heikoin (vain portaan ulottuvuuksista) → tmAdarTaso5 → alyTaso(taso, ctx). ctx.porras = p.havainto_porras; ehdotus = tmAdarPorrasEhdotus */
+function kortti(havainnot, ika, porras, valittuPorras) {
+  const hs = Array.isArray(havainnot) ? havainnot : [havainnot];
+  const k = Y.tmAdarKonsensus(hs, ika, porras), ad = { a: k.dimKonsensus.a, d: k.dimKonsensus.d, ac: k.dimKonsensus.ac, r: k.dimKonsensus.r, yht: k.yht };
+  const heik = (k.heikoin && ad[k.heikoin] != null) ? ad[k.heikoin] : undefined;   // KORJAUS: heikoin portaan joukosta, ei kaikista (bonusulottuvuudet pois)
+  return A.alyTaso(Y.tmAdarTaso5(ad.yht), { porras: valittuPorras, ika, heikoin: k.heikoin, heikoinPisteet: heik, ehdotus: Y.tmAdarPorrasEhdotus(hs, porras || Y.tmAdarIkaPorras(ika)) });
 }
+const KOLME = [hav3(3, 1, 1, 1, '2026-10-10T10:00:00Z'), hav3(3, 1, 1, 1, '2026-10-09T10:00:00Z'), hav3(3, 1, 1, 1, '2026-10-08T10:00:00Z')];   // uid sama → konsensus ottaa uusimman; ehdotus lukee kaikki 3
+const KOLME_ERI = ['a', 'b', 'c'].map((u, i) => ({ uid: u, luotu: '2026-10-0' + (i + 7) + 'T10:00:00Z', pisteet: { A: 3, D: 1, Act: 1, R: 1 } }));
 describe('TM_ADAR_RUBRIIKKI — tasot', () => {
-  it('tasot 1–5: yleiset nimet (Alussa · Kehittyvä · Vakaa · Vahva · Erinomainen), ei ulottuvuuksien nimiä eikä "Toteutat"', () => {
+  it('tasot 1–5: yleiset nimet (Alussa · Kehittyvä · Vakaa · Vahva · Erinomainen), ei ulottuvuuksien nimiä', () => {
     expect([1, 2, 3, 4, 5].map((t) => A.alyTaso(t).nimi)).toEqual(['Alussa', 'Kehittyvä', 'Vakaa', 'Vahva', 'Erinomainen']);
     for (let t = 1; t <= 5; t++) { const r = A.alyTaso(t); expect(r.nimi + r.nyt, t).not.toMatch(/Toteutat|Päätöksenteko|Toteutus|Palautuminen|Havainnointi|Duckworth/); }
     expect(A.alyTaso(1).nyt).toBe('Opettelet katsomaan, mitä pelissä tapahtuu 👀');
   });
-  it('askel määräytyy heikoimmasta ulottuvuudesta (a/d/ac/r), ei tasosta; puuttuva → havainnoinnin askel', () => {
-    for (const t of [1, 3, 4]) { for (const d of ['a', 'd', 'ac', 'r']) expect(A.alyTaso(t, d).askel, t + d).toBe(A.ASKEL[d]); expect(A.alyTaso(t).askel).toBe(A.ASKEL.a); expect(A.alyTaso(t, 'x').askel).toBe(A.ASKEL.a); }
-    expect(A.ASKEL.r).toBe('Virhe ei jää päähän — palaa peliin heti ja tee seuraava ratkaisu.');
+  it('tasot 3 ja 4 neutraalit: "Luet peliä hyvin" — ei "valin" eikä "ratkais" (ei väitä päätöksestä/toteutuksesta)', () => {
+    expect(A.alyTaso(3).nyt).toBe('Luet peliä hyvin ⚙️'); expect(A.alyTaso(4).nyt).toBe('Luet peliä hyvin myös kovassa vauhdissa 🔄');
+    for (const t of [3, 4]) expect(A.alyTaso(t).nyt, t).not.toMatch(/valin|ratkais/i);
   });
-  it('taso 5: ylläpitoteksti kun heikoinkin on 3 (tai pisteet puuttuvat); muuten heikoimman askel', () => {
-    expect(A.alyTaso(5, 'd', 3).askel).toBe('Huipputasolla — pidä yllä ja monipuolista rooleissa.'); expect(A.alyTaso(5).askel).toBe(A.YLLAPITO);
-    expect(A.alyTaso(5, 'd', 2).askel).toBe(A.ASKEL.d);
-  });
-  it('null kun taso puuttuu; ylitys rajataan 5:een; ei Duckworth-viittausta lähteessä', () => {
+  it('null kun taso puuttuu; ylitys rajataan 5:een; ei Duckworth-viittausta / ikärajoja ulottuvuuden määrittäjänä', () => {
     expect(A.alyTaso(null)).toBeNull(); expect(A.alyTaso(0)).toBeNull(); expect(A.alyTaso(9).taso).toBe(5);
     expect(lue('lib/tm_adar_rubriikki.js')).not.toMatch(/Duckworth|15 s/);
   });
 });
+describe('alyTaso — seuraava askel osaamistavoitteesta (ei iästä)', () => {
+  it('1) porras 1, a=3, ehdotus valmis (seuraava d) → ASKEL.d, seuraava_taito', () => {
+    const r = A.alyTaso(5, { porras: 1, heikoin: 'a', heikoinPisteet: 3, ehdotus: { valmis: true, seuraava: 'd' } });
+    expect(r.askel).toBe(A.ASKEL.d); expect(r.askelTyyppi).toBe('seuraava_taito'); expect(r.askelDim).toBe('d');
+  });
+  it('2) porras 1, a=2, ehdotus ei valmis → ASKEL.a, harjoittele', () => {
+    const r = A.alyTaso(3, { porras: 1, heikoin: 'a', heikoinPisteet: 2, ehdotus: { valmis: false, seuraava: null, hist: [2] } }); expect(r.askel).toBe(A.ASKEL.a); expect(r.askelTyyppi).toBe('harjoittele');
+  });
+  it('3) porras 1, a=3, ehdotus ei valmis (alle 3 havaintoa) → ASKEL.d, seuraava_taito (kohta c)', () => {
+    const r = A.alyTaso(5, { porras: 1, heikoin: 'a', heikoinPisteet: 3, ehdotus: { valmis: false, seuraava: null, hist: [3] } }); expect(r.askel).toBe(A.ASKEL.d); expect(r.askelTyyppi).toBe('seuraava_taito');
+  });
+  it('4) 10-vuotias portaalla 3, heikoin ac=2 → ASKEL.ac (ikä ei vaikuta)', () => {
+    const h = hav3(3, 3, 2, null, '2026-10-10T10:00:00Z'); const r = kortti(h, 10, 3, 3); expect(r.askelDim).toBe('ac'); expect(r.askel).toBe(A.ASKEL.ac); expect(r.askelTyyppi).toBe('harjoittele');
+  });
+  it('5) 16-vuotias portaalla 1, a=2 → ASKEL.a (ikä ei vaikuta)', () => {
+    const r = kortti(havainto(2, null, null, null), 16, 1, 1); expect(r.askel).toBe(A.ASKEL.a); expect(r.askelDim).toBe('a');
+  });
+  it('6) porras 4, kaikki 3 → YLLAPITO, yllapito', () => {
+    const r = kortti(havainto(3, 3, 3, 3), 17, 4, 4); expect(r.askel).toBe(A.YLLAPITO); expect(r.askelTyyppi).toBe('yllapito'); expect(r.askelDim).toBeNull();
+  });
+  it('7) porras 1, a=3, r=1 bonuksena → r ei vaikuta (askel ei ole ASKEL.a eikä ASKEL.r; seuraava taito d)', () => {
+    const r = kortti(havainto(3, null, null, 1), 17, 1, 1); expect(r.askelDim).toBe('d'); expect(r.askel).not.toBe(A.ASKEL.r); expect(r.askel).not.toBe(A.ASKEL.a);
+    // sama ilman portaan rajausta (vanha virhe): minimi kaikista = 1 → väärä askel
+    const k = Y.tmAdarKonsensus([havainto(3, null, null, 1)], 17, 1); expect(k.heikoin).toBe('a');
+  });
+  it('8) porras puuttuu, ikä 11 → oletusporras 1; ikä tuntematon → 4', () => {
+    expect(A.alyTaso(3, { ika: 11, heikoin: 'a', heikoinPisteet: 3 }).askelDim).toBe('d');          // porras 1 → seuraava taito d
+    expect(A.alyTaso(3, { ika: null, heikoin: 'a', heikoinPisteet: 3 }).askelTyyppi).toBe('yllapito');   // porras 4, kaikki 3
+    expect(A.alyTaso(3, { heikoin: 'a', heikoinPisteet: 3 }).askelTyyppi).toBe('yllapito');
+    expect(A.alyTaso(3, { ika: 14, heikoin: 'a', heikoinPisteet: 3 }).askelDim).toBe('r');          // ikä 14 → porras 3 → seuraava r
+  });
+  it('heikoin puuttuu ja ehdotus ei valmis → havainnoinnin askel (kun pisteet <3)', () => { expect(A.alyTaso(2, { porras: 2, heikoinPisteet: 2 }).askel).toBe(A.ASKEL.a); });
+  it('ketju: kolme havaintoa a≥2,5 portaalla 1 → ehdotus valmis → seuraava taito d', () => {
+    const r = kortti(KOLME_ERI, 10, 1, 1); expect(r.askelTyyppi).toBe('seuraava_taito'); expect(r.askelDim).toBe('d');
+  });
+  it('lähteessä ei ikärajaa ulottuvuuden määrittäjänä ("U8–12 vain a")', () => {
+    for (const f of ['lib/tm_adar_rubriikki.js', 'TalentMaster_Pelaaja_v7.html']) expect(lue(f), f).not.toMatch(/U8–12 vain a|U8–12:lla yht|U8–U12\)\s+— arvioidaan vain Assess/);
+  });
+});
 describe('Pelaajakortti — skenaariot', () => {
-  it('U8–12 (porras 1), havainnointi 2: taso 3 "Vakaa", askel havainnoinnista, ei sanaa "Toteutat"', () => {
-    const r = kortti(havainto(2, null, null, null), 10, 1);
-    expect(r.taso).toBe(3); expect(r.nimi).toBe('Vakaa'); expect(r.askel).toBe(A.ASKEL.a); expect(JSON.stringify(r)).not.toMatch(/Toteutat/);
+  it('porras 1, havainnointi 2: taso 3 "Vakaa", ei sanaa "Toteutat"; kaikki 1 → "Alussa"', () => {
+    const r = kortti(havainto(2, null, null, null), 10, 1, 1); expect(r.taso).toBe(3); expect(r.nimi).toBe('Vakaa'); expect(JSON.stringify(r)).not.toMatch(/Toteutat/);
+    const a = kortti(havainto(1, 1, 1, 1), 17, 4, 4); expect(a.taso).toBe(1); expect(a.nimi).toBe('Alussa');
   });
-  it('U16 (porras 4), heikoin = r (a=3,d=3,ac=3,r=1): askel palautumisesta', () => {
-    const r = kortti(havainto(3, 3, 3, 1), 17, 4); expect(r.askel).toBe(A.ASKEL.r);
-  });
-  it('kaikki 1: taso 1 "Alussa"; kaikki 3: taso 5 "Erinomainen" + ylläpito', () => {
-    const a = kortti(havainto(1, 1, 1, 1), 17, 4); expect(a.taso).toBe(1); expect(a.nimi).toBe('Alussa');
-    const b = kortti(havainto(3, 3, 3, 3), 17, 4); expect(b.taso).toBe(5); expect(b.askel).toBe(A.YLLAPITO);
-  });
+  it('porras 4, heikoin = r (a=3,d=3,ac=3,r=1): askel palautumisesta', () => { expect(kortti(havainto(3, 3, 3, 1), 17, 4, 4).askel).toBe(A.ASKEL.r); });
 });
 describe('Kytkennät: Pelaaja_v7 + VP + Koulutus', () => {
   const P = lue('TalentMaster_Pelaaja_v7.html'), V = lue('TalentMaster_VP_v25.html'), K = lue('TalentMaster_ADAR_Koulutus.html');
   it('Pelaaja_v7: ÄLY val = tmAdarNorm99, taso = tmAdarTaso5, seuraava askel heikoimmasta (adarHeikoin); muiden ulottuvuuksien kaavat ennallaan', () => {
     expect(P).toMatch(/val:v, state: luot \? 'measured'/); expect(P).toMatch(/const v = tmAdarNorm99\(ad\.yht\)/); expect(P).toMatch(/return tmAdarTaso5\(ad\.yht\)/);
-    expect(P).toMatch(/alyTaso\(t, d\.adarHeikoin, d\.adarHeikoinPisteet\)/); expect(P).toMatch(/adarHeikoin: p\.adar_heikoin/);
+    expect(P).toMatch(/alyTaso\(t, d\.adarCtx\)/); expect(P).toMatch(/const _heik = \(p\.adar_heikoin && ad\[p\.adar_heikoin\] != null\) \? ad\[p\.adar_heikoin\] : undefined/);
+    expect(P).toMatch(/porras: p\.havainto_porras \|\| null[^}]*ehdotus: p\.havainto_porras_ehdotus/); expect(P).not.toMatch(/Math\.min\.apply\(null, _adP\)/);   // heikoin portaan joukosta, ei kaikista (bonus pois)
+    expect(P).toMatch(/_p7K1T\('Seuraava taito'\)/);
     expect(P).toMatch(/d\.key === 'FYS' && p\.d1_taso != null\) return Math\.max\(1, Math\.min\(5, Math\.round\(p\.d1_taso\)\)\)/);
     expect(P).toMatch(/d\.key === 'PSY' && p\.d3_taso != null\) return Math\.max\(1, Math\.min\(5, Math\.round\(p\.d3_taso\)\)\)/);
   });

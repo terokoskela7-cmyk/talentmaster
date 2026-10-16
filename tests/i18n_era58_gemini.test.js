@@ -7,11 +7,13 @@ const E = JSON.parse(readFileSync(new URL('../docs/i18n/sv_kaannoserae_58_gemini
 const A = require('../lib/tm_adar_rubriikki.js'), TX = require('../lib/tm_adar_tekstit.js'), SV = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv;
 const PAL = JSON.parse(readFileSync(new URL('../docs/i18n/sv_era2_palautetaan.json', import.meta.url), 'utf8')).rivit;
 describe('sv-erä 58 — lähetyserä', () => {
-  it('17 riviä (9 lib.rubriikit + 8 lib.tm_adar_tekstit), sv tyhjä, huom jokaisella; fi = koodi', () => {
-    expect(E._rivit_yhteensa).toBe(17);
+  it('18 riviä (10 lib.rubriikit + 8 lib.tm_adar_tekstit), sv tyhjä, huom jokaisella; fi = koodi', () => {
+    expect(E._rivit_yhteensa).toBe(18);
     for (const [o, os] of Object.entries(E.osiot)) for (const [k, r] of Object.entries(os.rivit)) { expect(r.sv, o + k).toBe(''); expect(r.huom.length, k).toBeGreaterThan(15); expect(r.fi, k).toBeTruthy(); }
     for (const [k, r] of Object.entries(E.osiot['lib.tm_adar_tekstit'].rivit)) expect(r.fi, k).toBe(TX.FI[k]);
     const rub = E.osiot['lib.rubriikit'].rivit; for (let t = 1; t <= 5; t++) { const x = A.TASOT[t]; expect(rub[x.nimi].fi).toBe(x.nimi); if (t < 5) expect(rub[x.nyt].fi).toBe(x.nyt); else expect(rub[x.nyt]).toBeUndefined(); }
+    expect(rub['Seuraava taito'].fi).toBe('Seuraava taito');   // uusi avain (kortin otsikkorivi)
+    for (const v of ['Luet pelitilanteita ja teet hyviä valintoja ⚙️', 'Teet hyviä ratkaisuja myös kovassa vauhdissa 🔄']) expect(rub[v], 'vanha nyt pois erästä').toBeUndefined();
   });
   it('muuttuneiden/korvattujen avainten vanhat sv-arvot on poistettu koodista (ei sekuntirajoja ruotsiksi)', () => {
     for (const x of PAL.filter((r) => /^lib\./.test(r.osio))) expect(SV[x.avain], x.avain).toBeUndefined();

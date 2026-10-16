@@ -580,7 +580,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_kaavio_konsepti.js?v=1"></script>  <!-- Kaavio erä C: spec↔konsepti-sidos (KPI-teksti kaanonista) -->
 <script src="lib/tm_konsepti_resolve.js?v=2"></script>  <!-- VAIN kaanon-haku (tmKonseptiKaanon): seurakerrosta EI ladata pelaajalle — seurat/{sid}/konseptit vaatii onOmaSeura(), jota anon-token ei täytä -->
 <script src="lib/tm_kaavio_policy.js?v=4"></script>    <!-- Kaavio erä A: kaavioKohdistuu — UI-suodatin (EI pakotus, ks. lib) -->
-<script src="lib/tm_adar_rubriikki.js?v=3"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) · v2 = taso 4 Re-assess-korjaus -->
+<script src="lib/tm_adar_rubriikki.js?v=4"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) · v2 = taso 4 Re-assess-korjaus -->
 <script src="lib/tm_kortti_rubriikit.js?v=1"></script> <!-- Kortin FYS+PSY-tasokuvaus (TM_KORTTI_RUBRIIKIT, §7.22/§28) · sama kuvio kuin ÄLY/TEK -->
 <script src="lib/tm_pelialy_yksilo.js?v=5"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: + pääalusta (Mondo) -->
@@ -5720,9 +5720,10 @@ function _fcKorttiData(p) {
   const ad = p.adar_viimeisin;
   if (ad && ad.yht != null) {
     const v = tmAdarNorm99(ad.yht), luot = (p.adar_havaintoja || 0) >= 3;
-    const _adP = [ad.a, ad.d, ad.ac, ad.r].filter(function (x) { return typeof x === 'number'; });   // mitatut ulottuvuudet (ikäportaan; U8–12 vain a)
+    // Heikoimman pisteet VAIN portaan ulottuvuudesta (p.adar_heikoin valitaan tmAdarKonsensus → tmAdarBand(ika, porras)): adar_viimeisin sisältää myös bonusulottuvuudet (portaan yli menevät arviot), joten minimi kaikista olisi väärä.
+    const _heik = (p.adar_heikoin && ad[p.adar_heikoin] != null) ? ad[p.adar_heikoin] : undefined;
     dims.push({ key:'ÄLY', lbl: luot ? T('pelialy') : T('varhainen'), val:v, state: luot ? 'measured' : 'early', w:.10, counts:luot,
-      adarHeikoin: p.adar_heikoin || null, adarHeikoinPisteet: _adP.length ? Math.min.apply(null, _adP) : undefined });
+      adarCtx: { porras: p.havainto_porras || null, ika: ika, heikoin: p.adar_heikoin || null, heikoinPisteet: _heik, ehdotus: p.havainto_porras_ehdotus || null } });   // peliäly etenee osaamistavoitteen (portaan) mukaan, ikä vain oletus
   } else dims.push({ key:'ÄLY', lbl:T('tulossa_2'), val:null, state:'soon', w:.10, counts:false });
   // D5 SOS ← seura-lukko (ei mittaria)
   dims.push({ key:'SOS', lbl:T('seura_avaa'), val:null, state:'club', w:.10, counts:false });
@@ -5847,12 +5848,14 @@ function naytaFcOverlay() {
     // ÄLY (peliäly/ADAR) — pelihavainto-työkalun kanoninen tasokuvaus (TM_ADAR_RUBRIIKKI, yksi lähde).
     // Kuvaus + kannustava seuraava askel pääosassa, tasonumero toissijainen; fallback geneeriseen (§21).
     if (d.key === 'ÄLY' && window.TM_ADAR_RUBRIIKKI) {
-      const r = window.TM_ADAR_RUBRIIKKI.alyTaso(t, d.adarHeikoin, d.adarHeikoinPisteet);   // seuraava askel = heikoin MITATTU ulottuvuus (ei taso)
+      const r = window.TM_ADAR_RUBRIIKKI.alyTaso(t, d.adarCtx);   // seuraava askel: osaamistavoite (porras) → heikoin mitattu → seuraava taito → ylläpito
       if (r) return '<div class="fc-bar" style="align-items:flex-start">'
         + '<span class="bk">' + _dimKoodi(d.key) + '</span>'
         + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">'
         +   '<div>' + _pT('nyt') + ' <b style="color:var(--cf-main,#28B090)">' + _p7RubT(r.nyt) + '</b></div>'
-        +   '<div style="color:var(--ink3);margin-top:1px">' + _pT('vanhempi.tek_seuraava_askel') + ' ' + _p7RubT(r.askel) + '</div>'
+        +   '<div style="color:var(--ink3);margin-top:1px">' + (r.askelTyyppi === 'seuraava_taito'
+              ? _p7K1T('Seuraava taito') + ': <b>' + ((typeof tmAdarNimet === 'function' ? tmAdarNimet('pelaaja', _p7K1T)[r.askelDim] : '') || '') + '</b> — ' + _p7RubT(r.askel)   // nimi nimikanonista (kielen mukaan)
+              : _pT('vanhempi.tek_seuraava_askel') + ' ' + _p7RubT(r.askel)) + '</div>'
         + '</div></div>';
     }
     // TEK (tekniikka) — jaettu _tekKorttiData (sama kuin MINÄ-tekniikkarivit): ⭐ vahvuus + 🎯 seuraava askel
@@ -5879,7 +5882,9 @@ function naytaFcOverlay() {
         + '<span class="bk">' + _dimKoodi(d.key) + '</span>'
         + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">'
         +   '<div>' + _pT('nyt') + ' <b style="color:var(--cf-main,#28B090)">' + _p7RubT(r.nyt) + '</b></div>'
-        +   '<div style="color:var(--ink3);margin-top:1px">' + _pT('vanhempi.tek_seuraava_askel') + ' ' + _p7RubT(r.askel) + '</div>'
+        +   '<div style="color:var(--ink3);margin-top:1px">' + (r.askelTyyppi === 'seuraava_taito'
+              ? _p7K1T('Seuraava taito') + ': <b>' + ((typeof tmAdarNimet === 'function' ? tmAdarNimet('pelaaja', _p7K1T)[r.askelDim] : '') || '') + '</b> — ' + _p7RubT(r.askel)   // nimi nimikanonista (kielen mukaan)
+              : _pT('vanhempi.tek_seuraava_askel') + ' ' + _p7RubT(r.askel)) + '</div>'
         + '</div></div>';
     }
     // PSY (mielen taidot, D3) — kanoninen rubriikki + valinnainen ⭐vahvuus (korkein D3-osa-alue, kuten TEK).
