@@ -22,7 +22,7 @@ describe('tmHT — henkilöstösivujen teksti-avainreititin', () => {
   it('sv-kartta on viety Gemini-erästä 2 (scripts/i18n_vie_sv_era2.cjs) ja vastaa erää (tests/i18n_era2_vienti.test.js)', () => {
     // erän 2 rivit − käytöstä poistetut (sv_era2_palautetaan.json: "Seuraava askel:" → Pikakortti käyttää "Harjoitusvinkki:", erä 59)
     const poistetut = JSON.parse(lue('docs/i18n/sv_era2_palautetaan.json')).rivit.filter((r) => r.osio === 'henkilosto_kartta' && r.syy.indexOf('poistettu') >= 0).length;
-    const lisatyt = ['59', '60'].reduce((a, n) => a + Object.keys(JSON.parse(lue('docs/i18n/sv_kaannoserae_' + n + '_palautus.json')).osiot.henkilosto_kartta.rivit).length, 0);   // erät 59 + 60: uudet Pikakortin avaimet
+    const lisatyt = ['59', '60', '62'].reduce((a, n) => a + Object.keys(JSON.parse(lue('docs/i18n/sv_kaannoserae_' + n + '_palautus.json')).osiot.henkilosto_kartta.rivit).length, 0);   // erät 59 + 60: uudet Pikakortin avaimet
     expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length - poistetut + lisatyt);
     expect(H.tmHT('Ei vielä pelaajia')).toBe('Ei vielä pelaajia');   // ilman kieltä (fi) teksti ennallaan
   });
@@ -93,7 +93,7 @@ describe('Gemini-erä 2 — PR 4 -osiot (VP, henkilöstö, jäännökset)', () =
   });
   it('henkilosto_kartta kattaa Seuran, ADARin ja Pelihavainnon tmHT/phT-avaimet', () => {
     const p = poimi({ juuri, tiedostot: ['TalentMaster_Seura.html', 'TalentMaster_ADAR_Pikakortti.html', 'TalentMaster_Pelihavainto_Kentta.html'], routerit: ['tmHT', 'phT'], kartat: KARTAT_HENK });
-    const rivit = ERA.osiot.henkilosto_kartta.rivit, E59 = Object.assign({}, JSON.parse(lue('docs/i18n/sv_kaannoserae_59_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_60_gemini.json')).osiot.henkilosto_kartta.rivit);   // erät 59 + 60: uudet Pikakortin avaimet (60: sv odottaa)
+    const rivit = ERA.osiot.henkilosto_kartta.rivit, E59 = Object.assign({}, JSON.parse(lue('docs/i18n/sv_kaannoserae_59_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_60_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_62_gemini.json')).osiot.henkilosto_kartta.rivit);   // erät 59 + 60 + 62: uudet Pikakortin avaimet (62: sv odottaa)
     expect(p.puuttuu.filter((t) => !ei(t) && !rivit[t] && !E59[t])).toEqual([]);
   });
   it('#892:n jäännökset mukana: ts_otsikko, Förening-rivit, kausifokus, VP×Master', () => {
