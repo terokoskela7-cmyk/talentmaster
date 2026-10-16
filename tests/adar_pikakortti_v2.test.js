@@ -95,7 +95,7 @@ function aja(opt) {
     window: { _pelaajaMap: o.pelaajat || {}, _tmSeuraId: 'sjk' },
   };
   store.window.window = store.window;
-  store.tmHT = store.tmHT || function (s) { return s; };
+  store.tmHT = o.tmHT || store.tmHT || function (s) { return s; };
   const ymp = new Proxy(store, {
     has: (t, k) => (k in t) || !(k in globalThis),
     get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : undefined)),
@@ -297,7 +297,7 @@ describe('(4) tallennus: yksi polku, ei omaa offline-jonoa', () => {
 
   it('odottava kirjoitus näkyy "Tallessa laitteella"', () => {
     const ok = pura('function _phRenderOk(');
-    expect(ok).toContain("odottaa ? 'Tallessa laitteella' : 'Tallennettu'");
+    expect(ok).toContain("odottaa ? tmHT('Tallessa laitteella') : tmHT('Tallennettu')");
     expect(ok).toContain('Havainto lähtee automaattisesti, kun yhteys palaa');
   });
 
@@ -565,5 +565,44 @@ describe('(design) Pikakortti — otsikko, desimaalit, koodit, vinkki, tokenit',
   });
   it('"Seuraava askel:" ei enää Pikakortissa eikä henkilöstökartassa (termi varattu pelaajan tavoitteelle)', () => {
     expect(KOODI).not.toContain("tmHT('Seuraava askel:')"); expect(vaadi('../lib/tm_henkilosto_i18n.js').TM_HENKILOSTO_I18N.sv['Seuraava askel:']).toBeUndefined();
+  });
+});
+
+/* ── sv-tilan viimeiset tekstit (erä 60): KAIKKI näkyvä teksti kulkee tmHT:n / lib-avainten kautta ──────────────────────────────
+   tmHT-stub kääri jokaisen reititetyn tekstin «…»-merkkeihin; näkymän HTML:stä poistetaan kääritty teksti, lib-tekstit (tmAdarT, reititetty polkuavaimilla),
+   nimet, numerot ja välimerkit. Mitä jää, on kovakoodattua tekstiä (sv-tilassa suomea). */
+describe('(sv) Pikakortti — ei reitittämätöntä näkyvää tekstiä missään näkymässä', () => {
+  const TX = vaadi('../lib/tm_adar_tekstit.js'), NIMI = LIB.TM_ADAR_NIMET;
+  const pelaajat = { p1: { nimi: 'Topias Koskela', syntymaVuosi: vuosiIalle(10), joukkueet: ['j1'], havainto_porras: 1, adar_pvm: new Date(Date.now() - 86400000).toISOString(),
+      havainto_porras_ehdotus: { valmis: true, hist: [2.5, 3, 2.5], seuraava: 'd' } },
+    p4: { nimi: 'Sara Virtanen', syntymaVuosi: vuosiIalle(17), joukkueet: ['j1'], havainto_porras: 4, adar_pvm: new Date(Date.now() - 5 * 86400000).toISOString(), havainto_porras_ehdotus: { valmis: false, hist: [3, 3, 3], seuraava: null } } };
+  const sallitut = new Set([...Object.values(TX.FI), ...Object.values(NIMI.valmentaja), ...Object.values(NIMI.pelaaja), 'Topias Koskela', 'Sara Virtanen', 'Topias', 'Sara', 'Koskela', 'Virtanen', 'TalentMaster™', 'Hyvä havainto']);
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const SALLITUT_RE = new RegExp([...sallitut].filter((x) => x.length > 2).sort((a, b) => b.length - a.length).map(esc).join('|'), 'gi');   // lib-reititetyt tekstit/nimet voivat esiintyä yhdistelmärivillä ("Sara · havainnointi 2, päätös 3")
+  const jaanteet = (h) => {
+    let t = h.replace(/«[^»]*»/g, ' ').replace(/<[^>]*>/g, '\u0001').replace(/&amp;|&quot;|&lt;|&gt;/g, ' ');
+    t = t.replace(SALLITUT_RE, ' ').replace(/\b(A|D|AC|R) \d/g, ' ');   // alapalkin ulottuvuuskoodit (A 2 · D 3 · AC 1 · R 2): lyhenteet, ei käännettävää
+    return t.split('\u0001').map((x) => x.trim()).filter((x) => x && /[A-Za-zÄÖäö]{2,}/.test(x));
+  };
+  const nayt = (tila, id) => { const y = aja({ pelaajat, tmHT: (k) => '«' + k + '»' }); y.api.avaa(id || 'p4'); Object.assign(y.api.S, tila); y.api.render(); return html(y); };
+  const NAKYMAT = {
+    'valitse': () => { const y = aja({ pelaajat, tmHT: (k) => '«' + k + '»' }); y.api.S.naytto = 'valitse'; y.api.S.pelaajaId = null; y.api.render(); return html(y); },
+    'havainto p1 + ehdotus + valittuja': () => nayt({ pisteet: { A: 3 }, havaitut: { A: ['x', 'y'] }, vinkki: { A: true } }, 'p1'),
+    'havainto p4 kaikki auki': () => nayt({ pisteet: { A: 2, D: 3, Act: 1, R: 2 }, vinkki: { A: true, R: true }, auki: { D: true }, nakyvyys: true }),
+    'porrasarkki': () => nayt({ sheet: true, porrasTallennettu: 4 }),
+    'virhe + peruttu': () => nayt({ virhe: 'x', peruttu: true, pisteet: { A: 2 } }),
+    'ok tallennettu': () => nayt({ naytto: 'ok', odottaa: false, tehdyt: { p4: true }, viimeisin: { pelaajaId: 'p4', pisteet: { A: 2, D: 3 }, nakyvyys: 'pelaaja', porras: 2, porrasNostettu: true, ms: Date.now(), kumottu: false } }),
+    'ok odottaa (offline)': () => nayt({ naytto: 'ok', odottaa: true, tehdyt: { p4: true }, viimeisin: { pelaajaId: 'p4', pisteet: { A: 2 }, nakyvyys: 'valmentajat', porras: 4, porrasNostettu: false, ms: Date.now(), kumottu: false } }),
+    'ok kaikki tehty': () => nayt({ naytto: 'ok', odottaa: false, tehdyt: { p1: true, p4: true }, viimeisin: { pelaajaId: 'p4', pisteet: { A: 2 }, nakyvyys: 'valmentajat', porras: 4, porrasNostettu: false, ms: Date.now() - 700000, kumottu: false } }),
+  };
+  for (const [nimi, f] of Object.entries(NAKYMAT)) it('"' + nimi + '": jäännös-suomea ei ole', () => { expect(jaanteet(f()), nimi).toEqual([]); });
+  it('uudet parametrisoidut avaimet (laskuri, porras, seuraava) ovat tmHT:ssä parametrilla, ei merkkijonojen yhdistelyä', () => {
+    for (const k of ['Porras {n} / 4', 'Porras {n} · {lista}', '{n} valittu', 'Seuraavana: {nimi} · {aika}']) expect(SIVU, k).toContain("tmHT('" + k + "')");
+    expect(KOODI).not.toMatch(/' valittu'|'Seuraavana: '|">Porras '|push\('ikäsuositus'\)|push\('nykyinen'\)|teksti: 'eilen'|aria-label="Konteksti"|: 'Valmis'|'Tallessa laitteella' :|\? 'Tallessa/);
+  });
+  it('sv: kaikilla näillä avaimilla on sv-rivi (tai odottaa erää 60)', () => {
+    const E60 = JSON.parse(readFileSync(join(juuri, 'docs/i18n/sv_kaannoserae_60_gemini.json'), 'utf8')).osiot.henkilosto_kartta.rivit, SV = vaadi('../lib/tm_henkilosto_i18n.js').TM_HENKILOSTO_I18N.sv;
+    for (const k of Object.keys(E60)) expect(SIVU, k).toContain("tmHT('" + k + "')");
+    for (const k of ['Tallennettu', 'Valmis']) { const C = vaadi('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv; expect(typeof (SV[k] || C[k]), k).toBe('string'); }
   });
 });
