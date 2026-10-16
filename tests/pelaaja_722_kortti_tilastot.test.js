@@ -43,7 +43,7 @@ function renderoi(pelaaja, kieli, porttiAuki) {
   // porttiAuki = mutaatio (E): simuloi regressio jossa yhteinen OVR-portti avautuisi taas.
   const portti = porttiAuki ? runko('_fcNaytaOvr').replace('return false;', 'return !!(F && F.ikavyohyke === \'showcase\' && !F.rakentuu && F.ovr != null);') : runko('_fcNaytaOvr');
   const src = [runko('_tMittari'), runko('_tKortti'), runko('_valmiusTila'), runko('_laskeStage'),
-               runko('_fcKorttiData'), runko('_fcRengasSVG'), portti, runko('rKortti')];
+               runko('_fcKorttiData'), runko('_fcRengasSVG'), portti, runko('_p7PaikkaNimi'), runko('rKortti')];   // _p7PaikkaNimi: fi → arvo sellaisenaan (kortin pelipaikkateksti)
   src.forEach((x, i) => { if (!x) throw new Error('funktion runkoa ei löytynyt, index ' + i); });
 
   const LANG = require_lang();
@@ -52,7 +52,7 @@ function renderoi(pelaaja, kieli, porttiAuki) {
     _pelaaja: pelaaja, _streak: 4,
     t: (polku) => polku.split('.').reduce((o, k) => (o && o[k] != null ? o[k] : null), LANG[kieli]) || polku,
     hdr: (x) => '<header>' + x + '</header>',
-    _onkoSynttari: () => false, _haeStreak: () => 4,
+    _onkoSynttari: () => false, _haeStreak: () => 4, _p7Kieli: () => kieli, _thEsc: (x) => String(x == null ? '' : x),
     localStorage: { getItem: () => null, setItem() {} },
     window: {}
   };

@@ -516,3 +516,54 @@ describe('(9) Masterin ja linkkien sopimukset säilyvät', () => {
     expect(SIVU).toContain('enablePersistence');
   });
 });
+
+/* ── Design-korjaukset 16.10. (CODE_BRIEF_PIKAKORTTI_DESIGN) ─────────────────────────────── */
+describe('(design) Pikakortti — otsikko, desimaalit, koodit, vinkki, tokenit', () => {
+  const pelaajat = { p1: { nimi: 'Topias Koskela', syntymaVuosi: vuosiIalle(10), joukkueet: ['j1'], havainto_porras: 1,
+    havainto_porras_ehdotus: { valmis: true, hist: [2.5, 3, 2.5], seuraava: 'd' } } };
+  const avaa = (tila) => { const y = aja({ pelaajat }); y.api.avaa('p1'); Object.assign(y.api.S, tila || {}); y.api.render(); return y; };
+
+  it('yläotsikko = pelkkä "Pelihavainto" (porras ratkaisee, ei ikävaihetta); _phIkavaihe ja tmAdarIkavaihe säilyvät', () => {
+    const h = html(avaa());
+    expect(h).toMatch(/<div class="eyebrow">Pelihavainto<\/div>/); expect(h).not.toMatch(/Pelihavainto · |Rakentaja|Leikkijä|Showcase/);
+    expect(SIVU).toContain('function _phIkavaihe('); expect(vaadi('../lib/tm_adar_tekstit.js').tmAdarIkavaihe).toBeTypeOf('function');
+  });
+  it('nostoehdotuksen desimaalit pilkulla ("2,5"), ei pistettä', () => {
+    const h = html(avaa());
+    expect(h).toContain('2,5 · 3 · 2,5'); expect(h).not.toMatch(/2\.5/);
+    expect(SIVU).toMatch(/function _phLuku\(v\) \{ return String\(v\)\.replace\('\.', ','\); \}/);
+  });
+  it('.dim-k ei renderöidy ulottuvuuden otsikkoon; alapalkin yhteenvedossa AC (ei Ac); PH_KENTTA-avain Act ennallaan', () => {
+    const y = avaa({ porras: 3, pisteet: { A: 2, D: 3, Act: 1 } }); const h = html(y);
+    expect(h).not.toContain('class="dim-k"'); expect(h).toContain('dim-n');
+    expect(h).toMatch(/A 2 · D 3 · AC 1/); expect(h).not.toMatch(/\bAc 1/);
+    expect(SIVU).toMatch(/PH_KENTTA\s*=\s*\{[^}]*Act/);
+  });
+  it('harjoitusvinkki piilossa oletuksena (kuvaus näkyy heti); linkki avaa ja sulkee per ulottuvuus; vinkki säilyy pistettä vaihtaessa', () => {
+    const y = avaa({ porras: 2, pisteet: { A: 2, D: 3 } }); let h = html(y);
+    expect(h).toContain('class="desc"'); expect(h).not.toContain('class="tip"'); expect(h).not.toContain('Harjoitusvinkki:');
+    expect((h.match(/data-vinkki="/g) || []).length).toBe(2); expect(h).toContain('Harjoitusvinkki ▾');
+    y.api.S.vinkki.A = true; y.api.render(); h = html(y);
+    expect((h.match(/class="tip"/g) || []).length).toBe(1); expect(h).toContain('<b>Harjoitusvinkki:</b>'); expect(h).toContain('Piilota ▴'); expect(h).not.toContain('Seuraava askel:');
+    y.api.S.pisteet.A = 3; y.api.render(); h = html(y);   // piste vaihtuu → vinkin tila säilyy
+    expect((h.match(/class="tip"/g) || []).length).toBe(1);
+    y.api.S.vinkki.A = false; y.api.render(); expect(html(y)).not.toContain('class="tip"');
+  });
+  it('vinkin tila nollautuu pelaajaa vaihtaessa (kuten S.auki) eikä kuulu luonnokseen', () => {
+    expect(SIVU).toMatch(/S\.auki = \{\}; S\.vinkki = \{\};/);
+    const luonnos = SIVU.slice(SIVU.indexOf('function _luonnosKeraa'), SIVU.indexOf('function _luonnosKeraa') + 900);
+    expect(luonnos).not.toMatch(/vinkki/);
+  });
+  it('Tallenna-painike käyttää --acc-fill / --acc-fill-ink; tokenit kaikissa kolmessa teemalohkossa; kontrasti ≥ 4,5:1', () => {
+    expect(SIVU).toMatch(/\.save\{[^}]*background:var\(--acc-fill\);color:var\(--acc-fill-ink\)/);
+    expect(SIVU).not.toMatch(/\.save\{[^}]*background:var\(--acc\)/);
+    expect((SIVU.match(/--acc-fill:#1A7A5E; --acc-fill-ink:#FBFAF6;/g) || []).length).toBe(3);   // vaalea + tumma (media) + tumma (data-theme)
+    const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+    const kontrasti = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    expect(kontrasti('#1A7A5E', '#FBFAF6')).toBeGreaterThanOrEqual(4.5);
+    expect(SIVU).toMatch(/\.rung\.on i\{background:var\(--acc\)\}/);   // pienet korostukset jäävät --acc:lle
+  });
+  it('"Seuraava askel:" ei enää Pikakortissa eikä henkilöstökartassa (termi varattu pelaajan tavoitteelle)', () => {
+    expect(KOODI).not.toContain("tmHT('Seuraava askel:')"); expect(vaadi('../lib/tm_henkilosto_i18n.js').TM_HENKILOSTO_I18N.sv['Seuraava askel:']).toBeUndefined();
+  });
+});

@@ -36,7 +36,7 @@ export const NAKYMAT = [
 const RUNTIME_PROTOTYYPIT = ['pelaaja/haptic', 'pelaaja/offline', 'pelaaja/parent', 'pelaaja/vapaa', 'pelaaja/haaste'];
 
 /* ── Lähetetyt erät (odottaa palautusta): 51 ja 52. Muiden erien tyhjät sv-rivit raportoidaan erikseen ("muu erä"), ei lasketa odottaviksi. ── */
-const ODOTTAVAT_ERAT = [];   // erä 58 (peliäly-tasokorjaus) palautettiin ja vietiin 16.10. (scripts/i18n_vie_sv_era58.cjs) · aiemmin: 51–53 palautettiin ja vietiin (scripts/i18n_vie_sv_era51_52.cjs, i18n_vie_sv_era53_19.cjs); 54 = Sibbo-reitityksen uudet avaimet (lähetetään) → rivit "odottaa"
+const ODOTTAVAT_ERAT = [59];   // erä 59 (Pikakortti-design + unelma-rivi; sv tyhjä) odottaa Geminiä — tyhjennä kun palautus viety · aiemmin: erä 58 (peliäly-tasokorjaus) palautettiin ja vietiin 16.10. (scripts/i18n_vie_sv_era58.cjs) · aiemmin: 51–53 palautettiin ja vietiin (scripts/i18n_vie_sv_era51_52.cjs, i18n_vie_sv_era53_19.cjs); 54 = Sibbo-reitityksen uudet avaimet (lähetetään) → rivit "odottaa"
 const ERA_OMA = 54;   // erä 54 on scripts/i18n_luo_gemini_era54.mjs:n OMA tuloste: generaattori laskee ilmanOmaaEraa:true (muuten rivit näkyisivät jo odottavina)
 function eratIndeksi(ilmanOmaa) {
   const ulos = { odottaa: { avain: new Set(), fi: new Set() }, muu: { avain: new Map(), fi: new Map() }, palautettu: { avain: new Map(), fi: new Map() } };
