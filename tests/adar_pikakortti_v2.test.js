@@ -137,7 +137,9 @@ describe('(1) kaksi napautusta minimissä', () => {
   it('EI PAKOLLISTA TEKSTIÄ: muistiinpano on merkitty valinnaiseksi', () => {
     const y = aja({ pelaajat });
     y.api.avaa('p1');
-    expect(html(y)).toContain('valinnainen');
+    const h = html(y);
+    expect(h, 'viestikenttä on linkin takana').toContain('+ Viesti pelaajalle'); expect(h).not.toContain('<textarea');
+    expect(h, 'viesti ei estä Tallennusta').not.toMatch(/ph-viesti[^>]*disabled/);
   });
 
   it('toinen napautus samaan pisteeseen tyhjentää valinnan', () => {
@@ -526,7 +528,8 @@ describe('(design) Pikakortti — otsikko, desimaalit, koodit, vinkki, tokenit',
 
   it('yläotsikko = pelkkä "Pelihavainto" (porras ratkaisee, ei ikävaihetta); _phIkavaihe ja tmAdarIkavaihe säilyvät', () => {
     const h = html(avaa());
-    expect(h).toMatch(/<div class="eyebrow">Pelihavainto<\/div>/); expect(h).not.toMatch(/Pelihavainto · |Rakentaja|Leikkijä|Showcase/);
+    expect(h, 'sisällön yläotsikko poistettu (toistaa yläpalkkia)').not.toMatch(/<div class="eyebrow">Pelihavainto<\/div>/); expect(h).not.toMatch(/Pelihavainto · |Rakentaja|Leikkijä|Showcase/);
+    expect(h, 'pelaajarivi: yksi rivi, Vaihda-linkki').toMatch(/<div class="ph-pl[^"]*">.*id="ph-vaihda"[^>]*>Vaihda<\/button><\/div>/);
     expect(SIVU).toContain('function _phIkavaihe('); expect(vaadi('../lib/tm_adar_tekstit.js').tmAdarIkavaihe).toBeTypeOf('function');
   });
   it('nostoehdotuksen desimaalit pilkulla ("2,5"), ei pistettä', () => {
@@ -536,22 +539,34 @@ describe('(design) Pikakortti — otsikko, desimaalit, koodit, vinkki, tokenit',
   });
   it('.dim-k ei renderöidy ulottuvuuden otsikkoon; alapalkin yhteenvedossa AC (ei Ac); PH_KENTTA-avain Act ennallaan', () => {
     const y = avaa({ porras: 3, pisteet: { A: 2, D: 3, Act: 1 } }); const h = html(y);
-    expect(h).not.toContain('class="dim-k"'); expect(h).toContain('dim-n');
-    expect(h).toMatch(/A 2 · D 3 · AC 1/); expect(h).not.toMatch(/\bAc 1/);
+    expect(h).not.toContain('class="dim-k"'); expect(h).toContain('class="dn"');
+    expect(h, 'alapalkin yhteenveto poistettu (rivit näyttävät valinnat)').not.toContain('class="sum"'); expect(h).not.toMatch(/A 2 · D 3/);
+    expect(h.match(/data-sc="Act" data-v="1" aria-pressed="true"/), 'valittu piste painettuna').toBeTruthy();
     expect(SIVU).toMatch(/PH_KENTTA\s*=\s*\{[^}]*Act/);
   });
-  it('harjoitusvinkki piilossa oletuksena (kuvaus näkyy heti); linkki avaa ja sulkee per ulottuvuus; vinkki säilyy pistettä vaihtaessa', () => {
-    const y = avaa({ porras: 2, pisteet: { A: 2, D: 3 } }); let h = html(y);
-    expect(h).toContain('class="desc"'); expect(h).not.toContain('class="tip"'); expect(h).not.toContain('Harjoitusvinkki:');
-    expect((h.match(/data-vinkki="/g) || []).length).toBe(2); expect(h).toContain('Harjoitusvinkki ▾');
+  it('palauteruutu: kuvaus + taso näkyvät heti painetulle ulottuvuudelle; harjoitusvinkki piilossa oletuksena, linkki avaa ja sulkee; vinkki säilyy pistettä vaihtaessa', () => {
+    const y = avaa({ porras: 2, pisteet: { A: 2, D: 3 }, fb: 'A' }); let h = html(y);
+    expect(h).toContain('id="ph-fb"'); expect(h).toContain('aria-live="polite"'); expect(h).toContain('Havainnointi · 2 Kehittyvä'); expect(h).toContain('class="fb-d"');
+    expect(h).not.toContain('class="fb-tip"'); expect(h).not.toContain('Harjoitusvinkki:');
+    expect((h.match(/data-vinkki="/g) || []).length, 'yksi yhteinen ruutu').toBe(1); expect(h).toContain('Harjoitusvinkki ▾');
     y.api.S.vinkki.A = true; y.api.render(); h = html(y);
-    expect((h.match(/class="tip"/g) || []).length).toBe(1); expect(h).toContain('<b>Harjoitusvinkki:</b>'); expect(h).toContain('Piilota ▴'); expect(h).not.toContain('Seuraava askel:');
-    y.api.S.pisteet.A = 3; y.api.render(); h = html(y);   // piste vaihtuu → vinkin tila säilyy
-    expect((h.match(/class="tip"/g) || []).length).toBe(1);
-    y.api.S.vinkki.A = false; y.api.render(); expect(html(y)).not.toContain('class="tip"');
+    expect((h.match(/class="fb-tip"/g) || []).length).toBe(1); expect(h).toContain('<b>Harjoitusvinkki:</b>'); expect(h).toContain('Piilota ▴'); expect(h).not.toContain('Seuraava askel:');
+    y.api.S.pisteet.A = 3; y.api.render(); h = html(y);   // piste vaihtuu → vinkin tila säilyy, taso päivittyy
+    expect((h.match(/class="fb-tip"/g) || []).length).toBe(1); expect(h).toContain('Havainnointi · 3 Hallitsee');
+    y.api.S.vinkki.A = false; y.api.render(); expect(html(y)).not.toContain('class="fb-tip"');
+  });
+  it('palauteruutu: "Mitä näit?" -valinnat näkyvät heti ilman avausta; nimen napautus näyttää kysymyksen; ennen painallusta himmeä kysymys', () => {
+    const y = avaa({ porras: 2 }); let h = html(y);
+    expect(h, 'ennen painallusta: ensimmäisen pisteyttämättömän kysymys himmeänä').toMatch(/class="fb-q dim">Havainnointi: Katsooko ylös/); expect(h).not.toContain('data-chip=');
+    y.api.S.pisteet = { A: 2 }; y.api.S.fb = 'A'; y.api.render(); h = html(y);
+    expect(h).toContain('Mitä näit?'); expect((h.match(/data-chip="A"/g) || []).length).toBe(4); expect(h).not.toContain('Mitä näit? ▾');
+    y.api.S.fb = 'D'; y.api.S.fbKys = true; y.api.render(); h = html(y);
+    expect(h, 'nimen napautus: kysymys näkyviin').toMatch(/class="fb-q[^"]*">Päätös: Kuinka nopeasti/);
+    y.api.S.pisteet.D = 3; y.api.S.fbKys = true; y.api.render(); h = html(y);
+    expect(h, 'pisteytetylle: kysymys + kuvaus').toContain('class="fb-q">Kuinka nopeasti'); expect(h).toContain('Päätös · 3 Hallitsee');
   });
   it('vinkin tila nollautuu pelaajaa vaihtaessa (kuten S.auki) eikä kuulu luonnokseen', () => {
-    expect(SIVU).toMatch(/S\.auki = \{\}; S\.vinkki = \{\};/);
+    expect(SIVU).toMatch(/S\.pisteet = \{\}; S\.havaitut = \{\}; S\.vinkki = \{\};/);
     const luonnos = SIVU.slice(SIVU.indexOf('function _luonnosKeraa'), SIVU.indexOf('function _luonnosKeraa') + 900);
     expect(luonnos).not.toMatch(/vinkki/);
   });
@@ -562,7 +577,7 @@ describe('(design) Pikakortti — otsikko, desimaalit, koodit, vinkki, tokenit',
     const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
     const kontrasti = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
     expect(kontrasti('#1A7A5E', '#FBFAF6')).toBeGreaterThanOrEqual(4.5);
-    expect(SIVU).toMatch(/\.rung\.on i\{background:var\(--acc\)\}/);   // pienet korostukset jäävät --acc:lle
+    expect(SIVU).toMatch(/\.pbar i\.on\{background:var\(--acc\)\}/);   // pienet korostukset jäävät --acc:lle
   });
   it('"Seuraava askel:" ei enää Pikakortissa eikä henkilöstökartassa (termi varattu pelaajan tavoitteelle)', () => {
     expect(KOODI).not.toContain("tmHT('Seuraava askel:')"); expect(vaadi('../lib/tm_henkilosto_i18n.js').TM_HENKILOSTO_I18N.sv['Seuraava askel:']).toBeUndefined();
@@ -598,12 +613,12 @@ describe('(sv) Pikakortti — ei reitittämätöntä näkyvää tekstiä missä�
   };
   for (const [nimi, f] of Object.entries(NAKYMAT)) it('"' + nimi + '": jäännös-suomea ei ole', () => { expect(jaanteet(f()), nimi).toEqual([]); });
   it('uudet parametrisoidut avaimet (laskuri, porras, seuraava) ovat tmHT:ssä parametrilla, ei merkkijonojen yhdistelyä', () => {
-    for (const k of ['Porras {n} / 4', 'Porras {n} · {lista}', '{n} valittu', 'Seuraavana: {nimi} · {aika}']) expect(SIVU, k).toContain("tmHT('" + k + "')");
+    for (const k of ['Porras {n} / 4', 'Porras {n} · {lista}', 'Seuraavana: {nimi} · {aika}', '{nimi} tallennettu', 'porras {n}', '{nimi}: havaintoa ei tallennettu', '{nimi} tallessa laitteella · lähtee, kun yhteys palaa']) expect(SIVU, k).toContain("tmHT('" + k + "')");
     expect(KOODI).not.toMatch(/' valittu'|'Seuraavana: '|">Porras '|push\('ikäsuositus'\)|push\('nykyinen'\)|teksti: 'eilen'|aria-label="Konteksti"|: 'Valmis'|'Tallessa laitteella' :|\? 'Tallessa/);
   });
   it('sv: kaikilla näillä avaimilla on sv-rivi (tai odottaa erää 60)', () => {
     const E60 = JSON.parse(readFileSync(join(juuri, 'docs/i18n/sv_kaannoserae_60_gemini.json'), 'utf8')).osiot.henkilosto_kartta.rivit, SV = vaadi('../lib/tm_henkilosto_i18n.js').TM_HENKILOSTO_I18N.sv;
-    for (const k of Object.keys(E60)) expect(SIVU, k).toContain("tmHT('" + k + "')");
+    for (const k of Object.keys(E60).filter((x) => x !== '{n} valittu')) expect(SIVU, k).toContain("tmHT('" + k + "')");   // '{n} valittu' jäi käyttämättä (yhden näytön asettelu), avain säilyy
     for (const k of ['Tallennettu', 'Valmis']) { const C = vaadi('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv; expect(typeof (SV[k] || C[k]), k).toBe('string'); }
   });
 });

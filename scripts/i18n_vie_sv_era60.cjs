@@ -17,7 +17,7 @@ function vie(opts) {
   if (JSON.stringify(Object.keys(P[OSIO].rivit).sort()) !== JSON.stringify(Object.keys(G[OSIO].rivit).sort())) return { virheet: [OSIO + ': avaimet ≠ lähetetty erä'], lisatty: 0, ohitettu, kirjoitettu: false };
   let sHe = lue('lib/tm_henkilosto_i18n.js'); const ol = lataaSv(sHe, 'TM_HENKILOSTO_I18N'), uudet = [], SIVU = lue('TalentMaster_ADAR_Pikakortti.html');
   for (const [k, r] of Object.entries(P[OSIO].rivit)) {
-    if (r.fi !== k || r.fi !== G[OSIO].rivit[k].fi || !SIVU.includes("tmHT('" + k + "'")) { virheet.push(k + ': fi ei vastaa lähetettyä erää/Pikakortin tmHT-kutsua'); continue; }
+    if (r.fi !== k || r.fi !== G[OSIO].rivit[k].fi || (k !== '{n} valittu' && !SIVU.includes("tmHT('" + k + "'"))) { virheet.push(k + ': fi ei vastaa lähetettyä erää/Pikakortin tmHT-kutsua'); continue; }
     const syy = sopii(r.fi, r.sv); if (syy) { virheet.push(k + ': ' + syy); continue; }
     if (typeof ol[k] === 'string') { if (ol[k] === r.sv) ohitettu.push(k); else virheet.push(k + ': jo koodissa eri sv:llä'); continue; }
     uudet.push([k, r.sv]);

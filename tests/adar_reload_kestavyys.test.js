@@ -348,7 +348,7 @@ describe('ADAR · reload-kestävyys', () => {
     Object.assign(y.sandbox._phTila, { pelaajaId: null });
     expect(y.sandbox._luonnosHuomautukset(), 'ack-odotus ei saa huomauttaa').toEqual([]);
     y.sandbox._luonnosMerkitse('pA', 'epaonnistui', { virhe: 'Voit havainnoida vain oman joukkueesi pelaajia' }, tila);
-    expect(y.sandbox._phHuomautusHtml()).toContain('Havaintoa ei tallennettu pelaajalle Aatu A');
+    expect(y.sandbox._phHuomautusHtml()).toContain('Aatu A: havaintoa ei tallennettu');
     y.sandbox._luonnosAvaa('pA', true);
     expect(y.sandbox._phTila.teksti, 'sisältö hukkui epäonnistuneessa tallennuksessa').toBe('tärkeä havainto');
     expect(y.sandbox._phTila.virhe).toBe('Voit havainnoida vain oman joukkueesi pelaajia');

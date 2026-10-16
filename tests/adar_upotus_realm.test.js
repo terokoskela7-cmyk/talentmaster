@@ -123,6 +123,7 @@ function ajaLapsiRealmissa() {
     _luonnosMerkitse: () => {},
     _luonnosAvaa: () => {},
     _phSeuraaKirjoitusta: () => {},
+    _phJarjesta: (x) => x, _adarNakyvatPelaajat: () => ['p1'], _phIlmoita: () => {}, _phIlmSulje: () => {}, _phAvaaPelaaja: () => {},   // tallennus → seuraava pelaaja (ei seuraavaa → yhteenveto)
     _phPaivitaPikakentat: () => {},
     tmAdarBand: () => ['a'],
   });
