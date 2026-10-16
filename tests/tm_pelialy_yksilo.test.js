@@ -67,3 +67,25 @@ describe('tmPelialyYksiloEhdota — graceful', () => {
     expect(r[0].syy).toBe('Havaittu: Prässi');
   });
 });
+
+/* Peliäly-tasokorjaus 16.10.: kanoniset yht → taso/normi -muunnokset (lineaariset; heikoin = taso 1 / normi 0, ei vinoumaa ylöspäin) */
+describe('tmAdarTaso5 / tmAdarNorm99 / tmAdarNorm5 — kanoninen muunnos', () => {
+  const Y = require('../lib/tm_pelialy_yksilo.js');
+  it('tmAdarTaso5: 1→1 · 1,5→2 · 2→3 · 2,5→4 · 3→5; null/NaN→null; rajat leikataan', () => {
+    expect([1, 1.5, 2, 2.5, 3].map(Y.tmAdarTaso5)).toEqual([1, 2, 3, 4, 5]);
+    expect(Y.tmAdarTaso5(null)).toBeNull(); expect(Y.tmAdarTaso5(undefined)).toBeNull(); expect(Y.tmAdarTaso5(NaN)).toBeNull();
+    expect(Y.tmAdarTaso5(0)).toBe(1); expect(Y.tmAdarTaso5(-5)).toBe(1); expect(Y.tmAdarTaso5(7)).toBe(5);
+  });
+  it('tmAdarNorm99: 1→0 · 2→50 · 3→99 (rajattu 0–99)', () => {
+    expect([1, 2, 3].map(Y.tmAdarNorm99)).toEqual([0, 50, 99]); expect(Y.tmAdarNorm99(0)).toBe(0); expect(Y.tmAdarNorm99(9)).toBe(99);
+    expect(Y.tmAdarNorm99(null)).toBeNull();
+  });
+  it('tmAdarNorm5 (VP 1–5-asteikko): 1→1 · 2→3 · 3→5, ei vanhaa vinoumaa (yht 1 ≠ 1,7)', () => {
+    expect([1, 2, 3].map(Y.tmAdarNorm5)).toEqual([1, 3, 5]); expect(Y.tmAdarNorm5(2.5)).toBe(4); expect(Y.tmAdarNorm5(null)).toBeNull();
+  });
+  it('lähdekoodissa ei jäljellä vanhoja yht/3-kaavoja (vain kommentit)', () => {
+    const { execSync } = require('child_process');
+    const rivit = execSync("git grep -n 'yht */ *3' -- . ':!docs' ':!tests' || true", { cwd: require('path').join(__dirname, '..') }).toString().split('\n').filter(Boolean);
+    expect(rivit.filter((r) => !/^[^:]+:\d+:\s*(\/\/|\/\*|\*)/.test(r) && !/\/\/.*yht *\/ *3/.test(r))).toEqual([]);
+  });
+});

@@ -110,3 +110,7 @@ ei mene hukkaan** — se on juuri se osa jota pikakortista puuttuu. Yhdistämäl
 
 **Suositus: A (hybridi §5).** Seuraava askel jos hyväksyt: kirjoitan reconciliation-suunnitelman (miten pikakortti tulee
 kaanoniksi, miten P1:n libit sovitetaan 1–3 + ikävaiheeseen, mikä on yksi sisäänkäynti, migraatio) → sitten briefit.
+
+---
+
+**Huomautus 16.10.2026 (peliäly-tasokorjaus):** Re-assess ↔ Duckworth -kytkös on poistettu (`lib/tm_adar_rubriikki.js`: "<15 s toipuminen; Duckworth"). Duckworth (2007) tutki sinnikkyyttä (grit), ei virheestä palautumisen aikaa. Palautuminen kuvataan nyt suuruusluokkana (heti / hetken päästä / pitkän ajan päästä), ei kellotettuna. TalentID:n Duckworth-maininnat koskevat oikeasti gritiä ja ovat ennallaan. Yllä oleva teksti on historiaa eikä muutu.

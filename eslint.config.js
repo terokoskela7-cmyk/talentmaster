@@ -76,7 +76,7 @@ const APP_GLOBALS = {
   tmAdarKonsensus: 'readonly', tmAdarRistiinarvioAvoin: 'readonly', tmAdarTalenttiSignaali: 'readonly', tmAdarKuukausiAvain: 'readonly',
   // Portaat (2026-09): lib vie nämä `root.X`-muodossa, jota globaalikeräin ei näe → nimetty lista.
   TM_ADAR_PORTAAT: 'readonly', TM_ADAR_NIMET: 'readonly', tmAdarIkaPorras: 'readonly',
-  tmAdarPorrasEhdotus: 'readonly', tmAdarPikakentat: 'readonly',
+  tmAdarPorrasEhdotus: 'readonly', tmAdarPikakentat: 'readonly', tmAdarTaso5: 'readonly', tmAdarNorm99: 'readonly', tmAdarNorm5: 'readonly',
   tmValmennusKaari: 'readonly', tmValmennusIkkuna: 'readonly',
   // Havaintohistoria (2026-09): sama `root.X`-vienti kuin yllä → nimetty lista.
   TM_VALMENTAJAVIESTI: 'readonly', tmLahetaValmentajaViesti: 'readonly', tmViestiNimi: 'readonly',

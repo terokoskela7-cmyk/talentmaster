@@ -54,7 +54,11 @@ describe('Gemini-erä 2 — lib.rubriikit (kortin tasokuvaukset)', () => {
   const rub = ERA.osiot['lib.rubriikit'].rivit;
   it('jokainen kirjaston palauttama tekstikenttä (nyt/askel/vahvuus) on erässä avaimena fi-tekstinä', () => {
     const kaikki = [];
-    for (let t = 1; t <= 5; t++) [A.alyTaso(t), K.fysTaso(t), K.psyTaso(t, null)].forEach((r) => kaikki.push(r.nyt, r.askel));
+    for (let t = 1; t <= 5; t++) [K.fysTaso(t), K.psyTaso(t, null)].forEach((r) => kaikki.push(r.nyt, r.askel));
+    // ÄLY (peliäly-tasokorjaus 16.10.): askel-tekstit (ASKEL + ylläpito) ja tason 5 nyt ennallaan → erässä 2; tasojen 1–4 nyt + kaikki nimet ovat erässä 58 (sv odottaa)
+    const E58 = JSON.parse(readFileSync(join(juuri, 'docs/i18n/sv_kaannoserae_58_gemini.json'), 'utf8')).osiot['lib.rubriikit'].rivit;
+    kaikki.push(A.TASOT[5].nyt, A.YLLAPITO, ...Object.values(A.ASKEL));
+    for (let t = 1; t <= 5; t++) { const r = A.alyTaso(t); expect(E58[r.nimi], 'erä 58: nimi ' + r.nimi).toBeTruthy(); if (t < 5) expect(E58[r.nyt], 'erä 58: nyt ' + r.nyt).toBeTruthy(); }
     ['inner_drive', 'coachability', 'resilience', 'focus', 'emotional_control'].forEach((k) => kaikki.push(K.psyTaso(1, { [k]: 3 }).vahvuus));
     const puuttuu = kaikki.filter((fi) => !rub[fi]);
     expect(puuttuu, 'aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);

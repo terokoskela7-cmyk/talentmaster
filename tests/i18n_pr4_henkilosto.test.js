@@ -40,13 +40,21 @@ describe('tmHT — henkilöstösivujen teksti-avainreititin', () => {
 describe('ADAR-pikakortti — tekstit libissä (lib/tm_adar_tekstit.js)', () => {
   const T = require('../lib/tm_adar_tekstit.js');
   const alku = JSON.parse(readFileSync(join(juuri, 'tests/fixtures/adar_ph_tekstit_alkup.json'), 'utf8'));
-  it('fi-tekstit täsmäävät alkuperäisiin PH_TEKSTIT-vakioihin (fixture) — fi ei muutu', () => {
+  /* Peliäly-tasokorjaus 16.10.: D- ja R-tasokuvausten sekuntirajat poistettu tarkoituksella (rubriikin aikarajat vihjeiksi, ei mittauksiksi). Muu fi (q, tip, A/Act-kuvaukset) ennallaan. */
+  const KORJATUT_D = { D: { 1: 'Epäröi pitkään tai valitsee toistuvasti väärin.', 2: 'Ratkaisee kohtuullisen nopeasti, oikein yli puolessa tilanteista.', 3: 'Ratkaisee nopeasti ja johdonmukaisesti oikein.' },
+    R: { 1: 'Jää virheeseen kiinni ja putoaa pelistä pitkäksi aikaa.', 2: 'Palaa peliin, mutta isot virheet vievät hetkeksi pois.', 3: 'Palaa peliin heti; virhe ei näy seuraavassa tilanteessa.' } };
+  it('fi-tekstit täsmäävät alkuperäisiin PH_TEKSTIT-vakioihin (fixture) paitsi 6 tarkoituksellista D/R-kuvausmuutosta — muu fi ei muutu', () => {
     for (const dim of ['A', 'D', 'Act', 'R']) {
       const k = T.tmAdarKortti(dim, (x) => x);
       expect(k.q, dim).toBe(alku.PH_TEKSTIT[dim].q);
-      expect(k.d, dim).toEqual(alku.PH_TEKSTIT[dim].d);
+      expect(k.d, dim).toEqual(KORJATUT_D[dim] || alku.PH_TEKSTIT[dim].d);
       expect(k.tip, dim).toEqual(alku.PH_TEKSTIT[dim].tip);
     }
+    for (const dim of ['D', 'R']) for (const n of [1, 2, 3]) expect(KORJATUT_D[dim][n], dim + n).not.toBe(alku.PH_TEKSTIT[dim].d[n]);   // muutos on todellinen
+  });
+  it('D/R-kuvauksissa ei sekuntirajoja (kellotus pois: ei "s"-lukuja)', () => {
+    for (const dim of ['D', 'R']) for (const n of [1, 2, 3]) expect(T.FI['adar_' + dim + '_d' + n], dim + n).not.toMatch(/\d+\s*(s\b|sek)/);
+    expect(T.FI.adar_D_v1 + T.FI.adar_D_v3).not.toMatch(/\d/);
   });
   it('tr-funktio ohjaa jokaisen tekstin (sv-reitti): tr saa polkuavaimen ja tulos käytetään', () => {
     const k = T.tmAdarKortti('A', (a) => '«' + a + '»');
@@ -55,7 +63,10 @@ describe('ADAR-pikakortti — tekstit libissä (lib/tm_adar_tekstit.js)', () => 
   it('Gemini-erä 2: lib.tm_adar_tekstit kattaa jokaisen FI-avaimen ja fi täsmää', () => {
     const r = ERA.osiot['lib.tm_adar_tekstit'].rivit;
     expect(Object.keys(r).sort()).toEqual(Object.keys(T.FI).sort());
-    Object.keys(T.FI).forEach((a) => expect(r[a].fi, a).toBe(T.FI[a]));
+    // erän 2 rivit, joiden fi muuttui (peliäly-tasokorjaus) → uusi fi + odottava sv erässä 58 (vanha sv poistettu libistä)
+    const E58 = JSON.parse(lue('docs/i18n/sv_kaannoserae_58_gemini.json')).osiot['lib.tm_adar_tekstit'].rivit;
+    Object.keys(T.FI).forEach((a) => { if (E58[a]) { expect(E58[a].fi, a).toBe(T.FI[a]); expect(r[a].fi, a).not.toBe(T.FI[a]); } else expect(r[a].fi, a).toBe(T.FI[a]); });
+    expect(Object.keys(E58).sort()).toEqual(['adar_D_d1', 'adar_D_d2', 'adar_D_d3', 'adar_D_v1', 'adar_D_v3', 'adar_R_d1', 'adar_R_d2', 'adar_R_d3']);
   });
   it('ADAR SW: uudet tiedostot allowlistissa ja cache nostettu', () => {
     const sw = lue('sw_adar.js');
