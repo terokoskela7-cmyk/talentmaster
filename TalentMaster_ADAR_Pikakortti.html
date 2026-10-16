@@ -182,6 +182,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="lib/tm_tekija_nimi.js?v=1"></script>   <!-- tmTekijaNimiTalletus: nimi ilman sähköpostia, puuttuva = null -->
 <script src="lib/tm_pvm.js?v=7"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
@@ -344,15 +345,9 @@ async function _adarLataaOmatJoukkueet(seuraId, uid) {
    suomenkielisenä 'Valmentaja'-tekstinä (se jäisi sv-lapselle kääntämättä): lukija
    (pelaajakortti) näyttää neutraalin oletuksen omalla kielellään. */
 function _adarTekijaNimi(user) {
-  /* `displayName` voi itsekin olla sähköposti (osa tunnuksista on luotu niin), joten
-     @-merkin sisältävä arvo hylätään — muuten invariantti olisi vain aikomus. */
-  var kelpaa = function (v) {
-    var s = (v == null) ? '' : String(v).trim();
-    return (s && s.indexOf('@') < 0) ? s : '';
-  };
-  return kelpaa(user && user.displayName)
-      || kelpaa(window._tmKayttajaNimi)
-      || null;
+  /* Jaettu sääntö (lib/tm_tekija_nimi.js): `displayName` voi itsekin olla sähköposti → @-merkin sisältävä arvo hylätään;
+     kumpikaan ei kelpaa → null. */
+  return window.tmTekijaNimiTalletus([user && user.displayName, window._tmKayttajaNimi]);
 }
 
 /** Miksi kirjoitus estyi? Palauttaa käyttäjälle näytettävän syyn. */

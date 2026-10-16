@@ -112,7 +112,7 @@ function ajaLapsiRealmissa() {
     _phDimit: () => ['A'],
     _phIka: () => 13,
     _nakArvo: () => 'valmentajat',
-    _adarTekijaNimi: (u) => (u && u.displayName) || 'Valmentaja',
+    _adarTekijaNimi: (u) => (u && u.displayName) || null,
     _adarEstonSyy: () => 'syy',
     _showToast: () => {},
     _phRender: () => {},
@@ -205,9 +205,9 @@ describe('vartija: tekijän nimi ei ole sähköposti', () => {
   it('sähköpostia ei käytetä missään haarassa', () => {
     const f = pura(ADAR, 'function _adarTekijaNimi(');
     expect(f, 'sähköposti päätyisi lapsen kortille').not.toContain('.email');
-    expect(f, '@-merkin sisältävä arvo on hylättävä (displayName voi olla sähköposti)')
-      .toContain("indexOf('@')");
-    expect(f, 'puuttuva nimi tallentuu nullina, ei suomenkielisenä tekstinä').toContain('|| null');
+    expect(f, 'nimen sääntö (@ hylätään, puuttuva = null) tulee jaetusta libistä, ei kopiosta')
+      .toContain('tmTekijaNimiTalletus(');
+    expect(ilmanKommentteja(f)).not.toContain('indexOf');
     expect(ilmanKommentteja(f)).not.toContain("'Valmentaja'");
   });
 
@@ -219,7 +219,7 @@ describe('vartija: tekijän nimi ei ole sähköposti', () => {
 
   it('järjestys: displayName → kayttajat-dokumentin nimi → null', () => {
     const lahde = pura(ADAR, 'function _adarTekijaNimi(');
-    const ctx = vm.createContext({ window: {} });
+    const ctx = vm.createContext({ window: { tmTekijaNimiTalletus: createRequire(import.meta.url)('../lib/tm_tekija_nimi.js').tmTekijaNimiTalletus } });   // oikea lib, tuotannon nimellä
     vm.runInContext(lahde + '\nglobalThis.__n = _adarTekijaNimi;', ctx);
 
     ctx.window._tmKayttajaNimi = 'Kalle Kayttaja';

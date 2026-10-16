@@ -348,9 +348,9 @@ describe('(8) valmentajan viesti perheelle säilyy näkyvänä', () => {
 
   it('lähettäjän nimi ei voi olla sähköposti (lapsi näkee sen)', () => {
     const V = vaadi('../lib/tm_valmentajaviesti.js');
-    expect(V.tmViestiNimi(['talentmasterid@gmail.com'])).toBe('Valmentaja');
+    expect(V.tmViestiNimi(['talentmasterid@gmail.com'])).toBeNull();   // puuttuva nimi = null (näyttö kääntää oletuksen)
     expect(V.tmViestiNimi(['Tero Koskela'])).toBe('Tero Koskela');
-    expect(V.tmViestiNimi([''])).toBe('Valmentaja');
+    expect(V.tmViestiNimi([''])).toBeNull();
   });
 
   /* Lukupuoli: vanhemman kysely. Tämä on se kohta joka hajosi katselmoinnissa. */

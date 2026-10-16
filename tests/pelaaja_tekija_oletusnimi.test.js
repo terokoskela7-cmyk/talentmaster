@@ -18,7 +18,7 @@ function nayta(kieli, arvo) {
   try {
     const T = (k) => LANG.t(k.indexOf('.') >= 0 ? k : 'pelaaja.' + k);
     // eslint-disable-next-line no-new-func
-    return new Function('T', rivi('function _p7TekijaNimi(') + '\nreturn _p7TekijaNimi;')(T)(arvo);
+    return new Function('T', 'window', rivi('function _p7TekijaNimi(') + '\nreturn _p7TekijaNimi;')(T, { tmTekijaNimiNaytto: require('../lib/tm_tekija_nimi.js').tmTekijaNimiNaytto })(arvo);
   } finally { LANG.tmAsetaKieli('fi', false); }
 }
 

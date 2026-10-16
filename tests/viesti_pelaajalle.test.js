@@ -107,8 +107,8 @@ describe('(1) tmLahetaValmentajaViesti — yksi kirjoituspiste', () => {
       seuraId: 'kpv', pelaajaId: 'p1', teksti: 'x', uid: 'u1',
       nimi: 'talentmasterid@gmail.com', sentinel: SENTINEL,
     });
-    expect(kirjatut[0].valmentajaNimi).toBe('Valmentaja');
-    expect(kirjatut[0].tekija_nimi).toBe('Valmentaja');
+    expect(kirjatut[0].valmentajaNimi).toBeNull();
+    expect(kirjatut[0].tekija_nimi).toBeNull();
   });
 
   it('KOLME KUTSUJAA, NOLLA KOPIOTA: kukaan ei rakenna dokumenttia itse', () => {
@@ -208,6 +208,7 @@ describe('(4) Pelaaja: luettu ei katoa', () => {
           { _id: 'vanha', teksti: 'Vanha viesti', pelaaja_lukenut: true, tekija_nimi: 'Tero' },
         ],
         _p7Pelaaja: { seuraId: 's', pelaajaId: 'p' },
+        tmTekijaNimiNaytto: require('../lib/tm_tekija_nimi.js').tmTekijaNimiNaytto,   // oikea lib
       },
       String, Object, Array, ...PEL_APU,
     };

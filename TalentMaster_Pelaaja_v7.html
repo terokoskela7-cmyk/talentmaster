@@ -560,7 +560,8 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (D140) — ENNEN viikkoa käyttäviä kirjastoja -->
 <script src="lib/tm_eerikkila_normit.js?v=55"></script>
 <script src="docs/testit_indeksit.js?v=13"></script>
-<script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
+<script src="lib/tm_tekija_nimi.js?v=1"></script>   <!-- tekijän nimi: tallennus (ei sähköpostia, puuttuva = null) + näyttö (käännetty oletus) -->
+<script src="lib/tm_havaintohistoria.js?v=2"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
 <script src="harjoitelogiikka_v4.js?v=18"></script>
 <script src="lib/tm-microcycles.js?v=4"></script>
 <script src="tm-bus.js?v=3"></script>
@@ -1283,8 +1284,8 @@ async function _p7LataaSeuranPankki() {
 /* Kirjastotaulukoiden (lib/tm_adar_rubriikki.js, lib/tm_kortti_rubriikit.js) lapsen kielen tasokuvaukset: avain = suomenkielinen teksti sellaisenaan → jaettu libikartta (sv, Gemini-erä 2 osio lib.rubriikit); ei riviä (fi/en) → teksti ennallaan. */
 function _p7RubT(s) { var v = (typeof window.tmLibT === 'function') ? window.tmLibT(s) : undefined; return (v !== undefined) ? v : s; }
 function _p7K1T(k) { const lib = (typeof window.tmLibT === 'function') ? window.tmLibT(k) : undefined; if (lib !== undefined) return lib; /* jaettu libikartta (lib/tm_lib_i18n.js, sv) ensin */ const v = T(k); return (v === 'pelaaja.' + k) ? k : v; }   // puuttuva tm_lang-avain → avain → libin fi-oletus
-/* Tekijän näyttönimi pelaajakortilla. Puuttuva nimi (tekija_nimi: null) JA vanhojen havaintojen kovakoodattu 'Valmentaja' (ei datamigraatiota) näytetään käännettynä (pelaaja.valmentaja → sv 'Tränare'); sähköposti ei koskaan. */
-function _p7TekijaNimi(n) { const s = (n == null) ? '' : String(n).trim(); return (!s || s === 'Valmentaja' || s.indexOf('@') >= 0) ? T('valmentaja') : s; }
+/* Tekijän näyttönimi pelaajakortilla: jaettu sääntö (lib/tm_tekija_nimi.js). Puuttuva nimi (tekija_nimi: null), vanhojen havaintojen kovakoodattu 'Valmentaja' (ei datamigraatiota) ja sähköposti → käännetty oletus (pelaaja.valmentaja → sv 'Tränare'). */
+function _p7TekijaNimi(n) { return window.tmTekijaNimiNaytto(n, T('valmentaja')); }
 function _p7K1NaytaKuittaus() { const el = document.getElementById('k1Kuittaus'); if (el) el.style.display = 'block'; }
 function _p7K1KehuHTML() {
   if (!_viimeisinKehu) return '';
