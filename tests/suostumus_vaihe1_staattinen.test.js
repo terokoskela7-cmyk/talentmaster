@@ -3,7 +3,7 @@
  * Lähde: TalentMaster_Rekisterointi_Suostumus.html:n runko oli kovakoodattua suomea, jota JS-skanneri ei lue → sv-tilassa sekakielinen ensinäkymä.
  * INVARIANTIT: (1) fi-pariteetti: rungon HTML ILMAN data-i18n*-attribuutteja on tavutarkasti sama kuin ennen reititystä (SHA-256 origin/main-versiosta)
  *   + jokaisen reititetyn elementin markup-teksti = fi-avaimen arvo (renderöity fi ei muutu) · (2) staattinen markup-skanneri: 0 reitittämätöntä näkyvää tekstiä ·
- *   (3) uudet avaimet fi+en, sv odotuslistalla ja erässä 55 (sv tyhjä: Code ei kirjoita ruotsia), ei toistoa erien 53/54 kanssa · (4) skanneri purkaa negatiivitestillä.
+ *   (3) uudet avaimet fi+en+sv (sv = Geminin erä 55, vienti i18n_era55_vienti.test.js); lähetetty erä 55 pysyy sv tyhjänä, ei toistoa erien 53/54 kanssa · (4) skanneri purkaa negatiivitestillä.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -81,15 +81,15 @@ describe('staattinen markup-skanneri', () => {
   });
 });
 
-describe('avaimet fi+en, sv odotuslistalla + erässä 55', () => {
-  it(REK.length + ' uutta suostumus.rek_*-avainta: fi ja en ei-tyhjinä, sv EI tässä PR:ssä (Gemini)', () => {
+describe('avaimet fi+en+sv (erä 55 viety)', () => {
+  it(REK.length + ' uutta suostumus.rek_*-avainta: fi ja en ei-tyhjinä, sv viety erästä 55 (Geminin palautus)', () => {
     expect(REK.length).toBe(59);
-    for (const k of REK) { expect(L.fi.suostumus[k], k).toBeTruthy(); expect(L.en.suostumus[k], k).toBeTruthy(); expect(L.sv.suostumus[k], 'sv ' + k).toBeUndefined(); }
+    for (const k of REK) { expect(L.fi.suostumus[k], k).toBeTruthy(); expect(L.en.suostumus[k], k).toBeTruthy(); expect(typeof L.sv.suostumus[k], 'sv ' + k).toBe('string'); }
   });
-  it('kaikki rek_*-avaimet ovat sv-odotuslistalla (kunnes erä 55 palaa)', () => {
-    expect(REK.filter((k) => !ODOTUS.includes('suostumus.' + k))).toEqual([]);
+  it('erä 55 palasi: yksikään rek_*-avain ei ole enää sv-odotuslistalla', () => {
+    expect(REK.filter((k) => ODOTUS.includes('suostumus.' + k))).toEqual([]);
   });
-  it('erä 55: rivit = rek_*-avaimet, sv tyhjä, konteksti + huom jokaisella rivillä', () => {
+  it('lähetetty erä 55: rivit = rek_*-avaimet, sv tyhjä (lähetystiedosto säilyy sellaisenaan), konteksti + huom jokaisella rivillä', () => {
     const r = ERA55.osiot.tm_lang.rivit;
     expect(Object.keys(r).sort()).toEqual(REK.map((k) => 'suostumus.' + k).sort());
     for (const [k, x] of Object.entries(r)) { expect(x.sv, k).toBe(''); expect(x.fi, k).toBe(L.fi.suostumus[k.slice(10)]); expect(x.en, k).toBe(L.en.suostumus[k.slice(10)]); expect(x.huom.length, k).toBeGreaterThan(15); }

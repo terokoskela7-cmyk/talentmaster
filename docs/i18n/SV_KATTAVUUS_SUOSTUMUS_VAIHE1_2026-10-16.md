@@ -1,6 +1,6 @@
-# sv-kattavuusraportti — suostumuslomake vaihe 1 (staattinen markup), 15.10.2026
+# sv-kattavuusraportti — suostumuslomake vaihe 1 (staattinen markup), 16.10.2026
 
-Kaista: **Tero** (HTML + sw). Generoitu `node tools/i18n/sv_kattavuus.mjs --md=…` PR:n jälkeen; uusi staattinen markup-skanneri (`tools/i18n/sv_staattinen_markup.mjs`) mukana suostumusnäkymässä (Rekisterointi_Suostumus.html). **Suostumussivun kovakoodattuja tekstejä: 0** (ennen reititystä markup-skanneri: 71 → ks. PR). Erä 55 (59 riviä, sv tyhjä) = rivi "odottaa". Huoltajakutsu.html:n `<title>` (1) on rajattu pois (ei tämän PR:n sivu).
+Kaista: **Tero** (HTML + sw). Generoitu `node tools/i18n/sv_kattavuus.mjs --md=…` erän 55 viennin jälkeen; staattinen markup-skanneri (`tools/i18n/sv_staattinen_markup.mjs`) mukana suostumusnäkymässä (Rekisterointi_Suostumus.html). **Suostumussivun kovakoodattuja tekstejä: 0** (ennen reititystä 71). Erä 55 (59 riviä) palasi ja vietiin: suostumusnäkymässä ok = kaikki avaimet, puuttuu 0, odottaa 0. Huoltajakutsu.html:n `<title>` (1) on rajattu pois (ei tämän PR:n sivu).
 
 ## Taulukko
 
@@ -12,7 +12,7 @@ Kaista: **Tero** (HTML + sw). Generoitu `node tools/i18n/sv_kattavuus.mjs --md=�
 | VP_v25 | 3328 | 3328 | **0** | 0 | 0 | **0** (0 / 0) | 15 (+ data? 7) |
 | ADAR_Pikakortti + Pelihavainto_Kentta | 572 | 572 | **0** | 0 | 0 | **0** (0 / 0) | 1 (+ data? 0) |
 | Harjoitusarviointi (lib/tm_harjoitusarviointi.js, Master + VP) | 62 | 62 | **0** | 0 | 0 | **0** (0 / 0) | – |
-| Suostumus- ja kutsuflow (Rekisterointi_Suostumus, Huoltajakutsu) | 173 | 114 | **0** | 59 | 0 | **0** (0 / 0) | – |
+| Suostumus- ja kutsuflow (Rekisterointi_Suostumus, Huoltajakutsu) | 173 | 173 | **0** | 0 | 0 | **0** (0 / 0) | – |
 | Toimintakortti + kasvupyrähdys-fysiikka (#1073–1075) | 119 | 119 | **0** | 0 | 0 | **0** (0 / 0) | – |
 | Kehitystyöpöytä (Kehitystyopoyta.html) | 158 | 158 | **0** | 0 | 0 | **0** (0 / 0) | – |
 
@@ -20,7 +20,6 @@ _fi-avaimia = tm_lang-ryhmän / lib-FI-karttojen / reititinkartan (masterT, vpT,
 
 ## Odottaa palautusta (lähetetyt erät: ei yhtään)
 
-- **Suostumus- ja kutsuflow (Rekisterointi_Suostumus, Huoltajakutsu)**: tm_lang 59
 
 ## Palautettu Geminiltä, ei viety koodiin
 
