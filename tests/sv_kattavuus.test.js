@@ -56,6 +56,6 @@ describe('Gemini-erä 54 (Sibbo-reititys)', () => {
   });
   it('DoD: harjoitusarviointi, suostumus ja kehitystyöpöytä = ok (erä 54 viety), ei kovakoodattuja rivejä, ei "puuttuu"', () => {
     const T2 = laske(join(JUURI, 'docs/i18n/sv_lapiajo_tulos.json'));
-    for (const id of ['harjoitusarviointi', 'suostumus', 'kehitystyopoyta']) { const n = T2.nakymat.find((x) => x.id === id); expect(n.puuttuu, id).toBe(0); expect(n.kovakoodattuStaattinen, id).toEqual([]); expect(n.ok, id).toBe(n.avaimia); expect(n.odottaa, id).toBe(0); }   // erä 54 vietiin
+    for (const id of ['harjoitusarviointi', 'suostumus', 'kehitystyopoyta']) { const n = T2.nakymat.find((x) => x.id === id); expect(n.puuttuu, id).toBe(0); expect(n.kovakoodattuStaattinen, id).toEqual([]); expect(n.ok, id).toBe(n.avaimia); expect(n.odottaa, id).toBe(0); }   // erä 54 vietiin; erä 55 (suostumus vaihe 1) vietiin
   });
 });
