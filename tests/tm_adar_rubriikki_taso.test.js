@@ -62,6 +62,12 @@ describe('alyTaso — seuraava askel osaamistavoitteesta (ei iästä)', () => {
     expect(A.alyTaso(3, { heikoin: 'a', heikoinPisteet: 3 }).askelTyyppi).toBe('yllapito');
     expect(A.alyTaso(3, { ika: 14, heikoin: 'a', heikoinPisteet: 3 }).askelDim).toBe('r');          // ikä 14 → porras 3 → seuraava r
   });
+  it('reunatapaus: ei heikointa eikä pisteitä (vanha dokumentti), taso 2, porras 1 → harjoittele / ASKEL.a (ei seuraavaa taitoa)', () => {
+    const r = A.alyTaso(2, { porras: 1 }); expect(r.askelTyyppi).toBe('harjoittele'); expect(r.askelDim).toBe('a'); expect(r.askel).toBe(A.ASKEL.a);
+    expect(A.alyTaso(4, { porras: 2, heikoin: null, heikoinPisteet: null }).askelTyyppi).toBe('harjoittele');
+    expect(A.alyTaso(5, { porras: 1 }).askelTyyppi).toBe('yllapito');   // taso 5, pisteet tuntemattomat → ei harjoittele; c vaatii tiedetyt pisteet
+    expect(A.alyTaso(3, { porras: 1, heikoin: 'a', heikoinPisteet: 3 }).askelTyyppi).toBe('seuraava_taito');   // c vain kun pisteet tiedetään (3)
+  });
   it('heikoin puuttuu ja ehdotus ei valmis → havainnoinnin askel (kun pisteet <3)', () => { expect(A.alyTaso(2, { porras: 2, heikoinPisteet: 2 }).askel).toBe(A.ASKEL.a); });
   it('ketju: kolme havaintoa a≥2,5 portaalla 1 → ehdotus valmis → seuraava taito d', () => {
     const r = kortti(KOLME_ERI, 10, 1, 1); expect(r.askelTyyppi).toBe('seuraava_taito'); expect(r.askelDim).toBe('d');
