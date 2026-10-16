@@ -189,7 +189,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <script src="lib/tm_lang.js?v=45"></script>   <!-- sv-läpiajo PR 4: kieli seuran kielestä (tmKieliInitSeura) -->
 <script src="lib/tm_i18n_common.js?v=12"></script>
 <script src="lib/tm_lib_i18n.js?v=12"></script>   <!-- jaettu kirjastokartta (tmLibT): ADAR-tekstit + nimikanoni -->
-<script src="lib/tm_henkilosto_i18n.js?v=5"></script>   <!-- tmHT: henkilöstösovellusten reititin -->
+<script src="lib/tm_henkilosto_i18n.js?v=6"></script>   <!-- tmHT: henkilöstösovellusten reititin -->
 <script src="lib/tm_adar_tekstit.js?v=2"></script>   <!-- ulottuvuustekstit FI-kartassa (ent. PH_TEKSTIT) -->
 </head>
 <body>
@@ -339,8 +339,10 @@ async function _adarLataaOmatJoukkueet(seuraId, uid) {
 
 /* Havainnon tekijän nimi. LAPSI NÄKEE TÄMÄN kortissaan, joten sähköposti ei kelpaa:
    Topiaksen appissa luki "talentmasterid@gmail.com". Järjestys on
-   displayName → kayttajat/{uid} etunimi+sukunimi → 'Valmentaja'. Sähköpostia ei käytetä
-   missään haarassa, ei edes viimeisenä oljenkortena. */
+   displayName → kayttajat/{uid} etunimi+sukunimi → null. Sähköpostia ei käytetä
+   missään haarassa, ei edes viimeisenä oljenkortena. Puuttuva nimi tallentuu nullina, EI
+   suomenkielisenä 'Valmentaja'-tekstinä (se jäisi sv-lapselle kääntämättä): lukija
+   (pelaajakortti) näyttää neutraalin oletuksen omalla kielellään. */
 function _adarTekijaNimi(user) {
   /* `displayName` voi itsekin olla sähköposti (osa tunnuksista on luotu niin), joten
      @-merkin sisältävä arvo hylätään — muuten invariantti olisi vain aikomus. */
@@ -350,7 +352,7 @@ function _adarTekijaNimi(user) {
   };
   return kelpaa(user && user.displayName)
       || kelpaa(window._tmKayttajaNimi)
-      || 'Valmentaja';
+      || null;
 }
 
 /** Miksi kirjoitus estyi? Palauttaa käyttäjälle näytettävän syyn. */
@@ -690,7 +692,7 @@ function _phViimeksi(pid) {
   var t = new Date(p.adar_pvm).getTime();
   if (isNaN(t)) return { teksti: tmHT('ei havaintoja'), tanaan: false };
   var pv = Math.floor((Date.now() - t) / 86400000);
-  if (pv <= 1) return { teksti: 'eilen', tanaan: false };
+  if (pv <= 1) return { teksti: tmHT('eilen'), tanaan: false };
   return { teksti: tmHT('{n} pv sitten').replace('{n}', pv), tanaan: false };
 }
 
@@ -799,11 +801,14 @@ function _phRenderValitse() {
 /** Luku suomalaiseen muotoon (desimaalipilkku) — sekä fi- että sv-tilassa ("2.5" → "2,5"). */
 function _phLuku(v) { return String(v).replace('.', ','); }
 
+/** "Porras N / 4" yhtenä käännettävänä lauseena (parametri {n}, ei merkkijonojen yhdistelyä) — otsikko ja tikkaiden aria-label. */
+function _phPorrasTeksti(n) { return tmHT('Porras {n} / 4').replace('{n}', n); }
+
 /** Tikkaat: neljä askelta, nykyinen korostettuna. */
 function _phTikkaat(porras) {
   var nimet = _phNimet();
   var jarj = ['a', 'd', 'ac', 'r'];
-  var h = '<div class="ladder" aria-label="Porras ' + porras + ' / 4">';
+  var h = '<div class="ladder" aria-label="' + _phEsc(_phPorrasTeksti(porras)) + '">';
   for (var i = 1; i <= 4; i++) {
     h += '<span class="rung' + (i <= porras ? ' on' : '') + (i === porras ? ' cur' : '')
       + '"><i></i>' + _phEsc(nimet[jarj[i - 1]] || '') + '</span>';
@@ -834,7 +839,7 @@ function _phDimHTML(k, uusi) {
   if (v) h += '<button class="more" data-vinkki="' + k + '" aria-expanded="' + (!!S.vinkki[k]) + '">' + (S.vinkki[k] ? tmHT('Piilota ▴') : tmHT('Harjoitusvinkki ▾')) + '</button>';
   h += '<button class="more" data-more="' + k + '" aria-expanded="' + (!!S.auki[k]) + '">'
     + (S.auki[k] ? tmHT('Piilota ▴') : tmHT('Mitä näit? ▾'))
-    + ((sel.length && !S.auki[k]) ? (' · ' + sel.length + ' valittu') : '') + '</button></div>';
+    + ((sel.length && !S.auki[k]) ? (' · ' + tmHT('{n} valittu').replace('{n}', sel.length)) : '') + '</button></div>';
   if (S.auki[k]) {
     h += '<div class="chips">' + T.valinnat.map(function (c) {
       var on = sel.indexOf(c[0]) >= 0;
@@ -869,12 +874,12 @@ function _phRenderHavainto() {
     h += '<div class="banner"><b>' + tmHT('Edellinen havainto peruttu.') + '</b> ' + tmHT('Se jää historiaan, mutta ei laske peliälyyn eikä näy pelaajalle. Korjaa ja tallenna uudelleen.') + '</div>';
   }
 
-  h += '<div><div class="lbl"><span>' + tmHT('Missä') + '</span></div><div class="seg" role="group" aria-label="Konteksti">'
+  h += '<div><div class="lbl"><span>' + tmHT('Missä') + '</span></div><div class="seg" role="group" aria-label="' + _phEsc(tmHT('Konteksti')) + '">'
     + PH_KONTEKSTI_AVAIMET.map(function (o) {
       return '<button data-kx="' + o + '" aria-pressed="' + (S.konteksti === o) + '">' + _phEsc(_phT('adar_konteksti_' + o)) + '</button>';
     }).join('') + '</div></div>';
 
-  h += '<div><div class="lbl"><span>' + tmHT('Porras') + ' ' + S.porras + ' / 4</span>'
+  h += '<div><div class="lbl"><span>' + _phPorrasTeksti(S.porras) + '</span>'
     + '<button class="link" id="ph-porras">' + tmHT('Muuta porrasta') + '</button></div>' + _phTikkaat(S.porras);
 
   /* Ehdotus tulee pikakentästä (§26). Näytetään vain pelaajan omalla portaalla. */
@@ -922,12 +927,12 @@ function _phRenderHavainto() {
       + '<div class="lbl"><span>' + tmHT('Arvioidaan askel kerrallaan') + '</span><button class="link" id="ph-sulje">' + tmHT('Sulje') + '</button></div>'
       + [1, 2, 3, 4].map(function (i) {
         var merk = [];
-        if (i === ikaEhd) merk.push('ikäsuositus');
-        if (i === S.porrasTallennettu) merk.push('nykyinen');
+        if (i === ikaEhd) merk.push(tmHT('ikäsuositus'));
+        if (i === S.porrasTallennettu) merk.push(tmHT('nykyinen'));
         var nimet = _phNimet();
         var lista = ((typeof tmAdarBand === 'function') ? tmAdarBand(null, i) : []).map(function (a) { return nimet[a]; }).join(' + ');
-        return '<button class="opt" data-porras="' + i + '" aria-pressed="' + (S.porras === i) + '">Porras ' + i
-          + ' · ' + _phEsc(lista) + (merk.length ? ('<small>' + merk.join(' · ') + '</small>') : '') + '</button>';
+        return '<button class="opt" data-porras="' + i + '" aria-pressed="' + (S.porras === i) + '">' + _phEsc(tmHT('Porras {n} · {lista}').replace('{n}', i).replace('{lista}', lista))
+          + (merk.length ? ('<small>' + merk.join(' · ') + '</small>') : '') + '</button>';
       }).join('')
       + '<p class="ohje" style="margin-top:10px">' + tmHT('Ikä on ohje, ei raja. Porras tallentuu pelaajalle, ja seuraava havainto alkaa siitä.') + '</p></div>';
   }
@@ -1018,7 +1023,7 @@ function _phRenderOk() {
   var odottaa = S.odottaa;
 
   var h = '<div class="ph-bar"><div class="ph-title"><div class="eyebrow">' + tmHT('Pelihavainto') + '</div>'
-    + '<div class="ph-name">' + (odottaa ? 'Tallessa laitteella' : 'Tallennettu') + '</div>'
+    + '<div class="ph-name">' + (odottaa ? tmHT('Tallessa laitteella') : tmHT('Tallennettu')) + '</div>'
     + '<div class="ph-meta">' + _phEsc(p.nimi) + _phVerkkoMerkki() + '</div></div></div>';
   h += '<div class="ph-body"><div class="ok">';
   h += '<span class="vis-b' + (on ? '' : ' pr') + '">' + (on ? tmHT('Pelaaja näkee viestin') : tmHT('Vain valmentajille')) + '</span>';
@@ -1049,10 +1054,10 @@ function _phRenderOk() {
         + '</span><span class="m' + (v.tanaan ? ' done' : '') + '">' + _phEsc(v.teksti) + '</span></button>';
     }).join('') + '</div></div></div>';
   h += '<div class="foot"><div class="sum">'
-    + (seuraava ? ('Seuraavana: ' + _phEsc((map[seuraava] || {}).nimi) + ' · ' + _phEsc(_phViimeksi(seuraava).teksti))
+    + (seuraava ? _phEsc(tmHT('Seuraavana: {nimi} · {aika}').replace('{nimi}', (map[seuraava] || {}).nimi || '').replace('{aika}', _phViimeksi(seuraava).teksti))
                 : tmHT('Kaikki havainnoitu tänään'))
     + '</div><button class="save" id="ph-next"' + (seuraava ? '' : ' disabled') + '>'
-    + (seuraava ? tmHT('Seuraava pelaaja →') : 'Valmis') + '</button></div>';
+    + (seuraava ? tmHT('Seuraava pelaaja →') : tmHT('Valmis')) + '</button></div>';
 
   juuri.innerHTML = h;
   var u = document.getElementById('ph-undo');
@@ -1603,7 +1608,7 @@ async function _synkronoiOfflineJono() {
   }
   if (synkattu) {
     _showToast(ohitettu ? tmHT('✓ {n} synkronoitu · {m} ei kelvannut').replace('{n}', synkattu).replace('{m}', ohitettu)
-                        : '✓ Offline-merkinnät synkronoitu');
+                        : tmHT('✓ Offline-merkinnät synkronoitu'));
   } else if (ohitettu) {
     _showToast(tmHT('⚠ {n} offline-merkintää ei kelvannut — ota yhteys pääkäyttäjään').replace('{n}', ohitettu));
   }

@@ -207,7 +207,8 @@ describe('vartija: tekijän nimi ei ole sähköposti', () => {
     expect(f, 'sähköposti päätyisi lapsen kortille').not.toContain('.email');
     expect(f, '@-merkin sisältävä arvo on hylättävä (displayName voi olla sähköposti)')
       .toContain("indexOf('@')");
-    expect(f).toContain("'Valmentaja'");
+    expect(f, 'puuttuva nimi tallentuu nullina, ei suomenkielisenä tekstinä').toContain('|| null');
+    expect(ilmanKommentteja(f)).not.toContain("'Valmentaja'");
   });
 
   it('tallennus käyttää helperiä eikä lue user.emailia', () => {
@@ -216,7 +217,7 @@ describe('vartija: tekijän nimi ei ole sähköposti', () => {
     expect(ilmanKommentteja(t), 'sähköposti palasi tallennuspolkuun').not.toContain('user.email');
   });
 
-  it('järjestys: displayName → kayttajat-dokumentin nimi → Valmentaja', () => {
+  it('järjestys: displayName → kayttajat-dokumentin nimi → null', () => {
     const lahde = pura(ADAR, 'function _adarTekijaNimi(');
     const ctx = vm.createContext({ window: {} });
     vm.runInContext(lahde + '\nglobalThis.__n = _adarTekijaNimi;', ctx);
@@ -227,8 +228,8 @@ describe('vartija: tekijän nimi ei ole sähköposti', () => {
     /* displayName joka on sähköposti → hylätään, ei käytetä. */
     expect(ctx.__n({ displayName: 'talentmasterid@gmail.com' })).toBe('Kalle Kayttaja');
     ctx.window._tmKayttajaNimi = null;
-    expect(ctx.__n({ displayName: 'talentmasterid@gmail.com', email: 'x@y.fi' })).toBe('Valmentaja');
-    expect(ctx.__n(null)).toBe('Valmentaja');
+    expect(ctx.__n({ displayName: 'talentmasterid@gmail.com', email: 'x@y.fi' })).toBeNull();
+    expect(ctx.__n(null)).toBeNull();
   });
 
   /* KÄYTTÄYTYMISTESTI, ei tekstihaku: aiempi versio etsi varhaista returnia merkkijonokuviolla,

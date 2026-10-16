@@ -41,10 +41,10 @@ const ctxRooli = (uid, rooli) => testEnv.authenticatedContext(uid, { rooli, seur
 const TOPIAS_OK = { etunimi: 'Topias', sukunimi: 'Koskela', syntymaVuosi: 2013, sukupuoli: 'M', joukkue: 'KPV U13', joukkueet: ['kpv_u13'], tunniste: '12345678', suostumusTila: 'annettu' };
 
 /* Täsmälleen ADARin _phTallenna-data (TalentMaster_ADAR_Pikakortti.html) */
-function havaintoData(uid, nakyvyys) {
+function havaintoData(uid, nakyvyys, tekijaNimi = 'Valmentaja V.') {
   return {
     tyyppi: 'adar_pikakortti', porras: 1, ulottuvuudet: ['A', 'D'], pisteet: { A: 2, D: 3 }, havaitut: ['A:x'], konteksti: 'harjoitus',
-    narratiivi: 'testi', nakyvyys: nakyvyys, tila: 'valmis', pelaaja_lukenut: false, tekija_uid: uid, tekija_nimi: 'Valmentaja V.',
+    narratiivi: 'testi', nakyvyys: nakyvyys, tila: 'valmis', pelaaja_lukenut: false, tekija_uid: uid, tekija_nimi: tekijaNimi,
     tekija_rooli: 'valmentaja', pelaaja_id: TOPIAS, seura_id: SEURA, palloId: '12345678', pvm: '2026-10-03', luotu: serverTimestamp(),
   };
 }
@@ -54,12 +54,12 @@ function kentat(porrasKirjoita) {
   if (k && porrasKirjoita) k.havainto_porras = 1;
   return k;
 }
-async function ajaBatch(ctx, k, { nakyvyys = 'valmentajat', uid = VALM } = {}) {
+async function ajaBatch(ctx, k, { nakyvyys = 'valmentajat', uid = VALM, tekijaNimi } = {}) {
   const db = ctx.firestore();
   const hRef = doc(db, 'seurat', SEURA, 'pelaajat', TOPIAS, 'havainnot', 'h1');
   const pRef = doc(db, 'seurat', SEURA, 'pelaajat', TOPIAS);
   const b = writeBatch(db);
-  b.set(hRef, havaintoData(uid, nakyvyys));
+  b.set(hRef, havaintoData(uid, nakyvyys, tekijaNimi));
   if (k) b.set(pRef, k, { merge: true });
   return b.commit();
 }
@@ -96,6 +96,15 @@ describe('ADAR-batch (havainto + adar_*) — KPV-valmentaja, Rules v3.36', () =>
   it('joukkue-ID eri kuin pelaajalla → hylätään', async () => {
     await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u15'] });
     await assertFails(ajaBatch(ctxRooli(VALM, 'valmentaja'), null));
+  });
+  it('tekija_nimi: null (puuttuva nimi tallentuu nullina, ei "Valmentaja"-tekstinä) → luonti onnistuu; Rules ei tarkista kenttää', async () => {
+    await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
+    await assertSucceeds(ajaBatch(ctxRooli(VALM, 'valmentaja'), kentat(true), { tekijaNimi: null }));
+    await testEnv.clearFirestore(); await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
+    await assertSucceeds(ajaBatch(ctxRooli(VALM, 'valmentaja'), null, { tekijaNimi: null }));   // havainto yksinään
+    /* Ei vacuous: sama null-nimi väärän joukkueen valmentajalta hylätään (hylkäys tulee oikeudesta, ei nimestä). */
+    await testEnv.clearFirestore(); await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u15'] });
+    await assertFails(ajaBatch(ctxRooli(VALM, 'valmentaja'), null, { tekijaNimi: null }));
   });
   it('VP ja talenttivalmentaja: batch läpi ilman joukkuekuulumista', async () => {
     await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
