@@ -30,6 +30,7 @@ describe('kirjastokartta: kattavuus ja muuttujat', () => {
   // Peliäly-tasokorjaus (erä 58): erän 2 rivit joiden fi muuttui poistuvat (sv_era2_palautetaan.json) ja uudet fi-rivit tulevat erästä 58 (sv odottaa, LIB_SV_ODOTTAA)
   for (const x of JSON.parse(lue('docs/i18n/sv_era2_palautetaan.json')).rivit) if (/^lib\./.test(x.osio)) delete kaikkiFi[x.avain];
   for (const o of ['lib.rubriikit', 'lib.tm_adar_tekstit']) for (const [k, r] of Object.entries(JSON.parse(lue('docs/i18n/sv_kaannoserae_58_gemini.json')).osiot[o].rivit)) kaikkiFi[k] = r.fi;
+  for (const [k, r] of Object.entries(JSON.parse(lue('docs/i18n/sv_kaannoserae_59_gemini.json')).osiot['lib.pelaajakortti_unelma'].rivit)) kaikkiFi[k] = r.fi;   // erä 59: pelaajakortin unelma-rivi (hahmonimet + viikon teemat)
   // Sibbo-reititys: harjoitusarviointilomake (lib/tm_harjoitusarviointi.js, avain = fi-teksti; erä 53 kovakoodatut.harjoitusarviointi + erä 54 lib.tm_harjoitusarviointi)
   for (const f of ['sv_kaannoserae_53_palautus.json', 'sv_kaannoserae_54_gemini.json']) for (const [o, os] of Object.entries(JSON.parse(lue('docs/i18n/' + f)).osiot)) if (/^(kovakoodatut\.harjoitusarviointi|lib\.tm_harjoitusarviointi)$/.test(o)) for (const [k, r] of Object.entries(os.rivit)) kaikkiFi[k] = r.fi;
 

@@ -22,7 +22,8 @@ describe('tmHT — henkilöstösivujen teksti-avainreititin', () => {
   it('sv-kartta on viety Gemini-erästä 2 (scripts/i18n_vie_sv_era2.cjs) ja vastaa erää (tests/i18n_era2_vienti.test.js)', () => {
     // erän 2 rivit − käytöstä poistetut (sv_era2_palautetaan.json: "Seuraava askel:" → Pikakortti käyttää "Harjoitusvinkki:", erä 59)
     const poistetut = JSON.parse(lue('docs/i18n/sv_era2_palautetaan.json')).rivit.filter((r) => r.osio === 'henkilosto_kartta' && r.syy.indexOf('poistettu') >= 0).length;
-    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length - poistetut);
+    const lisatyt = Object.keys(JSON.parse(lue('docs/i18n/sv_kaannoserae_59_palautus.json')).osiot.henkilosto_kartta.rivit).length;   // erä 59: uudet Pikakortin avaimet
+    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length - poistetut + lisatyt);
     expect(H.tmHT('Ei vielä pelaajia')).toBe('Ei vielä pelaajia');   // ilman kieltä (fi) teksti ennallaan
   });
   it('kolme henkilöstösivua lataa tmHT:n ennen ensimmäistä käyttöä', () => {
