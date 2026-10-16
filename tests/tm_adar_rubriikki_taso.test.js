@@ -65,7 +65,10 @@ describe('alyTaso — seuraava askel osaamistavoitteesta (ei iästä)', () => {
   it('reunatapaus: ei heikointa eikä pisteitä (vanha dokumentti), taso 2, porras 1 → harjoittele / ASKEL.a (ei seuraavaa taitoa)', () => {
     const r = A.alyTaso(2, { porras: 1 }); expect(r.askelTyyppi).toBe('harjoittele'); expect(r.askelDim).toBe('a'); expect(r.askel).toBe(A.ASKEL.a);
     expect(A.alyTaso(4, { porras: 2, heikoin: null, heikoinPisteet: null }).askelTyyppi).toBe('harjoittele');
-    expect(A.alyTaso(5, { porras: 1 }).askelTyyppi).toBe('yllapito');   // taso 5, pisteet tuntemattomat → ei harjoittele; c vaatii tiedetyt pisteet
+    // taso 5 + pisteet tuntemattomat = kuin pisteet olisivat 3 (taso 5 = yht ≥ 2,75): porras < 4 → seuraava taito; porras 4 → ylläpito (ei koskaan portaalla 1–3)
+    const t5a = A.alyTaso(5, { porras: 2 }); expect(t5a.askelTyyppi).toBe('seuraava_taito'); expect(t5a.askelDim).toBe('ac');
+    const t5b = A.alyTaso(5, { porras: 4 }); expect(t5b.askelTyyppi).toBe('yllapito'); expect(t5b.askel).toBe(A.YLLAPITO);
+    for (const p of [1, 2, 3]) expect(A.alyTaso(5, { porras: p }).askelTyyppi, 'porras ' + p).not.toBe('yllapito');
     expect(A.alyTaso(3, { porras: 1, heikoin: 'a', heikoinPisteet: 3 }).askelTyyppi).toBe('seuraava_taito');   // c vain kun pisteet tiedetään (3)
   });
   it('heikoin puuttuu ja ehdotus ei valmis → havainnoinnin askel (kun pisteet <3)', () => { expect(A.alyTaso(2, { porras: 2, heikoinPisteet: 2 }).askel).toBe(A.ASKEL.a); });
