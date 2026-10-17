@@ -19,7 +19,7 @@ const VIITE = ' Termistö: jakso = period, ydinvahvuus = kärnstyrka, havainto =
 const H = {
   ktp_kausi: 'Jana-otsikko (yläotsikko, isot kirjaimet): kausi. Perässä voi olla kauden nimi ("Kausi · syksy 2026"). Yksi sana.',
   ktp_kausi_ei: 'Kauden tavoitetta ei ole asetettu pelaajalle. Yksi lause.',
-  ktp_aseta_kausitavoite: 'Linkki (valmentaja/VP): aseta pelaajan kauden tavoite.', ktp_muokkaa_kausitavoitetta: 'Linkki: muokkaa pelaajan kauden tavoitetta.',
+  ktp_aseta_kausitavoite: 'Linkki (valmentaja/VP): aseta pelaajan kauden tavoite.', ktp_muokkaa_kausitavoitetta: 'Linkki: muokkaa pelaajan kauden tavoitetta (fi korjattu palautuksessa: "Muokkaa kauden tavoitetta").',
   ktp_asetettu: 'Kauden tavoitekortin ikä: "asetettu 20.8." (pienellä alkukirjaimella, {pvm} säilytetään).',
   ktp_omin_sanoin: 'Pelaajan oma tavoite sanatarkasti lainattuna: "Pelaajan omin sanoin: ”{teksti}”". Säilytä {teksti} ja lainausmerkit ”…”.',
   ktp_tavoite_arvo: 'Mitattu tavoitearvo, esim. "Tavoite: 5,10 s." {arvo} on luku ja {yks} mittayksikkö. Säilytä molemmat paikkamerkit ja loppupiste.',
@@ -34,7 +34,7 @@ const H = {
   ktp_k_odottaa: 'Klipin tila: lähetetty, vastausta ei vielä (pienellä).', ktp_k_vastattu: 'Klipin tila: pelaaja on vastannut (pienellä).', ktp_k_perhe: 'Klipin tila: huoltaja on kuitannut katsoneensa yhdessä (pienellä).',
   ktp_k_lupa: 'Klipin tila: odottaa huoltajan suostumusta ennen kuin pelaaja näkee sen (pienellä).', ktp_k_suljettu: 'Klipin tila: valmentaja on kuitannut ja sulkenut ketjun (pienellä).',
   ktp_lisaa_klippi: 'Valikkovalinta: lähetä pelaajalle uusi klippi.', ktp_merkitse_havainto: 'Linkki: merkitse tämän viikon havainto pelaajan jaksolle (osan taso: ei vielä / ohjatusti / itsenäisesti).',
-  ktp_muokkaa_jaksoa: 'Valikkovalinta: muokkaa käynnissä olevaa jaksoa.', ktp_sulje_jakso: 'Valinta/nappi: sulje jakso ja tee arviointi (kolme kysymystä).', ktp_siirra_ydinvahvuutta: 'Valikkovalinta: siirrä pelaajan ydinvahvuuden aluetta pelikentällä.',
+  ktp_muokkaa_jaksoa: 'Valikkovalinta: muokkaa käynnissä olevaa jaksoa.', ktp_sulje_jakso: 'Valinta/nappi: sulje jakso ja tee arviointi (kolme kysymystä).',
   ktp_valikko: 'Ruudunlukijan nimi "⋯"-valikkopainikkeelle: lisää toimintoja.',
   ktp_ei_jaksoa: 'Otsikko kortissa: pelaajalla ei ole jaksoa käynnissä.', ktp_ei_jaksoa_ohje: 'Ohje ei-jaksoa-kortissa: kun jakso aloitetaan, osat, viikkohavainnot ja klipit tulevat tähän. Yksi lause.',
   ktp_aloita_jakso: 'Nappi: aloita pelaajalle uusi jakso.', ktp_aseta_ydinvahvuus: 'Nappi: aseta ensin pelaajan ydinvahvuus pelikentälle (ennen jakson aloitusta).', ktp_vahvista_jakso: 'Nappi: vahvista pelaajan valitsema jakso.',

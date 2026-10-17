@@ -45,7 +45,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4a · Polku'
     await kaynnistaSelain(); try {
       const { sk, p, virheet } = await avaa({ leveys: 390, korkeus: 844, teema: 'dark' })(selain); await odota(p); await p.waitForSelector('[data-kt-klipit="ok"]', { timeout: 10000 });
       expect(await eiVaakavieritysta(p)).toBe(true); expect(await p.locator('.kt-jr .kt-jd').first().isVisible()).toBe(true);
-      await p.locator('.kt-pk-valikko summary').click(); expect(await p.locator('.kt-pk-valikko [role="menuitem"]').allInnerTexts()).toEqual(['Lisää klippi', 'Muokkaa jaksoa', 'Siirrä ydinvahvuutta kentällä', 'Sulje jakso']);
+      await p.locator('.kt-pk-valikko summary').click(); expect(await p.locator('.kt-pk-valikko [role="menuitem"]').allInnerTexts()).toEqual(['Lisää klippi', 'Muokkaa jaksoa', 'Vaihda aluetta', 'Sulje jakso']);
       await p.locator('.kt-pk-valikko summary').click(); await kuva(p, 'polku_390_tumma_normaali'); expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 120000);
@@ -93,7 +93,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4a · Polku'
       expect(await e.p.locator('[data-kt-kausitavoite]').innerText()).toBe('Aseta kauden tavoite'); await e.sk.close();
     } finally { await selain.close(); }
   }, 120000);
-  it('SV: Polku renderöityy ruotsin kieliasetuksella ilman raakoja avaimia (sv-rivit tulevat erästä 64; fi-oletus siihen asti)', async () => {
+  it('SV: Polku renderöityy ruotsin kieliasetuksella ilman raakoja avaimia (erä 64 viety)', async () => {
     await kaynnistaSelain(); try {
       const { sk, p, virheet } = await avaa({ dokit: { ...DOKIT, 'seurat/demo': { nimi: 'Demo FC', kieli: 'sv' } } })(selain); await odota(p); await p.waitForSelector('[data-kt-klipit="ok"]', { timeout: 10000 });
       expect(await p.locator('[data-kt-polku]').innerText()).not.toMatch(/\bktp_|\bkt_[a-z]/); expect(SUODATA(virheet)).toEqual([]); await sk.close();
