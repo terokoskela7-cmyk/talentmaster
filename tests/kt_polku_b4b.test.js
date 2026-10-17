@@ -27,7 +27,8 @@ describe('Tämä viikko (luku)', () => {
       ev('x4', 'harjoitus', '2026-10-26T17:00:00+02:00'), ev('x5', 'harjoitus', '2026-10-18T17:00:00+03:00')];
     const w = P.tmKtPolkuViikko(docs.concat(lisa), pelaaja(), { tanaan: TANAAN, joukkueDocs: JD });
     expect(w.n).toBe(3); expect(w.paivat.map((d) => d.iso)).toEqual(['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25']);
-    expect(w.paivat[1].tapahtumat[0]).toMatchObject({ tyyppi: 'harjoitus', klo: '17:00' }); expect(w.paivat[5].tapahtumat[0]).toMatchObject({ tyyppi: 'ottelu', nimi: 'vs. GBK' });
+    const klo = (iso) => { const d = new Date(iso); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };   // paikallinen kellonaika (CI = UTC, kehitys = Helsinki)
+    expect(w.paivat[1].tapahtumat[0]).toMatchObject({ tyyppi: 'harjoitus', klo: klo('2026-10-20T17:00:00+03:00') }); expect(w.paivat[5].tapahtumat[0]).toMatchObject({ tyyppi: 'ottelu', nimi: 'vs. GBK' });
   });
   it('toisen joukkueen tapahtuma ei kuulu pelaajalle; poimittu pelaajat_id kuuluu', () => {
     const muu = ev('m1', 'harjoitus', '2026-10-21T17:00:00+03:00', { joukkue: 'demo_u15' }), poimittu = ev('m2', 'harjoitus', '2026-10-22T17:00:00+03:00', { joukkue: 'demo_u15', pelaajat_id: ['p2'] });
