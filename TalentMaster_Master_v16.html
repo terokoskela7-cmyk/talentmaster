@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1792269599544';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1792272659807';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -30,7 +30,7 @@
 <script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
 <script src="lib/tm_ryhmat.js?v=5"></script>   <!-- R1: ryhmät (kalenteri Kenelle, kokoonpano, näkyvyys) -->
 <script src="lib/tm_klippi_ryhma.js?v=1"></script>   <!-- Klippi ryhmälle + oma videoklippi -varaus -->
-<script src="lib/tm_mediaviesti.js?v=7"></script>   <!-- R6.4 mediaviesti -->
+<script src="lib/tm_mediaviesti.js?v=8"></script>   <!-- R6.4 mediaviesti -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt (CPD-raportin "Kausi:") — sama lähde kuin VP/Admin -->
@@ -7073,7 +7073,7 @@ window._mvLaheta = async function () {
   if (!x.ok) { C.mvToast(M.tmMvVirhe(x.syy, { t: C.t }), 'error'); return; }   // validointi ENNEN kirjoitusta; sheet jää auki
   if (!C.verkko()) return;
   const ry = S.kohde === 'ryhma' ? window.TM_KLIPPI_RYHMA.tmKrKohdeTilasta(S) : null;
-  const valmis = function () { window._mvSulje(); C.mvToast(_mvT(ry ? 'mv_lahetetty_ryhma' : (x.dokit.length > 1 ? 'mv_lahetetty_n' : 'mv_lahetetty')).replace('{n}', x.dokit.length).replace('{nimi}', ry ? ry.nimi : ''), 'ok'); };
+  const valmis = function () { window._mvSulje(); C.mvToast(_mvT(ry ? 'mv_lahetetty_ryhma' : (x.dokit.length > 1 ? 'mv_lahetetty_n' : 'mv_lahetetty')).replace('{n}', x.dokit.length).replace('{nimi}', ry ? ry.nimi : '') + (function () { const a = M.tmMvAjastusTeksti(x.dokit[0].nakyva_alkaen, { t: _mvT }, 'mv_lahetetty_ajastettu_lisa'); return a ? ' ' + a : ''; })(), 'ok'); };   // klo 21–7 lähetetty: kerro milloin pelaaja näkee (D62-portti ennallaan)
   if (C.demo()) { x.dokit.forEach(function (d, i) { window._mvDokit.push(Object.assign({ id: 'demo_' + i, aika: new Date() }, d)); }); valmis(); if (typeof renderInbox === 'function') renderInbox(); return; }
   S.tallentaa = true;
   try {

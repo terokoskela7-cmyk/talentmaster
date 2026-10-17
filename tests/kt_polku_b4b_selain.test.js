@@ -38,7 +38,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4b · Polku:
       expect(await p.locator('[data-kt-vk-paiva]').count()).toBe(7); expect(await p.locator('[data-kt-vk-tapahtuma="harjoitus"]').count()).toBe(2); expect(await p.locator('[data-kt-vk-tapahtuma="ottelu"]').count()).toBe(1);
       expect(await p.locator('[data-kt-vk-katsaus]').innerText()).toContain('Viikkokatsaus'); expect(await p.locator('[data-kt-viikko]').first().innerText()).not.toMatch(/Täytä viikko|kuorma/i);
       const aanet = await p.locator('[data-kt-aani-lahde]').evaluateAll((l) => l.map((x) => x.getAttribute('data-kt-aani-lahde'))); expect(aanet).toEqual(['klippi', 'vk', 'kausi']);   // uusin ensin: 14.10., 11.10., 20.8.
-      const ääni = await p.locator('[data-kt-aani]').innerText(); expect(ääni).toContain('Katsoin ennen kuin sain pallon'); expect(ääni).toContain('Klippivastaus'); expect(ääni).toContain('Viikkokatsaus'); expect(ääni).toContain('Kausitavoite omin sanoin'); expect(await p.locator('[data-kt-aani] textarea, [data-kt-aani] input').count()).toBe(0);
+      const ääni = await p.locator('[data-kt-aani]').innerText(); expect(ääni).toContain('Katsoin ennen kuin sain pallon'); expect(ääni).toContain('Klippivastaus'); expect(ääni).toContain('Viikkokatsaus'); expect(ääni).toContain('Kauden tavoite omin sanoin'); expect(await p.locator('[data-kt-aani] textarea, [data-kt-aani] input').count()).toBe(0);
       expect(await p.locator('[data-kt-historia-n]').getAttribute('data-kt-historia-n')).toBe('2');
       const hist = await p.locator('[data-kt-historia]').innerText(); expect(hist).toContain('17.8.–27.9.'); expect(hist).toMatch(/↗ 2\/\d osaa itsenäisesti/); expect(hist).toContain('”Hyvä jakso, kuljetus näkyy pelissä.” – valmentajan lause'); expect(hist).toContain('vaihdettu');
       expect(await p.locator('[data-kt-h-klipit] summary').innerText()).toBe('Klipit (1)'); await p.locator('[data-kt-h-klipit] summary').click(); expect(await p.locator('[data-kt-h-klipit] [data-kt-klippi="k_hist"]').isVisible()).toBe(true);
@@ -61,6 +61,15 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4b · Polku:
       const e = await avaa({ hash: '#pelaaja/p3/polku' })(selain); await odota(e.p); await e.p.waitForSelector('[data-kt-viikko="ok"]', { timeout: 10000 });
       expect(await e.p.locator('[data-kt-vk-katsaus]').count()).toBe(0); expect(await e.p.locator('[data-kt-historia="tyhja"]').count()).toBe(1); expect(await e.p.locator('[data-kt-aani]').count()).toBe(0);
       expect(SUODATA(virheet)).toEqual([]); await e.sk.close(); await sk.close();
+    } finally { await selain.close(); }
+  }, 120000);
+  it('EI JAKSOA (390 tumma + 1280 vaalea): viikko + historia näkyvät, ei viikkokatsausta eikä ääntä; kuvat', async () => {
+    await kaynnistaSelain(); try {
+      for (const [leveys, teema, nimi] of [[390, 'dark', 'polku_390_tumma_ei_jaksoa'], [1280, 'light', 'polku_1280_vaalea_ei_jaksoa']]) {
+        const { sk, p, virheet } = await avaa({ leveys, korkeus: leveys === 390 ? 844 : 900, teema, hash: '#pelaaja/p3/polku' })(selain); await odota(p); await p.waitForSelector('[data-kt-viikko="ok"]', { timeout: 10000 });
+        expect(await p.locator('[data-kt-polku]').getAttribute('data-kt-polku-tila')).toBe('ei_jaksoa'); expect(await p.locator('[data-kt-historia="tyhja"]').count()).toBe(1); expect(await p.locator('[data-kt-vk-katsaus], [data-kt-aani]').count()).toBe(0);
+        expect(await eiVaakavieritysta(p)).toBe(true); await kuva(p, nimi); expect(SUODATA(virheet)).toEqual([]); await sk.close();
+      }
     } finally { await selain.close(); }
   }, 120000);
   it('LAISKA HAKU: kalenteri haetaan vasta Polku-välilehdellä; virhe näkyy lohkossa ja Yritä uudelleen toimii', async () => {
