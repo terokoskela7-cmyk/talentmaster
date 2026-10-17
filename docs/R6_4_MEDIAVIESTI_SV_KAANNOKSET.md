@@ -63,6 +63,8 @@ Henkilökunnan tekstit (`mv_*`) kulkevat `masterT`/`vpT`-avaimina (fi-teksti = a
 | `mv_kuitattu` | Ketju suljettu ✓ | _(sv — Gemini)_ |
 | `mv_ketju_otsikko` | Ketju | _(sv — Gemini)_ |
 | `mv_rivi_odottaa` | Odottaa vastausta | _(sv — Gemini)_ |
+| `mv_rivi_ajastettu` | Ajastettu · näkyy pelaajalle {pvm} klo {aika} | _(sv — Gemini, erä 66)_ |
+| `mv_lahetetty_ajastettu_lisa` | Näkyy pelaajalle {pvm} klo {aika}. | _(sv — Gemini, erä 66)_ |
 | `mv_rivi_vastattu` | vastasi klippiin | _(sv — Gemini)_ |
 | `mv_rivi_perhe` | Perhe kuittasi: katsoimme yhdessä | _(sv — Gemini)_ |
 | `mv_rivi_lupa` | Odottaa suostumusta | _(sv — Gemini)_ |

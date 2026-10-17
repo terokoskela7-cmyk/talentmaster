@@ -155,7 +155,7 @@ for (const sov of ['Master', 'VP']) {
     it('LÄHETYS yhdelle: writeBatch, yksi dokumentti — kentät, aika=serverTimestamp, nakyva_alkaen Timestamp, vastaanottaja vastuuhenkilö; sheet sulkeutuu; toast ok', async () => {
       const e = ymp(sov); e.w._mvAvaa('a'); tayta(e.w); await e.w._mvLaheta(); expect(e.log.batch).toHaveLength(1); const [polku, d] = e.log.batch[0][0];
       expect(polku).toMatch(/^viestit\/uusi/); expect(d).toMatchObject({ tyyppi: 'klippi', domain: 'app.veo.co', mediatyyppi: 'video', kohta_s: 12, klippityyppi: 'onnistui', kysymys: 'Mitä näit ennen kuin päätit?', saate: 'Pidit pallon lähellä.', pelaajaId: 'a', nakyvyys: 'pelaaja', vastaanottajaUid: 'vastuu-uid', lahettajaUid: 'lahettaja', tila: 'lahetetty', aika: 'TS' }); expect(d.nakyva_alkaen.__ts).toMatch(/^2\d{3}-/);
-      expect(e.els._mvModal).toBeUndefined(); expect(e.w._mvTila).toBeNull(); expect(e.log.toast.at(-1)).toEqual(['Klippi lähetetty ✓', 'ok']);
+      expect(e.els._mvModal).toBeUndefined(); expect(e.w._mvTila).toBeNull(); expect(e.log.toast.at(-1)[1]).toBe('ok'); expect(e.log.toast.at(-1)[0]).toMatch(/^Klippi lähetetty ✓( Näkyy pelaajalle \d+\.\d+\. klo \d+\.\d\d\.)?$/);   // klo 21–7 lähetys lisää ajastusrivin (tests/klippi_ajastettu.test.js lukitsee ajan)
     });
     it('KOKO JOUKKUE: n dokumenttia samalla klippi_id:llä (vain valitun joukkueen pelaajat), vakiokysymys, ei osaa; U11 → huoltaja-näkyvyys', async () => {
       const e = ymp(sov, { pelaajat: [{ id: 'a', etunimi: 'T', sukunimi: 'K', joukkue: 'KPV U13', suostumusTila: 'annettu' }, { id: 'b', etunimi: 'E', sukunimi: 'M', joukkue: 'KPV U13', suostumusTila: 'annettu' }, { id: 'c', etunimi: 'A', sukunimi: 'P', joukkue: 'KPV U11', suostumusTila: 'annettu' }] }); e.w._mvAvaa('a'); e.w._mvKohde('joukkue'); e.w._mvUrl('https://youtu.be/x?t=5'); await e.w._mvLaheta();
@@ -205,7 +205,7 @@ describe('Master: Inbox-integraatio + V4-valikko + Polku-kortti', () => {
     expect(MASTER).toContain('onclick="_mvAvaa(null)" id="mvKlippiNappi"'); const blokki = pala(MASTER, '/* ═══ R6.4 Mediaviesti M1', 'function _msDots('); expect(blokki).not.toMatch(/_ktLippu|liput\.kentta/); expect(blokki).not.toMatch(/_mJjLataaLiput/);
     for (const src of [MASTER, VP]) expect(src).toContain("if (avain === 'klippi') return window._mvAvaa(pid);"); expect(require('../lib/tm_aloita_jakso.js').tmJaksoTila({ jaksofokus: { konsepti_avain: 'x', konsepti_nimi: 'X', alkoi: new Date().toISOString(), kesto_vk: 4 } }, {}).valikko.find((m) => m.avain === 'klippi').kaytettavissa).toBe(true);
   });
-  it('Polku-kortti: #mvKlipit-paikka + lazy-lataus vain Polku avattaessa (Master + VP)', () => { for (const src of [MASTER, VP]) { expect(src).toContain('<div id="mvKlipit"></div>'); expect(src).toContain("if (S.ladattu.polku && typeof _mvLataaKlipit === 'function') _mvLataaKlipit(p);"); expect(src).toContain('<script src="lib/tm_mediaviesti.js?v=6"></script>'); } });
+  it('Polku-kortti: #mvKlipit-paikka + lazy-lataus vain Polku avattaessa (Master + VP)', () => { for (const src of [MASTER, VP]) { expect(src).toContain('<div id="mvKlipit"></div>'); expect(src).toContain("if (S.ladattu.polku && typeof _mvLataaKlipit === 'function') _mvLataaKlipit(p);"); expect(src).toContain('<script src="lib/tm_mediaviesti.js?v=7"></script>'); } });
 });
 
 describe('Geminin sv-lista + sanasto', () => {
