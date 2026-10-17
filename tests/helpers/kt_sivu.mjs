@@ -39,7 +39,7 @@ const STUB = (cfg) => '(function(){var D=' + JSON.stringify(cfg.dokit) + ',U=' +
   + 'var A={currentUser:user,onAuthStateChanged:function(cb){setTimeout(function(){cb(' + (cfg.kirjautunut === false ? 'null' : 'user') + ')},30);return function(){}}};'
   + 'var F=function(){return{}};F.initializeApp=function(){return{}};F.auth=function(){return A};F.auth.GoogleAuthProvider=function(){};F.appCheck=function(){return{activate:function(){}}};F.appCheck.ReCaptchaEnterpriseProvider=function(){};'
   + 'F.firestore=function(){return{collection:function(c){return col(c)},doc:function(p){return doc(p)},batch:function(){var ops=[];return{set:function(r,v,o){ops.push({path:r.path,set:clone(v),opts:o||null})},update:function(r,u){ops.push({path:r.path,update:clone(u)})},commit:async function(){(window.__batch=window.__batch||[]).push(ops)}}}}};'
-  + 'F.firestore.Timestamp={fromDate:function(d){return{toDate:function(){return d}}}};F.firestore.FieldValue={serverTimestamp:function(){return"TS"},delete:function(){return"DEL"},arrayUnion:function(){return{__arrayUnion:[].slice.call(arguments)}}};'
+  + 'F.firestore.Timestamp={fromDate:function(d){return{toDate:function(){return d}}},fromMillis:function(m){return{toMillis:function(){return m},toDate:function(){return new K(m)}}}};F.firestore.FieldValue={serverTimestamp:function(){return"TS"},delete:function(){return"DEL"},arrayUnion:function(){return{__arrayUnion:[].slice.call(arguments)}}};'
   + 'window.firebase=F;var K=Date;var N=' + NYT + ';Date=class extends K{constructor(){var a=[].slice.call(arguments);if(a.length)super(...a);else super(N)}static now(){return N}};})();';
 
 export async function kaynnista(selain, opts) {

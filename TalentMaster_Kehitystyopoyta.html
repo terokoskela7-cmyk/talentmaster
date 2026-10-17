@@ -56,6 +56,8 @@
 <script src="lib/tm_kt_komponentit.js?v=4"></script>
 <script src="lib/tm_kalenteri_tyypit.js?v=4"></script>
 <script src="lib/tm_kalenteri_kyselyt.js?v=3"></script>
+<script src="lib/tm_ryhmat.js?v=5"></script>
+<script src="lib/tm_kalenteri_pelaajalle.js?v=1"></script>   <!-- B4b Tämä viikko: tapahtuman kuulumissääntö (sama kuin pelaajan kalenteri) -->
 <script src="lib/tm_valmentaja_nav.js?v=3"></script>
 <script src="lib/tm_kehitystyopoyta.js?v=33"></script>
 <script src="lib/tm_jakso_malli.js?v=4"></script>
@@ -74,8 +76,8 @@
 <script src="lib/tm_kalenteri_lataus.js?v=1"></script>
 <script src="lib/tm_kt_arviointi.js?v=3"></script>
 <script src="lib/tm_kt_alue.js?v=2"></script>
-<script src="lib/tm_mediaviesti.js?v=7"></script>   <!-- klippiketjut (Polku, B4a): tmMvLataaPelaajanKlipit + tmMvRivit -->
-<script src="lib/tm_kt_polku.js?v=4"></script>
+<script src="lib/tm_mediaviesti.js?v=8"></script>   <!-- klippiketjut (Polku, B4a): tmMvLataaPelaajanKlipit + tmMvRivit -->
+<script src="lib/tm_kt_polku.js?v=6"></script>
 <script src="lib/tm_kt_sivu.js?v=2"></script>
 <style>
 /* ── TOKENEET (samat kuin Master_v16; ei uusia) ── */
@@ -195,6 +197,7 @@ let _seuraId = null, _rooli = null, _uid = null, _superAdmin = false, _kayttaja 
 const _S = { pid: null, valilehti: 'tanaan', silmin: false, havaintoAuki: null, havaintoOsa: null, reititin: null };
 function _e(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 /* D248 SANASTO (lib/tm_sanasto.js): kaikki käyttöliittymän tekstit kulkevat TT:n läpi → fi-tilassa arkikieli ("Mitä harjoitellaan", "Ydinasiat", "Jakson arviointi", "Pelaajan lupaus"), muilla kielillä masterT/Gemini-erä. Kirjastojen FI-oletukset kootaan yhteen karttaan. */
+if (!window.TM_JOUKKUE && typeof tmPelaajanJoukkueet === 'function') window.TM_JOUKKUE = { tmPelaajanJoukkueet: tmPelaajanJoukkueet, tmKanonisoiJoukkue: tmKanonisoiJoukkue };   // B4b: lib/tm_kalenteri_pelaajalle.js hakee jäsenyyssäännön TM_JOUKKUE-oliosta (tm_joukkue.js määrittelee selaimessa vain globaalit funktiot)
 const SN = window.TM_SANASTO, _kieli = function () { try { return (typeof tmNykyinenKieli === 'function' && tmNykyinenKieli()) || 'fi'; } catch (e) { return 'fi'; } };
 const TT = SN.tmSanastoT(function (k) { const v = masterT(k); return (v === k && KS.FI[k] != null) ? KS.FI[k] : v; }, { kieli: _kieli, fi: Object.assign({}, K.FI, (window.TM_TANAAN_KENTTA || {}).FI, (window.TM_TANAAN_SIGNAALI || {}).FI, window.TM_KT_HAVAINTO.FI, window.TM_SHEET.FI, (window.TM_KT_ARVIOINTI || {}).FI, (window.TM_KT_ALUE || {}).FI, (window.TM_KT_TOIMINTAKORTTI || {}).FI, (window.TM_KASVUPYRAHDYS || {}).FI, (window.TM_KT_POLKU || {}).FI, (window.TM_MEDIAVIESTI || {}).FI) });
 function T(avain) { return TT(avain); }
@@ -429,18 +432,21 @@ window._ktToimi = function (pid, avain) {
 /* ── KEHYS ── */
 function _naapurit() { return KS.tmKtSivuNaapurit(_pelaajat, _S.pid, _joukkueDocs); }
 /* B4a · POLKU (lib/tm_kt_polku.js): Kausi → Jakso nyt. Data haetaan laiskasti vasta kun Polku-välilehti avataan (kausitavoite idp_kausi:sta, klipit viestit:stä); virhe näkyy lohkossa. Jakson osat = sama komponentti kuin Tänään. */
-const _pk = {};   // pelaaja → { kausi:{tila:'lataa'|'ok'|'virhe', tavoite}, klipit:{tila, dokit} }
+const _pk = {};   // pelaaja → { kausi:{tila:'lataa'|'ok'|'virhe', tavoite}, klipit:{tila, dokit}, viikko:{tila, docs} }
 function _polkuLataa(p) {
   if (_pk[p.id]) return;
-  const x = _pk[p.id] = { kausi: { tila: 'lataa', tavoite: null }, klipit: { tila: 'lataa', dokit: [] } };
+  const x = _pk[p.id] = { kausi: { tila: 'lataa', tavoite: null }, klipit: { tila: 'lataa', dokit: [] }, viikko: { tila: 'lataa', docs: [] } };
   const valmis = function () { if (_S.pid === p.id && _S.valilehti === 'polku') _nayta(); };
   window.TM_KT_POLKU.tmKtPolkuLataaKausi({ db: _db, sid: _seuraId, pid: p.id, nyt: new Date() }).then(function (t) { x.kausi = { tila: 'ok', tavoite: t }; valmis(); }, function (e) { console.warn('[polku] kausi:', e && e.message); x.kausi = { tila: 'virhe', tavoite: null }; valmis(); });
   window.TM_MEDIAVIESTI.tmMvLataaPelaajanKlipit(_db, _seuraId, p.id).then(function (d) { x.klipit = { tila: 'ok', dokit: d }; valmis(); }, function (e) { console.warn('[polku] klipit:', e && e.message); x.klipit = { tila: 'virhe', dokit: [] }; valmis(); });
+  window.TM_KT_POLKU.tmKtPolkuLataaViikko({ db: _db, sid: _seuraId, tanaan: tmPaivaIso(new Date()), L: window.TM_KALENTERI_LATAUS, TS: firebase.firestore.Timestamp }).then(function (d) { x.viikko = { tila: 'ok', docs: d }; valmis(); }, function (e) { console.warn('[polku] viikko:', e && e.message); x.viikko = { tila: 'virhe', docs: [] }; valmis(); });   // B4b: Tämä viikko (luku): vain kalenteri, ei kuormaa
 }
 window._ktPolkuUudelleen = function () { if (_S.pid) { delete _pk[_S.pid]; _nayta(); } };
 function _polkuHTML(p0, tila) {
-  const p = _naytto(p0), x = _pk[p.id] || { kausi: { tila: 'lataa' }, klipit: { tila: 'lataa', dokit: [] } };
-  return window.TM_KT_POLKU.tmKtPolkuHTML(p, { esc: _e, t: TT, tila: tila, kaanon: _kaanon, nimi: _nimi(p), nyt: new Date(), voiKirjoittaa: _voiKirjoittaa(p), alueMahdollinen: _voiKirjoittaa(p) && _alueMahdollinen(p), kausi: x.kausi, klipit: x.klipit, osaFn: '_ktHavaintoLisaa', toimiFn: '_ktToimi', uudelleenFn: '_ktPolkuUudelleen' });
+  const p = _naytto(p0), x = _pk[p.id] || { kausi: { tila: 'lataa' }, klipit: { tila: 'lataa', dokit: [] }, viikko: { tila: 'lataa', docs: [] } };
+  _vkKooste(p, tila);   // käynnistää jakson viikkokatsausten haun (Pelaajan ääni + sunnuntain tila); sama välimuisti kuin Tänään
+  const vc = _vk[p.id], ika = _ika(p), vkDocs = vc && vc.docs && p.jaksofokus && vc.alkoi === window.TM_VIIKKOKATSAUS.tmVkJaksoAlkoi(p.jaksofokus) ? vc.docs : null;
+  return window.TM_KT_POLKU.tmKtPolkuHTML(p, { esc: _e, t: TT, tila: tila, kaanon: _kaanon, nimi: _nimi(p), nyt: new Date(), tanaan: tmPaivaIso(new Date()), voiKirjoittaa: _voiKirjoittaa(p), alueMahdollinen: _voiKirjoittaa(p) && _alueMahdollinen(p), kausi: x.kausi, klipit: x.klipit, viikko: x.viikko, vk: { docs: vkDocs }, joukkueDocs: _joukkueDocs, ikavaihe: window.TM_KEHITYSTYOPOYTA.tmKtIkavaihe(ika) === 'Leikkijä' ? 'leikkija' : '', historiaNimiFn: SN.tmSanastoKonseptiNimi, osaFn: '_ktHavaintoLisaa', toimiFn: '_ktToimi', uudelleenFn: '_ktPolkuUudelleen' });
 }
 function _polkuNaytto(p, vl) {
   return '<div class="kts-polku" data-kts-vanha="' + _e(vl) + '"><p>' + _e(T(vl === 'polku' ? 'kts_polku_siirtyy' : 'kts_naytto_siirtyy')) + '</p><a class="kts-nappi" href="' + _e(KS.MASTER + '#pelaaja/' + encodeURIComponent(p.id) + '/' + vl) + '">' + _e(T('kts_vanhassa')) + '</a></div>';
