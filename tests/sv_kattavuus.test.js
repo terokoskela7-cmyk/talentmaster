@@ -56,6 +56,6 @@ describe('Gemini-erä 54 (Sibbo-reititys)', () => {
   });
   it('DoD: harjoitusarviointi, suostumus ja kehitystyöpöytä = ok (erä 54 viety), ei kovakoodattuja rivejä, ei "puuttuu"', () => {
     const T2 = laske(join(JUURI, 'docs/i18n/sv_lapiajo_tulos.json'));
-    for (const id of ['harjoitusarviointi', 'suostumus', 'kehitystyopoyta']) { const n = T2.nakymat.find((x) => x.id === id); expect(n.puuttuu, id).toBe(0); expect(n.kovakoodattuStaattinen, id).toEqual([]); expect(n.ok, id).toBe(n.avaimia); expect(n.odottaa, id).toBe(0); }   // erä 54 vietiin; erä 55 (suostumus vaihe 1) vietiin; erä 56 (tietosuojaikkuna) vietiin → suostumus 175/175, odottaa 0
+    for (const id of ['harjoitusarviointi', 'suostumus', 'kehitystyopoyta']) { const n = T2.nakymat.find((x) => x.id === id); expect(n.puuttuu, id).toBe(0); expect(n.kovakoodattuStaattinen, id).toEqual([]); const era64 = id === 'kehitystyopoyta' ? Object.keys(JSON.parse(readFileSync(join(JUURI, 'docs/i18n/sv_kaannoserae_64_gemini.json'), 'utf8')).osiot['lib.tm_kt_polku'].rivit).length : 0; expect(n.ok, id).toBe(n.avaimia - era64); expect(n.odottaa, id).toBe(era64); }   // erä 64 (B4a Polku) odottaa Geminiä: vain sen rivit ovat 'odottaa'; poista era64 kun palautus viety   // erä 54 vietiin; erä 55 (suostumus vaihe 1) vietiin; erä 56 (tietosuojaikkuna) vietiin → suostumus 175/175, odottaa 0
   });
 });

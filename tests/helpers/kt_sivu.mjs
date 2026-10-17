@@ -32,9 +32,9 @@ const STUB = (cfg) => '(function(){var D=' + JSON.stringify(cfg.dokit) + ',U=' +
   + 'function getP(o,p){return p.split(".").reduce(function(a,k){return a==null?a:a[k]},o)}'
   + 'function setP(o,p,v){var k=p.split("."),c=o;for(var i=0;i<k.length-1;i++){if(c[k[i]]==null||typeof c[k[i]]!=="object")c[k[i]]={};c=c[k[i]]}c[k[k.length-1]]=v}'
   + 'function snap(path){return{id:path.split("/").pop(),exists:D[path]!==undefined,data:function(){return clone(D[path])}}}'
-  + 'function doc(path){return{path:path,id:path.split("/").pop(),get:async function(){window.__pyynnot.push(path);return snap(path)},update:async function(u){window.__kirj.push({path:path,update:clone(u)});var d=D[path]||(D[path]={});Object.keys(u).forEach(function(k){setP(d,k,clone(u[k]))})},set:async function(v,o){window.__kirj.push({path:path,set:clone(v)});D[path]=o&&o.merge?Object.assign(D[path]||{},clone(v)):clone(v)},collection:function(c){return col(path+"/"+c)}}}'
+  + 'function doc(path){return{path:path,id:path.split("/").pop(),get:async function(){window.__pyynnot.push(path);if((window.__vika||[]).some(function(x){return path.indexOf(x)>=0}))throw new Error("stub-vika "+path);return snap(path)},update:async function(u){window.__kirj.push({path:path,update:clone(u)});var d=D[path]||(D[path]={});Object.keys(u).forEach(function(k){setP(d,k,clone(u[k]))})},set:async function(v,o){window.__kirj.push({path:path,set:clone(v)});D[path]=o&&o.merge?Object.assign(D[path]||{},clone(v)):clone(v)},collection:function(c){return col(path+"/"+c)}}}'
   + 'function col(path,f){f=f||[];function lista(){var n=path.split("/").length+1;return Object.keys(D).filter(function(k){return k.indexOf(path+"/")===0&&k.split("/").length===n}).map(function(k){return{id:k.split("/").pop(),data:function(){return clone(D[k])},_d:D[k]}}).filter(function(x){return f.every(function(w){var v=x._d[w[0]];return w[1]==="=="?v===w[2]:w[1]==="array-contains"?Array.isArray(v)&&v.indexOf(w[2])>=0:true})})}'
-  + 'var o={doc:function(id){return doc(path+"/"+id)},where:function(a,b,c){return col(path,f.concat([[a,b,c]]))},limit:function(){return o},orderBy:function(){return o},get:async function(){window.__pyynnot.push(path);var l=lista();return{docs:l,size:l.length,empty:!l.length,forEach:function(g){l.forEach(g)}}}};return o}'
+  + 'var o={doc:function(id){return doc(path+"/"+id)},where:function(a,b,c){return col(path,f.concat([[a,b,c]]))},limit:function(){return o},orderBy:function(){return o},get:async function(){window.__pyynnot.push(path);if((window.__vika||[]).some(function(x){return path.indexOf(x)>=0}))throw new Error("stub-vika "+path);var l=lista();return{docs:l,size:l.length,empty:!l.length,forEach:function(g){l.forEach(g)}}}};return o}'
   + 'var user={uid:"u1",isAnonymous:false,getIdToken:async function(){return"t"},getIdTokenResult:async function(){return{claims:' + JSON.stringify(cfg.claims) + '}}};'
   + 'var A={currentUser:user,onAuthStateChanged:function(cb){setTimeout(function(){cb(' + (cfg.kirjautunut === false ? 'null' : 'user') + ')},30);return function(){}}};'
   + 'var F=function(){return{}};F.initializeApp=function(){return{}};F.auth=function(){return A};F.auth.GoogleAuthProvider=function(){};F.appCheck=function(){return{activate:function(){}}};F.appCheck.ReCaptchaEnterpriseProvider=function(){};'
@@ -59,6 +59,7 @@ export async function kaynnista(selain, opts) {
     if (u.startsWith('file://') || u.startsWith('data:')) return r.continue();
     return r.abort();
   });
+  if (opts.vika) await p.addInitScript((v) => { window.__vika = v; }, opts.vika);   // stub: näillä poluilla get() heittää (virhetilojen selaintestit)
   await p.addInitScript((t) => { try { localStorage.setItem('tm-theme', t); } catch (e) { /* ei */ } }, opts.teema);
   await p.goto(SIVU + (opts.hash || ''), { waitUntil: 'load' });
   return { sk, p, virheet, dokit };
