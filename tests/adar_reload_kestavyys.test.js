@@ -306,7 +306,7 @@ describe('ADAR · reload-kestävyys', () => {
     expect(m.pB.tila.teksti).toBe('B:n havainto');
   });
 
-  it('upotettu avaus (Master) + A:n luonnos: EI hyppää A:han — lista + huomautus "Tallentamaton havainto pelaajalle A"', async () => {
+  it('upotettu avaus (Master) + A:n luonnos: EI hyppää A:han — lista + huomautus "Tallentamaton havainto: A"', async () => {
     const a = teeSandbox({});
     tayta(a, 'pA', 'A:n havainto'); a.sandbox._luonnosTallenna(); await odota(500);
     const b = teeSandbox({ localStorage: a.ls.data, idb: a.idbVarasto });
@@ -316,7 +316,7 @@ describe('ADAR · reload-kestävyys', () => {
     await b.sandbox._luonnosPalauta();
     expect(b.sandbox._phTila.pelaajaId, 'luonnos ohitti valinnan').toBeNull();
     const html = b.sandbox._phHuomautusHtml();
-    expect(html).toContain('Tallentamaton havainto pelaajalle Aatu A');
+    expect(html).toContain('Tallentamaton havainto: Aatu A');
     expect(html).toContain('Avaa'); expect(html).toContain('Hylkää');
   });
 

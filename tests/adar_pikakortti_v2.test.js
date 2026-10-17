@@ -665,9 +665,9 @@ describe('(pelitilanne) Pikakortti — chip-rivit', () => {
     let h = html(y);
     expect(rivit(h), 'chip-rivit näkyvät vaikka rivi on kiinni').toEqual([]);
     expect(h).toContain('id="ph-pt-kansi" aria-expanded="false"');
-    expect(h).toMatch(/id="ph-pt-kansi"[^>]*><span>Pelitilanne<\/span>/);
+    expect(h).toMatch(/id="ph-pt-kansi"[^>]*><span class="pt-l">Pelitilanne <span aria-hidden="true">▾<\/span><\/span><\/button>/);
     Object.assign(y.api.S.pelitilanne, { vaihe: ['puolustus'], paine: 'kova', otos: '3_5' }); y.api.render();
-    expect(html(y), 'suljettu rivi näyttää valinnat').toContain('<span>Pelitilanne: 3–5 · Puolustus · Kova paine</span>');
+    expect(html(y), 'suljettu rivi näyttää valinnat').toContain('<span class="pt-r">3–5 · Puolustus · Kova paine</span>');
     expect(rivit(html(y))).toEqual([]);
     y.api.S.ptAuki = true; y.api.render();
     expect(rivit(html(y))).toEqual(['otos', 'vaihe', 'paine']);
