@@ -11583,26 +11583,38 @@ function _mkAvaaTarkkailu(id) {
 window._mkAvaaTarkkailut = _mkAvaaTarkkailut;
 window._mkAvaaTarkkailu = _mkAvaaTarkkailu;
 
+/* Android-takaisin sulkee upotetun pikakortin (pieni näyttö): yksi historiamerkintä per avaus, puretaan sulkiessa. */
+function _pkHistPura(popstatesta) {
+  if (window._pkPopHandler) { window.removeEventListener('popstate', window._pkPopHandler); window._pkPopHandler = null; }
+  if (window._pkHistoria) { window._pkHistoria = false; if (!popstatesta) { try { history.back(); } catch (e) { /* ei */ } } }
+}
 function _avaaPikakorttiUpotettu(pid) {
-  document.getElementById('_pkModal')?.remove();
+  _pkHistPura(); document.getElementById('_pkModal')?.remove();
   window._pikakorttiPid = pid || '';
   var src = 'TalentMaster_ADAR_Pikakortti.html?embedded=1&seuraId=' + encodeURIComponent(_seuraId || '') + (pid ? ('&pelaajaId=' + encodeURIComponent(pid)) : '');
+  var pieni = window.innerWidth <= 600;
   var modal = document.createElement('div');
   modal.id = '_pkModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9600;display:flex;align-items:center;justify-content:center;padding:12px';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9600;display:flex;align-items:center;justify-content:center;padding:' + (pieni ? '0' : '12px');
   // Sulku (× / tausta / tm:adar:saved) → päivitä pikakentät myös manuaalisesti (fallback jos pikakortti ei postita viestiä).
-  var _pkClose = function () { document.getElementById('_pkModal')?.remove(); _pikakorttiRefresh(pid); }; window._pkSulje = _pkClose;
+  var _pkClose = function (popstatesta) { _pkHistPura(popstatesta === true); document.getElementById('_pkModal')?.remove(); _pikakorttiRefresh(pid); }; window._pkSulje = _pkClose;
   modal.addEventListener('click', function (e) { if (e.target === modal) _pkClose(); });
+  if (pieni) {
+    try { history.pushState({ tmPk: 1 }, ''); window._pkHistoria = true; window._pkPopHandler = function () { _pkClose(true); }; window.addEventListener('popstate', window._pkPopHandler); } catch (e) { window._pkHistoria = false; }
+  }
   var box = document.createElement('div');
-  box.style.cssText = 'background:var(--card);border:.5px solid var(--border);border-radius:12px;width:520px;max-width:100%;height:88vh;overflow:hidden;display:flex;flex-direction:column';
+  box.style.cssText = pieni
+    ? 'background:var(--card);border:0;border-radius:0;width:100%;max-width:100%;height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column'
+    : 'background:var(--card);border:.5px solid var(--border);border-radius:12px;width:520px;max-width:100%;height:88vh;overflow:hidden;display:flex;flex-direction:column';
   var hdr = document.createElement('div');
-  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:.5px solid var(--border)';
-  hdr.innerHTML = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink)">👁 ' + masterT('Pelihavainto') + (pid ? (' · ' + _mEsc(_pkPelaajaNimi(pid))) : '') + '</div>';
-  var sulje = document.createElement('button'); sulje.textContent = '×'; sulje.style.cssText = 'background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer';
-  sulje.onclick = _pkClose;
+  /* 44 px:n otsikko (+ turva-alue ylhäällä): nimi näkyy jo pikakortin pelaajarivillä. */
+  hdr.style.cssText = 'flex:none;box-sizing:content-box;height:44px;display:flex;justify-content:space-between;align-items:center;padding:env(safe-area-inset-top) 4px 0 16px;border-bottom:.5px solid var(--border)';
+  hdr.innerHTML = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink)">👁 ' + masterT('Pelihavainto') + '</div>';
+  var sulje = document.createElement('button'); sulje.textContent = '×'; sulje.setAttribute('aria-label', masterT('Sulje')); sulje.style.cssText = 'background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer;width:44px;height:44px';
+  sulje.onclick = function () { _pkClose(); };
   hdr.appendChild(sulje); box.appendChild(hdr);
   var ifr = document.createElement('iframe');
-  ifr.src = src; ifr.style.cssText = 'flex:1;width:100%;border:0;background:#111110';
+  ifr.src = src; ifr.style.cssText = 'flex:1;min-height:0;width:100%;border:0;background:var(--bg)';
   ifr.setAttribute('title', masterT('ADAR-pikakortti'));
   ifr.onload = function () {
     // Same-origin: injektoi konteksti pikakortin ikkunaan (se lukee näitä globaaleja; ei seura-porttia upotettuna).
@@ -11662,7 +11674,7 @@ window.addEventListener('message', function (ev) {
     if (typeof toast === 'function') toast(masterT('Havaintoa ei tallennettu – yritä uudelleen'), 'virhe');
     return;
   }
-  document.getElementById('_pkModal')?.remove();
+  _pkHistPura(); document.getElementById('_pkModal')?.remove();
   if (typeof toast === 'function') toast(masterT('Pelihavainto tallennettu ✓'), 'ok');
   _pikakorttiValmis(pid, (d && typeof d === 'object') ? d : {});
 });
