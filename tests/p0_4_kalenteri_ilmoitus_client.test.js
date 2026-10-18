@@ -130,9 +130,9 @@ describe('ilmoituksen päivä + näkyvyys', () => {
     const ev = { id: 'e1', alkaa: ts(paik(L.FD, 2026, 9, 5, 17)), paattyy: ts(paik(L.FD, 2026, 9, 5, 19)) };
     expect(L.K.tmIlmoitusNakyvissa({ id: 'm', tyyppi: 'muutos', teksti: 'Muutos: X', linkki: 'kalenteri:e1' }, [ev], L.nyt)).toBe(false);
   });
-  it('peruttu pysyy näkyvissä; päivätön muutos/muistutus (ei tietoa) näkyy ennallaan', () => {
+  it('peruttu: menneen tapahtuman peruminen piilossa (B, ks. ilmoitukset_perutut.test.js); päivätön muutos/muistutus (ei tietoa) näkyy ennallaan', () => {
     const L = lib([2026, 9, 20, 10, 0]);
-    expect(L.K.tmIlmoitusNakyvissa({ id: 'p', tyyppi: 'peruttu', teksti: 'Peruttu: X', linkki: 'kalenteri:e9', tapahtuma_alkaa: ts(paik(L.FD, 2026, 9, 5, 17)) }, [], L.nyt)).toBe(true);
+    expect(L.K.tmIlmoitusNakyvissa({ id: 'p', tyyppi: 'peruttu', teksti: 'Peruttu: X', linkki: 'kalenteri:e9', tapahtuma_alkaa: ts(paik(L.FD, 2026, 9, 5, 17)) }, [], L.nyt)).toBe(false);
     expect(L.K.tmIlmoitusNakyvissa({ id: 'x', tyyppi: 'muutos', teksti: 'Muutos: X' }, [], L.nyt)).toBe(true);
     expect(L.K.tmIlmoitusRivi({ id: 'x', tyyppi: 'muistutus', teksti: 'Huomenna: Y' }, [], L.nyt)).toEqual({ nakyvissa: true, runko: 'Huomenna: Y', paiva: null });
   });
@@ -153,7 +153,7 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
       window: { _db: chain, _fbApp: fbApp, localStorage: { getItem: () => null, setItem() {} }, _auth: { currentUser: {} }, _p7Notif: notif.map((f) => f(FD)), _p7Kalenteri: null }, _isDemoUser: false, _pelaaja: { id: 'P', seuraId: 'S' },
       _ladattu: {}, _tab: 'mina', _sc: 'main', draw() {}, t: LANG.t, _thEsc: (x) => String(x) };
     Object.assign(sb, PEL_APU); vm.createContext(sb); vm.runInContext(LIB, sb);
-    vm.runInContext([pura(P7, 'function _p7EvPvm('), pura(P7, 'async function _p7LataaKalenteri('), pura(P7, 'function _p7NotifHTML(')].join('\n')
+    vm.runInContext([pura(P7, 'function _p7EvPvm('), pura(P7, 'async function _p7LataaKalenteri('), pura(P7, 'function _p7KuittausTunniste('), pura(P7, 'function _p7Kuitatut('), pura(P7, 'function _p7NotifHTML(')].join('\n')
       + '\nthis.lataa = _p7LataaKalenteri; this.html = _p7NotifHTML; var _P7_NOTIF_IKO = {muistutus:"🔔"};', sb);
     return { sb, FD, kutsut };
   }
@@ -208,7 +208,7 @@ describe('Vanhempi_v2 — sama suodatus + ilmoituslista', () => {
         { id: 'b', tyyppi: 'muutos', teksti: 'Muutos: Vanha', linkki: 'kalenteri:z', tapahtuma_alkaa: ts(paik(FD, 2026, 9, 1, 12)), luettu: false },
         { id: 'c', tyyppi: 'peruttu', teksti: 'Peruttu: Testi', linkki: 'kalenteri:y', luettu: true }], _vanhKalenteri: null }, _vanhNotifLadattu: true };
     Object.assign(sb, PEL_APU); vm.createContext(sb); vm.runInContext(LIB, sb);
-    vm.runInContext(pura(V2, 'function _vanhNotifHTML(') + '\nthis.html = _vanhNotifHTML;', sb);
+    vm.runInContext(pura(V2, 'function _vanhKuittausTunniste(') + '\n' + pura(V2, 'function _vanhKuitatut(') + '\n' + pura(V2, 'function _vanhNotifHTML(') + '\nthis.html = _vanhNotifHTML;', sb);
     const h = sb.html();
     expect(h).toContain('Tänään: Peli klo 12:00'); expect(h).not.toContain('Muutos: Vanha'); expect(h).toContain('Peruttu: Testi');
   });

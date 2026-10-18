@@ -148,7 +148,7 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Pelaajan kanssa) -->
 <script src="lib/tm_viikko.js?v=1"></script><script src="lib/tm_kalenteri_tilaus_ui.js?v=3"></script>   <!-- K35-7b: "Lisää kalenteriini" (iCal-tilaus) -->
 <script src="lib/tm_harjoituskertyma.js?v=2"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=3"></script>   <!-- K35-6f -->
-<script src="lib/tm_kalenteri_ilmoitus.js?v=4"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
+<script src="lib/tm_kalenteri_ilmoitus.js?v=6"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -529,28 +529,37 @@ async function _vanhLataaNotif() {
   } catch (e) { if (window._lapsi !== L) return; console.warn('[vanh notif]', e && e.message); window._vanhNotif = []; }
   if (typeof draw === 'function') draw();
 }
+function _vanhKuittausTunniste() { var L = window._lapsi; return L ? (L.seuraId + '/' + L.id) : ''; }
+function _vanhKuitatut() { var K = window.TM_KALENTERI_ILM; try { return (K && window.localStorage) ? K.tmIlmoitusKuitatut(window.localStorage, _vanhKuittausTunniste()) : []; } catch (e) { return []; } }
 function _vanhNotifHTML() {
   if (window._vanhNotif === null && !window._vanhNotifLadattu) _vanhLataaNotif();
-  var K = window.TM_KALENTERI_ILM, nyt = new Date();
-  var arr = (window._vanhNotif || []).map(function (n) { return { n: n, r: K ? K.tmIlmoitusRivi(n, window._vanhKalenteri, nyt, t) : { nakyvissa: true, runko: String(n.teksti || ''), paiva: null } }; })
-    .filter(function (x) { return x.r.nakyvissa; });   // V2 P0.4: päättyneen tapahtuman muistutus/muutos piiloon
+  var K = window.TM_KALENTERI_ILM, nyt = new Date(), kuitatut = _vanhKuitatut();
+  var arr = (window._vanhNotif || []).map(function (n) { return { n: n, r: K ? K.tmIlmoitusRivi(n, window._vanhKalenteri, nyt, t, kuitatut) : { nakyvissa: true, runko: String(n.teksti || ''), paiva: null } }; })
+    .filter(function (x) { return x.r.nakyvissa; });   // V2 P0.4: päättyneen tapahtuman muistutus/muutos piiloon · B: peruttu piiloon alkuajan jälkeen tai kun laite on kuitannut
   if (!arr.length) return '';
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var unread = arr.filter(function (x) { return !x.n.luettu; }).length;
   var _paivaTxt = function (p) { return p.tyyppi === 'tanaan' ? t('vanhempi.ilm_tanaan') : p.tyyppi === 'huomenna' ? t('vanhempi.ilm_huomenna') : p.pvmTxt; };
   var rows = arr.slice(0, 6).map(function (x) {
     var n = x.n, teksti = x.r.paiva ? (_paivaTxt(x.r.paiva) + ': ' + x.r.runko) : x.r.runko;
+    if (x.r.pvm) teksti += ' · ' + _vanhVkopv(x.r.pvm.getDay()) + ' ' + x.r.pvm.getDate() + '.' + (x.r.pvm.getMonth() + 1) + '.';   // B: perutun tapahtuman päivä, sama muoto kuin tapahtumalistassa
     return '<div onclick="_vanhNotifTap(\'' + n.id + '\',\'' + (n.linkki || '') + '\')" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:9px;background:' + (n.luettu ? 'transparent' : 'var(--surface)') + ';border:.5px solid ' + (n.luettu ? 'var(--border)' : 'rgba(40,176,144,.28)') + ';margin-bottom:6px;cursor:pointer">'
       + '<span style="font-size:15px;flex-shrink:0">' + (_VANH_NOTIF_IKO[n.tyyppi] || '🔔') + '</span>'
       + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--text);line-height:1.4">' + esc(teksti) + '</span>'
-      + (n.luettu ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:5px"></span>') + '</div>';
+      + (n.luettu ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:5px"></span>')
+      + (n.tyyppi === 'peruttu' ? '<span data-ilm-kuittaa role="button" aria-label="' + esc(t('yleiset.sulje')) + '" onclick="event.stopPropagation();_vanhNotifKuittaa(\'' + n.id + '\')" style="flex-shrink:0;margin:-8px -8px -8px 0;padding:8px 10px;font-size:13px;line-height:1;color:var(--ink3);cursor:pointer">✕</span>' : '') + '</div>';
   }).join('');
   return '<div style="margin:16px 0 4px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">'
     + '<div class="ey">🔔 ' + t('vanhempi.ilmoitukset') + (unread ? ' <span style="background:var(--teal);color:#fff;border-radius:999px;padding:1px 7px;font-size:9px;margin-left:4px">' + unread + '</span>' : '') + '</div>'
     + (unread ? '<span onclick="_vanhNotifKaikkiLuetuksi()" style="font-size:10px;color:var(--ink3);cursor:pointer">' + t('vanhempi.mark_luetuiksi') + '</span>' : '') + '</div>' + rows + '</div>';
 }
+function _vanhNotifKuittaa(id) {   // B: peruttu-ilmoitus kuitataan laitteelle (localStorage) — ei Firestore-kenttää eikä Rules-muutosta
+  var n = (window._vanhNotif || []).find(function (x) { return x.id === id; }), K = window.TM_KALENTERI_ILM;
+  if (n && K && n.tyyppi === 'peruttu') { try { K.tmIlmoitusKuittaa(window.localStorage, _vanhKuittausTunniste(), n); } catch (e) { /* ei estä */ } }
+  if (typeof draw === 'function') draw();
+}
 function _vanhNotifTap(id, linkki) {
-  _vanhMerkitseLuettu(id);
+  _vanhMerkitseLuettu(id); _vanhNotifKuittaa(id);
   if (linkki && linkki.indexOf('kalenteri:') === 0) {
     setTimeout(function () { var el = [].slice.call(document.querySelectorAll('div')).find(function (s) { return /Tulevat tapahtumat/.test(s.textContent) && s.querySelector && s.querySelector('.ey'); }); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80);
   }
@@ -569,7 +578,7 @@ async function _vanhMerkitseLuettu(id) {
   } catch (e) { console.warn('[vanh notif read]', e && e.message); }
 }
 function _vanhNotifKaikkiLuetuksi() { (window._vanhNotif || []).slice().forEach(function (n) { if (!n.luettu) _vanhMerkitseLuettu(n.id); }); }
-window._vanhNotifTap = _vanhNotifTap; window._vanhMerkitseLuettu = _vanhMerkitseLuettu; window._vanhNotifKaikkiLuetuksi = _vanhNotifKaikkiLuetuksi;
+window._vanhNotifKuittaa = _vanhNotifKuittaa; window._vanhNotifTap = _vanhNotifTap; window._vanhMerkitseLuettu = _vanhMerkitseLuettu; window._vanhNotifKaikkiLuetuksi = _vanhNotifKaikkiLuetuksi;
 
 async function _vanhLataaKalenteri() {
   // P7-c-fix (A): demo VAIN ?demo=1:llä (ei yleisenä fallbackina); odota _lapsi + anon-auth; älä latchaa not-ready-
