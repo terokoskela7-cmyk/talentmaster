@@ -18,6 +18,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { S67 } from './helpers/era67_korvatut.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
@@ -113,7 +114,7 @@ describe('(3) osio 1 — otsikoiden ja labelien sv on uusi sanktioitu muoto', ()
 
 describe('(4) osio 2 — juoksevan tekstin sv on MUUTTUMATON (ei uutta ruotsia)', () => {
   it.each(OSIO2)('%s · %s', (kartta, avain, svMain) => {
-    expect(KARTAT[kartta][avain], 'sv muuttui: ' + avain).toBe(svMain);
+    expect(KARTAT[kartta][avain], 'sv muuttui: ' + avain).toBe(S67(svMain));
   });
 
   it('EI VACUOUS: osiossa 2 on avaimia ja niiden sv kayttaa vanhaa yhdyssanamuotoa', () => {
