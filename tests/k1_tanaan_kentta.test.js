@@ -127,7 +127,7 @@ describe('Pelaaja_v7 · lippu liput/julkiset', () => {
     expect(SRC).toContain("html=(typeof _p7KenttaKaytossa==='function' && _p7KenttaKaytossa()) ? rA1Kentta() : rA1();");
     // hash päivitetty sv-läpiajo PR 2:ssa: rA1:n suomenkieliset tekstit reititetty T()-kutsuiksi (fi-renderöinti identtinen, todennettu läpiajon fi-dumpilla)
     const ra1 = pura('function rA1()'); expect(createHash('sha256').update(ra1).digest('hex')).toBe('33801d4a4179e7f893eb6d973a277142a5154e95995f287a54fe67482fa4074b'); expect(ra1).not.toMatch(/K1|rA1Kentta|k1-/);
-    for (const s of ['tm_liput.js?v=1', 'tm_kielletyt.js?v=1', 'tm_tukitavoitteet.js?v=4', 'tm_joukkuejakso.js?v=6', 'tm_taman_tueksi.js?v=2', 'tm_tanaan_kentta.js?v=3']) expect(SRC, s).toContain('<script src="lib/' + s + '"></script>');
+    for (const s of ['tm_liput.js?v=1', 'tm_kielletyt.js?v=1', 'tm_tukitavoitteet.js?v=4', 'tm_joukkuejakso.js?v=6', 'tm_taman_tueksi.js?v=2', 'tm_kentta_spec.js?v=2', 'tm_tanaan_kentta.js?v=4']) expect(SRC, s).toContain('<script src="lib/' + s + '"></script>');
     const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[6-9]|[89]\d|\d{3,})'/); expect(sw).toContain('tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta');   // K4 lisäsi |viikkokatsaus
     expect(SRC).toContain("if (btnId === 'dKirjausBtn' && typeof _p7K1NaytaKuittaus === 'function') _p7K1NaytaKuittaus();");
   });
@@ -137,7 +137,7 @@ describe('Pelaaja_v7 · rA1Kentta — Topias neljässä tilassa + §7.22-portti'
   const VIIKKO = () => ymp();
   it('JAKSO KÄYNNISSÄ: Viikko 1, jakson nimi, osat (kpi, a–b), Tämän tueksi (kuvaus + "Tukee vahvuuttasi (…)" + kotiharjoite), Joukkueen jakso -rivi + viikon tavoite, päivän treeni + kirjaa-nappi, kuittaus piilossa, Pallo joka päivä', () => {
     const h = kortti(VIIKKO());
-    expect(h).toContain('data-k1-tila="jakso"'); expect(h).toContain('Viikko 1'); expect(h).toContain('Kuljettaminen · 6 viikkoa'); expect(h).toContain('Laukaus vauhdista'); expect(h).toContain('Heikompi jalka'); expect(h).toContain('class="kt"');
+    expect(h).toContain('data-k1-tila="jakso"'); expect(h).toContain('Viikko 1'); expect(h).toContain('Kuljettaminen · 6 viikkoa'); expect(h).toContain('Laukaus vauhdista'); expect(h).toContain('Heikompi jalka'); expect(h).not.toContain('class="kt"');   // C: ei valmentajan asettamaa aluetta → ei kenttäpiirrosta (ks. pelaaja_kentta_alue.test.js)
     expect(h).toContain('Tämän tueksi'); expect(h).toContain('Kehonhallinta'); expect(h).toContain('Tukee vahvuuttasi (Tempokuljetus): kehonhallinta.'); expect(h).toContain('Seinäsyöttö'); expect(h).toContain('Keksitty FC');
     expect(h).toContain('Joukkueen jakso · Viikko 1'); expect(h).toContain('Ensikosketus pelaa'); expect(h).toContain('Päivän treeni'); expect(h).toContain('id="dKirjausBtn"'); expect(h).toContain('id="k1Kuittaus"'); expect(h).toContain('display:none'); expect(h).toContain('id="tKirjausBtn"'); expect(h).toContain('Pallo joka päivä');
     expect(h).toContain('notif-merkki'); expect(h).toContain('aikataulu-merkki'); expect(h).toContain('data-card'); expect(h).not.toContain('VANHA-RA1');
@@ -145,8 +145,8 @@ describe('Pelaaja_v7 · rA1Kentta — Topias neljässä tilassa + §7.22-portti'
   it('EI JAKSOA (vahvuus näkyy): Oma kenttä + valmentaja valmistelee; ei Tämän tueksi -korttia eikä joukkueen jaksoa; päivän treeni silti', () => {
     const h = kortti(ymp({ p: TOPIAS({ jaksofokus: null }) })); expect(h).toContain('data-k1-tila="vahvuus"'); expect(h).toContain('Valmentaja valmistelee jaksoa'); expect(h).toContain('Tempokuljetus'); expect(h).not.toContain('Tämän tueksi'); expect(h).not.toContain('Joukkueen jakso'); expect(h).toContain('Päivän treeni');
   });
-  it('EI VAHVUUTTA EIKÄ JAKSOA: tyhjä kenttä, "vielä tyhjä, ja se on ok", "Siihen asti: pelaa."; kenttä silti piirtyy', () => {
-    const h = kortti(ymp({ p: TOPIAS({ jaksofokus: null, ydinvahvuus: null }) })); expect(h).toContain('data-k1-tila="tyhja"'); expect(h).toContain('Vielä tyhjä, ja se on ok'); expect(h).toContain('Siihen asti: pelaa.'); expect(h).toContain('class="kt"'); expect(h).not.toContain('Tämän tueksi');
+  it('EI VAHVUUTTA EIKÄ JAKSOA: tyhjä kenttä, "vielä tyhjä, ja se on ok", "Siihen asti: pelaa."; ei aluetta → ei kenttää (C)', () => {
+    const h = kortti(ymp({ p: TOPIAS({ jaksofokus: null, ydinvahvuus: null }) })); expect(h).toContain('data-k1-tila="tyhja"'); expect(h).toContain('Vielä tyhjä, ja se on ok'); expect(h).toContain('Siihen asti: pelaa.'); expect(h).not.toContain('class="kt"');   // C: ei aluetta → ei tyhjää kenttää expect(h).not.toContain('Tämän tueksi');
   });
   it('SUNNUNTAI: sunnuntaitila + K4-koukku (tyhjä); jakson sisältö ennallaan', () => {
     const e = ymp(); e.sb._paivaIso = () => '2026-11-15'; const h = kortti(e); expect(h).toContain('data-k1-tila="sunnuntai"'); expect(h).toContain('id="k1-sunnuntai"'); expect(h).toContain('Tämän tueksi');
@@ -186,5 +186,46 @@ describe('tmTanaanOsat · ctx.max (A13 jatko 2): pelaajasovellus enintään 3, h
     expect(K.tmTanaanOsat({ konsepti_avain: 'x' }, { kaanon: KPI5 })).toHaveLength(3);
     const kaikki = K.tmTanaanOsat({ konsepti_avain: 'x' }, { kaanon: KPI5, max: 26 });
     expect(kaikki.map((o) => o.k).join('')).toBe('abcde'); expect(kaikki.map((o) => o.koodi)).toEqual(['k1', 'k2', 'k3', 'k4', 'k5']);
+  });
+});
+
+/* ── C (18.10.2026): pelaajan Kenttä näyttää valmentajan asettaman alueen (ydinvahvuus.alue) — sama tmKentta + tm_kentta_spec.js-adapteri, rooli pelaaja (D98).
+   Ei numeroita pelaajalle (§7.22); ei aluetta → ei kenttäpiirrosta lainkaan (ei tyhjää kenttää). Reitti/viikkomerkit/osat jäävät R1:een. ── */
+describe('C · pelaajan Kenttä: valmentajan asettama alue', () => {
+  const ALUE = { x: 30, y: 40, w: 40, h: 30 };
+  const ALUEELLA = (lisa) => TOPIAS(Object.assign({ ydinvahvuus: { kuvaus: 'Tempokuljetus', alue: ALUE, asetti_uid: 'u1', asetettu_pvm: '2026-11-03' } }, lisa || {}));
+  const teksti = (h) => h.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, ' ');
+  it('tmKenttaPelaajalle: alue asetettu → ase (alue + nimi), ei reittiä/viikkoja/osia/historiaa; ei aluetta / kelvoton alue / tyhjä pelaaja → null', () => {
+    const s = K.tmKenttaPelaajalle(ALUEELLA(), { tanaan: TANAAN });
+    expect(s.ase).toEqual({ alue: ALUE, nimi: 'Tempokuljetus', tila: 'ok' }); expect(s.koko).toBe('puoli');
+    expect([s.reitti, s.viikot, s.lempipaikka, s.vaihtoehdot]).toEqual([null, null, null, null]); expect(s.osat).toEqual([]); expect(s.historia).toEqual([]); expect(s.ilmanAluetta).toBeUndefined();
+    for (const p of [TOPIAS(), TOPIAS({ ydinvahvuus: null }), ALUEELLA({ ydinvahvuus: { kuvaus: 'X', alue: { x: 90, y: 40, w: 40, h: 30 } } }), ALUEELLA({ ydinvahvuus: { kuvaus: 'X', alue: 'iso' } }), {}, null]) expect(K.tmKenttaPelaajalle(p, { tanaan: TANAAN }), JSON.stringify(p)).toBeNull();
+  });
+  it('valmentajan reitti, osa-arviot ja historia eivät vuoda pelaajalle (arviointitasot §7.22)', () => {
+    const p = ALUEELLA({ jaksofokus: Object.assign(JAKSO(), { reitti: { loppu: 'maali' }, osa_arviot: { y_h2: { k1: 3 } } }), jaksofokus_historia: [{ reitti: { loppu: 'kaveri' } }] });
+    const s = K.tmKenttaPelaajalle(p, { tanaan: TANAAN }), h = TKent.tmKentta(s, { wrap: true });
+    expect(s.reitti).toBeNull(); expect(h).not.toMatch(/kt-(reitti|vk|osa|piste|hist)/); expect(h).toContain('kt-ase');
+  });
+  it('alue ulottuu yli puolikkaan → koko kenttä; muuten puolikas', () => { expect(K.tmKenttaPelaajalle(ALUEELLA({ ydinvahvuus: { kuvaus: 'X', alue: { x: 30, y: 90, w: 40, h: 30 } } }), { tanaan: TANAAN }).koko).toBe('koko'); });
+  it('rA1Kentta: alue asetettu → kenttä piirtyy alueen kanssa ("sinun vahvuutesi"), jaksokortti ja osat sanoin säilyvät; ei numeroita kenttäkorttiin (viikko-otsikko poislukien)', () => {
+    const h = kortti(ymp({ p: ALUEELLA() }));
+    expect(h).toContain('class="kt"'); expect(h).toMatch(/class="kt-ase"[^>]*><b>Tempokuljetus<\/b><span>[^<]+<\/span>/); expect(h).toContain('Viikko 1'); expect(h).toContain('Laukaus vauhdista');
+    const kt = /<div class="kt">[\s\S]*?<\/div>\s*<\/div>/.exec(h.replace(/<style[\s\S]*?<\/style>/g, ''))[0];
+    expect(teksti(kt).replace(/Tempokuljetus/g, '')).not.toMatch(/\d/);   // kentän teksteissä ei lukuja (alue/nimi/sub); koordinaatit vain tyyleissä
+    expect(kt).not.toMatch(/kt-(reitti|vk|osa|piste|hist)/);
+  });
+  it('rA1Kentta: ei aluetta → EI kenttäpiirrosta missään tilassa (jakso / vahvuus / tyhjä), jaksokortti ja ohjeet näkyvät', () => {
+    for (const [p, tila] of [[TOPIAS(), 'jakso'], [TOPIAS({ jaksofokus: null }), 'vahvuus'], [TOPIAS({ ydinvahvuus: null, jaksofokus: null }), 'tyhja']]) {
+      const h = kortti(ymp({ p })), ilmanCss = h.replace(/<style[\s\S]*?<\/style>/g, ''); expect(h, tila).toContain('data-k1-tila="' + tila + '"'); expect(h, tila).not.toContain('class="kt"'); expect(ilmanCss, tila).not.toContain('<svg');
+    }
+  });
+  it('rA1Kentta: alue ilman jaksoa (vahvuus-tila) → kenttä piirtyy; sv-tila: "din styrka"', () => {
+    const h = kortti(ymp({ p: ALUEELLA({ jaksofokus: null }) })); expect(h).toContain('data-k1-tila="vahvuus"'); expect(h).toContain('class="kt"'); expect(h).toContain('kt-ase');
+  });
+  it('lähdetaso: adapteri ladataan ennen tm_tanaan_kentta.js:ää, SW cachettaa sen, Rules: pelaaja lukee oman pelaajadokumentin (onPelaajaItse) → ei Rules-muutosta', () => {
+    expect(SRC.indexOf('lib/tm_kentta_spec.js?v=')).toBeGreaterThan(-1); expect(SRC.indexOf('lib/tm_kentta_spec.js?v=')).toBeLessThan(SRC.indexOf('lib/tm_tanaan_kentta.js?v='));
+    expect(readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8')).toContain("/lib/tm_kentta_spec.js");
+    const rules = readFileSync(join(juuri, 'tm_admin/firestore.rules'), 'utf8'), i = rules.indexOf('match /pelaajat/{pelaajaId} {');
+    expect(i).toBeGreaterThan(-1); expect(rules.slice(i, i + 700)).toMatch(/allow read:[\s\S]*onPelaajaItse\(seuraId, pelaajaId\)/);
   });
 });
