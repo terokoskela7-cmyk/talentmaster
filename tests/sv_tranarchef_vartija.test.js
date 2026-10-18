@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const I = require('../scripts/i18n_tranarchef_inventaario.cjs');
-const ERA67_ODOTTAA = true;   // false kun erä 67 on viety (scripts/i18n_vie_sv_era67.cjs)
+const ERA67_ODOTTAA = false;   // false kun erä 67 on viety (scripts/i18n_vie_sv_era67.cjs)
 const odottavat = () => {
   if (!ERA67_ODOTTAA) return new Set();
   const g = JSON.parse(readFileSync(new URL('../docs/i18n/sv_kaannoserae_67_gemini.json', import.meta.url), 'utf8')).osiot, s = new Set();

@@ -44,8 +44,8 @@ describe('C2 — glossaari-konformi tm_lang.js:ään', () => {
       expect(C.TM_I18N_COMMON.sv[fi]).toBe(sv);
     });
   });
-  it('roolikanoni (V0.1): Valmennuspäällikkö → Fotbollsutvecklare', () => {
-    expect(C.TM_I18N_COMMON.sv['Valmennuspäällikkö']).toBe('Fotbollsutvecklare');
+  it('roolikanoni (V0.1): Valmennuspäällikkö → Tränarchef (Teron päätös 18.10.2026, erä 67)', () => {
+    expect(C.TM_I18N_COMMON.sv['Valmennuspäällikkö']).toBe('Tränarchef');
   });
 });
 
@@ -101,7 +101,7 @@ describe('C4 — resolvi-semantiikka (tmI18nResolve)', () => {
     expect(VP.vpT('Toimenpiteet')).toBe('Åtgärder');    // VP-sivukartta
     expect(VP.vpT('Kehon valmius')).toBe('Kroppslig beredskap');   // drift korjattu (common)
     expect(VP.vpT('Pujottelu')).toBe('Slalom');         // Kim-virhe korjattu (common)
-    expect(VP.vpT('Valmennuspäällikkö')).toBe('Fotbollsutvecklare');   // V0.1 roolikanoni (commonista)
+    expect(VP.vpT('Valmennuspäällikkö')).toBe('Tränarchef');   // V0.1 roolikanoni (commonista)
     expect(VP.vpT('Pituuspotku (bonus)')).toBe('Längdspark (bonus)');   // V0.1 laji-jäänne korjattu (VP-sivukartta)
   });
 });
