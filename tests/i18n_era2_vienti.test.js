@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { S67 } from './helpers/era67_korvatut.mjs';
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -34,19 +35,19 @@ describe('Gemini-erä 2 — vienti', () => {
     const tmLangTyhjat = tyhjat.filter(([o]) => o === 'tm_lang').map(([o, a]) => o + '::' + a).sort();
     expect(tmLangTyhjat).toEqual(ODOTTAA.slice().sort());
   });
-  it('tm_lang', () => { for (const [p, r] of rivit('tm_lang')) if (r.sv && !palautettu('tm_lang', p)) expect(polku(L, p), p).toBe(r.sv); });
+  it('tm_lang', () => { for (const [p, r] of rivit('tm_lang')) if (r.sv && !palautettu('tm_lang', p)) expect(polku(L, p), p).toBe(S67(r.sv)); });
   it('lib-osiot → TM_LIB_I18N.sv', () => {
     for (const o of ['lib_adar_nimet', 'lib.rubriikit', 'lib.tm_kentta', 'lib.tm_adar_tekstit', 'lib.tm_pelihavainto_valinta', 'lib.tm_havaintohistoria', 'lib.tm_tanaan_signaali'])
-      for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(LIB[a], o + ' ' + a).toBe(r.sv);
+      for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(LIB[a], o + ' ' + a).toBe(S67(r.sv));
   });
   it('vp_kartta / master_kartta / henkilosto_kartta', () => {
-    for (const [o, M] of [['vp_kartta', VP], ['master_kartta', MA], ['henkilosto_kartta', HE]]) for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(M[a], o + ' ' + a).toBe(r.sv);
+    for (const [o, M] of [['vp_kartta', VP], ['master_kartta', MA], ['henkilosto_kartta', HE]]) for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(M[a], o + ' ' + a).toBe(S67(r.sv));
   });
   it('jäännökset: Förening-rivit, kausifokus, VP×Master yhtenäistetty', () => {
     const kartta = { vp: VP, master: MA, common: CO };
-    for (const [a, r] of rivit('jaannos.seura_forening')) { if (palautettu('jaannos.seura_forening', a)) continue; expect(r.kohde === 'tm_lang' ? polku(L, r.polku) : kartta[r.kohde][r.fi], a).toBe(r.sv); }
-    for (const [a, r] of rivit('jaannos.kausifokus')) if (!palautettu('jaannos.kausifokus', a)) expect(kartta[r.kohde][r.fi], a).toBe(r.sv);
-    for (const [fi, r] of rivit('jaannos.vp_master')) if (!palautettu('jaannos.vp_master', fi)) { expect(VP[fi], fi).toBe(r.sv); expect(MA[fi], fi).toBe(r.sv); }
+    for (const [a, r] of rivit('jaannos.seura_forening')) { if (palautettu('jaannos.seura_forening', a)) continue; expect(r.kohde === 'tm_lang' ? polku(L, r.polku) : kartta[r.kohde][r.fi], a).toBe(S67(r.sv)); }
+    for (const [a, r] of rivit('jaannos.kausifokus')) if (!palautettu('jaannos.kausifokus', a)) expect(kartta[r.kohde][r.fi], a).toBe(S67(r.sv));
+    for (const [fi, r] of rivit('jaannos.vp_master')) if (!palautettu('jaannos.vp_master', fi)) { expect(VP[fi], fi).toBe(S67(r.sv)); expect(MA[fi], fi).toBe(S67(r.sv)); }
   });
   it('uusi seura-sana: tm_lang/vp/master/common eivät sisällä enää "klubb" (paitsi palautetut)', () => {
     const jaljella = [];

@@ -15,7 +15,7 @@ tyhjät `sv`-kentät yhteen (444 riviä; sama suomenkielinen teksti vain kerran)
 
 - Paikanvaraajat `{n}`, `{nimi}`, `{vk}`, `{a}`, `{b}`, `{pros}`, `{pv}`, `{aika}` jne. täsmälleen samoin kirjoitettuina. Sanajärjestyksen saa muuttaa, paikanvaraajia ei saa lisätä, poistaa eikä kääntää.
 - Poikkeus `{gen}`: sitä ei käytetä sv-teksteissä (koodi täyttää sen suomen genetiivillä). Jos `fi`-tekstissä on `{gen}`, muotoile sv-lause ilman sitä.
-- Emojit, nuolet (→, ▷, ›), symbolit (＋, ✓, ✎, ⭐, 🎯 jne.), lyhenteet (PHV, ADAR, H-H, IDP, 5D, D4, VP, FU) ja HTML-entiteetit (`&amp;`, `&quot;`) sellaisinaan.
+- Emojit, nuolet (→, ▷, ›), symbolit (＋, ✓, ✎, ⭐, 🎯 jne.), lyhenteet (PHV, ADAR, H-H, IDP, 5D, D4, VP) ja HTML-entiteetit (`&amp;`, `&quot;`) sellaisinaan.
 - Luvut, prosentit, §-viittaukset ja koodit (esim. `1v1`, `4v4+3`) sellaisinaan.
 - **Alku- ja loppuvälilyönnit säilyvät.** Osa riveistä on lauseen paloja (esim. `" pelaajaa vahvistettu"`, `"Seuraava fokus ("`), jotka koodi liittää muuhun tekstiin. Käännä pala niin, että liitettävä jatko (luku, nimi, sulku) toimii.
 - Tyyli: tekstit ovat käyttöliittymätekstejä — lyhyitä. Säilytä suomen välimerkit ja isot/pienet alkukirjaimet silloin, kun ne ovat osa tyyliä (otsikko vs. lause).
@@ -102,7 +102,8 @@ Vältettävä: **ase** (D54).
 | fi | sv |
 |---|---|
 | Seura | Förening |
-| Valmennuspäällikkö | Fotbollsutvecklare (lyhenne FU) |
+| Valmennuspäällikkö | tränarchef (Teron päätös 18.10.2026; lyhenne TC vain ahtaissa näkymissä) |
+| VP | tränarchef — ei FU / Fotbollsutvecklare. Lyhenne TC vain ahtaissa näkymissä. Taivutus: tränarchefen / tränarchefens / tränarchefer |
 | Urheilutoimenjohtaja | Sportchef |
 | Fysiikkavalmentaja | Fystränare |
 | Kehityskaari | Utvecklingskurva |

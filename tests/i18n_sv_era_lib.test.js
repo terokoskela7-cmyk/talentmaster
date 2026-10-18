@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { S67 } from './helpers/era67_korvatut.mjs';
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const ERA = JSON.parse(lue('docs/i18n/sv_kaannoserae_2026-10-08.json'));
@@ -15,7 +16,7 @@ const LIB = require('../lib/tm_lib_i18n.js');
 const SV = LIB.TM_LIB_I18N.sv;
 const LIBIT = ['tm_kasvupyrahdys', 'tm_kt_arviointi', 'tm_kt_alue', 'tm_kt_toimintakortti', 'tm_sanasto', 'tm_kehitystyopoyta', 'tm_kevyt_katselmus', 'tm_klippi_perhe', 'tm_mediaviesti', 'tm_reitin_valinta', 'tm_ryhmat', 'tm_taman_tueksi', 'tm_kt_sivu', 'tm_kt_polku', 'tm_kt_havainto', 'tm_tanaan_kentta', 'tm_tanaan_signaali', 'tm_viikkokatsaus'];
 // Libin FI-avaimet, joille sv puuttuu (palautetaan Geminille; fi-fallback). Portti on elävä: sv saapui → poista rivi.
-const LIB_SV_ODOTTAA = ['ktp_viikko_ots', 'ktp_viikko_luku', 'ktp_pv_ma', 'ktp_pv_ti', 'ktp_pv_ke', 'ktp_pv_to', 'ktp_pv_pe', 'ktp_pv_la', 'ktp_pv_su', 'ktp_ev_harjoitus', 'ktp_ev_ottelu', 'ktp_vk_katsaus', 'ktp_vk_vastattu', 'ktp_vk_odottaa', 'ktp_vk_ei_tapahtumia', 'ktp_vk_lahde', 'ktp_virhe_viikko', 'ktp_aani', 'ktp_a_kausi', 'ktp_a_klippi', 'ktp_a_vk', 'ktp_a_uusinta', 'ktp_a_omaa', 'ktp_historia', 'ktp_h_tyhja', 'ktp_h_osaa', 'ktp_h_vaihdettu', 'ktp_h_vk', 'ktp_h_lause_valm', 'ktp_h_lause_vp', 'ktp_h_klipit', 'mv_rivi_ajastettu', 'mv_lahetetty_ajastettu_lisa', 'kp_katso', 'kp_merkki_uusi']   // erät 65 (B4b Polku) + 66 (ajastettu-tila) odottavat Geminiä — tyhjennä kun palautus viety · aiemmin: erä 64 vietiin 17.10.2026
+const LIB_SV_ODOTTAA = ['kp_katso', 'kp_merkki_uusi']   // erä 68 (A: klippikortti) odottaa Geminiä — tyhjennä kun palautus viety · aiemmin: erät 65 + 66 vietiin 18.10.2026 (scripts/i18n_vie_sv_era65.cjs, era66.cjs)
 const _VANHA_LIB_ODOTTAA = [];   // ts_otsikko saapui Gemini-erässä 2 (lib.tm_tanaan_signaali) ja vietiin scripts/i18n_vie_sv_era2.cjs:llä
 // PR 5: erän 2 lib-osiot (ADAR-nimet, rubriikit, Kenttä, ADAR-tekstit, pelihavainto-valinta, havaintohistoria, ts_otsikko) — avain = lib-avain tai fi-teksti
 const ERA2 = JSON.parse(lue('docs/i18n/sv_kaannoserae_2.json'));
@@ -52,7 +53,7 @@ describe('kirjastokartta: kattavuus ja muuttujat', () => {
     expect(Object.keys(SV).filter((k) => typeof SV[k] === 'string' && SV[k].indexOf('{gen}') >= 0)).toEqual([]);
   });
   it('sv-arvot ovat täsmälleen Gemini-erän JSONin arvot (kopioitu skriptillä, ei käsin) — alun/lopun välilyönnit ja entiteetit mukaan', () => {
-    for (const l of LIBIT.filter((x) => ERA.osiot['lib.' + x])) for (const [k, r] of Object.entries(ERA.osiot['lib.' + l].rivit)) expect(SV[k], l + ' ' + k).toBe(r.sv);
+    for (const l of LIBIT.filter((x) => ERA.osiot['lib.' + x])) for (const [k, r] of Object.entries(ERA.osiot['lib.' + l].rivit)) expect(SV[k], l + ' ' + k).toBe(S67(r.sv));
   });
   it('mv_pohjat: 3 tyyppiä × 3 rekisteriä × 3 kysymystä, sama muoto kuin fi (POHJAT)', () => {
     const POHJAT = require('../lib/tm_mediaviesti.js').POHJAT;
@@ -157,7 +158,7 @@ describe('vienti: kartat sisältävät Gemini-erän rivit sellaisinaan', () => {
   const sb = sandbox('sv');
   it('tm_lang: 58 riviä, sv = JSON; ei odotuslistalla', () => {
     const L = require('../lib/tm_lang.js').TM_LANG; const rivit = ERA.osiot.tm_lang.rivit; expect(Object.keys(rivit).length).toBe(58);
-    for (const [p, r] of Object.entries(rivit)) expect(p.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L.sv), p).toBe(r.sv);
+    for (const [p, r] of Object.entries(rivit)) expect(p.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L.sv), p).toBe(S67(r.sv));
     // erän 58 riviä ovat valmiita: yksikään niistä ei saa olla odotuslistalla (lista sisältää vain myöhempien PR:ien uudet fi+en-avaimet)
     expect(require('./tm_lang_sv_odotuslista.cjs').filter((a) => a in rivit)).toEqual([]);
   });
@@ -165,7 +166,7 @@ describe('vienti: kartat sisältävät Gemini-erän rivit sellaisinaan', () => {
     const cm = vm.runInContext('TM_I18N_COMMON.sv', sb), vp = vm.runInContext('TM_VP_I18N.sv', sb), ma = vm.runInContext('TM_MASTER_I18N.sv', sb);
     for (const [osio, kartta, n] of [['vp_kartta', vp, 193], ['vp_otsikot_data_i18n', vp, 4], ['master_kartta', ma, 67], ['master_otsikot_data_i18n', ma, 3]]) {
       const rivit = ERA.osiot[osio].rivit; expect(Object.keys(rivit).length, osio).toBe(n);
-      for (const [fi, r] of Object.entries(rivit)) expect(kartta[fi], osio + ' ' + fi).toBe(r.sv);
+      for (const [fi, r] of Object.entries(rivit)) expect(kartta[fi], osio + ' ' + fi).toBe(S67(r.sv));
     }
     for (const k of [...Object.keys(ERA.osiot.vp_kartta.rivit), ...Object.keys(ERA.osiot.vp_otsikot_data_i18n.rivit), ...Object.keys(ERA.osiot.master_kartta.rivit), ...Object.keys(ERA.osiot.master_otsikot_data_i18n.rivit)]) expect(k in cm, 'dedupe-invariantti (common): ' + k).toBe(false);
   });
