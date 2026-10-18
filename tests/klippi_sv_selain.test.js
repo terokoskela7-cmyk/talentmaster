@@ -23,7 +23,7 @@ const CHROME = [process.env.TM_CHROME_PATH, '/Applications/Google Chrome.app/Con
 const MV = require('../lib/tm_mediaviesti.js'), KP = require('../lib/tm_klippi_perhe.js'), LIB = require('../lib/tm_lib_i18n.js'), LANG = require('../lib/tm_lang.js');
 
 /* Klippipolun lib-avaimet, joille sv puuttuu (docs/i18n/sv_kaannoserae_36.json → Gemini; 15.10.2026 erät 51+52 vietiin). Elävä: sv saapui → poista rivi (testi alla kaatuu muuten). */
-export const SV_ODOTTAA = ['kp_katso', 'kp_merkki_uusi'];   // A (18.10.2026): klippikortin painike + Uusi-merkki odottavat Geminiä (oma erä) · aiemmin erä 42: ryhmäklippi + oma videoklippi -varaus
+export const SV_ODOTTAA = [];   // A (18.10.2026): klippikortin painike + Uusi-merkki saapuivat erässä 68 ja vietiin (scripts/i18n_vie_sv_era68.cjs) · aiemmin erä 42: ryhmäklippi + oma videoklippi -varaus
 /* Valmentajan pelaajanäkymän Masterin fi-tekstiavaimet (masterT), joille sv puuttuu Master-kartasta (docs/i18n/sv_kaannoserae_37.json → Gemini). Elävä: sv saapui → poista rivi. */
 export const MASTER_SV_ODOTTAA = ['ei asetettu'];   // lib/tm_vastuuhenkilo.js t('ei asetettu') masterT:n kautta (IDP-kortin Vastuuhenkilö-rivi)
 const MA_SV = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;

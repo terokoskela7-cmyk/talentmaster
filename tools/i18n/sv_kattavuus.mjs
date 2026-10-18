@@ -36,7 +36,7 @@ export const NAKYMAT = [
 const RUNTIME_PROTOTYYPIT = ['pelaaja/haptic', 'pelaaja/offline', 'pelaaja/parent', 'pelaaja/vapaa', 'pelaaja/haaste'];
 
 /* ── Lähetetyt erät (odottaa palautusta): 51 ja 52. Muiden erien tyhjät sv-rivit raportoidaan erikseen ("muu erä"), ei lasketa odottaviksi. ── */
-const ODOTTAVAT_ERAT = [68];   // erä 68 (A: klippikortti; lib.tm_klippi_perhe kp_katso + kp_merkki_uusi, 2 riviä), sv tyhjä, odottaa Geminiä — tyhjennä kun palautus viety · aiemmin: erät 65 + 66 palautettiin ja vietiin 18.10. (scripts/i18n_vie_sv_era65.cjs, era66.cjs)
+const ODOTTAVAT_ERAT = [];   // erä 68 (A: klippikortti, 2 riviä) palautettiin ja vietiin 18.10. (scripts/i18n_vie_sv_era68.cjs) · aiemmin: erät 65 + 66 palautettiin ja vietiin 18.10. (scripts/i18n_vie_sv_era65.cjs, era66.cjs)
 const ERA_OMA = 54;   // erä 54 on scripts/i18n_luo_gemini_era54.mjs:n OMA tuloste: generaattori laskee ilmanOmaaEraa:true (muuten rivit näkyisivät jo odottavina)
 function eratIndeksi(ilmanOmaa) {
   const ulos = { odottaa: { avain: new Set(), fi: new Set() }, muu: { avain: new Map(), fi: new Map() }, palautettu: { avain: new Map(), fi: new Map() } };
