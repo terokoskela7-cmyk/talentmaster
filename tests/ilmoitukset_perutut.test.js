@@ -46,6 +46,17 @@ describe('B1 · peruttu näkyy vain kunnes alkuhetki on mennyt', () => {
   });
 });
 
+describe('B · perutun tapahtuman päivä (lib)', () => {
+  const ev = { id: 'e1', alkaa: ts(D(2026, 9, 23, 17)), paattyy: ts(D(2026, 9, 23, 18)) };
+  it('pvm = tapahtuma_alkaa, muuten linkitetty tapahtuma, muuten ei kenttää; muu tyyppi ei saa pvm:ää', () => {
+    expect(K.tmIlmoitusRivi(peruttu({ tapahtuma_alkaa: ts(D(2026, 9, 21, 17)) }), [], NYT).pvm.getDate()).toBe(21);
+    expect(K.tmIlmoitusRivi(peruttu(), [ev], NYT).pvm.getDate()).toBe(23);
+    expect('pvm' in K.tmIlmoitusRivi(peruttu(), [], NYT)).toBe(false);
+    expect('pvm' in K.tmIlmoitusRivi({ id: 'm', tyyppi: 'muutos', teksti: 'Muutos: X', tapahtuma_alkaa: ts(D(2026, 9, 21, 17)) }, [], NYT)).toBe(false);
+  });
+  it('kellonajaton (keskiyö) tapahtuma pysyy omalla päivällään', () => { expect(K.tmIlmoitusRivi(peruttu({ tapahtuma_alkaa: ts(D(2026, 9, 21)) }), [], NYT).pvm.getDate()).toBe(21); });
+});
+
 describe('B2 · kuittaus laitteelle', () => {
   const tul = () => peruttu({ tapahtuma_alkaa: ts(D(2026, 9, 21, 17)) });
   it('kuitattu ei näy uudelleenlatauksen (uuden lukukerran) jälkeen', () => {
@@ -86,7 +97,8 @@ function app(nimi, notifit, storage) {
   const win = pel ? { _p7Notif: notifit, _p7Kalenteri: [], localStorage: storage } : { _vanhNotif: notifit, _vanhKalenteri: [], _lapsi: { seuraId: 's1', id: 'p1' }, localStorage: storage };
   const sb = { Date: FD, String, Array, Object, RegExp, JSON, console: { warn() {} }, setTimeout() {}, document: { querySelectorAll: () => [] }, t: LANG.t, T: (k) => (k === 'ilmoitukset' ? 'Ilmoitukset' : LANG.t(k)), draw() {}, window: win, _ladattu: { notif: true }, _vanhNotifLadattu: true, _P7_NOTIF_IKO: {}, _VANH_NOTIF_IKO: {}, _thEsc: (s) => s, _pelaaja: { seuraId: 's1', id: 'p1' }, _isDemoUser: false };
   vm.createContext(sb); vm.runInContext(LIB, sb);
-  const f = pel ? ['function _p7KuittausTunniste(', 'function _p7Kuitatut(', 'function _p7NotifHTML(', 'function _p7NotifKuittaa(', 'function _p7NotifTap('] : ['function _vanhKuittausTunniste(', 'function _vanhKuitatut(', 'function _vanhNotifHTML(', 'function _vanhNotifKuittaa(', 'function _vanhNotifTap('];
+  vm.runInContext(pel ? "var _P7_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];" : "var _VANH_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];", sb);
+  const f = pel ? ['function _p7Vkopv(', 'function _p7KuittausTunniste(', 'function _p7Kuitatut(', 'function _p7NotifHTML(', 'function _p7NotifKuittaa(', 'function _p7NotifTap('] : ['function _vanhVkopv(', 'function _vanhKuittausTunniste(', 'function _vanhKuitatut(', 'function _vanhNotifHTML(', 'function _vanhNotifKuittaa(', 'function _vanhNotifTap('];
   vm.runInContext(f.map((x) => pura(src, x)).join('\n') + '\nthis.html = ' + (pel ? '_p7NotifHTML' : '_vanhNotifHTML') + '; this.kuittaa = ' + (pel ? '_p7NotifKuittaa' : '_vanhNotifKuittaa') + '; this.tap = ' + (pel ? '_p7NotifTap' : '_vanhNotifTap') + ';\nthis._p7MerkitseLuettu = this._vanhMerkitseLuettu = function () {};', sb);
   return sb;
 }
@@ -100,6 +112,12 @@ describe.each(['pelaaja', 'vanhempi'])('%s-sovellus · perutut ilmoituksissa', (
     const h = app(nimi, lista(), muisti()).html();
     expect(h).not.toContain('Peruttu: Mennyt'); expect(h).toContain('Peruttu: Tuleva'); expect(h).toContain('data-ilm-kuittaa'); expect(h).toContain('✕');
     expect(h).toMatch(/Ilmoitukset[^<]*<span[^>]*>2</);
+  });
+  it('rivillä on tapahtuman päivä (tapahtuma_alkaa), muoto kuten tapahtumalistassa; ei päivää → rivi ennallaan', () => {
+    const h = app(nimi, lista(), muisti()).html();
+    expect(h).toContain('Peruttu: Tuleva · Ke 21.10.'); expect(h).toContain('Peruttu: Toinen tuleva · To 22.10.');   // 18.10.2026 on sunnuntai → 21.10. keskiviikko
+    const ilman = app(nimi, [peruttu({ id: 'z', teksti: 'Peruttu: Päiväämätön', luotu: ts(D(2026, 9, 19, 12)) })], muisti()).html();
+    expect(ilman).toContain('Peruttu: Päiväämätön<'); expect(ilman).not.toContain('Peruttu: Päiväämätön ·');
   });
   it('kuittaus (✕) poistaa rivin ja pysyy poissa uudelleenlatauksen jälkeen (uusi sovellusinstanssi, sama muisti)', () => {
     const S = muisti(), a = app(nimi, lista(), S); a.kuittaa('b');
