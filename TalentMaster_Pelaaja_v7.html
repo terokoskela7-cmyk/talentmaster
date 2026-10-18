@@ -588,7 +588,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Vanhemman kanssa) -->   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
 <script src="lib/tm_kalenteri_tilaus_ui.js?v=3"></script>   <!-- K35-7b: "Lisää kalenteriini" (iCal-tilaus) -->
 <script src="lib/tm_harjoituskertyma.js?v=2"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=3"></script>   <!-- K35-6f -->
-<script src="lib/tm_kalenteri_ilmoitus.js?v=4"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
+<script src="lib/tm_kalenteri_ilmoitus.js?v=5"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="lib/tm_kehityskaari.js?v=7"></script>   <!-- Trendi Vaihe 2: kehityskaari (§7.22 kannustava) · v4 = K4 (FLEI "Kehon valmius" + §22 alusta-vartija pelaaja-renderissä) -->
 </head>
 <body>
@@ -2720,11 +2720,13 @@ async function _p7LataaNotif() {
   } catch (e) { console.warn('[p7 notif]', e && e.message); window._p7Notif = []; }
   if (typeof draw === 'function') draw();
 }
+function _p7KuittausTunniste() { return (typeof _pelaaja !== 'undefined' && _pelaaja) ? (_pelaaja.seuraId + '/' + _pelaaja.id) : ''; }
+function _p7Kuitatut() { var K = window.TM_KALENTERI_ILM; try { return (K && window.localStorage) ? K.tmIlmoitusKuitatut(window.localStorage, _p7KuittausTunniste()) : []; } catch (e) { return []; } }
 function _p7NotifHTML() {
   if (window._p7Notif === null && !_ladattu.notif) _p7LataaNotif();
-  var K = window.TM_KALENTERI_ILM, nyt = new Date();
-  var arr = (window._p7Notif || []).map(function (n) { return { n: n, r: K ? K.tmIlmoitusRivi(n, window._p7Kalenteri, nyt, t) : { nakyvissa: true, runko: String(n.teksti || ''), paiva: null } }; })
-    .filter(function (x) { return x.r.nakyvissa; });   // V2 P0.4: päättyneen tapahtuman muistutus/muutos piiloon
+  var K = window.TM_KALENTERI_ILM, nyt = new Date(), kuitatut = _p7Kuitatut();
+  var arr = (window._p7Notif || []).map(function (n) { return { n: n, r: K ? K.tmIlmoitusRivi(n, window._p7Kalenteri, nyt, t, kuitatut) : { nakyvissa: true, runko: String(n.teksti || ''), paiva: null } }; })
+    .filter(function (x) { return x.r.nakyvissa; });   // V2 P0.4: päättyneen tapahtuman muistutus/muutos piiloon · B: peruttu piiloon alkuajan jälkeen tai kun laite on kuitannut
   if (!arr.length) return '';
   var unread = arr.filter(function (x) { return !x.n.luettu; }).length;
   var esc = (typeof _thEsc === 'function') ? _thEsc : function (s) { return s; };
@@ -2734,15 +2736,21 @@ function _p7NotifHTML() {
     return '<div onclick="_p7NotifTap(\'' + n.id + '\',\'' + (n.linkki || '') + '\')" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:9px;background:' + (n.luettu ? 'transparent' : 'rgba(40,176,144,.06)') + ';border:.5px solid ' + (n.luettu ? 'rgba(242,239,230,.06)' : 'rgba(40,176,144,.22)') + ';margin-bottom:6px;cursor:pointer">'
       + '<span style="font-size:15px;flex-shrink:0">' + (_P7_NOTIF_IKO[n.tyyppi] || '🔔') + '</span>'
       + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--text);line-height:1.4">' + esc(teksti) + '</span>'
-      + (n.luettu ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:#28B090;flex-shrink:0;margin-top:5px"></span>') + '</div>';
+      + (n.luettu ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:#28B090;flex-shrink:0;margin-top:5px"></span>')
+      + (n.tyyppi === 'peruttu' ? '<span data-ilm-kuittaa role="button" aria-label="' + esc(t('yleiset.sulje')) + '" onclick="event.stopPropagation();_p7NotifKuittaa(\'' + n.id + '\')" style="flex-shrink:0;margin:-8px -8px -8px 0;padding:8px 10px;font-size:13px;line-height:1;color:var(--ink3,#8C8B86);cursor:pointer">✕</span>' : '') + '</div>';
   }).join('');
   return '<section style="padding:10px 20px 4px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">'
     + '<div style="font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-d)">' + T('ilmoitukset') + '' + (unread ? ' <span style="background:#28B090;color:#fff;border-radius:999px;padding:1px 7px;font-size:9px;margin-left:4px">' + unread + '</span>' : '') + '</div>'
     + (unread ? '<span onclick="_p7NotifKaikkiLuetuksi()" style="font-size:10px;color:#8C8B86;cursor:pointer">' + T('vanhempi.mark_luetuiksi') + '</span>' : '') + '</div>'
     + rows + '</section>';
 }
+function _p7NotifKuittaa(id) {   // B: peruttu-ilmoitus kuitataan laitteelle (localStorage) — ei Firestore-kenttää eikä Rules-muutosta
+  var n = (window._p7Notif || []).find(function (x) { return x.id === id; }), K = window.TM_KALENTERI_ILM;
+  if (n && K && n.tyyppi === 'peruttu') { try { K.tmIlmoitusKuittaa(window.localStorage, _p7KuittausTunniste(), n); } catch (e) { /* ei estä */ } }
+  if (typeof draw === 'function') draw();
+}
 function _p7NotifTap(id, linkki) {
-  _p7MerkitseLuettu(id);
+  _p7MerkitseLuettu(id); _p7NotifKuittaa(id);
   if (linkki && linkki.indexOf('kalenteri:') === 0) {
     setTimeout(function () { var el = [].slice.call(document.querySelectorAll('section')).find(function (s) { return /Seuran aikataulu/.test(s.textContent); }); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80);
   }
@@ -2760,7 +2768,7 @@ async function _p7MerkitseLuettu(id) {
   } catch (e) { console.warn('[p7 notif read]', e && e.message); }
 }
 function _p7NotifKaikkiLuetuksi() { (window._p7Notif || []).slice().forEach(function (n) { if (!n.luettu) _p7MerkitseLuettu(n.id); }); }
-window._p7NotifTap = _p7NotifTap; window._p7MerkitseLuettu = _p7MerkitseLuettu; window._p7NotifKaikkiLuetuksi = _p7NotifKaikkiLuetuksi;
+window._p7NotifKuittaa = _p7NotifKuittaa; window._p7NotifTap = _p7NotifTap; window._p7MerkitseLuettu = _p7MerkitseLuettu; window._p7NotifKaikkiLuetuksi = _p7NotifKaikkiLuetuksi;
 
 async function _p7LataaKalenteri() {
   // Latch/race-fix (peilaa Vanhempi-fix2-A): ÄLÄ latchaa not-ready-tilassa → pidä null (latautuu) ja yritä uudelleen
