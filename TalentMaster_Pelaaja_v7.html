@@ -551,7 +551,8 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_tukitavoitteet.js?v=4"></script>   <!-- K1: tmTukitavoitteet (vanha tukiosa-fallback) -->
 <script src="lib/tm_joukkuejakso.js?v=6"></script>   <!-- K1: tmJoukkuejaksoViikko (pelaajan snapshotista) -->
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K1: Tämän tueksi + Joukkueen jakso -->
-<script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) -->
+<script src="lib/tm_kentta_spec.js?v=2"></script>   <!-- C: Kenttä-spec pelaajadokumentista (sama adapteri kuin henkilökunnalla, rooli pelaaja) — ennen tm_tanaan_kentta -->
+<script src="lib/tm_tanaan_kentta.js?v=4"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) · C: tmKenttaPelaajalle -->
 <script src="lib/tm_mediaviesti.js?v=8"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet (pelaajan klippi-ketju) -->
 <script src="lib/tm_klippi_perhe.js?v=3"></script>   <!-- R6.4 PR 2: Valmentajalta klippi (Tänään) -->
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: viikkokatsaus + jakson päätöskortti (Kenttä-lipun takana) -->
@@ -1485,6 +1486,7 @@ function rA1Kentta() {
     }
   } catch (e) { console.warn('[K1 päivän treeni]', e && e.message); }
   const kentta = function (spec) { return (typeof window.tmKentta === 'function') ? window.tmKentta(spec, { wrap: true, t: _p7K1T }) : ''; };
+  const kenttaSpec = K.tmKenttaPelaajalle(_pelaaja, { tanaan });   // C: valmentajan asettama alue (ydinvahvuus.alue); ei aluetta → null → ei kenttäpiirrosta lainkaan
   const rae = (() => { const q = _pelaaja && (_pelaaja.rae_kvartaali || (typeof raeKvartaali === 'function' ? raeKvartaali(_pelaaja.syntymaaika) : null)); return q === 'Q4'
     ? '<div class="k1-rae" style="margin:12px 20px;padding:12px 16px;background:var(--card);border:.5px solid var(--border);border-radius:12px"><div style="font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-d);margin-bottom:4px">' + _thEsc(T('rae_q4_otsikko')) + '</div><div style="font-size:13px;color:var(--text);line-height:1.5">' + _thEsc(T('rae_q4_teksti')) + '</div></div>' : ''; })();
   return `
@@ -1495,7 +1497,7 @@ function rA1Kentta() {
   ${_p7VkHTML(x, jf, tanaan, o)}
   ${_p7K3SitoumusHTML(tanaan)}
   ${_p7KpHTML('ala')}
-  ${K.tmTanaanKenttaHTML(x, Object.assign({ kentta: kentta }, o))}
+  ${K.tmTanaanKenttaHTML(x, Object.assign({ kentta: kentta, kenttaSpec: kenttaSpec, ilmanKenttaa: !kenttaSpec }, o))}
   ${jakso ? TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), o) : ''}
   ${jakso ? TU.tmJoukkueenJaksoRiviHTML(jf && jf.joukkuejakso_viite, tanaan, o) : ''}
   ${treeni}
