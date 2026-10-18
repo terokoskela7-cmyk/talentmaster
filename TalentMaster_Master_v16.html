@@ -35,7 +35,7 @@
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt (CPD-raportin "Kausi:") — sama lähde kuin VP/Admin -->
 <script src="lib/tm_lang.js?v=46"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_lib_i18n.js?v=16"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
+<script src="lib/tm_lib_i18n.js?v=17"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="lib/tm_i18n_common.js?v=13"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_master_i18n.js?v=36"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
@@ -7069,7 +7069,7 @@ window._mvLaheta = async function () {
   const S = window._mvTila, M = window.TM_MEDIAVIESTI, C = _mvC(); if (!S || S.tallentaa) return;
   const vs = _mvKentat(S), k = _mvKysymysTeksti(S);
   const x = M.tmMvKlippiDokumentit({ url: S.url, klippityyppi: S.klippityyppi, kysymys: k.teksti, kysymys_avain: k.avain, saate: S.saate, osa: S.osa, joukkueklippi: S.kohde === 'joukkue', lahde: 'linkki', kohde: S.kohde === 'ryhma' ? (window.TM_KLIPPI_RYHMA.tmKrKohdeTilasta(S) || {}) : undefined,
-    vastaanottajat: vs.map(function (p) { return { pelaajaId: p.id, pelaajaNimi: C.nimi(p), ika: C.ika(p), vastaanottajaUid: (p.vastuuhenkilo && p.vastuuhenkilo.uid) || C.uid() }; }) }, { nyt: new Date(), lahettajaUid: C.uid(), lahettajaNimi: C.lahettajaNimi(), rooli: C.rooli() });
+    vastaanottajat: vs.map(function (p) { return { pelaajaId: p.id, pelaajaNimi: C.nimi(p), ika: C.ika(p), vastaanottajaUid: (p.vastuuhenkilo && p.vastuuhenkilo.uid) || C.uid() }; }) }, { nyt: new Date(), lahettajaUid: C.uid(), lahettajaNimi: await C.lahettajaNimi(), rooli: C.rooli() });
   if (!x.ok) { C.mvToast(M.tmMvVirhe(x.syy, { t: C.t }), 'error'); return; }   // validointi ENNEN kirjoitusta; sheet jää auki
   if (!C.verkko()) return;
   const ry = S.kohde === 'ryhma' ? window.TM_KLIPPI_RYHMA.tmKrKohdeTilasta(S) : null;
@@ -7127,7 +7127,7 @@ async function _mvLataaKlipit(p) {
 
 function _mvC() {
   return { esc: _mEsc, t: masterT, db: function () { return _db; }, seuraId: function () { return _seuraId; }, uid: function () { return _uid; }, rooli: function () { return _rooli || 'valmentaja'; },
-    lahettajaNimi: function () { try { return (firebase.auth().currentUser && firebase.auth().currentUser.displayName) || ''; } catch (e) { return ''; } }, demo: function () { return !!_demo; }, pelaajat: function () { return _pelaajatData || []; },
+    lahettajaNimi: function () { try { const cu = firebase.auth().currentUser, vd = window._valmentajaData || {}; return window.tmTekijaNimiTalletus([cu && cu.displayName, ((vd.etunimi || '') + ' ' + (vd.sukunimi || '')).trim()]) || ''; } catch (e) { return ''; } }, /* A: displayName ensin, puuttuessa kayttajat-dokin etunimi + sukunimi (ei sähköpostia); vanhat klipit saavat näyttää "Valmentaja" */ demo: function () { return !!_demo; }, pelaajat: function () { return _pelaajatData || []; },
     nimi: function (p) { return _tmHenkiloNimi(p); }, ika: function (p) { return (typeof _devIkaSp === 'function') ? _devIkaSp(p).ika : null; }, joukkue: function () { return _joukkue || ''; },
     verkko: function () { return _mVerkkoEnnenSulkua(); }, token: function () { return _mTuoreToken(firebase.auth().currentUser); }, mvToast: function (t, k) { if (typeof toast === 'function') toast(t, k); },
     virhe: function (e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e); } };
