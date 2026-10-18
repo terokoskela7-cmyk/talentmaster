@@ -553,7 +553,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K1: Tämän tueksi + Joukkueen jakso -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) -->
 <script src="lib/tm_mediaviesti.js?v=8"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet (pelaajan klippi-ketju) -->
-<script src="lib/tm_klippi_perhe.js?v=2"></script>   <!-- R6.4 PR 2: Valmentajalta klippi (Tänään) -->
+<script src="lib/tm_klippi_perhe.js?v=3"></script>   <!-- R6.4 PR 2: Valmentajalta klippi (Tänään) -->
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: viikkokatsaus + jakson päätöskortti (Kenttä-lipun takana) -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin + sitoumus Tänään-sivulla (Kenttä-lipun takana) -->
 <script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- B 3/3: jakson kotiharjoitteet (jaksofokus.tukiosa.harjoitteet snapshot) + seuran nimi lähdemerkintänä -->   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
@@ -1418,17 +1418,35 @@ async function _p7KpLataa(pakota) {
   } catch (e) { console.warn('[R6.4] klippien luku:', e && (e.code || e.message)); if (!P.ketjut) P.ketjut = []; }   // virhe → korttia ei näytetä (ei rikkinäistä ruutua)
   _p7KpPiirra();
 }
-function _p7KpHTML() {
-  const L = window.TM_KLIPPI_PERHE, P = window._p7Kp; if (!L || !_p7KpTaso()) return '';
+/* A (18.10.2026): vastaamaton klippi on Tänään-näkymän ylimpänä (p7KpYla-ankkurin jälkeen); vastattuna kortti siirtyy alemmas (p7KpAla). Kortti on aina yksi elementti #p7KpKortti — _p7KpPiirra siirtää sen ankkurien välillä. */
+function _p7KpAvoin() {
+  const L = window.TM_KLIPPI_PERHE, P = window._p7Kp; if (!L || !P.ketjut) return false;
+  const nak = L.kpNakyvat(P.ketjut, { nyt: new Date() }), k = nak.filter(x => x.id === P.valittu)[0] || nak[0];
+  return !!k && !k.vastaus && !k.suljettu;
+}
+function _p7KpHTML(paikka) {
+  const L = window.TM_KLIPPI_PERHE; if (!L || !_p7KpTaso()) return '';
+  const yla = _p7KpAvoin(), kortti = '<div id="p7KpKortti">' + _p7KpSisalto() + '</div>';
+  if (paikka === 'yla') return '<span id="p7KpYla"></span>' + (yla ? kortti : '');
   _p7KpLataa(false);
-  return '<div id="p7KpKortti">' + _p7KpSisalto() + '</div>';
+  return '<span id="p7KpAla"></span>' + (yla ? '' : kortti);
 }
 function _p7KpSisalto() {
   const L = window.TM_KLIPPI_PERHE, P = window._p7Kp; if (!L || !P.ketjut) return '';
   const nak = L.kpNakyvat(P.ketjut, { nyt: new Date() }); if (!nak.length) return '';
   return L.kpKorttiHTML(nak, P.valittu, P, _p7KpO());
 }
-function _p7KpPiirra() { const el = document.getElementById('p7KpKortti'); if (el) el.innerHTML = _p7KpSisalto(); }
+function _p7KpPiirra() {
+  const el = document.getElementById('p7KpKortti');
+  if (!el) {   // kortti ei ollut vielä DOMissa (luku valmistui renderin jälkeen): luo oikeaan paikkaan
+    const sis = _p7KpSisalto(), ank = document.getElementById(_p7KpAvoin() ? 'p7KpYla' : 'p7KpAla');
+    if (sis && ank && ank.parentNode) { const d = document.createElement('div'); d.id = 'p7KpKortti'; d.innerHTML = sis; ank.parentNode.insertBefore(d, ank.nextSibling); }
+    return;
+  }
+  el.innerHTML = _p7KpSisalto();
+  const ank = document.getElementById(_p7KpAvoin() ? 'p7KpYla' : 'p7KpAla');
+  if (ank && ank.parentNode && el.parentNode && el.previousSibling !== ank) ank.parentNode.insertBefore(el, ank.nextSibling);
+}
 function _p7KpValitse(avain) { const P = window._p7Kp; if (P.tallentaa) return; P.valinta = P.valinta === avain ? '' : avain; _p7KpPiirra(); }
 function _p7KpTeksti(v) { const P = window._p7Kp; P.teksti = String(v || ''); const b = document.querySelector('#p7KpKortti [data-kp-laheta]'); if (b && !P.tallentaa) b.disabled = !(P.valinta || P.teksti.trim()); }
 function _p7KpAvaa(id) { const P = window._p7Kp; if (P.tallentaa) return; P.valittu = id; P.valinta = ''; P.teksti = ''; _p7KpPiirra(); }
@@ -1473,9 +1491,10 @@ function rA1Kentta() {
 <div class="scroll" style="background:var(--bg)">
   ${hdr((_pelaaja?.etunimi||T('pelaaja'))+' · '+(_pelaaja?.pelaajaProfiili||''))}
   <style>${(typeof window.tmKenttaCss === 'function') ? window.tmKenttaCss() : ''}</style>
+  ${_p7KpHTML('yla')}
   ${_p7VkHTML(x, jf, tanaan, o)}
   ${_p7K3SitoumusHTML(tanaan)}
-  ${_p7KpHTML()}
+  ${_p7KpHTML('ala')}
   ${K.tmTanaanKenttaHTML(x, Object.assign({ kentta: kentta }, o))}
   ${jakso ? TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), o) : ''}
   ${jakso ? TU.tmJoukkueenJaksoRiviHTML(jf && jf.joukkuejakso_viite, tanaan, o) : ''}

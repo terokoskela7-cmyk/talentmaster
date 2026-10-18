@@ -23,7 +23,7 @@ const CHROME = [process.env.TM_CHROME_PATH, '/Applications/Google Chrome.app/Con
 const MV = require('../lib/tm_mediaviesti.js'), KP = require('../lib/tm_klippi_perhe.js'), LIB = require('../lib/tm_lib_i18n.js'), LANG = require('../lib/tm_lang.js');
 
 /* Klippipolun lib-avaimet, joille sv puuttuu (docs/i18n/sv_kaannoserae_36.json → Gemini; 15.10.2026 erät 51+52 vietiin). Elävä: sv saapui → poista rivi (testi alla kaatuu muuten). */
-export const SV_ODOTTAA = [];   // erä 42: ryhmäklippi + oma videoklippi -varaus (sv_kaannoserae_42_gemini.json)
+export const SV_ODOTTAA = ['kp_katso', 'kp_merkki_uusi'];   // A (18.10.2026): klippikortin painike + Uusi-merkki odottavat Geminiä (oma erä) · aiemmin erä 42: ryhmäklippi + oma videoklippi -varaus
 /* Valmentajan pelaajanäkymän Masterin fi-tekstiavaimet (masterT), joille sv puuttuu Master-kartasta (docs/i18n/sv_kaannoserae_37.json → Gemini). Elävä: sv saapui → poista rivi. */
 export const MASTER_SV_ODOTTAA = ['ei asetettu'];   // lib/tm_vastuuhenkilo.js t('ei asetettu') masterT:n kautta (IDP-kortin Vastuuhenkilö-rivi)
 const MA_SV = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;
@@ -209,7 +209,7 @@ async function pelaajaPolku(selain, kieli, ika) {
   const sk = await selain.newContext({ viewport: { width: 390, height: 844 } }), p = await sk.newPage(); const virheet = []; p.on('pageerror', (e) => virheet.push(e.message));
   const kutsu = KERAA + MOCKDB + 'window.__DOCS=' + JSON.stringify(dokit) + ';tmAsetaKieli("' + kieli + '",false);_isDemoUser=false;_pelaaja={id:"p1",etunimi:"Alva",sukunimi:"Berg",syntymaVuosi:' + (new Date().getFullYear() - ika) + ',seuraId:"sibbo"};window._seuraId="sibbo";'
     + 'window._db=window.__mockDb;window._auth={currentUser:{uid:"pu1",getIdToken:async function(){return"x"}}};var __n0=_naytaKirjausVirhe;_naytaKirjausVirhe=function(m){window.__toastit.push(String(m));__n0(m)};'
-    + 'window._p7Kp={ladattu:0,ketjut:null,valittu:null,valinta:"",teksti:"",tallentaa:false};' + HOST + '__h.innerHTML=_p7KpHTML();return _p7KpLataa(true);';
+    + 'window._p7Kp={ladattu:0,ketjut:null,valittu:null,valinta:"",teksti:"",tallentaa:false};' + HOST + '__h.innerHTML=_p7KpHTML("yla")+_p7KpHTML("ala");return _p7KpLataa(true);';
   await p.goto('file://' + perheSivu(lue('TalentMaster_Pelaaja_v7.html'), JUURI, kutsu)); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 20000 });
   expect(await p.locator('#probe-out').textContent()).toBe('ok');
   const toastit = async (vaihe) => { for (const t of await p.evaluate(() => window.__toastit.splice(0))) kerätyt.push({ vaihe: 'U' + ika + ' ' + vaihe + ' [toast]', teksti: t }); };

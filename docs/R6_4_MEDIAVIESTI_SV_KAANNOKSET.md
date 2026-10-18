@@ -151,6 +151,8 @@ Pelaajalle ei lukuja eikä vertailua (§7.22).
 | `kp_avaa` | Avaa | _(sv — Gemini)_ |
 | `kp_suljettu` | Suljettu | _(sv — Gemini)_ |
 | `kp_muut` | Muut klipit | _(sv — Gemini)_ |
+| `kp_katso` | ▶ Katso klippi | _(sv — Gemini; A 18.10.2026)_ |
+| `kp_merkki_uusi` | Uusi | _(sv — Gemini; A 18.10.2026)_ |
 | `kp_virhe_tyhja` | Valitse vastaus tai kirjoita lause. | _(sv — Gemini)_ |
 | `kp_virhe_pitka` | Vastaus on liian pitkä (enintään 200 merkkiä). | _(sv — Gemini)_ |
 | `kp_virhe_valinta` | Valitse jokin vaihtoehdoista. | _(sv — Gemini)_ |
