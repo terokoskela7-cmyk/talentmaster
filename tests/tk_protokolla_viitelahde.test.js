@@ -252,7 +252,7 @@ describe('a) Pelaaja_v7 Tekniikkaprofiili: H-H-sekunnit merkitty H-H-testiksi, e
     const p = { syntymaVuosi: VUOSI - 13, sukupuoli: 'M', hh_viimeisin: { pujottelu: 12.1, syotto: 11.4 }, tki_kehityskohde: 'pujottelu' };
     ctx.api.aseta(p);
     const h = tx(ctx.api.render());
-    expect(h).toContain('Pujottelu (H-H-testi) 12.1 s');
+    expect(h).toContain('Pujottelu (H-H-testi) 12.1 s');   // oma mittaus näkyy (täydennys 19.10.2026)
     expect(h).toContain('Syöttö (H-H-testi) 11.4 s');
     expect(h).not.toMatch(/Tavoite/);
     expect(ctx.api.tek(p)).toBeNull();   // ei tk_lajit → H-H-arvo ei koskaan TK-tavoitteeseen
@@ -372,14 +372,12 @@ describe('b) lapsen + huoltajan tavoite AINA alueellisesta', () => {
     const ctx = vm.createContext({ ...PEL_APU, window: { _lapsi: lapsi, TM_TESTIT: TT }, t: LANG.t, IKA: {}, _age: 'u11', Math, Number, String, Object, isNaN });
     const a = V2.indexOf('const _VANH_LAJINIMI'), b = V2.indexOf('const TUKIVINKIT');
     vm.runInContext([V2.slice(a, V2.indexOf(';', a) + 1), V2.slice(b, V2.indexOf('};', b) + 2), pura(V2, 'function _genetiivi('),
-      pura(V2, 'function _vanhValitavoite('), pura(V2, 'function rVanhempiTekniikka(')].join('\n') + '\nthis.f = rVanhempiTekniikka;', ctx);
+      pura(V2, 'function rVanhempiTekniikka(')].join('\n') + '\nthis.f = rVanhempiTekniikka;', ctx);
     return tx(ctx.f());
   };
-  it('Vanhempi P10 pujottelu 28.0 → "28 … 27" (alueellinen); ilman aluedataa → ei Nyt→tavoite-riviä', () => {
+  it('Vanhempi P10 pujottelu 28.0 → oma tulos 28.0 s näkyy, mutta EI sekuntitavoitetta eikä nuolta (täydennys 19.10.2026)', () => {
     const h = vanh(T, 28.0);
-    expect(h).toMatch(/28\D+27\b/);
-    expect(h).not.toMatch(/\b26\b/);
-    expect(vanh(tIlmanAluetta('P', 10), 28.0)).not.toMatch(/→/);
+    expect(h).toContain('28.0 s'); expect(h).not.toMatch(/→|\b27\b|Tavoite/);
   });
   it('lapsen/huoltajan pinnoilla ei sanaa "loppukilpailu"', () => {
     expect(vanh(T, 28.0)).not.toMatch(/loppukilpailu/i);
@@ -395,7 +393,7 @@ describe('b) lapsen + huoltajan tavoite AINA alueellisesta', () => {
   it('lapsen/huoltajan viitekutsut: tavoite tkLajiViiteLapsi:sta, ei lajimerkkien tkLajiViite-kutsua (§31)', () => {
     const kutsut = ((P7 + V2).match(/tkLajiViite\([^)]*\)/g) || []).filter((k) => !/^tkLajiViite\(laji, ika, sp\)$/.test(k));
     expect(kutsut.length).toBe(0);
-    expect((P7 + V2).match(/tkLajiViiteLapsi\(/g).length).toBe(3);   // Pelaaja ×2 + Vanhempi
+    expect((P7 + V2).match(/tkLajiViiteLapsi\(/g).length).toBe(1);   // vain Pelaajan _tekKorttiData; _tekTavoiteSaate ja Vanhempi eivät enää (palaute-näkyvyys 0a)
   });
 });
 

@@ -149,7 +149,7 @@ function excelReferenssi(fd, pvmIso, s, uusiHhTaso) {
 // ─── a) Tekniikkaprofiili pikakentistä ────────────────────────────────────────────────────────────────
 const P7 = lue('TalentMaster_Pelaaja_v7.html');
 function lataaTekniikka(pelaaja, db) {
-  const ctx = { _pelaaja: pelaaja, window: { _db: db, TM_TESTIT: CANON }, draw: () => { ctx.piirretty = true; }, console: { warn: (...x) => { ctx.varoitus = x.join(' '); } },
+  const ctx = { _pelaaja: pelaaja, window: { _db: db, TM_TESTIT: CANON, TM_MERKKI_NAKYMA: require('../lib/tm_merkki_nakyma.js') }, draw: () => { ctx.piirretty = true; }, console: { warn: (...x) => { ctx.varoitus = x.join(' '); } },
     Date, Object, Array, String, Math, parseFloat, parseInt, isNaN, _minaTavoiteRivit: () => '' };
   Object.assign(ctx, PEL_APU); vm.createContext(ctx);
   const src = 'var _tekniikkaData = null;\n' + P7.slice(P7.indexOf('const _TEK_LAJIT ='), P7.indexOf('\n', P7.indexOf('const _TEK_LAJIT ='))) + '\n'
@@ -183,7 +183,8 @@ describe('a) Pelaaja_v7 · Tekniikkaprofiili lukee pikakentistä (ei alikokoelma
     const html = ctx.render();
     expect(html).toContain('Tekniikkaprofiili');
     expect(html).not.toContain('tulossa');
-    expect(html).toContain('Ponnauttelu');
+    expect(html).toMatch(/Kohti (pronssia|hopeaa|kultaa)/);   // palaute-näkyvyys 0a: merkki + seuraava, ei lajisekunteja
+    expect(html).toContain('Ponnauttelu');   // omat lajitulokset näkyvät (täydennys 19.10.2026)
   });
   it('ennallaan: sama muoto kuin vanha alikokoelmalataaja (vk = sama kanoninen funktio samoista sekunneista)', async () => {
     const p = Object.assign({ id: PID }, TOPIAS, { tki_viimeisin: 70, tki_merkki: 'hopea', tki_pvm: D2, tk_lajit_pvm: D2,

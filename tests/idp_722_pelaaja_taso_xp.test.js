@@ -28,7 +28,9 @@ describe('S7.22 - stray tasoluku/XP-renderoinnit poistettu pelaajapinnalta', () 
   it('rMinaMAS "taso X/5" poistettu (raaka m/s . km/h jaa)', () => {
     expect(PEL).not.toContain("Aerobinen kapasiteetti: taso ' + (taso");
     expect(PEL).not.toContain("km/h · taso ' + (taso");
-    expect(PEL).toContain("km/h</div></div>'");   // raaka-arvo sailyy
+    // oma MAS-arvo saa näkyä (täydennys 19.10.2026) mutta valmentajan km/h-vyöhykkeet eivät
+    const alku = PEL.indexOf('function rMinaMAS('), mas = PEL.slice(alku, PEL.indexOf('\n}\n', alku));
+    expect(mas).toMatch(/r1\(masKmh\)/); expect(mas).not.toMatch(/masKmh \* 0|vyohyk|kevyt_alle|kova_yli/);
   });
   it('rVapaa "+X XP" -teksti + -pilleri poistettu', () => {
     expect(PEL).not.toContain('Saat <span style="color:var(--teal-d);font-weight:600">+${Math.round(_vaMin*0.5)} XP</span>');

@@ -63,8 +63,8 @@ describe('1) tkLajiViiteLapsi — hyvä = lievempi alue/finaali', () => {
   });
   it('Pelaaja (_tekKorttiData) ja Vanhempi käyttävät lapsen viitettä; henkilökunta (VP/Master) ei', () => {
     const P7 = lue('TalentMaster_Pelaaja_v7.html'), V2 = lue('TalentMaster_Vanhempi_v2.html');
-    expect(P7).toContain('T.tkLajiViiteLapsi(laji, ika, sp)'); expect(P7).toContain('T.tkLajiViiteLapsi(kk, ika, sp)');
-    expect(V2).toContain('T.tkLajiViiteLapsi(laji, ika, sp)');
+    expect(P7).toContain('T.tkLajiViiteLapsi(laji, ika, sp)');   // (_tekTavoiteSaate ei enää laske tavoitetta — palaute-näkyvyys 0a)
+    expect(V2).not.toContain('tkLajiViiteLapsi');   // palaute-näkyvyys 0a: huoltaja ei saa sekuntitavoitteita lainkaan
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html']) expect(lue(f), f).not.toContain('tkLajiViiteLapsi');
     // ajo: P12 kuljetus-laukaus 16 s → lapsen tavoite 14.5 (ei alueen 11.7-pohjainen)
     const pura = (s, t) => { const i = s.indexOf(t); let d = 0; for (let k = s.indexOf('{', i); k < s.length; k++) { if (s[k] === '{') d++; else if (s[k] === '}') { d--; if (!d) return s.slice(i, k + 1); } } };
