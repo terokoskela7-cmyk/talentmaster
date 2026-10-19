@@ -57,13 +57,14 @@ describe('lähdekoodivartija: pelaajan ja huoltajan pinnoilla ei rajoja, vyöhyk
     expect(V2).toMatch(/<script src="lib\/tm_kielletyt\.js\?v=\d+"><\/script>/);
     expect(lue('sw_pelaaja.js')).toContain('/lib/tm_merkki_nakyma.js'); expect(lue('sw_vanhempi.js')).toContain('/lib/tm_merkki_nakyma.js'); expect(lue('sw_vanhempi.js')).toContain('/lib/tm_kielletyt.js');
   });
-  it('Uudet tekstit ovat tm_lang.js:ssä (fi + en) ja sv-odotuslistalla (erä 69) — Code ei kirjoita ruotsia', () => {
-    const era = JSON.parse(lue('docs/i18n/sv_kaannoserae_69_gemini.json')).osiot.tm_lang.rivit;
+  it('Uudet tekstit ovat tm_lang.js:ssä (fi + en + sv Geminiltä, erä 69 viety) eikä odotuslistalla', () => {
+    const P = JSON.parse(lue('docs/i18n/sv_kaannoserae_69_palautus.json')).osiot.tm_lang.rivit;
     const odotus = require('./tm_lang_sv_odotuslista.cjs');
     const L = require('../lib/tm_lang.js').TM_LANG;
     for (const k of ['merkki_kohti_pronssi', 'merkki_kohti_hopea', 'merkki_kohti_kulta', 'merkki_parempi']) {
       expect(L.fi.vanhempi[k], k).toBeTruthy(); expect(L.en.vanhempi[k], k).toBeTruthy();
-      expect(odotus, k).toContain('vanhempi.' + k); expect(era['vanhempi.' + k].sv, k).toBe('');
+      expect(L.sv.vanhempi[k], k).toBe(P['vanhempi.' + k].sv);   // merkki merkiltä Geminin palautus
+      expect(odotus).not.toContain('vanhempi.' + k);
     }
   });
 });
@@ -95,5 +96,13 @@ describe('Vanhempi_v2: sanavartija valmentajan vapaille teksteille', () => {
   it('vartija ajetaan sekä valmentajan viesteille että valmentajan kirjausten tekstille', () => {
     expect(V2).toMatch(/_valmentajaViestit = _valmentajaViestit\.filter\(function \(v\) \{ return _vTekstiKelpaa\(_vViestiTeksti\(v\)\); \}\)/);
     expect(V2).toMatch(/k\.lahde !== 'valmentaja' \|\| _vTekstiKelpaa\(k\.teksti\)/);
+  });
+});
+
+describe('Starter/Sharp-leima pois pelaajan ja huoltajan näkymästä (Tero 19.10.2026)', () => {
+  it('kortin renderöinti ei käytä tierNimi/seuraavaTier/kohtiTeksti-arvoja eikä fc-tier-leimaa; Vanhempi_v2 ei sisällä Starter/Sharp-sanoja', () => {
+    const render = pura(PEL, 'function naytaFcOverlay(') + pura(PEL, 'function rMinaHero(') + pura(PEL, 'function rMinaKortti(' ) ;
+    expect(render).not.toMatch(/tierNimi|seuraavaTier|kohtiTeksti|fc-tier|Sharp|Starter/);
+    expect(V2).not.toMatch(/Starter|Sharp/);
   });
 });

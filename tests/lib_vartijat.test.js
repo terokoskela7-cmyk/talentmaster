@@ -11,7 +11,7 @@ const RAJA = 520;   // "noin 500"
 /* Sallittu lista: tätä isommat tiedostot nykyisessä koossaan (kattona). Lista saa vain PIENENTYÄ — kun tiedosto pilkotaan, poista/laske rivi tästä.
    Poikkeus: i18n-kartat (tm_lib_i18n.js, tm_master_i18n.js …) ovat Geminin käännösdataa, eivät logiikkaa — katto nousee vain Gemini-erän viennissä (sv-erä 19 osavienti: 584→594, sv-erät 46+47 (D248-sanasto): 594→633, sv-erät 48–50: 633→687, sv-erät 51+52 (Sibbo-valmius): 687→823, sv-erä 53 + erän 19 VP-rivit (Sibbo-reititys): lib 823→876 (+ harjoitusarviointilomake 22), master 1713→1722, vp 3755→3798, sv-erä 54: tm_lang →3844, lib →911, master →1726; tm_lang 3699→3819 (suostumuslomakkeen reititys: 47 avainta × fi/sv/en), 1608→1626; sv-erä 68 vienti (klippikortti, 2 riviä): tm_lib_i18n →1043; sv-erä 40 vienti: tm_master_i18n 1626→1694; sv-erä 41 vienti: 1694→1713). */
 const ISOT = { 'hpp_rehab_protokollat.js': 1545, 'tm-microcycles.js': 1491, 'tm_bioika.js': 534, 'tm_eerikkila_normit.js': 2006, 'tm_idp.js': 733, 'tm_kaavio_kanon_data.js': 1715, 'tm_kaavio_ui.js': 2022,
-  'tm_henkilosto_i18n.js': 544, 'tm_kehityskaari.js': 722, 'tm_kehitystilanne.js': 684, 'tm_lang.js': 4039, 'tm_lib_i18n.js': 1043, 'tm_master_i18n.js': 1726, 'tm_pelihavainto.js': 918, 'tm_teknistaktiset.js': 4886, 'tm_teknistaktiset_sv.js': 1270, 'tm_vp_i18n.js': 3798 };
+  'tm_henkilosto_i18n.js': 544, 'tm_kehityskaari.js': 722, 'tm_kehitystilanne.js': 684, 'tm_lang.js': 4044, 'tm_lib_i18n.js': 1043, 'tm_master_i18n.js': 1726, 'tm_pelihavainto.js': 918, 'tm_teknistaktiset.js': 4886, 'tm_teknistaktiset_sv.js': 1270, 'tm_vp_i18n.js': 3798 };
 const rivit = (f) => readFileSync(join(juuri, 'lib', f), 'utf8').split('\n').length - 1;
 
 describe('vartija 1: lib-tiedoston koko', () => {
