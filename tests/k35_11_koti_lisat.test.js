@@ -55,7 +55,7 @@ describe('#6 Harjoittelu-lohko: tyhjä tila näkyy, piilotus vain lukuvirheessä
     expect(HKN.tmKertymaMasterHTML(k, { t: (x) => x })).toContain('hk-sarakkeet'); expect(HKN.tmKertymaMasterHTML(null, { t: (x) => x })).toBe('');
   });
   it('Master: piilotus vain kun lukuvirhe (!k), ei kun kooste on tyhjä', () => {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'TalentMaster_Master_v16.html'), 'utf8'), rivi = src.split('\n').find((r) => r.includes('tmKertymaLueKooste(_db, _seuraId, p.id'));
+    const src = fs.readFileSync(path.join(__dirname, '..', 'lib/tm_naytto_lohkot.js'), 'utf8'), rivi = src.slice(src.indexOf('tmKertymaLueKooste(c.db, c.sid, p.id'));   // K2: Harjoittelu-lohkon lataus siirrettiin libiin
     expect(rivi).toMatch(/if \(w && !k\) w\.style\.display = 'none'/);
   });
 });

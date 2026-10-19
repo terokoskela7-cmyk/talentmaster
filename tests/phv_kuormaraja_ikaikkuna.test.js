@@ -66,7 +66,7 @@ describe('Kuluttajat: S2-katto vain ikkunassa', () => {
   });
   it('henkilökunnan merkintä VP + Master; Pelaaja/Vanhempi eivät näytä sitä lapselle', () => {
     expect(readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8')).toContain("vpT('PHV ei mitattu')");
-    expect(readFileSync(join(ROOT, 'TalentMaster_Master_v16.html'), 'utf8')).toContain("masterT('PHV ei mitattu')");
+    expect(readFileSync(join(ROOT, 'lib/tm_naytto_lohkot.js'), 'utf8')).toContain("masterT('PHV ei mitattu')");   // K2: Masterin henkilökunnan merkintä asuu libissä
     for (const f of ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) {
       expect(readFileSync(join(ROOT, f), 'utf8'), f).not.toMatch(/PHV ei mitattu|tmPhvEiMitattu/);
     }

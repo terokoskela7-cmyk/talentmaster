@@ -294,7 +294,7 @@ describe('(7) nimikanoni', () => {
 /* Masterin §C-lohko alkaa kommentista ja päättyy _adarHtml-koostamiseen. Kiinteä merkkimäärä
    olisi hauras (lohko kasvoi juuri), joten rajataan tunnistettavaan loppuankkuriin. */
 function masterCLohko() {
-  const src = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
+  const src = readFileSync(join(juuri, 'lib/tm_naytto_lohkot.js'), 'utf8');   // K2: Masterin §C-lohko siirrettiin sellaisenaan libiin (Master + Kehitystyopoyta.html)
   const i = src.indexOf('§C ADAR-LOHKO');
   expect(i, '§C-lohkoa ei löydy').toBeGreaterThan(-1);
   const j = src.indexOf('const _gate', i);

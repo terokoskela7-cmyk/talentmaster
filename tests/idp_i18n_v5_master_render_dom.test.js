@@ -97,7 +97,7 @@ describe('Master render-kielineutraali-gate (Erä 3 DoD-ydin)', () => {
     expect(hi).toBeGreaterThan(lo);
     const region = lines.slice(lo - 1, hi - 1).join('\n');
 
-    const DIRECT = buildDirect(region);
+    const DIRECT = buildDirect(region + '\n' + readFileSync(join(__dir, '..', 'lib/tm_naytto_lohkot.js'), 'utf8'));   // K2: Näyttö-lohkojen masterT-reititys asuu libissä (siirretty sellaisenaan)
     const DIRECT_BLOBS = [...DIRECT].filter((d) => d.includes('<'));
 
     // routed-identit: V annettu masterT:lle muodossa masterT(V) / masterT(V[..]) / masterT(V.x)

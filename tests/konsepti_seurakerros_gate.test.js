@@ -66,7 +66,7 @@ describe('B — konseptin lukukohdat kulkevat resolvoijan läpi', () => {
   });
   it('Master: apurit ovat olemassa ja käyttävät resolvoijaa', () => {
     expect(MASTER).toContain('function _mTtItems(pp)');
-    expect(MASTER).toContain('tmKonseptiListaa(kaanon, _mSeuraId())');
+    expect(MASTER).toContain('tmNayttoTtApu(_mSeuraId()).ttItems(pp)'); expect(readFileSync(new URL('../lib/tm_naytto_lohkot.js', import.meta.url), 'utf8')).toContain('tmKonseptiListaa(kaanon, sid)');   // K2: _mTtItems → lib/tm_naytto_lohkot.js
     expect(MASTER).toContain('function _mKonseptiByAvain(avain)');
     expect(MASTER).toContain('tmKonseptiResolvoi(avain, _mSeuraId())');
   });

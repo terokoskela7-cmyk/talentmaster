@@ -17,7 +17,7 @@ const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
 const HH = vaadi('../lib/tm_havaintohistoria.js');
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
-const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
+const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8') + readFileSync(join(juuri, 'lib/tm_naytto_lohkot.js'), 'utf8');   // K2: Masterin §C-lohko asuu libissä
 
 const ilmanKommentteja = (s) => s
   .replace(/\/\*[\s\S]*?\*\//g, ' ')
