@@ -139,7 +139,7 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_kentta.js?v=5"></script>   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
 <script src="lib/tm_mediaviesti.js?v=8"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet -->
 <script src="lib/tm_klippi_perhe.js?v=3"></script>   <!-- R6.4 PR 2: Katsokaa yhdessä / keskustelu -->
-<script src="lib/tm_merkki_nakyma.js?v=1"></script>   <!-- palaute-näkyvyys 0a: merkkisääntö (Kohti seuraavaa, Parempi kuin viime kerralla; ei sekunteja) -->
+<script src="lib/tm_merkki_nakyma.js?v=2"></script>   <!-- palaute-näkyvyys 0a: merkkisääntö + oma mittaus (Kohti seuraavaa, oma parannus; ei rajoja) -->
 <script src="lib/tm_kielletyt.js?v=1"></script>   <!-- palaute-näkyvyys 0a: sanavartija valmentajan vapaille teksteille (sama kuin Pelaaja_v7) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
@@ -1272,6 +1272,20 @@ function rVanhempiTekniikka(){
   if (L.tki_kehityskohde && _VANH_LAJINIMI[L.tki_kehityskohde]) {
     inner += `<div style="font-size:13px;color:var(--text);margin-top:10px">🎯 <b>${t('vanhempi.tek_seuraava_askel')}</b> ${t(_VANH_LAJINIMI[L.tki_kehityskohde])}
       <div style="font-size:12px;color:var(--ink2)">${t('vanhempi.tek_pieni_parannus')}</div></div>`;
+  }
+  // 5. OMAT lajitulokset sekunteina (täydennys 19.10.2026: lapsen oma mittaus saa näkyä neutraalisti). EI palkkeja, EI viitetasoa, EI tavoitetta, EI vertailua. ★ vahvuus · 🎯 seuraava askel.
+  const LAJIT = ['ponnauttelu','syotto','pujottelu','kuljetus_laukaus'];
+  const arvoOf = (id) => { const x = lajit[id + '_s']; return (x == null || isNaN(x)) ? null : Number(x); };
+  const vals = LAJIT.map(id => ({ id, val: arvoOf(id) })).filter(x => x.val != null);
+  if (vals.length) {
+    inner += `<div style="margin-top:12px;display:flex;flex-direction:column">`;
+    vals.forEach(x => {
+      const mark = (x.id === L.tki_vahvuus) ? ' ★' : (x.id === L.tki_kehityskohde) ? ' 🎯' : '';
+      inner += `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-top:.5px solid var(--border)">
+        <div style="font-size:12px;color:var(--text)">${_VANH_LAJINIMI[x.id]?t(_VANH_LAJINIMI[x.id]):x.id}${mark}</div>
+        <div style="font-size:12px;color:var(--text)">${x.val.toFixed(1)} s</div></div>`;
+    });
+    inner += `</div>`;
   }
   // 6. 💛 Miten tukea kotona — näkymän ydin (kehityskohteen mukaan) + pysyvä periaaterivi
   const tukiKey = (L.tki_kehityskohde || '').replace('_bonus','');

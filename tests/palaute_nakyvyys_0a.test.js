@@ -42,12 +42,12 @@ describe('tmMerkkiNakyma — yksi sääntö pelaajalle ja huoltajalle', () => {
   });
 });
 
-describe('lähdekoodivartija: pelaajan ja huoltajan merkki-/tekniikka-/vauhtipinnoilla ei sekunteja, matkaa eikä tasokuvauksia', () => {
+describe('lähdekoodivartija: pelaajan ja huoltajan pinnoilla ei rajoja, vyöhykkeitä, tavoiteviitteitä eikä matkaa merkkiin', () => {
   const PINNAT = [[PEL, 'function rMinaTekniikkaprofiili('], [PEL, 'function _minaTavoiteRivit('], [PEL, 'function rMinaMAS('], [PEL, 'function rMinaFyysinenTavoite('],
     [PEL, 'function _tekTavoiteSaate('], [V2, 'function rVanhempiTekniikka(']];
-  it.each(PINNAT.map(([s, f]) => [f, pura(s, f)]))('%s: ei " s"-yksikköä, km/h, m/s, nuolta eikä matka/tavoite-lukuja', (f, koodi) => {
-    const koodiIlmanKommentteja = koodi.replace(/\/\/[^\n]*/g, '');
-    expect(koodiIlmanKommentteja).not.toMatch(/' s'|\+ ' s\b| s<\/|km\/h|m\/s|toFixed|gap_s|tkSekuntibudjetti|matka_tavoite|tek_matka|tek_nyt_tavoite|paransit|→ '/);
+  it.each(PINNAT.map(([s, f]) => [f, pura(s, f)]))('%s: ei vyöhykkeitä, tavoite-/viiterajoja, matkaa eikä mitalirajoja', (f, koodi) => {
+    const k = koodi.replace(/\/\/[^\n]*/g, '');
+    expect(k).not.toMatch(/gap_s|tkSekuntibudjetti|matka_tavoite|tek_matka|tek_nyt_tavoite|tkLajiViite|tkValitavoite|_minaValitavoite|harjoitteluvyohyk|kevyt_alle|kehittava|kova_yli|perus_65|kehitys_80|huippu_95|masKmh \* 0|T\('tavoite'\)/);
   });
   it('Pelaaja: ADAR/FYS/PSY-tasokuvaukset ja "A/B mitattu" -rengas poissa pelaajan kortilta', () => {
     expect(PEL).not.toMatch(/TM_ADAR_RUBRIIKKI\.alyTaso\(|TM_KORTTI_RUBRIIKIT\.(fysTaso|psyTaso)\(|a_b_mitattu|_fcRengasSVG|F\.rengas/);
@@ -65,6 +65,21 @@ describe('lähdekoodivartija: pelaajan ja huoltajan merkki-/tekniikka-/vauhtipin
       expect(L.fi.vanhempi[k], k).toBeTruthy(); expect(L.en.vanhempi[k], k).toBeTruthy();
       expect(odotus, k).toContain('vanhempi.' + k); expect(era['vanhempi.' + k].sv, k).toBe('');
     }
+  });
+});
+
+describe('oma mittaus (täydennys 19.10.2026): oma tulos, oma ennätys ja oma parannus näkyvät myönteisesti; heikompi tulos ilman kommenttia', () => {
+  const { tmOmaParannus, tmOmaLuku } = require('../lib/tm_merkki_nakyma.js');
+  it('tmOmaParannus: sekunnit (pienempi parempi) ja cm/km/h (suurempi parempi); heikompi/sama/puuttuva → null (ei kommenttia)', () => {
+    expect(tmOmaParannus(70, 66)).toEqual({ ero: 4 });
+    expect(tmOmaParannus(10.4, 10.1)).toEqual({ ero: 0.3 });
+    expect(tmOmaParannus(30, 33, { suurempi: true })).toEqual({ ero: 3 });
+    expect(tmOmaParannus(66, 70)).toBeNull(); expect(tmOmaParannus(66, 66)).toBeNull(); expect(tmOmaParannus(null, 66)).toBeNull();
+  });
+  it('tmOmaLuku: desimaalipilkku ("Paransit 0,3 s")', () => { expect(tmOmaLuku(0.3)).toBe('0,3'); expect(tmOmaLuku(4)).toBe('4,0'); });
+  it('Pelaajan MAS-kortti: oma MAS-arvo näkyy, parannus myönteisesti, vyöhykkeitä ei', () => {
+    const koodi = pura(PEL, 'function rMinaMAS(');
+    expect(koodi).toMatch(/masKmh/); expect(koodi).toMatch(/hyva_kehityssuunta/);
   });
 });
 

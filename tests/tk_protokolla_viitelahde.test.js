@@ -252,9 +252,8 @@ describe('a) Pelaaja_v7 Tekniikkaprofiili: H-H-sekunnit merkitty H-H-testiksi, e
     const p = { syntymaVuosi: VUOSI - 13, sukupuoli: 'M', hh_viimeisin: { pujottelu: 12.1, syotto: 11.4 }, tki_kehityskohde: 'pujottelu' };
     ctx.api.aseta(p);
     const h = tx(ctx.api.render());
-    expect(h).toContain('Pujottelu (H-H-testi)');
-    expect(h).toContain('Syöttö (H-H-testi)');
-    expect(h).not.toMatch(/\d+(\.\d+)? s\b/);   // palaute-näkyvyys 0a: ei sekunteja lapselle
+    expect(h).toContain('Pujottelu (H-H-testi) 12.1 s');   // oma mittaus näkyy (täydennys 19.10.2026)
+    expect(h).toContain('Syöttö (H-H-testi) 11.4 s');
     expect(h).not.toMatch(/Tavoite/);
     expect(ctx.api.tek(p)).toBeNull();   // ei tk_lajit → H-H-arvo ei koskaan TK-tavoitteeseen
   });
@@ -376,10 +375,9 @@ describe('b) lapsen + huoltajan tavoite AINA alueellisesta', () => {
       pura(V2, 'function rVanhempiTekniikka(')].join('\n') + '\nthis.f = rVanhempiTekniikka;', ctx);
     return tx(ctx.f());
   };
-  it('Vanhempi P10 pujottelu 28.0 → EI sekuntitavoitetta eikä sekunteja huoltajalle (palaute-näkyvyys 0a); kehityskohde-nimi säilyy', () => {
+  it('Vanhempi P10 pujottelu 28.0 → oma tulos 28.0 s näkyy, mutta EI sekuntitavoitetta eikä nuolta (täydennys 19.10.2026)', () => {
     const h = vanh(T, 28.0);
-    expect(h).not.toMatch(/→|\b28\b|\b27\b|\bs\b/);
-    expect(h).toMatch(/[Pp]ujottelu/);
+    expect(h).toContain('28.0 s'); expect(h).not.toMatch(/→|\b27\b|Tavoite/);
   });
   it('lapsen/huoltajan pinnoilla ei sanaa "loppukilpailu"', () => {
     expect(vanh(T, 28.0)).not.toMatch(/loppukilpailu/i);

@@ -184,7 +184,7 @@ describe('a) Pelaaja_v7 · Tekniikkaprofiili lukee pikakentistä (ei alikokoelma
     expect(html).toContain('Tekniikkaprofiili');
     expect(html).not.toContain('tulossa');
     expect(html).toMatch(/Kohti (pronssia|hopeaa|kultaa)/);   // palaute-näkyvyys 0a: merkki + seuraava, ei lajisekunteja
-    expect(html).not.toMatch(/\d+(\.\d+)? s\b/);
+    expect(html).toContain('Ponnauttelu');   // omat lajitulokset näkyvät (täydennys 19.10.2026)
   });
   it('ennallaan: sama muoto kuin vanha alikokoelmalataaja (vk = sama kanoninen funktio samoista sekunneista)', async () => {
     const p = Object.assign({ id: PID }, TOPIAS, { tki_viimeisin: 70, tki_merkki: 'hopea', tki_pvm: D2, tk_lajit_pvm: D2,

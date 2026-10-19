@@ -153,7 +153,7 @@ describe('viimeisin kilpailu (pikakentät) ja yhteensopivuus', () => {
 describe('käyttö Pelaaja_v7:ssä', () => {
   it('tavoiterivit eivät listaa merkkejä eikä sekunteja (palaute-näkyvyys 0a: nykyinen + "Kohti seuraavaa" näytetään rMinaTekniikkaprofiilissa)', () => {
     const l = pura('function _minaTavoiteRivit(');
-    expect(l).not.toMatch(/_tkMitalit\(p\)\.forEach\(/); expect(l).not.toMatch(/gap_s|tkSekuntibudjetti|paransit/);
+    expect(l).not.toMatch(/_tkMitalit\(p\)\.forEach\(/); expect(l).not.toMatch(/gap_s|tkSekuntibudjetti|matka_tavoite/);   // oma parannus (tmOmaParannus) saa näkyä, matka merkkiin ei
   });
   it('ei lajikohtaisia merkkejä (§31) eikä tkLajiViite-kutsuja mitalilogiikassa', () => {
     ['_tkMitalit', '_tkMitaliViimeisin', '_tkKokonaisaikaRivilta'].forEach((f) => expect(pura('function ' + f + '(')).not.toMatch(/tkLajiViite|erinomainen|hyva/));

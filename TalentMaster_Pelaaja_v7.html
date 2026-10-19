@@ -555,7 +555,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_tanaan_kentta.js?v=4"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) · C: tmKenttaPelaajalle -->
 <script src="lib/tm_mediaviesti.js?v=8"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet (pelaajan klippi-ketju) -->
 <script src="lib/tm_klippi_perhe.js?v=3"></script>   <!-- R6.4 PR 2: Valmentajalta klippi (Tänään) -->
-<script src="lib/tm_merkki_nakyma.js?v=1"></script>   <!-- palaute-näkyvyys 0a: merkkisääntö (Kohti seuraavaa, Parempi kuin viime kerralla; ei sekunteja) -->
+<script src="lib/tm_merkki_nakyma.js?v=2"></script>   <!-- palaute-näkyvyys 0a: merkkisääntö + oma mittaus (Kohti seuraavaa, oma parannus; ei rajoja) -->
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: viikkokatsaus + jakson päätöskortti (Kenttä-lipun takana) -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin + sitoumus Tänään-sivulla (Kenttä-lipun takana) -->
 <script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- B 3/3: jakson kotiharjoitteet (jaksofokus.tukiosa.harjoitteet snapshot) + seuran nimi lähdemerkintänä -->   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
@@ -1913,25 +1913,30 @@ async function _lataaTekniikka() {
   } catch (e) { console.warn('[tekniikka]', e.message); }
 }
 
-// MAS-kortti — vain sanoin (palaute-näkyvyys 0a, Tero 19.10.2026): MAS-raakaluku, harjoitteluvyöhykkeet (km/h) ja m/s-trendi POISTETTU pelaajan näkymästä.
-// Näkyy kun MAS-data olemassa; parannus kerrotaan vain sanoin ("hyvä kehityssuunta") omaan edelliseen mittaukseen verrattuna, ellei parantunut ei mitään.
+// MAS-kortti — pelaajan OMA MAS-arvo näkyy (täydennys 19.10.2026, §7.22-poikkeus oma mittaus); EI harjoitteluvyöhykkeitä (km/h-vyöhykkeet = valmentajan työkalu), EI vertailua/rajoja.
+// Parannus vain kun MAS parani ("hyvä kehityssuunta" + oma ero); heikompi tulos näytetään ilman kommenttia.
 function rMinaMAS() {
   if (!_pelaaja) return '';
   const hv = _pelaaja.hh_viimeisin || {};
   const masKmh = (_pelaaja.mas_kmh != null) ? _pelaaja.mas_kmh : (hv.mas != null ? hv.mas : null);
   if (masKmh == null) return '';
+  const masMs = (_pelaaja.mas_ms != null) ? _pelaaja.mas_ms : Math.round((masKmh / 3.6) * 100) / 100;
+  const stage = (typeof _laskeStage === 'function') ? _laskeStage(_pelaaja.syntymaVuosi, _pelaaja) : '2_rakentaja';
+  const r1 = function(x){ return Math.round(x * 10) / 10; };
   const box = function(inner){ return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">' + inner + '</div>'; };
   const ots = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:.01em">' + T('juoksumoottori') + '</div>';
-  let parani = false;
+  let trend = '';
   const hist = Array.isArray(_pelaaja.mas_historia) ? _pelaaja.mas_historia.filter(function(x){ return x != null; }) : [];
   if (hist.length >= 2) {
     const toMs = function(h){ return (h.ms != null) ? h.ms : (h.kmh != null ? h.kmh / 3.6 : null); };
     const a = toMs(hist[0]), b = toMs(hist[hist.length - 1]);
-    parani = (a != null && b != null && (b - a) > 0.05);
+    if (a != null && b != null && (b - a) > 0.05) trend = '<div style="font-size:12px;margin-top:10px;color:#28B090">↑ +' + (Math.round((b - a) * 100) / 100).toFixed(2).replace('.', ',') + ' m/s — ' + T('hyva_kehityssuunta') + '</div>';
   }
-  return box(ots
-    + '<div style="font-size:13px;color:var(--text)">' + T('vauhtisi_on_mitattu_hienoa_tyota') + '</div>'
-    + (parani ? '<div style="font-size:12px;margin-top:10px;color:#28B090">' + T('hyva_kehityssuunta') + '</div>' : ''));
+  const arvo = (stage === '3_showcase')
+    ? '<div style="display:flex;align-items:baseline;gap:10px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:40px;font-weight:300;color:#28B090;line-height:1">' + masMs.toFixed(2) + '</div><div style="font-size:11px;color:#8C8B86">m/s · ' + r1(masKmh) + ' km/h</div></div>'
+    : '<div style="display:flex;align-items:baseline;gap:10px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:40px;font-weight:300;color:#28B090;line-height:1">' + r1(masKmh) + '</div><div style="font-size:22px">⚡</div></div>'
+      + (stage === '1_leikkija' ? '<div style="font-size:12px;color:var(--text);margin-top:10px">' + T('mita_isompi_luku_sita_pidempaan') + '</div>' : '<div style="font-size:13px;color:var(--text);font-weight:600;margin-top:6px">' + T('aerobinen_kapasiteetti') + '</div>');
+  return box(ots + arvo + trend);
 }
 
 // §5.3 tekniikkatavoite LAPSEN KIELELLÄ — luetaan pikakentistä (§26), tkLajiViite-vertailu (window.TM_TESTIT).
@@ -2067,6 +2072,10 @@ function _minaTavoiteRivit(p, d) {
       + '<div style="font-size:12px;color:#8C8B86">' + _pT('vanhempi.tek_pieni_parannus') + '</div></div>';
   }
 
+  // 📈 Oma parannus VAIN kun parani (täydennys 19.10.2026): "Paransit kokonaisaikaasi 4 sekuntia". Ei parantunut → ei mitään. Ei merkkirajoja, ei matkaa kultaan.
+  const _par = (window.TM_MERKKI_NAKYMA && window.TM_MERKKI_NAKYMA.tmOmaParannus) ? window.TM_MERKKI_NAKYMA.tmOmaParannus(p.tk_kokonaistulos_edellinen, p.tk_kokonaistulos_viimeisin) : null;
+  if (_par) h += '<div style="font-size:13px;color:#28B090;margin-top:10px">' + _pT('paransit_kokonaisaikaasi_n_sekunti', { n: window.TM_MERKKI_NAKYMA.tmOmaLuku(_par.ero) }) + '</div>';
+
   // 🔥 Kultaikkuna lapsen kielellä, VAIN ≤ 12 v — EI uhkakehystä
   if (ika != null && ika <= 12) {
     h += '<div style="font-size:12px;color:#8C8B86;margin-top:10px">' + _pT('nyt_on_paras_ika_oppia') + '</div>';
@@ -2150,7 +2159,19 @@ function rMinaFyysinenTavoite() {
   const edel = _minaHhEdellinen(p);
   if (p.hh_taso != null && edel.taso != null && (p.hh_taso - edel.taso) > 0) {
     h += '<div style="font-size:14px;color:#28B090;margin-top:10px">' + T('kehityit_viime_kerrasta_hienoa') + '</div>';
-    // Palaute-näkyvyys 0a: aiemmat → nykyiset luvut (sekunnit/cm) poistettu; parannus vain sanoin.
+    // Sekunnit/senttimetrit saa näyttää (EI tasolukuja, EI vertailua muihin, §7.22): ensimmäinen parantunut mittaus.
+    const _tk = ['lin30m', 'lin10m', 'kasirata', 'cmj'];
+    for (let i = 0; i < _tk.length; i++) {
+      const k = _tk[i], nyt = _minaHhArvo(p, k), ennen = edel.hv ? edel.hv[k] : null;
+      const m = (typeof HH_TESTI_MAP !== 'undefined') ? HH_TESTI_MAP[k] : null;
+      if (nyt == null || ennen == null || !m || isNaN(nyt) || isNaN(ennen)) continue;
+      const parempi = m.pienempi ? (Number(nyt) < Number(ennen)) : (Number(nyt) > Number(ennen));
+      if (!parempi) continue;
+      const r1 = function (x) { return Math.round(Number(x) * 10) / 10; };
+      h += '<div style="font-size:13px;color:#8C8B86;margin-top:2px">' + _MINA_HHNIMI[k] + ': ' + r1(ennen) + ' ' + m.yksikko + ' → ' + r1(nyt) + ' ' + m.yksikko + '</div>';
+      break;
+    }
+    // oma parannus (täydennys 19.10.2026): ensimmäinen parantunut mittaus ennen → nyt; ei tavoitelukua
   }
   // Huipputaso (paras luokka jossain testissä) → ei tavoitetta, mutta positiivinen viesti. Tasolukua EI näytetä.
   let huippu = false;
@@ -2456,7 +2477,7 @@ function rMinaTekniikkaprofiili() {
         + d.hhTekn.map(function (r) {
             return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-top:.5px solid rgba(242,239,230,.08)">'
               + '<span style="font-size:14px;color:var(--text)">' + r.nimi + '</span>'
-              + '<span style="font-size:15px;color:#28B090">⚽</span></div>';   // palaute-näkyvyys 0a: ei sekunteja
+              + '<span style="font-family:\'DM Sans\',sans-serif;font-size:15px;color:#28B090">' + r.aika + ' s</span></div>';   // oma mittaus (täydennys 19.10.2026)
           }).join('')
         + '<div style="font-size:12px;color:#8C8B86;margin-top:10px">' + T('tekniikkakisassa_naet_viela_enemma') + '</div>';
     } else {
@@ -2467,6 +2488,7 @@ function rMinaTekniikkaprofiili() {
       + _body + '</div>';
   }
   const merkkiVari = { kulta: '#D4AF37', hopea: '#9AA0A6', pronssi: '#B87333' };
+  const lajiNimi = { ponnauttelu: T('vanhempi.laji_ponnauttelu'), syotto: T('vanhempi.laji_syotto'), pujottelu: T('vanhempi.laji_pujottelu'), kuljetus_laukaus: T('vanhempi.laji_kuljetus_laukaus') };
   let h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:.01em">' + T('vanhempi.tek_profiili') + '</div>';
   // §7.22/§34: TKI-lukua EI näytetä pelaajalle (indeksi = tasoluku). Palaute-näkyvyys 0a (Tero 19.10.2026): nykyinen merkki + "Kohti {seuraava}"
@@ -2477,6 +2499,23 @@ function rMinaTekniikkaprofiili() {
   if (MN && MN.parempi) h += '<div style="font-size:13px;color:#28B090;margin-top:6px">' + T('vanhempi.merkki_parempi') + '</div>';
   // §5.3 tavoiterivit (pikakentät) — korvaa vanhat yksinkertaiset vahvuus/kehityskohde-rivit; fallback sisällä
   h += _minaTavoiteRivit(_pelaaja, d);
+  // Lajit sekunteina (lyhyempi = nopeampi). §7.22: EI palkkeja — täyttö oli suhde eliittiviitteeseen (= normivertailu +
+  // edistymispalkki). Itsevertailuun ei ole per-laji-historiaa → näytetään oma aika + ★ vahvuus / 🎯 seuraava askel.
+  const lajit = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];
+  const arvo = (id) => { const x = d.testit[id]; if (x == null) return null; if (typeof x === 'object') return (x.tulos != null ? x.tulos : x.paras); return x; };
+  const vals = lajit.map(id => ({ id: id, val: parseFloat(arvo(id)) })).filter(x => !isNaN(x.val));
+  if (vals.length) {
+    const tkiV = _pelaaja && _pelaaja.tki_vahvuus, tkiK = _pelaaja && _pelaaja.tki_kehityskohde;
+    h += '<div style="margin-top:12px;display:flex;flex-direction:column">';
+    vals.forEach(x => {
+      const mark = (x.id === tkiV) ? ' ★' : (x.id === tkiK) ? ' 🎯' : '';
+      h += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-top:.5px solid rgba(242,239,230,.08)">'
+        + '<span style="font-size:13px;color:var(--text)">' + (lajiNimi[x.id] || x.id) + mark + '</span>'
+        + '<span style="font-family:\'DM Sans\',sans-serif;font-size:14px;color:#28B090">' + x.val.toFixed(1) + ' s</span></div>';
+    });
+    h += '</div>';
+  }
+  // Oma parannus ('Paransit kokonaisaikaasi N sekuntia') tulee _minaTavoiteRivit:stä (tmOmaParannus) — ei tuplana tässä.
   h += '</div>';
   return h;
 }

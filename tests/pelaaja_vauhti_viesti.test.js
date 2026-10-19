@@ -65,7 +65,7 @@ describe('Pelaaja_v7 · Vauhti & pallo — mitattu tulos ei koskaan "tulossa"', 
     expect(html).not.toContain('tulossa');
     expect(html).toContain('Huippuvauhtia');
     expect(html).toContain('Kehityit viime kerrasta');           // vertailu historiasta, ei hh_taso_edellinen-kentästä
-    expect(html).not.toMatch(/\d+(\.\d+)? s\b|→/);                  // palaute-näkyvyys 0a (19.10.2026): ei sekunteja lapselle; parannus vain sanoin
+    expect(html).toContain('5.9 s → 4 s');                        // oma parannus saa näkyä (täydennys 19.10.2026)
   });
 
   it('paras tulos heti ensimmäisellä kerralla (ei vertailukohtaa) → "Huippuvauhtia", ei "tulossa" eikä kehityit-riviä', () => {
@@ -92,7 +92,7 @@ describe('Pelaaja_v7 · Vauhti & pallo — mitattu tulos ei koskaan "tulossa"', 
     const html = rBox(d);
     expect(html).toContain('Nopeus');   // kehityskohteen nimi näkyy sanoin (palaute-näkyvyys 0a: ei "nyt X → tavoite Y" -lukuja)
     expect(html).toContain('Pieni parannus');
-    expect(html).not.toMatch(/\d+(\.\d+)? s\b|Tavoite|→/);
+    expect(html).not.toMatch(/Tavoite|tavoite/);   // ei tavoiteviitettä
     expect(html).not.toContain('Huippuvauhtia');
   });
 

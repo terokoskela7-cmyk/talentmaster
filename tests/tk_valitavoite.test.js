@@ -65,9 +65,9 @@ describe('Vanhempi_v2 · tekniikka: väärä/arvattu tavoite ei näy huoltajalle
     return tx(ctx.f());
   };
   // palaute-näkyvyys 0a (Tero 19.10.2026): huoltaja ei näe sekuntitavoitetta eikä sekunteja missään tapauksessa; kehityskohteen nimi säilyy.
-  it.each([12.4, 25.0, 27.5])('pujottelu %s s → EI "Nyt … → tavoite …" -riviä eikä sekunteja; kehityskohde-nimi säilyy', (s) => {
+  it.each([12.4, 25.0, 27.5])('pujottelu %s s → EI "Nyt … → tavoite …" -riviä; oma tulos näkyy; kehityskohde-nimi säilyy', (s) => {
     const h = aja(s);
-    expect(h).not.toMatch(/→/); expect(h).not.toContain(String(s)); expect(h).not.toMatch(/\b\d+(\.\d+)? s\b/);
+    expect(h).not.toMatch(/→|Tavoite/); expect(h).toContain(s.toFixed(1) + ' s');   // oma tulos näkyy, tavoitetta ei
     expect(h).toContain(LANG.TM_LANG.fi.vanhempi.tek_seuraava_askel);
   });
 });

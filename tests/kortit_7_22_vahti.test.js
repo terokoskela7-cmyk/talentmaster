@@ -100,7 +100,7 @@ describe('§7.22-vahti · Pelaaja_v7 renderöi rikkaalla datalla ilman tasolukuj
       expect(fc).toContain('✓');
     });
   }
-  it('Tekniikkaprofiili: ei TKI-lukua, ei eliittisuhde-palkkeja, ei negatiivista trendiä; EI sekunteja; merkki + "Kohti seuraavaa" (palaute-näkyvyys 0a)', () => {
+  it('Tekniikkaprofiili: ei TKI-lukua, ei eliittisuhde-palkkeja, ei negatiivista trendiä; oma tulos näkyy neutraalisti; merkki + "Kohti seuraavaa" (palaute-näkyvyys 0a + täydennys)', () => {
     const c = pelaajaCtx(rikas(13, { tk_kokonaistulos_edellinen: 70, tk_kokonaistulos_viimeisin: 66 }));
     c._tekniikkaData = { tki: 72, merkki: 'hopea', vahvuudet: [], kehityskohteet: [], testit: { syotto: 9.2, pujottelu: 12.4 }, trendi: { ero: 3, parani: false }, kpl: 2 };
     const h = c.rMinaTekniikkaprofiili();
@@ -108,7 +108,7 @@ describe('§7.22-vahti · Pelaaja_v7 renderöi rikkaalla datalla ilman tasolukuj
     skannaa(tx, 'tekniikka');
     expect(tx).not.toContain('72');
     expect(h, 'palkin täyttö = suhde eliittiviitteeseen').not.toMatch(/width:\s*\d+%/);
-    expect(tx).not.toContain('9.2'); expect(tx).not.toMatch(/\b\d+(\.\d+)? s\b/);
+    expect(tx).toContain('9.2 s'); expect(tx).not.toMatch(/matka|vyöhyk|alle \d/i);   // oma tulos saa näkyä (täydennys 19.10.2026), rajat/vyöhykkeet eivät
     expect(tx).toContain(LANG.TM_LANG.fi.pelaaja.tk_merkki_hopea); expect(tx).toContain('Kohti kultaa'); expect(tx).toContain('Parempi kuin viime kerralla');
     const c2 = pelaajaCtx(rikas(13, { tk_kokonaistulos_edellinen: 66, tk_kokonaistulos_viimeisin: 70 }));   // ei parantunut → ei mitään vertailutekstiä
     c2._tekniikkaData = c._tekniikkaData;
@@ -180,13 +180,13 @@ describe('§7.22-vahti · Vanhempi_v2 (huoltaja)', () => {
     expect(tx).toContain('Streak'); expect(tx).toContain('9');
     expect(tx).toContain('Omat ennätykset'); expect(tx).toContain('4.0 s');
   });
-  it('tekniikka: ei TKI-lukua eikä eliittisuhde-palkkeja; EI sekunteja; merkki + Kohti seuraavaa + vahvuus + miten tukea (palaute-näkyvyys 0a)', () => {
+  it('tekniikka: ei TKI-lukua eikä eliittisuhde-palkkeja; oma tulos; merkki + Kohti seuraavaa + vahvuus + miten tukea (palaute-näkyvyys 0a)', () => {
     const h = vanhempiCtx(lapsi).rVanhempiTekniikka();
     const tx = teksti(h);
     skannaa(tx, 'huoltajan tekniikka');
     expect(tx).not.toContain('72');
     expect(h).not.toMatch(/width:\s*\d+%/);
-    expect(tx).not.toContain('9.2'); expect(tx).not.toMatch(/\b\d+(\.\d+)? s\b/); expect(tx).not.toMatch(/matka|→/i);
+    expect(tx).toContain('9.2 s'); expect(tx).not.toMatch(/matka|→|tavoite/i);   // oma tulos näkyy; ei tavoite-/rajalukuja
     expect(tx).toContain('Kohti kultaa'); expect(tx).toContain('Parempi kuin viime kerralla'); expect(tx).toContain(LANG.TM_LANG.fi.vanhempi.tek_miten_tukea);
   });
   it('tekniikka: ylin merkki → vain se (ei "Kohti"); ei parantunut → ei vertailutekstiä', () => {
