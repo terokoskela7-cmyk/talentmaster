@@ -152,7 +152,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa (Kenttä-lipun takana) -->
 <script src="lib/tm_tanaan_signaali.js?v=9"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
-<script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
+<script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
 <script src="lib/tm_kevyt_katselmus.js?v=4"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=5"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=4"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
@@ -11734,7 +11734,7 @@ window._vpSulkuTallenna = async function (uusiAvain) {
 };
 
 // Meso-kehityskaari (jaksotason timeline) — lukee jaksofokus_historia[] (§26). VP/valmentaja-näkymä (§7.22 ei koske).
-function _vpMesoKaariHTML(p) {
+function _vpMesoKaariHTMLSisus(p) {
   const hist = (p && Array.isArray(p.jaksofokus_historia)) ? p.jaksofokus_historia : [];
   if (!hist.length && !(p && p.jaksofokus)) return '';
   const esc = _jsvEsc;
@@ -11746,11 +11746,10 @@ function _vpMesoKaariHTML(p) {
   hist.forEach(function (e, i) {
     const lasnaPct = (e.lasnaolo && e.lasnaolo.yhteensa) ? Math.round(e.lasnaolo.paikalla / e.lasnaolo.yhteensa * 100) : null;
     const dBadge = (e.delta_mitattu && typeof e.delta_mitattu.muutos === 'number') ? (' · Δ ' + (e.delta_mitattu.muutos > 0 ? '+' : '') + e.delta_mitattu.muutos) : '';
-    h += '<div style="min-width:128px;flex:0 0 auto;background:var(--ov-1);border:.5px solid rgba(61,163,93,.3);border-radius:10px;padding:9px 11px;margin-right:8px;position:relative">'
+    h += '<div style="min-width:128px;max-width:230px;flex:0 0 auto;background:var(--ov-1);border:.5px solid rgba(61,163,93,.3);border-radius:10px;padding:9px 11px;margin-right:8px;position:relative">'
       + '<span style="position:absolute;top:8px;right:9px;font-size:12px;color:var(--teal)">' + _dIc(e.domeeni) + ' ' + (TIC[e.tulos] || '·') + '</span>'
       + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:26px">' + esc(e.konsepti_nimi || e.konsepti_avain) + '</div>'
-      + '<div style="font-size:9.5px;color:var(--ink3);margin-top:1px">' + (e.harjoituksia || 0) + ' ' + vpT('harj') + (lasnaPct != null ? ' · ' + vpT('läsnä') + ' ' + lasnaPct + '%' : '') + dBadge + '</div>'
-      + '</div>';
+      + '<div style="font-size:9.5px;color:var(--ink3);margin-top:1px">' + (e.harjoituksia || 0) + ' ' + vpT('harj') + (lasnaPct != null ? ' · ' + vpT('läsnä') + ' ' + lasnaPct + '%' : '') + dBadge + '</div>' + window.TM_HISTORIA_LAUSE.tmHlKorttiLisa(e, (window._hlReviewit || {})[p.id], { esc: esc, t: vpT }) + '</div>';
     if (i < hist.length - 1 || (p && p.jaksofokus)) h += '<div style="display:flex;align-items:center;color:var(--ink3);margin-right:8px">→</div>';
   });
   if (p && p.jaksofokus) {
@@ -11762,6 +11761,8 @@ function _vpMesoKaariHTML(p) {
   h += '</div></div>';
   return h;
 }
+
+function _vpMesoKaariHTML(p) { return window.TM_HISTORIA_LAUSE.tmHlSlot(p, _vpMesoKaariHTMLSisus, { db: typeof db !== 'undefined' ? db : null, sid: typeof _seuraId !== 'undefined' ? _seuraId : null, demo: _isDemoMode, esc: _jsvEsc }); }   // 0b-jatko: lause (myös sisäinen) + sulkupäivä, laiska reviewit-lataus (lib/tm_historia_lause.js)
 
 // VAIHE 2.0 — kokoa tmKypsyys-komponentin syöte PIKAKENTISTÄ (§26): biologinenIka_viimeisin (offset/phv_ika/pvm) +
 // phv_tila + kasvutahti_* + kasvuhistoria (jos pikakenttänä). PUHDAS (testattava). Ei uutta laskentaa — vain kokoaa.

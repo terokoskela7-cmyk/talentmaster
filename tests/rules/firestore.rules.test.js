@@ -4850,6 +4850,15 @@ describe('0b · sisäinen katselmuslause: reviewit/{pvm}.lause_sisainen — valm
     await assertFails(setDoc(rev(valmentajaContext(VALM_B_UID, SEURA_B).firestore(), '2026-11-19'), { lause_sisainen: LS }, { merge: true }));
   });
 });
+describe('0b-jatko · Historian lataus: reviewit-kokoelman LISTAUS (getDocs) onnistuu henkilökunnalle, ei pelaajalle eikä huoltajalle', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', '2026-11-10'), { lause_sisainen: { teksti: 'Sisäinen', lahde: 'valmentaja', uid: 'u', tallennettu: '2026-11-10T10:00:00.000Z' } }); }); });
+  const kok = (db) => collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit');
+  it('valmentaja ja VP listaavat; pelaaja, huoltaja ja toisen seuran valmentaja eivät', async () => {
+    const r = await assertSucceeds(getDocs(kok(valmentajaContext(VALM_A_UID, SEURA_A).firestore()))); expect(r.docs.map((d) => d.data().lause_sisainen.teksti)).toEqual(['Sisäinen']);
+    await assertSucceeds(getDocs(kok(vpContext(SEURA_A).firestore())));
+    await assertFails(getDocs(kok(pelaajaItseContext().firestore()))); await assertFails(getDocs(kok(huoltajaContext().firestore()))); await assertFails(getDocs(kok(valmentajaContext(VALM_B_UID, SEURA_B).firestore())));
+  });
+});
 describe('0b · pikakortin pelaajakopio: havainnot (tyyppi havainto_pelaajalle, nakyvyys pelaaja, vain teksti) — pelaaja ja huoltaja lukevat; sisäinen dokumentti (nakyvyys valmentajat, pisteet) ei ole heidän luettavissaan', () => {
   beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
   const hav = (db, id) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', id);
