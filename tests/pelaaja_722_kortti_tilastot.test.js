@@ -43,7 +43,7 @@ function renderoi(pelaaja, kieli, porttiAuki) {
   // porttiAuki = mutaatio (E): simuloi regressio jossa yhteinen OVR-portti avautuisi taas.
   const portti = porttiAuki ? runko('_fcNaytaOvr').replace('return false;', 'return !!(F && F.ikavyohyke === \'showcase\' && !F.rakentuu && F.ovr != null);') : runko('_fcNaytaOvr');
   const src = [runko('_tMittari'), runko('_tKortti'), runko('_valmiusTila'), runko('_laskeStage'),
-               runko('_fcKorttiData'), runko('_fcRengasSVG'), portti, runko('_p7PaikkaNimi'), runko('rKortti')];   // _p7PaikkaNimi: fi → arvo sellaisenaan (kortin pelipaikkateksti)
+               runko('_fcKorttiData'), portti, runko('_p7PaikkaNimi'), runko('rKortti')];   // _p7PaikkaNimi: fi → arvo sellaisenaan (kortin pelipaikkateksti)
   src.forEach((x, i) => { if (!x) throw new Error('funktion runkoa ei löytynyt, index ' + i); });
 
   const LANG = require_lang();

@@ -90,9 +90,9 @@ describe('Kytkennät: Pelaaja_v7 + VP + Koulutus', () => {
   const P = lue('TalentMaster_Pelaaja_v7.html'), V = lue('TalentMaster_VP_v25.html'), K = lue('TalentMaster_ADAR_Koulutus.html');
   it('Pelaaja_v7: ÄLY val = tmAdarNorm99, taso = tmAdarTaso5, seuraava askel heikoimmasta (adarHeikoin); muiden ulottuvuuksien kaavat ennallaan', () => {
     expect(P).toMatch(/val:v, state: luot \? 'measured'/); expect(P).toMatch(/const v = tmAdarNorm99\(ad\.yht\)/); expect(P).toMatch(/return tmAdarTaso5\(ad\.yht\)/);
-    expect(P).toMatch(/alyTaso\(t, d\.adarCtx\)/); expect(P).toMatch(/const _heik = \(p\.adar_heikoin && ad\[p\.adar_heikoin\] != null\) \? ad\[p\.adar_heikoin\] : undefined/);
+    expect(P).not.toMatch(/alyTaso\(/);   // palaute-näkyvyys 0a (19.10.2026): ADAR-tasokuvaus pois pelaajan näkymästä (VP/Koulutus käyttävät yhä)
+    expect(P).toMatch(/const _heik = \(p\.adar_heikoin && ad\[p\.adar_heikoin\] != null\) \? ad\[p\.adar_heikoin\] : undefined/);
     expect(P).toMatch(/porras: p\.havainto_porras \|\| null[^}]*ehdotus: p\.havainto_porras_ehdotus/); expect(P).not.toMatch(/Math\.min\.apply\(null, _adP\)/);   // heikoin portaan joukosta, ei kaikista (bonus pois)
-    expect(P).toMatch(/_p7K1T\('Seuraava taito'\)/);
     expect(P).toMatch(/d\.key === 'FYS' && p\.d1_taso != null\) return Math\.max\(1, Math\.min\(5, Math\.round\(p\.d1_taso\)\)\)/);
     expect(P).toMatch(/d\.key === 'PSY' && p\.d3_taso != null\) return Math\.max\(1, Math\.min\(5, Math\.round\(p\.d3_taso\)\)\)/);
   });

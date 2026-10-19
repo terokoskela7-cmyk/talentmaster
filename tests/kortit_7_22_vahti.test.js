@@ -44,7 +44,7 @@ function sandbox(base) {
 }
 function lataaLib(ctx, f) { vm.runInContext(readFileSync(join(ROOT, f), 'utf8'), ctx); }
 
-const PELAAJA_FN = ['function _thEsc(', 'function _laskeStage(', 'function _fcNaytaOvr(', 'function _fcKorttiData(', 'function _fcRengasSVG(',
+const PELAAJA_FN = ['function _thEsc(', 'function _laskeStage(', 'function _fcNaytaOvr(', 'function _fcKorttiData(',
   'function _minaTierVari(', 'function rMinaHero(', 'function naytaFcOverlay(', 'function rMinaTekniikkaprofiili(', 'function _signaaliLabel(',
   'function _minaHhHuipulla(', 'function _kkMitattuja(', 'function _ennRivit('];
 function pelaajaCtx(p) {
@@ -55,7 +55,7 @@ function pelaajaCtx(p) {
     localStorage: { getItem: () => null, setItem() {} },
     document: { getElementById: (id) => (id === 'fcOv' ? fc : null) } };
   const ctx = sandbox(base);
-  lataaLib(ctx, 'lib/tm_kortti_rubriikit.js'); lataaLib(ctx, 'lib/tm_adar_rubriikki.js');
+  lataaLib(ctx, 'lib/tm_kortti_rubriikit.js'); lataaLib(ctx, 'lib/tm_adar_rubriikki.js'); ctx.window.TM_MERKKI_NAKYMA = require('../lib/tm_merkki_nakyma.js');
   vm.runInContext(PELAAJA_FN.map((f) => pura(PEL, f)).join('\n'), ctx);
   // KORTTI_KATALOGI on var-objekti (ei funktio) → puretaan erikseen
   const k0 = PEL.indexOf('var KORTTI_KATALOGI = {');
@@ -100,17 +100,19 @@ describe('§7.22-vahti · Pelaaja_v7 renderöi rikkaalla datalla ilman tasolukuj
       expect(fc).toContain('✓');
     });
   }
-  it('Tekniikkaprofiili: ei TKI-lukua, ei eliittisuhde-palkkeja, ei negatiivista trendiä; sekunnit + mitali näkyvät', () => {
-    const c = pelaajaCtx(rikas(13));
+  it('Tekniikkaprofiili: ei TKI-lukua, ei eliittisuhde-palkkeja, ei negatiivista trendiä; EI sekunteja; merkki + "Kohti seuraavaa" (palaute-näkyvyys 0a)', () => {
+    const c = pelaajaCtx(rikas(13, { tk_kokonaistulos_edellinen: 70, tk_kokonaistulos_viimeisin: 66 }));
     c._tekniikkaData = { tki: 72, merkki: 'hopea', vahvuudet: [], kehityskohteet: [], testit: { syotto: 9.2, pujottelu: 12.4 }, trendi: { ero: 3, parani: false }, kpl: 2 };
     const h = c.rMinaTekniikkaprofiili();
     const tx = teksti(h);
     skannaa(tx, 'tekniikka');
     expect(tx).not.toContain('72');
     expect(h, 'palkin täyttö = suhde eliittiviitteeseen').not.toMatch(/width:\s*\d+%/);
-    expect(tx).toContain('9.2 s'); expect(tx).toContain('hopea');
-    c._tekniikkaData.trendi = { ero: 3, parani: true };
-    expect(teksti(c.rMinaTekniikkaprofiili())).toContain('parantunut 3 s');
+    expect(tx).not.toContain('9.2'); expect(tx).not.toMatch(/\b\d+(\.\d+)? s\b/);
+    expect(tx).toContain(LANG.TM_LANG.fi.pelaaja.tk_merkki_hopea); expect(tx).toContain('Kohti kultaa'); expect(tx).toContain('Parempi kuin viime kerralla');
+    const c2 = pelaajaCtx(rikas(13, { tk_kokonaistulos_edellinen: 66, tk_kokonaistulos_viimeisin: 70 }));   // ei parantunut → ei mitään vertailutekstiä
+    c2._tekniikkaData = c._tekniikkaData;
+    expect(teksti(c2.rMinaTekniikkaprofiili())).not.toContain('viime kerralla');
   });
   it('signaalimerkki: X-Factor/Piilohelmi ei renderöidy; putki näkyy positiivisena', () => {
     for (const s of ['x-factor', 'gem']) skannaa(teksti(pelaajaCtx(rikas(13, { signaali: s }))._signaaliLabel()), 'signaali ' + s);
@@ -157,16 +159,17 @@ function vanhempiCtx(lapsi) {
     _age: 'u15', IKA: { u15: { nimi: 'Topias', ryhma: 'KPV U13' } }, ic: () => '' };
   const ctx = sandbox(base);
   ctx.window._lapsi = lapsi;
+  ctx.window.TM_MERKKI_NAKYMA = require('../lib/tm_merkki_nakyma.js');
   const alku = V2.indexOf('const _VANH_LAJINIMI'), alku2 = V2.indexOf('const _VANH_ENN = {');
   vm.runInContext([V2.slice(alku, V2.indexOf(';', alku) + 1), V2.slice(V2.indexOf('const TUKIVINKIT'), V2.indexOf('};', V2.indexOf('const TUKIVINKIT')) + 2),
-    V2.slice(alku2, V2.indexOf('};', alku2) + 2), pura(V2, 'function _genetiivi('), pura(V2, 'function _vEsc('), pura(V2, 'function _vanhValitavoite('),
+    V2.slice(alku2, V2.indexOf('};', alku2) + 2), pura(V2, 'function _genetiivi('), pura(V2, 'function _vEsc('),
     pura(V2, 'function _vanhEnnArvo('), pura(V2, 'function _vanhEnnPvm('), pura(V2, 'function rVanhempiEnnatykset('),
     pura(V2, 'function rVanhempiTekniikka('), pura(V2, 'function rKortti(')].join('\n'), ctx);
   return ctx;
 }
 describe('§7.22-vahti · Vanhempi_v2 (huoltaja)', () => {
   const lapsi = Object.assign(rikas(13), { kortti: 74, stage: 'Rakentaja', treeneja_kausi: 0, signaali: 'xfactor', streak: 9,
-    tk_lajit_viimeisin: { syotto_s: 9.2, pujottelu_s: 12.4 }, tk_lajit_pvm: '2026-10-03', tk_kokonaistulos_viimeisin: 60,
+    tk_lajit_viimeisin: { syotto_s: 9.2, pujottelu_s: 12.4 }, tk_lajit_pvm: '2026-10-03', tk_kokonaistulos_viimeisin: 60, tk_kokonaistulos_edellinen: 64,
     ennatykset: { lin30m: { paras: 4.0, pvm: '2026-10-03', edellinen: 5.9 } } });
   it('kausikortti: ei "Kortti 0–99"-lukua, ei Treenejä/Stage-tyhjiä, ei 2025/26, ei X-Factoria (myös demo), ei jaa-nappia; putki + ennätys näkyvät', () => {
     const h = vanhempiCtx(lapsi).rKortti();
@@ -177,13 +180,18 @@ describe('§7.22-vahti · Vanhempi_v2 (huoltaja)', () => {
     expect(tx).toContain('Streak'); expect(tx).toContain('9');
     expect(tx).toContain('Omat ennätykset'); expect(tx).toContain('4.0 s');
   });
-  it('tekniikka: ei TKI-lukua eikä eliittisuhde-palkkeja; sekunnit + vahvuus + miten tukea', () => {
+  it('tekniikka: ei TKI-lukua eikä eliittisuhde-palkkeja; EI sekunteja; merkki + Kohti seuraavaa + vahvuus + miten tukea (palaute-näkyvyys 0a)', () => {
     const h = vanhempiCtx(lapsi).rVanhempiTekniikka();
     const tx = teksti(h);
     skannaa(tx, 'huoltajan tekniikka');
     expect(tx).not.toContain('72');
     expect(h).not.toMatch(/width:\s*\d+%/);
-    expect(tx).toContain('9.2 s');
+    expect(tx).not.toContain('9.2'); expect(tx).not.toMatch(/\b\d+(\.\d+)? s\b/); expect(tx).not.toMatch(/matka|→/i);
+    expect(tx).toContain('Kohti kultaa'); expect(tx).toContain('Parempi kuin viime kerralla'); expect(tx).toContain(LANG.TM_LANG.fi.vanhempi.tek_miten_tukea);
+  });
+  it('tekniikka: ylin merkki → vain se (ei "Kohti"); ei parantunut → ei vertailutekstiä', () => {
+    const tx = teksti(vanhempiCtx(Object.assign({}, lapsi, { tki_merkki: 'kulta', tk_kokonaistulos_edellinen: 55, tk_kokonaistulos_viimeisin: 60 })).rVanhempiTekniikka());
+    expect(tx).toContain(LANG.TM_LANG.fi.pelaaja.tk_merkki_kulta); expect(tx).not.toContain('Kohti'); expect(tx).not.toContain('viime kerralla');
   });
 });
 

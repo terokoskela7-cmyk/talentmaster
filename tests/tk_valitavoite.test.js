@@ -61,19 +61,14 @@ describe('Vanhempi_v2 · tekniikka: väärä/arvattu tavoite ei näy huoltajalle
     const ctx = vm.createContext({ ...PEL_APU, window: { _lapsi: lapsi, TM_TESTIT: T }, t: LANG.t, IKA: {}, _age: 'u15', Math, Number, String, Object, isNaN });
     const a = V2.indexOf('const _VANH_LAJINIMI'), b = V2.indexOf('const TUKIVINKIT');
     vm.runInContext([V2.slice(a, V2.indexOf(';', a) + 1), V2.slice(b, V2.indexOf('};', b) + 2), pura(V2, 'function _genetiivi('),
-      pura(V2, 'function _vanhValitavoite('), pura(V2, 'function rVanhempiTekniikka(')].join('\n') + '\nthis.f = rVanhempiTekniikka;', ctx);
+      pura(V2, 'function rVanhempiTekniikka(')].join('\n') + '\nthis.f = rVanhempiTekniikka;', ctx);
     return tx(ctx.f());
   };
-  const NYT_TAV = /→/;
-  it('havainnon tapaus 12.4 s (H-H-mittakaava) → EI "Nyt … → tavoite …" -riviä; kehityskohde-nimi säilyy', () => {
-    const h = aja(12.4);
-    expect(h).not.toMatch(NYT_TAV); expect(h).not.toContain('25.5');
+  // palaute-näkyvyys 0a (Tero 19.10.2026): huoltaja ei näe sekuntitavoitetta eikä sekunteja missään tapauksessa; kehityskohteen nimi säilyy.
+  it.each([12.4, 25.0, 27.5])('pujottelu %s s → EI "Nyt … → tavoite …" -riviä eikä sekunteja; kehityskohde-nimi säilyy', (s) => {
+    const h = aja(s);
+    expect(h).not.toMatch(/→/); expect(h).not.toContain(String(s)); expect(h).not.toMatch(/\b\d+(\.\d+)? s\b/);
     expect(h).toContain(LANG.TM_LANG.fi.vanhempi.tek_seuraava_askel);
-  });
-  it('taso jo saavutettu 25.0 s → ei huonompaa tavoitetta', () => { expect(aja(25.0)).not.toMatch(NYT_TAV); });
-  it('tavallinen 27.5 s → "Nyt 27.5 … 25" (tavoite parempi)', () => {
-    const h = aja(27.5);
-    expect(h).toMatch(NYT_TAV); expect(h).toContain('27.5'); expect(h).toMatch(/\b25\b/);
   });
 });
 
@@ -88,7 +83,8 @@ describe('Pelaaja_v7 · sama jaettu tavoite (ei kopiota)', () => {
     expect(ctx.f(p(27.5)).kehitys).toMatchObject({ nyt: 27.5, tavoite: 25 });
   });
   it('kumpikaan sovellus ei enää laske tavoitetta itse (laskenta vain testit_indeksit.js:ssä); ?v nostettu', () => {
-    for (const [f, fn] of [['TalentMaster_Pelaaja_v7.html', 'function _minaValitavoite('], ['TalentMaster_Vanhempi_v2.html', 'function _vanhValitavoite(']]) {
+    expect(lue('TalentMaster_Vanhempi_v2.html')).not.toContain('_vanhValitavoite');   // huoltaja ei saa tavoitelukuja (palaute-näkyvyys 0a)
+    for (const [f, fn] of [['TalentMaster_Pelaaja_v7.html', 'function _minaValitavoite(']]) {
       const s = lue(f), runko = pura(s, fn);
       expect(runko, f).toContain('T.tkValitavoite(arvo, viite, kaant)');
       expect(runko, f).not.toMatch(/gap <= 3|Math\.round\(t \* 2\)/);

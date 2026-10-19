@@ -542,7 +542,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=46"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=47"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_lib_i18n.js?v=17"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_kentta.js?v=5"></script>
@@ -555,6 +555,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_tanaan_kentta.js?v=4"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) · C: tmKenttaPelaajalle -->
 <script src="lib/tm_mediaviesti.js?v=8"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet (pelaajan klippi-ketju) -->
 <script src="lib/tm_klippi_perhe.js?v=3"></script>   <!-- R6.4 PR 2: Valmentajalta klippi (Tänään) -->
+<script src="lib/tm_merkki_nakyma.js?v=1"></script>   <!-- palaute-näkyvyys 0a: merkkisääntö (Kohti seuraavaa, Parempi kuin viime kerralla; ei sekunteja) -->
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: viikkokatsaus + jakson päätöskortti (Kenttä-lipun takana) -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin + sitoumus Tänään-sivulla (Kenttä-lipun takana) -->
 <script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- B 3/3: jakson kotiharjoitteet (jaksofokus.tukiosa.harjoitteet snapshot) + seuran nimi lähdemerkintänä -->   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
@@ -1912,57 +1913,25 @@ async function _lataaTekniikka() {
   } catch (e) { console.warn('[tekniikka]', e.message); }
 }
 
-// MAS-kortti — ikävaiheen kielellä (Leikkijä/Rakentaja/Showcase). Näkyy kun MAS-data olemassa.
+// MAS-kortti — vain sanoin (palaute-näkyvyys 0a, Tero 19.10.2026): MAS-raakaluku, harjoitteluvyöhykkeet (km/h) ja m/s-trendi POISTETTU pelaajan näkymästä.
+// Näkyy kun MAS-data olemassa; parannus kerrotaan vain sanoin ("hyvä kehityssuunta") omaan edelliseen mittaukseen verrattuna, ellei parantunut ei mitään.
 function rMinaMAS() {
   if (!_pelaaja) return '';
   const hv = _pelaaja.hh_viimeisin || {};
   const masKmh = (_pelaaja.mas_kmh != null) ? _pelaaja.mas_kmh : (hv.mas != null ? hv.mas : null);
   if (masKmh == null) return '';
-  const masMs = (_pelaaja.mas_ms != null) ? _pelaaja.mas_ms : Math.round((masKmh / 3.6) * 100) / 100;
-  const sp = (String(_pelaaja.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
-  const ika = new Date().getFullYear() - (_pelaaja.syntymaVuosi || 2013);
-  const taso = (typeof hhLaskeTaso === 'function') ? hhLaskeTaso('mas', masKmh, ika, sp) : null;
-  const stage = (typeof _laskeStage === 'function') ? _laskeStage(_pelaaja.syntymaVuosi, _pelaaja) : '2_rakentaja';
-  const r1 = function(x){ return Math.round(x * 10) / 10; };
   const box = function(inner){ return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">' + inner + '</div>'; };
   const ots = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:.01em">' + T('juoksumoottori') + '</div>';
-
-  if (stage === '1_leikkija') {  // U12 — leikkijä
-    return box(ots
-      + '<div style="display:flex;align-items:baseline;gap:10px">'
-      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:40px;font-weight:300;color:#28B090;line-height:1">' + r1(masKmh) + '</div>'
-      + '<div style="font-size:22px">⚡</div></div>'
-      + '<div style="font-size:12px;color:var(--text);margin-top:10px">' + T('mita_isompi_luku_sita_pidempaan') + '</div>');
-  }
-  if (stage === '2_rakentaja') {  // U13–U15 — rakentaja
-    return box(ots
-      + '<div style="font-size:13px;color:var(--text);font-weight:600">' + T('aerobinen_kapasiteetti') + '</div>'
-      + '<div style="font-size:11px;color:#8C8B86;margin-top:10px;font-weight:600">' + T('harjoitteluvyohykkeesi_tanaan') + '</div>'
-      + '<div style="font-size:12px;color:var(--text);margin-top:4px">' + T('kevyt_alle') + ' ' + r1(masKmh * 0.75) + ' km/h</div>'
-      + '<div style="font-size:12px;color:var(--text)">' + T('kehittava') + ' ' + r1(masKmh * 0.80) + '–' + r1(masKmh * 0.90) + ' km/h</div>'
-      + '<div style="font-size:12px;color:var(--text)">' + T('kova_yli') + ' ' + r1(masKmh * 0.95) + ' km/h</div>');
-  }
-  // 3_showcase — U16+ täysi tekninen näkymä
-  let trend = '';
+  let parani = false;
   const hist = Array.isArray(_pelaaja.mas_historia) ? _pelaaja.mas_historia.filter(function(x){ return x != null; }) : [];
   if (hist.length >= 2) {
     const toMs = function(h){ return (h.ms != null) ? h.ms : (h.kmh != null ? h.kmh / 3.6 : null); };
     const a = toMs(hist[0]), b = toMs(hist[hist.length - 1]);
-    if (a != null && b != null) {
-      const dd = Math.round((b - a) * 100) / 100;
-      // §7.22: vain parannus näytetään lapselle — lasku/ei muutosta = valmentajan tieto (VP), ei pelaajan kortille.
-      if (dd > 0.05) trend = '<div style="font-size:12px;margin-top:10px;color:#28B090">↑ +' + dd.toFixed(2) + ' m/s — ' + T('hyva_kehityssuunta') + '</div>';
-    }
+    parani = (a != null && b != null && (b - a) > 0.05);
   }
   return box(ots
-    + '<div style="display:flex;align-items:baseline;gap:10px">'
-    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:40px;font-weight:300;color:#28B090;line-height:1">' + masMs.toFixed(2) + '</div>'
-    + '<div style="font-size:11px;color:#8C8B86">m/s · ' + r1(masKmh) + ' km/h</div></div>'
-    + '<div style="font-size:11px;color:#8C8B86;margin-top:10px;font-weight:600">' + T('harjoitteluvyohykkeet') + '</div>'
-    + '<div style="font-size:12px;color:var(--text);margin-top:4px">' + T('perus_65_75') + ' ' + r1(masKmh * 0.65) + '–' + r1(masKmh * 0.75) + ' km/h</div>'
-    + '<div style="font-size:12px;color:var(--text)">' + T('kehitys_80_90') + ' ' + r1(masKmh * 0.80) + '–' + r1(masKmh * 0.90) + ' km/h</div>'
-    + '<div style="font-size:12px;color:var(--text)">' + T('huippu_95_105') + ' ' + r1(masKmh * 0.95) + '–' + r1(masKmh * 1.05) + ' km/h</div>'
-    + trend);
+    + '<div style="font-size:13px;color:var(--text)">' + T('vauhtisi_on_mitattu_hienoa_tyota') + '</div>'
+    + (parani ? '<div style="font-size:12px;margin-top:10px;color:#28B090">' + T('hyva_kehityssuunta') + '</div>' : ''));
 }
 
 // §5.3 tekniikkatavoite LAPSEN KIELELLÄ — luetaan pikakentistä (§26), tkLajiViite-vertailu (window.TM_TESTIT).
@@ -2092,32 +2061,10 @@ function _minaTavoiteRivit(p, d) {
       + '<div style="font-size:12px;color:#8C8B86;margin-top:2px">' + (tek.vahvuus.karki ? _pT('olet_tassa_karkitasoa_hieno_juttu') : _pT('tama_on_vahvin_lajisi_pida')) + '</div></div>';
   }
 
-  // 🎯 Seuraava askel (yksi kehityskohde) — saavutettava sekuntitavoite
+  // 🎯 Seuraava askel (yksi kehityskohde) — vain laji, EI sekuntitavoitetta (palaute-näkyvyys 0a, Tero 19.10.2026)
   if (tek && tek.kehitys) {
-    h += '<div style="font-size:13px;color:var(--text);margin-top:10px">🎯 <b>' + _pT('vanhempi.tek_seuraava_askel') + '</b> ' + tek.kehitys.nimi;
-    if (tek.kehitys.nyt != null && tek.kehitys.tavoite != null) {
-      h += '<div style="font-size:12px;color:#8C8B86;margin-top:2px">' + _pT('nyt') + ' ' + tek.kehitys.nyt + ' s → ' + _pT('tavoite_2') + ' ' + tek.kehitys.tavoite + ' s</div>'
-        + '<div style="font-size:12px;color:#8C8B86">' + _pT('vanhempi.tek_pieni_parannus') + '</div>';
-    }
-    h += '</div>';
-  }
-
-  // 🏅 Mitali-juhla (pikakenttä) + matka seuraavaan VAIN positiivisena ja vain jos lähellä (≤ 15 s)
-  _tkMitalit(p).forEach(function (m, i) {   // §31: mitali VAIN kokonaistuloksesta, yksi per kilpailu, uusin ensin (ansaittu merkki ei katoa)
-    h += '<div style="font-size:13px;color:#28B090;margin-top:' + (i ? 4 : 10) + 'px;font-weight:600">🏅 ' + _thEsc(m.teksti) + '</div>';
-  });
-  if (T && T.tkSekuntibudjetti && p.tk_kokonaistulos_viimeisin != null && ika != null) {
-    const budj = T.tkSekuntibudjetti(p.tk_kokonaistulos_viimeisin, ika, sp);
-    const MM = { kulta: _pT('vanhempi.mm_kulta'), hopea: _pT('vanhempi.mm_hopea'), pronssi: _pT('vanhempi.mm_pronssi') };
-    if (budj && budj.gap_s > 0 && budj.gap_s <= 15) {
-      h += '<div style="font-size:12px;color:var(--text);margin-top:6px">' + _pT('matka_tavoite_s_s_hyvalla', { tavoite: (MM[budj.tavoite] || ''), s: budj.gap_s }) + '</div>';
-    }
-  }
-
-  // 📈 Parannus VAIN jos abs-delta > 0 (§3.2). Ei "et parantunut" -kehystä.
-  if (p.tk_kokonaistulos_edellinen != null && p.tk_kokonaistulos_viimeisin != null) {
-    const absD = Math.round((p.tk_kokonaistulos_edellinen - p.tk_kokonaistulos_viimeisin) * 10) / 10;
-    if (absD > 0) h += '<div style="font-size:13px;color:#28B090;margin-top:10px">' + _pT('paransit_kokonaisaikaasi_n_sekunti', { n: absD }) + '</div>';
+    h += '<div style="font-size:13px;color:var(--text);margin-top:10px">🎯 <b>' + _pT('vanhempi.tek_seuraava_askel') + '</b> ' + tek.kehitys.nimi
+      + '<div style="font-size:12px;color:#8C8B86">' + _pT('vanhempi.tek_pieni_parannus') + '</div></div>';
   }
 
   // 🔥 Kultaikkuna lapsen kielellä, VAIN ≤ 12 v — EI uhkakehystä
@@ -2137,16 +2084,7 @@ function _tekTavoiteSaate(p) {
     const kk = p.tki_kehityskohde;
     const nimi = _minaTekLajiNimi(kk);
     if (nimi !== kk) {
-      const arvo = p.tk_lajit_viimeisin[kk + '_s'];
-      const T = window.TM_TESTIT;
-      const sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
-      const ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
-      const viite = (T && T.tkLajiViiteLapsi && ika != null && arvo != null) ? T.tkLajiViiteLapsi(kk, ika, sp) : null;   // lievempi hyvä (päätös 4.10.2026)
-      if (!viite || arvo == null) return (_pT('tama_vie_sinua_kohti_tavoitettasi') + ' ') + nimi.toLowerCase();
-      const kaant = (kk === 'pituuspotku_bonus');
-      const tv = _minaValitavoite(arvo, viite, kaant);
-      if (tv == null) return (_pT('tama_vie_sinua_kohti_tavoitettasi') + ' ') + nimi.toLowerCase();   // ei luotettavaa tavoitelukua → ei numeroa
-      return (_pT('tama_vie_kohti_tavoitettasi') + ' ') + nimi.toLowerCase() + (kaant ? ' yli ' : ' alle ') + tv + ' s';
+      return (_pT('tama_vie_sinua_kohti_tavoitettasi') + ' ') + nimi.toLowerCase();   // palaute-näkyvyys 0a: ei sekuntitavoitetta ("alle X s") lapselle
     }
   }
   // B — H-H-fallback (SJK: ei tki_kehityskohdetta). hh_kehityskohde on jo PHV-suodatettu.
@@ -2188,16 +2126,13 @@ function rMinaFyysinenTavoite() {
   const box = function (inner) { return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">'
     + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:.01em">' + T('vauhti_pallo') + '</div>' + inner + '</div>'; };
   // saavutettava askel: aikalajit gap>0.4 → arvo∓0.4 (0.1 pyöristys); muuten seuraava kynnys
-  const tavoiterivi = function (testi, ikoni, otsikko, label) {
+  const tavoiterivi = function (testi, ikoni, otsikko) {
     const arvo = _minaHhArvo(p, testi);
     if (arvo == null || typeof hhSeuraavaTaso !== 'function' || ika == null) return '';
     const st = hhSeuraavaTaso(testi, Number(arvo), ika, sp);
     if (!st || st.gap == null || st.gap <= 0) return '';   // jo huipulla → ei tavoitetta
-    const nyt = Math.round(Number(arvo) * 10) / 10;
-    const pienempi = (typeof HH_TESTI_MAP !== 'undefined' && HH_TESTI_MAP[testi]) ? HH_TESTI_MAP[testi].pienempi : true;
-    let tav = (st.gap > 0.4 && st.yksikko === 's') ? Math.round((pienempi ? nyt - 0.4 : nyt + 0.4) * 10) / 10 : st.kynnys;
+    // Palaute-näkyvyys 0a (Tero 19.10.2026): EI "nyt X → tavoite Y" -lukuja lapselle; vain askel sanoin.
     return '<div style="font-size:14px;color:var(--text);margin-top:10px">' + ikoni + ' <b>' + otsikko + '</b>'
-      + '<div style="font-size:13px;color:#8C8B86;margin-top:2px">' + label + ': ' + nyt + ' ' + st.yksikko + (' ' + T('tavoite') + ' ') + tav + ' ' + st.yksikko + '</div>'
       + '<div style="font-size:13px;color:#8C8B86">' + T('vanhempi.tek_pieni_parannus') + '</div></div>';
   };
   let h = '';
@@ -2208,25 +2143,14 @@ function rMinaFyysinenTavoite() {
   // YKSI tavoite: hh_kehityskohde fyysinen → fyysinen; muuten (sm_pallo/null) → TSI jos palloa (turvallinen, §7.22)
   const kk = p.hh_kehityskohde;
   let tavoiteHtml = '';
-  if (kk && kk !== 'sm_pallo' && _MINA_HHNIMI[kk]) tavoiteHtml = tavoiterivi(kk, '💨', _MINA_HHNIMI[kk], _MINA_HHNIMI[kk]);
-  if (!tavoiteHtml && p.sm_pallo_viimeisin != null) tavoiteHtml = tavoiterivi('sm_pallo', '🎯', T('pallo_mukaan_vauhtiin'), 'SM-pallo');
+  if (kk && kk !== 'sm_pallo' && _MINA_HHNIMI[kk]) tavoiteHtml = tavoiterivi(kk, '💨', _MINA_HHNIMI[kk]);
+  if (!tavoiteHtml && p.sm_pallo_viimeisin != null) tavoiteHtml = tavoiterivi('sm_pallo', '🎯', T('pallo_mukaan_vauhtiin'));
   h += tavoiteHtml;
   // 📈 parannus VAIN positiivinen (hh_taso_edellinen — SJK tyhjä, syttyy 2. kierroksella, §3.2)
   const edel = _minaHhEdellinen(p);
   if (p.hh_taso != null && edel.taso != null && (p.hh_taso - edel.taso) > 0) {
     h += '<div style="font-size:14px;color:#28B090;margin-top:10px">' + T('kehityit_viime_kerrasta_hienoa') + '</div>';
-    // Sekunnit/senttimetrit saa näyttää (EI tasolukuja, EI vertailua muihin, §7.22): ensimmäinen parantunut mittaus.
-    const _tk = ['lin30m', 'lin10m', 'kasirata', 'cmj'];
-    for (let i = 0; i < _tk.length; i++) {
-      const k = _tk[i], nyt = _minaHhArvo(p, k), ennen = edel.hv ? edel.hv[k] : null;
-      const m = (typeof HH_TESTI_MAP !== 'undefined') ? HH_TESTI_MAP[k] : null;
-      if (nyt == null || ennen == null || !m || isNaN(nyt) || isNaN(ennen)) continue;
-      const parempi = m.pienempi ? (Number(nyt) < Number(ennen)) : (Number(nyt) > Number(ennen));
-      if (!parempi) continue;
-      const r1 = function (x) { return Math.round(Number(x) * 10) / 10; };
-      h += '<div style="font-size:13px;color:#8C8B86;margin-top:2px">' + _MINA_HHNIMI[k] + ': ' + r1(ennen) + ' ' + m.yksikko + ' → ' + r1(nyt) + ' ' + m.yksikko + '</div>';
-      break;
-    }
+    // Palaute-näkyvyys 0a: aiemmat → nykyiset luvut (sekunnit/cm) poistettu; parannus vain sanoin.
   }
   // Huipputaso (paras luokka jossain testissä) → ei tavoitetta, mutta positiivinen viesti. Tasolukua EI näytetä.
   let huippu = false;
@@ -2532,7 +2456,7 @@ function rMinaTekniikkaprofiili() {
         + d.hhTekn.map(function (r) {
             return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-top:.5px solid rgba(242,239,230,.08)">'
               + '<span style="font-size:14px;color:var(--text)">' + r.nimi + '</span>'
-              + '<span style="font-family:\'DM Sans\',sans-serif;font-size:15px;color:#28B090">' + r.aika + ' s</span></div>';
+              + '<span style="font-size:15px;color:#28B090">⚽</span></div>';   // palaute-näkyvyys 0a: ei sekunteja
           }).join('')
         + '<div style="font-size:12px;color:#8C8B86;margin-top:10px">' + T('tekniikkakisassa_naet_viela_enemma') + '</div>';
     } else {
@@ -2543,35 +2467,16 @@ function rMinaTekniikkaprofiili() {
       + _body + '</div>';
   }
   const merkkiVari = { kulta: '#D4AF37', hopea: '#9AA0A6', pronssi: '#B87333' };
-  const lajiNimi = { ponnauttelu: T('vanhempi.laji_ponnauttelu'), syotto: T('vanhempi.laji_syotto'), pujottelu: T('vanhempi.laji_pujottelu'), kuljetus_laukaus: T('vanhempi.laji_kuljetus_laukaus') };
   let h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:.01em">' + T('vanhempi.tek_profiili') + '</div>';
-  // §7.22/§34: TKI-lukua EI näytetä pelaajalle (indeksi = tasoluku). Mitali (ansaittu) säilyy.
-  h += '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">';
-  if (d.merkki) h += '<div style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:' + (merkkiVari[d.merkki] || '#8C8B86') + '22;color:' + (merkkiVari[d.merkki] || '#8C8B86') + ';text-transform:capitalize">' + d.merkki + '</div>';
-  h += '</div>';
+  // §7.22/§34: TKI-lukua EI näytetä pelaajalle (indeksi = tasoluku). Palaute-näkyvyys 0a (Tero 19.10.2026): nykyinen merkki + "Kohti {seuraava}"
+  // (ylin merkki → vain se) + "Parempi kuin viime kerralla" VAIN kun oma tulos parani. EI sekunteja, EI etäisyyttä. Sääntö: lib/tm_merkki_nakyma.js.
+  const MN = (window.TM_MERKKI_NAKYMA && window.TM_MERKKI_NAKYMA.tmMerkkiNakyma) ? window.TM_MERKKI_NAKYMA.tmMerkkiNakyma(_pelaaja, { merkki: d.merkki || null }) : null;   // d.merkki = tki_merkki (sama pikakenttä kuin Vanhempi_v2)
+  if (MN && MN.nykyinen) h += '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px"><div style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:' + (merkkiVari[MN.nykyinen] || '#8C8B86') + '22;color:' + (merkkiVari[MN.nykyinen] || '#8C8B86') + ';text-transform:capitalize">' + T('pelaaja.tk_merkki_' + MN.nykyinen) + '</div></div>';
+  if (MN && MN.seuraava) h += '<div style="font-size:13px;color:var(--text);margin-top:4px">' + T('vanhempi.merkki_kohti_' + MN.seuraava) + '</div>';
+  if (MN && MN.parempi) h += '<div style="font-size:13px;color:#28B090;margin-top:6px">' + T('vanhempi.merkki_parempi') + '</div>';
   // §5.3 tavoiterivit (pikakentät) — korvaa vanhat yksinkertaiset vahvuus/kehityskohde-rivit; fallback sisällä
   h += _minaTavoiteRivit(_pelaaja, d);
-  // Lajit sekunteina (lyhyempi = nopeampi). §7.22: EI palkkeja — täyttö oli suhde eliittiviitteeseen (= normivertailu +
-  // edistymispalkki). Itsevertailuun ei ole per-laji-historiaa → näytetään oma aika + ★ vahvuus / 🎯 seuraava askel.
-  const lajit = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];
-  const arvo = (id) => { const x = d.testit[id]; if (x == null) return null; if (typeof x === 'object') return (x.tulos != null ? x.tulos : x.paras); return x; };
-  const vals = lajit.map(id => ({ id: id, val: parseFloat(arvo(id)) })).filter(x => !isNaN(x.val));
-  if (vals.length) {
-    const tkiV = _pelaaja && _pelaaja.tki_vahvuus, tkiK = _pelaaja && _pelaaja.tki_kehityskohde;
-    h += '<div style="margin-top:12px;display:flex;flex-direction:column">';
-    vals.forEach(x => {
-      const mark = (x.id === tkiV) ? ' ★' : (x.id === tkiK) ? ' 🎯' : '';
-      h += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-top:.5px solid rgba(242,239,230,.08)">'
-        + '<span style="font-size:13px;color:var(--text)">' + (lajiNimi[x.id] || x.id) + mark + '</span>'
-        + '<span style="font-family:\'DM Sans\',sans-serif;font-size:14px;color:#28B090">' + x.val.toFixed(1) + ' s</span></div>';
-    });
-    h += '</div>';
-  }
-  // §7.22/§34 §3.2: vain parannus (abs. sekunnit) — ei negatiivista eroa pelaajalle.
-  if (d.trendi && d.trendi.parani) {
-    h += '<div style="font-size:11px;color:#28B090;margin-top:10px">' + T('kokonaistuloksesi_on_parantunut_n', { n: d.trendi.ero }) + '</div>';
-  }
   h += '</div>';
   return h;
 }
@@ -3469,9 +3374,9 @@ function rMinaHero() {
       + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:2px">' + T('ovr_n_osa_aluetta', { n: F.mitatut.length }) + '</div>';
   } else if (vyoh !== 'leikkija') {   // rakentaja + showcase: kehityskaari-rengas (mittauskattavuus, ei tasoa)
     headBlock = '<div style="display:flex;flex-direction:column;align-items:center;gap:5px">'
-      + '<div style="position:relative;width:66px;height:66px">' + _fcRengasSVG(F.rengas.mitatut, F.rengas.nimittaja, 66, 3)
+      + '<div style="position:relative;width:66px;height:66px">'   // rengas poistettu (palaute-näkyvyys 0a): ei mitattu-osuutta lukuna
       +   '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:18px;color:#28B090;line-height:1">↗</span><span style="font-family:\'Cormorant Garamond\',serif;font-size:11px;color:#C9C7BE">' + T('kehittyy') + '</span></div></div>'
-      + '<div style="font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;text-align:center;line-height:1.25">' + T('vanhempi.koti_kehityskaari_otsikko') + '<br><b style="color:#28B090;font-weight:500">' + T('a_b_mitattu', { a: F.rengas.mitatut, b: F.rengas.nimittaja }) + '</b></div>'
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;text-align:center;line-height:1.25">' + T('vanhempi.koti_kehityskaari_otsikko') + '<br><b style="color:#28B090;font-weight:500">' + T('mitattu') + '</b></div>'
       + '</div>';
   } else {
     headBlock = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;font-weight:400;color:' + ac + ';line-height:1.05">' + T('kortti_rakentuu').replace(' ', '<br>') + '</div>'
@@ -5792,8 +5697,6 @@ function _fcKorttiData(p) {
     // grow (pre-PHV fyysinen) → ei tasolukua (§28: raakaa pre-PHV-fyysistä ei näytetä tasona)
     d.taso5 = (d.state === 'measured' || d.state === 'early') ? _dimTaso5(d) : null;
   });
-  // Rengas (U13–15): mitatut / (mitatut + tulossa). Seura-avaa EI nimittäjässä (ei paina pelaajaa, §82/§85).
-  const rengas = { mitatut: dims.filter(d => d.tila === 'mitattu').length, nimittaja: dims.filter(d => d.tila !== 'seura-avaa').length };
   // ↗-kasvusiru (C, §88): montako osa-aluetta nousi tänä jaksona — puhtaasti ipsatiivinen (oma vs oma edellinen).
   const nousiAlueet = [];
   if (p.tki_edellinen != null && p.tki_viimeisin != null && p.tki_viimeisin > p.tki_edellinen) nousiAlueet.push('tekniikka');
@@ -5846,18 +5749,7 @@ function _fcKorttiData(p) {
   if (p.tki_edellinen != null && p.tki_viimeisin != null) { const dd = Math.round(p.tki_viimeisin - p.tki_edellinen); if (dd > 0) jDelta = T('tekniikka_kehittyi'); }   // ei TKI-pistemäärää (§7.22/§34)
 
   return { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, kohtiTeksti, naytaPaikka, idoli, idolTeema, ini, nimi, goal, goalKey, synttari, traits, jDelta,
-           ikavyohyke, rengas, nousiAlueet };
-}
-// Kehityskaari-rengas (SVG) — U13–15 aggregaatti-OVR-luvun tilalla. Teal-kaari = mitatut/nimittaja (§84).
-function _fcRengasSVG(mitatut, nimittaja, size, sw) {
-  size = size || 78; sw = sw || 3;
-  var r = (size / 2) - sw - 1, c = 2 * Math.PI * r;
-  var frac = nimittaja > 0 ? Math.max(0, Math.min(1, mitatut / nimittaja)) : 0;
-  var cx = size / 2;
-  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" style="transform:rotate(-90deg)">'
-    + '<circle cx="' + cx + '" cy="' + cx + '" r="' + r.toFixed(1) + '" fill="none" stroke="rgba(242,239,230,.10)" stroke-width="' + sw + '"></circle>'
-    + '<circle cx="' + cx + '" cy="' + cx + '" r="' + r.toFixed(1) + '" fill="none" stroke="#28B090" stroke-width="' + sw + '" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + (c * (1 - frac)).toFixed(1) + '"></circle>'
-    + '</svg>';
+           ikavyohyke, nousiAlueet };
 }
 window._fcKorttiData = _fcKorttiData;
 
@@ -5866,7 +5758,7 @@ function naytaFcOverlay() {
   if (!el) return;
   const p = _pelaaja || {};
   const F = _fcKorttiData(p);
-  const { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, naytaPaikka, idoli, idolTeema, ini, nimi, goal, synttari, traits, jDelta, ikavyohyke, rengas } = F;
+  const { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, naytaPaikka, idoli, idolTeema, ini, nimi, goal, synttari, traits, jDelta, ikavyohyke } = F;
   const naytaOvr = _fcNaytaOvr(F);   // aina false (päätös 4.10.2026)
 
   // ── 5D-statti (etupuoli) — mitattu → ✓ kaikissa ikävaiheissa (ei X/5, ei 0–99) · tilat tulossa/seura-avaa ──
@@ -5890,19 +5782,6 @@ function naytaFcOverlay() {
     // rakentaja/leikkija → oma taso + seuraava kynnys (kriteeripohjainen, EI vertailua muihin)
     const t = d.taso5;
     if (t == null) return '<div class="fc-bar"><span class="bk">' + _dimKoodi(d.key) + '</span><div style="grid-column:span 2;font-size:9px;color:var(--ink3)">' + _pT('mitattu') + '</div></div>';
-    // ÄLY (peliäly/ADAR) — pelihavainto-työkalun kanoninen tasokuvaus (TM_ADAR_RUBRIIKKI, yksi lähde).
-    // Kuvaus + kannustava seuraava askel pääosassa, tasonumero toissijainen; fallback geneeriseen (§21).
-    if (d.key === 'ÄLY' && window.TM_ADAR_RUBRIIKKI) {
-      const r = window.TM_ADAR_RUBRIIKKI.alyTaso(t, d.adarCtx);   // seuraava askel: osaamistavoite (porras) → heikoin mitattu → seuraava taito → ylläpito
-      if (r) return '<div class="fc-bar" style="align-items:flex-start">'
-        + '<span class="bk">' + _dimKoodi(d.key) + '</span>'
-        + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">'
-        +   '<div>' + _pT('nyt') + ' <b style="color:var(--cf-main,#28B090)">' + _p7RubT(r.nyt) + '</b></div>'
-        +   '<div style="color:var(--ink3);margin-top:1px">' + (r.askelTyyppi === 'seuraava_taito'
-              ? _p7K1T('Seuraava taito') + ': <b>' + ((typeof tmAdarNimet === 'function' ? tmAdarNimet('pelaaja', _p7K1T)[r.askelDim] : '') || '') + '</b> — ' + _p7RubT(r.askel)   // nimi nimikanonista (kielen mukaan)
-              : _pT('vanhempi.tek_seuraava_askel') + ' ' + _p7RubT(r.askel)) + '</div>'
-        + '</div></div>';
-    }
     // TEK (tekniikka) — jaettu _tekKorttiData (sama kuin MINÄ-tekniikkarivit): ⭐ vahvuus + 🎯 seuraava askel
     // (nyt X s → tavoite Y s). Fallback geneeriseen jos ei tk-lajidataa (§21). §7.22: oma vahvuus/askel, ei vertailua.
     if (d.key === 'TEK') {
@@ -5911,36 +5790,9 @@ function naytaFcOverlay() {
         let rows = '';
         if (tek.vahvuus) rows += '<div>' + _pT('vahvuutesi_2') + ' <b style="color:var(--cf-main,#28B090)">' + tek.vahvuus.nimi + '</b></div>';
         if (tek.kehitys) {
-          let seur = (_pT('seuraava_askel_2') + ' ') + tek.kehitys.nimi;
-          if (tek.kehitys.nyt != null && tek.kehitys.tavoite != null) seur += ' <span style="color:var(--ink3)">(' + tek.kehitys.nyt + ' s → ' + tek.kehitys.tavoite + ' s)</span>';
+          const seur = (_pT('seuraava_askel_2') + ' ') + tek.kehitys.nimi;   // ei sekuntitavoitetta (palaute-näkyvyys 0a)
           rows += '<div style="margin-top:1px">' + seur + '</div>';
         }
-        return '<div class="fc-bar" style="align-items:flex-start"><span class="bk">' + _dimKoodi(d.key) + '</span>'
-          + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">' + rows + '</div></div>';
-      }
-    }
-    // FYS (fyysiset taidot, D1) — kanoninen rubriikki (TM_KORTTI_RUBRIIKIT, yksi lähde). §28: grow/tulossa-tilat
-    // palasivat jo yllä → tänne vain MITATTU FYS (pre-PHV 🌱 ei kutsu fysTaso:a). Fallback geneeriseen jos null (§21).
-    if (d.key === 'FYS' && window.TM_KORTTI_RUBRIIKIT) {
-      const r = window.TM_KORTTI_RUBRIIKIT.fysTaso(t);
-      if (r) return '<div class="fc-bar" style="align-items:flex-start">'
-        + '<span class="bk">' + _dimKoodi(d.key) + '</span>'
-        + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">'
-        +   '<div>' + _pT('nyt') + ' <b style="color:var(--cf-main,#28B090)">' + _p7RubT(r.nyt) + '</b></div>'
-        +   '<div style="color:var(--ink3);margin-top:1px">' + (r.askelTyyppi === 'seuraava_taito'
-              ? _p7K1T('Seuraava taito') + ': <b>' + ((typeof tmAdarNimet === 'function' ? tmAdarNimet('pelaaja', _p7K1T)[r.askelDim] : '') || '') + '</b> — ' + _p7RubT(r.askel)   // nimi nimikanonista (kielen mukaan)
-              : _pT('vanhempi.tek_seuraava_askel') + ' ' + _p7RubT(r.askel)) + '</div>'
-        + '</div></div>';
-    }
-    // PSY (mielen taidot, D3) — kanoninen rubriikki + valinnainen ⭐vahvuus (korkein D3-osa-alue, kuten TEK).
-    // seura-avaa-tila palasi jo yllä → tänne vain MITATTU PSY. Fallback geneeriseen jos null (§21). §7.22.
-    if (d.key === 'PSY' && window.TM_KORTTI_RUBRIIKIT) {
-      const r = window.TM_KORTTI_RUBRIIKIT.psyTaso(t, p.d3_viimeisin && p.d3_viimeisin.pisteet);
-      if (r) {
-        let rows = '';
-        if (r.vahvuus) rows += '<div>' + _pT('vahvuutesi_2') + ' <b style="color:var(--cf-main,#28B090)">' + _p7RubT(r.vahvuus) + '</b></div>';
-        rows += '<div' + (r.vahvuus ? ' style="margin-top:1px"' : '') + '>' + _pT('nyt') + ' <b style="color:var(--cf-main,#28B090)">' + _p7RubT(r.nyt) + '</b></div>';
-        rows += '<div style="color:var(--ink3);margin-top:1px">' + _pT('vanhempi.tek_seuraava_askel') + ' ' + _p7RubT(r.askel) + '</div>';
         return '<div class="fc-bar" style="align-items:flex-start"><span class="bk">' + _dimKoodi(d.key) + '</span>'
           + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">' + rows + '</div></div>';
       }
@@ -5954,11 +5806,10 @@ function naytaFcOverlay() {
   if (naytaOvr) headHtml = '<div class="fc-num">' + ovr + '</div><div class="fc-numtag">' + T('ovr_n_osa_aluetta', { n: mitatut.length }) + '</div>';
   else if (ikavyohyke !== 'leikkija') headHtml =
     '<div style="display:flex;align-items:center;gap:9px">'
-    + '<div style="position:relative;width:58px;height:58px;flex-shrink:0">' + _fcRengasSVG(rengas.mitatut, rengas.nimittaja, 58, 3)
-    +   '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:var(--cf-main,#28B090);line-height:1">↗</span></div></div>'
+    + '<div style="width:58px;height:58px;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:var(--cf-main,#28B090);line-height:1">↗</span></div>'   // rengas A/B poistettu (palaute-näkyvyys 0a): ei mitattu-osuutta lukuna
     + '<div><div style="font-family:\'DM Sans\';font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">' + T('vanhempi.koti_kehityskaari_otsikko') + '</div>'
     +   '<div style="font-family:\'Cormorant Garamond\',serif;font-size:17px;color:var(--text);line-height:1.1">' + T('kehittyy') + '</div>'
-    +   '<div style="font-family:\'DM Sans\';font-size:9px;color:var(--cf-main,#28B090)">' + T('a_b_mitattu', { a: rengas.mitatut, b: rengas.nimittaja }) + '</div></div>'
+    +   '<div style="font-family:\'DM Sans\';font-size:9px;color:var(--cf-main,#28B090)">' + _pT('mitattu') + '</div></div>'
     + '</div>';
   else headHtml = '<div class="fc-build">' + T('kortti_rakentuu').replace(' ', '<br>') + '</div><div class="fc-buildsub">' + T('n_osa_aluetta_avattu_hieno', { n: mitatut.length }) + '</div>';
   const posHtml = naytaPaikka
