@@ -36,7 +36,7 @@ export const NAKYMAT = [
 const RUNTIME_PROTOTYYPIT = ['pelaaja/haptic', 'pelaaja/offline', 'pelaaja/parent', 'pelaaja/vapaa', 'pelaaja/haaste'];
 
 /* ── Lähetetyt erät (odottaa palautusta): 51 ja 52. Muiden erien tyhjät sv-rivit raportoidaan erikseen ("muu erä"), ei lasketa odottaviksi. ── */
-const ODOTTAVAT_ERAT = [];   // erä 70 (palaute-näkyvyys 0b: kytkin, 3 riviä) palautettiin ja vietiin 19.10. (scripts/i18n_vie_sv_era70.cjs) · aiemmin: erä 69 (palaute-näkyvyys 0a: merkkinäkymä, 4 riviä) palautettiin ja vietiin 19.10. (scripts/i18n_vie_sv_era69.cjs) · aiemmin: erä 68 (A: klippikortti, 2 riviä) palautettiin ja vietiin 18.10. (scripts/i18n_vie_sv_era68.cjs) · aiemmin: erät 65 + 66 palautettiin ja vietiin 18.10. (scripts/i18n_vie_sv_era65.cjs, era66.cjs)
+const ODOTTAVAT_ERAT = [71];   // erä 71 (Sulje jakso -ikkuna: valmentajan lause, 2 riviä lib.tm_kevyt_katselmus, sv tyhjä) odottaa Geminiä — tyhjennä kun palautus viety · aiemmin: erä 70 (palaute-näkyvyys 0b: kytkin, 3 riviä) palautettiin ja vietiin 19.10. (scripts/i18n_vie_sv_era70.cjs) · aiemmin: erä 69 (palaute-näkyvyys 0a: merkkinäkymä, 4 riviä) palautettiin ja vietiin 19.10. (scripts/i18n_vie_sv_era69.cjs) · aiemmin: erä 68 (A: klippikortti, 2 riviä) palautettiin ja vietiin 18.10. (scripts/i18n_vie_sv_era68.cjs) · aiemmin: erät 65 + 66 palautettiin ja vietiin 18.10. (scripts/i18n_vie_sv_era65.cjs, era66.cjs)
 const ERA_OMA = 54;   // erä 54 on scripts/i18n_luo_gemini_era54.mjs:n OMA tuloste: generaattori laskee ilmanOmaaEraa:true (muuten rivit näkyisivät jo odottavina)
 function eratIndeksi(ilmanOmaa) {
   const ulos = { odottaa: { avain: new Set(), fi: new Set() }, muu: { avain: new Map(), fi: new Map() }, palautettu: { avain: new Map(), fi: new Map() } };

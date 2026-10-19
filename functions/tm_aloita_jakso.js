@@ -68,7 +68,7 @@
       return { tila: 'valittavana', ensisijainen: null, valikko: [{ avain: 'aloita', teksti: 'Peru valinta ja aloita jakso itse', kaytettavissa: true }], rivitila: { teksti: 'Valinta odottaa', savy: 'neutraali' } };
     }
     if (!onKonsepti) return { tila: 'ei_jaksoa', ensisijainen: { avain: 'aloita', teksti: 'Aloita jakso' }, valikko: [valita], rivitila: { teksti: 'Ei jaksoa', savy: 'neutraali' } };
-    var alku = tmPaivaNum(jf.alkoi), yht = Number(jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : 4, nytPv = tmPaivaNum(nyt), loppu = isNaN(alku) ? NaN : alku + yht * 7;   // päivinä: jakso päättyy kun alkupäivästä on kulunut kesto × 7 pv (sama sääntö kuin tmTanaanTila)
+    var alku = tmPaivaNum(jf.alkoi != null && jf.alkoi !== '' ? jf.alkoi : jf.alku), yht = Number(jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : 4, nytPv = tmPaivaNum(nyt), loppu = isNaN(alku) ? NaN : alku + yht * 7;   // päivinä: jakso päättyy kun alkupäivästä on kulunut kesto × 7 pv (sama sääntö kuin tmTanaanTila)
     if (!isNaN(loppu) && nytPv >= loppu) return { tila: 'paattynyt', ensisijainen: { avain: 'sulje', teksti: 'Sulje jakso' },
       valikko: [{ avain: 'jatka', teksti: 'Jatka jaksoa 2 vk', kaytettavissa: true }, { avain: 'syvenna', teksti: 'Syvennä (täysi katselmus)', kaytettavissa: true }],
       rivitila: { teksti: 'Jakso päättynyt — suljettava', savy: 'amber' } };
