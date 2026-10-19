@@ -10,7 +10,7 @@ const NYT = '2026-11-10T10:00:00.000Z', PVM = '2026-11-10';
 const JF = (o = {}) => Object.assign({ konsepti_avain: 'y_h1', konsepti_nimi: 'Kuljetus', domeeni: 'teknis_taktinen', alkoi: '2026-09-21T08:00:00.000Z', kesto_vk: 6, ohjelma: null }, o);
 const P = (o = {}) => Object.assign({ id: 'p1', etunimi: 'Topias', jaksofokus: JF(), review_viimeisin_pvm: '2026-08-01', review_viimeisin_tyyppi: 'mdr' }, o);
 const KORTIT = () => [{ avain: 'y_h3', nimi: 'Pelinluku', syy: 'heikoin', valittu: false, lause: '' }, { avain: 'y_h5', nimi: 'Syöttö', syy: null, valittu: false, lause: '' }];
-const TAYSI = (profiili = 'oto', lause = 'Laukaus vauhdista näkyi jo peleissä.', extra = {}) => { const S = K.tmKkAlku(P(), Object.assign({ profiili, kortit: KORTIT() }, extra)); K.tmKkAsetaVastaus(S, 'nakyi', 'ohjatusti'); K.tmKkAsetaVastaus(S, 'treeni', 'usein'); K.tmKkAsetaVastaus(S, 'mukana', 'hyvin'); S.lause = lause; return S; };
+const TAYSI = (profiili = 'oto', lause = 'Laukaus vauhdista näkyi jo peleissä.', extra = {}) => { const S = K.tmKkAlku(P(), Object.assign({ profiili, kortit: KORTIT() }, extra)); K.tmKkAsetaVastaus(S, 'nakyi', 'ohjatusti'); K.tmKkAsetaVastaus(S, 'treeni', 'usein'); K.tmKkAsetaVastaus(S, 'mukana', 'hyvin'); S.lause = lause; S.nayta = true; return S; };   // 0b: oletus (nayta=false) = sisäinen; nämä testit kattavat "Näytä myös pelaajalle" PÄÄLLÄ (lause historiariville)
 const CTX = (o = {}) => Object.assign({ nytISO: NYT, pvm: PVM, rooli: 'valmentaja', harjoituksia: 5, lasnaolo: { paikalla: 4, yhteensa: 5, tiedossa: 5 }, alkoi: '2026-09-21', loppu: '2026-11-02' }, o);
 
 describe('kevyt katselmus: kirjoitussuunnitelma (yksi tallennus)', () => {
@@ -19,6 +19,15 @@ describe('kevyt katselmus: kirjoitussuunnitelma (yksi tallennus)', () => {
     expect(x.jaksofokus).toBeNull(); expect(x.historiaLisays).toHaveLength(1);
     expect(x.historiaLisays[0]).toMatchObject({ konsepti_avain: 'y_h1', sulkutapa: 'suljettu', lause: 'Laukaus vauhdista näkyi jo peleissä.', lause_lahde: 'valmentaja', arvioija_rooli: 'valmentaja', harjoituksia: 5, suljettu: NYT });
     expect(x.reviewitPvm).toBe(PVM); expect(x.reviewitData).toEqual({ kevyt: { nakyi: 'ohjatusti', treeni: 'usein', mukana: 'hyvin' }, kevyt_tallennettu: NYT }); expect(x.poistaValinta).toBe(false); expect(x.tarjottu).toBe(false);
+  });
+  it('0b: "Näytä myös pelaajalle" POIS (oletus) → lause EI historiariville (pelaajan luettava dokumentti) vaan reviewit/{pvm}.lause_sisainen', () => {
+    const S = TAYSI(); S.nayta = false;
+    const x = K.tmKkTallennus(P(), S, CTX({ uid: 'u1' })); expect(x.ok).toBe(true);
+    expect('lause' in x.historiaLisays[0]).toBe(false); expect('lause_lahde' in x.historiaLisays[0]).toBe(false);
+    expect(JSON.stringify(x.historiaLisays)).not.toContain('Laukaus vauhdista');
+    expect(x.reviewitData.lause_sisainen).toEqual({ teksti: 'Laukaus vauhdista näkyi jo peleissä.', lahde: 'valmentaja', uid: 'u1', tallennettu: NYT });
+    expect(Object.keys(x.reviewitData).sort()).toEqual(['kevyt', 'kevyt_tallennettu', 'lause_sisainen']);
+    expect(K.tmKkAlku(P(), {}).nayta).toBe(false);   // oletus pois
   });
   it('EI koske review_viimeisin_*-pikakenttiin eikä reviewit.tyyppi:ä (MDT-rytmi päivittyy vain täydestä katselmuksesta); suunnitelmassa ei pikakenttiä', () => {
     const x = K.tmKkTallennus(P(), TAYSI(), CTX()); const avaimet = JSON.stringify(Object.keys(x)) + JSON.stringify(Object.keys(x.reviewitData));

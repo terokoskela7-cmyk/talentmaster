@@ -32,7 +32,7 @@ describe('ADAR · _phKirjoitaHavaintoJaPikakentat kertoo pikakenttien tuloksen',
     const ctx = { _PH_DB, _phPelaajaRef: () => pRef, _phIka: () => 13, console: { warn() {} }, window: { _pelaajaMap: {} }, Date,
       tmAdarPikakentat: () => kentat };
     vm.createContext(ctx);
-    vm.runInContext(pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
+    vm.runInContext(pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
     return { p: ctx.f(havRef, { pisteet: { A: 2 } }, 'kpv', 'p1', 1, false), kirjatut };
   }
   it('onnistuu → pikakentat {ok:true}', async () => {

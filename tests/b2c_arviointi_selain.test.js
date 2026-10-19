@@ -39,6 +39,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · Jakson
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: pelaajat() }); await odota(p); await avaaSheet(p);
       await vastaa(p, 'nakyi', 'itsenaisesti'); await vastaa(p, 'treeni', 'usein'); await vastaa(p, 'mukana', 'hyvin'); await p.locator('#kvkLause').fill('Katsoi ylös ennen vastaanottoa.');
+      await p.locator('#kvkNayta').check();   // 0b: oletus pois → "Näytä myös pelaajalle" päälle (lause historiariville)
       await p.locator('[data-kvk-tallenna]').click({ force: true }); await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 });
       const b = await p.evaluate(() => window.__batch[0]); expect(b).toHaveLength(2);
       const upd = b.find((o) => o.update), set = b.find((o) => o.set);
@@ -47,6 +48,19 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · Jakson
       expect(set.path).toMatch(/^seurat\/demo\/pelaajat\/p2\/reviewit\/\d{4}-\d{2}-\d{2}$/); expect(set.set.kevyt).toEqual({ nakyi: 'itsenaisesti', treeni: 'usein', mukana: 'hyvin' });
       await p.waitForSelector('[data-kvk-kysymys]', { state: 'detached', timeout: 5000 }); expect(await p.locator('#toast-wrap').innerText()).toMatch(/Jakso suljettu/);
       expect(await p.locator('.kt-ot [data-kt-rivitila]').getAttribute('data-kt-rivitila')).not.toBe('kaynnissa');   // jakso ei enää käynnissä
+      await sk.close();
+    } finally { await selain.close(); }
+  }, 60000);
+
+  it('0b: "Näytä myös pelaajalle" POIS (oletus) → lause EI historiariville vaan reviewit/{pvm}.lause_sisainen (sama batch)', async () => {
+    await avaa(); try {
+      const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: pelaajat() }); await odota(p); await avaaSheet(p);
+      expect(await p.locator('#kvkNayta').isChecked()).toBe(false);
+      await vastaa(p, 'nakyi', 'itsenaisesti'); await vastaa(p, 'treeni', 'usein'); await vastaa(p, 'mukana', 'hyvin'); await p.locator('#kvkLause').fill('Katsoi ylös ennen vastaanottoa.');
+      await p.locator('[data-kvk-tallenna]').click({ force: true }); await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 });
+      const b = await p.evaluate(() => window.__batch[0]); const upd = b.find((o) => o.update), set = b.find((o) => o.set);
+      const rivi = upd.update.jaksofokus_historia.__arrayUnion[0]; expect('lause' in rivi).toBe(false); expect(JSON.stringify(upd.update)).not.toContain('Katsoi ylös');
+      expect(set.set.lause_sisainen).toMatchObject({ teksti: 'Katsoi ylös ennen vastaanottoa.', lahde: 'valmentaja' });
       await sk.close();
     } finally { await selain.close(); }
   }, 60000);

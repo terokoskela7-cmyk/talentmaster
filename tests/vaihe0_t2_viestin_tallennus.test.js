@@ -92,7 +92,7 @@ function masterTynka(kirjoitus) {
     tmViestiUusiId: () => 'id-' + (++store._idN), _idN: 0,
     tmLahetaValmentajaViesti: (db, o) => { store.kutsut.push({ id: o.id, uusiYritys: o.uusiYritys }); return kirjoitus(); },
     tmViestiAikarajalla: V.tmViestiAikarajalla,
-    tmViestiVirheAvain: V.tmViestiVirheAvain,
+    tmViestiVirheAvain: V.tmViestiVirheAvain, tmViestiVirheTeksti: V.tmViestiVirheTeksti,
     document: { getElementById: (id) => el(id) },
   };
   el('replyText').value = 'Hyvä treeni tänään!';
@@ -168,7 +168,7 @@ describe('(T2-4) vartijat: ei "lähetetty"-toastia ennen awaitia', () => {
       expect(iAwait, 'await-kutsu puuttuu').toBeGreaterThan(0);
       expect(iToast, 'toast puuttuu').toBeGreaterThan(0);
       expect(iToast, 'toast ennen awaitia').toBeGreaterThan(iAwait);
-      expect(f).toContain('tmViestiVirheAvain(e)');
+      expect(f).toMatch(/tmViestiVirheAvain\(e\)|tmViestiVirheTeksti\(e/);   // 0b: vartijan hylkäys (e.syy) kulkee tmViestiVirheTeksti:n kautta
     });
   });
 
@@ -178,8 +178,8 @@ describe('(T2-4) vartijat: ei "lähetetty"-toastia ennen awaitia', () => {
   });
 
   it('lib-versio nostettu molemmissa sivuissa (uudet funktiot, vanha lib = ReferenceError)', () => {
-    expect(MASTER).toContain('lib/tm_valmentajaviesti.js?v=4');
-    expect(VP).toContain('lib/tm_valmentajaviesti.js?v=4');
+    expect(MASTER).toContain('lib/tm_valmentajaviesti.js?v=5');
+    expect(VP).toContain('lib/tm_valmentajaviesti.js?v=5');
   });
 });
 

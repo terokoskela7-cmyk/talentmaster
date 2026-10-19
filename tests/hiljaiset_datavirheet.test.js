@@ -109,7 +109,7 @@ describe('b) ADAR_Pikakortti · havainto + havainto_viimeisin_pvm batchina, adar
       tmAdarPikakentat: laske || ((hav) => { nahdyt.push(hav.length); return { adar_viimeisin: { yht: 2, pvm: '2026-10-03' }, adar_pvm: '2026-10-03', adar_havaintoja: hav.length }; }),
       window: { _pelaajaMap: { p1: {} } } };
     vm.createContext(ctx);
-    vm.runInContext(pura(A, 'function _phPelaajaRef(') + '\n' + pura(A, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat; this.ref = _phPelaajaRef;', ctx);
+    vm.runInContext(pura(A, 'function _phPelaajaRef(') + '\n' + pura(A, 'function _phJaaPelaajalle(') + '\n' + pura(A, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat; this.ref = _phPelaajaRef;', ctx);
     const havRef = ctx.ref('kpv', 'p1').collection('havainnot').doc('h2');
     return { p: ctx.f(havRef, { pisteet: { A: 2 }, porras: 1, pvm: '2026-10-03' }, 'kpv', 'p1', 1, true, onLahetetty), nahdyt, ctx };
   };
@@ -143,7 +143,7 @@ describe('b) ADAR_Pikakortti · havainto + havainto_viimeisin_pvm batchina, adar
       tmAdarPikakentat: () => ({ adar_viimeisin: { yht: 2, pvm: '2026-10-03' }, adar_pvm: '2026-10-03' }),
       window: { _pelaajaMap: { p1: {} } } };
     vm.createContext(ctx);
-    vm.runInContext(pura(A, 'function _phPelaajaRef(') + '\n' + pura(A, 'async function _phKirjoitaHavaintoJaPikakentat(')
+    vm.runInContext(pura(A, 'function _phPelaajaRef(') + '\n' + pura(A, 'function _phJaaPelaajalle(') + '\n' + pura(A, 'async function _phKirjoitaHavaintoJaPikakentat(')
       + '\nthis.f = _phKirjoitaHavaintoJaPikakentat; this.ref = _phPelaajaRef;', ctx);
     const pRef = ctx.ref('kpv', 'p1');
     const havRef = pRef.collection('havainnot').doc('h3');

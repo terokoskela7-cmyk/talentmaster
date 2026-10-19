@@ -592,7 +592,7 @@ describe('(sv) Pikakortti — ei reitittämätöntä näkyvää tekstiä missä�
   const pelaajat = { p1: { nimi: 'Topias Koskela', syntymaVuosi: vuosiIalle(10), joukkueet: ['j1'], havainto_porras: 1, adar_pvm: new Date(Date.now() - 86400000).toISOString(),
       havainto_porras_ehdotus: { valmis: true, hist: [2.5, 3, 2.5], seuraava: 'd' } },
     p4: { nimi: 'Sara Virtanen', syntymaVuosi: vuosiIalle(17), joukkueet: ['j1'], havainto_porras: 4, adar_pvm: new Date(Date.now() - 5 * 86400000).toISOString(), havainto_porras_ehdotus: { valmis: false, hist: [3, 3, 3], seuraava: null } } };
-  const sallitut = new Set([...Object.values(TX.FI), ...Object.values(NIMI.valmentaja), ...Object.values(NIMI.pelaaja), 'Topias Koskela', 'Sara Virtanen', 'Topias', 'Sara', 'Koskela', 'Virtanen', 'TalentMaster™', 'Hyvä havainto']);
+  const sallitut = new Set([...Object.values(TX.FI), ...Object.values(NIMI.valmentaja), ...Object.values(NIMI.pelaaja), 'Topias Koskela', 'Sara Virtanen', 'Topias', 'Sara', 'Koskela', 'Virtanen', 'TalentMaster™', 'Hyvä havainto', ...Object.values(vaadi('../lib/tm_nakyvyys_kytkin.js').FI)]);   // 0b: kytkimen lib-tekstit (nk_*, sv erä 70)
   const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const SALLITUT_RE = new RegExp([...sallitut].filter((x) => x.length > 2).sort((a, b) => b.length - a.length).map(esc).join('|'), 'gi');   // lib-reititetyt tekstit/nimet voivat esiintyä yhdistelmärivillä ("Sara · havainnointi 2, päätös 3")
   const jaanteet = (h) => {

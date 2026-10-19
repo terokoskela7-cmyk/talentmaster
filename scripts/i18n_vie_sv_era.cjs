@@ -26,7 +26,7 @@ function svArvo(osio, avain, rivi) {
 }
 
 /* ── 1. lib/tm_lib_i18n.js ── */
-const LIBIT = ['tm_kehitystyopoyta', 'tm_kevyt_katselmus', 'tm_klippi_perhe', 'tm_mediaviesti', 'tm_reitin_valinta', 'tm_ryhmat', 'tm_taman_tueksi', 'tm_tanaan_kentta', 'tm_tanaan_signaali', 'tm_viikkokatsaus'];
+const LIBIT = ['tm_kehitystyopoyta', 'tm_kevyt_katselmus', 'tm_klippi_perhe', 'tm_nakyvyys_kytkin', 'tm_mediaviesti', 'tm_reitin_valinta', 'tm_ryhmat', 'tm_taman_tueksi', 'tm_tanaan_kentta', 'tm_tanaan_signaali', 'tm_viikkokatsaus'];
 function vieLib() {
   const svt = {}; const lahde = {}; const tormaykset = [];
   for (const l of LIBIT) {

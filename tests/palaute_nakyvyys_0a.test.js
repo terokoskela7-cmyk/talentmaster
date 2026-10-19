@@ -85,13 +85,16 @@ describe('oma mittaus (täydennys 19.10.2026): oma tulos, oma ennätys ja oma pa
 });
 
 describe('Vanhempi_v2: sanavartija valmentajan vapaille teksteille', () => {
-  const aja = (kielletyt) => { const c = vm.createContext({ window: { TM_KIELLETYT: kielletyt } }); vm.runInContext(pura(V2, 'function _vTekstiKelpaa('), c); return (t) => vm.runInContext('_vTekstiKelpaa(' + JSON.stringify(t) + ')', c); };
+  const TS = require('../lib/tm_taman_tueksi.js');
+  const aja = (kielletyt, ts = TS) => { const c = vm.createContext({ window: { TM_KIELLETYT: kielletyt, TM_TAMAN_TUEKSI: ts } }); vm.runInContext(pura(V2, 'function _vTekstiKelpaa('), c); return (t) => vm.runInContext('_vTekstiKelpaa(' + JSON.stringify(t) + ')', c); };
   it('kelpo teksti läpi; kielletty sana (heikkous/rajoite/kriittinen) ei; vartija puuttuu → ei (suljettu virhe)', () => {
     const kelpaa = aja(KI);
     expect(kelpaa('Hieno peli, jatka samaan malliin!')).toBe(true);
     expect(kelpaa('Pelaajan heikkous on vasen jalka')).toBe(false);
     expect(kelpaa('Kriittinen vaihe kauden alussa')).toBe(false);
     expect(aja(undefined)('Hieno peli')).toBe(false);
+    expect(kelpaa('Hyvä peli, 3/5')).toBe(false);   // 0b: numerovartija (mittaus-/lukumuodot)
+    expect(aja(KI, null)('Hieno peli')).toBe(false);   // numerovartija puuttuu → suljettu virhe
   });
   it('vartija ajetaan sekä valmentajan viesteille että valmentajan kirjausten tekstille', () => {
     expect(V2).toMatch(/_valmentajaViestit = _valmentajaViestit\.filter\(function \(v\) \{ return _vTekstiKelpaa\(_vViestiTeksti\(v\)\); \}\)/);

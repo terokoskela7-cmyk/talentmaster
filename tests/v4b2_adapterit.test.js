@@ -30,7 +30,7 @@ function ymp(sov, { pelaaja = {}, kaada = false, tanaan = PVM, profiili = null, 
     update: async (d) => { if (kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); kirj.update.push({ polku, d }); }, set: async (d, o) => { kirj.update.push({ polku, set: d, o }); } });
   const db = { collection: (c) => ref(c), batch: () => { const ops = []; return { update: (r, d) => ops.push(['update', r.polku, d]), set: (r, d, o) => ops.push(['set', r.polku, d, o]), commit: async () => { if (kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); kirj.batch.push(ops); } }; } };
   const els = {}; const doc = { getElementById: (id) => els[id] || null, querySelector: () => null, createElement: () => ({ set innerHTML(v) { this.firstChild = { id: (/id="([^"]+)"/.exec(v) || [])[1], html: v, remove() { delete els[this.id]; log.poistetut.push(this.id); } }; } }), body: { appendChild: (n) => { els[n.id] = n; log.lisatyt.push(n.id); } } };
-  const win = { TM_KEVYT_KATSELMUS: L.K, TM_REITIN_VALINTA: L.RV, TM_VIIKKOKATSAUS: L.K4, TM_KEHITYSSILMUKKA: L.SL, TM_JAKSOKOOSTE: L.J, TM_TANAAN_SIGNAALI: L.TS, TM_ALOITA_JAKSO: L.AJ, TM_TANAAN_KENTTA: L.TK, TM_SEURAAVA_ASKEL: require('../lib/tm_seuraava_askel.js'), _vpRooli: rooli, _vpSA: false };
+  const win = { TM_KEVYT_KATSELMUS: L.K, TM_REITIN_VALINTA: L.RV, TM_VIIKKOKATSAUS: L.K4, TM_NAKYVYYS_KYTKIN: require('../lib/tm_nakyvyys_kytkin.js'), TM_KEHITYSSILMUKKA: L.SL, TM_JAKSOKOOSTE: L.J, TM_TANAAN_SIGNAALI: L.TS, TM_ALOITA_JAKSO: L.AJ, TM_TANAAN_KENTTA: L.TK, TM_SEURAAVA_ASKEL: require('../lib/tm_seuraava_askel.js'), _vpRooli: rooli, _vpSA: false };
   const sb = { window: win, document: doc, console: { warn: (...a) => log.warn.push(a) }, Object, Array, Date, JSON, Math, Promise, String, Number, TM_VIRHEKOODI: L.VK,
     _seuraId: 'kpv', _demo: demo, _isDemoMode: demo, _rooli: rooli, _superAdmin: false, _db: db, db, firebase: { auth: () => ({ currentUser: { uid: 'u1', getIdToken: async () => 't' } }), firestore: { FieldValue: FV } },
     toast: (t, k) => log.toast.push([t, k]), masterT: (x) => x, vpT: (x) => x, _mEsc: (s) => String(s == null ? '' : s), _jsvEsc: (s) => String(s == null ? '' : s), tmPaivaIso: (d) => (d && d.__tanaan) || tanaan,
@@ -47,7 +47,7 @@ function ymp(sov, { pelaaja = {}, kaada = false, tanaan = PVM, profiili = null, 
   return { sb, p, log, kirj, win, els };
 }
 const lopeta = () => new Promise((r) => setTimeout(r, 0));
-const vastaa = (w, lause = 'Laukaus vauhdista näkyi jo peleissä.') => { w._kvkVastaus('nakyi', 'ohjatusti'); w._kvkVastaus('treeni', 'usein'); w._kvkVastaus('mukana', 'hyvin'); w._kvkLause(lause); };
+const vastaa = (w, lause = 'Laukaus vauhdista näkyi jo peleissä.', nayta = true) => { w._kvkVastaus('nakyi', 'ohjatusti'); w._kvkVastaus('treeni', 'usein'); w._kvkVastaus('mukana', 'hyvin'); w._kvkLause(lause); if (nayta) w._kvkNayta(true); };   // 0b: oletus pois → nämä testit kattavat kytkimen PÄÄLLÄ
 
 for (const sov of ['Master', 'VP']) {
   const hk = sov === 'Master' ? 'ms' : 'vp';
@@ -65,6 +65,14 @@ for (const sov of ['Master', 'VP']) {
       expect(s[0]).toBe('set'); expect(s[1]).toBe('seurat/kpv/pelaajat/p1/reviewit/' + PVM); expect(s[3]).toEqual({ merge: true }); expect(s[2].kevyt).toEqual({ nakyi: 'ohjatusti', treeni: 'usein', mukana: 'hyvin' }); expect(Object.keys(s[2]).sort()).toEqual(['kevyt', 'kevyt_tallennettu']);
       expect(JSON.stringify(ops)).not.toMatch(/review_viimeisin|"tyyppi"/); expect(JSON.stringify(rivi)).not.toMatch(/ohjatusti|"usein"|hyvin/);   // vastaukset vain reviewit-dokumenttiin
       expect(e.log.poistetut).toContain('_kvkModal'); expect(e.sb._kvkTila()).toBeNull(); expect(e.p.jaksofokus).toBeNull(); expect(e.p.jaksofokus_historia).toHaveLength(1); expect(e.log.toast.some(([, k]) => k === 'ok')).toBe(true);
+    });
+    it('0b: kytkin POIS (oletus) → historiariville EI lausetta; reviewit/{pvm}.lause_sisainen samassa batchissa (pelaajan luettavaan dokumenttiin ei mene lausetta)', async () => {
+      const e = ymp(sov, { rooli: sov === 'VP' ? 'vp' : 'valmentaja' }); e.win._kvkAvaa('p1', false); await lopeta(); vastaa(e.win, 'Laukaus vauhdista näkyi jo peleissä.', false);
+      expect(e.sb._kvkTila().nayta).toBe(false);
+      await e.win._kvkTallenna(); expect(e.kirj.batch).toHaveLength(1); const [u, s] = e.kirj.batch[0]; const rivi = u[2].jaksofokus_historia.__arrayUnion[0];
+      expect('lause' in rivi).toBe(false); expect(JSON.stringify(u)).not.toContain('Laukaus vauhdista');
+      expect(s[1]).toBe('seurat/kpv/pelaajat/p1/reviewit/' + PVM); expect(s[2].lause_sisainen).toMatchObject({ teksti: 'Laukaus vauhdista näkyi jo peleissä.', lahde: sov === 'VP' ? 'vp' : 'valmentaja' });
+      expect(Object.keys(s[2]).sort()).toEqual(['kevyt', 'kevyt_tallennettu', 'lause_sisainen']);
     });
     it('K3-tarjous samassa batchissa: jaksofokus {valittavana, vaihtoehdot} + ydinvahvuus_valinta FieldValue.delete()', async () => {
       const e = ymp(sov, { pelaaja: { ydinvahvuus_valinta: { vaihtoehto: 'vanha' } } }); e.win._kvkAvaa('p1', true); await lopeta(); vastaa(e.win); e.win._kvkK3Valitse(0); e.win._kvkK3Lause(0, 'Kun osaat molemmilla, puolustaja ei tiedä.');
@@ -157,7 +165,7 @@ describe('Lähdetarkistukset: reititys, ei päällekkäisiä globaaleja, lib-skr
     for (const [nimi, src] of [['Master', MASTER], ['VP', VP]]) { const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', nimi === 'Master' ? '/* ═══ R6.4 Mediaviesti' : '/* ═══ R6.4 Mediaviesti'); const koodi = lohko.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''); expect(koodi, nimi).toMatch(/batch\.set\(ref\.collection\('reviewit'\)\.doc\(plan\.reviewitPvm\), plan\.reviewitData, \{ merge: true \}\)/); expect(koodi, nimi).not.toMatch(/review_viimeisin|tyyppi\s*:/); }
   });
   it('skriptit ladataan (v1) ennen käyttöä sekä Masterissa että VP:ssä; eslint ei tarvitse uusia globaaleja', () => {
-    for (const src of [MASTER, VP]) { for (const l of ['tm_tanaan_signaali.js?v=9', 'tm_kevyt_katselmus.js?v=2']) expect(src).toContain('<script src="lib/' + l + '"></script>'); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_reitin_valinta.js')); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_viikkokatsaus.js')); }
+    for (const src of [MASTER, VP]) { for (const l of ['tm_tanaan_signaali.js?v=9', 'tm_kevyt_katselmus.js?v=3']) expect(src).toContain('<script src="lib/' + l + '"></script>'); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_reitin_valinta.js')); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_viikkokatsaus.js')); }
     expect(readFileSync(new URL('../TalentMaster_Pelaaja_v7.html', import.meta.url), 'utf8')).not.toContain('tm_kevyt_katselmus');   // pelaajasovellus ei lataa henkilökunnan libiä
   });
 });

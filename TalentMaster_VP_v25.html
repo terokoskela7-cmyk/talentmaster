@@ -65,8 +65,8 @@
 <script src="lib/tm_adar_tekstit.js?v=5"></script>   <!-- Pelitilanne: luotettavuustekstit (FI-kartta + tmLibT) -->
 <script src="lib/tm_adar_pelitilanne.js?v=2"></script>   <!-- Pelitilanne Vaihe 1: luotettavuus + jakaumat (vain valmentajalle) -->   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_tekija_nimi.js?v=1"></script>   <!-- tekijän nimi: tallennus (ei sähköpostia, puuttuva = null) + näyttö (käännetty oletus) -->
-<script src="lib/tm_havaintohistoria.js?v=2"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
-<script src="lib/tm_valmentajaviesti.js?v=4"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
+<script src="lib/tm_havaintohistoria.js?v=3"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
+<script src="lib/tm_valmentajaviesti.js?v=5"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=15"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
@@ -152,7 +152,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa (Kenttä-lipun takana) -->
 <script src="lib/tm_tanaan_signaali.js?v=9"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
-<script src="lib/tm_kevyt_katselmus.js?v=2"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
+<script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
+<script src="lib/tm_kevyt_katselmus.js?v=3"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=5"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=4"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_kentta_spec.js?v=2"></script>   <!-- B1: Kenttä-spec pelaajadokumentista (alue → ase, jakso → reitti, viikot, osat, historia; yksi adapteri) -->
@@ -4699,7 +4700,7 @@ async function avaaHavaintohistoria(pelaajaId, pelaajaNimi) {
     .collection('havainnot').get().catch(function () { return { docs: [] }; });
   window._vpHhRivit = tmHhRivit(snap.docs.map(function (d) {
     return Object.assign({ id: d.id }, d.data());
-  }));
+  }), { henkilokunta: true });   // 0b: pelaajalle menevä kopio ei ole oma rivinsä
   _vpHhPiirra();
 }
 window.avaaHavaintohistoria = avaaHavaintohistoria;
@@ -4760,6 +4761,16 @@ async function _vpHhPeru(havId) {
         peruttu: firebase.firestore.FieldValue.serverTimestamp(),
         peruttu_uid: _uid,
       });
+    /* 0b: pikakortin pelaajalle menevä kopio perutaan samalla (teksti poistuu pelaajan ja perheen appista) */
+    var _kop = (window._vpHhRivit || []).filter(function (r) { return r.id === havId; })[0];
+    if (_kop && _kop.pelaajanHavaintoId) {
+      await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
+        .collection('havainnot').doc(_kop.pelaajanHavaintoId).update({
+          tila: 'peruttu',
+          peruttu: firebase.firestore.FieldValue.serverTimestamp(),
+          peruttu_uid: _uid,
+        });
+    }
   } catch (e) {
     toast(vpT('Peruminen ei onnistunut'), 'warn');
     return;
@@ -5664,6 +5675,7 @@ async function _tallennaPMP(pelaajaId, pelaajaNimi) {
     } catch (e) {
       console.warn('[vp] viesti pelaajalle:', e && (e.code || e.message));
       /* Avain libistä, käännös LITERAALINA: i18n-portti näkee vain literaalit vpT-avaimet. */
+      if (e && e.syy) { toast(tmViestiVirheTeksti(e, vpT), 'warn'); if (nappi) { nappi.disabled = false; nappi.textContent = vpT('Yritä uudelleen'); } return; }   // 0b: vartija (numero/sana) hylkäsi viestin
       const avain = tmViestiVirheAvain(e);
       toast(avain === 'Ei oikeutta lähettää tälle pelaajalle' ? vpT('Ei oikeutta lähettää tälle pelaajalle')
         : (avain === 'Ei yhteyttä, yritä uudelleen' ? vpT('Ei yhteyttä, yritä uudelleen') : vpT('Viestin lähetys ei onnistunut')), 'warn');
@@ -10976,6 +10988,7 @@ function _vpVkHkHTML(p) {
   }, 0);
   return '<div id="k4VkHk_' + _jsvEsc(p.id) + '"></div>';
 }
+window._vpSulkuSetNayta = function (v) { if (window._vpSulkuTila) { window._vpSulkuTila.nayta = v === true; _vpSulkuRender(); } };   // 0b: kytkin "Näytä myös pelaajalle"
 window._vpSulkuSetLause = function (v) { if (window._vpSulkuTila) window._vpSulkuTila.lause = String(v || ''); };
 function _vpVkSulkuHTML(S) {
   const K4 = window.TM_VIIKKOKATSAUS; if (!S.k4 || !K4) return '';
@@ -10984,7 +10997,8 @@ function _vpVkSulkuHTML(S) {
     + K4.tmVkHenkilokuntaHTML(S.vkDocs || [], { esc: _jsvEsc, t: vpT })
     + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:12px 0 4px">' + _jsvEsc(_mT('k4_lause_valm')) + '</div>'
     + '<textarea id="_vpSulkuLause" rows="2" maxlength="' + K4.MAX_LAUSE + '" oninput="_vpSulkuSetLause(this.value)" style="width:100%;box-sizing:border-box;background:var(--card);color:var(--ink);border:.5px solid var(--border);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;resize:none">' + _jsvEsc(S.lause || '') + '</textarea>'
-    + '<div style="font-size:10.5px;color:var(--ink3);margin-top:3px">' + _jsvEsc(_mT('k4_lause_valm_ohje')) + '</div></div>';
+    + '<div style="font-size:10.5px;color:var(--ink3);margin-top:3px">' + _jsvEsc(_mT('k4_lause_valm_ohje')) + '</div>'
+    + window.TM_NAKYVYYS_KYTKIN.tmNakyvyysKytkinHTML(S.nayta, { esc: _jsvEsc, t: vpT, toggleFn: '_vpSulkuSetNayta', id: '_vpNayta' }) + '</div>';
 }
 /* ═══ K3 — pelaaja valitsee seuraavan reitin (docs/CODE_BRIEF_K3_REITIN_VALINTA.md; Kaista: Tero). Sama osio kuin Masterissa (lib/tm_reitin_valinta.js). Vain kun liput.kentta === true.
    Tarjous kirjoitetaan sulun samaan updateen: jaksofokus = {tila:'valittavana', vaihtoehdot:[…]} + vanha ydinvahvuus_valinta pois. Nimi kanonisesta (fi) kirjoituspolusta (§32), ei sv-kerroksesta. ═══ */
@@ -11207,7 +11221,7 @@ function _kvkPaikka(html, id) { const vanha = document.getElementById(id); if (v
 window._kvkTila = null;
 function _kvkRender() {
   const S = window._kvkTila, K = window.TM_KEVYT_KATSELMUS; if (!S || !K) return;
-  _kvkPaikka(K.tmKkSheetHTML(S, { esc: _jsvEsc, t: vpT, vastausFn: '_kvkVastaus', lauseFn: '_kvkLause', ehdotusFn: '_kvkEhdotus', tallennaFn: '_kvkTallenna', syvennaFn: '_kvkSyvenna', suljeFn: '_kvkSulje',
+  _kvkPaikka(K.tmKkSheetHTML(S, { esc: _jsvEsc, t: vpT, vastausFn: '_kvkVastaus', lauseFn: '_kvkLause', naytaFn: '_kvkNayta', ehdotusFn: '_kvkEhdotus', tallennaFn: '_kvkTallenna', syvennaFn: '_kvkSyvenna', suljeFn: '_kvkSulje',
     k3: { paalleFn: '_kvkK3Paalle', valitseFn: '_kvkK3Valitse', lauseFn: '_kvkK3Lause' }, pinta: 'var(--deep,#1C1C1A)', modalId: '_kvkModal' }), '_kvkModal');
 }
 window._kvkAvaa = function (pid, k3Paalla) {
@@ -11227,6 +11241,7 @@ window._kvkLause = function (v) {
   const S = window._kvkTila; if (!S) return; S.lause = String(v || '');
   const b = document.querySelector('#_kvkModal [data-kvk-tallenna]'); if (b) { const ok = window.TM_KEVYT_KATSELMUS.tmKkVoiTallentaa(S).ok; b.style.opacity = ok ? '' : '.55'; b.setAttribute('aria-disabled', ok ? 'false' : 'true'); }   // ei koko ruudun piirtoa kirjoittaessa (fokus säilyy)
 };
+window._kvkNayta = function (v) { const S = window._kvkTila; if (!S) return; S.nayta = v === true; _kvkRender(); };   // 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois)
 window._kvkEhdotus = function (i) { const S = window._kvkTila, K = window.TM_KEVYT_KATSELMUS; if (!S) return; const e = K.tmKkEhdotukset(S)[i]; if (e == null) return; S.lause = e; _kvkRender(); const t = document.getElementById('kvkLause'); if (t) t.focus(); };
 window._kvkK3Paalle = function (b) { const S = window._kvkTila; if (!S) return; S.k3.paalla = !!b; _kvkRender(); };
 window._kvkK3Valitse = function (i) { const S = window._kvkTila, k = S && S.k3.kortit[i]; if (!k) return; k.valittu = !k.valittu; _kvkRender(); };
@@ -11238,7 +11253,7 @@ window._kvkTallenna = async function () {
   const sess = _vpSulkuSessiot(p.jaksofokus, S.vali.alkoi, S.vali.loppu);
   const tap = sess.map(function (s) { return { treeniteema: s.treeniteema, pvm: s.pvm, pelaajat_id: s.pelaajat_id, lasnaolo: {} }; });
   const kooste = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmJaksonHarjoitukset(tap, p.jaksofokus.konsepti_avain, S.vali.alkoi, S.vali.loppu, p.id) : { harjoituksia: sess.length, lasnaolo: { paikalla: 0, yhteensa: sess.length, tiedossa: 0 } };
-  const plan = K.tmKkTallennus(p, S, { nytISO: new Date().toISOString(), pvm: tmPaivaIso(new Date()), rooli: window._vpRooli || 'vp', alkoi: S.vali.alkoi, loppu: S.vali.loppu, harjoituksia: kooste.harjoituksia, lasnaolo: kooste.lasnaolo });
+  const plan = K.tmKkTallennus(p, S, { uid: ((typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) || {}).uid, nytISO: new Date().toISOString(), pvm: tmPaivaIso(new Date()), rooli: window._vpRooli || 'vp', alkoi: S.vali.alkoi, loppu: S.vali.loppu, harjoituksia: kooste.harjoituksia, lasnaolo: kooste.lasnaolo });
   if (!plan.ok) { if (typeof toast === 'function') toast(K.tmKkVirhe(plan.syy, { t: vpT }), 'error'); return; }   // validointi ENNEN kirjoitusta; ruutu jää auki
   S.tallentaa = true;
   const ok = await _kvkKirjoita(p, plan, K.FI[plan.tarjottu ? 'kk_tallennettu_tarjous' : 'kk_tallennettu'].replace(/ ✓$/, ''), window._kvkSulje);
@@ -11246,9 +11261,9 @@ window._kvkTallenna = async function () {
 };
 // "Syvennä" → täysi sulkulomake esitäytettynä kolmella vastauksella + lauseella; vastaukset kirjoitetaan reviewit/{pvm}.kevyt:iin samassa batchissa
 window._kvkSyvenna = async function () {
-  const S = window._kvkTila; if (!S) return; const pid = S.pid, kevyt = Object.assign({}, S.kevyt), lause = S.lause;
+  const S = window._kvkTila; if (!S) return; const pid = S.pid, kevyt = Object.assign({}, S.kevyt), lause = S.lause, nayta = S.nayta === true;
   window._kvkSulje(); await window._vpSuljeJakso(pid);
-  const T = window._vpSulkuTila; if (T && T.pid === pid) { T.kevytEsi = kevyt; T.lause = lause; _vpSulkuRender(); }
+  const T = window._vpSulkuTila; if (T && T.pid === pid) { T.kevytEsi = kevyt; T.lause = lause; T.nayta = nayta; _vpSulkuRender(); }
 };
 window._kvkHk = null;
 function _kvkHkRender() {
@@ -11667,6 +11682,7 @@ window._vpSulkuTallenna = async function (uusiAvain) {
   const S = window._vpSulkuTila; if (!S) return;
   const _lause = S.k4 ? window.TM_VIIKKOKATSAUS.tmVkLauseValmentaja(S.lause) : { ok: true, teksti: null };   // K4: lause vartijan läpi ENNEN sulkua; hylätty → lomake jää auki
   if (!_lause.ok) { if (typeof toast === 'function') toast(window.TM_VIIKKOKATSAUS.tmVkLauseVirhe(_lause.syy, { t: vpT }), 'error'); return; }
+  const _ls = window.TM_NAKYVYYS_KYTKIN.tmLauseSuunnitelma(_lause.teksti, S.nayta, { lahde: _kvkLahde(), uid: ((typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) || {}).uid, nytISO: new Date().toISOString() });   // 0b: kytkin pois (oletus) → lause vain reviewit/{pvm}.lause_sisainen
   let _tarjous = null;   // K3: tarjous ENNEN sulkua (hylätty → lomake jää auki); tarjous korvaa uuden jakson asetuksen
   if (S.k3 && S.k3.paalla) {
     _tarjous = window.TM_REITIN_VALINTA.tmTarjousOlio(S.k3.kortit);
@@ -11695,10 +11711,12 @@ window._vpSulkuTallenna = async function (uusiAvain) {
     delta_mitattu: S.deltaMitattu || null,   // Vaihe 7: kytkee mitatun deltan (V6-aukko korjautuu)
     ohjelma: jf.ohjelma || null,             // §2c: kopioi ohjelma-objekti → annos–vaste-rivi (AI-analyysi)
     tulos: S.tulos, uusi: uusiJf
-  }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _lause.teksti ? { lause: _lause.teksti, lause_lahde: _kvkLahde() } : undefined });   // K4: lause samalle historiariville (+ V4b-2 lause_lahde)
+  }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _ls.historia });   // K4: lause samalle historiariville (+ V4b-2 lause_lahde)
   if (_tarjous) _v.jaksofokus = _tarjous.jaksofokus;   // K3: {tila:'valittavana', vaihtoehdot} — ei alkoi/kestoa (asetetaan vahvistuksessa)
-  if (S.kevytEsi && window.TM_KEVYT_KATSELMUS && window.TM_KEVYT_KATSELMUS.tmKevytKelpaa(S.kevytEsi)) {   // V4b-2 "Syvennä": kolme vastausta reviewit/{pvm}.kevyt:iin samassa batchissa (ei tyyppiä, ei review_viimeisin_*)
-    await _kvkKirjoita(p, { jaksofokus: _v.jaksofokus, historiaLisays: _v.historiaLisays, poistaValinta: !!_tarjous, reviewitPvm: tmPaivaIso(new Date()), reviewitData: { kevyt: S.kevytEsi, kevyt_tallennettu: new Date().toISOString() } },
+  const _kevytOk = !!(S.kevytEsi && window.TM_KEVYT_KATSELMUS && window.TM_KEVYT_KATSELMUS.tmKevytKelpaa(S.kevytEsi));
+  const _rd = Object.assign({}, _kevytOk ? { kevyt: S.kevytEsi, kevyt_tallennettu: new Date().toISOString() } : {}, _ls.reviewit || {});   // V4b-2 "Syvennä": kevyt · 0b: lause_sisainen — samassa batchissa
+  if (Object.keys(_rd).length) {
+    await _kvkKirjoita(p, { jaksofokus: _v.jaksofokus, historiaLisays: _v.historiaLisays, poistaValinta: !!_tarjous, reviewitPvm: tmPaivaIso(new Date()), reviewitData: _rd },
       _tarjous ? window.TM_REITIN_VALINTA.tmTeksti('k3_tarjottu_vp', { t: vpT }) : (uusiAvain ? vpT('Jakso suljettu · uusi fokus asetettu') : vpT('Jakso suljettu')), function () {
         document.getElementById('_vpSulkuModal')?.remove(); window._vpSulkuTila = null;
         if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
