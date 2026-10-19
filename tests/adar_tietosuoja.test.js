@@ -217,17 +217,16 @@ describe('(5) näkyvyys on valmentajan valinta, ei oletus', () => {
     expect(ajaNak(vuosiIalle(10)).arvo()).toBe('valmentajat');
   });
 
-  it('13+ oletus on PÄÄLLÄ', () => {
-    expect(ajaNak(vuosiIalle(14)).arvo()).toBe('pelaaja');
+  it('13+ oletus on POIS (palaute-näkyvyys 0b, Tero 19.10.2026: oletus sisäinen iästä riippumatta)', () => {
+    expect(ajaNak(vuosiIalle(14)).arvo()).toBe('valmentajat');
+    expect(ajaNak(vuosiIalle(17)).arvo()).toBe('valmentajat');
   });
 
-  it('IKÄ ratkaisee, EI porras (porras vaihtuu, oletus ei)', () => {
-    /* Porras on arvioinnin laajuus, ikä on tietosuojaperuste. Jos oletus seuraisi porrasta,
-       10-vuotias portaalla 3 saisi muistiinpanon näkyviin. */
+  it('oletus EI riipu iästä eikä portaasta; kytkin päälle vain valmentajan valinnalla', () => {
     const f = pura(ADAR, 'function _nakOletus(');
-    expect(f, 'oletus lukee ikää').toContain('_nakPelaajanIka(');
-    expect(f, 'oletus ei saa lukea porrasta').not.toContain('porras');
+    expect(f, 'oletus ei saa lukea ikää eikä porrasta').not.toMatch(/_nakPelaajanIka|porras|ika/);
     expect(ajaNak(vuosiIalle(10)).arvo()).toBe('valmentajat');
+    const a = ajaNak(vuosiIalle(14)); a.vaihda(); expect(a.arvo()).toBe('pelaaja');
   });
 
   it('ikä tuntematon → FAIL-CLOSED (ei lapselle)', () => {
@@ -238,8 +237,7 @@ describe('(5) näkyvyys on valmentajan valinta, ei oletus', () => {
     const f = pura(ADAR, 'function _phRenderHavainto(');
     expect(f).toContain("'Viesti pelaajalle'");
     expect(f).toContain("'Muistiinpano · vain valmentajille'");
-    expect(f, 'selite ei kerro että pelaaja ei näe havaintoa lainkaan')
-      .toContain('Pelaaja ei näe tätä havaintoa lainkaan');
+    expect(f, 'kytkin on yhtenäinen komponentti (selite pois/päällä tulee libistä)').toContain('tmNakyvyysKytkinHTML');
     expect(f, 'otsikko ei riipu kytkimestä').toContain('on ?');
   });
 

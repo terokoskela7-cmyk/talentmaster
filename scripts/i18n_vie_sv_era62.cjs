@@ -15,9 +15,10 @@ function vie(opts) {
   const P = JSON.parse(lue(PALAUTUS)).osiot, G = JSON.parse(lue(LAHETYS)).osiot;
   if (!P[OSIO]) return { virheet: ['osio puuttuu palautuksesta: ' + OSIO], lisatty: 0, ohitettu, kirjoitettu: false };
   if (JSON.stringify(Object.keys(P[OSIO].rivit).sort()) !== JSON.stringify(Object.keys(G[OSIO].rivit).sort())) return { virheet: [OSIO + ': avaimet ≠ lähetetty erä'], lisatty: 0, ohitettu, kirjoitettu: false };
+  const KAYTTAMATTOMAT = ['{n} valittu', 'Pelaaja näkee', 'Näytä pelaajalle'];   // avain säilyy kartassa; sivu ei käytä (0b: kytkin vaihtui lib/tm_nakyvyys_kytkin.js:ään)
   let sHe = lue('lib/tm_henkilosto_i18n.js'); const ol = lataaSv(sHe, 'TM_HENKILOSTO_I18N'), uudet = [], SIVU = lue('TalentMaster_ADAR_Pikakortti.html');
   for (const [k, r] of Object.entries(P[OSIO].rivit)) {
-    if (r.fi !== k || r.fi !== G[OSIO].rivit[k].fi || (k !== '{n} valittu' && !SIVU.includes("tmHT('" + k + "'"))) { virheet.push(k + ': fi ei vastaa lähetettyä erää/Pikakortin tmHT-kutsua'); continue; }
+    if (r.fi !== k || r.fi !== G[OSIO].rivit[k].fi || (!KAYTTAMATTOMAT.includes(k) && !SIVU.includes("tmHT('" + k + "'"))) { virheet.push(k + ': fi ei vastaa lähetettyä erää/Pikakortin tmHT-kutsua'); continue; }
     const syy = sopii(r.fi, r.sv); if (syy) { virheet.push(k + ': ' + syy); continue; }
     if (typeof ol[k] === 'string') { if (ol[k] === r.sv) ohitettu.push(k); else virheet.push(k + ': jo koodissa eri sv:llä'); continue; }
     uudet.push([k, r.sv]);

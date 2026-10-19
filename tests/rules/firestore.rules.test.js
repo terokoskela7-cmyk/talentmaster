@@ -4836,6 +4836,33 @@ describe('v3.46 · reviewit.kevyt: valmentaja kirjoittaa sanoina (enum); pelaaja
     await assertFails(setDoc(rev(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), { kevyt: KEVYT }, { merge: true })); await assertFails(getDoc(rev(huoltajaContext().firestore())));
   });
 });
+/* ══ Palaute-näkyvyys 0b (19.10.2026) — EI Rules-muutosta: sisäinen katselmuslause reviewit/{pvm}.lause_sisainen (pelaaja/huoltaja eivät lue) ja pikakortin pelaajakopio havainnot (nakyvyys 'pelaaja', vain teksti) ══ */
+describe('0b · sisäinen katselmuslause: reviewit/{pvm}.lause_sisainen — valmentaja ja VP kirjoittavat, pelaaja ja huoltaja EIVÄT lue; pelaajan luettavassa historiarivissä ei lausetta ei vaadita Rulesilta', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const rev = (db, pvm = '2026-11-10') => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm);
+  const LS = { teksti: 'Hyvä jakso, jatka näin.', lahde: 'valmentaja', uid: VALM_A_UID, tallennettu: '2026-11-10T10:00:00.000Z' };
+  it('oman seuran valmentaja ja VP kirjoittavat lause_sisainen (set+merge, kevyt mukana); toisen seuran valmentaja ei; pelaaja ja huoltaja eivät kirjoita eivätkä LUE', async () => {
+    await assertSucceeds(setDoc(rev(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), { kevyt: { nakyi: 'ohjatusti', treeni: 'usein', mukana: 'hyvin' }, kevyt_tallennettu: '2026-11-10T10:00:00.000Z', lause_sisainen: LS }, { merge: true }));
+    await assertSucceeds(setDoc(rev(vpContext(SEURA_A).firestore(), '2026-11-17'), { lause_sisainen: { ...LS, lahde: 'vp' } }, { merge: true }));
+    await assertSucceeds(getDoc(rev(valmentajaContext(VALM_A_UID, SEURA_A).firestore())));
+    await assertFails(getDoc(rev(pelaajaItseContext().firestore()))); await assertFails(getDoc(rev(huoltajaContext().firestore())));
+    await assertFails(setDoc(rev(pelaajaItseContext().firestore(), '2026-11-18'), { lause_sisainen: LS }, { merge: true }));
+    await assertFails(setDoc(rev(valmentajaContext(VALM_B_UID, SEURA_B).firestore(), '2026-11-19'), { lause_sisainen: LS }, { merge: true }));
+  });
+});
+describe('0b · pikakortin pelaajakopio: havainnot (tyyppi havainto_pelaajalle, nakyvyys pelaaja, vain teksti) — pelaaja ja huoltaja lukevat; sisäinen dokumentti (nakyvyys valmentajat, pisteet) ei ole heidän luettavissaan', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const hav = (db, id) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', id);
+  it('valmentaja luo molemmat samassa batchissa; pelaaja/huoltaja lukevat vain kopion, eivät sisäistä', async () => {
+    const vdb = valmentajaContext(VALM_A_UID, SEURA_A).firestore(), luotu = new Date();
+    const b = FS_MOD.writeBatch(vdb);
+    b.set(hav(vdb, 'sis1'), { tyyppi: 'adar_pikakortti', pisteet: { A: 2 }, havaitut: ['A:Katsoo ylös'], narratiivi: 'Hyvä!', nakyvyys: 'valmentajat', nayta_pelaajalle: true, pelaajan_havainto_id: 'kop1', tila: 'valmis', tekija_uid: VALM_A_UID, tekija_nimi: 'Vesa Valmentaja', luotu });
+    b.set(hav(vdb, 'kop1'), { tyyppi: 'havainto_pelaajalle', teksti: 'Hyvä!', nakyvyys: 'pelaaja', tila: 'valmis', pelaaja_lukenut: false, valmentajaUid: VALM_A_UID, luotu });
+    await assertSucceeds(b.commit());
+    for (const ctx of [pelaajaItseContext(), huoltajaContext()]) { await assertSucceeds(getDoc(hav(ctx.firestore(), 'kop1'))); await assertFails(getDoc(hav(ctx.firestore(), 'sis1'))); }
+    await assertSucceeds(updateDoc(hav(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'kop1'), { tila: 'peruttu', peruttu_uid: VALM_A_UID }));   // tekijä (valmentajaUid) voi perua kopion (Kumoa)
+  });
+});
 describe('v3.56 · joukkueet.tyyppi (S2, D70): vain SA/johto asettaa (kilpa|harraste); valmentaja ei; puuttuva sallittu', () => {
   beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1), { nimi: 'FCL U12' }); }); });
   const jd = (db) => doc(db, 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1);

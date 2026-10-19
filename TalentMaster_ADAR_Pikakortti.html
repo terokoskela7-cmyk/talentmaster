@@ -235,10 +235,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <script src="lib/tm_pvm.js?v=7"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
+<script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- Portaat + konsensus + pikakentät (PR 2A) -->
 <script src="lib/tm_lang.js?v=48"></script>   <!-- sv-läpiajo PR 4: kieli seuran kielestä (tmKieliInitSeura) -->
 <script src="lib/tm_i18n_common.js?v=13"></script>
-<script src="lib/tm_lib_i18n.js?v=17"></script>   <!-- jaettu kirjastokartta (tmLibT): ADAR-tekstit + nimikanoni -->
+<script src="lib/tm_lib_i18n.js?v=18"></script>   <!-- jaettu kirjastokartta (tmLibT): ADAR-tekstit + nimikanoni -->
 <script src="lib/tm_henkilosto_i18n.js?v=9"></script>   <!-- tmHT: henkilöstösovellusten reititin -->
 <script src="lib/tm_adar_tekstit.js?v=5"></script>   <!-- ulottuvuustekstit FI-kartassa (ent. PH_TEKSTIT) -->
 <script src="lib/tm_adar_pelitilanne.js?v=2"></script>   <!-- pelitilanne (vaihe · paine · otos) + luotettavuus; vain kirjaus, konsensus ennallaan -->
@@ -831,19 +832,21 @@ window._phAvaaPelaaja = _phAvaaPelaaja;
    jokaisen valmiin havainnon narratiivin. Valmentajan muistiinpano meni siis sellaisenaan
    8–12-vuotiaalle, vaikka se on valmentajan työkalu eikä viesti lapselle.
 
-   OLETUS IÄSTÄ, EI PORTAASTA: alle 13-vuotiaalla kytkin on POIS, 13+ päällä. Tila EI jää
-   muistiin havaintojen välillä — jokainen havainto valitaan erikseen. */
+   0b (Tero 19.10.2026): yhtenäinen kytkin "Näytä myös pelaajalle" (lib/tm_nakyvyys_kytkin.js), OLETUS POIS iästä riippumatta. Tila EI jää muistiin havaintojen välillä.
+   Kun kytkin on päällä: pelaajan luettavaan havaintodokumenttiin (tyyppi 'havainto_pelaajalle') tallentuu VAIN pelaajalle tarkoitettu teksti — pisteet, havaitut ja tekijän nimi
+   jäävät sisäiseen dokumenttiin (nakyvyys 'valmentajat', nayta_pelaajalle: true, pelaajan_havainto_id). */
 function _nakPelaajanIka(pid) { return _phIka(pid); }
 
-function _nakOletus(pid) {
-  var ika = _nakPelaajanIka(pid);
-  if (ika != null) return ika >= 13;
-  return false;                                  // ikä tuntematon → fail-closed (ei lapselle)
+function _nakOletus() {
+  return false;                                  // oletus sisäinen — aina (myös 13+ ja ikä tuntematon)
 }
 
+function _phLibT(k) { return (typeof tmLibT === 'function') ? tmLibT(k) : undefined; }   // lib-avaimet (nk_*) sv-kartasta; puuttuva → lib käyttää FI-tekstiä
 function _nakVaihda() { window._phTila.nakyvyys = !window._phTila.nakyvyys; _phRender(); }
 function _nakNollaa(pid) { window._phTila.nakyvyys = _nakOletus(pid); }
-function _nakArvo() { return window._phTila.nakyvyys ? 'pelaaja' : 'valmentajat'; }
+function _nakAseta(v) { window._phTila.nakyvyys = (v === true); _phRender(); }
+window._nakAseta = _nakAseta;
+function _nakArvo() { return window._phTila.nakyvyys ? 'pelaaja' : 'valmentajat'; }   // pyyntö (kytkin) — ks. _phJaaPelaajalle: sisäinen dokumentti saa AINA 'valmentajat'
 window._nakVaihda = _nakVaihda;
 
 /* ── RENDER ──────────────────────────────────────────────────────────────── */
@@ -1026,12 +1029,11 @@ function _phRenderHavainto() {
                   : tmHT('Mitä näit? Vain valmentajat ja VP näkevät tämän.'))
       + '">' + _phEsc(S.teksti) + '</textarea><div class="vis-h">' + (on
         ? tmHT('Pelaaja näkee tekstin sovelluksessaan. Pisteitä hän ei näe.')
-        : tmHT('Oletus alle 13-vuotiaille. Pelaaja ei näe tätä havaintoa lainkaan.')) + '</div></div>';
+        : '') + '</div></div>';
   }
   h += '<div class="foot-r"><button type="button" class="link" id="ph-viesti" aria-expanded="' + (!!S.viestiAuki) + '">'
     + (S.viestiAuki ? tmHT('Piilota ▴') : (onViesti ? tmHT('Viesti ✓') : tmHT('+ Viesti pelaajalle'))) + '</button>'
-    + '<div class="vis"><span class="vis-t">' + tmHT('Pelaaja näkee') + '</span><button class="sw" id="ph-sw" role="switch" aria-checked="' + on
-    + '" aria-label="' + _phEsc(tmHT('Näytä pelaajalle')) + '"></button></div></div>';
+    + '<div class="vis">' + window.TM_NAKYVYYS_KYTKIN.tmNakyvyysKytkinHTML(on, { esc: _phEsc, t: _phLibT, toggleFn: '_nakAseta', id: 'ph-nayta', kompakti: true }) + '</div></div>';
   h += '<button class="save" id="ph-save"' + (annetut.length ? '' : ' disabled') + '>' + (annetut.length ? tmHT('Tallenna havainto') : tmHT('Valitse vähintään yksi piste')) + '</button></div>';
 
   if (S.sheet) {
@@ -1118,8 +1120,6 @@ function _phSidoHavainto() {
   }
   var vi = document.getElementById('ph-viesti');
   if (vi) vi.onclick = function () { S.viestiAuki = !S.viestiAuki; S.viestiFokus = S.viestiAuki; _phRender(); };
-  var sw = document.getElementById('ph-sw');
-  if (sw) sw.onclick = function () { _nakVaihda(); };
   var pr = document.getElementById('ph-porras');
   if (pr) pr.onclick = function () { S.sheet = true; _phRender(); };
   var sulje = document.getElementById('ph-sulje');
@@ -1320,8 +1320,25 @@ async function _phPaivitaPikakentat(seuraId, pelaajaId, porras, kirjoitaPorras) 
    serverTimestamp). Laskennan epäonnistuessa havainto kirjoitetaan silti (data ei katoa), pikakentät seuraavalla.
    Käyttö: online-tallennus (_phTallenna) JA offline-jonon synkka (_synkronoiOfflineJono). Palauttaa commit-lupauksen;
    onLahetetty() kutsutaan heti kun batch on annettu Firestorelle (persistence: jonottuu laitteelle). */
+/* 0b: pelaajalle jakaminen. Kytkin päällä (data.nakyvyys === 'pelaaja', myös vanhat offline-jonon merkinnät): sisäinen dokumentti (pisteet, havaitut, tekijä) jää
+   nakyvyys 'valmentajat' + nayta_pelaajalle + pelaajan_havainto_id; pelaajan luettava dokumentti (tyyppi 'havainto_pelaajalle', nakyvyys 'pelaaja') saa VAIN tekstin.
+   Ei tekstiä → ei pelaajan dokumenttia (ei mitään näytettävää). Ei Rules-muutosta: havainnot.create/read rajaa jo nakyvyys-kentällä. → { data, kopioRef, kopio } */
+function _phJaaPelaajalle(data, pRef) {
+  if (!data || data.nakyvyys !== 'pelaaja') return { data: data, kopioRef: null, kopio: null };
+  var teksti = (typeof data.narratiivi === 'string') ? data.narratiivi.trim() : '';
+  var sis = Object.assign({}, data, { nakyvyys: 'valmentajat', nayta_pelaajalle: true });
+  if (!teksti) return { data: sis, kopioRef: null, kopio: null };
+  var kopioRef = data.pelaajan_havainto_id ? pRef.collection('havainnot').doc(data.pelaajan_havainto_id) : pRef.collection('havainnot').doc();   // _phTallenna esiluo id:n → Kumoa tietää kopion
+  sis.pelaajan_havainto_id = kopioRef.id;
+  var kopio = { tyyppi: 'havainto_pelaajalle', teksti: teksti, nakyvyys: 'pelaaja', tila: 'valmis', pelaaja_lukenut: false,
+    valmentajaUid: data.tekija_uid || null, pelaajaId: data.pelaaja_id || null, seuraId: data.seura_id || null, pvm: data.pvm || null, luotu: data.luotu };
+  return { data: sis, kopioRef: kopioRef, kopio: kopio };
+}
+window._phJaaPelaajalle = _phJaaPelaajalle;
+
 async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId, porras, kirjoitaPorras, onLahetetty) {
   var pRef = _phPelaajaRef(seuraId, pelaajaId), kentat = null, havVanha = null;
+  var _jako = _phJaaPelaajalle(data, pRef); data = _jako.data;   // 0b: pelaajalle vain teksti, muu sisäiseen dokumenttiin
   try {
     var snap = await pRef.collection('havainnot').get();
     var havainnot = snap.docs.filter(function (d) { return d.id !== havRef.id; }).map(function (d) { return d.data(); });
@@ -1344,6 +1361,7 @@ async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId,
   if (havPvm && typeof havVanha === 'string' && havVanha > havPvm) havPvm = havVanha;
   var batch = _PH_DB.batch();
   batch.set(havRef, data);
+  if (_jako.kopioRef) batch.set(_jako.kopioRef, _jako.kopio);   // pelaajan luettava kopio samassa batchissa (kaikki tai ei mitään)
   if (havPvm) batch.set(pRef, { havainto_viimeisin_pvm: havPvm }, { merge: true });
   var commit = batch.commit();
   /* commit.pikakentat = lupaus joka AINA resolvaa {ok, code}: kutsuja (Master) tietää onnistuiko adar-yhteenveto. Aiemmin vain
@@ -1408,7 +1426,7 @@ async function _phTallenna() {
     pelitilanne: window.tmPelitilanneTalletus(S.pelitilanne, S.porras),
     narratiivi: S.teksti || '',
     /* VALMENTAJAN VALINTA, ei oletus: 'pelaaja' = lapsi näkee tekstin, 'valmentajat' = ei näe. */
-    nakyvyys: _nakArvo(),
+    nakyvyys: _nakArvo(),            // 0b: aina 'valmentajat' (sisäinen dokumentti); 'pelaaja' pyydetään _nakArvo():lla ja jaetaan _phJaaPelaajalle():ssa
     tila: 'valmis',
     pelaaja_lukenut: false,
     tekija_uid: user.uid,
@@ -1423,6 +1441,8 @@ async function _phTallenna() {
   };
 
   var ref = _phPelaajaRef(seuraId, pelaajaId).collection('havainnot').doc();
+  var kopioRef = null;
+  if (data.nakyvyys === 'pelaaja' && (data.narratiivi || '').trim()) { kopioRef = _phPelaajaRef(seuraId, pelaajaId).collection('havainnot').doc(); data.pelaajan_havainto_id = kopioRef.id; }   // 0b
   var porrasTallennetaan = S.porrasNostettu || S.porrasTallennettu !== S.porras;
 
   /* EI AWAITIA: UI etenee heti, kirjoitus jonottuu tarvittaessa. Havainto + pikakentät yhdessä batchissa (§26).
@@ -1459,7 +1479,7 @@ async function _phTallenna() {
   });
 
   S.viimeisin = {
-    ref: ref, pelaajaId: pelaajaId, pisteet: pisteet, havaitut: S.havaitut, teksti: S.teksti,
+    ref: ref, kopioRef: kopioRef, pelaajaId: pelaajaId, pisteet: pisteet, havaitut: S.havaitut, teksti: S.teksti,
     konteksti: S.konteksti, pelitilanne: data.pelitilanne, nakyvyys: data.nakyvyys, porras: S.porras,
     porrasNostettu: S.porrasNostettu, porrasEnnen: S.porrasTallennettu,
     porrasKirjoitettu: porrasTallennetaan, ms: Date.now(), kumottu: false
@@ -1517,6 +1537,10 @@ async function _phKumoa() {
       peruttu: window.firebase.firestore.FieldValue.serverTimestamp(),
       peruttu_uid: uid
     });
+    if (v.kopioRef) {   // 0b: pelaajan luettava kopio perutaan samalla (teksti poistuu pelaajan ja perheen appista)
+      var _upd2 = v.kopioRef.update({ tila: 'peruttu', peruttu: window.firebase.firestore.FieldValue.serverTimestamp(), peruttu_uid: uid });
+      if (_off) _upd2.catch(function () { /* jonossa */ }); else await _upd2;
+    }
     if (_off) _upd.catch(function (e) { console.warn('[ADAR] kumoaminen jonossa epäonnistui', e && e.code); }); else await _upd;
   } catch (e) {
     _showToast(tmHT('⚠ Kumoaminen ei onnistunut'));

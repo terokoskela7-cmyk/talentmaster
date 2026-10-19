@@ -122,7 +122,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('yksi näyttö
 
   it('ilmoitus: porrasosa vain kun porras nousi; sulkeutuu napautuksella', async () => {
     await selain(async (b) => {
-      const { p } = await avaa(b); await p.evaluate(() => { _phAvaaPelaaja('a'); _phTila.porras = 2; _phTila.porrasNostettu = true; _phTila.pisteet = { A: 2 }; _phRender(); });
+      const { p } = await avaa(b); await p.evaluate(() => { _phAvaaPelaaja('a'); _phTila.porras = 2; _phTila.porrasNostettu = true; _phTila.pisteet = { A: 2 }; _phTila.nakyvyys = true; _phRender(); });   // 0b: oletus pois → kytkin päälle erikseen
       await p.click('#ph-save'); await p.waitForTimeout(150); expect(await p.textContent('#ph-ilm')).toContain('Aatu Aalto tallennettu · porras 2 · pelaaja näkee');
       await p.click('#ph-ilm-i span'); expect(await p.locator('#ph-ilm:not([hidden])').count()).toBe(0);
       await p.evaluate(() => { _phTila.pisteet = { A: 1 }; _phRender(); }); await p.click('#ph-save'); await p.waitForTimeout(150); expect(await p.textContent('#ph-ilm')).not.toContain('porras');

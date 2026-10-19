@@ -37,7 +37,7 @@ function ymp({ kaada = false, demo = false, pelaaja = {}, mergeLisa = null } = {
   const sb = {
     db, _seuraId: 'kpv', _isDemoMode: demo, _uid: 'vp-uid', vpT: (x) => x, toast: (t, k) => log.toastit.push([t, k]), console: { warn: (...a) => log.warn.push(a) }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), Date, Object, Array, Promise, Math, JSON, String, Number,
     firebase: { auth: () => ({ currentUser: { uid: 'vp-uid', getIdToken: async () => 't' } }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }), delete: () => DELETE } } },
-    window: { TM_KEHITYSTYOPOYTA: require('../lib/tm_kehitystyopoyta.js'), TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, TM_VIIKKOKATSAUS: require('../lib/tm_viikkokatsaus.js'), _vpTtLahde: 'vp', _vpOhjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1, laatija_uid: 'u', laatija_rooli: 'vp' }],
+    window: { TM_KEHITYSTYOPOYTA: require('../lib/tm_kehitystyopoyta.js'), TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, TM_VIIKKOKATSAUS: require('../lib/tm_viikkokatsaus.js'), TM_NAKYVYYS_KYTKIN: require('../lib/tm_nakyvyys_kytkin.js'), _vpTtLahde: 'vp', _vpOhjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1, laatija_uid: 'u', laatija_rooli: 'vp' }],
       TM_FYYSTEEMAT_LIB: { tmFyysTeema: (a) => (a ? { avain: a, nimi: 'Teema ' + a, testit: ['lin30m'] } : null), tmOhjelmaTemplaatti: (t) => ({ nimi: 'Pohja ' + t, kuvaus: 'k' }) },
       TM_JAKSOFOKUS: { tmJfKonsepti: (d, a) => ({ avain: a, nimi: 'Konsepti ' + a, koodi: 'K1' }) } },
     _vpTtPelaaja: () => p, _pelaajat: [p], _vpIdpPelaaja: () => p, _vpKausitavoiteReRender() {}, _vpTallennaIdpDok: async () => true, _vpAloitusReRender() { log.renderit++; }, _vpArvReRender() {}, renderJaksofokus() {},
@@ -183,7 +183,7 @@ describe('V8 _vpSulkuTallenna — tmSuljeJakso + arrayUnion', () => {
     const ok = ymp({ pelaaja: { jaksofokus: JFX } }); await ok.sb.window._vpAsetaFyysFokus(PID, 'fy_nopeus'); expect(ok.log.suljetut).toEqual(['_vpFyysModal']); expect(ok.p.jaksofokus.konsepti_avain).toBe('fy_nopeus');
   });
   it('kirjoitus epäonnistuu: virheilmoitus, lokaali historia ei päivity; demo: ei kirjoitusta, lokaali rivi', async () => {
-    const f = ymp({ kaada: true, pelaaja: { jaksofokus: JF } }); await aja(f, null, { lause: 'Hyvä jakso, jatka näin', k4: true });
+    const f = ymp({ kaada: true, pelaaja: { jaksofokus: JF } }); await aja(f, null, { lause: 'Hyvä jakso, jatka näin', k4: true, nayta: true });
     expect(f.kirj).toEqual([]); expect(f.p.jaksofokus_historia).toBeUndefined(); expect(f.log.toastit.some(([, k]) => k === 'error')).toBe(true);
     // virhe näkyy aina (toast + koodi + konsoli); sulkulomake jää auki, syötetty lause tallessa, p.jaksofokus ennallaan
     expect(f.log.toastit).toEqual([['Tallennus epäonnistui (permission-denied)', 'error']]); expect(f.log.warn.some((a) => a[0] === '[vpJf]')).toBe(true);

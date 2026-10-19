@@ -38,7 +38,7 @@ function aja({ data, vanha = {}, kentat = { adar_pvm: 'x', adar_havaintoja: 1 },
   const map = { m93GBdOaGCUuenMiCL0I: {} };
   const ctx = { _PH_DB, _phPelaajaRef: () => pRef, _phIka: () => 13, console: { warn() {} }, window: { _pelaajaMap: map }, Date, Object, Promise, tmAdarPikakentat: () => kentat };
   vm.createContext(ctx);
-  vm.runInContext(pura('async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
+  vm.runInContext(pura('function _phJaaPelaajalle(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
   return { p: ctx.f(havRef, data, 'kpv', 'm93GBdOaGCUuenMiCL0I', 1, false), kirjattu, map };
 }
 const batchPelaaja = (r) => r.kirjattu.find((k) => k.kohde === 'pelaaja' && k.kautta === 'batch');
@@ -106,14 +106,14 @@ describe('KARTOITUS · havainnot-alikokoelman kirjoituspolut', () => {
   };
   it('ADAR-pikakortti: kaksi luontipolkua (online _phTallenna + offline-synkka), molemmat → _phKirjoitaHavaintoJaPikakentat (→ batch + havainto_viimeisin_pvm)', () => {
     const h = lue('TalentMaster_ADAR_Pikakortti.html');
-    expect((h.match(/collection\('havainnot'\)\.doc\(\)/g) || []).length).toBe(2);
+    expect((h.match(/collection\('havainnot'\)\.doc\(\)/g) || []).length).toBe(4);   // 0b: + pelaajan luettavan kopion ref (_phTallenna) ja kopio-ref _phJaaPelaajalle:ssa (sama batch kuin sisäinen dokumentti)
     expect(h).toMatch(/var ref = _phPelaajaRef\(seuraId, pelaajaId\)\.collection\('havainnot'\)\.doc\(\);[\s\S]{0,1500}_phKirjoitaHavaintoJaPikakentat\(ref, data/);
     expect(h).toMatch(/var havRef = _phPelaajaRef\(m\.seura_id, m\.pelaaja_id\)\.collection\('havainnot'\)\.doc\(\);[\s\S]{0,200}_phKirjoitaHavaintoJaPikakentat\(havRef/);
   });
   it('muut kirjoittajat luokiteltu: Master (vain luku + kertamigraatio pisteet-merge, ei uutta havaintoa), VP (peruminen: update tila/peruttu — ei uusi havainto, päivä ei muutu), Pelaaja (pelaaja_lukenut), Vanhempi (vain luku)', () => {
     const ma = lue('TalentMaster_Master_v16.html'), vp = lue('TalentMaster_VP_v25.html'), pe = lue('TalentMaster_Pelaaja_v7.html'), vh = lue('TalentMaster_Vanhempi_v2.html');
     expect(ma).toMatch(/_migratoiAdar13[\s\S]{0,1200}col\.doc\(d\.id\)\.set\(\{ pisteet: uusi \}, \{ merge: true \}\)/);   // kertamigraatio: muokkaa vain pisteet, ei luo havaintoa
-    expect(vp).toMatch(/\.collection\('havainnot'\)\.doc\(havId\)\.update\(\{\s*tila: 'peruttu'/); expect((vp.match(/\.collection\('havainnot'\)\.doc\(/g) || []).length).toBe(1);
+    expect(vp).toMatch(/\.collection\('havainnot'\)\.doc\(havId\)\.update\(\{\s*tila: 'peruttu'/); expect((vp.match(/\.collection\('havainnot'\)\.doc\(/g) || []).length).toBe(2);   // 0b: peruminen perii myös pelaajan luettavan kopion
     expect(pe).toMatch(/collection\('havainnot'\)\.doc\(havId\)[\s\S]{0,200}pelaaja_lukenut/); expect(vh).not.toMatch(/collection\('havainnot'\)[^\n]*\.(set|add|update)\(/);
     // uusi luokittelematon luontipolku (.add / .doc().set tms.) missään sovelluksessa ADARin ulkopuolella → testi kaatuu
     SOVELLUKSET.filter((f) => !/ADAR_Pikakortti/.test(f)).forEach((f) => { const h = lue(f); expect(kirjoittavat(h).filter((n) => !/(_vpHhPeru|migratoiAdar13|pelaaja_lukenut)/.test(h.split('\n').slice(Math.max(0, n - 40), n + 12).join('\n'))), f).toEqual([]); });
