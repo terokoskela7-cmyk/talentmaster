@@ -14,9 +14,9 @@ const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const ERA = JSON.parse(lue('docs/i18n/sv_kaannoserae_2026-10-08.json'));
 const LIB = require('../lib/tm_lib_i18n.js');
 const SV = LIB.TM_LIB_I18N.sv;
-const LIBIT = ['tm_kasvupyrahdys', 'tm_kt_arviointi', 'tm_kt_alue', 'tm_kt_toimintakortti', 'tm_sanasto', 'tm_kehitystyopoyta', 'tm_kevyt_katselmus', 'tm_klippi_perhe', 'tm_nakyvyys_kytkin', 'tm_mediaviesti', 'tm_reitin_valinta', 'tm_ryhmat', 'tm_taman_tueksi', 'tm_kt_sivu', 'tm_kt_polku', 'tm_kt_havainto', 'tm_tanaan_kentta', 'tm_tanaan_signaali', 'tm_viikkokatsaus'];
+const LIBIT = ['tm_kasvupyrahdys', 'tm_kt_arviointi', 'tm_kt_alue', 'tm_kt_toimintakortti', 'tm_sanasto', 'tm_kehitystyopoyta', 'tm_kevyt_katselmus', 'tm_klippi_perhe', 'tm_nakyvyys_kytkin', 'tm_historia_lause', 'tm_mediaviesti', 'tm_reitin_valinta', 'tm_ryhmat', 'tm_taman_tueksi', 'tm_kt_sivu', 'tm_kt_polku', 'tm_kt_havainto', 'tm_tanaan_kentta', 'tm_tanaan_signaali', 'tm_viikkokatsaus'];
 // Libin FI-avaimet, joille sv puuttuu (palautetaan Geminille; fi-fallback). Portti on elävä: sv saapui → poista rivi.
-const LIB_SV_ODOTTAA = []   // erä 70 (palaute-näkyvyys 0b: kytkin) vietiin 19.10.2026 (scripts/i18n_vie_sv_era70.cjs) · aiemmin: erä 68 (A: klippikortti) vietiin 18.10.2026 (scripts/i18n_vie_sv_era68.cjs) · aiemmin: erät 65 + 66 vietiin 18.10.2026 (scripts/i18n_vie_sv_era65.cjs, era66.cjs)
+const LIB_SV_ODOTTAA = []   // erä 71 (Sulje jakso: valmentajan lause + Historian sisäinen-merkki) vietiin 19.10.2026 (scripts/i18n_vie_sv_era71.cjs) · aiemmin: erä 70 (palaute-näkyvyys 0b: kytkin) vietiin 19.10.2026 (scripts/i18n_vie_sv_era70.cjs) · aiemmin: erä 68 (A: klippikortti) vietiin 18.10.2026 (scripts/i18n_vie_sv_era68.cjs) · aiemmin: erät 65 + 66 vietiin 18.10.2026 (scripts/i18n_vie_sv_era65.cjs, era66.cjs)
 const _VANHA_LIB_ODOTTAA = [];   // ts_otsikko saapui Gemini-erässä 2 (lib.tm_tanaan_signaali) ja vietiin scripts/i18n_vie_sv_era2.cjs:llä
 // PR 5: erän 2 lib-osiot (ADAR-nimet, rubriikit, Kenttä, ADAR-tekstit, pelihavainto-valinta, havaintohistoria, ts_otsikko) — avain = lib-avain tai fi-teksti
 const ERA2 = JSON.parse(lue('docs/i18n/sv_kaannoserae_2.json'));
@@ -53,7 +53,10 @@ describe('kirjastokartta: kattavuus ja muuttujat', () => {
     expect(Object.keys(SV).filter((k) => typeof SV[k] === 'string' && SV[k].indexOf('{gen}') >= 0)).toEqual([]);
   });
   it('sv-arvot ovat täsmälleen Gemini-erän JSONin arvot (kopioitu skriptillä, ei käsin) — alun/lopun välilyönnit ja entiteetit mukaan', () => {
-    for (const l of LIBIT.filter((x) => ERA.osiot['lib.' + x])) for (const [k, r] of Object.entries(ERA.osiot['lib.' + l].rivit)) expect(SV[k], l + ' ' + k).toBe(S67(r.sv));
+    for (const l of LIBIT.filter((x) => ERA.osiot['lib.' + x])) for (const [k, r] of Object.entries(ERA.osiot['lib.' + l].rivit)) {
+      if (k === 'kk_vp_lause') { expect(SV[k]).toBe('Tränarchefens mening'); continue; }   // Teron oma teksti 19.10.2026 (korvasi Gemini-erän 'hälsning'); scripts/i18n_vie_sv_era71.cjs
+      expect(SV[k], l + ' ' + k).toBe(S67(r.sv));
+    }
   });
   it('mv_pohjat: 3 tyyppiä × 3 rekisteriä × 3 kysymystä, sama muoto kuin fi (POHJAT)', () => {
     const POHJAT = require('../lib/tm_mediaviesti.js').POHJAT;

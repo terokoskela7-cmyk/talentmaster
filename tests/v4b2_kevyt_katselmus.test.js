@@ -78,10 +78,19 @@ describe('kevyt katselmus: kirjoitussuunnitelma (yksi tallennus)', () => {
 
 describe('kevyt katselmus: ruutu (HTML)', () => {
   const OPTS = { pinta: 'var(--surface)', vastausFn: '_v', lauseFn: '_l', ehdotusFn: '_e', tallennaFn: '_t', syvennaFn: '_s', suljeFn: '_c', k3: { paalleFn: '_p', valitseFn: '_x', lauseFn: '_z' } };
+  it('0b-jatko: valmentajan kenttä "Valmentajan lause" (ei VP:n); selite ei puhu VP:n puolesta sulkemisesta; nappi "Sulje jakso" kun kytkin pois, "Sulje jakso ja lähetä" kun päällä', () => {
+    const OPTS2 = { vastausFn: '_v', lauseFn: '_l', naytaFn: '_n', tallennaFn: '_t', suljeFn: '_c' };
+    const val = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'oto' }), OPTS2), vp = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'oto', lahde: 'vp' }), OPTS2);
+    expect(val).toContain('Valmentajan lause'); expect(val).not.toMatch(/VP:n lause|valmentajan puolesta|VP:n puolesta/); expect(val).toContain('Näytä myös pelaajalle'); expect(val).not.toContain('Pelaaja näkee tämän');
+    expect(vp).toContain('VP:n lause');   // VP sulkee valmentajan puolesta → ennallaan
+    const nappi = (h) => (/data-kvk-tallenna[^>]*>([^<]*)</.exec(h) || [])[1];
+    expect(nappi(val)).toBe('Sulje jakso');
+    const S = K.tmKkAlku(P(), { profiili: 'oto' }); S.nayta = true; expect(nappi(K.tmKkSheetHTML(S, OPTS2))).toBe('Sulje jakso ja lähetä');
+  });
   it('3 kysymystä × 3 sanavaihtoehtoa, lause-kenttä (140), K3-osio, "Sulje jakso ja lähetä" + "Syvennä"; profiili-teksti: pakollinen / toivottu; ei hex-värejä', () => {
     const osat = [{ k: 'a', teksti: 'Laukaus vauhdista' }];
     const oto = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'oto', kortit: KORTIT(), osat, nimi: 'Topias K.' }), OPTS), am = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'ammatti', kortit: KORTIT(), osat }), OPTS);
-    expect((oto.match(/data-kvk-arvo=/g) || []).length).toBe(9); for (const t of ['Näkyikö ydinvahvuus pelissä?', 'Treenattiinko sitä?', 'Oliko pelaaja mukana?', 'Ei vielä', 'Ohjatusti', 'Itsenäisesti', 'Harvoin', 'Joskus', 'Usein', 'Vähän', 'Jonkin verran', 'Hyvin', 'Sulje jakso ja lähetä', 'Syvennä (täysi katselmus)', 'Anna pelaajan valita seuraava reitti']) expect(oto, t).toContain(t);
+    expect((oto.match(/data-kvk-arvo=/g) || []).length).toBe(9); for (const t of ['Näkyikö ydinvahvuus pelissä?', 'Treenattiinko sitä?', 'Oliko pelaaja mukana?', 'Ei vielä', 'Ohjatusti', 'Itsenäisesti', 'Harvoin', 'Joskus', 'Usein', 'Vähän', 'Jonkin verran', 'Hyvin', 'Sulje jakso', 'Syvennä (täysi katselmus)', 'Anna pelaajan valita seuraava reitti']) expect(oto, t).toContain(t);
     expect(oto).toContain('maxlength="140"'); expect(oto).toContain('toivottu'); expect(oto).toContain('data-kvk-ehdotukset'); expect(am).toContain('pakollinen'); expect(am).not.toContain('data-kvk-ehdotukset'); expect(oto).not.toMatch(/#[0-9a-fA-F]{6}\b/);
     expect(oto).toContain('onclick="_v(\'nakyi\',\'ohjatusti\')"'); expect(oto).not.toMatch(/[<>]script/);
     const vp = K.tmKkSheetHTML(Object.assign(K.tmKkAlku(P(), { profiili: 'oto', lahde: 'vp' }), {}), OPTS); expect(vp).toContain('VP:n lause');
