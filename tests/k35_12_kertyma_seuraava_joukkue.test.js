@@ -33,7 +33,7 @@ describe('#1 Harjoittelu-lohko: kooste jossa tapahtumia mutta kaikki ei_kirjattu
     const l = [ev('vanha', '2026-10-06'), ev('uusin', '2026-10-11'), ev('kirjattu', '2026-10-12', { lasnaolo_kooste: { paikalla: 10 } }), ev('tuleva', '2026-10-14'), ev('peruttu', '2026-10-12', { tila: 'peruttu' }), ev('toinen', '2026-10-12', { joukkue: 'KPV U14', joukkueet: ['kpv_u14'] }), ev('palaveri', '2026-10-12', { tyyppi: 'jaksopalaveri' })];
     expect(HK.tmKertymaKirjaamaton(l, P, DOCS, NYT)).toBe('uusin'); expect(HK.tmKertymaKirjaamaton([], P, DOCS, NYT)).toBeNull();
   });
-  it('Master: linkki rakennetaan kirjaamattomasta tapahtumasta (calEventClick)', () => { expect(MASTER).toContain('tmKertymaKirjaamaton(_kalenteriTapahtumat'); expect(fs.readFileSync(path.join(__dirname, '..', 'lib/tm_naytto_lohkot.js'), 'utf8')).toContain('kirjaaLinkki');   // K2: lataus siirretty libiin });
+  it('Master: linkki rakennetaan kirjaamattomasta tapahtumasta (calEventClick)', () => { expect(MASTER).toContain('tmKertymaKirjaamaton(_kalenteriTapahtumat'); expect(fs.readFileSync(path.join(__dirname, '..', 'lib/tm_naytto_lohkot.js'), 'utf8')).toContain('kirjaaLinkki'); });   // K2: lataus siirretty libiin
 });
 
 describe('#2 Kodin Seuraava: "16 pelaajaa · n vahvistanut · m estynyt"', () => {
