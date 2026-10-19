@@ -30,7 +30,7 @@
 <script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
 <script src="lib/tm_ryhmat.js?v=5"></script>   <!-- R1: ryhmät (kalenteri Kenelle, kokoonpano, näkyvyys) -->
 <script src="lib/tm_klippi_ryhma.js?v=1"></script>   <!-- Klippi ryhmälle + oma videoklippi -varaus -->
-<script src="lib/tm_mediaviesti.js?v=8"></script>   <!-- R6.4 mediaviesti -->
+<script src="lib/tm_mediaviesti.js?v=9"></script>   <!-- R6.4 mediaviesti -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt (CPD-raportin "Kausi:") — sama lähde kuin VP/Admin -->
@@ -165,12 +165,12 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
 <script src="lib/tm_valmentaja_koti.js?v=4"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=4"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
-<script src="lib/tm_valmentaja_nav.js?v=3"></script><script src="lib/tm_kt_sivu.js?v=2"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit ja Masterin paluuparametrit -->   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
+<script src="lib/tm_valmentaja_nav.js?v=3"></script><script src="lib/tm_kt_sivu.js?v=3"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit ja Masterin paluuparametrit -->   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
 <script src="lib/tm_harjoituskertyma.js?v=2"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=3"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=5"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
 <script src="lib/tm_kalenteri_omat.js?v=2"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
-<script src="lib/tm_kehitystyopoyta.js?v=33"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
+<script src="lib/tm_kehitystyopoyta.js?v=34"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
@@ -5750,10 +5750,10 @@ function renderDev(pid) {
   _renderNarrative(p);
 }
 
-/* B7 (kierros B, D246): lipun kehitystyopoyta_v2 takana Pelaajat → pelaaja avaa Kehitystyöpöytä-sivun (lib/tm_kt_sivu.js); vanha V4-näkymä säilyy, kunnes Tero hyväksyy. Paluu sivulta: ?ws=… (+ &toiminto=havainto). */
+/* B7 (kierros B, D246): lipun kehitystyopoyta_v2 takana Pelaajat → pelaaja avaa Kehitystyöpöytä-sivun (lib/tm_kt_sivu.js); vanha V4-näkymä säilyy, kunnes Tero hyväksyy. Paluu sivulta: ?ws=… (+ &toiminto=havainto|taktiikka|itsearvio|kehittyminen|asetukset). */
 function _mKtSivuParametrit() {
   const r = window.TM_KT_SIVU && window.TM_KT_SIVU.tmKtMasterParametrit(location.search); if (!r) return;
-  setWs(window.TM_VALMENTAJA_NAV.tmNavReitti(r.ws).ws); if (r.toiminto === 'havainto') openDrill('adar');
+  setWs(window.TM_VALMENTAJA_NAV.tmNavReitti(r.ws).ws); const f = window.TM_KT_SIVU.tmKtMasterToiminto(r.toiminto); if (f === 'openDrill') openDrill('adar'); else if (f && typeof window[f] === 'function') window[f]();   // + Havainto tai Työkalut-kohde suoraan (K1: taktiikka · itsearvio · kehittyminen · asetukset)
   try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* ei historiaa */ }
 }
 function pickPlayer(pid) {
@@ -7062,12 +7062,7 @@ window._mvOsa = function (k) { const S = window._mvTila; if (!S) return; S.osa =
 window._mvPohja = function (i) { const S = window._mvTila, M = window.TM_MEDIAVIESTI; if (!S) return; const p = M.tmMvPohjat(S.klippityyppi, S.rekisteri)[i]; if (!p) return; S.kysymysAvain = p.avain; S.kysymysOma = ''; _mvRender(); };
 window._mvKysymys = function (v) { const S = window._mvTila; if (!S) return; S.kysymysOma = String(v || ''); if (S.kysymysOma.trim()) S.kysymysAvain = null; };
 window._mvSaate = function (v) { const S = window._mvTila; if (S) S.saate = String(v || ''); };
-function _mvKysymysTeksti(S) {
-  const M = window.TM_MEDIAVIESTI, C = _mvC();
-  if (S.kohde === 'joukkue') return { teksti: _mvT('mv_joukkue_kysymys'), avain: 'mv_joukkue_kysymys' };
-  if (S.kysymysOma && S.kysymysOma.trim()) return { teksti: S.kysymysOma.trim(), avain: null };
-  const p = M.tmMvPohjat(S.klippityyppi, S.rekisteri).filter(function (x) { return x.avain === S.kysymysAvain; })[0]; return p ? { teksti: _mvT(p.avain), avain: p.avain } : { teksti: '', avain: null };
-}
+function _mvKysymysTeksti(S) { return window.TM_MEDIAVIESTI.tmMvSheetKysymys(S, { t: _mvC().t }); }   // yksi paikka: lib/tm_mediaviesti.js (sama Kehitystyöpöytä-sivulla)
 window._mvLaheta = async function () {
   const S = window._mvTila, M = window.TM_MEDIAVIESTI, C = _mvC(); if (!S || S.tallentaa) return;
   const vs = _mvKentat(S), k = _mvKysymysTeksti(S);
@@ -7080,8 +7075,7 @@ window._mvLaheta = async function () {
   if (C.demo()) { x.dokit.forEach(function (d, i) { window._mvDokit.push(Object.assign({ id: 'demo_' + i, aika: new Date() }, d)); }); valmis(); if (typeof renderInbox === 'function') renderInbox(); return; }
   S.tallentaa = true;
   try {
-    await C.token(); const col = C.db().collection('seurat').doc(C.seuraId()).collection('viestit'), ts = firebase.firestore.FieldValue.serverTimestamp(), alk = firebase.firestore.Timestamp.fromDate(x.dokit[0].nakyva_alkaen);
-    for (let i = 0; i < x.dokit.length; i += 400) { const b = C.db().batch(); x.dokit.slice(i, i + 400).forEach(function (d) { b.set(col.doc(), Object.assign({}, d, { aika: ts, nakyva_alkaen: alk })); }); await b.commit(); }   // monistus per pelaaja writeBatchilla, sama klippi_id
+    await C.token(); await M.tmMvKirjoitaDokit({ db: C.db(), sid: C.seuraId(), dokit: x.dokit, FV: firebase.firestore.FieldValue, TS: firebase.firestore.Timestamp });   // monistus per pelaaja writeBatchilla, sama klippi_id (lib/tm_mediaviesti.js)
     valmis(); if (typeof _mvPaivitaNaytot === 'function') _mvPaivitaNaytot();
   } catch (e) { S.tallentaa = false; console.warn('[mv lahetys]', e); C.mvToast(C.virhe(e), 'error'); }   // D53: virhe näkyy (toast + koodi); sheet auki, syötetty säilyy
 };
