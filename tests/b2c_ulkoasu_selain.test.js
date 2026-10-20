@@ -25,7 +25,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · ulkoas
       for (const [pid, kortti] of [['p1', 'aloita'], ['p2', null]]) {
         const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/' + pid + '/tanaan' }); await odota(p);
         expect(await p.locator('.kt-ot [data-kt-ensisijainen]').count()).toBe(0);
-        expect(await p.locator('.kt-ot-rivi button:visible, .kt-ot-rivi summary:visible').evaluateAll((e) => e.map((x) => x.textContent.trim()).filter((t) => !/^[‹›]$/.test(t)))).toEqual(['⋯', 'Pelaajan silmin', '×']);
+        expect(await p.locator('.kt-ot-rivi button:visible, .kt-ot-rivi summary:visible').evaluateAll((e) => e.map((x) => x.textContent.trim()).filter((t) => !/^[‹›]$/.test(t)))).toEqual(kortti ? ['Pelaajan silmin', '×'] : ['⋯', 'Pelaajan silmin', '×']);   /* K3a/K3b: jaksottomalla ⋯ puuttuu kun valikossa ei ole muuta kuin piilotettu 'anna_valita' (kehys suodattaa sen) */
         if (kortti) { expect(await p.locator('.kt-sig [data-kt-signaali-nappi="aloita"]').count()).toBe(1); await p.locator('.kt-sig [data-kt-signaali-nappi="aloita"]').click(); await p.waitForSelector('#_ajTaito'); }
         await sk.close();
       }

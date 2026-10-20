@@ -29,6 +29,7 @@ function lisaaKarttaan(src, rivit, otsake) {
   const loppu = src.lastIndexOf('\n  },', b); if (loppu < a) throw new Error('sv-lohkon loppua ei löydy');
   return src.slice(0, loppu) + '\n    // ' + otsake + '\n' + rivit.map(([x, y]) => '    ' + q(x) + ': ' + q(y) + ',').join('\n') + src.slice(loppu);
 }
+const KORVATUT_FI = ['kt_h_lause_ohje'];   // K1b (20.10.2026): lauseen selite muutettu ('Vain henkilökunta näkee tämän.') → erä 76
 const PALAUTUS_53 = 'docs/i18n/sv_kaannoserae_53_palautus.json', PALAUTUS_19 = 'docs/i18n/sv_kaannoserae_19_palautus.json';
 
 function vie(opts) {
@@ -43,6 +44,7 @@ function vie(opts) {
   for (const osio of ['lib.tm_kt_sivu', 'lib.tm_kt_havainto']) {
     const FI = require(path.join(juuri, 'lib', osio.slice(4) + '.js')).FI;
     for (const [a, r] of Object.entries(P53.osiot[osio].rivit)) {
+      if (KORVATUT_FI.indexOf(a) >= 0 && FI[a] !== r.fi) { R.ohitettu.push(a); continue; }   // fi muutettu myöhemmin (K1b, erä 76): vanha sv poistettu koodista, uusi sv tulee erästä 76
       if (FI[a] !== r.fi) { virheet.push(osio + ' :: ' + a + ': fi ei vastaa libin FI-avainta'); continue; }
       const syy = sopii(r.fi, r.sv); if (syy) { virheet.push(osio + ' :: ' + a + ': ' + syy); continue; }
       odotus.push(['lib', a, r.sv]);

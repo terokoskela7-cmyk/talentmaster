@@ -10,7 +10,7 @@ const V = require('../scripts/i18n_vie_sv_era53_19.cjs'), LIB = require('../lib/
 const P53 = lueJ(V.PALAUTUS_53), P19 = lueJ(V.PALAUTUS_19);
 describe('sv-erä 53 + erä 19 (VP) — vienti', () => {
   it('lib.tm_kt_sivu 15 + lib.tm_kt_havainto 14: koodin sv = palautus', () => {
-    for (const osio of ['lib.tm_kt_sivu', 'lib.tm_kt_havainto']) for (const [a, r] of Object.entries(P53.osiot[osio].rivit)) { expect(r.sv && r.sv.trim(), a).toBeTruthy(); expect(LIB[a], a).toBe(S67(r.sv)); }
+    for (const osio of ['lib.tm_kt_sivu', 'lib.tm_kt_havainto']) for (const [a, r] of Object.entries(P53.osiot[osio].rivit)) { expect(r.sv && r.sv.trim(), a).toBeTruthy(); if (a === 'kt_h_lause_ohje') { expect(LIB[a], a).not.toBe(S67(r.sv)); continue; } expect(LIB[a], a).toBe(S67(r.sv)); }   // kt_h_lause_ohje: fi muutettu K1b:ssä (20.10.), uusi sv erästä 76
     expect(Object.keys(P53.osiot['lib.tm_kt_sivu'].rivit)).toHaveLength(15); expect(Object.keys(P53.osiot['lib.tm_kt_havainto'].rivit)).toHaveLength(14);
   });
   it('kovakoodatut.harjoitusarviointi 22: TM_LIB_I18N.sv[fi-teksti] = palautus (masterT ja vpT löytävät jaetun kirjastokartan)', () => {

@@ -543,23 +543,23 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=48"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
-<script src="lib/tm_lib_i18n.js?v=23"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
+<script src="lib/tm_lib_i18n.js?v=24"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
-<script src="lib/tm_kentta.js?v=5"></script>
+<script src="lib/tm_kentta.js?v=6"></script>
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1: liput/julkiset (pelaajalle luettava) -->
 <script src="lib/tm_kielletyt.js?v=1"></script>   <!-- K1: sanavartija pelaajan tukitavoite-/osatekstille (pieni; ei henkilökunnan päätöslibiä) -->
 <script src="lib/tm_tukitavoitteet.js?v=4"></script>   <!-- K1: tmTukitavoitteet (vanha tukiosa-fallback) -->
 <script src="lib/tm_joukkuejakso.js?v=6"></script>   <!-- K1: tmJoukkuejaksoViikko (pelaajan snapshotista) -->
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K1: Tämän tueksi + Joukkueen jakso -->
-<script src="lib/tm_kentta_spec.js?v=2"></script>   <!-- C: Kenttä-spec pelaajadokumentista (sama adapteri kuin henkilökunnalla, rooli pelaaja) — ennen tm_tanaan_kentta -->
-<script src="lib/tm_tanaan_kentta.js?v=4"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) · C: tmKenttaPelaajalle -->
+<script src="lib/tm_kentta_spec.js?v=4"></script>   <!-- C: Kenttä-spec pelaajadokumentista (sama adapteri kuin henkilökunnalla, rooli pelaaja) — ennen tm_tanaan_kentta -->
+<script src="lib/tm_tanaan_kentta.js?v=5"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) · C: tmKenttaPelaajalle -->
 <script src="lib/tm_mediaviesti.js?v=9"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet (pelaajan klippi-ketju) -->
 <script src="lib/tm_klippi_perhe.js?v=3"></script>   <!-- R6.4 PR 2: Valmentajalta klippi (Tänään) -->
 <script src="lib/tm_merkki_nakyma.js?v=2"></script>   <!-- palaute-näkyvyys 0a: merkkisääntö + oma mittaus (Kohti seuraavaa, oma parannus; ei rajoja) -->
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: viikkokatsaus + jakson päätöskortti (Kenttä-lipun takana) -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin + sitoumus Tänään-sivulla (Kenttä-lipun takana) -->
 <script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- B 3/3: jakson kotiharjoitteet (jaksofokus.tukiosa.harjoitteet snapshot) + seuran nimi lähdemerkintänä -->   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
-<script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (D140) — ENNEN viikkoa käyttäviä kirjastoja -->
+<script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (D140) — ENNEN viikkoa käyttäviä kirjastoja --><script src="lib/tm_viikon_osa.js?v=1"></script>   <!-- K1b/4: viikon osa (Tämän viikon fokus) — sama sääntö kuin valmentajalla -->
 <script src="lib/tm_eerikkila_normit.js?v=55"></script>
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_tekija_nimi.js?v=1"></script>   <!-- tekijän nimi: tallennus (ei sähköpostia, puuttuva = null) + näyttö (käännetty oletus) -->
@@ -1479,6 +1479,7 @@ function rA1Kentta() {
   const tanaan = _paivaIso(), o = { esc: _thEsc, t: _p7K1T };
   const x = K.tmTanaanTila(_pelaaja, { tanaan }), jakso = x.tila === 'jakso' || x.tila === 'sunnuntai', jf = _pelaaja.jaksofokus;
   x.osat = jakso ? K.tmTanaanOsat(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }) : [];
+  x.viikonOsa = (jakso && window.TM_VIIKON_OSA) ? window.TM_VIIKON_OSA.tmViikonOsaPelaajalle(jf, K.tmTanaanOsat(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, max: 26 }), tanaan) : null;   // K1b/4: sama sääntö kuin valmentajalla (lib/tm_viikon_osa.js)
   let treeni = '';
   try {
     if (typeof valitsePaivanHarjoite === 'function' && window.PANKKI) {

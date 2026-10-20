@@ -104,7 +104,8 @@ describe('K1 · Työkalut-deeplinkit, painikkeiden reititys, alueen valikkotekst
     }
   });
   it('sivun Työkalut-tynkät välittävät toiminnon Masterille; kuorma vie ws=kuorma; klippi/VEO eivät mene Masteriin', () => {
-    expect(SIVU).toMatch(/\['avaaKaaviopankki', 'taktiikka'\], \['avaaHarjoitusarviointi', 'itsearvio'\], \['avaaValmentajaKehitys', 'kehittyminen'\], \['avaaCoachProfiili', 'asetukset'\]/);
+    expect(SIVU).toMatch(/\[\['avaaHarjoitusarviointi', 'itsearvio'\], \['avaaValmentajaKehitys', 'kehittyminen'\], \['avaaCoachProfiili', 'asetukset'\]\]/);   // K1b: Taktiikka ei enää hyppää Masteriin vaan avaa taulun modaalina (window.avaaKaaviopankki → _ktTauluAvaa)
+    expect(SIVU).toContain('window.avaaKaaviopankki = function () { window._ktTauluAvaa(_S.pid); };'); expect(SIVU).toContain("avain === 'taulu') return window._ktTauluAvaa(pid)");
     const toimi = pura(SIVU, 'window._ktToimi = function (pid, avain)');
     expect(toimi).toContain("avain === 'klippi') return window._ktKlippiAvaa(pid)"); expect(toimi).toContain("tmKtMasterLinkki('kuorma')"); expect(toimi).not.toMatch(/'jatka' \|\| avain === 'avaa_polku' \|\| avain === 'kuorma'/);
     expect(SIVU).toContain('veo: function (pid) { return window._ktKlippiAvaa(pid); }');
