@@ -145,13 +145,13 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=48"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
-<script src="lib/tm_lib_i18n.js?v=24"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
+<script src="lib/tm_lib_i18n.js?v=25"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Pelaajan kanssa) -->
 <script src="lib/tm_viikko.js?v=1"></script><script src="lib/tm_kalenteri_tilaus_ui.js?v=3"></script>   <!-- K35-7b: "Lisää kalenteriini" (iCal-tilaus) -->
 <script src="lib/tm_harjoituskertyma.js?v=2"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=3"></script>   <!-- K35-6f -->
-<script src="lib/tm_kalenteri_ilmoitus.js?v=7"></script><script src="lib/tm_ilmoitus_lista.js?v=2"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
+<script src="lib/tm_kalenteri_ilmoitus.js?v=8"></script><script src="lib/tm_ilmoitus_lista.js?v=3"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -548,7 +548,7 @@ function _vanhNotifHTML() {
   var lo = { esc: esc, t: t, teksti: tekstiX, ikoni: function (ty) { return '<span style="font-size:15px;flex-shrink:0">' + (_VANH_NOTIF_IKO[ty] || '🔔') + '</span>'; }, tapFn: '_vanhNotifTap', kuittaaFn: '_vanhNotifKuittaa', kuittaaRyhmaFn: '_vanhNotifKuittaaRyhma', kaikkiFn: '_vanhNotifKuittaaKaikki', peruttuTeksti: function (nimi) { return t('yleiset.ilm_peruttu', { nimi: nimi }); } };
   var kohteet = L.tmIlmoitusRyhmat(arr).slice(0, 6);   // K1c: saman nimiset perutut → yksi rivi
   var rows = kohteet.map(function (g) { return g.ryhma ? L.tmIlmoitusRyhmaHTML(g, lo) : L.tmIlmoitusRiviHTML(g.x, lo); }).join('');
-  var kaikkiNappi = kohteet.length >= L.KAIKKI_RAJA;
+  var kaikkiNappi = L.tmIlmoitusKaikkiNakyy(kohteet);   // vain kuitattavat rivit lasketaan
   return '<div data-ilm-osio style="margin:16px 0 4px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">'
     + '<div class="ey">🔔 ' + t('vanhempi.ilmoitukset') + (unread ? ' <span data-ilm-laskuri style="background:var(--teal);color:var(--on-accent,var(--text));border-radius:999px;padding:1px 7px;font-size:9px;margin-left:4px">' + unread + '</span>' : '') + '</div>'
     + (kaikkiNappi ? L.tmIlmoitusKuittaaKaikkiHTML(lo) : (unread ? '<span onclick="_vanhNotifKaikkiLuetuksi()" style="font-size:10px;color:var(--ink3);cursor:pointer">' + t('vanhempi.mark_luetuiksi') + '</span>' : '')) + '</div>' + rows + '</div>';
@@ -563,7 +563,7 @@ function _vanhNotifKuittaaIdt(idt) {
   if (L && document.querySelector('[data-ilm-rivi]')) L.tmIlmoitusPoistaPaikallaan(document, window, idt); else if (typeof draw === 'function') draw();
 }
 function _vanhNotifKuittaaKaikki() {   // K1c: kaikki näkyvät rivit pois kerralla + luetuiksi; ei draw()
-  var idt = [].slice.call(document.querySelectorAll('[data-ilm-rivi]')).reduce(function (a, el) { return a.concat((el.getAttribute('data-ilm-ryhma') || el.getAttribute('data-ilm-rivi')).split(',')); }, []);
+  var idt = [].slice.call(document.querySelectorAll('[data-ilm-rivi]:not([data-ilm-ei-kuitattava])')).reduce(function (a, el) { return a.concat((el.getAttribute('data-ilm-ryhma') || el.getAttribute('data-ilm-rivi')).split(',')); }, []);
   (window._vanhNotif || []).forEach(function (n) { if (idt.indexOf(n.id) >= 0 && !n.luettu) _vanhMerkitseLuettu(n.id, true); });
   _vanhNotifKuittaaIdt(idt);
 }

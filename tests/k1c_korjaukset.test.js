@@ -46,7 +46,7 @@ describe('K1c/1 · viikon fokus näkyväksi', () => {
     const x = { tila: 'jakso', viikko: { n: 3 }, nimi: 'Haltuunotto', kesto_vk: 6, osat: [{ k: 'a', teksti: 'Ensimmäinen kosketus' }, { k: 'b', teksti: 'Katse ennen palloa' }], viikonOsa: 'b' };
     const h = TK.tmTanaanKenttaHTML(x, { kentta: () => '' });
     expect(h).toContain('data-k1-fokus-rivi'); expect(h).toContain('Tällä viikolla harjoittelet: Katse ennen palloa'); expect(h.indexOf('data-k1-fokus-rivi')).toBeLessThan(h.indexOf('Viikko 3'));
-    expect(h).toMatch(/data-k1-fokus style="[^"]*background:color-mix\(in srgb,var\(--teal\) 14%[^"]*border-left:3px solid var\(--teal\)/); expect(h).toMatch(/data-k1-viikon-osa[^>]*>Tämän viikon fokus</);
+    expect(h).toMatch(/data-k1-fokus style="[^"]*background:color-mix\(in srgb,var\(--teal\) 14%/); expect(h).toMatch(/data-k1-fokus style="[^"]*border-left:3px solid var\(--teal\)/); expect(h).toMatch(/data-k1-viikon-osa[^>]*>Tämän viikon fokus</);
     const fokusRivi = /<div class="k1-fokus-rivi"[^>]*>([^<]*)</.exec(h)[1]; expect(fokusRivi).not.toMatch(/\d/);
     const ei = TK.tmTanaanKenttaHTML(Object.assign({}, x, { viikonOsa: null }), { kentta: () => '' }); expect(ei).not.toContain('data-k1-fokus'); expect(ei).not.toContain('Tämän viikon fokus');
   });
@@ -97,6 +97,22 @@ describe('K1c/3 · ilmoituslista (lib)', () => {
     expect(KAL.tmIlmoitusKuittaaUseita(st, 'sib/p1', [a, b])).toBe(true); const k = KAL.tmIlmoitusKuitatut(st, 'sib/p1');
     expect(KAL.tmIlmoitusNakyvissa(b, [], new Date('2026-10-19T09:00:00Z'), k)).toBe(false); expect(KAL.tmIlmoitusNakyvissa(Object.assign({}, b, { luotu: '2026-10-19T08:00:00Z' }), [], new Date('2026-10-19T09:00:00Z'), k)).toBe(true);
   });
+  it('KUITATTAVAT TYYPIT: vain muistutus · muutos · peruttu · viikko (CF:n kirjoittamat tiedotteet); toimintaa vaativat (suostumus-/huoltajapyyntö, klippi, tuntematon) eivät: ei ✕:ää, eivät mukaan "Kuittaa kaikki" -laskuriin eikä kuittaukseen, laitteen kuittaus ei piilota niitä', () => {
+    expect(KAL.KUITATTAVAT_TYYPIT).toEqual(['muistutus', 'muutos', 'peruttu', 'viikko']);
+    for (const ty of ['muistutus', 'muutos', 'peruttu', 'viikko']) expect(KAL.tmIlmoitusKuitattava({ tyyppi: ty }), ty).toBe(true);
+    for (const ty of ['suostumus', 'suostumus_pyynto', 'huoltajapyynto', 'klippi', 'vahvista', undefined]) expect(KAL.tmIlmoitusKuitattava({ tyyppi: ty }), String(ty)).toBe(false);
+    expect(IL.tmIlmoitusKuitattava).toBeUndefined();   // lib-lista on yksityinen kopio → alla vartija
+    expect(lue('lib/tm_ilmoitus_lista.js')).toContain("['muistutus', 'muutos', 'peruttu', 'viikko']");
+    const m = {}, st = { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } };
+    const a = { id: 'a', tyyppi: 'suostumus', luotu: '2026-10-18T10:00:00Z' }, b = { id: 'b', tyyppi: 'muistutus', luotu: '2026-10-18T10:00:00Z' };
+    KAL.tmIlmoitusKuittaaUseita(st, 't', [a, b]); const k = KAL.tmIlmoitusKuitatut(st, 't'); expect(k).toHaveLength(1);
+    KAL.tmIlmoitusKuittaa(st, 't', a); expect(KAL.tmIlmoitusNakyvissa(a, [], new Date('2026-10-19T09:00:00Z'), KAL.tmIlmoitusKuitatut(st, 't'))).toBe(true);
+    const rivi = (id, tyyppi) => ({ n: { id, tyyppi, teksti: 'x', luettu: false }, r: { runko: 'x' } }), lo = { t: (k) => k, teksti: () => 'x', ikoni: () => '', tapFn: 't', kuittaaFn: 'k', kuittaaRyhmaFn: 'r', kaikkiFn: 'a' };
+    expect(IL.tmIlmoitusRiviHTML(rivi('s', 'suostumus'), lo)).toContain('data-ilm-ei-kuitattava'); expect(IL.tmIlmoitusRiviHTML(rivi('s', 'suostumus'), lo)).not.toContain('data-ilm-kuittaa'); expect(IL.tmIlmoitusRiviHTML(rivi('p', 'peruttu'), lo)).not.toContain('data-ilm-ei-kuitattava');
+    const g = (l) => IL.tmIlmoitusRyhmat(l.map((x) => rivi(x[0], x[1])));
+    expect(IL.tmIlmoitusKaikkiNakyy(g([['a', 'muistutus'], ['b', 'muutos'], ['c', 'suostumus'], ['d', 'huoltajapyynto']])), '2 kuitattavaa + 2 toimintaa vaativaa').toBe(false);
+    expect(IL.tmIlmoitusKaikkiNakyy(g([['a', 'muistutus'], ['b', 'muutos'], ['c', 'viikko'], ['d', 'suostumus']]))).toBe(true);
+  });
 });
 
 /* ── KOHTA 3 · selain: ✕ ei hyppää sivun alkuun ── */
@@ -134,6 +150,17 @@ describe.skipIf(!CHROME_PAALLA)('K1c/3 · ilmoitukset selaimessa (Pelaaja_v7 + V
         expect(await p.locator('[data-ilm-ryhma]').count(), 'koko ryhmä kerralla').toBe(0); expect(await p.evaluate(() => document.getElementById('__host').scrollTop), 'scrollY ryhmän kuittauksen jälkeen').toBe(y0); expect(await p.evaluate(() => window.__draw)).toBe(0);
         const k = await p.evaluate((a) => JSON.parse(localStorage.getItem(a)), S.avain); expect(k.map((x) => x.split('|')[0]).sort()).toEqual(['g1', 'g2', 'g3', 't4']);
         await p.evaluate(() => window.__piirra()); const teksti = await p.locator('#__host').innerText(); expect(teksti, 'kuitattu ei palaa').not.toMatch(/Harjoitukset|Nopeustestit/); expect(teksti).toContain('Joukkueharjoitus');
+        expect(SUODATA(virheet)).toEqual([]); await sk.close();
+      } finally { await selain.close(); }
+    }, 120000);
+    it(sivu + ': toimintaa vaativa ilmoitus (suostumuspyyntö) ei saa ✕:ää, ei kuittaudu "Kuittaa kaikki" -toiminnolla eikä piilotu laitteen kuittauksella; tiedotteet kuittaantuvat', async () => {
+      const selain = await selainKaynnista(); try {
+        const data = KAIKKI_ILM().concat([{ id: 's6', tyyppi: 'suostumus_pyynto', teksti: 'Vahvista suostumus', linkki: '', luotu: '2099-01-09T10:00:00Z', luettu: false }]);
+        const { sk, p, virheet } = await ilmSivu(selain, sivu, data);
+        expect(await p.locator('[data-ilm-rivi]').count()).toBe(4); expect(await p.locator('[data-ilm-rivi="s6"][data-ilm-ei-kuitattava]').count()).toBe(1); expect(await p.locator('[data-ilm-rivi="s6"] [data-ilm-kuittaa]').count(), 'ei ✕:ää').toBe(0);
+        await p.evaluate(() => document.querySelector('[data-ilm-kaikki]').click()); await p.waitForTimeout(450);
+        expect(await p.locator('[data-ilm-rivi]').count(), 'vain toimintaa vaativa jää').toBe(1); expect(await p.locator('[data-ilm-rivi="s6"]').count()).toBe(1); expect(await p.locator('[data-ilm-osio]').count()).toBe(1);
+        await p.evaluate(() => window.__piirra()); expect(await p.locator('#__host').innerText(), 'uudelleenpiirrossa').toContain('Vahvista suostumus'); expect(await p.locator('[data-ilm-rivi]').count()).toBe(1); expect(await p.evaluate(() => window.__draw)).toBe(0);
         expect(SUODATA(virheet)).toEqual([]); await sk.close();
       } finally { await selain.close(); }
     }, 120000);

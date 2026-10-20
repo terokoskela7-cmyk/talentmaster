@@ -127,7 +127,7 @@ describe('Pelaaja_v7 · lippu liput/julkiset', () => {
     expect(SRC).toContain("html=(typeof _p7KenttaKaytossa==='function' && _p7KenttaKaytossa()) ? rA1Kentta() : rA1();");
     // hash päivitetty sv-läpiajo PR 2:ssa: rA1:n suomenkieliset tekstit reititetty T()-kutsuiksi (fi-renderöinti identtinen, todennettu läpiajon fi-dumpilla)
     const ra1 = pura('function rA1()'); expect(createHash('sha256').update(ra1).digest('hex')).toBe('33801d4a4179e7f893eb6d973a277142a5154e95995f287a54fe67482fa4074b'); expect(ra1).not.toMatch(/K1|rA1Kentta|k1-/);
-    for (const s of ['tm_liput.js?v=1', 'tm_kielletyt.js?v=1', 'tm_tukitavoitteet.js?v=4', 'tm_joukkuejakso.js?v=6', 'tm_taman_tueksi.js?v=2', 'tm_kentta_spec.js?v=4', 'tm_tanaan_kentta.js?v=6']) expect(SRC, s).toContain('<script src="lib/' + s + '"></script>');
+    for (const s of ['tm_liput.js?v=1', 'tm_kielletyt.js?v=1', 'tm_tukitavoitteet.js?v=4', 'tm_joukkuejakso.js?v=6', 'tm_taman_tueksi.js?v=2', 'tm_kentta_spec.js?v=4', 'tm_tanaan_kentta.js?v=7']) expect(SRC, s).toContain('<script src="lib/' + s + '"></script>');
     const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[6-9]|[89]\d|\d{3,})'/); expect(sw).toContain('tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta');   // K4 lisäsi |viikkokatsaus
     expect(SRC).toContain("if (btnId === 'dKirjausBtn' && typeof _p7K1NaytaKuittaus === 'function') _p7K1NaytaKuittaus();");
   });
