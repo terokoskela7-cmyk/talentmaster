@@ -107,13 +107,13 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('toimintakortt
   const KP_MITATTU = (koodi, offset) => ({ phv_tila: koodi, biologinenIka_viimeisin: { offset: offset, pvm: '2026-09-01' } });
   const KP_VAROVAINEN = (t) => { expect(t).not.toMatch(/Nordic Hamstring/); expect(t).not.toMatch(/Kyykky — hallittu/); expect(t).toMatch(/Kevennettynä: Naruhypyt 2×10s kevyesti\. Pohjeeksentrinen pois kasvuaikana\./); expect(t).not.toMatch(/jänne-luuliitos|Kasvupyrähdyksen aikana/); expect(t).toMatch(/Vaihtoehto kasvuaikana/); for (const n of ['Takareisisilta', 'Pohjepito', 'Kuminauhakyykky']) expect(t).toContain(n); expect(t).toContain('Kasvuaikana tämä korvaa Nordic-takareisiliikkeen.'); expect(t).toContain('Kasvuaikana tämä korvaa kyykyn ja askelkyykyn.'); expect(t).not.toMatch(/\b(SBL|SFL|EX_[A-Z_]+|D\.sbl\.\d)\b/); };
   const KP_TAVALLINEN = (t, nimet) => { for (const n of nimet) expect(t).toContain(n); expect(t).not.toMatch(/Kevennettynä|Vaihtoehto kasvuaikana|kasvuaikana|Kasvuvaihe ei mitattu/); };
-  it('mittaamaton ikkunassa → varovainen versio + merkintä "Kasvuvaihe ei mitattu"; merkinnän painallus avaa pelaajan mittausnäkymän (Näyttö); lib ladattu selaimessa', async () => {
+  it('mittaamaton ikkunassa → varovainen versio + merkintä "Kasvuvaihe ei mitattu"; merkinnän painallus avaa pelaajan mittausnäkymän (Profiili, K4a); lib ladattu selaimessa', async () => {
     await avaa(); try {
       const a = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: KP_PEL({}) }); await odota(a.p);
       expect(await a.p.evaluate(() => typeof window.TM_KASVUPYRAHDYS)).toBe('object');
       const t = await a.p.locator('[data-kt-tk-fysiikka]').innerText(); KP_VAROVAINEN(t); expect(t).toContain('Kasvuvaihe ei mitattu');
-      await a.p.locator('[data-kt-kasvuvaihe-ei-mitattu]').click(); await a.p.waitForSelector('[data-kt-valilehti="naytto"][aria-selected="true"]');
-      expect(await a.p.evaluate(() => location.hash)).toMatch(/#pelaaja\/p2\/naytto/); await a.sk.close();
+      await a.p.locator('[data-kt-kasvuvaihe-ei-mitattu]').click(); await a.p.waitForSelector('[data-kt-valilehti="profiili"][aria-selected="true"]');
+      expect(await a.p.evaluate(() => location.hash)).toMatch(/#pelaaja\/p2\/profiili/); await a.sk.close();
     } finally { await selain.close(); }
   }, 90000);
   it('NYT ja LAH (mitattu) → varovainen versio ilman "ei mitattu" -merkintää', async () => {

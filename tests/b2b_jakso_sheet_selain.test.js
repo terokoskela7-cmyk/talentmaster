@@ -64,7 +64,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2b · jakso 
       for (const hash of ['#pelaaja/p2/tanaan', '#pelaaja/p2/polku', '#pelaaja/p2/naytto', '#pelaaja/p1/tanaan']) {
         const { p } = await kaynnista(selain, { rooli: 'valmentaja', hash }); await odota(p); await p.waitForTimeout(300);
         const t = await teksti(p); expect(KIELLETYT(t), hash).toEqual([]);
-        expect(t, hash).toMatch(/Ydinasiat|Mitä harjoitellaan|Jakson arviointi|Pelaajan lupaus|Mittaukset/);
+        expect(t, hash).toMatch(/Ydinasiat|Mitä harjoitellaan|Jakson arviointi|Pelaajan lupaus|Mittaukset|Profiili|Todisteet/);   // K4a: kolmas välilehti on Profiili (ent. Mittaukset)
       }
     } finally { await selain.close(); }
   }, 120000);
