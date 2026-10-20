@@ -7,6 +7,8 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire } from 'module';
+const requireC = createRequire(import.meta.url);
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (p) => readFileSync(join(juuri, p), 'utf8');
@@ -34,6 +36,7 @@ function renderoi(tiedosto, lista) {
     document: { getElementById: (id) => (id === 'notifLista' ? el : null) },
     _notifLista: lista, masterT: (s) => s, vpT: (s) => s,
     _mEsc: (s) => String(s), _hlEsc: (s) => String(s), _notifAikaSitten: () => 'tänään',
+    TM_TANAAN_SIGNAALI: requireC('../lib/tm_tanaan_signaali.js'),   // K1d: rytmi-notifin teksti (x.rytmi) selaimessa
   };
   vm.createContext(ctx);
   vm.runInContext(poimi(S, 'function _notifRender()'), ctx);
