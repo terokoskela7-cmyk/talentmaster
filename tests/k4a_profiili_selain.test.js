@@ -125,7 +125,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
     await avaa(); try {
       const { sk, p, virheet } = await avaaProfiili(selain, TOPIAS.id, { dokit: Object.assign({}, DOKIT, { 'seurat/demo': { nimi: 'Demo FC', kieli: 'sv' } }) }); await odota(p);
       const t = await p.locator('[data-kn-naytto]').innerText(); expect(t).not.toMatch(/\btc_[a-z_0-9]+\b/); expect(t).not.toMatch(/\bkt_profiili\b/); expect(t.length).toBeGreaterThan(300);   // erä 79 viety: sv-tilassa sivu puhuu ruotsia (esim. Yhteenveto → Sammanfattning, Profiili → Profil)
-      expect(t).toContain('SAMMANFATTNING'.charAt(0) + 'ammanfattning'); expect(await p.locator('[data-kt-valilehti="profiili"]').innerText()).toBe('Profil');
+      expect(t).toMatch(/sammanfattning/i); expect(await p.locator('[data-kt-valilehti="profiili"]').innerText()).toBe('Profil');
       expect(await p.locator('[data-kt-valilehti="profiili"]').count()).toBe(1);
       expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
