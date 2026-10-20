@@ -40,6 +40,17 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K2 · Näytt�
       expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 120000);
+  it.each(['vp', 'super_admin'])('ROOLI %s: Näyttö renderöityy samoin (VP:n ja SA:n datapolku: seura-laajuus, ei joukkuerajausta); lataus ja Harjoittelu/Mitä osata toimivat', async (rooli) => {
+    await avaa(); try {
+      const { sk, p, virheet } = await kaynnista(selain, { rooli, hash: '#pelaaja/p5/naytto', pelaajat: PEL, dokit: DOKIT }); await odota(p); await p.waitForSelector('[data-kn-kaikki]', { timeout: 15000 });
+      const h = await p.locator('[data-kn-naytto]').innerHTML();
+      for (const o of ['Perustiedot', 'Kasvu ja kypsyys', 'Mittaukset', 'Pelihavainnot', 'Psyykkinen (D3)', 'Harjoittelu', 'Mitä pelaajan tulee osata']) expect(h, o).toContain(o);
+      expect(h).toContain('1 testikertaa'); expect(h).not.toContain('data-resepti'); expect((h.match(/PHV PH/g) || []).length).toBe(1);
+      await p.waitForSelector('#_mMitaCard details', { timeout: 8000 });
+      expect(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      expect(SUODATA(virheet)).toEqual([]); await sk.close();
+    } finally { await selain.close(); }
+  }, 120000);
   it('KUVAT 390 tumma + 1280 vaalea (TM_KUVAT=1)', async () => {
     if (!process.env.TM_KUVAT) return; mkdirSync(KUVAT, { recursive: true });
     await avaa(); try {
