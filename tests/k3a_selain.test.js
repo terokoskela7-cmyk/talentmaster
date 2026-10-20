@@ -60,6 +60,12 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K3a · Anna p
       const upd = (await p.evaluate(() => window.__batch[0])).find((o) => o.update); expect((upd.update.jaksofokus || {}).tila).not.toBe('valittavana'); expect(upd.update.ydinvahvuus_valinta).toBeUndefined(); await sk.close();
     } finally { await selain.close(); }
   }, 60000);
+  it('ei suljettavaa jaksoa (p1): Anna pelaajan valita -riviä ei ole valikossa lainkaan', async () => {
+    await avaa(); try {
+      const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p3/tanaan', pelaajat: pelaajat().map((x) => x.id === 'p3' ? { id: 'p3', etunimi: 'Cecil', sukunimi: 'Carlsson', syntymaVuosi: 2013, sukupuoli: 'M', joukkue: 'Demo U13', joukkueet: ['demo_u13'], ydinvahvuus: { kuvaus: 'Rauhallinen.' } } : x) }); await odota(p);
+      expect(await p.locator('[data-kt-valikko="anna_valita"]').count()).toBe(0); expect(await p.locator('.kt-valikko').count()).toBe(0); await sk.close();   // ei jaksoa → ei rivejä → ei ⋯-valikkoakaan
+    } finally { await selain.close(); }
+  }, 60000);
   it('ehto: ilman ydinvahvuuden kuvausta Anna pelaajan valita on harmaa rivi + lyhyt syy (Tänään ⋯ ja Polku ⋯), ei avaa mitään', async () => {
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p3/tanaan', pelaajat: pelaajat() }); await odota(p); await valikko(p);
@@ -70,16 +76,19 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K3a · Anna p
     } finally { await selain.close(); }
   }, 60000);
   for (const rooli of ['valmentaja', 'vp']) {
-    it('[' + rooli + '] Hylkää valinta (valinta_tehty): sheet, kytkin pois = ei perustelukenttää; hylkäys palauttaa valintatilaan yhdellä updatella, perustelua ei kirjoiteta pelaajan luettavaan kenttään', async () => {
+    it('[' + rooli + '] Hylkää valinta (valinta_tehty): sheet, kytkin pois = perustelu vain sisäiseen reviewit-kenttään; hylkäys palauttaa valintatilaan yhdessä batchissa, perustelua ei kirjoiteta pelaajan luettavaan kenttään', async () => {
       await avaa(); try {
         const { sk, p, virheet } = await kaynnista(selain, { rooli, hash: '#pelaaja/p1/tanaan', pelaajat: pelaajat() }); await odota(p);
         expect(await p.locator('.kt-ot').innerText()).toMatch(/Pelaaja valitsi/);
         await valikko(p); await p.locator('[data-kt-valikko="hylkaa"]').click(); await p.waitForSelector('[data-k3-osio]');
         expect(p.url()).toContain('TalentMaster_Kehitystyopoyta.html'); expect(await p.locator('[data-ts-tausta].ts-pitka').count()).toBe(1);
-        expect(await p.locator('#hkNayta').isChecked()).toBe(false); expect(await p.locator('[data-hk-perustelu]').count()).toBe(0); expect(await p.locator('[data-k3-kortti]').count()).toBeGreaterThan(0);
+        expect(await p.locator('#hkNayta').isChecked()).toBe(false); expect(await p.locator('[data-hk-perustelu]').count()).toBe(1); expect(await p.locator('[data-k3-kortti]').count()).toBeGreaterThan(0);
         expect(await p.locator('[data-k3-kortti="0"] input[type=checkbox]').isChecked()).toBe(true);   // esitäytetty nykyisillä vaihtoehdoilla
-        await p.locator('[data-hk-laheta]').click(); await p.waitForFunction(() => (window.__kirj || []).length === 1, null, { timeout: 8000 });
-        const k = await p.evaluate(() => window.__kirj[0]); expect(k.path).toBe('seurat/demo/pelaajat/p1'); expect(Object.keys(k.update).sort()).toEqual(['jaksofokus', 'ydinvahvuus_valinta']); expect(k.update.ydinvahvuus_valinta).toBe('DEL');
+        await p.locator('[data-hk-laheta]').click(); await p.waitForTimeout(400); expect(await p.evaluate(() => (window.__batch || []).length)).toBe(0); expect(await p.locator('#toast-wrap').innerText()).toMatch(/Kirjoita perustelu/);   // perustelu pakollinen myös sisäisenä
+        await p.locator('[data-hk-perustelu]').fill('Sisäinen muistiinpano.'); await p.locator('[data-hk-laheta]').click(); await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 });
+        const b = await p.evaluate(() => window.__batch[0]), k = b.find((o) => o.update), sis = b.find((o) => o.set); expect(b).toHaveLength(2); expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0);
+        expect(k.path).toBe('seurat/demo/pelaajat/p1'); expect(Object.keys(k.update).sort()).toEqual(['jaksofokus', 'ydinvahvuus_valinta']); expect(k.update.ydinvahvuus_valinta).toBe('DEL');
+        expect(sis.path).toMatch(/^seurat\/demo\/pelaajat\/p1\/reviewit\/\d{4}-\d{2}-\d{2}$/); expect(Object.keys(sis.set)).toEqual(['hylkays_sisainen']); expect(sis.set.hylkays_sisainen).toMatchObject({ teksti: 'Sisäinen muistiinpano.', lahde: rooli === 'vp' ? 'vp' : 'valmentaja' }); expect(JSON.stringify(k.update)).not.toContain('Sisäinen muistiinpano');
         expect(k.update.jaksofokus.tila).toBe('valittavana'); expect(k.update.jaksofokus.hylatty.perustelu).toBeUndefined(); expect(k.update.jaksofokus.hylatty.pvm).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         await p.waitForSelector('[data-k3-osio]', { state: 'detached', timeout: 5000 }); expect(await p.locator('#toast-wrap').innerText()).toMatch(/Valinta palautettu pelaajalle/);
         expect(await p.locator('.kt-ot').innerText()).toMatch(/Valinta odottaa/); expect(await p.locator('[data-kt-valikko="hylkaa"]').count()).toBe(0);   // tila päivittyi heti: ei enää valinta_tehty
@@ -90,10 +99,10 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K3a · Anna p
   it('Hylkää valinta: "Näytä myös pelaajalle" päälle → perustelu pakollinen ja kirjoitetaan hylatty.perustelu; Polun Hylkää-linkki avaa saman sheetin', async () => {
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p1/polku', pelaajat: pelaajat() }); await odota(p); await p.waitForSelector('[data-kt-hylkaa]');
-      await p.locator('[data-kt-hylkaa]').click(); await p.waitForSelector('[data-k3-osio]'); await p.locator('#hkNayta').check(); await p.waitForSelector('[data-hk-perustelu]');
+      await p.locator('[data-kt-hylkaa]').click(); await p.waitForSelector('[data-k3-osio]'); await p.locator('#hkNayta').check(); await p.waitForSelector('[data-hk-perustelu]');   // päällä: perustelu pelaajalle (hylatty.perustelu), ei sisäistä kopiota
       await p.locator('[data-hk-laheta]').click(); await p.waitForTimeout(400); expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0); expect(await p.locator('#toast-wrap').innerText()).toMatch(/Kirjoita perustelu/);
       await p.locator('[data-hk-perustelu]').fill('Mietitään vielä yhdessä.'); await p.locator('[data-hk-laheta]').click(); await p.waitForFunction(() => (window.__kirj || []).length === 1, null, { timeout: 8000 });
-      const k = await p.evaluate(() => window.__kirj[0]); expect(k.update.jaksofokus.hylatty.perustelu).toBe('Mietitään vielä yhdessä.'); await sk.close();
+      const k = await p.evaluate(() => window.__kirj[0]); expect(k.update.jaksofokus.hylatty.perustelu).toBe('Mietitään vielä yhdessä.'); expect(await p.evaluate(() => (window.__batch || []).length)).toBe(0); await sk.close();
     } finally { await selain.close(); }
   }, 60000);
   it('luonnos: Hylkää-sheetin perustelu säilyy kun sheet suljetaan ja avataan uudelleen; ilman valintaa (p4) Hylkää-toimintoa ei ole', async () => {

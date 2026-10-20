@@ -16,28 +16,30 @@ describe('K3a · Hylkää valinta: vaihe 0 -kytkin', () => {
     expect(K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM })).toMatchObject({ ok: false, syy: 'pakollinen' });
     S.perustelu = 'Valitse reitti, jonka haluat harjoitella itse.'; expect(K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM }).jaksofokus.hylatty).toEqual({ pvm: PVM, perustelu: 'Valitse reitti, jonka haluat harjoitella itse.', valinta: 'y_h2' });
   });
-  it('uusi sivu (kytkin): oletus pois → perustelua ei vaadita eikä kirjoiteta pelaajan luettavaan kenttään; päällä → pakollinen ja kirjoitetaan', () => {
+  it('uusi sivu (kytkin): perustelu pakollinen; pois (oletus) → VAIN reviewit/{pvm}.hylkays_sisainen, ei pelaajan luettavaan hylatty.perustelu-kenttään; päällä → hylatty.perustelu kuten ennen', () => {
     const S = K.tmHylkaaAlku(VALITTU(), { kytkin: true }); expect(S.nayta).toBe(false);
+    expect(K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM })).toMatchObject({ ok: false, syy: 'pakollinen' });
     S.perustelu = 'Tätä ei saa vuotaa pelaajalle.';
-    const x = K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM }); expect(x.ok).toBe(true); expect(x.poistaValinta).toBe(true); expect(x.jaksofokus.hylatty).toEqual({ pvm: PVM, valinta: 'y_h2' });
+    const x = K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM, uid: 'u1', lahde: 'vp', nytISO: '2026-10-20T09:00:00.000Z' }); expect(x.ok).toBe(true); expect(x.poistaValinta).toBe(true); expect(x.jaksofokus.hylatty).toEqual({ pvm: PVM, valinta: 'y_h2' });
     expect(JSON.stringify(x.jaksofokus)).not.toContain('vuotaa');
-    S.nayta = true; S.perustelu = ''; expect(K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM })).toMatchObject({ ok: false, syy: 'pakollinen' });
-    S.perustelu = 'Mietitään vielä yhdessä.'; expect(K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM }).jaksofokus.hylatty.perustelu).toBe('Mietitään vielä yhdessä.');
+    expect(x.reviewitPvm).toBe(PVM); expect(x.reviewitData).toEqual({ hylkays_sisainen: { teksti: 'Tätä ei saa vuotaa pelaajalle.', lahde: 'vp', uid: 'u1', tallennettu: '2026-10-20T09:00:00.000Z' } });
+    S.nayta = true; const y = K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM }); expect(y.jaksofokus.hylatty.perustelu).toBe('Tätä ei saa vuotaa pelaajalle.'); expect(y.reviewitData).toBeUndefined();
+    S.perustelu = 'Tämä on hylätty.'; expect(K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM })).toMatchObject({ ok: false, syy: 'sana' });
   });
   it('kytkin pois: validointi ei silti ohita vaihtoehtojen tarkistusta (ei valittua → virhe) eikä "ei valintaa" -tilaa', () => {
-    const S = K.tmHylkaaAlku(VALITTU(), { kytkin: true }); S.k3.kortit.forEach((k) => { k.valittu = false; });
+    const S = K.tmHylkaaAlku(VALITTU(), { kytkin: true }); S.perustelu = 'Mietitään vielä yhdessä.'; S.k3.kortit.forEach((k) => { k.valittu = false; });
     expect(K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM })).toMatchObject({ ok: false, syy: 'k3_ei_valittu' });
-    const ei = K.tmHylkaaAlku(VALITTU({ ydinvahvuus_valinta: undefined }), { kytkin: true }); expect(K.tmHylkaaTallennus(VALITTU({ ydinvahvuus_valinta: undefined }), ei, { pvm: PVM })).toMatchObject({ ok: false, syy: 'ei_valintaa' });
+    const ei = K.tmHylkaaAlku(VALITTU({ ydinvahvuus_valinta: undefined }), { kytkin: true }); ei.perustelu = 'x'; expect(K.tmHylkaaTallennus(VALITTU({ ydinvahvuus_valinta: undefined }), ei, { pvm: PVM })).toMatchObject({ ok: false, syy: 'ei_valintaa' });
   });
-  it('HTML: ilman naytaFn:ää vanha ruutu (perustelukenttä, ei kytkintä); naytaFn → kytkin, perustelukenttä vain kun päällä', () => {
+  it('HTML: ilman naytaFn:ää vanha ruutu (perustelukenttä, ei kytkintä); naytaFn → kytkin + perustelukenttä', () => {
     const o = { lauseFn: 'a', tallennaFn: 'b', suljeFn: 'c', k3: { paalleFn: 'd', valitseFn: 'e', lauseFn: 'f' } }, S = K.tmHylkaaAlku(VALITTU(), {});
     const vanha = K.tmHylkaaSheetHTML(S, o); expect(vanha).toContain('data-hk-perustelu'); expect(vanha).not.toContain('data-nk-kytkin'); expect(vanha).toContain('Kerro pelaajalle miksi');
     const S2 = K.tmHylkaaAlku(VALITTU(), { kytkin: true }), pois = K.tmHylkaaSheetHTML(S2, Object.assign({ naytaFn: 'g' }, o));
-    expect(pois).toContain('data-nk-kytkin'); expect(pois).not.toContain('data-hk-perustelu'); expect(pois).toContain('Näytä myös pelaajalle'); expect(pois).not.toMatch(/\bchecked\b[^>]*data-nk-checkbox|data-nk-checkbox[^>]*\bchecked\b/);
+    expect(pois).toContain('data-nk-kytkin'); expect(pois).toContain('data-hk-perustelu'); expect(pois).toContain('Näytä myös pelaajalle'); expect(pois).not.toMatch(/\bchecked\b[^>]*data-nk-checkbox|data-nk-checkbox[^>]*\bchecked\b/);
     S2.nayta = true; const paalla = K.tmHylkaaSheetHTML(S2, Object.assign({ naytaFn: 'g' }, o)); expect(paalla).toContain('data-hk-perustelu'); expect(paalla).toContain('data-nk-kytkin');
   });
   it('pelaajan "Valmentajalta"-rivi: ilman perustelua ei riviä (tila valittavana jatkuu)', () => {
-    const S = K.tmHylkaaAlku(VALITTU(), { kytkin: true }), x = K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM });
+    const S = K.tmHylkaaAlku(VALITTU(), { kytkin: true }); S.perustelu = 'Sisäinen.'; const x = K.tmHylkaaTallennus(VALITTU(), S, { pvm: PVM });
     const p = { jaksofokus: x.jaksofokus }; const t = RV.tmValintaTila(p); expect(t.tila).toBe('valittavana'); expect(t.valmentajalta == null).toBe(true);
   });
 });
