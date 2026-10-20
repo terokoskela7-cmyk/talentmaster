@@ -19,7 +19,7 @@ const TESTI = ['topias', 'toppari', 'testi pelaaja', 'testi test', 'tero testaaj
 const seura = process.argv[2] || 'kpv';
 const NYT = Date.now();
 function vanha(p) { return N.laskeReviewKadenssi({ syntymaVuosi: p.syntymaVuosi, joukkue: p.joukkue, review_viimeisin_pvm: p.review_viimeisin_pvm, review_viimeisin_tyyppi: p.review_viimeisin_tyyppi }, NYT); }
-(async () => {
+if (require.main === module) (async () => {   // vain suoraan ajettaessa (require ei kutsu firebase-adminia)
   if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault(), projectId: 'talentmaster-pilot' });
   const sn = await admin.firestore().collection('seurat').doc(seura).collection('pelaajat').get();
   const taulu = {}, testit = []; let muuttuu = 0;
