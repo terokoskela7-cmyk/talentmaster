@@ -15,7 +15,7 @@ import { PEL_APU } from './helpers/pelaaja_t.mjs';
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (f) => readFileSync(join(ROOT, f), 'utf8');
-const LIB = lue('lib/tm_kalenteri_ilmoitus.js');
+const LIB = lue('lib/tm_kalenteri_ilmoitus.js'), LISTA = lue('lib/tm_ilmoitus_lista.js');   // K1c: ilmoituslistan rivit renderöi lib/tm_ilmoitus_lista.js
 const LANG = require('../lib/tm_lang.js');
 function pura(src, tunniste) {
   const i = src.indexOf(tunniste); expect(i, tunniste).toBeGreaterThan(-1);
@@ -152,7 +152,7 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
     const sb = { Date: FD, String, Array, Object, Number, isNaN, Promise, Math, RegExp, console: { warn() {} },
       window: { _db: chain, _fbApp: fbApp, localStorage: { getItem: () => null, setItem() {} }, _auth: { currentUser: {} }, _p7Notif: notif.map((f) => f(FD)), _p7Kalenteri: null }, _isDemoUser: false, _pelaaja: { id: 'P', seuraId: 'S' },
       _ladattu: {}, _tab: 'mina', _sc: 'main', draw() {}, t: LANG.t, _thEsc: (x) => String(x) };
-    Object.assign(sb, PEL_APU); vm.createContext(sb); vm.runInContext(LIB, sb);
+    Object.assign(sb, PEL_APU); vm.createContext(sb); vm.runInContext(LIB, sb); vm.runInContext(LISTA, sb);
     vm.runInContext([pura(P7, 'function _p7EvPvm('), pura(P7, 'async function _p7LataaKalenteri('), pura(P7, 'function _p7KuittausTunniste('), pura(P7, 'function _p7Kuitatut('), pura(P7, 'function _p7NotifHTML(')].join('\n')
       + '\nthis.lataa = _p7LataaKalenteri; this.html = _p7NotifHTML; var _P7_NOTIF_IKO = {muistutus:"🔔"};', sb);
     return { sb, FD, kutsut };
@@ -207,7 +207,7 @@ describe('Vanhempi_v2 — sama suodatus + ilmoituslista', () => {
         { id: 'a', tyyppi: 'muistutus', teksti: 'Huomenna: Peli klo 12:00', linkki: 'kalenteri:q', luotu: ts(paik(FD, 2026, 9, 4, 17)), luettu: false },
         { id: 'b', tyyppi: 'muutos', teksti: 'Muutos: Vanha', linkki: 'kalenteri:z', tapahtuma_alkaa: ts(paik(FD, 2026, 9, 1, 12)), luettu: false },
         { id: 'c', tyyppi: 'peruttu', teksti: 'Peruttu: Testi', linkki: 'kalenteri:y', luettu: true }], _vanhKalenteri: null }, _vanhNotifLadattu: true };
-    Object.assign(sb, PEL_APU); vm.createContext(sb); vm.runInContext(LIB, sb);
+    Object.assign(sb, PEL_APU); vm.createContext(sb); vm.runInContext(LIB, sb); vm.runInContext(LISTA, sb);
     vm.runInContext(pura(V2, 'function _vanhKuittausTunniste(') + '\n' + pura(V2, 'function _vanhKuitatut(') + '\n' + pura(V2, 'function _vanhNotifHTML(') + '\nthis.html = _vanhNotifHTML;', sb);
     const h = sb.html();
     expect(h).toContain('Tänään: Peli klo 12:00'); expect(h).not.toContain('Muutos: Vanha'); expect(h).toContain('Peruttu: Testi');

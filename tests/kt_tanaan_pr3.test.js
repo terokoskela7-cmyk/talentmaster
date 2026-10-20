@@ -61,9 +61,9 @@ describe('PR 3 · 3 — kysymyskortit (D103, D169)', () => {
 describe('PR 3 · 4 — osat (D169)', () => {
   const PV = '2026-10-09', hav = (a) => ({ k1: Object.fromEntries(a.map(([u, arvo, rooli], i) => ['u' + i, { arvo, pvm: PV, rooli }])) });
   it('viikon osa: teal-reuna + tagi tealina (ei amber); "arvioi" teal; ei "aiempi merkintä"', () => {
-    const css = KT.tmKtCss(); expect(css).toContain('.kt-osa-r.on{border-color:var(--teal)}'); expect(css).not.toMatch(/\.kt-osa-r\.on\{border-color:var\(--amber\)/);
+    const css = KT.tmKtCss(); expect(css).toContain('.kt-osa-r.on{border-color:var(--teal);border-left-width:4px;background:color-mix(in srgb,var(--teal) 14%,var(--bg))}');   // K1c: tausta + paksu vasen reuna expect(css).not.toMatch(/\.kt-osa-r\.on\{border-color:var\(--amber\)/);
     const h = KT.tmKtOsatHTML({ osat: [{ k: 'a', nimi: 'Katse', koodi: 'a1', tila: 'ohjatusti', havainnot: [] }, { k: 'b', nimi: 'Aukko', koodi: 'b1', tila: null, havainnot: [] }], viikonOsa: { k: 'a', koodi: 'a1' }, jaksoNimi: 'J' }, { esc: (s) => String(s), t: (k) => k });
-    expect(h).toContain('kt-osa-r on'); expect(h).toContain('viikon osa'); expect(h).toContain('kt-osa-st arvioi'); expect(h).not.toContain('aiempi merkintä');
+    expect(h).toContain('kt-osa-r on'); expect(h).toContain('Tämän viikon fokus');   // K1c: badge (ei pientä "viikon osa" -tekstiä) expect(h).toContain('kt-osa-st arvioi'); expect(h).not.toContain('aiempi merkintä');
   });
   it('eroavat arviot → uusin + "arviot eroavat"; avautuu paikallaan; seuran käyttäjälle ei koskaan "SA"', () => {
     const o = { k: 'b', nimi: 'X', koodi: 'k1', tila: 'ohjatusti', havainnot: [{ uid: 'a', arvo: 3, pvm: '2026-10-09', rooli: 'vp' }, { uid: 'b', arvo: 2, pvm: '2026-10-09', rooli: 'super_admin' }] };

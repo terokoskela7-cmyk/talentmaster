@@ -26,6 +26,8 @@ const MV = require('../lib/tm_mediaviesti.js'), KP = require('../lib/tm_klippi_p
 export const SV_ODOTTAA = [];   // A (18.10.2026): klippikortin painike + Uusi-merkki saapuivat erässä 68 ja vietiin (scripts/i18n_vie_sv_era68.cjs) · aiemmin erä 42: ryhmäklippi + oma videoklippi -varaus
 /* Valmentajan pelaajanäkymän Masterin fi-tekstiavaimet (masterT), joille sv puuttuu Master-kartasta (docs/i18n/sv_kaannoserae_37.json → Gemini). Elävä: sv saapui → poista rivi. */
 export const MASTER_SV_ODOTTAA = ['ei asetettu'];   // lib/tm_vastuuhenkilo.js t('ei asetettu') masterT:n kautta (IDP-kortin Vastuuhenkilö-rivi)
+/* K1c (erä 78): lib-tekstit joiden sv odottaa Geminiä ja jotka näkyvät valmentajan pelaajanäkymässä; poista kun sv saapuu (LIB_SV_ODOTTAA: tests/i18n_sv_era_lib.test.js) */
+const LIB_FI_ODOTTAA = ['Tämän viikon fokus'];
 const MA_SV = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;
 
 /* ── tunnistus ── */
@@ -44,7 +46,7 @@ const SANA_RE = new RegExp('(^|[^\\p{L}])(' + SANAT.join('|') + ')($|[^\\p{L}])'
 const VIIKONPAIVA_RE = /(^|[^\p{L}])(su|ma|ti|ke|to|pe|la) \d{1,2}\.\d{1,2}\./u;
 const AVAIN_RE = /\b(mv|kp)_[a-z0-9_]+\b|\b(pelaaja|vanhempi)\.[a-z0-9_]+\b/;
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const ODOTTAA_RE = SV_ODOTTAA.map((k) => String(MV.FI[k] || KP.FI[k] || k)).concat(MASTER_SV_ODOTTAA).map((x) => new RegExp('(^|[^\\p{L}])' + esc(x).replace(/\\\{\w+\\\}/g, '.+?') + '($|[^\\p{L}])', 'gu'));   // {muuttuja} fi-mallissa = mikä tahansa teksti (esim. 'Oma videoklippi ({min}–{max} s)')   // Geminiltä odottavat: fi sallittu kunnes sv saapuu
+const ODOTTAA_RE = SV_ODOTTAA.map((k) => String(MV.FI[k] || KP.FI[k] || k)).concat(MASTER_SV_ODOTTAA).concat(LIB_FI_ODOTTAA).map((x) => new RegExp('(^|[^\\p{L}])' + esc(x).replace(/\\\{\w+\\\}/g, '.+?') + '($|[^\\p{L}])', 'gu'));   // {muuttuja} fi-mallissa = mikä tahansa teksti (esim. 'Oma videoklippi ({min}–{max} s)')   // Geminiltä odottavat: fi sallittu kunnes sv saapuu
 const PALAT = Object.entries(FI_TEKSTIT).flatMap(([k, v]) => String(v).split(/\{\w+\}/).map((x) => x.trim()).filter((x) => (x.match(/\p{L}/gu) || []).length >= 4).map((x) => [k, new RegExp('(^|[^\\p{L}])' + esc(x) + '($|[^\\p{L}])', 'u')]));
 export function suomiJaanteet(kerätyt, sallitut) {
   const ok = (t) => (sallitut || []).some((s) => t.indexOf(s) >= 0 && t.replace(s, '').replace(/[\s·—–:,.()„“"'0-9✓＋+@-]/g, '').length === 0);

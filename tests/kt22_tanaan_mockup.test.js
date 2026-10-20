@@ -152,6 +152,6 @@ describe('7 · Osat-kortti', () => {
   it('rivin tyylit: ruudukko auto/1fr/auto, gap 10px, padding 7px 10px, reuna, säde 4px, 13,5 px; kirjain DM Mono teal; viikon osa teal (D169: amber = poikkeama); itsenäisesti teal', () => {
     expect(CSS).toContain('.kt-osa-r{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border:1px solid var(--border);border-radius:4px;');
     expect(CSS).toContain('.kt-osat{display:grid;gap:4px;margin-top:6px}'); expect(CSS).toContain('.kt-osa-k{font-family:var(--font-sans);font-size:var(--fs-meta,12.5px);color:var(--teal);font-weight:500}');
-    expect(CSS).toContain('.kt-osa-r.on{border-color:var(--teal)}.kt-osa-r.on .kt-osa-st{color:var(--teal);font-weight:600}'); expect(CSS).toContain('.kt-osa-r.ok .kt-osa-st{color:var(--teal);font-weight:600}');
+    expect(CSS).toContain('.kt-osa-r.on{border-color:var(--teal);border-left-width:4px;background:color-mix(in srgb,var(--teal) 14%,var(--bg))}.kt-osa-r.on .kt-osa-st{color:var(--teal);font-weight:600}'); expect(CSS).toContain('.kt-osa-r.ok .kt-osa-st{color:var(--teal);font-weight:600}');
   });
 });
