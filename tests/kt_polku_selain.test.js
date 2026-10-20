@@ -29,7 +29,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4a · Polku'
       await odota(p); await p.waitForSelector('[data-kt-klipit="ok"]', { timeout: 10000 });
       expect(await tila(p)).toBe('normaali');
       const teksti = await p.locator('[data-kt-polku]').innerText();
-      expect(teksti).toContain('Pelaaja, joka pitää pallon paineessa'); expect(teksti).toContain('Lähtötaso: 5.4 s (mitattu 5.6.).'); expect(teksti).toContain('viikko 3/6'); expect(teksti).toContain('arviointi 14.11.');
+      expect(teksti).toContain('Pelaaja, joka pitää pallon paineessa'); expect(teksti).toContain('Lähtötaso: 5.4 s (mitattu 5.6.).'); expect(teksti).toContain('viikko 3/6'); expect(teksti).toContain('Jakson yhteenveto 14.11.');
       const nimi = (await p.locator('[data-kt-jakso-nimi]').innerText()).trim(); expect(teksti.split(nimi).length - 1).toBe(1);   // konseptin nimi kerran
       expect(await p.locator('[data-kt-polku] [data-kt-osa]').count()).toBeGreaterThan(2);
       expect(await p.locator('[data-kt-polku] [data-kt-osa="a"] .kt-osa-st').innerText()).toContain('osaa jo');   // sama osakomponentti ja tila kuin Tänäänissä

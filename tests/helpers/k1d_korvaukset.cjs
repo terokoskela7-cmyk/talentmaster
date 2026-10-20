@@ -15,3 +15,4 @@ module.exports.erassaFi = (avain, nykyinen) => (LIBMUUTOKSET[avain] && LIBMUUTOK
 /* Erän 80 lib-avaimet joilla EI vielä ole sv:tä (uudet K1d-avaimet, rivillä ei sv_nyt:ää): odottavat Geminiä — vanhojen erien "jokaiselle avaimelle on sv" -portit sallivat nämä. */
 const ERA80 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'i18n', 'sv_kaannoserae_80_gemini.json'), 'utf8')).osiot;
 module.exports.era80Odottaa = (avain) => Object.keys(ERA80).some((o) => /^lib\./.test(o) && ERA80[o].rivit[avain] && !ERA80[o].rivit[avain].sv_nyt && !ERA80[o].rivit[avain].sv);
+module.exports.era80FiOdottaa = () => { const r = []; for (const o of Object.keys(ERA80)) if (/^lib\./.test(o)) for (const x of Object.values(ERA80[o].rivit)) if (!x.sv_nyt && !x.sv && x.fi) r.push(x.fi); return r; };   // fi-tekstit joiden sv odottaa erää 80 (klippi_sv_selain: LIB_FI_ODOTTAA)

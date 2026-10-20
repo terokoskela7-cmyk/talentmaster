@@ -84,7 +84,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('yksi näyttö
       const { p } = await avaa(b); await p.evaluate(() => { _phAvaaPelaaja('a'); _phTila.porras = 3; _phRender(); });
       expect(await p.textContent('#ph-fb'), 'ennen painallusta himmeä kysymys').toContain('Havainnointi: Katsooko ylös');
       await p.click('[data-sc="D"][data-v="2"]');
-      const t = await p.textContent('#ph-fb'); expect(t).toContain('Päätös · 2 Kehittyvä'); expect(t).toContain('Mitä näit?');
+      const t = await p.textContent('#ph-fb'); expect(t).toContain('Päätöksenteko · 2 Kehittyvä'); expect(t).toContain('Mitä näit?');
       expect(await p.locator('#ph-fb [data-chip="D"]').count(), 'valinnat näkyvät ilman avausta').toBe(4);
       await p.click('#ph-fb [data-chip="D"] >> nth=0'); expect(await p.evaluate(() => _phTila.havaitut.D.length)).toBe(1);
       await p.click('[data-dn="A"]'); expect(await p.textContent('#ph-fb')).toContain('Katsooko ylös ennen kuin saa pallon');

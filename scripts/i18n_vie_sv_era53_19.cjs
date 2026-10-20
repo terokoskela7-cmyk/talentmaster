@@ -66,6 +66,7 @@ function vie(opts) {
   const karttaRivit = (P, osio, ol, uudet, nimi, vainPuuttuvat) => {
     for (const [fi, r] of Object.entries(P.osiot[osio].rivit)) {
       if (r.fi !== fi) { virheet.push(osio + ': avain ≠ fi: ' + fi); continue; }
+      if (vainPuuttuvat && require('../tests/helpers/k1d_korvaukset.cjs').KARTTA.has(fi)) { R.ohitettu.push(fi); continue; }   // K1d: fi-avain korvattu sanastopäätöksellä (sv päivittyy erässä 80)
       if (typeof ol[fi] === 'string') { if (!vainPuuttuvat && ol[fi] !== r.sv) virheet.push(nimi + '-avain on jo koodissa eri sv:llä: ' + fi); else R.ohitettu.push(fi); continue; }
       const syy = sopii(fi, r.sv); if (syy) { virheet.push(osio + ' :: ' + fi + ': ' + syy); continue; }
       if (typeof common[fi] === 'string') { virheet.push('avain on lukitussa yhteisessä glossaarissa (dedupe-invariantti): ' + fi); continue; }
