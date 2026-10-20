@@ -5633,3 +5633,29 @@ describe('v3.64 · joukkueet: pelimuodot (lista 1–3 ∈ 5v5 | 8v8 | 11v11)', (
     await assertFails(setDoc(doc(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'seurat', SEURA_A, 'joukkueet', 'fcl_x'), { nimi: 'X', pelimuodot: ['8v8'] }));
   });
 });
+
+/* ══ v3.65 (K3a, Teron päätös 20.10.2026): reviewit/{pvm}.hylkays_sisainen — Hylkää valinta -perustelu sisäisenä ══ */
+describe('v3.65 · reviewit.hylkays_sisainen: henkilökunta kirjoittaa ja lukee; pelaaja ja huoltaja EIVÄT lue; muoto validoidaan', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const rev = (db, pvm = '2026-11-10') => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm);
+  const HS = { teksti: 'Mietitään vielä yhdessä.', lahde: 'valmentaja', uid: VALM_A_UID, tallennettu: '2026-11-10T10:00:00.000Z' };
+  it('valmentaja ja VP kirjoittavat (set+merge) ja lukevat; toisen seuran valmentaja, pelaaja ja huoltaja eivät kirjoita eivätkä lue', async () => {
+    await assertSucceeds(setDoc(rev(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), { hylkays_sisainen: HS }, { merge: true }));
+    await assertSucceeds(setDoc(rev(vpContext(SEURA_A).firestore(), '2026-11-17'), { hylkays_sisainen: { ...HS, lahde: 'vp' } }, { merge: true }));
+    await assertSucceeds(getDoc(rev(valmentajaContext(VALM_A_UID, SEURA_A).firestore()))); await assertSucceeds(getDoc(rev(vpContext(SEURA_A).firestore())));
+    await assertFails(getDoc(rev(pelaajaItseContext().firestore()))); await assertFails(getDoc(rev(huoltajaContext().firestore()))); await assertFails(getDoc(rev(valmentajaContext(VALM_B_UID, SEURA_B).firestore())));
+    await assertFails(setDoc(rev(pelaajaItseContext().firestore(), '2026-11-18'), { hylkays_sisainen: HS }, { merge: true }));
+    await assertFails(setDoc(rev(huoltajaContext().firestore(), '2026-11-18'), { hylkays_sisainen: HS }, { merge: true }));
+    await assertFails(setDoc(rev(valmentajaContext(VALM_B_UID, SEURA_B).firestore(), '2026-11-19'), { hylkays_sisainen: HS }, { merge: true }));
+  });
+  it('muoto: väärä lahde, tyhjä/liian pitkä teksti, ylimääräinen kenttä, ei-map hylätään; uid null sallittu; sama dokumentti kevyen katselmuksen kanssa (merge)', async () => {
+    const db = () => valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(rev(db(), '2026-12-01'), { hylkays_sisainen: { ...HS, lahde: 'pelaaja' } }, { merge: true }));
+    await assertFails(setDoc(rev(db(), '2026-12-02'), { hylkays_sisainen: { ...HS, teksti: '' } }, { merge: true }));
+    await assertFails(setDoc(rev(db(), '2026-12-03'), { hylkays_sisainen: { ...HS, teksti: 'x'.repeat(201) } }, { merge: true }));
+    await assertFails(setDoc(rev(db(), '2026-12-04'), { hylkays_sisainen: { ...HS, ylimaarainen: 1 } }, { merge: true }));
+    await assertFails(setDoc(rev(db(), '2026-12-05'), { hylkays_sisainen: 'teksti' }, { merge: true }));
+    await assertSucceeds(setDoc(rev(db(), '2026-12-06'), { hylkays_sisainen: { ...HS, uid: null } }, { merge: true }));
+    await assertSucceeds(setDoc(rev(db(), '2026-12-06'), { kevyt: { nakyi: 'ohjatusti', treeni: 'usein', mukana: 'hyvin' }, kevyt_tallennettu: '2026-12-06T10:00:00.000Z' }, { merge: true }));
+  });
+});
