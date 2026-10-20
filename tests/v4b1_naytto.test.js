@@ -56,8 +56,9 @@ describe('V4b-1 Master: Näyttö sisältää vanhan kortin lohkot (samat funktio
     c._mPinfoOsat = () => ({ _reseptiHtml: '', _ttHtml: '' }); expect(c._ktPolkuHTML({ id: 'x' })).not.toContain('pinfo-card');
   });
   it('vanha kortti ja Näyttö jakavat KPI-solut ja lohkot: _mStatsHTML on yksi funktio (vanha template kutsuu sitä)', () => {
-    const lahde = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8'); expect((lahde.match(/\$\{_mStatsHTML\(stats\)\}/g) || [])).toHaveLength(1); expect(lahde).toContain('_mStatsHTML(o.stats)');
-    expect(lahde.slice(lahde.indexOf('function _ktNayttoHTML'), lahde.indexOf('function _ktPolkuHTML'))).not.toMatch(/localStorage|\.get\(\)|collection\(/);
+    const lahde = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8'); expect((lahde.match(/\$\{_mStatsHTML\(stats\)\}/g) || [])).toHaveLength(1); const lib = readFileSync(join(juuri, 'lib/tm_naytto_lohkot.js'), 'utf8');   // K2: Näytön lohkot asuvat libissä (Master ja Kehitystyopoyta.html käyttävät samaa)
+    expect(lib).toContain('_mStatsHTML(o.stats)'); expect(lahde).toContain('function _mStatsHTML(stats) { return window.TM_NAYTTO_LOHKOT.tmNayttoStatsHTML(');
+    expect(lib.slice(lib.indexOf('function tmNayttoLohkotHTML'), lib.indexOf('function tmNayttoMitaOsattavaHTML'))).not.toMatch(/localStorage|\.get\(\)|collection\(/);
   });
 });
 

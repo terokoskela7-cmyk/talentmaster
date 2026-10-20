@@ -114,7 +114,7 @@ describe('6 · D141 mittauksen ikä: yli 12 kk vanha ei tasona eikä värinä', 
     const src = funktio(MA, 'renderSeason'); expect(src).toContain('_mSeasonLuvut()'); expect(src).toContain('tmBanneriTeksti('); expect(src).not.toContain('tmTasoVanhentunut'); expect(src).not.toMatch(/\b12 kk\b/);
     expect(funktio(MA, '_mSeasonLuvut')).toContain('vainVanhaPelaajat');
   });
-  it('pelaajakortin otsikko: yli 12 kk → "mitattu 2023 · päivitä" (ei "testattu 28.10.2023" nykytasona)', () => { expect(funktio(MA, '_mPinfoOsat')).toContain('tmMittausIkaTeksti(_testPvmIso, null, masterT)'); });
+  it('pelaajakortin otsikko: yli 12 kk → "mitattu 2023 · päivitä" (ei "testattu 28.10.2023" nykytasona)', () => { expect(readFileSync(new URL('../lib/tm_naytto_lohkot.js', import.meta.url), 'utf8')).toContain('tmMittausIkaTeksti(_testPvmIso, null, masterT)'); });   // K2: _mPinfoOsat → lib/tm_naytto_lohkot.js
 });
 
 describe('7 · päivämäärät suomalaisessa muodossa', () => {

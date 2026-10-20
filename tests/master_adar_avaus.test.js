@@ -41,7 +41,7 @@ describe('Master · ADAR-avaus (hotfix: ei oletuspelaajaa muistista)', () => {
     expect(adarHaara().replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')).not.toContain('_activePelaaja');
   });
   it('joukkuetason sisäänkäynnit kutsuvat ilman pid:tä, pelaajakortit pid:n kanssa', () => {
-    const kaikki = MASTER.match(/openDrill\(\\?'adar\\?'(,[^)]*)?\)/g) || [];
+    const kaikki = (MASTER + readFileSync(resolve(__dirname, '../lib/tm_naytto_lohkot.js'), 'utf8')).match(/openDrill\(\\?'adar\\?'(,[^)]*)?\)/g) || [];
     const pidilla = kaikki.filter((x) => x.includes(','));
     const ilman = kaikki.filter((x) => !x.includes(','));
     expect(pidilla.length, 'pelaajakorttien kutsut (pid)').toBe(2);
