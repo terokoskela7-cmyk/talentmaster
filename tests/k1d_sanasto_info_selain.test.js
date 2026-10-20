@@ -86,6 +86,6 @@ describe('K1d · ⓘ-komponentti (puhdas)', () => {
   it('"Miten kehitys etenee" sisältää kaavion kaikki vaiheet ja rytmin; ei lukuja pelaajalle (komponentti on henkilökunnan; pelaaja-/perhe-appit eivät lataa sitä)', () => {
     const h = SI.tmKehitysEteneeHTML({}); for (const s of ['Kehityssuunnitelma', 'kauden tavoite', 'Jakso · 6 vk', 'aihe · ydinasiat · viikon fokus', 'Jakson yhteenveto', 'Seuraava jakso', 'Kehityskeskustelu', 'Pelaajaraportti']) expect(h, s).toContain(s);
     const fs = require('fs'); for (const f of ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) expect(fs.readFileSync(join(JUURI, f), 'utf8'), f).not.toContain('tm_sanasto_info');
-    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(fs.readFileSync(join(JUURI, f), 'utf8'), f).toContain('lib/tm_sanasto_info.js?v=1');
+    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(fs.readFileSync(join(JUURI, f), 'utf8'), f).toMatch(/lib\/tm_sanasto_info\.js\?v=\d+/);
   });
 });
