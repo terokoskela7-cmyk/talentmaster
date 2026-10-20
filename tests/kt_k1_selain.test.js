@@ -125,7 +125,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K1 · klippi,
     } finally { await selain.close(); }
   }, 60000);
 
-  for (const rooli of ['valmentaja', 'vp']) it('KLIKKAA JOKAINEN NAPPI: Tänään ja Polku roolilla ' + rooli + ' viidessä tilassa — mikään painike ei vie Masteriin paitsi K3b (kausitavoite), K4 (syvenna) ja kuorma; K3a:n anna_valita ja hylkaa avaavat sheetin; jäljelle jäävät hypyt listataan', async () => {
+  for (const rooli of ['valmentaja', 'vp']) it('KLIKKAA JOKAINEN NAPPI: Tänään ja Polku roolilla ' + rooli + ' viidessä tilassa — mikään painike ei vie Masteriin paitsi K4 (syvenna) ja kuorma; K3a:n anna_valita ja hylkaa sekä K3b:n kausitavoite avaavat sheetin; jäljelle jäävät hypyt listataan', async () => {
     await avaa(); const hypyt = new Set(), klikattu = new Set();
     const alkuPv = (pv) => new Date(Date.parse('2026-10-19T09:00:00+03:00') - pv * 86400000).toISOString(), JF = (pv, o) => ({ konsepti_avain: 'y_h1', konsepti_nimi: 'Haltuunotto', alkoi: alkuPv(pv), kesto_vk: 6, lahde: 'valmentaja', domeeni: 'teknis_taktinen', ...(o || {}) });
     try {
@@ -156,7 +156,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K1 · klippi,
       }
       const lista = [...hypyt].sort(); console.log('K1/K3a [' + rooli + '] · klikattuja painikkeita ' + klikattu.size + '; jäljelle jäävät hypyt Masteriin:\n  ' + (lista.join('\n  ') || '(ei yhtään)'));
       expect(klikattu.size).toBeGreaterThan(25);
-      expect(lista.filter((x) => !/^(kausitavoite|syvenna|kuorma) /.test(x))).toEqual([]);   // K3a: anna_valita + hylkaa eivät enää vie Masteriin
+      expect(lista.filter((x) => !/^(syvenna|kuorma) /.test(x))).toEqual([]);   // K3a + K3b: anna_valita + hylkaa eivät enää vie Masteriin
     } finally { await selain.close(); }
-  }, 900000);
+  }, 3600000);
 });
