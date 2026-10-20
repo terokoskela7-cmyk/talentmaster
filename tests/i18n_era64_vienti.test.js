@@ -20,7 +20,7 @@ describe('sv-erä 64 — vienti', () => {
   });
   it('koodin sv = palautus merkki merkiltä; jokaiselle ktp_-avaimelle on sv', () => {
     for (const [k, r] of Object.entries(P)) if (k !== OHITETTU) expect(SV[k], k).toBe(r.sv);
-    expect(Object.keys(TX.FI).filter((k) => typeof SV[k] !== 'string' && ['ktp_h_pv', 'ktp_piirra_taululle'].indexOf(k) < 0)).toEqual([]);   // ktp_h_pv + ktp_piirra_taululle: erä 76 (K1b) odottaa Geminiä
+    expect(Object.keys(TX.FI).filter((k) => typeof SV[k] !== 'string')).toEqual([]);
   });
   it('idempotentti', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.ohitettu).toContain(OHITETTU); });
 });

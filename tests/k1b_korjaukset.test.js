@@ -21,8 +21,8 @@ describe('K1b/2 · viikkohavainnon lauseen selite ja näkyvyys', () => {
     expect(html).toContain('Enintään 140 merkkiä. Vain henkilökunta näkee tämän.'); expect(html).not.toMatch(/päätyä pelaajalle|myönteisesti/);
     expect(lue('lib/tm_kt_havainto.js')).not.toMatch(/voi päätyä pelaajalle, joten/);
   });
-  it('uusi sv-teksti ei ole keksitty koodissa: vanha sv-rivi poistettu (Gemini-erä 76 täyttää)', () => {
-    const SV = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv; expect(SV.kt_h_lause_ohje).toBeUndefined();
+  it('sv tulee erästä 76 (tests/i18n_era76_vienti.test.js), ei koodin omasta kirjoituksesta', () => {
+    const SV = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv, P = JSON.parse(lue('docs/i18n/sv_kaannoserae_76_palautus.json')); expect(SV.kt_h_lause_ohje).toBe(P.osiot['lib.tm_kt_havainto'].rivit.kt_h_lause_ohje.sv);
   });
   it('LUKUREITTI: osa_havainnot / osa_havainnot_vk / lause-kenttiä lukevia henkilökunnan libejä ei ladata pelaajan, huoltajan eikä Solon sivuilla; jakson historiarivin havainnot_vk ei renderöidy pelaajalle', () => {
     const PELAAJAN = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Player_Home.html', 'TalentMaster_Solo_Koti.html', 'TalentMaster_Solo_Profiili.html', 'TalentMaster_Solo_Lupa.html'];

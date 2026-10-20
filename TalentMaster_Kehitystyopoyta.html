@@ -22,7 +22,7 @@
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_istunto.js?v=1"></script>
 <script src="lib/tm_lang.js?v=48"></script>
-<script src="lib/tm_lib_i18n.js?v=22"></script>
+<script src="lib/tm_lib_i18n.js?v=23"></script>
 <script src="lib/tm_i18n_common.js?v=13"></script>
 <script src="lib/tm_master_i18n.js?v=36"></script>
 <script src="lib/tm_phv_tila.js?v=2"></script>
@@ -51,8 +51,8 @@
 <script src="lib/tm_tanaan_signaali.js?v=9"></script>
 <script src="lib/tm_kevyt_katselmus.js?v=4"></script>
 <script src="lib/tm_kentta.js?v=6"></script>
-<script src="lib/tm_tanaan_kentta.js?v=4"></script>
-<script src="lib/tm_kentta_spec.js?v=3"></script>
+<script src="lib/tm_tanaan_kentta.js?v=5"></script>
+<script src="lib/tm_kentta_spec.js?v=4"></script>
 <script src="lib/tm_hash_reititin.js?v=1"></script>
 <script src="lib/tm_kt_komponentit.js?v=4"></script>
 <script src="lib/tm_kalenteri_tyypit.js?v=4"></script>
@@ -60,7 +60,7 @@
 <script src="lib/tm_ryhmat.js?v=5"></script>
 <script src="lib/tm_kalenteri_pelaajalle.js?v=1"></script>   <!-- B4b Tämä viikko: tapahtuman kuulumissääntö (sama kuin pelaajan kalenteri) -->
 <script src="lib/tm_valmentaja_nav.js?v=3"></script>
-<script src="lib/tm_kehitystyopoyta.js?v=35"></script>
+<script src="lib/tm_viikon_osa.js?v=1"></script><script src="lib/tm_kehitystyopoyta.js?v=36"></script>
 <script src="lib/tm_jakso_malli.js?v=4"></script>
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>
 <script src="lib/tm_koti_oletus.js?v=1"></script>
@@ -70,7 +70,7 @@
 <script src="lib/tm_fyysteemat.js?v=4"></script>
 <script src="lib/tm_sanasto.js?v=3"></script>
 <script src="lib/tm_sheet.js?v=1"></script>
-<script src="lib/tm_kt_havainto.js?v=3"></script>
+<script src="lib/tm_kt_havainto.js?v=4"></script>
 <script src="lib/tm_kt_jakso.js?v=2"></script>
 <script src="lib/tm_kasvupyrahdys.js?v=3"></script>   <!-- kasvupyrähdys-fysiikka: Teron hyväksymä ENNEN/NYT/JÄLKEEN-taulu + 25 uutta harjoitetta — ENNEN toimintakorttia (suodatus) -->
 <script src="lib/tm_kt_toimintakortti.js?v=5"></script>
@@ -81,7 +81,7 @@
 <script src="lib/tm_tekija_nimi.js?v=1"></script>   <!-- K1: klipin lähettäjän nimi (#1096-sääntö: ei sähköpostia) -->
 <script src="lib/tm_kt_klippi.js?v=1"></script>   <!-- K1: klipin lähetys sheetinä (Polku ⋯ Lisää klippi + viikkohavainnon VEO-linkki) -->
 <script src="lib/tm_historia_lause.js?v=2"></script>   <!-- 0b-jatko: suljetun jakson lause (myös sisäinen) + sulkupäivä Historiaan -->
-<script src="lib/tm_kt_polku.js?v=10"></script>
+<script src="lib/tm_kt_polku.js?v=11"></script>
 <script src="lib/tm_tasovari.js?v=2"></script>
 <script src="lib/tm_adar_tekstit.js?v=5"></script>
 <script src="lib/tm_adar_pelitilanne.js?v=2"></script>
@@ -434,12 +434,21 @@ function _ktKorosta(idt) {
 window._ktKlippiAvaa = function (pid) { return _klippiSheet().avaa(pid); };
 window._ktKlipKohde = function (k) { _klippiSheet().kohde(k); }; window._ktKlipUrl = function (v) { _klippiSheet().url(v); }; window._ktKlipTyyppi = function (t) { _klippiSheet().tyyppi(t); }; window._ktKlipOsa = function (k) { _klippiSheet().osa(k); };
 window._ktKlipPohja = function (i) { _klippiSheet().pohja(i); }; window._ktKlipKysymys = function (v) { _klippiSheet().kysymys(v); }; window._ktKlipSaate = function (v) { _klippiSheet().saate(v); }; window._ktKlipLaheta = function () { return _klippiSheet().laheta(); }; window._ktKlipSulje = function () { _klippiSheet().sulje(); };
-function _havaintoOsa(p, koodi) { const jf = p && p.jaksofokus, osat = jf ? K.tmKtOsat(jf, { kaanon: _kaanon }) : []; return { osat: osat, osa: osat.filter(function (o) { return o.koodi === koodi; })[0] || (koodi ? null : K.tmKtViikonOsa(osat)) }; }
+function _havaintoOsa(p, koodi) { const jf = p && p.jaksofokus, osat = jf ? K.tmKtOsat(jf, { kaanon: _kaanon }) : []; return { osat: osat, osa: osat.filter(function (o) { return o.koodi === koodi; })[0] || (koodi ? null : K.tmKtViikonOsa(osat, K.tmKtValittuOsa(jf, tmPaivaIso(new Date())))) }; }
 window._ktHavaintoLisaa = function (pid, koodi) {   // "+ Lause tai klippi" ja Osat-rivi: lyhyt alasheet (valinta, lause, VEO-linkki)
   const p = _pelaaja(pid); if (!p || !_voiKirjoittaa(p) || !p.jaksofokus || !p.jaksofokus.konsepti_avain) return false;
   const x = _havaintoOsa(p, koodi || null); if (!x.osa) return false;
-  const id = 'havainto_' + pid + '_' + x.osa.koodi, c = { esc: _e, t: TT, pid: pid, tallennaFn: '_ktHavaintoSheetTallenna', veoFn: '_ktHavaintoVeo' };
-  return _sheet.avaa({ id: id, tyyppi: 'lyhyt', otsikko: T('kt_h_otsikko'), sisalto: window.TM_KT_HAVAINTO.tmKtHavaintoSheetHTML({ osa: x.osa, avain: p.jaksofokus.konsepti_avain, uid: _uid }, c), avaaja: document.querySelector('[data-ts-avaaja="' + id + '"]') });
+  const id = 'havainto_' + pid + '_' + x.osa.koodi, c = { esc: _e, t: TT, pid: pid, tallennaFn: '_ktHavaintoSheetTallenna', veoFn: '_ktHavaintoVeo', fokusFn: '_ktViikonFokus' };
+  return _sheet.avaa({ id: id, tyyppi: 'lyhyt', otsikko: T('kt_h_otsikko'), sisalto: window.TM_KT_HAVAINTO.tmKtHavaintoSheetHTML({ osa: x.osa, avain: p.jaksofokus.konsepti_avain, uid: _uid, fokusValittu: K.tmKtValittuOsa(p.jaksofokus, tmPaivaIso(new Date())) === x.osa.koodi }, c), avaaja: document.querySelector('[data-ts-avaaja="' + id + '"]') });
+};
+/* K1b/4: "Tämän viikon fokus" — valmentaja/VP valitsee viikon ydinasian (jaksofokus.viikon_osa = {koodi, pvm}; lib/tm_viikon_osa.js). Voimassa tämän ISO-viikon; uusi jakso nollaa. Ei Rules-muutosta. */
+window._ktViikonFokus = async function (pid, koodi) {
+  const p = _pelaaja(pid), VO = window.TM_VIIKON_OSA, upd = VO && VO.tmViikonOsaKirjoitus(koodi, tmPaivaIso(new Date())); if (!p || !p.jaksofokus || !upd || !_voiKirjoittaa(p)) return false;
+  try {
+    const cu = _auth.currentUser; await cu.getIdToken(true);
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(upd);
+    p.jaksofokus = Object.assign({}, p.jaksofokus, { viikon_osa: upd['jaksofokus.viikon_osa'] }); _sheet.tallennettu('havainto_' + pid + '_' + koodi); toast(T('kt_viikon_fokus_asetettu')); _nayta(); return true;
+  } catch (e) { console.warn('[viikon fokus]', e && e.message); toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(T('Tallennus epäonnistui'), e)); return false; }
 };
 window._ktHavaintoSheetTallenna = function (pid, avain, koodi) {
   const p = _pelaaja(pid), id = 'havainto_' + pid + '_' + koodi, runko = _sheet.runko(id); if (!p || !runko) return;
