@@ -1,4 +1,7 @@
-# PÄÄTÖS · D249 (ehdotettu numero; PM vahvistaa) · Sanasto ja yhteenvetorytmi · Tero 20.10.2026 (klo 22.31–22.32, K1d)
+# PÄÄTÖS · D250 · Sanasto ja yhteenvetorytmi · Tero 20.10.2026 (klo 22.31–22.32, K1d)
+
+**Korvaa D248:n rivin "katselmus → Jakson arviointi"**: käyttäjälle näkyvä sana on nyt **Jakson yhteenveto** (toiminto "Tee jakson yhteenveto"); "Jakson arviointi" ei ole enää jakson päättämisen nimi (arviointi = pelaajan havainnot). D249 on Osaamispankki.
+**Push-ilmoitus (Teron päätös 21.10.):** `notifReviewEraantyy` käyttää samaa sääntöä kuin sovellus (`tmRytmiPelaajalle`, `functions/rytmi_notif.js`): ei pushia jos jakso päättyy viimeistään eräpäivänä; teksti "Jakson yhteenveto tai kehityskeskustelu viimeistään {pvm}" (sv erä 80).
 
 **Lähde:** Teron tuotantotesti 20.10.2026 klo 22.08 — Topiaksen jakso käynnissä vk 1/6 (19.10.–30.11.), silti "Jakson arviointi erääntymässä" (uusi sivu) ja "Katselmus erääntymässä" (Master). Tero itse ei ymmärtänyt, mitä tapahtuu.
 

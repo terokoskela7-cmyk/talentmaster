@@ -1,6 +1,6 @@
 # K1d — Sanasto, yhteenvetorytmi selkeäksi, Masterin kenttä, pelaajan tavoitenäkymä (D-päätös lokissa, erä 80)
 
-Lähde: `.briefit/CODE_BRIEF_K1D_SANASTO_YHTEENVETO.md` (20.10.2026). Kaista: **Tero** (HTML, sw, libit). **Ei uusia Firestore-kenttiä, ei Rules-muutoksia, ei `functions/`-muutoksia.** Ruotsia ei kirjoiteta: kaikki uudet/muuttuneet tekstit erään 80 (`scripts/i18n_luo_gemini_era80.mjs`). Suunnitelma on ensimmäinen commit; teksti-inventaari (vanha → uusi) täydennetään `docs/K1D_TEKSTIMUUTOKSET.md`:hen ja PR-kuvaukseen.
+Lähde: `.briefit/CODE_BRIEF_K1D_SANASTO_YHTEENVETO.md` (20.10.2026). Kaista: **Tero** (HTML, sw, libit). **Ei uusia Firestore-kenttiä, ei Rules-muutoksia. `functions/`: Teron päätös 21.10. — UI-merkkijonokopiot + `notifReviewEraantyy` samaan sääntöön kuin sovellus (oma commit, Teron deploy).** Ruotsia ei kirjoiteta: kaikki uudet/muuttuneet tekstit erään 80 (`scripts/i18n_luo_gemini_era80.mjs`). Suunnitelma on ensimmäinen commit; teksti-inventaari (vanha → uusi) täydennetään `docs/K1D_TEKSTIMUUTOKSET.md`:hen ja PR-kuvaukseen.
 
 ## 1. Juurisyy — vahvistettu koodista
 
