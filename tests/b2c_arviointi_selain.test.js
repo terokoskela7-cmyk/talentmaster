@@ -17,7 +17,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · Jakson
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: pelaajat() }); await odota(p); await avaaSheet(p);
       expect(await p.locator('[data-ts-tausta].ts-pitka').count()).toBe(1); expect(await p.locator('[role="dialog"]').count()).toBe(1); expect(await p.locator('#_kvkModal').count()).toBe(0);
-      expect(await p.locator('[data-kvk-kysymys]').count()).toBe(3); expect(await p.locator('[data-kvk-syvenna]').count()).toBe(0); expect(await p.locator('[data-kvk-k3], [data-k3]').count()).toBe(0);
+      expect(await p.locator('[data-kvk-kysymys]').count()).toBe(3); expect(await p.locator('[data-kvk-syvenna]').count()).toBe(0); expect(await p.locator('[data-kvk-k3], [data-k3], [data-k3-osio]').count()).toBe(0);   /* K3a: osio näkyy vain kun valmentaja valitsee "Anna pelaajan valita" (tests/k3a_selain.test.js) */
       expect(await p.locator('[id^="tsOtsikko_"]').first().innerText()).toMatch(/^Sulje jakso · 1\. kosketus/);
       expect(await p.locator('[data-kvk-kysymys="nakyi"] [data-kvk-arvo]').allInnerTexts()).toEqual(['Ei vielä', 'Ohjatusti', 'Itsenäisesti']);   // sama sanasto kuin havaintonapeilla
       expect(SN.tmSanastoKielletyt(await p.evaluate(() => document.body.innerText))).toEqual([]);
