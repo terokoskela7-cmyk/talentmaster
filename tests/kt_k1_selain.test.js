@@ -83,7 +83,12 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K1 · klippi,
 
   it('TYÖKALUT: Taktiikka · Itsearvio · Kehittyminen · Asetukset avaavat Masterin työkalun suoraan (?toiminto=…) valikosta klikaten, eivät laskeudu pelkkään Kotiin; + Havainto ennallaan', async () => {
     await avaa(); try {
-      const odotettu = [['avaaKaaviopankki()', 'taktiikka'], ['avaaHarjoitusarviointi()', 'itsearvio'], ['avaaValmentajaKehitys()', 'kehittyminen'], ['avaaCoachProfiili()', 'asetukset'], ["openDrill('adar')", 'havainto']];
+      {   // K1b (kohta 7): Taktiikka avaa taulun MODAALINA pelaajakortin päälle (ei Masteriin hyppyä, osoite ei muutu)
+        const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: P('p2') }); await masterKorvaus(p); await odota(p); const osoite = p.url();
+        await p.locator('#nvSide [onclick="TM_VALMENTAJA_NAV.tmNavTyokalut()"]').click(); await p.locator('[onclick="avaaKaaviopankki()"]:visible').first().click(); await p.waitForSelector('iframe[data-kt-taulu-iframe]');
+        expect(p.url()).toBe(osoite); expect(masterissa(p)).toBe(false); expect(await p.locator('iframe[data-kt-taulu-iframe]').getAttribute('src')).toMatch(/\?upotettu=taktiikka&pid=p2/); await sk.close();
+      }
+      const odotettu = [['avaaHarjoitusarviointi()', 'itsearvio'], ['avaaValmentajaKehitys()', 'kehittyminen'], ['avaaCoachProfiili()', 'asetukset'], ["openDrill('adar')", 'havainto']];
       for (const [onclick, toiminto] of odotettu) {
         const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: P('p2') }); await masterKorvaus(p); await odota(p);
         if (toiminto !== 'havainto' && toiminto !== 'asetukset') await p.locator('#nvSide [onclick="TM_VALMENTAJA_NAV.tmNavTyokalut()"]').click();   // Työkalut ▸ auki

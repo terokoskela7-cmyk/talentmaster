@@ -6,6 +6,17 @@
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
 (function(){var APP_VERSION='1792478823544';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+<style>/* K1b: kirjautumislomaketta ei näytetä ennen kuin Firebase on kertonut istunnon tilan (deeplink ?ws=…&toiminto=… ei saa vilauttaa "kirjautumista ulos"). _naytaLogin() poistaa luokan. */
+html.tm-auth-odottaa #sLogin{display:none!important}
+html.tm-auth-odottaa body::after{content:"";position:fixed;left:50%;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid rgba(128,128,120,.3);border-top-color:#28B090;border-radius:50%;animation:tmAuthSpin .8s linear infinite}
+@keyframes tmAuthSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){html.tm-auth-odottaa body::after{animation:none}}</style>
+<script>document.documentElement.classList.add('tm-auth-odottaa');</script>
+<style>/* K1b (kohta 7): upotettu tila (?upotettu=taktiikka, iframe Kehitystyöpöytä-sivun päällä): vain taulu näkyy; Masterin kuori ja kirjautumislomake piiloon. lib/tm_kt_taulu.js */
+html.tm-upotettu #sDash,html.tm-upotettu #sLogin{display:none!important}
+html.tm-upotettu body::after{content:"";position:fixed;left:50%;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid rgba(128,128,120,.3);border-top-color:#28B090;border-radius:50%;animation:tmAuthSpin .8s linear infinite}
+html.tm-upotettu.tm-upotettu-valmis body::after{display:none}</style>
+<script>try{if(/[?&]upotettu=taktiikka(&|$)/.test(location.search)){document.documentElement.classList.add('tm-upotettu');var _ut=/[?&]teema=(dark|light)(&|$)/.exec(location.search);window.__tmUpotTeema=_ut?_ut[1]:null;}}catch(e){}</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -35,7 +46,7 @@
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt (CPD-raportin "Kausi:") — sama lähde kuin VP/Admin -->
 <script src="lib/tm_lang.js?v=48"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_lib_i18n.js?v=21"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
+<script src="lib/tm_lib_i18n.js?v=22"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="lib/tm_i18n_common.js?v=13"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_master_i18n.js?v=36"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
@@ -152,9 +163,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_tanaan_signaali.js?v=9"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
 <script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
 <script src="lib/tm_kevyt_katselmus.js?v=4"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
-<script src="lib/tm_kentta.js?v=5"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
+<script src="lib/tm_kentta.js?v=6"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=4"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
-<script src="lib/tm_kentta_spec.js?v=2"></script>   <!-- B1: Kenttä-spec pelaajadokumentista (alue → ase, jakso → reitti, viikot, osat, historia; yksi adapteri) -->
+<script src="lib/tm_kentta_spec.js?v=3"></script>   <!-- B1: Kenttä-spec pelaajadokumentista (alue → ase, jakso → reitti, viikot, osat, historia; yksi adapteri) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
 <script src="lib/tm_kt_komponentit.js?v=4"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
 <script src="lib/tm_kalenteri_tyypit.js?v=4"></script>   <!-- K35-1: kalenterin tyyppirekisteri (D186) -->
@@ -166,12 +177,12 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
 <script src="lib/tm_valmentaja_koti.js?v=4"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=4"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
-<script src="lib/tm_valmentaja_nav.js?v=3"></script><script src="lib/tm_kt_sivu.js?v=3"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit ja Masterin paluuparametrit -->   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
+<script src="lib/tm_valmentaja_nav.js?v=3"></script><script src="lib/tm_kt_sivu.js?v=4"></script><script src="lib/tm_kt_taulu.js?v=2"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit ja Masterin paluuparametrit -->   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
 <script src="lib/tm_harjoituskertyma.js?v=2"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=3"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=5"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
 <script src="lib/tm_kalenteri_omat.js?v=2"></script>   <!-- K35-6d: joukkueen omat (vapaa, erikoisohjelma, joukkueen valmennuspalaveri; D240–D242) -->
-<script src="lib/tm_kehitystyopoyta.js?v=34"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
+<script src="lib/tm_kehitystyopoyta.js?v=35"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
@@ -2374,6 +2385,7 @@ setTimeout(() => {
   if (!dash || !login) return;
   const dashHidden = dash.classList.contains('hidden');
   const loginHidden = login.classList.contains('hidden');
+  if (dashHidden && document.documentElement.classList.contains('tm-auth-odottaa')) { console.warn('[v16] Auth timeout 8s — näytä login'); document.documentElement.classList.remove('tm-auth-odottaa'); return; }   // K1b: Firebase ei vastannut → lomake näkyviin (ei ikuista spinneriä)
   if (dashHidden && loginHidden) {
     console.warn('[v16] Auth timeout 8s — pakota login');
     _kirjautuminenKesken = false;
@@ -2382,6 +2394,8 @@ setTimeout(() => {
 }, 8000);
 
 function _naytaLogin() {
+  document.documentElement.classList.remove('tm-auth-odottaa');   // K1b: istunnon tila tiedossa → lomake saa näkyä
+  if (window.TM_KT_TAULU && window.TM_KT_SIVU) window.TM_KT_TAULU.tmKtTauluMasterEiIstuntoa({ win: window, parametrit: window.TM_KT_SIVU.tmKtTauluParametrit });   // K1b: upotettu taulu ei saanut istuntoa → isäntä kertoo (ei lomaketta iframeen)
   document.getElementById('sLogin').classList.remove('hidden');
   document.getElementById('sDash').classList.add('hidden');
 }
@@ -2394,6 +2408,7 @@ function naytaVirhe(viesti) {
 }
 
 function _naytaDash() {
+  document.documentElement.classList.remove('tm-auth-odottaa');   // K1b: istunto vahvistettu → odotusspinneri pois
   document.getElementById('sLogin').classList.add('hidden');
   document.getElementById('sDash').classList.remove('hidden');
 }
@@ -4812,6 +4827,7 @@ function _alusta(nimi) {
   if (window.TM_VALMENTAJA_NAV && !_demo) window.TM_VALMENTAJA_NAV.tmNavAsenna({ db: _db, seuraId: _seuraId, t: masterT, ws: () => _ws, ryhmia: () => _mRyHaeLista().then(l => l.length > 0) }).then(on => { window._tmNavV2 = !!on; if (on) setWs(window.TM_VALMENTAJA_NAV.tmNavReitti(_ws).ws); _mKtSivuParametrit(); }).catch(() => {});
   if (!_demo && typeof _mJjLataaLiput === 'function') _mJjLataaLiput().then(l => { window._tmKtSivu = !!(l && l.kehitystyopoyta_v2 === true); }).catch(() => {});   // B7: oma lippu kehitystyopoyta_v2 (ei valmentaja_v2)   // V-KOTI B: lippu liput.valmentaja_v2
   setWs(_ws);   // 'koti' → renderKoti → renderCoachAloitaKortti (pysyvä "Aloita tästä" -kortti, gating localStorage)
+  if (window.TM_KT_TAULU && window.TM_KT_SIVU) window.TM_KT_TAULU.tmKtTauluMasterAvaa({ win: window, doc: document, parametrit: window.TM_KT_SIVU.tmKtTauluParametrit, nimi: function (pid) { const p = (_pelaajatData || []).find(function (x) { return x.id === pid; }); return p ? _tmHenkiloNimi(p) : ''; }, avaa: function () { return avaaKaaviopankki(); } });   // K1b: upotettu tila (?upotettu=taktiikka) → taulu heti
 }
 
 function _setGreet(nimi) { window._mGreetNimi = nimi;
@@ -11412,7 +11428,7 @@ function toggleTheme() {
 (function() {
   const saved = localStorage.getItem('tm-theme');
   // #77: oletus Carbon-tumma (§5) kun ei tallennettua valintaa — ei vaalea. Vaalea jää valitsimeen.
-  const theme = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+  const theme = window.__tmUpotTeema || ((saved === 'light' || saved === 'dark') ? saved : 'dark');   // K1b: upotettuna isännän teema
   document.documentElement.dataset.theme = theme;
   const icon = document.getElementById('themeIcon');
   if (icon) icon.href.baseVal = theme === 'dark' ? '#ic-sun' : '#ic-moon';

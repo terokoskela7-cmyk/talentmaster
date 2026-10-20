@@ -39,40 +39,29 @@ describe('tmKentta osaPisteet: napautettava piste, ei tilatekstiä', () => {
   });
   it('nimen sanaväli: .kt-ase b saa word-spacing (kapea Archivo nielaisi "1. kosketus" välilyönnin)', () => { expect(K.tmKenttaCss()).toMatch(/\.kt-ase b\{[^}]*word-spacing:\.2em/); });
 });
-describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('Kentän pisteet uudella sivulla', () => {
+describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('Kentän ydinasiapisteet poistettu uudelta sivulta (K1b kohta 3)', () => {
   let selain; const avaa = async () => { selain = await selainKaynnista(); };
   const YV = { kuvaus: '1. kosketus', alue: { x: 25, y: 35, w: 50, h: 61 }, alue_avain: 'keskusta', asetti_uid: 'u1', asetettu_pvm: '2026-10-01' };
   const pel = () => PELAAJAT.map((x) => x.id === 'p2' ? Object.assign({}, x, { ydinvahvuus: YV, jaksofokus: Object.assign({}, x.jaksofokus, { osa_arviot: { y_h1: { a: 3, b: 2, c: 1 } } }) }) : x);
-  it('pisteet a–e Kentällä: aria-label "a · Käännä pää pallon ollessa matkalla · osaa jo"; arvioimaton himmeä ja ilman tilatekstiä; ei päällekkäin (DOM-laatikot); sanaväli', async () => {
+  it('valmentaja ja VP, 390 + 1280: kentällä ei kirjainpisteitä (a–e), vain alue + ydinvahvuuden nimi; ydinasiat ovat Osat-listassa a–e; osarivin napautus avaa viikkohavaintosheetin; ei vaakavieritystä', async () => {
     await avaa(); try {
-      for (const [w, h] of [[1280, 900], [390, 844]]) {
-        const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', leveys: w, korkeus: h, pelaajat: pel() }); await p.waitForSelector('.kt-piste');
-        expect(await p.locator('.kt-piste').count()).toBe(5); expect(await p.locator('.kt-piste').evaluateAll((e) => e.map((x) => x.textContent))).toEqual(['a', 'b', 'c', 'd', 'e']);
-        expect(await p.locator('[data-kt-piste="a"]').getAttribute('aria-label')).toBe('a · Käännä pää pallon ollessa matkalla · osaa jo'); expect(await p.locator('[data-kt-piste="b"]').getAttribute('aria-label')).toMatch(/^b · Valitse: hyökkää palloa vastaan.* · tällä viikolla$/); expect(await p.locator('[data-kt-piste="c"]').getAttribute('aria-label')).toMatch(/ · myöhemmin$/);
-        expect(await p.locator('[data-kt-piste="d"]').getAttribute('aria-label')).toBe('d · Suuntaa ensimmäinen kosketus seuraavaan toimintoon tai pois vastustajalta');   // arvioimaton: ei tilaa
-        expect(await p.locator('.kt-piste.kt-piste-ei').count()).toBe(2); expect(await p.locator('[data-kt-piste="d"]').evaluate((e) => getComputedStyle(e).opacity)).toBe('0.5'); expect(await p.locator('[data-kt-piste="a"]').evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
-        expect(await p.locator('.kt-t-kentta .kt-layer').evaluate((e) => e.innerText.replace(/\s/g, ''))).toBe('1.kosketusydinvahvuusabcde');   // pisteissä vain kirjain; ei tilatekstiä ("osaa jo" yms.)
-        const bb = await p.locator('.kt-piste').evaluateAll((e) => e.map((x) => { const r = x.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }));
-        for (let i = 0; i < bb.length; i++) for (let j = i + 1; j < bb.length; j++) { const a = bb[i], b = bb[j]; expect(a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3], 'päällekkäin ' + i + '/' + j + ' @' + w).toBe(false); }
-        expect(await p.locator('.kt-ase b').evaluate((e) => parseFloat(getComputedStyle(e).wordSpacing))).toBeGreaterThan(0);
-        expect(await p.evaluate(() => { const d = document.documentElement; return d.scrollWidth - d.clientWidth; })).toBeLessThanOrEqual(0); await sk.close();
+      for (const rooli of ['valmentaja', 'vp']) for (const [w, h] of [[1280, 900], [390, 844]]) {
+        const { sk, p } = await kaynnista(selain, { rooli, hash: '#pelaaja/p2/tanaan', leveys: w, korkeus: h, pelaajat: pel() }); await p.waitForSelector('.kt-t-kentta .kt-ase');
+        const nimi = rooli + '@' + w;
+        expect(await p.locator('.kt-piste').count(), nimi).toBe(0); expect(await p.locator('.kt-t-kentta .kt-osa').count(), nimi).toBe(0);
+        expect(await p.locator('.kt-t-kentta .kt-layer').evaluate((e) => e.innerText.replace(/\s/g, '')), nimi).toBe('1.kosketusydinvahvuus');   // vain nimi + selite, ei a–e
+        expect(await p.locator('[data-kt-osa]').evaluateAll((e) => e.map((x) => x.querySelector('.kt-osa-k').textContent)), nimi).toEqual(['a', 'b', 'c', 'd', 'e']);
+        expect(await p.evaluate(() => { const d = document.documentElement; return d.scrollWidth - d.clientWidth; })).toBeLessThanOrEqual(0);
+        await p.locator('[data-kt-osa="c"]').click(); await p.waitForSelector('[data-ts-sheet]'); expect(await p.locator('[id^="tsOtsikko_"]').first().innerText(), nimi).toMatch(/Viikkohavainto/);
+        await sk.close();
       }
     } finally { await selain.close(); }
-  }, 90000);
-  it('pisteen napautus avaa SAMAN havaintosheetin kuin osarivin napautus (sama funktio _ktHavaintoLisaa): sama otsikko ja sama valittu osa', async () => {
-    await avaa(); try {
-      const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: pel() }); await p.waitForSelector('.kt-piste');
-      const sheetTila = async () => ({ otsikko: await p.locator('[id^="tsOtsikko_"]').first().innerText(), id: await p.locator('[data-ts-sheet]').first().getAttribute('data-ts-sheet'), osa: await p.locator('[data-kt-havainto-sheet-osa], #ktHavLause').count() });
-      await p.locator('[data-kt-piste="c"]').click(); await p.waitForSelector('[data-ts-sheet]'); const piste = await sheetTila(); await p.locator('[data-ts-sulje]').click(); await p.waitForSelector('[data-ts-sheet]', { state: 'detached' });
-      await p.locator('[data-kt-osa="c"]').click(); await p.waitForSelector('[data-ts-sheet]'); const rivi = await sheetTila();
-      expect(piste).toEqual(rivi); expect(piste.otsikko).toMatch(/Viikkohavainto/); await sk.close();
-    } finally { await selain.close(); }
-  }, 60000);
-  it('TM_KUVAT=1 · kuvat 1280 + 390 (tumma): Kenttä pisteineen', async () => {
+  }, 120000);
+  it('TM_KUVAT=1 · kuvat 1280 + 390 (tumma): Kenttä ilman pisteitä', async () => {
     if (!process.env.TM_KUVAT) return; mkdirSync(KUVAT, { recursive: true }); await avaa(); try {
       for (const [n, w, h] of [['1280', 1280, 900], ['390', 390, 844]]) {
-        const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', leveys: w, korkeus: h, pelaajat: pel() }); await p.waitForSelector('.kt-piste'); await p.waitForTimeout(300);
-        await p.locator('.kt-t-kentta').scrollIntoViewIfNeeded(); await p.waitForTimeout(200); await p.screenshot({ path: join(KUVAT, 'tanaan-kentta-pisteet-' + n + '.png') }); await p.locator('.kt-t-kentta').screenshot({ path: join(KUVAT, 'kentta-pisteet-' + n + '.png') }); await sk.close();
+        const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', leveys: w, korkeus: h, pelaajat: pel() }); await p.waitForSelector('.kt-ase'); await p.waitForTimeout(300);
+        await p.locator('.kt-t-kentta').scrollIntoViewIfNeeded(); await p.waitForTimeout(200); await p.locator('.kt-t-kentta').screenshot({ path: join(KUVAT, 'kentta-ilman-pisteita-' + n + '.png') }); await sk.close();
       }
     } finally { await selain.close(); }
   }, 90000);

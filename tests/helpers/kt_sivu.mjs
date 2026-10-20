@@ -27,7 +27,7 @@ export const DOKIT = (opts) => Object.assign({
   'seurat/demo/joukkueet/demo_u15': { nimi: 'Demo U15', ika: 'U15' },
 }, opts.dokit || {});
 
-const STUB = (cfg) => '(function(){var D=' + JSON.stringify(cfg.dokit) + ',U=' + JSON.stringify(cfg.kayttaja) + ';window.__kirj=[];window.__pyynnot=[];'
+export const STUB = (cfg) => '(function(){var D=' + JSON.stringify(cfg.dokit) + ',U=' + JSON.stringify(cfg.kayttaja) + ';window.__kirj=[];window.__pyynnot=[];'
   + 'function clone(x){return JSON.parse(JSON.stringify(x))}'
   + 'function getP(o,p){return p.split(".").reduce(function(a,k){return a==null?a:a[k]},o)}'
   + 'function setP(o,p,v){var k=p.split("."),c=o;for(var i=0;i<k.length-1;i++){if(c[k[i]]==null||typeof c[k[i]]!=="object")c[k[i]]={};c=c[k[i]]}c[k[k.length-1]]=v}'

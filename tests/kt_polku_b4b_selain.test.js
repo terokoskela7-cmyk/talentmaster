@@ -41,7 +41,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4b · Polku:
       const ääni = await p.locator('[data-kt-aani]').innerText(); expect(ääni).toContain('Katsoin ennen kuin sain pallon'); expect(ääni).toContain('Klippivastaus'); expect(ääni).toContain('Viikkokatsaus'); expect(ääni).toContain('Kauden tavoite omin sanoin'); expect(await p.locator('[data-kt-aani] textarea, [data-kt-aani] input').count()).toBe(0);
       expect(await p.locator('[data-kt-historia-n]').getAttribute('data-kt-historia-n')).toBe('2');
       const hist = await p.locator('[data-kt-historia]').innerText(); expect(hist).toContain('17.8.–27.9.'); expect(hist).toMatch(/↗ 2\/\d osaa itsenäisesti/); expect(hist).toContain('”Hyvä jakso, kuljetus näkyy pelissä.” – valmentajan lause'); expect(hist).toContain('vaihdettu');
-      expect(await p.locator('[data-kt-h-klipit] summary').innerText()).toBe('Klipit (1)'); await p.locator('[data-kt-h-klipit] summary').click(); expect(await p.locator('[data-kt-h-klipit] [data-kt-klippi="k_hist"]').isVisible()).toBe(true);
+      expect(await p.locator('[data-kt-h-klipit] summary').innerText()).toBe('Klipit (1) · ”Historian klippi”');   /* K1b: viimeisimmän klipin kysymys Klipit-rivin perässä */ await p.locator('[data-kt-h-klipit] summary').click(); expect(await p.locator('[data-kt-h-klipit] [data-kt-klippi="k_hist"]').isVisible()).toBe(true);
       expect(await p.locator('[data-kt-polku]').innerText()).not.toContain('Seuraava askel'); expect(await eiVaakavieritysta(p)).toBe(true);
       await kuva(p, 'polku_1280_vaalea_normaali'); expect(ulkoiset).toEqual([]); expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
