@@ -36,7 +36,7 @@ describe('kuorikytkennät + Rules-vartija', () => {
     expect(VP).toContain("vastaavaFn: '_ryVastaava'"); expect(VP).toContain('window._ryVastaava = function (uid)'); expect(VP).toContain("vastuu_uid: r.vastuu_uid || ''"); expect(VP).toContain('if (S.vastuu_uid === uid) S.vastuu_uid = \'\';'); expect(VP).toContain('data.valmentajat && !data.vastuu_uid ? { vastuu_uid: firebase.firestore.FieldValue.delete() }');
   });
   it('Rules v3.61: version, changelog, ryhmaKelpaa sallii vastuu_uid, ryhmanVastaavaTapahtumassa + update-haara kohde/luoja lukittuna (emulaattoritestit: tests/rules)', () => {
-    expect(RULES).toMatch(/firestore\.rules v3\.(61|62|63|64)/); expect(RULES).toContain('Muutokset v3.60 → v3.61'); expect(RULES).toContain("'muokattu', 'vastuu_uid'])"); expect(RULES).toContain('function ryhmanVastaavaTapahtumassa(seuraId)'); expect(RULES).toContain("ryhmaDoc(seuraId, resource.data.kohde.ryhma_id).get('vastuu_uid', '') == request.auth.uid");
+    expect(RULES).toMatch(/firestore\.rules v3\.(61|62|63|64|65)/); expect(RULES).toContain('Muutokset v3.60 → v3.61'); expect(RULES).toContain("'muokattu', 'vastuu_uid'])"); expect(RULES).toContain('function ryhmanVastaavaTapahtumassa(seuraId)'); expect(RULES).toContain("ryhmaDoc(seuraId, resource.data.kohde.ryhma_id).get('vastuu_uid', '') == request.auth.uid");
     expect(RULES).toContain("request.resource.data.kohde.get('ryhma_id', '') == resource.data.kohde.ryhma_id"); expect(RULES).toContain("request.resource.data.get('luoja_uid', '') == resource.data.get('luoja_uid', '')");
     expect(fs.readFileSync(path.join(__dirname, 'rules', 'firestore.rules.test.js'), 'utf8')).toContain("v3.61 · K35-6c (D196)");
   });
