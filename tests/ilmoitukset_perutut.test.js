@@ -69,9 +69,10 @@ describe('B2 · kuittaus laitteelle', () => {
     const uusi = peruttu({ tapahtuma_alkaa: ts(D(2026, 9, 21, 17)), luotu: ts(D(2026, 9, 19, 9)) });
     expect(K.tmIlmoitusNakyvissa(uusi, [], NYT, K.tmIlmoitusKuitatut(S, 'p'))).toBe(true);
   });
-  it('kuittaus koskee vain peruttua; rikkinäinen / puuttuva muisti ei kaada', () => {
+  it('kuittaus koskee kaikkia tyyppejä (K1c: "Kuittaa kaikki" kuittaa muistutukset ja muutokset); uusi CF-päivitys (uusi luotu) näkyy uudelleen; rikkinäinen / puuttuva muisti ei kaada', () => {
     const S = muisti(); K.tmIlmoitusKuittaa(S, 'p', { id: 'm', tyyppi: 'muutos', luotu: ts(D(2026, 9, 18)) });
-    expect(K.tmIlmoitusNakyvissa({ id: 'm', tyyppi: 'muutos', teksti: 'Muutos: X', luotu: ts(D(2026, 9, 18)) }, [], NYT, K.tmIlmoitusKuitatut(S, 'p'))).toBe(true);
+    expect(K.tmIlmoitusNakyvissa({ id: 'm', tyyppi: 'muutos', teksti: 'Muutos: X', luotu: ts(D(2026, 9, 18)) }, [], NYT, K.tmIlmoitusKuitatut(S, 'p'))).toBe(false);
+    expect(K.tmIlmoitusNakyvissa({ id: 'm', tyyppi: 'muutos', teksti: 'Muutos: X', luotu: ts(D(2026, 9, 19)) }, [], NYT, K.tmIlmoitusKuitatut(S, 'p'))).toBe(true);
     expect(K.tmIlmoitusKuitatut({ getItem: () => '{rikki' }, 'p')).toEqual([]);
     expect(K.tmIlmoitusKuittaa({ getItem: () => null, setItem: () => { throw new Error('täynnä'); } }, 'p', tul())).toBe(false);
     expect(K.tmIlmoitusKuitatut(null, 'p')).toEqual([]);
@@ -90,15 +91,15 @@ function pura(src, tunniste) {
   throw new Error('sulkeet');
 }
 class FD extends Date { constructor(...a) { if (a.length === 0) super(NYT.getTime()); else super(...a); } }
-const LIB = lue('lib/tm_kalenteri_ilmoitus.js');
+const LIB = lue('lib/tm_kalenteri_ilmoitus.js'), LISTA = lue('lib/tm_ilmoitus_lista.js');   // K1c: rivit renderöi lib/tm_ilmoitus_lista.js
 function app(nimi, notifit, storage) {
   const pel = nimi === 'pelaaja';
   const src = lue(pel ? 'TalentMaster_Pelaaja_v7.html' : 'TalentMaster_Vanhempi_v2.html');
   const win = pel ? { _p7Notif: notifit, _p7Kalenteri: [], localStorage: storage } : { _vanhNotif: notifit, _vanhKalenteri: [], _lapsi: { seuraId: 's1', id: 'p1' }, localStorage: storage };
-  const sb = { Date: FD, String, Array, Object, RegExp, JSON, console: { warn() {} }, setTimeout() {}, document: { querySelectorAll: () => [] }, t: LANG.t, T: (k) => (k === 'ilmoitukset' ? 'Ilmoitukset' : LANG.t(k)), draw() {}, window: win, _ladattu: { notif: true }, _vanhNotifLadattu: true, _P7_NOTIF_IKO: {}, _VANH_NOTIF_IKO: {}, _thEsc: (s) => s, _pelaaja: { seuraId: 's1', id: 'p1' }, _isDemoUser: false };
-  vm.createContext(sb); vm.runInContext(LIB, sb);
+  const sb = { Date: FD, String, Array, Object, RegExp, JSON, console: { warn() {} }, setTimeout() {}, document: { querySelectorAll: () => [], querySelector: () => null }, t: LANG.t, T: (k) => (k === 'ilmoitukset' ? 'Ilmoitukset' : LANG.t(k)), draw() {}, window: win, _ladattu: { notif: true }, _vanhNotifLadattu: true, _P7_NOTIF_IKO: {}, _VANH_NOTIF_IKO: {}, _thEsc: (s) => s, _pelaaja: { seuraId: 's1', id: 'p1' }, _isDemoUser: false };
+  vm.createContext(sb); vm.runInContext(LIB, sb); vm.runInContext(LISTA, sb);
   vm.runInContext(pel ? "var _P7_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];" : "var _VANH_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];", sb);
-  const f = pel ? ['function _p7Vkopv(', 'function _p7KuittausTunniste(', 'function _p7Kuitatut(', 'function _p7NotifHTML(', 'function _p7NotifKuittaa(', 'function _p7NotifTap('] : ['function _vanhVkopv(', 'function _vanhKuittausTunniste(', 'function _vanhKuitatut(', 'function _vanhNotifHTML(', 'function _vanhNotifKuittaa(', 'function _vanhNotifTap('];
+  const f = pel ? ['function _p7Vkopv(', 'function _p7KuittausTunniste(', 'function _p7Kuitatut(', 'function _p7NotifHTML(', 'function _p7NotifKuittaa(', 'function _p7NotifKuittaaIdt(', 'function _p7NotifTap('] : ['function _vanhVkopv(', 'function _vanhKuittausTunniste(', 'function _vanhKuitatut(', 'function _vanhNotifHTML(', 'function _vanhNotifKuittaa(', 'function _vanhNotifKuittaaIdt(', 'function _vanhNotifTap('];
   vm.runInContext(f.map((x) => pura(src, x)).join('\n') + '\nthis.html = ' + (pel ? '_p7NotifHTML' : '_vanhNotifHTML') + '; this.kuittaa = ' + (pel ? '_p7NotifKuittaa' : '_vanhNotifKuittaa') + '; this.tap = ' + (pel ? '_p7NotifTap' : '_vanhNotifTap') + ';\nthis._p7MerkitseLuettu = this._vanhMerkitseLuettu = function () {};', sb);
   return sb;
 }

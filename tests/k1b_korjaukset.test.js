@@ -185,7 +185,7 @@ describe.skipIf(!CHROME_PAALLA)('K1b/7 · taktiikkataulu modaalina pelaajakortin
         const src = await p.locator(IFR).getAttribute('src'); expect(src, nm).toMatch(/^TalentMaster_Master_v16\.html\?upotettu=taktiikka&pid=p2&yv=1\.%20kosketus&teema=dark$/);
         await p.locator('[data-kt-taulu-sulje]').click(); await p.waitForSelector(IFR, { state: 'detached' });
         await p.evaluate(() => window.avaaKaaviopankki()); await p.waitForSelector(IFR); expect(await p.locator('#_ktTauluModal').count(), nm + ' Työkalut').toBe(1); expect(await p.locator(IFR).getAttribute('src'), nm).toContain('pid=p2');
-        await p.evaluate(() => window.avaaKaaviopankki()); expect(await p.locator('#_ktTauluModal').count(), nm + ': kaksi modaalia').toBe(1); await p.locator('#_ktTauluModal').click({ position: { x: 3, y: 3 } }); await p.waitForSelector(IFR, { state: 'detached' });   // tausta sulkee
+        await p.evaluate(() => window.avaaKaaviopankki()); expect(await p.locator('#_ktTauluModal').count(), nm + ': kaksi modaalia').toBe(1); await p.keyboard.press('Escape'); await p.waitForSelector(IFR, { state: 'detached' });   // K1c: koko näytön tilassa ei taustaa → Esc sulkee (Master ei vastaa → isäntä sulkee 700 ms:n jälkeen)
         await p.evaluate(() => window.avaaKaaviopankki()); await p.waitForSelector(IFR); await p.keyboard.press('Escape'); await p.waitForSelector(IFR, { state: 'detached' });   // Esc sulkee
         // Polku ⋯
         await p.locator('[data-kt-valilehti="polku"]').click(); await p.waitForSelector('.kt-pk-valikko'); await p.locator('.kt-pk-valikko > summary').click(); await p.locator('#ktSivu_polku [data-kt-piirra-taululle]').click(); await p.waitForSelector(IFR);
@@ -198,8 +198,8 @@ describe.skipIf(!CHROME_PAALLA)('K1b/7 · taktiikkataulu modaalina pelaajakortin
     const selain = await selainKaynnista(); try {
       const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', leveys: 390, korkeus: 844, pelaajat: pel() }); await masterTynkaan(p); await odota(p); await p.waitForSelector('.kts-kentta-valikko');
       await p.locator('.kts-kentta-valikko > summary').click(); await p.locator('#ktSivu_tanaan [data-kt-piirra-taululle]').click(); await p.waitForSelector(IFR);
-      const b = await p.evaluate(() => { const m = document.getElementById('_ktTauluModal').firstChild.getBoundingClientRect(), f = document.querySelector('iframe[data-kt-taulu-iframe]').getBoundingClientRect(); return { w: m.width, h: m.height, fw: f.width, fl: f.left, innerW: innerWidth, innerH: innerHeight }; });
-      expect(b.w).toBe(b.innerW); expect(b.h).toBe(b.innerH); expect(b.fw).toBe(b.innerW); expect(b.fl).toBe(0);
+      const b = await p.evaluate(() => { const m = document.getElementById('_ktTauluModal').getBoundingClientRect(), f = document.querySelector('iframe[data-kt-taulu-iframe]').getBoundingClientRect(); return { w: m.width, h: m.height, fw: f.width, fl: f.left, innerW: innerWidth, innerH: innerHeight }; });
+      expect(b.w).toBe(b.innerW); expect(b.h).toBe(b.innerH); expect(b.fw).toBe(b.innerW); expect(b.fl).toBe(0);   // K1c: sama koko näyttö kaikilla leveyksillä (100vw × 100dvh)
       await p.goBack(); await p.waitForSelector(IFR, { state: 'detached', timeout: 5000 }); await sk.close();
     } finally { await selain.close(); }
   }, 90000);

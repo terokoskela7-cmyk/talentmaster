@@ -40,12 +40,12 @@ describe('pelaajan Viikko-kortti ja kenttäspec lukevat saman säännön', () =>
     expect(VO.tmViikonOsaPelaajalle(jf(), raaka(jf()), NYT)).toBe('a');
     const v = jf({ viikon_osa: { koodi: 'x', pvm: NYT } }); expect(VO.tmViikonOsaPelaajalle(v, raaka(v), NYT)).toBe('a');   // ydinasioilla ei koodeja (explisiittinen osat[]) → valinta ei osu → laskentasääntö
   });
-  it('osat koodeilla (konsepti-kaanon): valinta näkyy pelaajan kortilla "tällä viikolla" -merkkinä oikealla rivillä; ei merkkiä kun viikonOsa puuttuu', () => {
+  it('osat koodeilla (konsepti-kaanon): valinta näkyy pelaajan kortilla "Tämän viikon fokus" -merkkinä oikealla rivillä (K1c); ei merkkiä kun viikonOsa puuttuu', () => {
     const kaanon = () => ({ kpi: [{ koodi: 'a', teksti: 'Käännä pää' }, { koodi: 'b', teksti: 'Valitse suunta' }, { koodi: 'c', teksti: 'Ota haltuun' }, { koodi: 'd', teksti: 'Suuntaa kosketus' }] });
     const j = { konsepti_avain: 'y_h1', osa_arviot: { y_h1: { a: 3 } }, viikon_osa: { koodi: 'd', pvm: NYT } }, r = TK.tmTanaanOsat(j, { kaanon, max: 26 });
     expect(VO.tmViikonOsaPelaajalle(j, r, NYT)).toBe('d'); expect(VO.tmViikonOsaPelaajalle(Object.assign({}, j, { viikon_osa: { koodi: 'd', pvm: '2026-10-12' } }), r, NYT)).toBe('b');   // vanha valinta → laskentasääntö (a itsenäisesti → b)
     const html = (viikonOsa) => TK.tmTanaanKenttaHTML({ tila: 'jakso', nimi: 'Haltuunotto', viikko: { n: 3, k: 6 }, kesto_vk: 6, vahvuus: 'X', osat: TK.tmTanaanOsat(j, { kaanon }), viikonOsa }, { esc: (s) => String(s), t: (k) => k });
-    const h = html('c'); expect(h.match(/data-k1-viikon-osa/g)).toHaveLength(1); expect(h).toMatch(/Ota haltuun<\/span><span[^>]*data-k1-viikon-osa[^>]*>tällä viikolla<\/span>/); expect(html(null)).not.toContain('data-k1-viikon-osa'); expect(html(undefined)).not.toContain('data-k1-viikon-osa');
+    const h = html('c'); expect(h.match(/data-k1-viikon-osa/g)).toHaveLength(1); expect(h).toMatch(/Ota haltuun<\/span><span[^>]*data-k1-viikon-osa[^>]*>Tämän viikon fokus<\/span>/); expect(html(null)).not.toContain('data-k1-viikon-osa'); expect(html(undefined)).not.toContain('data-k1-viikon-osa');
   });
   it('tmKenttaSpec ilmanOsia: ei vaikuta; osat mukana → "nyt"-tila valitulla osalla', () => {
     const p = { id: 'p2', syntymaVuosi: 2013, ydinvahvuus: { kuvaus: 'X', alue: { x: 25, y: 35, w: 50, h: 61 } }, jaksofokus: jf() }, ctx = { rooli: 'henkilokunta', tanaan: NYT };
@@ -75,7 +75,7 @@ describe.skipIf(!CHROME_PAALLA)('Tämän viikon fokus: Kehitystyöpöytä-sivu (
         await p.locator('[data-kt-viikon-fokus]').click(); await p.waitForFunction(() => window.__kirj.length === 1, null, { timeout: 8000 });
         const k = await p.evaluate(() => window.__kirj); expect(k[0].path, nm).toBe('seurat/demo/pelaajat/p2'); expect(k[0].update, nm).toEqual({ 'jaksofokus.viikon_osa': { koodi: 'd', pvm: '2026-10-19' } });
         expect(await p.locator('#toast-wrap').innerText(), nm).toMatch(/Tämän viikon fokus asetettu ✓/); await p.waitForSelector('[data-kt-viikon-fokus]', { state: 'detached', timeout: 5000 });
-        expect(await rivi(p, 'd').getAttribute('class'), nm).toMatch(/\bon\b/); expect(await rivi(p, 'd').innerText(), nm).toMatch(/tällä viikolla/); expect(await rivi(p, 'b').getAttribute('class'), nm).not.toMatch(/\bon\b/);
+        expect(await rivi(p, 'd').getAttribute('class'), nm).toMatch(/\bon\b/); expect(await rivi(p, 'd').innerText(), nm).toMatch(/Tämän viikon fokus/); expect(await rivi(p, 'b').getAttribute('class'), nm).not.toMatch(/\bon\b/);   // K1c: badge pienen tilatekstin tilalla
         await rivi(p, 'd').click(); await p.waitForSelector('[data-kt-viikon-fokus]'); expect(await p.locator('[data-kt-viikon-fokus]').isDisabled(), nm).toBe(true); expect(await p.locator('[data-kt-viikon-fokus]').innerText(), nm).toMatch(/^✓ Tämän viikon fokus/); await p.keyboard.press('Escape');
         await p.locator('[data-kt-valilehti="polku"]').click(); await p.waitForSelector('#ktSivu_polku [data-kt-osa="d"]'); expect(await p.locator('#ktSivu_polku [data-kt-osa="d"]').getAttribute('class'), nm + ' Polku').toMatch(/\bon\b/);
         expect(virheet.filter((e) => !/sentry|integrity|Failed to load resource|net::ERR/i.test(e)), nm).toEqual([]); await sk.close();

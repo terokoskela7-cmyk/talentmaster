@@ -138,20 +138,20 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_pvm.js?v=7"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_kentta.js?v=6"></script>   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
 <script src="lib/tm_mediaviesti.js?v=9"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet -->
-<script src="lib/tm_klippi_perhe.js?v=3"></script>   <!-- R6.4 PR 2: Katsokaa yhdessä / keskustelu -->
+<script src="lib/tm_klippi_perhe.js?v=4"></script>   <!-- R6.4 PR 2: Katsokaa yhdessä / keskustelu -->
 <script src="lib/tm_merkki_nakyma.js?v=2"></script>   <!-- palaute-näkyvyys 0a: merkkisääntö + oma mittaus (Kohti seuraavaa, oma parannus; ei rajoja) -->
 <script src="lib/tm_kielletyt.js?v=1"></script>
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- 0b: numerovartija (tmTukiPerustelu) valmentajan teksteille; ei muuta näkymää -->   <!-- palaute-näkyvyys 0a: sanavartija valmentajan vapaille teksteille (sama kuin Pelaaja_v7) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=48"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
-<script src="lib/tm_lib_i18n.js?v=24"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
+<script src="lib/tm_lib_i18n.js?v=25"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Pelaajan kanssa) -->
 <script src="lib/tm_viikko.js?v=1"></script><script src="lib/tm_kalenteri_tilaus_ui.js?v=3"></script>   <!-- K35-7b: "Lisää kalenteriini" (iCal-tilaus) -->
 <script src="lib/tm_harjoituskertyma.js?v=2"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=3"></script>   <!-- K35-6f -->
-<script src="lib/tm_kalenteri_ilmoitus.js?v=6"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
+<script src="lib/tm_kalenteri_ilmoitus.js?v=8"></script><script src="lib/tm_ilmoitus_lista.js?v=3"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -508,7 +508,7 @@ function _vanhEvPvm(ev) { var d = (ev.alkaa && ev.alkaa.toDate) ? ev.alkaa.toDat
 function _vanhDemoKalenteri() { var mk = function (n, t, pd, hh, pk) { var d = new Date(); d.setDate(d.getDate() + pd); d.setHours(hh, 0, 0, 0); return { id: 'd' + pd, nimi: n, tyyppi: t, _d: d, paikka: pk }; }; var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'); ottelu.logistiikka = { saapumisaika: '11:15', peliasu: 'kotipaita', kartta_url: 'https://maps.google.com/?q=Kotikentt%C3%A4', kimppakyyti: true }; ottelu.pelaajaviesti = 'Muistakaa juomapullo ja säärisuojat!'; return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')]; }
 // ── P7-c.4a — kuluttaja-notif-keskus (CF kirjoittaa pelaajat/{lapsiId}/notifikaatiot; vanhempi lukee + merkitsee luetuksi). ──
 window._vanhNotif = null; window._vanhNotifLadattu = false;
-var _VANH_NOTIF_IKO = { muistutus: '🔔', muutos: '🔄', peruttu: '❌' };
+var _VANH_NOTIF_IKO = { muistutus: '🔔', muutos: '🔄' };   // K1c: peruttu = hillitty status-merkki (lib/tm_ilmoitus_lista.js), ei ❌-emojia
 function _vanhDemoNotif() {
   return [
     { id: 'dn1', tyyppi: 'peruttu', teksti: 'Peruttu: Nopeustestit', ilmoitus: { tyyppi: 'peruttu', nimi: 'Nopeustestit', aika: '', paikka: '' }, linkki: 'kalenteri:d6', luettu: false },
@@ -543,34 +543,42 @@ function _vanhNotifHTML() {
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var unread = arr.filter(function (x) { return !x.n.luettu; }).length;
   var _paivaTxt = function (p) { return p.tyyppi === 'tanaan' ? t('vanhempi.ilm_tanaan') : p.tyyppi === 'huomenna' ? t('vanhempi.ilm_huomenna') : p.pvmTxt; };
-  var rows = arr.slice(0, 6).map(function (x) {
-    var n = x.n, teksti = x.r.paiva ? (_paivaTxt(x.r.paiva) + ': ' + x.r.runko) : x.r.runko;
-    if (x.r.pvm) teksti += ' · ' + _vanhVkopv(x.r.pvm.getDay()) + ' ' + x.r.pvm.getDate() + '.' + (x.r.pvm.getMonth() + 1) + '.';   // B: perutun tapahtuman päivä, sama muoto kuin tapahtumalistassa
-    return '<div onclick="_vanhNotifTap(\'' + n.id + '\',\'' + (n.linkki || '') + '\')" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:9px;background:' + (n.luettu ? 'transparent' : 'var(--surface)') + ';border:.5px solid ' + (n.luettu ? 'var(--border)' : 'rgba(40,176,144,.28)') + ';margin-bottom:6px;cursor:pointer">'
-      + '<span style="font-size:15px;flex-shrink:0">' + (_VANH_NOTIF_IKO[n.tyyppi] || '🔔') + '</span>'
-      + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--text);line-height:1.4">' + esc(teksti) + '</span>'
-      + (n.luettu ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:5px"></span>')
-      + (n.tyyppi === 'peruttu' ? '<span data-ilm-kuittaa role="button" aria-label="' + esc(t('yleiset.sulje')) + '" onclick="event.stopPropagation();_vanhNotifKuittaa(\'' + n.id + '\')" style="flex-shrink:0;margin:-8px -8px -8px 0;padding:8px 10px;font-size:13px;line-height:1;color:var(--ink3);cursor:pointer">✕</span>' : '') + '</div>';
-  }).join('');
-  return '<div style="margin:16px 0 4px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">'
-    + '<div class="ey">🔔 ' + t('vanhempi.ilmoitukset') + (unread ? ' <span style="background:var(--teal);color:#fff;border-radius:999px;padding:1px 7px;font-size:9px;margin-left:4px">' + unread + '</span>' : '') + '</div>'
-    + (unread ? '<span onclick="_vanhNotifKaikkiLuetuksi()" style="font-size:10px;color:var(--ink3);cursor:pointer">' + t('vanhempi.mark_luetuiksi') + '</span>' : '') + '</div>' + rows + '</div>';
+  var L = window.TM_ILMOITUS_LISTA;
+  var tekstiX = function (x) { var teksti = x.r.paiva ? (_paivaTxt(x.r.paiva) + ': ' + x.r.runko) : x.r.runko; if (x.r.pvm) teksti += ' · ' + _vanhVkopv(x.r.pvm.getDay()) + ' ' + x.r.pvm.getDate() + '.' + (x.r.pvm.getMonth() + 1) + '.'; return teksti; };   // B: perutun tapahtuman päivä, sama muoto kuin tapahtumalistassa
+  var lo = { esc: esc, t: t, teksti: tekstiX, ikoni: function (ty) { return '<span style="font-size:15px;flex-shrink:0">' + (_VANH_NOTIF_IKO[ty] || '🔔') + '</span>'; }, tapFn: '_vanhNotifTap', kuittaaFn: '_vanhNotifKuittaa', kuittaaRyhmaFn: '_vanhNotifKuittaaRyhma', kaikkiFn: '_vanhNotifKuittaaKaikki', peruttuTeksti: function (nimi) { return t('yleiset.ilm_peruttu', { nimi: nimi }); } };
+  var kohteet = L.tmIlmoitusRyhmat(arr).slice(0, 6);   // K1c: saman nimiset perutut → yksi rivi
+  var rows = kohteet.map(function (g) { return g.ryhma ? L.tmIlmoitusRyhmaHTML(g, lo) : L.tmIlmoitusRiviHTML(g.x, lo); }).join('');
+  var kaikkiNappi = L.tmIlmoitusKaikkiNakyy(kohteet);   // vain kuitattavat rivit lasketaan
+  return '<div data-ilm-osio style="margin:16px 0 4px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">'
+    + '<div class="ey">🔔 ' + t('vanhempi.ilmoitukset') + (unread ? ' <span data-ilm-laskuri style="background:var(--teal);color:var(--on-accent,var(--text));border-radius:999px;padding:1px 7px;font-size:9px;margin-left:4px">' + unread + '</span>' : '') + '</div>'
+    + (kaikkiNappi ? L.tmIlmoitusKuittaaKaikkiHTML(lo) : (unread ? '<span onclick="_vanhNotifKaikkiLuetuksi()" style="font-size:10px;color:var(--ink3);cursor:pointer">' + t('vanhempi.mark_luetuiksi') + '</span>' : '')) + '</div>' + rows + '</div>';
 }
-function _vanhNotifKuittaa(id) {   // B: peruttu-ilmoitus kuitataan laitteelle (localStorage) — ei Firestore-kenttää eikä Rules-muutosta
-  var n = (window._vanhNotif || []).find(function (x) { return x.id === id; }), K = window.TM_KALENTERI_ILM;
-  if (n && K && n.tyyppi === 'peruttu') { try { K.tmIlmoitusKuittaa(window.localStorage, _vanhKuittausTunniste(), n); } catch (e) { /* ei estä */ } }
-  if (typeof draw === 'function') draw();
+function _vanhNotifKuittaa(id) {   // B: ilmoitus kuitataan laitteelle (localStorage) — ei Firestore-kenttää eikä Rules-muutosta · K1c: rivi poistuu PAIKALLAAN (ei draw() → sivu ei hyppää alkuun)
+  _vanhNotifKuittaaIdt([id]);
+}
+function _vanhNotifKuittaaRyhma(idt) { _vanhNotifKuittaaIdt(String(idt || '').split(',').filter(Boolean)); }
+function _vanhNotifKuittaaIdt(idt) {
+  var lista = (window._vanhNotif || []).filter(function (x) { return idt.indexOf(x.id) >= 0; }), K = window.TM_KALENTERI_ILM, L = window.TM_ILMOITUS_LISTA;
+  if (lista.length && K) { try { K.tmIlmoitusKuittaaUseita(window.localStorage, _vanhKuittausTunniste(), lista); } catch (e) { /* ei estä */ } }
+  if (L && document.querySelector('[data-ilm-rivi]')) L.tmIlmoitusPoistaPaikallaan(document, window, idt); else if (typeof draw === 'function') draw();
+}
+function _vanhNotifKuittaaKaikki() {   // K1c: kaikki näkyvät rivit pois kerralla + luetuiksi; ei draw()
+  var idt = [].slice.call(document.querySelectorAll('[data-ilm-rivi]:not([data-ilm-ei-kuitattava])')).reduce(function (a, el) { return a.concat((el.getAttribute('data-ilm-ryhma') || el.getAttribute('data-ilm-rivi')).split(',')); }, []);
+  (window._vanhNotif || []).forEach(function (n) { if (idt.indexOf(n.id) >= 0 && !n.luettu) _vanhMerkitseLuettu(n.id, true); });
+  _vanhNotifKuittaaIdt(idt);
 }
 function _vanhNotifTap(id, linkki) {
-  _vanhMerkitseLuettu(id); _vanhNotifKuittaa(id);
+  var _n = (window._vanhNotif || []).find(function (x) { return x.id === id; }), _peruttu = !!(_n && _n.tyyppi === 'peruttu');
+  _vanhMerkitseLuettu(id, _peruttu);   // perutun ilmoituksen napautus kuittaa rivin paikallaan (ei uudelleenpiirtoa); muut vain luetuksi kuten ennen
+  if (_peruttu) _vanhNotifKuittaa(id);
   if (linkki && linkki.indexOf('kalenteri:') === 0) {
     setTimeout(function () { var el = [].slice.call(document.querySelectorAll('div')).find(function (s) { return /Tulevat tapahtumat/.test(s.textContent) && s.querySelector && s.querySelector('.ey'); }); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80);
   }
 }
-async function _vanhMerkitseLuettu(id) {
+async function _vanhMerkitseLuettu(id, ilmanPiirtoa) {   // K1c: ilmanPiirtoa → ei draw()
   var n = (window._vanhNotif || []).find(function (x) { return x.id === id; }); if (!n) return;
-  if (n.luettu) { if (typeof draw === 'function') draw(); return; }
-  n.luettu = true; if (typeof draw === 'function') draw();
+  if (n.luettu) { if (!ilmanPiirtoa && typeof draw === 'function') draw(); return; }
+  n.luettu = true; if (!ilmanPiirtoa && typeof draw === 'function') draw();
   var _demo = false; try { _demo = new URLSearchParams(location.search).get('demo') === '1'; } catch (e) { /* ei estä */ }
   var L = window._lapsi;
   if (_demo || !_db || !L || !L.seuraId || !L.id) return;
@@ -581,7 +589,7 @@ async function _vanhMerkitseLuettu(id) {
   } catch (e) { console.warn('[vanh notif read]', e && e.message); }
 }
 function _vanhNotifKaikkiLuetuksi() { (window._vanhNotif || []).slice().forEach(function (n) { if (!n.luettu) _vanhMerkitseLuettu(n.id); }); }
-window._vanhNotifKuittaa = _vanhNotifKuittaa; window._vanhNotifTap = _vanhNotifTap; window._vanhMerkitseLuettu = _vanhMerkitseLuettu; window._vanhNotifKaikkiLuetuksi = _vanhNotifKaikkiLuetuksi;
+window._vanhNotifKuittaa = _vanhNotifKuittaa; window._vanhNotifKuittaaRyhma = _vanhNotifKuittaaRyhma; window._vanhNotifKuittaaKaikki = _vanhNotifKuittaaKaikki; window._vanhNotifTap = _vanhNotifTap; window._vanhMerkitseLuettu = _vanhMerkitseLuettu; window._vanhNotifKaikkiLuetuksi = _vanhNotifKaikkiLuetuksi;
 
 async function _vanhLataaKalenteri() {
   // P7-c-fix (A): demo VAIN ?demo=1:llä (ei yleisenä fallbackina); odota _lapsi + anon-auth; älä latchaa not-ready-
