@@ -18,7 +18,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       expect(await p.locator('#nvSide .nv-item.active').innerText()).toBe('Pelaajat');
       expect(await p.locator('#ktsOtsikko').innerText()).toBe('Pelaajat › Bertta Bergh');
       expect(await p.locator('#nvSide .nv-plus').isVisible()).toBe(true);   // + Havainto (D244)
-      expect(await p.locator('[data-kt-valilehti]').allInnerTexts()).toEqual(['Tänään', 'Polku', 'Mittaukset']);
+      expect(await p.locator('[data-kt-valilehti]').allInnerTexts()).toEqual(['Tänään', 'Polku', 'Profiili']);   // K4a: kolmas välilehti on Profiili
       expect(await p.locator('.kt-ot .kt-meta').first().innerText()).toBe('2/3');   // vain Demo U13: p1, p2, p3 (p9 on toisessa joukkueessa)
       expect(await p.locator('[data-kt-edellinen]').getAttribute('aria-label')).toBe('Edellinen pelaaja: Aatu Aalto');
       expect(await p.locator('[data-kt-seuraava]').getAttribute('aria-label')).toBe('Seuraava pelaaja: Cecil Carlsson');
@@ -147,11 +147,11 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       expect(await p.locator('.kt-nimi, [data-kt-ensisijainen]').count()).toBe(0); expect(await p.evaluate(() => window.__kirj.length)).toBe(0); await sk.close();
     } finally { await selain.close(); }
   }, 60000);
-  it('VÄLILEHDET: Polku renderöityy tälle sivulle (B4a), Näyttö renderöityy tälle sivulle (K2); hash päivittyy', async () => {
+  it('VÄLILEHDET: Polku renderöityy tälle sivulle (B4a), Profiili (ent. Näyttö, K2/K4a) renderöityy tälle sivulle; hash päivittyy', async () => {
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, { hash: '#pelaaja/p2/tanaan' }); await odota(p);
       await p.locator('[data-kt-valilehti="polku"]').click(); expect(await hash(p)).toBe('#pelaaja/p2/polku'); await p.waitForSelector('[data-kt-sivu="polku"] [data-kt-polku]', { timeout: 10000 }); expect(await p.locator('[data-kt-sivu="polku"] [data-kt-vanha], [data-kt-sivu="polku"] .kts-polku').count()).toBe(0);   // ei enää siirtymä-tynkää
-      await p.locator('[data-kt-valilehti="naytto"]').click(); expect(await hash(p)).toBe('#pelaaja/p2/naytto'); await p.waitForSelector('[data-kt-sivu="naytto"] [data-kn-naytto]', { timeout: 10000 }); expect(await p.locator('[data-kt-sivu="naytto"] .kts-polku').count()).toBe(0);   // K2: Näyttö renderöityy tälle sivulle (ei enää siirtymä-tynkää); sisältö: tests/k2_naytto_selain.test.js
+      await p.locator('[data-kt-valilehti="profiili"]').click(); expect(await hash(p)).toBe('#pelaaja/p2/profiili'); await p.waitForSelector('[data-kt-sivu="profiili"] [data-kn-naytto]', { timeout: 10000 }); expect(await p.locator('[data-kt-sivu="profiili"] .kts-polku').count()).toBe(0);   // K2: Näyttö renderöityy tälle sivulle (ei enää siirtymä-tynkää); sisältö: tests/k2_naytto_selain.test.js
       await sk.close();
     } finally { await selain.close(); }
   }, 60000);

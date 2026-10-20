@@ -76,6 +76,32 @@ describe('tmKaariNopeus — Δ/Δt päivätyistä pisteistä', () => {
   it('<2 pistettä → null', () => {
     expect(K.tmKaariNopeus([{ ms: 1, arvo: 5 }])).toBe(null);
   });
+  /* K4a §3: mittausten väli < 60 pv → kausivauhtia ei arvioida (Topias 3,17 → 3,08 s ei saa olla "−16,44 s/kausi") */
+  describe('K4a §3 — alle 60 pv väli', () => {
+    const PV = 86400000, t0 = Date.UTC(2026, 8, 4);
+    const sarja = (paivia) => [{ ms: t0, arvo: 3.17 }, { ms: t0 + paivia * PV, arvo: 3.08 }];
+    it('1 pv: ei vauhtia, ero säilyy', () => {
+      const n = K.tmKaariNopeus(sarja(1));
+      expect(n.perVuosi).toBe(null); expect(n.perKausi).toBe(null); expect(n.lyhytVali).toBe(true); expect(n.delta).toBeCloseTo(-0.09, 5);
+    });
+    it('59 pv: ei vauhtia', () => {
+      const n = K.tmKaariNopeus(sarja(59));
+      expect(n.perVuosi).toBe(null); expect(n.perKausi).toBe(null); expect(n.lyhytVali).toBe(true);
+    });
+    it('60 pv: vauhti lasketaan', () => {
+      const n = K.tmKaariNopeus(sarja(60));
+      expect(n.lyhytVali).toBeUndefined(); expect(typeof n.perKausi).toBe('number'); expect(n.perVuosi).toBeLessThan(0);
+    });
+    it('1 v väli: vauhti lasketaan, suuruusluokka järkevä', () => {
+      const n = K.tmKaariNopeus(sarja(365));
+      expect(n.perVuosi).toBeCloseTo(-0.09, 2); expect(n.perKausi).toBeCloseTo(-0.045, 2);
+    });
+    it('rivi: lyhyt väli → selite, ei "/kausi"-lukua', () => {
+      const html = K.tmKaariRenderFull({ hh_historia: [{ pvm: '2026-09-04', lin30m: 3.17 }, { pvm: '2026-10-04', lin30m: 3.08 }] }, { esc: (x) => x, phvTila: null });
+      expect(html).not.toMatch(/\/kausi/);
+      expect(html).toMatch(/alle 2 kk/);
+    });
+  });
 });
 
 describe('tmKaariTasoSarja — raaoista laskeFn:llä (johdonmukainen kortin kanssa)', () => {
