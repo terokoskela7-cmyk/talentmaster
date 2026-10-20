@@ -8796,7 +8796,7 @@ function _vpKausitavoiteHTML(p) {
     h += '<div class="jsp-kt-summary"><span class="jsp-kt-pill ' + (p.idp_tila === 'aktiivinen' ? 'akt' : 'ehd') + '">' + vpT(IDP_TILA_LBL[p.idp_tila] || p.idp_tila) + '</span> '
       + '<span class="chip" style="margin-left:6px">🎯 ' + _jsvEsc(f.nimi || f.alue || '—') + (f.dim ? ' · ' + f.dim : '') + '</span>'
       + (_il && _il.tyyppi === 'pelihavainto' ? '<span class="chip" style="color:var(--ink3);margin-left:4px">' + vpT('◎ pelihavainto') + (_il.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_il.pvm)) : '') + '</span>' : '')
-      + (p.idp_edistyma ? ' <span class="jsp-kt-edist">' + _jsvEsc(p.idp_edistyma) + '</span>' : '') + '</div>';
+      + (p.idp_edistyma ? ' <span class="jsp-kt-edist">' + _jsvEsc(idpEdistymaNayta(p.idp_edistyma, vpT)) + '</span>' : '') + '</div>';
     return h;
   }
   // Täysi tavoite
@@ -11853,7 +11853,7 @@ function _vpAloitusHTML(p) {
   }
   // Status-nauha
   const _viimMit = [p.hh_pvm, p.tki_pvm].filter(Boolean).sort().pop();
-  const _edist = p.idp_edistyma || (t && typeof idpEdistyma === 'function' ? idpEdistyma(t) : null) || vpT('alkuvaihe');
+  const _edist = idpEdistymaNayta(p.idp_edistyma || (t && typeof idpEdistyma === 'function' ? idpEdistyma(t) : null), vpT) || vpT('alkuvaihe');
   let _seurRev = '—';
   const _arvioPvm = t && t.aikaraami && t.aikaraami.arvio_pvm;
   if (_arvioPvm) {
@@ -20057,7 +20057,7 @@ function _vpCockpitRivi(x) {
     // Edellinen review (bulk pikakentät: idp_edistyma + review_viimeisin_pvm + review_tagit)
     h += '<div class="rvc-mini-h">' + vpT('Edellinen yhteenveto tai kehityskeskustelu') + '</div>';
     if (p.review_viimeisin_pvm || p.idp_edistyma) {
-      h += '<div style="font-size:12.5px;color:var(--ink2)">' + (p.idp_edistyma ? esc(String(p.idp_edistyma)) : vpT('Kehityskeskustelu kirjattu')) + (p.review_viimeisin_pvm ? ' <span style="color:var(--ink3)">· ' + esc(p.review_viimeisin_pvm) + '</span>' : '') + '</div>';
+      h += '<div style="font-size:12.5px;color:var(--ink2)">' + (p.idp_edistyma ? esc(idpEdistymaNayta(p.idp_edistyma, vpT)) : vpT('Kehityskeskustelu kirjattu')) + (p.review_viimeisin_pvm ? ' <span style="color:var(--ink3)">· ' + esc(p.review_viimeisin_pvm) + '</span>' : '') + '</div>';
       var tagit = _vpReviewTagitSanitoi(p.review_tagit);
       if (tagit.length) h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">' + tagit.map(function (t) { return '<span class="rvc-tagchip">#' + esc(t) + '</span>'; }).join('') + '<span style="font-family:var(--font-m);font-size:9.5px;color:var(--ink3);align-self:center">' + vpT('tagit → aggregoitava (R2)') + '</span></div>';
     } else h += '<div style="font-size:12px;color:var(--ink3)">' + vpT('Ei vielä kirjattua yhteenvetoa tai kehityskeskustelua.') + '</div>';
