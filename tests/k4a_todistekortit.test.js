@@ -242,6 +242,11 @@ describe('K4a tekstit ja koodin laatu', () => {
     const { m, c } = malli(p); const h = TH.tmTodisteHTML(m, c); const kaikkiHtml = h.yhteenvetoHTML + h.nauhaHTML + h.kortitHTML; expect(kaikkiHtml).not.toContain('<img'); expect(kaikkiHtml).not.toContain('<b>Harhautus'); expect(kaikkiHtml).toContain('&lt;b&gt;Harhautus');
   });
   it('lukumäärä oletusnäkymässä (Topias, rikas fixture) ≤ 30', () => { expect(malli(TOPIAS).m.luvut).toBeLessThanOrEqual(30); expect(malli(TOPIAS).m.luvut).toBeGreaterThan(5); });
+  it('ADAR R = Reaction = "Reagointi" (ei "Palautuminen"): FI-teksteissä ja koodissa ei palautumista', () => {
+    expect(TC.FI.tc_t_r).toBe('Reagointi'); expect(TC.FI.tc_t_d).toBe('Päätöksenteko');
+    Object.entries(TC.FI).forEach(([k, v]) => expect(v, k).not.toMatch(/palautumi/i));
+    ['lib/tm_todistekortit.js', 'lib/tm_todistekortit_fi.js', 'lib/tm_todistekortit_html.js', 'scripts/i18n_luo_gemini_era79.mjs'].forEach((f) => expect(lue(f), f).not.toMatch(/palautumi/i));
+  });
   it('käännös: c.t voittaa FI-oletuksen; puuttuva käännös → FI', () => {
     const c = { nyt: NYT, ika: 13, sp: 'M', perTestTasot: N.perTestTasot, esc, pid: 'x', t: (k) => (k === 'tc_vahvuus' ? 'Styrka' : k) }; const m = TC.tmTodisteMalli(TOPIAS, c); const h = TH.tmTodisteHTML(m, c);
     expect(h.yhteenvetoHTML).toContain('Styrka'); expect(h.yhteenvetoHTML).toContain('Kehityskohde');

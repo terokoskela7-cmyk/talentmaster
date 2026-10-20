@@ -29,7 +29,7 @@ const OHJEET = [   // [avain-alkuosa tai tarkka avain, huomautus]
   ['tc_kasvu_', 'Tulkintalause Kasvu ja kypsyys -kortissa (PHV = kasvupyrähdys). §-viittaukset (§25, §28) säilytetään sellaisenaan. Säilytä muuttujat täsmälleen.'],
   ['tc_fy_', 'Tulkintalause Fyysinen-kortissa. §-viittaukset (§25, §28) säilytetään sellaisenaan. Säilytä muuttujat täsmälleen.'],
   ['tc_te_', 'Tulkintalause Tekninen-kortissa. §-viittaukset säilytetään sellaisenaan. Säilytä muuttujat täsmälleen.'],
-  ['tc_pe_', 'Tulkintalause Peli-kortissa (ADAR-peliälyhavainnot: havainnointi, päätöksenteko, toteutus, palautuminen). Säilytä muuttujat täsmälleen.'],
+  ['tc_pe_', 'Tulkintalause Peli-kortissa (ADAR-peliälyhavainnot: havainnointi, päätöksenteko, toteutus, reagointi). Säilytä muuttujat täsmälleen.'],
   ['tc_ke_', 'Tulkintalause Kehon valmius -kortissa (liikehallintaketjut). Säilytä muuttujat täsmälleen.'],
   ['tc_koonti_', 'Koontikortti "Mittauskierros puuttuu": kun useampi osa-alue on mittaamatta, ne kootaan yhteen. Säilytä muuttujat täsmälleen.'],
   ['tc_yht_', 'Yhteenveto-osio (Vahvuus, Kehityskohde, Puuttuu) ja tyhjän tilan lause. Säilytä muuttujat täsmälleen.']
