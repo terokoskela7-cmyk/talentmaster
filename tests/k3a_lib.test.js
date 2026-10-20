@@ -58,8 +58,8 @@ describe('K3a · K3-ehdotukset uudelle sivulle (sama logiikka kuin Masterin _msK
 });
 
 describe('K3a · reititys (kirjoitus katetaan selaintestissä: YKSI update, __kirj)', () => {
-  it('anna_valita ja hylkaa ovat sheet-reittejä; kausitavoite/kuorma/syvenna pysyvät Masterissa (K3b/K4)', () => {
-    expect(KS.tmKtToimiReitti('anna_valita')).toBe('sheet'); expect(KS.tmKtToimiReitti('hylkaa')).toBe('sheet');
-    ['kausitavoite', 'kuorma', 'syvenna'].forEach((a) => expect(KS.tmKtToimiReitti(a)).toBe('master'));
+  it('anna_valita ja hylkaa ovat sheet-reittejä; kausitavoite on sheet (K3b); kuorma/syvenna pysyvät Masterissa (K4)', () => {
+    expect(KS.tmKtToimiReitti('anna_valita')).toBe('sheet'); expect(KS.tmKtToimiReitti('hylkaa')).toBe('sheet'); expect(KS.tmKtToimiReitti('kausitavoite')).toBe('sheet');
+    ['kuorma', 'syvenna'].forEach((a) => expect(KS.tmKtToimiReitti(a)).toBe('master'));
   });
 });
