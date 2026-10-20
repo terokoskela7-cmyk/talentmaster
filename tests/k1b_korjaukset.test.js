@@ -86,7 +86,7 @@ describe('K1b/7 · taktiikkataulun upotuslinkki ja viestit', () => {
     expect(KS.tmKtTauluParametrit('?upotettu=taktiikka&pid=%3Cscript%3E&teema=x')).toEqual({ pid: null, yv: '', teema: null });
   });
   it('reititys: "taulu" on oma modaali-reitti (ei Masteriin hyppy); Master-reitit ennallaan', () => {
-    expect(KS.tmKtToimiReitti('taulu')).toBe('modaali'); expect(KS.tmKtToimiReitti('klippi')).toBe('sheet'); expect(KS.tmKtToimiReitti('kausitavoite')).toBe('master');
+    expect(KS.tmKtToimiReitti('taulu')).toBe('modaali'); expect(KS.tmKtToimiReitti('klippi')).toBe('sheet'); expect(KS.tmKtToimiReitti('syvenna')).toBe('master'); expect(KS.tmKtToimiReitti('kausitavoite')).toBe('sheet');
   });
   it('Master: vain parametrillinen kutsu avaa taulun ja asettaa kontekstin; muu kutsu ei tee mitään; viesti isännälle vain tunnisteena', () => {
     const viestit = [], avatut = []; const win = { location: { search: '?upotettu=taktiikka&pid=p2&yv=1.%20kosketus' }, parent: { postMessage: (m, o) => viestit.push([m, o]) }, clearTimeout() {}, setTimeout: (f) => f() };

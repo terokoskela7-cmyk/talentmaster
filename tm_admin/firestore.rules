@@ -1,10 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.64
+// TalentMaster™ — firestore.rules v3.65
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.64 → v3.65 (K3a · Hylkää valinta, Teron päätös 20.10.2026; additiivinen — uusi kenttä valinnainen, ei migraatiota):
+//   · seurat/{sid}/pelaajat/{pid}/reviewit/{pvm}: UUSI valinnainen kenttä `hylkays_sisainen` { teksti (1–200), lahde 'valmentaja'|'vp', uid (string|null), tallennettu (ISO ≤ 40) } — täsmälleen nämä neljä.
+//     Hylkää valinta -sheetin perustelu kun "Näytä myös pelaajalle" on pois. Lukijat ja kirjoittajat ennallaan (reviewit: luku/kirjoitus oman seuran henkilökunta + SA; pelaaja ja huoltaja EIVÄT lue).
 // Muutokset v3.63 → v3.64 (kehitystyöpöytä 22 · kierros B · B1, D98/D107; additiivinen — uudet kentät valinnaisia, ei migraatiota):
 //   · seurat/{sid}/pelaajat/{pid}: `ydinvahvuus.alue` {x,y,w,h} (koordinaatisto 0–100 × 0–140; w,h ≥ 1; x+w ≤ 100, y+h ≤ 140; täsmälleen nämä neljä numeroa). Kun alue muuttuu: muoto validoidaan JA
 //     `ydinvahvuus.asetti_uid` == kirjautunut uid JA `ydinvahvuus.asetettu_pvm` (YYYY-MM-DD). Alueen poisto sallittu samoille kirjoittajille. Kirjoittajat = ennallaan koko-dokin update (SA · VP · UTJ · talenttivalmentaja ·
@@ -906,7 +909,16 @@ service cloud.firestore {
     function reviewKevytKelpaa() {
       let d = request.resource.data;
       return (!('kevyt' in d) || kevytKelpaa(d.kevyt))
-          && (!('kevyt_tallennettu' in d) || (d.kevyt_tallennettu is string && d.kevyt_tallennettu.size() <= 40));
+          && (!('kevyt_tallennettu' in d) || (d.kevyt_tallennettu is string && d.kevyt_tallennettu.size() <= 40))
+          && (!('hylkays_sisainen' in d) || hylkaysSisainenKelpaa(d.hylkays_sisainen));   // v3.65
+    }
+    /* v3.65 (K3a): Hylkää valinta -perustelun sisäinen kopio — täsmälleen { teksti, lahde, uid?, tallennettu } */
+    function hylkaysSisainenKelpaa(h) {
+      return h is map && h.keys().hasOnly(['teksti', 'lahde', 'uid', 'tallennettu']) && h.keys().hasAll(['teksti', 'lahde', 'tallennettu'])
+          && h.teksti is string && h.teksti.size() > 0 && h.teksti.size() <= 200
+          && h.lahde in ['valmentaja', 'vp']
+          && (!('uid' in h) || h.uid == null || h.uid is string)
+          && h.tallennettu is string && h.tallennettu.size() <= 40;
     }
     function profiiliKelpaa() {
       return !('valmentajaprofiili' in request.resource.data) || request.resource.data.valmentajaprofiili in ['ammatti', 'oto'];
