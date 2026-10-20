@@ -23,15 +23,15 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K2 · Näytt�
       const { sk, p, virheet } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p5/naytto', pelaajat: PEL, dokit: DOKIT, teema: 'light' }); await odota(p);
       await p.waitForSelector('[data-kn-kaikki]', { timeout: 15000 });
       const h = await p.locator('[data-kn-naytto]').innerHTML();
-      expect(await p.locator('[data-kn-kaikki]').getAttribute('open')).not.toBeNull();   // oletuksena auki kunnes todistekortit tulevat (K4)
-      expect(await p.locator('[data-kn-kortit]').count()).toBe(1); expect((await p.locator('[data-kn-kortit]').innerHTML()).trim()).toBe('');   // tyhjä paikka K4:lle
+      expect(await p.locator('[data-kn-kaikki]').getAttribute('open')).toBeNull();   // K4a: todistekortit tulivat → "Näytä kaikki mittaukset" suljettuna oletuksena (lohkot DOMissa, avautuvat napautuksella)
+      expect(await p.locator('[data-kn-kortit]').count()).toBe(1); expect(await p.locator('[data-kn-kortit] [data-tc-kortti]').count()).toBeGreaterThan(0);   // K4a: korttipaikka täytetty todistekorteilla (tests/k4a_profiili_selain.test.js)
       for (const o of ['Perustiedot', 'Kasvu ja kypsyys', 'Mittaukset', 'Pelihavainnot', 'Psyykkinen (D3)', 'Harjoittelu', 'Mitä pelaajan tulee osata']) expect(h, o).toContain(o);
       expect(h).toContain('Kehon valmius'); expect(h).toContain('Peliäly'); expect(h).toContain('Ristiinarvio'); expect(h).toContain('Kehityskaari'); expect(h).toContain('2 testikertaa'.replace('2', '1'));   // 1 suljettu testitapahtuma
       expect(h).toContain('maturity offset -0,4'); expect(h).toContain('mitattu 4.10.2026');
       expect(h).toContain('data-kt-mittaa');   // Suunnittele mittaus (S-hyppy Masteriin)
       expect(h).not.toContain('Resepti'); expect(h).not.toContain('data-resepti');   // Polun asioita (vainNaytto)
       expect((h.match(/PHV PH/g) || []).length).toBe(1);   // PHV-chip vain kerran
-      await p.waitForSelector('#_mMitaCard details', { timeout: 8000 });
+      await p.waitForSelector('#_mMitaCard details', { timeout: 8000, state: 'attached' });
       expect(await p.locator('#_mKertymaCard').count()).toBe(1);
       expect(await p.locator('.kt-nimi').innerText()).toBe('Rikas Data');
       const luvut = await p.evaluate(() => [...document.querySelectorAll('[data-kn-naytto] *')].filter((e) => !e.children.length && /\d/.test(e.textContent) && e.offsetParent !== null).length);
@@ -46,7 +46,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K2 · Näytt�
       const h = await p.locator('[data-kn-naytto]').innerHTML();
       for (const o of ['Perustiedot', 'Kasvu ja kypsyys', 'Mittaukset', 'Pelihavainnot', 'Psyykkinen (D3)', 'Harjoittelu', 'Mitä pelaajan tulee osata']) expect(h, o).toContain(o);
       expect(h).toContain('1 testikertaa'); expect(h).not.toContain('data-resepti'); expect((h.match(/PHV PH/g) || []).length).toBe(1);
-      await p.waitForSelector('#_mMitaCard details', { timeout: 8000 });
+      await p.waitForSelector('#_mMitaCard details', { timeout: 8000, state: 'attached' });
       expect(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
@@ -55,7 +55,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K2 · Näytt�
     if (!process.env.TM_KUVAT) return; mkdirSync(KUVAT, { recursive: true });
     await avaa(); try {
       for (const [leveys, teema, nimi] of [[390, 'dark', '390-tumma'], [1280, 'light', '1280-vaalea']]) {
-        const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p5/naytto', pelaajat: PEL, dokit: DOKIT, teema, leveys, korkeus: 900 }); await odota(p); await p.waitForSelector('#_mMitaCard details', { timeout: 8000 });
+        const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p5/naytto', pelaajat: PEL, dokit: DOKIT, teema, leveys, korkeus: 900 }); await odota(p); await p.waitForSelector('#_mMitaCard details', { timeout: 8000, state: 'attached' });
         await p.waitForTimeout(800);   // navigaatiolaatikon siirtymäanimaatio loppuun ennen kuvaa
         expect(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);   // ei vaakavieritystä
         await p.screenshot({ path: join(KUVAT, 'naytto-' + nimi + '-ylhaalta.png') });
@@ -68,7 +68,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K2 · Näytt�
     await avaa(); try {
       const { sk, p, virheet } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p5/tanaan', pelaajat: PEL, dokit: DOKIT, vika: ['testitapahtumat'] }); await p.waitForSelector('.kt-nimi', { timeout: 15000 });
       expect(await p.evaluate(() => window.__pyynnot.filter((x) => /testitapahtumat/.test(x)).length)).toBe(0);   // Tänään: ei Näytön dataa
-      await p.locator('[data-kt-valilehti="naytto"]').click(); await p.waitForSelector('[data-kn-tila="virhe"]', { timeout: 10000 });
+      await p.locator('[data-kt-valilehti="profiili"]').click(); await p.waitForSelector('[data-kn-tila="virhe"]', { timeout: 10000, state: 'attached' }); await p.locator('[data-kn-kaikki] summary').click();   // K4a: lohkot suljetun "Näytä kaikki" -avattavan sisällä
       expect(await p.locator('[data-kn-tila="virhe"]').innerText()).toContain('Mittauksia ei saatu haettua');
       await p.evaluate(() => { window.__vika = []; }); await p.locator('[data-kn-yrita]').click(); await p.waitForSelector('[data-kn-kaikki]', { timeout: 10000 });
       expect(SUODATA(virheet).filter((e) => !/testitapahtumat|stub-vika/.test(e))).toEqual([]); await sk.close();
@@ -80,7 +80,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K2 · Näytt�
       const mj = await p.evaluate(() => ['_avaaPelaajaraportti', '_msFyysSuunnitteleMittaus', '_avaaD3Arvio', '_ehdotaTalentti', '_avaaDetail', '_ktVanhaNakyma'].every((n) => typeof window[n] === 'function'));
       expect(mj).toBe(true);   // jokaisella lohkon napilla on käsittelijä (ei kuollutta onclickiä)
       await p.locator('[data-kt-silmin]').click();
-      await p.waitForFunction(() => location.hash.indexOf('/naytto') < 0, null, { timeout: 8000 });   // Silmin → välilehti vaihtuu Tänäänin
+      await p.waitForFunction(() => location.hash.indexOf('/naytto') < 0 && location.hash.indexOf('/profiili') < 0, null, { timeout: 8000 });   // Silmin → välilehti vaihtuu Tänäänin
       expect(await p.locator('[data-kn-naytto]').count()).toBe(0); await sk.close();
     } finally { await selain.close(); }
   }, 120000);
