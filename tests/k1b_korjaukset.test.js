@@ -48,7 +48,7 @@ describe('K1b/6 · Historia: toteutunut kesto suljetulle jaksolle', () => {
   });
   it('viikon tai yli → viikkoina (pyöristetty, min 1): 7 pv = 1 vk, 14 pv = 2 vk, 25 pv = 4 vk; aikaleima (ISO ja Timestamp) kelpaa, kellonaika ei heilauta päivää', () => {
     expect(kesto({ suljettu: '2026-09-29' }).kesto).toEqual({ n: 1, yks: 'vk' }); expect(kesto({ suljettu: '2026-10-06' }).kesto).toEqual({ n: 2, yks: 'vk' }); expect(kesto({ suljettu: '2026-10-17' }).kesto).toEqual({ n: 4, yks: 'vk' });
-    expect(kesto({ alkoi: '2026-09-22T00:00:00+03:00', suljettu: '2026-09-24T23:50:00+03:00' }).kesto).toEqual({ n: 2, yks: 'pv' });
+    expect(kesto({ alkoi: new Date(2026, 8, 22, 0, 0).toISOString(), suljettu: new Date(2026, 8, 24, 23, 50).toISOString() }).kesto).toEqual({ n: 2, yks: 'pv' });
     expect(kesto({ suljettu: { toDate: () => new Date(2026, 8, 24, 15, 0) } }).kesto).toEqual({ n: 2, yks: 'pv' });
   });
   it('ilman sulkupäivää ennallaan: suunniteltu kesto viikkoina ("6 vk", min 1 vk)', () => {
