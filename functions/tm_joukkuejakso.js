@@ -124,7 +124,7 @@
       + '<div style="display:flex;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:140px">' + lab('Alkaa') + '<input id="' + IDS.alku + '" type="date" value="' + esc(x.alku) + '" style="' + kentta + '"></div>'
       + '<div style="flex:1;min-width:140px">' + lab('Kesto (viikkoa, ikävaiheen mukaan)') + '<select id="' + IDS.kesto + '" onchange="TM_JOUKKUEJAKSO.tmJjViikotNayta(this)" style="' + kentta + '">' + x.kesto.vaihtoehdot.map(function (v) { return opt(String(v), v + ' ' + t('vk'), v === x.kesto.valittu); }).join('') + '</select></div></div>'
       + _viikotHTML(x, esc, t, lab, kentta)
-      + '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:12px">' + esc(t('Yhteenvetoikkuna: 2 viikkoa jakson päättymispäivästä.')) + '</div>'
+      + '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:12px">' + esc(t('Katselmusikkuna: 2 viikkoa jakson päättymispäivästä.')) + '</div>'
       + '<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" onclick="' + esc(opts.suljeFn || '') + '()" style="font-size:12px;border-radius:8px;padding:8px 14px;cursor:pointer;border:.5px solid var(--border);background:transparent;color:var(--ink2)">' + esc(t('Peruuta')) + '</button>'
       + '<button type="button" data-jj-tallenna onclick="' + esc(opts.tallennaFn || '') + '()" style="font-size:12px;font-weight:600;border-radius:8px;padding:8px 14px;cursor:pointer;border:.5px solid var(--teal);background:var(--teal);color:var(--bg)">' + esc(t(x.tila === 'muokkaa' ? 'Tallenna joukkuejakso' : 'Aloita joukkuejakso')) + '</button></div></div></div>';
   }
@@ -243,7 +243,7 @@
       + rivi('Tekninen ja taktinen', k.tekn) + rivi('Fyysinen', k.fyys) + rivi('Henkinen', k.henkinen) + rivi('Sosiaalinen', k.sosiaalinen)
       + rivi('Kesto', k.kesto_vk ? k.kesto_vk + ' ' + t('vk') + (k.paattyy ? ' · ' + t('päättyy') + ' ' + _lyhyt(k.paattyy) : '') : '')
       + (k.viikkotavoite ? rivi('Viikon tavoite', k.viikkotavoite) : '')
-      + rivi('Yhteenvetoikkuna', k.katselmus_alku && k.katselmus_loppu ? _lyhyt(k.katselmus_alku) + '–' + _lyhyt(k.katselmus_loppu) : '')
+      + rivi('Katselmusikkuna', k.katselmus_alku && k.katselmus_loppu ? _lyhyt(k.katselmus_alku) + '–' + _lyhyt(k.katselmus_loppu) : '')
       + (opts.voiMuokata === false ? '' : '<div style="margin-top:10px">' + nappi('Muokkaa joukkuejaksoa', true) + '</div>'));
   }
 

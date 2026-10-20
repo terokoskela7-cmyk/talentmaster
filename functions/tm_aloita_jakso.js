@@ -69,19 +69,19 @@
     }
     if (!onKonsepti) return { tila: 'ei_jaksoa', ensisijainen: { avain: 'aloita', teksti: 'Aloita jakso' }, valikko: [valita], rivitila: { teksti: 'Ei jaksoa', savy: 'neutraali' } };
     var alku = tmPaivaNum(jf.alkoi != null && jf.alkoi !== '' ? jf.alkoi : jf.alku), yht = Number(jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : 4, nytPv = tmPaivaNum(nyt), loppu = isNaN(alku) ? NaN : alku + yht * 7;   // päivinä: jakso päättyy kun alkupäivästä on kulunut kesto × 7 pv (sama sääntö kuin tmTanaanTila)
-    if (!isNaN(loppu) && nytPv >= loppu) return { tila: 'paattynyt', ensisijainen: { avain: 'sulje', teksti: 'Tee jakson yhteenveto' },
-      valikko: [{ avain: 'jatka', teksti: 'Jatka jaksoa 2 vk', kaytettavissa: true }, { avain: 'syvenna', teksti: 'Kehityskeskustelu', kaytettavissa: true }],
+    if (!isNaN(loppu) && nytPv >= loppu) return { tila: 'paattynyt', ensisijainen: { avain: 'sulje', teksti: 'Sulje jakso' },
+      valikko: [{ avain: 'jatka', teksti: 'Jatka jaksoa 2 vk', kaytettavissa: true }, { avain: 'syvenna', teksti: 'Syvennä (täysi katselmus)', kaytettavissa: true }],
       rivitila: { teksti: 'Jakso päättynyt — suljettava', savy: 'amber' } };
     var vk = isNaN(alku) ? null : { n: Math.min(Math.max(1, Math.floor((nytPv - alku) / 7) + 1), yht), yht: yht };
     var SIT = _SIT(), sitoutunut = SIT ? SIT.tmSitoumus(p).sitoutunut : false;   // A1/D97: YKSI sääntö (lib/tm_sitoumus.js) — sitoumus annettu tämän jakson aikana
-    var menu = [{ avain: 'sulje', teksti: 'Tee jakson yhteenveto', kaytettavissa: true }, { avain: 'muokkaa', teksti: 'Muokkaa jaksoa', kaytettavissa: true }, { avain: 'klippi', teksti: 'Lisää klippi', kaytettavissa: true }, valita];
+    var menu = [{ avain: 'sulje', teksti: 'Sulje jakso', kaytettavissa: true }, { avain: 'muokkaa', teksti: 'Muokkaa jaksoa', kaytettavissa: true }, { avain: 'klippi', teksti: 'Lisää klippi', kaytettavissa: true }, valita];
     var base = { ensisijainen: { avain: 'havainto', teksti: 'Merkitse havainto' }, valikko: menu };
     if (vk && vk.n === 1 && !sitoutunut) return Object.assign({ tila: 'vahvistettu' }, base, { rivitila: { teksti: 'Jakso käynnissä · vk 1 · sitoumus odottaa', savy: 'ok', vk: vk } });
     return Object.assign({ tila: 'kaynnissa' }, base, { rivitila: Object.assign({ teksti: 'Jakso käynnissä' + (vk ? ' · vk ' + vk.n + '/' + vk.yht : ''), savy: 'ok', vk: vk },
       vk ? { muoto: 'Jakso käynnissä · vk {n}/{yht}', arvot: { n: vk.n, yht: vk.yht } } : {}) });
   }
 
-  /* Pelaajakortin otsikkoalueen jaksonapit (Kenttä-lipun takana; kutsuja tarkistaa lipun + muokkausoikeuden): YKSI nappi tmJaksoNappi(p):n mukaan + "Tee jakson yhteenveto" kun jakso on käynnissä.
+  /* Pelaajakortin otsikkoalueen jaksonapit (Kenttä-lipun takana; kutsuja tarkistaa lipun + muokkausoikeuden): YKSI nappi tmJaksoNappi(p):n mukaan + "Sulje jakso" kun jakso on käynnissä.
      Samat toiminnot kuin ennen (avaaFn = aloitusmodaali, suljeFn = sulkulomake) — ei uutta logiikkaa. 'Käynnissä' = jaksolla on konsepti eikä se ole K3:n tarjous/valinta-tilassa ('valittavana'). */
   function tmJaksoNapitTila(p) {
     var jf = p && p.jaksofokus, kaynnissa = !!(jf && (jf.konsepti_avain || jf.konsepti_nimi) && jf.tila !== 'valittavana');
@@ -93,7 +93,7 @@
     var b = function (attr, fn, teksti, ensisijainen) { return '<button type="button" ' + attr + ' onclick="event.stopPropagation();' + esc(fn) + '(\'' + pid + '\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer;border:.5px solid var(--teal);'
       + (ensisijainen ? 'background:var(--teal);color:var(--on-accent,var(--bg))' : 'background:transparent;color:var(--teal)') + '">' + esc(t(teksti)) + '</button>'; };
     return '<div class="tm-jakso-napit" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' + b('data-jakso-nappi="' + x.nappi + '"', opts.avaaFn, nimet[x.nappi], x.nappi !== 'muokkaa')
-      + (x.sulje ? b('data-jakso-sulje', opts.suljeFn, 'Tee jakson yhteenveto', false) : '') + '</div>';
+      + (x.sulje ? b('data-jakso-sulje', opts.suljeFn, 'Sulje jakso', false) : '') + '</div>';
   }
 
   /* ctx: { items:[{avain,nimi,koodi?}], ehdotusAvain?, ika (vuosina), nimi (pelaajan näyttönimi), vastuuhenkilot:[{arvo,nimi,rooli}] | null, malli? } */

@@ -22,7 +22,7 @@
     muu:                   { nimi: 'Muu',                   kerros: 'asiat',     merkki: 'muu',   pika: 5 },
     talenttileiri:         { nimi: 'Talenttileiri',         kerros: 'valmennus', merkki: 'harj',  pika: 0 },
     jaksopalaveri:         { nimi: 'Jaksopalaveri',         kerros: 'silmukka',  merkki: 'pal',   pika: 0 },
-    idp_seuranta:          { nimi: 'Kehityssuunnitelman seuranta',          kerros: 'silmukka',  merkki: 'pal',   pika: 0 },
+    idp_seuranta:          { nimi: 'IDP-seuranta',          kerros: 'silmukka',  merkki: 'pal',   pika: 0 },
     tiimipalaveri:         { nimi: 'Tiimipalaveri',         kerros: 'asiat',     merkki: 'pal',   pika: 0 },
     mentorointitapaaminen: { nimi: 'Mentorointitapaaminen', kerros: 'asiat',     merkki: 'pal',   pika: 0 },
     kalibraatiopaja:       { nimi: 'Kalibraatiopaja',       kerros: 'asiat',     merkki: 'pal',   pika: 0 },
