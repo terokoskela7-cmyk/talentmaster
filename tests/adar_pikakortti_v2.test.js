@@ -223,7 +223,7 @@ describe('(2) porras ohjaa ulottuvuudet, ikä on vain ehdotus', () => {
     /* sv-läpiajo PR 4: vakiot siirtyivät libiin (lib/tm_adar_tekstit.js FI) — sisältö ennallaan, kielireititys avainten kautta */
     const T = vaadi('../lib/tm_adar_tekstit.js').FI;
     expect([T.adar_verbi_a, T.adar_verbi_d, T.adar_verbi_ac]).toEqual(['havainnoi', 'ratkaisee', 'toteuttaa']);
-    expect([T.adar_partitiivi_d, T.adar_partitiivi_ac, T.adar_partitiivi_r]).toEqual(['päätöstä', 'toteutusta', 'palautumista']);
+    expect([T.adar_partitiivi_d, T.adar_partitiivi_ac, T.adar_partitiivi_r]).toEqual(['päätöstä', 'toteutusta', 'reagointia']);   // K1d: R = Reagointi
   });
 });
 

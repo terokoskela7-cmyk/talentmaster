@@ -127,13 +127,13 @@ describe('Bulk (_vpCockpitBulkMerkitse): ok++ ja ✓ vasta kirjoituksen onnistut
     vm.runInContext(pura('async function _vpKirjoitaReview(') + '\n' + pura('window._vpCockpitBulkMerkitse = async function') + ';', c);
     return { c, log, p1, p2, kirjoitukset };
   }
-  it('kaikki onnistuvat: "✓ Review merkitty 2 pelaajalle" (ok), molempien paikallinen tila päivittyy', async () => {
+  it('kaikki onnistuvat: "✓ Kehityskeskustelu merkitty 2 pelaajalle" (ok), molempien paikallinen tila päivittyy', async () => {
     const { c, log, p1, p2 } = ymp([]); await c.window._vpCockpitBulkMerkitse();
-    expect(log.toastit).toEqual([['✓ Review merkitty 2 pelaajalle', 'ok']]); expect(p1.review_viimeisin_pvm).toBe('2026-10-05'); expect(p2.review_viimeisin_pvm).toBe('2026-10-05');
+    expect(log.toastit).toEqual([['✓ Kehityskeskustelu merkitty 2 pelaajalle', 'ok']]); expect(p1.review_viimeisin_pvm).toBe('2026-10-05'); expect(p2.review_viimeisin_pvm).toBe('2026-10-05');
   });
   it('yksi epäonnistuu: ok++ vain onnistuneesta, virhe näkyy (error), epäonnistuneen paikallinen tila ENNALLAAN', async () => {
     const { c, log, p1, p2, kirjoitukset } = ymp([PID2]); await c.window._vpCockpitBulkMerkitse();
-    expect(log.toastit).toEqual([['✓ Review merkitty 1 pelaajalle · 1 epäonnistui', 'error']]);
+    expect(log.toastit).toEqual([['✓ Kehityskeskustelu merkitty 1 pelaajalle · 1 epäonnistui', 'error']]);
     expect(p1.review_viimeisin_pvm).toBe('2026-10-05'); expect(p2.review_viimeisin_pvm).toBeUndefined();
     expect(kirjoitukset.every((k) => k.startsWith(POLKU(PID)))).toBe(true);   // vain onnistunut KPV U13 -pelaaja
   });

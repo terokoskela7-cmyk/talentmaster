@@ -57,7 +57,7 @@ for (const sov of ['Master', 'VP']) {
       e.win._kvkAvaa('p1', true); expect(e.sb._kvkTila().k3.paalla).toBe(true);   // "Anna pelaajan valita" → sama ruutu, tarjous auki
       const ei = ymp(sov, { pelaaja: { jaksofokus: null } }); ei.win._kvkAvaa('p1', false); await lopeta(); expect(ei.log.lisatyt).not.toContain('_kvkModal'); expect(ei.log.toast.some(([, k]) => k === 'error')).toBe(true);
     });
-    it('TALLENNUS = YKSI batch: pelaajadokin update (jaksofokus null + historiarivi lause/lause_lahde) + reviewit/{pvm} set merge (kevyt + kevyt_tallennettu); K1d: + review_viimeisin_pvm/-tyyppi 'jakso' samassa update():ssa, reviewit-dokumentissa EI tyyppiä; ruutu sulkeutuu vasta onnistuttua', async () => {
+    it('TALLENNUS = YKSI batch: pelaajadokin update (jaksofokus null + historiarivi lause/lause_lahde) + reviewit/{pvm} set merge (kevyt + kevyt_tallennettu); K1d: + review_viimeisin_pvm/-tyyppi jakso samassa update():ssa, reviewit-dokumentissa EI tyyppiä; ruutu sulkeutuu vasta onnistuttua', async () => {
       const e = ymp(sov, { rooli: sov === 'VP' ? 'vp' : 'valmentaja' }); e.win._kvkAvaa('p1', false); await lopeta(); vastaa(e.win);
       await e.win._kvkTallenna(); expect(e.kirj.batch).toHaveLength(1); const ops = e.kirj.batch[0]; expect(ops).toHaveLength(2);
       const [u, s] = ops; expect(u[0]).toBe('update'); expect(u[1]).toBe('seurat/kpv/pelaajat/p1'); expect(u[2].jaksofokus).toBeNull(); const rivi = u[2].jaksofokus_historia.__arrayUnion[0];
@@ -147,7 +147,7 @@ describe('Syvennä: täysi sulkulomake kirjoittaa kolme vastausta samassa batchi
       const S = { pid: 'p1', p: e.p, jf: e.p.jaksofokus, alkoi: '2026-09-21', loppu: '2026-11-02', harjoituksia: 2, lasnaolo: { paikalla: 1, yhteensa: 2, tiedossa: 2 }, arvioItse: 4, arvioAikuis: 3, tulos: 'parani', k4: false, lause: '', k3: null, kevytEsi: { nakyi: 'ohjatusti', treeni: 'usein', mukana: 'hyvin' } };
       if (master) e.win._msSulkuTila = S; else e.win._vpSulkuTila = S;
       e.sb.window.TM_FYYSTEEMAT_LIB = undefined; await e.sb.__t('');
-      expect(e.kirj.update).toEqual([]); expect(e.kirj.batch).toHaveLength(1); const ops = e.kirj.batch[0]; expect(ops.map((o) => o[0])).toEqual(['update', 'set']); expect(ops[1][1]).toBe('seurat/kpv/pelaajat/p1/reviewit/' + PVM); expect(Object.keys(ops[1][2]).sort()).toEqual(['kevyt', 'kevyt_tallennettu']); expect(JSON.stringify(ops)).not.toMatch(/review_viimeisin|"tyyppi"/);
+      expect(e.kirj.update).toEqual([]); expect(e.kirj.batch).toHaveLength(1); const ops = e.kirj.batch[0]; expect(ops.map((o) => o[0])).toEqual(['update', 'set']); expect(ops[1][1]).toBe('seurat/kpv/pelaajat/p1/reviewit/' + PVM); expect(Object.keys(ops[1][2]).sort()).toEqual(['kevyt', 'kevyt_tallennettu']); expect(ops[0][2].review_viimeisin_pvm).toBe(PVM); expect(ops[0][2].review_viimeisin_tyyppi).toBe('jakso'); expect(JSON.stringify(ops[1])).not.toMatch(/"tyyppi"/);   // K1d: sulkulomake nollaa rytmin samassa update():ssa
       expect(ops[0][2].jaksofokus_historia.__arrayUnion[0]).toMatchObject({ sulkutapa: 'suljettu', arvio_itse: 4, tulos: 'parani' });
     });
   }
@@ -165,7 +165,7 @@ describe('Lähdetarkistukset: reititys, ei päällekkäisiä globaaleja, lib-skr
     for (const [nimi, src] of [['Master', MASTER], ['VP', VP]]) { const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', nimi === 'Master' ? '/* ═══ R6.4 Mediaviesti' : '/* ═══ R6.4 Mediaviesti'); const koodi = lohko.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''); expect(koodi, nimi).toMatch(/batch\.set\(ref\.collection\('reviewit'\)\.doc\(plan\.reviewitPvm\), plan\.reviewitData, \{ merge: true \}\)/); expect(koodi, nimi).not.toMatch(/review_viimeisin|tyyppi\s*:/); }
   });
   it('skriptit ladataan (v1) ennen käyttöä sekä Masterissa että VP:ssä; eslint ei tarvitse uusia globaaleja', () => {
-    for (const src of [MASTER, VP]) { for (const l of ['tm_tanaan_signaali.js?v=9', 'tm_kevyt_katselmus.js?v=6']) expect(src).toContain('<script src="lib/' + l + '"></script>'); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_reitin_valinta.js')); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_viikkokatsaus.js')); }
+    for (const src of [MASTER, VP]) { for (const l of ['tm_tanaan_signaali.js?v=10', 'tm_kevyt_katselmus.js?v=7']) expect(src).toContain('<script src="lib/' + l + '"></script>'); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_reitin_valinta.js')); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_viikkokatsaus.js')); }
     expect(readFileSync(new URL('../TalentMaster_Pelaaja_v7.html', import.meta.url), 'utf8')).not.toContain('tm_kevyt_katselmus');   // pelaajasovellus ei lataa henkilökunnan libiä
   });
 });

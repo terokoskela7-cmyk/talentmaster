@@ -51,7 +51,7 @@ describe('ADAR-pikakortti — tekstit libissä (lib/tm_adar_tekstit.js)', () => 
       const k = T.tmAdarKortti(dim, (x) => x);
       expect(k.q, dim).toBe(alku.PH_TEKSTIT[dim].q);
       expect(k.d, dim).toEqual(KORJATUT_D[dim] || alku.PH_TEKSTIT[dim].d);
-      expect(k.tip, dim).toEqual(alku.PH_TEKSTIT[dim].tip);
+      expect(k.tip, dim).toEqual(dim === 'R' ? Object.assign({}, alku.PH_TEKSTIT.R.tip, { 2: 'Sovi yhteinen reagointitapa, esim. taputus ja seuraava tehtävä.' }) : alku.PH_TEKSTIT[dim].tip);   // K1d (20.10.2026): R = Reagointi → vinkki 2 ei enää "palautumisele"
     }
     for (const dim of ['D', 'R']) for (const n of [1, 2, 3]) expect(KORJATUT_D[dim][n], dim + n).not.toBe(alku.PH_TEKSTIT[dim].d[n]);   // muutos on todellinen
   });
@@ -71,7 +71,7 @@ describe('ADAR-pikakortti — tekstit libissä (lib/tm_adar_tekstit.js)', () => 
     expect(Object.keys(r).sort()).toEqual(Object.keys(T.FI).filter((a) => !E61[a]).sort());
     // erän 2 rivit, joiden fi muuttui (peliäly-tasokorjaus) → uusi fi + odottava sv erässä 58 (vanha sv poistettu libistä)
     const E58 = JSON.parse(lue('docs/i18n/sv_kaannoserae_58_gemini.json')).osiot['lib.tm_adar_tekstit'].rivit;
-    Object.keys(T.FI).filter((a) => !E61[a]).forEach((a) => { if (E58[a]) { expect(E58[a].fi, a).toBe(T.FI[a]); expect(r[a].fi, a).not.toBe(T.FI[a]); } else expect(r[a].fi, a).toBe(T.FI[a]); });
+    Object.keys(T.FI).filter((a) => !E61[a]).forEach((a) => { if (E58[a]) { expect(E58[a].fi, a).toBe(T.FI[a]); expect(r[a].fi, a).not.toBe(T.FI[a]); } else if (['adar_R_tip2', 'adar_partitiivi_r'].includes(a)) expect(r[a].fi, a).not.toBe(T.FI[a]);   /* K1d: R = Reagointi; uusi fi erässä 80 */ else expect(r[a].fi, a).toBe(T.FI[a]); });
     expect(Object.keys(E58).sort()).toEqual(['adar_D_d1', 'adar_D_d2', 'adar_D_d3', 'adar_D_v1', 'adar_D_v3', 'adar_R_d1', 'adar_R_d2', 'adar_R_d3']);
   });
   it('ADAR SW: uudet tiedostot allowlistissa ja cache nostettu', () => {

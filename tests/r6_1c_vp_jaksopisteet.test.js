@@ -205,7 +205,7 @@ describe('lähdevartijat: rinnakkainen logiikka pois', () => {
   it('yhteiset kirjoittajat: update() (ei set-merge), arrayUnion.apply(null, rivit), POISTA → FieldValue.delete(); lib ?v=3', () => {
     const w = pura('async function _vpJfKirjoita(') + pura('async function _vpKirjoitaJaksofokus(');
     expect(w).toMatch(/\.update\(upd\)/); expect(w).toMatch(/arrayUnion\.apply\(null, rivit\)/); expect(w).not.toMatch(/\.set\(|serverTimestamp/);
-    expect(pura('function _vpJfPolut(')).toMatch(/FieldValue\.delete\(\)/); expect(VP).toContain('lib/tm_kehityssilmukka.js?v=3');
+    expect(pura('function _vpJfPolut(')).toMatch(/FieldValue\.delete\(\)/); expect(VP).toContain('lib/tm_kehityssilmukka.js?v=4');
   });
   it('_vpTtKirjoita jäi vain pelipaikkakirjoituksille (tt_positio_*)', () => {
     expect((VP.match(/_vpTtKirjoita\(pid, \{ tt_positio_/g) || []).length).toBe(2); expect(VP).not.toMatch(/_vpTtKirjoita\([^)]*jaksofokus/);

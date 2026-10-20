@@ -57,7 +57,7 @@ describe('Pelaaja_v7 rAdar — nimet kielen mukaan', () => {
   });
   it('en: englanninkieliset nimet (tm_lang pelaaja.adar_nimi_pelaaja_*), ei suomalaisia ulottuvuusnimiä', () => {
     const h = ajaRAdar('en');
-    ['Observation', 'Decision-making', 'Execution', 'Recovery'].forEach((n) => expect(h).toContain(n));
+    ['Observation', 'Decision-making', 'Execution', 'Reaction'].forEach((n) => expect(h).toContain(n));
     ['Havainnointi', 'Päätöksenteko', 'Toteutus', 'Reagointi'].forEach((n) => expect(h).not.toContain('>' + n + '<'));
   });
 });

@@ -53,8 +53,8 @@ elävän datan ja sulkee silmukan pelaajalle**, ja **fysiikkavalmentaja rakentaa
 Roolisi on **nähdä kokonaisuus ja ohjata**: et kirjaa yksittäisiä testituloksia, vaan johdat seuraa,
 joukkueita, valmentajia, pelaajia ja perheitä datan kautta. Näet **aina kaiken** oman seurasi osalta.
 
-> **VP-näkymän välilehdet:** 🏠 Koti · ⌾ Tilanne · 👥 Valmentajat · 🧑 Pelaajat · 🗓 Kalenteri · 📊 Raportointi ·
-> ✓ Reviewit. **Työkalut:** Arvioi harjoitus · Aloita tästä · Pelihavainto · Bio-banding · **Jaksofokus** ·
+> **VP-näkymän välilehdet:** 🏠 Koti · ⌾ Tilanne · 👥 Valmentajat · 🧑 Pelaajat · 🗓 Kalenteri · 📊 Seuran tilannekuva ·
+> ✓ Seuranta (yhteenvedot ja keskustelut). **Työkalut:** Arvioi harjoitus · Aloita tästä · Pelihavainto · Bio-banding · **Jaksofokus** ·
 > **Ohjelmakirjasto** · Asetukset. Pelaajien tuonti ja huoltajakutsut tehdään erillisessä Seurahallinnassa.
 
 ## 1.1 Seuran johtaminen — käynnistä datapolku
@@ -119,17 +119,17 @@ TalentMaster tekee valmentajakehityksestä yhtä mitattavaa kuin pelaajakehityks
 - **Mentorointi-loop.** Lähetä valmentajalle viesti suoraan järjestelmässä → se näkyy hänen Viestit-välilehdellään.
 - **Coach-paneeli:** valmentajan profiili (lisenssitaso, CPD-tunnit, koulutukset), VAI+, harjoituslaatu ja
   mentorointihistoria yhdessä näkymässä.
-- **IDP: sinä olet vahvistaja, et portinvartija.** Valmentaja omistaa **oman joukkueensa** kehityssuunnitelmat
-  (IDP) — hän luo, muokkaa ja **aktivoi** tavoitteet itse, eikä aktivointi odota sinun hyväksyntääsi. Sinä näet
+- **Kehityssuunnitelma: sinä olet vahvistaja, et portinvartija.** Valmentaja omistaa **oman joukkueensa** kehityssuunnitelmat
+  — hän luo, muokkaa ja **aktivoi** tavoitteet itse, eikä aktivointi odota sinun hyväksyntääsi. Sinä näet
   kaikki tavoitteet, **kalibroit ja kommentoit** näkemyksiä. Kun kommentoit, valmentaja saa ilmoituksen
   *"VP vahvisti näkemyksesi"* tai *"VP ehdottaa kalibrointia"* — ei "hyväksytty/hylätty". Voit itse muokata
-  minkä tahansa pelaajan IDP:tä, mutta arki on valmentajan.
+  minkä tahansa pelaajan kehityssuunnitelmaa, mutta arki on valmentajan.
 
 **Johtamiskysymys:** *"Kehittyvätkö valmentajani — ja tukevatko he pelaajaa oikein?"*
 
 ## 1.4 Pelaajien johtaminen — tunnista lupaus, suojaa herkkyysvaihe
 
-- **IDP-jono ja talentit.** Näet ketkä ovat talenttiohjelmassa ja kenen suunnitelma kaipaa huomiota.
+- **Kehityssuunnitelmien jono ja talentit.** Näet ketkä ovat talenttiohjelmassa ja kenen suunnitelma kaipaa huomiota.
 - **Signaalit — biologinen totuus käyttöliittymänä:**
   - **Hidden Gem (piilohelmi):** korkea tekniikka + matala fysiikka → lupaus jonka fysiikka tulee perässä. Älä karsi.
   - **Kultaikkuna:** nuorella tekniikan herkkyysvaihe on auki (~≤12 v) — sama harjoittelu tuottaa moninkertaisen
@@ -143,7 +143,7 @@ TalentMaster tekee valmentajakehityksestä yhtä mitattavaa kuin pelaajakehityks
   klikatessa) · 👁 **Pelihavainnosta** (kenttähavainnosta johdettu ADAR 1–3; klikkaa 1–5 antaaksesi oman arvion,
   yliajaa johdetun). Coverage-tilastopalkki (D1–D5) näyttää kuinka kattavasti pelaaja on arvioitu.
 - **IDP-silta — havainnosta tavoitteeksi yhdellä klikkauksella.** Kun arvioitu arvo on **≤ 2** (havaittu tai
-  pelihavainto), rivin viereen tulee oranssi **＋ IDP-tavoite** -pilleri. Klikkaus luo kausitavoite-ehdotuksen
+  pelihavainto), rivin viereen tulee oranssi **＋ Kehityssuunnitelman tavoite** -pilleri. Klikkaus luo kausitavoite-ehdotuksen
   suoraan havainnosta ja avaa Kehitys-välilehden. Tavoite säilyttää alkuperän — kortissa näkyy lähdesiru
   *"◎ Lähde: pelihavainto · pvm"*, joten näet mistä kehityskohde nousi.
 
@@ -188,7 +188,7 @@ kentän), mutta näet yhdellä silmäyksellä toimiiko silmukka.
 - **Harjoituskäynnillä:** tee harjoitusarviointi (malli A). Pyydä valmentajaa tekemään itsearvio (B) → kalibraatio yhdessä.
 - **Kuukausittain:** tarkista suostumuskonversio + datakypsyys + **Bio-banding** (kuka ilman PHV-dataa) +
   **Ohjelmakirjasto** (kertyykö fyysisiä ohjelmia ja niiden vasteita).
-- **Kausittain:** IDP-katselmus, talenttiohjelman koostaminen, **kehitysvauhdin koonti** (2. mittausten + suljettujen
+- **Kausittain:** kehityskeskustelu, talenttiohjelman koostaminen, **kehitysvauhdin koonti** (2. mittausten + suljettujen
   jaksojen delta-rivien myötä).
 
 ---
@@ -232,18 +232,18 @@ suuntaan ja millä tavoitteella pelaaja kehittyy.**
    ehdottaa fokusta automaattisesti heikoimmasta ominaisuudesta (arvioinnin tai testin pohjalta) — hyväksyt tai
    muutat. Talentit ensin.
 2. **Harjoittele jakso (annos).** Pelaaja harjoittelee teemaa jakson ajan; sinä ohjaat ja havainnoit.
-3. **Sulje jakso (vaste).** Kun jakso päättyy, suljet sen: paraniko, pysyikö ennallaan, vai vaihdetaanko teemaa?
-   Sulku kirjaa **kehitysvasteen (delta)** pelaajan historiaan. **Delta lasketaan vain aidosta uudesta mittauksesta**
+3. **Tee jakson yhteenveto (vaste).** Kun jakso päättyy, teet jakson yhteenvedon (kolme kysymystä, lause, seuraava jakso): paraniko, pysyikö ennallaan, vai vaihdetaanko teemaa?
+   Yhteenveto kirjaa **kehitysvasteen (delta)** pelaajan historiaan. **Delta lasketaan vain aidosta uudesta mittauksesta**
    — jos tuoretta mittausta ei ole, sulku on subjektiivinen arvio (merkitään sellaiseksi).
 4. **Seuraava jakso** rakentuu edellisen vasteen päälle → peräkkäiset jaksot muodostavat pelaajan kehitystarinan.
 
-> **Miksi sulkeminen on tärkeää:** avoin jakso ei jätä jälkeä. Vasta suljettu jakso tuottaa annos–vaste-rivin,
-> josta trendi ja per-ohjelma-oppi syntyvät. Sulje jaksot — se on pieni teko, joka pitää tarinan elossa.
+> **Miksi jakson yhteenveto on tärkeää:** avoin jakso ei jätä jälkeä. Vasta yhteenvedolla päätetty jakso tuottaa annos–vaste-rivin,
+> josta trendi ja per-ohjelma-oppi syntyvät. Jakson yhteenveto nollaa myös yhteenvetorytmin — se on pieni teko, joka pitää tarinan elossa.
 
-**Kausitavoite (IDP) — sinä omistat oman joukkueesi suunnitelmat.** Pelaajaraportin kausitavoite-kortissa
+**Kauden tavoite (kehityssuunnitelma) — sinä omistat oman joukkueesi suunnitelmat.** Pelaajaraportin kausitavoite-kortissa
 **luot, muokkaat ja aktivoit** kehitystavoitteet suoraan omille pelaajillesi — aktivointi ei odota VP:n
 hyväksyntää. Voit ehdottaa tavoitetta datasta (↻ Ehdota), asettaa fokuksen itse, kuvata tavoitteen pelissä,
-kirjata reviewejä ja seurata kehityskaarta. Toisen joukkueen pelaajan kortin näet **vain luku** -muodossa. VP
+kirjata kehityskeskusteluja ja seurata kehityskaarta. Toisen joukkueen pelaajan kortin näet **vain luku** -muodossa. VP
 näkee tavoitteesi ja voi vahvistaa tai kalibroida — te keskustelette näkökulmista, mutta arjen omistat sinä.
 > **Jaksofokus (meso) vs kausitavoite (makro):** jaksofokus on 4–6 viikon operatiivinen teema (yllä); kausitavoite
 > on koko kauden suunta. Molemmat ovat sinun työkalujasi omalle joukkueellesi.
@@ -274,7 +274,7 @@ Jos seurassasi **ei ole erillistä fysiikkavalmentajaa**, hoidat myös fyysisen 
 - Havaintosi näkyvät pelaajan näkymässä **omalla, kannustavalla kielellään** — sinä hyväksyt viestin ennen kuin
   pelaaja näkee sen.
 - **Pelihavainto johtaa arviointiin ja tavoitteeseen.** Kenttähavainto (ADAR 1–3) johtaa automaattisesti
-  pelaajan peliäly-arvioon (D4, 👁-lähderyhmä). Jos havaittu taso on heikko (≤ 2), Arviointi-rivin **＋ IDP-tavoite**
+  pelaajan peliäly-arvioon (D4, 👁-lähderyhmä). Jos havaittu taso on heikko (≤ 2), Arviointi-rivin **＋ Kehityssuunnitelman tavoite**
   -silta luo kehitystavoitteen suoraan siitä havainnosta — tavoite muistaa lähteen ("◎ Lähde: pelihavainto · pvm").
 
 ## 2.6 Kuorma & fiilis + viestit — pelaajan oma ääni
@@ -292,7 +292,7 @@ Jos seurassasi **ei ole erillistä fysiikkavalmentajaa**, hoidat myös fyysisen 
 
 - **Joka harjoitus:** havainnoi (Pelihavainto), tarvittaessa viesti pelaajalle. Reflektoi lyhyesti jälkeenpäin.
 - **Testipäivänä:** Testaustyökalu kentällä, merkitse valmiiksi → data synkkaa. Muista kasvumittaus (PHV).
-- **Jakson alussa:** aseta pelaajille jaksofokukset (talentit ensin; Kehitystyöpöytä 2.8: *Aloita jakso*). **Jakson lopussa: sulje jaksot** → delta kirjautuu.
+- **Jakson alussa:** aseta pelaajille jaksofokukset (talentit ensin; Kehitystyöpöytä 2.8: *Aloita jakso*). **Jakson lopussa: tee jakson yhteenveto** → delta kirjautuu.
 - **Viikoittain:** lue Viestit + Kuorma & fiilis, tee oma itsearvio jos kävit ohjatun harjoituksen.
 - **VP:n käynnin yhteydessä:** tee itsearvio samasta harjoituksesta → kalibraatiokeskustelu.
 
@@ -313,8 +313,8 @@ Pelaajan nimi · joukkue · ikävaihe · PHV-tila · **jakson tila** (Ei jaksoa 
 | Ei jaksoa | **Aloita jakso** | Anna pelaajan valita seuraava reitti |
 | Valinta odottaa pelaajaa | (ei nappia) | Peru valinta ja aloita jakso itse |
 | Valinta tehty | **Vahvista jakso** | Hylkää valinta |
-| Jakso käynnissä | **Merkitse viikkohavainto** | Sulje jakso · Muokkaa jaksoa · Lisää klippi |
-| Jakso päättynyt | **Sulje jakso** | Jatka jaksoa 2 vk · Syvennä (täysi katselmus) |
+| Jakso käynnissä | **Merkitse viikkohavainto** | Tee jakson yhteenveto · Muokkaa jaksoa · Lisää klippi |
+| Jakso päättynyt | **Tee jakson yhteenveto** | Jatka jaksoa 2 vk · Kehityskeskustelu |
 
 ### Tänään — mitä tehdä nyt
 1. **Signaali (yksi, ylhäällä):** järjestelmä nostaa *yhden* tärkeimmän asian ("Jakso valmis suljettavaksi", "Merkitse viikkohavainto", "Pelaaja on sitoutunut — vahvista sitoumus" …) ja tarvittaessa pienen toisen rivin. Ammattivalmentajan joukkueessa signaali kertoo myös ajan ("odottaa · n pv"); OTO-joukkueessa vain "kun ehdit". Jos asioita ei ole, signaali on hiljainen ("Etene Polussa").
@@ -330,13 +330,13 @@ Pelaajan nimi · joukkue · ikävaihe · PHV-tila · **jakson tila** (Ei jaksoa 
 **Merkitse viikkohavainto — suoraan paikalla (VP-näkymä):** napauta signaalin tai kysymysrivin *Merkitse viikkohavainto*. Alle aukeaa paneeli: valitse osa (A/B/C) ja napauta **ei vielä · ohjatusti · itsenäisesti** — napautus tallentaa. Tänään ja Polku päivittyvät, välilehti ei vaihdu. *+ Liitä VEO-linkki* avaa Lisää klippi -ruudun. Paneeli aukeaa vain, jos saat muokata kyseistä pelaajaa. (Masterissa nappi vie toistaiseksi Polkuun, jossa osa-arvio tehdään kuten ennen.)
 
 ### Polku — jakso ja viikko
-Kausitavoite → jakso → viikko samassa paikassa: jakson tiedot ja muokkaus, osat ja niiden arvio, viikon suunnitelma ja kirjaukset (läsnäolo, kuorma, tavoitejakauma), klipit. Polku latautuu vasta kun avaat sen. Sulje jakso -toiminto kirjaa vasteen (ks. 2.3) — kevyt katselmus: kolme kysymystä + lause + valinnainen tarjous seuraavasta reitistä, yksi tallennus.
+Kehityssuunnitelma (kauden tavoite) → jakso → viikko samassa paikassa: jakson tiedot ja muokkaus, osat ja niiden arvio, viikon suunnitelma ja kirjaukset (läsnäolo, kuorma, tavoitejakauma), klipit. Polku latautuu vasta kun avaat sen. Tee jakson yhteenveto -toiminto kirjaa vasteen (ks. 2.3) ja nollaa yhteenvetorytmin: kolme kysymystä + lause + valinnainen tarjous seuraavasta reitistä, yksi tallennus. Polun yläreunassa rivi "Seuraava yhteenveto tai kehityskeskustelu viimeistään {pvm}" (tai "ajan tasalla"); jaksokortissa "Jakson yhteenveto {pvm}" ja Historiassa suljetun jakson kohdalla "yhteenveto tehty".
 
 ### Näyttö — mittaukset ja tausta (vain henkilökunnalle)
 Perustiedot ja 5D-profiili · Kasvu ja kypsyys (PHV, bio-ikä, kasvutahti, testipäivät) · Mittaukset (Fyysinen, Tekninen, kehon valmius, mittauslista) · Pelihavainnot ja arviointi.
 - **Datan ikä näkyy aina:** jokaisella mittausryhmällä (H-H, TKI, FLEI, ADAR, kypsyys) on oma päivämääränsä muodossa pp.kk.vvvv. Taso kertoo, millä tasolla pelaaja oli *testihetkellä* ikäisekseen — ei tämän päivän tasoa. Yli 6 kk vanha mittaus kehottaa päivittämään.
 - Valmentaja muokkaa ja poistaa vain *oman joukkueensa* pelaajien mittauksia; VP kaikkien. Päivityksen jälkeen pysyt samalla välilehdellä.
-- Kausitavoitteen rivi: jos lähtötasoa ei ole vielä mitattu, näet "tavoite taso 2 · lähtötaso katselmuksessa" — ei lukua, joka näyttäisi mitatulta.
+- Kausitavoitteen rivi: jos lähtötasoa ei ole vielä mitattu, näet "tavoite taso 2 · lähtötaso kehityskeskustelussa" — ei lukua, joka näyttäisi mitatulta.
 
 ### Pelaajan silmin
 Nappi esikatselee, mitä *pelaaja ja huoltaja saisivat nähdä*: luvut piiloutuvat Tänään- ja Polku-välilehdiltä (jäljelle jäävät sanat: "osaa itsenäisesti", "Sitoumus vahvistettu") ja **Näyttö on pois käytöstä** ("Näyttö näkyy vain henkilökunnalle"). Pelaajalle ja huoltajalle ei koskaan näytetä tasolukuja, vertailua tai TKI-laskua. Kytke pois päältä samalla napilla.
@@ -406,17 +406,43 @@ Työskentelet Master-näkymässä; VP näkee työsi oversightina (OSA 1.6).
 
 - **Jakson alussa:** rakenna/valitse ohjelma → liitä pelaajalle. Aseta mittari ja ajoita loppumittaus.
 - **Jakson aikana:** ohjaa harjoittelu; kirjaa kuorma tarvittaessa (Kuorma & fiilis).
-- **Jakson lopussa:** tee tuore mittaus → **sulje jakso** → delta kirjautuu ohjelmalle ja pelaajalle.
+- **Jakson lopussa:** tee tuore mittaus → **tee jakson yhteenveto** → delta kirjautuu ohjelmalle ja pelaajalle.
 - **Kuukausittain:** katso kirjaston N-laskurit — mitkä ohjelmat ovat käytössä, mihin kannattaa panostaa.
 - **Yhteistyö:** VP näkee ohjelmasi oversightina; keskustelkaa kehityspalaverissa mitä fyysinen data kertoo.
 
 ---
 
+## Sanasto ja yhteenvetorytmi (K1d, Tero 20.10.2026)
+
+Sovelluksessa on viisi termiä, joiden merkityksen näet ⓘ-napista termin vierestä (napautus avaa selitteen paikallaan; "Lue lisää" avaa "Miten kehitys etenee" -ruudun):
+
+| Termi | Mitä se tarkoittaa |
+|---|---|
+| **Kehityssuunnitelma** | Pelaajan kauden tavoite ja sen alla etenevät 6 viikon jaksot. |
+| **Jakson yhteenveto** | Jakson lopussa: vastaat kolmeen kysymykseen, kirjoitat lauseen ja valitset seuraavan jakson. Kirjataan aina, ja se nollaa yhteenvetorytmin. Toiminto: **Tee jakson yhteenveto**. |
+| **Kehityskeskustelu** | Laajempi keskustelu pelaajan ja tarvittaessa huoltajan kanssa, yleensä VP:n kanssa. |
+| **Pelaajaraportti** | Dokumentti, jonka voit näyttää tai antaa pelaajalle ja perheelle. |
+| **Seuran tilannekuva** | VP:n kooste siitä, onko yhteenvedot ja keskustelut ajan tasalla joukkueittain. |
+
+**Miten kehitys etenee.** Kehityssuunnitelma (kauden tavoite) → **jakso** 6 vk (aihe, ydinasiat, viikon fokus) → **jakson yhteenveto** jakson lopussa → seuraava jakso. **Kehityskeskustelu** tarvittaessa tai VP:n kanssa. **Pelaajaraportti** pelaajalle ja perheelle.
+
+**Yhteenvetorytmi.** Jakson yhteenveto *tai* kehityskeskustelu tehdään viimeistään **42 päivän välein** (12 vuotta täyttäneet) tai **84 päivän välein** (9–11-vuotiaat). Kumpi tahansa nollaa rytmin, ja eräpäivä lasketaan siitä. Ilmoituskortti Tänään-näkymässä kertoo aina:
+- **otsikossa viimeisen päivän** ("Jakson yhteenveto tai kehityskeskustelu viimeistään 3.11." / "… myöhässä 4 pv"),
+- **selitysrivillä syyn** ("Edellisestä yhteenvedosta tai keskustelusta 40 pv. 13-vuotiaalle 42 päivän välein."),
+- **jakson päättymispäivän**, jos jakso on käynnissä ("Jakso päättyy 16.11. Tee jakson yhteenveto tai pidä kehityskeskustelu ennen 16.11."),
+- ja tarjoaa toiminnot **Tee jakson yhteenveto** ja (VP) **Kirjaa kehityskeskustelu**. "Miksi näen tämän?" avaa yhden lauseen säännöstä.
+
+**Jos jakso päättyy eräpäivänä tai sitä ennen, ilmoitusta ei tule** — jakson yhteenveto hoitaa asian. Ilmoitus tulee vain, jos jakso päättyy eräpäivän *jälkeen* (silloin näet molemmat päivät) tai pelaajalla ei ole jaksoa. Seuran tilannekuva (VP) käyttää samaa sääntöä.
+
+**ADAR-nimet (henkilökunta):** Havainnointi · Päätöksenteko · Toteutus · **Reagointi** (miten pelaaja reagoi tilanteen jälkeen).
+
+---
+
 # OSA 4 — Pelaajaraportti ja roolien yhteistyö
 
-Yksittäisen pelaajan kokonaiskuva kootaan **Pelaajaraporttiin** (VP-näkymän **Raportointi**-välilehti).
+Yksittäisen pelaajan kokonaiskuva kootaan **Pelaajaraporttiin** (VP-näkymän **Seuran tilannekuva** -osio).
 Se on *esitettävä raportti*, ei selausnäkymä — yksi sivu per pelaaja, vietävissä PDF:ksi. Eri asia kuin
-IDP-kortti: **raportti kertoo mitä data sanoo, IDP-kortti mitä tehdään seuraavaksi.**
+kehityssuunnitelma: **raportti kertoo mitä data sanoo, kehityssuunnitelma mitä tehdään seuraavaksi.**
 
 ## 4.1 Mikä pelaajaraportti on
 
@@ -457,10 +483,10 @@ Se on kehotus: *"vahvista pelitilanteessa."* Suora vastalääke silmämääräis
 4. **Talenttipäätös:** signaali → VP:n vahvistus. Kenttähavainto + strateginen kuva + fyysinen vaste yhdessä.
 5. **Pelaajalle ja perheelle päin:** valmentaja omistaa päivittäisen viestinnän, VP varmistaa lapsiturvallisuuden.
 
-> **Kausitavoite (IDP) — omistajuus vs. vahvistus:** valmentaja **omistaa oman joukkueensa** kausitavoitteet:
+> **Kauden tavoite (kehityssuunnitelma) — omistajuus vs. vahvistus:** valmentaja **omistaa oman joukkueensa** kausitavoitteet:
 > luo, muokkaa ja **aktivoi** ne itse (aktivointi ei jää odottamaan hyväksyntää). VP on **vahvistaja** — näkee
 > kaikki tavoitteet, vahvistaa tai ehdottaa kalibrointia (*"VP vahvisti näkemyksesi"* / *"VP ehdottaa
-> kalibrointia"*), ei portinvartija. Toisen joukkueen pelaajan IDP näkyy valmentajalle **vain luku** -muodossa.
+> kalibrointia"*), ei portinvartija. Toisen joukkueen pelaajan kehityssuunnitelma näkyy valmentajalle **vain luku** -muodossa.
 > Strateginen kausisuunta sovitaan yhdessä kehityspalaverissa; operatiivinen jaksofokus on valmentajan arkea.
 
 ## 4.4 Pelaajan KPI-kortti — yhden silmäyksen mittaristo
@@ -471,11 +497,11 @@ Pelaajakortin **Arviointi-välilehti** on pelaajan **KPI-kortti**: viisi ulottuv
 TalentMaster tuo sen päälle mittauksen, pelihavainnon ja kehityssuunnitelman.
 
 - **VP** näkee kaikkien pelaajien KPI-kortit (kokonaiskuva + reiluus). **Valmentaja** näkee oman joukkueensa.
-- Kortista asetetaan kehitystavoite suoraan: heikko kohta (arvo ≤ 2) → **＋ IDP-tavoite** → järjestelmä ehdottaa
+- Kortista asetetaan kehitystavoite suoraan: heikko kohta (arvo ≤ 2) → **＋ Kehityssuunnitelman tavoite** → järjestelmä ehdottaa
   oikean konseptin ja harjoitteen.
 
 Yhdellä silmäyksellä: *missä pelaaja on vahva ja mihin asetetaan seuraava tavoite.* Kolme pintaa täydentävät
-toisiaan: **KPI-kortti = nykytila · IDP-kortti = mitä tehdään · pelaajaraportti = esitettävä kooste.**
+toisiaan: **KPI-kortti = nykytila · kehityssuunnitelma = mitä tehdään · pelaajaraportti = esitettävä kooste.**
 
 ---
 
@@ -488,12 +514,12 @@ toisiaan: **KPI-kortti = nykytila · IDP-kortti = mitä tehdään · pelaajarapo
 | 3. Mittaus | Valmentaja | Testaus + kasvumittaus (PHV) + pelihavainnot | Pikakentät (TKI, valmius, H-H, pelihavainto, bio-ikä) |
 | 4. Dashboard | (automaattinen) | Pikakentät täyttyvät | Joukkuepulssi, signaalit, syvänäkymä, Bio-banding |
 | 5. Jaksofokus | Valmentaja / fysiikkavalmentaja | Aseta teema (konsepti→cue→harjoite) / liitä ohjelma | Aktiivinen kehitysjakso (annos) |
-| 6. Sulku | Valmentaja / fysiikkavalmentaja | Sulje jakso tuoreella mittauksella | **Kehitysvaste (delta)** → pelaajan historia |
+| 6. Jakson yhteenveto | Valmentaja / fysiikkavalmentaja | Tee jakson yhteenveto tuoreella mittauksella | **Kehitysvaste (delta)** → pelaajan historia |
 | 7. Trendi | (automaattinen) + VP | Peräkkäiset jaksot | **Pelaajan tarina: historia + suunta** |
-| 8. Päätös | VP + valmentaja + fysiikkavalmentaja | Kehityspalaveri, IDP, mentorointi | Parempi asiantuntijapäätös |
+| 8. Päätös | VP + valmentaja + fysiikkavalmentaja | Kehityspalaveri, kehityssuunnitelma, mentorointi | Parempi asiantuntijapäätös |
 
 **Tärkein viesti kaikille rooleille:** dashboard ei ole tyhjä siksi että järjestelmä ei toimi, vaan siksi että
-polku ei ole vielä auki. **Avaa polku ja sulje jaksot** — niin näkymät täyttyvät ja pelaajan tarina alkaa elää.
+polku ei ole vielä auki. **Avaa polku ja tee jaksojen yhteenvedot** — niin näkymät täyttyvät ja pelaajan tarina alkaa elää.
 
 ---
 
@@ -502,7 +528,7 @@ polku ei ole vielä auki. **Avaa polku ja sulje jaksot** — niin näkymät täy
 Tämän pelikirjan sisältö viedään järjestelmän sisään muotoon **checklist + selittävä opas yhdessä**:
 
 - **Edistymis-checklist (datavetoinen):** roolikohtainen "Näin pääset alkuun" joka **lukee pikakentät** ja näyttää
-  oikean tilan — "Tuo pelaajat ✓ · Kutsu huoltajat (6/61) · Tee 1. testi · Aseta jaksofokus · Sulje jakso".
+  oikean tilan — "Tuo pelaajat ✓ · Kutsu huoltajat (6/61) · Tee 1. testi · Aseta jaksofokus · Tee jakson yhteenveto".
 - **Selittävä opas-paneeli:** OSA 1 / OSA 2 / OSA 3 -sisältö roolin mukaan, avattavissa milloin tahansa.
 - **Olemassa olevan hyödyntäminen:** Master-näkymässä on jo "Aloita tästä" -kohta → laajenna sitä.
 - **Kontekstuaalinen ℹ️ -selitteet:** jo olemassa — laajennetaan kattavuutta.

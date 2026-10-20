@@ -41,7 +41,7 @@ describe('Gemini-erä 2 — tm_lang-osio', () => {
     const lib = ERA.osiot.lib_adar_nimet.rivit;
     ['pelaaja', 'valmentaja'].forEach((r) => ['a', 'd', 'ac', 'r'].forEach((k) => expect(lib['adar_nimi_' + r + '_' + k], r + k).toBeTruthy()));
     const N = require('../lib/tm_pelialy_yksilo.js').TM_ADAR_NIMET;
-    ['pelaaja', 'valmentaja'].forEach((r) => ['a', 'd', 'ac', 'r'].forEach((k) => expect(lib['adar_nimi_' + r + '_' + k].fi).toBe(r === 'valmentaja' && k === 'd' ? 'Päätös' : N[r][k])));   // K1d (20.10.2026): henkilökunnan D = "Päätöksenteko" (erän 2 fi "Päätös" korvataan erässä 80)
+    ['pelaaja', 'valmentaja'].forEach((r) => ['a', 'd', 'ac', 'r'].forEach((k) => expect(lib['adar_nimi_' + r + '_' + k].fi).toBe(({ valmentaja_d: 'Päätös', valmentaja_r: 'Palautuminen', pelaaja_r: 'Palautuminen' })[r + '_' + k] || N[r][k])));   // K1d (20.10.2026): henkilökunnan D = "Päätöksenteko" (erän 2 fi "Päätös" korvataan erässä 80)
   });
   it('muuttujat {…} ja HTML-tagit säilyvät fi → en (sama joukko)', () => {
     const joukko = (s) => (s.match(/\{[A-Za-z0-9_]+\}|<\/?[a-z]+>/g) || []).sort().join('|');

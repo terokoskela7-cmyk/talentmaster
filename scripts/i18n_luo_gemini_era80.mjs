@@ -132,7 +132,7 @@ const UUDET_FI = { vp_kartta: ['Kehityskeskustelun voi kirjata, kun pelaajalle o
 for (const [o, kartta, sovellus] of KARTAT) {
   const rivit = {}, lisaa = (fi, vanhaFi) => {
     if (rivit[fi]) return;
-    const rivi = { fi, huom: vanhaFi ? 'Suomenkielinen lähdeteksti muuttui sanastopäätöksen (K1d 20.10.2026) takia. Aiempi fi: "' + vanhaFi + '". Nykyinen sv (sv_nyt) on vanhan termin mukainen ja KORVATAAN. Säilytä muuttujat ja merkit täsmälleen.' : 'Uusi toimintaohje-toast (näkyy kun kirjaus ei ole mahdollinen). Säilytä muodot täsmälleen.' };
+    const rivi = { fi, huom: vanhaFi ? 'Suomenkielinen lähdeteksti muuttui sanastopäätöksen (K1d 20.10.2026) takia. Aiempi fi: "' + vanhaFi + '". Nykyinen sv (sv_nyt) on vanhan termin mukainen ja KORVATAAN. Säilytä muuttujat ja merkit täsmälleen.' : 'Uusi teksti: toimintaohje-toast (kun kehityskeskustelun kirjaus ei ole mahdollinen) Säilytä muodot täsmälleen.' };
     if (typeof kartta[fi] === 'string') rivi.sv_nyt = kartta[fi];
     rivi.sv = vanha(o, fi); rivit[fi] = rivi;
   };
