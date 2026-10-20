@@ -17,7 +17,7 @@ const vaakaOk = (p) => p.evaluate(() => document.documentElement.scrollWidth <= 
 const nakyvat = (p, sel) => p.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => e.offsetParent !== null).length, sel);
 const luvut = (p) => p.evaluate(() => {   // näkyvät luvut oletusnäkymässä (Näytä kaikki suljettuna): lehtielementit joissa numero, ei päivämääriä eikä otsikkorivin meta (PHV / joukkue / n/m)
   const juuri = document.querySelector('[data-kn-kortit]'); let n = 0;
-  juuri.querySelectorAll('*').forEach((e) => { if (e.children.length || e.offsetParent === null) return; const t = e.textContent.trim(); if (!/\d/.test(t) || /^\d{1,2}\.\d{1,2}\.(\d{4})?$/.test(t)) return; if (e.closest('.tc-raportti-rivi')) return; n++; });
+  juuri.querySelectorAll('*').forEach((e) => { if (e.children.length || e.offsetParent === null) return; const t = e.textContent.trim(); if (!/\d/.test(t.replace(/\d{1,2}\.\d{1,2}\.(\d{4})?/g, ''))) return; /* päivämäärät eivät ole mittalukuja */ if (e.closest('.tc-raportti-rivi')) return; n++; });
   return n;
 });
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profiili uudella sivulla', () => {
@@ -61,7 +61,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
       await p.locator('[data-tc-kortti="peli"] [data-tc-toiminto="puheeksi"]').click(); await p.waitForFunction(() => /\/tanaan$/.test(location.hash));
       expect(await p.evaluate(() => typeof window._avaaPelaajaraportti === 'function' && typeof window._ktTcToimi === 'function')).toBe(true);
       await p.locator('[data-kt-valilehti="profiili"]').click(); await odota(p);
-      const popup = p.waitForEvent('popup'); await p.locator('[data-tc-toiminto="mittaus"]').first().click(); const pp = await popup; expect(pp.url()).toMatch(/TalentMaster_Testaus_v9\.html\?seura=demo&joukkue=Demo%20U13/); await pp.close();
+      await p.evaluate(() => { window.__avattu = []; window.open = (u) => { window.__avattu.push(u); return null; }; }); await p.locator('[data-tc-toiminto="mittaus"]').first().click();
+      expect(await p.evaluate(() => window.__avattu)).toEqual(['TalentMaster_Testaus_v9.html?seura=demo&joukkue=Demo%20U13']);   // = Masterin _msFyysSuunnitteleMittaus (Testaus lukee seura + joukkue)
       expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 120000);
