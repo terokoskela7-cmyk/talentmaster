@@ -13,8 +13,9 @@ const ERA = JSON.parse(readFileSync(join(juuri, 'docs/i18n/sv_kaannoserae_3.json
 const PAL = JSON.parse(readFileSync(join(juuri, 'docs/i18n/sv_era3_palautetaan.json'), 'utf8')).rivit;
 const L = require('../lib/tm_lang.js').TM_LANG.sv;
 const LIB = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv;
-const VP = require('../lib/tm_vp_i18n.js').TM_VP_I18N.sv;
-const MA = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;
+const K1D = require('./helpers/k1d_korvaukset.cjs');   // K1d: sanastomuutos korvasi fi-avaimia → haku vanhalla avaimella toimii
+const VP = K1D.kartta(require('../lib/tm_vp_i18n.js').TM_VP_I18N.sv);
+const MA = K1D.kartta(require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv);
 const polku = (o, p) => p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);
 const rivit = (osio) => Object.entries(ERA.osiot[osio].rivit);
 

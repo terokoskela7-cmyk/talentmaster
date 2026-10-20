@@ -123,7 +123,7 @@ describe('roolit ja joukkueen valinta', () => {
     const jf = L.JJ.tmJoukkuejaksoKirjoitus({ id: 'kpv_u13' }, L.JJ.tmJoukkuejaksoRakenna(L.JJ.tmJoukkuejaksoSyote((id) => ({ _jjTekn: 'teema:teema_45_1', _jjFyys: 'fy:fy_nopeus', _jjHen: 'Seuraava suoritus virheen jälkeen', _jjSos: 'Kannustetaan ääneen', _jjAlku: TANAAN, _jjKesto: '8' })[id] || ''),
       L.JJ.tmJoukkuejaksoTiedot({ id: 'kpv_u13', nimi: 'KPV U13' }, { joukkue: 'KPV U13', teemat: TEEMAT, ohjelmat: OHJ, tanaan: TANAAN }), {}), { nytISO: new Date().toISOString() }).paikallinen.jaksofokus;
     const e = ymp({ rooli: 'vp', doc: { nimi: 'KPV U13', ikaryhma: 'U13', jaksofokus: jf } }); await e.sb._mJjRender();
-    for (const s of ['Syöttötaito ja -peli', 'Nopeus', 'Seuraava suoritus virheen jälkeen', 'Kannustetaan ääneen', '8 vk', 'Katselmusikkuna']) expect(kortti(e), s).toContain(s);
+    for (const s of ['Syöttötaito ja -peli', 'Nopeus', 'Seuraava suoritus virheen jälkeen', 'Kannustetaan ääneen', '8 vk', 'Yhteenvetoikkuna']) expect(kortti(e), s).toContain(s);
     await e.sb.window._mJjAvaa(); expect(e.log.modalHtml).toContain('Muokkaa joukkuejaksoa'); expect(e.log.modalHtml).toMatch(/value="fy:fy_nopeus" selected/); expect(e.log.modalHtml).toMatch(/value="8" selected/);
   });
 });

@@ -561,9 +561,9 @@ describe('(design) Pikakortti — otsikko, desimaalit, koodit, vinkki, tokenit',
     y.api.S.pisteet = { A: 2 }; y.api.S.fb = 'A'; y.api.render(); h = html(y);
     expect(h).toContain('Mitä näit?'); expect((h.match(/data-chip="A"/g) || []).length).toBe(4); expect(h).not.toContain('Mitä näit? ▾');
     y.api.S.fb = 'D'; y.api.S.fbKys = true; y.api.render(); h = html(y);
-    expect(h, 'nimen napautus: kysymys näkyviin').toMatch(/class="fb-q[^"]*">Päätös: Kuinka nopeasti/);
+    expect(h, 'nimen napautus: kysymys näkyviin').toMatch(/class="fb-q[^"]*">Päätöksenteko: Kuinka nopeasti/);
     y.api.S.pisteet.D = 3; y.api.S.fbKys = true; y.api.render(); h = html(y);
-    expect(h, 'pisteytetylle: kysymys + kuvaus').toContain('class="fb-q">Kuinka nopeasti'); expect(h).toContain('Päätös · 3 Hallitsee');
+    expect(h, 'pisteytetylle: kysymys + kuvaus').toContain('class="fb-q">Kuinka nopeasti'); expect(h).toContain('Päätöksenteko · 3 Hallitsee');
   });
   it('vinkin tila nollautuu pelaajaa vaihtaessa (kuten S.auki) eikä kuulu luonnokseen', () => {
     expect(SIVU).toMatch(/S\.pisteet = \{\}; S\.havaitut = \{\}; S\.vinkki = \{\};/);

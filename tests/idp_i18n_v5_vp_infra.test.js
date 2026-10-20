@@ -23,7 +23,7 @@ describe('lib/tm_vp_i18n.js — string-avainkartta + vpT', () => {
   it('vpT: sv chrome-käännökset (fi-avain → sv)', () => {
     global.tmNykyinenKieli = () => 'sv';
     ['Pelaajat:Spelare', 'Kalenteri:Kalender', 'Tilanne:Läge', 'Valmentajat:Tränare',
-      'Raportointi:Rapportering', 'Asetukset:Inställningar', 'Kirjaudu ulos:Logga ut',
+      'Seuran tilannekuva:Rapportering', 'Asetukset:Inställningar', 'Kirjaudu ulos:Logga ut',
       'Koti:Hem', 'Joukkueet:Lag', 'Raportit:Rapporter', 'Testit:Tester', 'Lisää:Lägg till',
       'Kirjaa ja tuo testituloksia:Registrera och importera testresultat'].forEach((p) => {
       const [fi, sv] = p.split(':');
@@ -64,8 +64,9 @@ describe('VP_v25 chrome tagattu data-i18n:llä', () => {
       expect(VP).toContain('<span class="tb-lbl" data-i18n="' + t + '">' + t + '</span>'));
   });
   it('page-titlet data-i18n (8)', () => {
-    ['Asetukset', 'Kalenteri', 'Pelaajat', 'Raportointi', 'Seuranta', 'Valmentajat'].forEach((t) =>
+    ['Asetukset', 'Kalenteri', 'Pelaajat', 'Seuranta', 'Valmentajat'].forEach((t) =>
       expect(VP).toContain('<div class="page-title" data-i18n="' + t + '">' + t + '</div>'));
+    expect(VP).toContain('<div class="page-title"><span data-i18n="Seuran tilannekuva">Seuran tilannekuva</span><span id="siTilannekuva"></span></div>');   // K1d: ⓘ-selite (TM_SANASTO_INFO) otsikon vieressä
   });
   it('login + topbar tagattu (data-i18n / -ph / -title)', () => {
     expect(VP).toContain('data-i18n="Valmennuspäällikkö"');
@@ -108,7 +109,7 @@ describe('VP_v25 Vaihe 0 -täydennys: koko aina-näkyvä chrome reititetty (kiel
   });
 
   it('sivupalkin nav-labelit + section-labelit reititetty', () => {
-    ['Työtilat', 'Työkalut', 'Koti', 'Seuranta', 'Raportointi', 'Kalenteri',
+    ['Työtilat', 'Työkalut', 'Koti', 'Seuranta', 'Seuran tilannekuva', 'Kalenteri',
       'Pelihavainto', 'Jaksofokus', 'Ohjelmakirjasto', 'Bio-banding', 'Arvioi harjoitus'].forEach((t) =>
       expect(block).toContain('data-i18n="' + t + '"'));
   });

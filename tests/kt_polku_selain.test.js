@@ -45,7 +45,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4a · Polku'
     await kaynnistaSelain(); try {
       const { sk, p, virheet } = await avaa({ leveys: 390, korkeus: 844, teema: 'dark' })(selain); await odota(p); await p.waitForSelector('[data-kt-klipit="ok"]', { timeout: 10000 });
       expect(await eiVaakavieritysta(p)).toBe(true); expect(await p.locator('.kt-jr .kt-jd').first().isVisible()).toBe(true);
-      await p.locator('.kt-pk-valikko summary').click(); expect(await p.locator('.kt-pk-valikko [role="menuitem"]').allInnerTexts()).toEqual(['Lisää klippi', 'Piirrä taululle', 'Muokkaa jaksoa', 'Aseta alue', 'Sulje jakso', 'Anna pelaajan valita seuraava reitti\nYdinvahvuuden kuvaus puuttuu']);   /* K1: ei aluetta → 'Aseta alue' (alueen ollessa asetettu 'Vaihda aluetta'); K3a: 'Anna pelaajan valita' (harmaa + syy, kun ydinvahvuuden kuvausta ei ole) */
+      await p.locator('.kt-pk-valikko summary').click(); expect(await p.locator('.kt-pk-valikko [role="menuitem"]').allInnerTexts()).toEqual(['Lisää klippi', 'Piirrä taululle', 'Muokkaa jaksoa', 'Aseta alue', 'Tee jakson yhteenveto', 'Anna pelaajan valita seuraava reitti\nYdinvahvuuden kuvaus puuttuu']);   /* K1: ei aluetta → 'Aseta alue' (alueen ollessa asetettu 'Vaihda aluetta'); K3a: 'Anna pelaajan valita' (harmaa + syy, kun ydinvahvuuden kuvausta ei ole) */
       await p.locator('.kt-pk-valikko summary').click(); await kuva(p, 'polku_390_tumma_normaali'); expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 120000);

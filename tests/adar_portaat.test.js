@@ -246,17 +246,17 @@ describe('(6) tmAdarPikakentat — yksi laskenta kahden kopion tilalle', () => {
 describe('(7) nimikanoni', () => {
   it('kaksi muotoa: valmentaja ja pelaaja — MOLEMMAT kokonaan', () => {
     expect(L.TM_ADAR_NIMET.valmentaja).toEqual({
-      a: 'Havainnointi', d: 'Päätös', ac: 'Toteutus', r: 'Palautuminen',
+      a: 'Havainnointi', d: 'Päätöksenteko', ac: 'Toteutus', r: 'Reagointi',
     });
     /* Koko kartta, ei yksittäistä avainta: R:n nimi oli juuri se, joka oli väärin. */
     expect(L.TM_ADAR_NIMET.pelaaja).toEqual({
-      a: 'Havainnointi', d: 'Päätöksenteko', ac: 'Toteutus', r: 'Palautuminen',
+      a: 'Havainnointi', d: 'Päätöksenteko', ac: 'Toteutus', r: 'Reagointi',
     });
   });
 
   it('R mittaa palautumista — nimi ei saa luvata pelin lukemista', () => {
     ['valmentaja', 'pelaaja'].forEach((m) => {
-      expect(L.TM_ADAR_NIMET[m].r, m).toBe('Palautuminen');
+      expect(L.TM_ADAR_NIMET[m].r, m).toBe('Reagointi');   // K1d (20.10.2026): R = Reaction = Reagointi
     });
   });
 

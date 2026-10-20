@@ -45,7 +45,7 @@ function ymp({ kaada = false, demo = false, pelaaja = {}, mergeLisa = null } = {
     _dimIkaSp: () => ({ ika: 12 }), _vpTtNormPositio: () => 'KK', _ttItems: () => [{ avain: 'y_h2', koodi: 'H2' }], _vpJfKanonNimi: (a) => 'Nimi ' + a, _vpJfKestoNyt: () => 6, _vpTtEhdotus: () => null,
     _vpSiltaKonsepti: (a) => ({ nimi: 'Silta ' + a, koodi: 'S1' }), tmPhvKoodi: () => 'PRE', document: { getElementById: (id) => (/Modal$/.test(id) ? { remove() { log.suljetut.push(id); } } : null) },
   };
-  vm.createContext(sb);
+  sb.tmPaivaIso = require('./helpers/k1d_korvaukset.cjs').tmPaivaIso; vm.createContext(sb);
   vm.runInContext([pura('function _vpJfSnapshotit('), pura('function _vpJaksoVaihto('), pura('async function _vpJfKirjoita('), pura('async function _vpKirjoitaJaksofokus('), pura('function _vpJfPolut('),
     pura('window._vpAsetaFyysFokus = async function'), pura('window._vpOhjKaytaOhjelma = async function'), pura('window._vpValitavoiteAktivoi = function'), pura('window._vpTtVieTreeniin = async function'),
     pura('window._vpJfAsetaKehitysFokus = async function'), pura('window._vpJfTavoitteetTallenna = async function'), pura('window._vpJfOsaArvioSet = function'), pura('window._vpSulkuTallenna = async function'), pura('function _kvkLahde(')].join(';\n') + ';', sb);
@@ -161,7 +161,7 @@ describe('V8 _vpSulkuTallenna — tmSuljeJakso + arrayUnion', () => {
   it('ilman uutta jaksoa: YKSI update {jaksofokus:null, jaksofokus_historia: arrayUnion(sulkurivi)}; rivi sulkutapa "suljettu", arvio_vp, arvioija_rooli vp, kalibraatio', async () => {
     const e = ymp({ pelaaja: { jaksofokus: JF } }); await aja(e, null);
     expect(e.kirj.length).toBe(1); expect(e.log.setit).toBe(0); expect(e.kirj[0].path).toBe(POLKU);
-    expect(Object.keys(e.kirj[0].data).sort()).toEqual(['jaksofokus', 'jaksofokus_historia']); expect(e.kirj[0].data.jaksofokus).toBeNull();
+    expect(Object.keys(e.kirj[0].data).sort()).toEqual(['jaksofokus', 'jaksofokus_historia', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi']); expect(e.kirj[0].data.jaksofokus).toBeNull();
     const r = e.kirj[0].data.jaksofokus_historia.__arrayUnion; expect(r.length).toBe(1);
     expect(r[0]).toMatchObject({ konsepti_avain: 'y_h2', alkoi: ALKOI, paattyi: '2026-10-04T10:00:00.000Z', sulkutapa: 'suljettu', harjoituksia: 5, arvio_itse: 4, arvio_vp: 3, arvio_valmentaja: null, arvioija_rooli: 'vp', tulos: 'parani', lahde_seuraava: null, kalibraatio_ero: J.tmKalibraatio(4, 3) });
     expect(e.p.jaksofokus).toBeNull(); expect(e.p.jaksofokus_historia.length).toBe(1);

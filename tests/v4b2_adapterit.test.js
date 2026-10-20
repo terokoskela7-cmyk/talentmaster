@@ -57,13 +57,13 @@ for (const sov of ['Master', 'VP']) {
       e.win._kvkAvaa('p1', true); expect(e.sb._kvkTila().k3.paalla).toBe(true);   // "Anna pelaajan valita" → sama ruutu, tarjous auki
       const ei = ymp(sov, { pelaaja: { jaksofokus: null } }); ei.win._kvkAvaa('p1', false); await lopeta(); expect(ei.log.lisatyt).not.toContain('_kvkModal'); expect(ei.log.toast.some(([, k]) => k === 'error')).toBe(true);
     });
-    it('TALLENNUS = YKSI batch: pelaajadokin update (jaksofokus null + historiarivi lause/lause_lahde) + reviewit/{pvm} set merge (kevyt + kevyt_tallennettu); EI review_viimeisin_*, EI tyyppiä; ruutu sulkeutuu vasta onnistuttua', async () => {
+    it('TALLENNUS = YKSI batch: pelaajadokin update (jaksofokus null + historiarivi lause/lause_lahde) + reviewit/{pvm} set merge (kevyt + kevyt_tallennettu); K1d: + review_viimeisin_pvm/-tyyppi 'jakso' samassa update():ssa, reviewit-dokumentissa EI tyyppiä; ruutu sulkeutuu vasta onnistuttua', async () => {
       const e = ymp(sov, { rooli: sov === 'VP' ? 'vp' : 'valmentaja' }); e.win._kvkAvaa('p1', false); await lopeta(); vastaa(e.win);
       await e.win._kvkTallenna(); expect(e.kirj.batch).toHaveLength(1); const ops = e.kirj.batch[0]; expect(ops).toHaveLength(2);
       const [u, s] = ops; expect(u[0]).toBe('update'); expect(u[1]).toBe('seurat/kpv/pelaajat/p1'); expect(u[2].jaksofokus).toBeNull(); const rivi = u[2].jaksofokus_historia.__arrayUnion[0];
       expect(rivi).toMatchObject({ konsepti_avain: 'y_h1', sulkutapa: 'suljettu', lause: 'Laukaus vauhdista näkyi jo peleissä.', lause_lahde: sov === 'VP' ? 'vp' : 'valmentaja', harjoituksia: 2 });
       expect(s[0]).toBe('set'); expect(s[1]).toBe('seurat/kpv/pelaajat/p1/reviewit/' + PVM); expect(s[3]).toEqual({ merge: true }); expect(s[2].kevyt).toEqual({ nakyi: 'ohjatusti', treeni: 'usein', mukana: 'hyvin' }); expect(Object.keys(s[2]).sort()).toEqual(['kevyt', 'kevyt_tallennettu']);
-      expect(JSON.stringify(ops)).not.toMatch(/review_viimeisin|"tyyppi"/); expect(JSON.stringify(rivi)).not.toMatch(/ohjatusti|"usein"|hyvin/);   // vastaukset vain reviewit-dokumenttiin
+      expect(u[2].review_viimeisin_pvm).toBe(PVM); expect(u[2].review_viimeisin_tyyppi).toBe('jakso'); expect(Object.keys(u[2]).sort()).toEqual(['jaksofokus', 'jaksofokus_historia', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi']); expect(JSON.stringify(s)).not.toMatch(/"tyyppi"/); expect(JSON.stringify(rivi)).not.toMatch(/ohjatusti|"usein"|hyvin/);   // vastaukset vain reviewit-dokumenttiin
       expect(e.log.poistetut).toContain('_kvkModal'); expect(e.sb._kvkTila()).toBeNull(); expect(e.p.jaksofokus).toBeNull(); expect(e.p.jaksofokus_historia).toHaveLength(1); expect(e.log.toast.some(([, k]) => k === 'ok')).toBe(true);
     });
     it('0b: kytkin POIS (oletus) → historiariville EI lausetta; reviewit/{pvm}.lause_sisainen samassa batchissa (pelaajan luettavaan dokumenttiin ei mene lausetta)', async () => {

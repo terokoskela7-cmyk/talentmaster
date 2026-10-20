@@ -156,7 +156,7 @@ describe('modaali- ja korttinäkymä', () => {
     const e = J.tmJoukkuejaksoKorttiHTML(J.tmJoukkuejaksoKortti(DOC(null), { tanaan: TANAAN }), { t: T, avaaFn: '_avaa' }); expect(e).toContain('Joukkueella ei ole jaksoa'); expect(e).toContain('Aloita joukkuejakso'); expect(e).toContain('_avaa()');
     const k = J.tmJoukkuejaksoKortti(DOC(jfKortti('2026-10-13')), { tanaan: '2026-11-03' }); expect(k).toMatchObject({ onJakso: true, tekn: 'Syöttötaito ja -peli', fyys: 'Räjähtävä voima', henkinen: 'Seuraava suoritus virheen jälkeen', sosiaalinen: null, kesto_vk: 6, paattyy: '2026-11-24', viikko: { n: 4, k: 6 }, umpeutunut: false });
     const h = J.tmJoukkuejaksoKorttiHTML(k, { t: T, avaaFn: '_avaa', nimi: 'KPV U13' });
-    for (const s of ['Syöttötaito ja -peli', 'Räjähtävä voima', 'Seuraava suoritus virheen jälkeen', 'Viikko 4/6', '6 vk', 'päättyy 24.11.', 'Katselmusikkuna', '24.11.–8.12.', 'Muokkaa joukkuejaksoa', 'KPV U13']) expect(h, s).toContain(s);
+    for (const s of ['Syöttötaito ja -peli', 'Räjähtävä voima', 'Seuraava suoritus virheen jälkeen', 'Viikko 4/6', '6 vk', 'päättyy 24.11.', 'Yhteenvetoikkuna', '24.11.–8.12.', 'Muokkaa joukkuejaksoa', 'KPV U13']) expect(h, s).toContain(s);
     expect(h).not.toContain('Sosiaalinen'); expect(h).not.toMatch(/\b(SBL|SFL|LL|DIAG|DFL)\b/);
   });
   it('kortti: alkaa vasta · päättynyt · rajat (viikko 1 alkupäivänä, päättyy-päivänä umpeutunut); vain luku ilman muokkausnappia; legacy-jaksofokus ilman osa_alueita = ei jaksoa', () => {

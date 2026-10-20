@@ -11,7 +11,7 @@ const V = require('../scripts/i18n_vie_sv_era64.cjs'), SV = require('../lib/tm_l
 describe('sv-erä 64 — vienti', () => {
   it('palautus 42 riviä = lähetetty erä + ohitettu rivi; fi = koodi; sv täytetty; paikkamerkit säilyvät', () => {
     expect(Object.keys(P).length).toBe(42); expect(Object.keys(P).filter((k) => k !== OHITETTU).sort()).toEqual(Object.keys(G).sort());
-    for (const [k, r] of Object.entries(P)) { expect(r.sv.trim(), k).not.toBe(''); if (k === OHITETTU) continue; expect(r.fi, k).toBe(TX.FI[k]); expect(r.fi, k).toBe(G[k].fi); expect(JSON.stringify(r.fi.match(/\{\w+\}/g)), k).toBe(JSON.stringify(r.sv.match(/\{\w+\}/g))); }
+    for (const [k, r] of Object.entries(P)) { expect(r.sv.trim(), k).not.toBe(''); if (k === OHITETTU) continue; expect(r.fi, k).toBe(require('./helpers/k1d_korvaukset.cjs').erassaFi(k, TX.FI[k])); expect(r.fi, k).toBe(G[k].fi); expect(JSON.stringify(r.fi.match(/\{\w+\}/g)), k).toBe(JSON.stringify(r.sv.match(/\{\w+\}/g))); }
   });
   it('fi-muutos: "Muokkaa kauden tavoitetta" (palautuksen mukaan)', () => { expect(TX.FI.ktp_muokkaa_kausitavoitetta).toBe('Muokkaa kauden tavoitetta'); expect(SV.ktp_muokkaa_kausitavoitetta).toBe('Redigera säsongsmål'); });
   it('ktp_siirra_ydinvahvuutta pois koodista ja viennistä; valikko käyttää ka_vaihda-avainta (sv olemassa)', () => {
@@ -20,7 +20,7 @@ describe('sv-erä 64 — vienti', () => {
   });
   it('koodin sv = palautus merkki merkiltä; jokaiselle ktp_-avaimelle on sv', () => {
     for (const [k, r] of Object.entries(P)) if (k !== OHITETTU) expect(SV[k], k).toBe(r.sv);
-    expect(Object.keys(TX.FI).filter((k) => typeof SV[k] !== 'string')).toEqual([]);
+    expect(Object.keys(TX.FI).filter((k) => typeof SV[k] !== 'string' && !require('./helpers/k1d_korvaukset.cjs').era80Odottaa(k))).toEqual([]);   // K1d: erä 80 -avaimet odottavat Geminiä
   });
   it('idempotentti', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.ohitettu).toContain(OHITETTU); });
 });

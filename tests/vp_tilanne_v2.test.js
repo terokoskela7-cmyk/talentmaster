@@ -18,10 +18,10 @@ describe('D151 · otsikko ja tulkintalause; D170 · Käynnistys-vaiheessa ei sig
   it('Rytmi (kypsä 8/9): signaali = jaksopalaverin valmius — ainoa täytetty nappi "Avaa esityslista", linkki "Muistuta valmentajia"', () => {
     const { m, h } = tila('kypsa'), x = teksti(h); expect(m.vaihe).toBe('rytmi'); expect(m.signaali).toMatchObject({ w: true, n: 1 });
     expect((h.match(/class="kt-btn"/g) || []).length).toBe(1); expect(h).toContain('<button class="kt-btn" type="button" onclick="es()">Avaa esityslista</button>'); expect(h).toContain('onclick="va()">Muistuta valmentajia');
-    expect(x).toMatch(/Jaksopalaveri · \S+ \d+\.\d+\. · \d+ päivää/); expect(x).toContain('Yksi katselmus auki ennen palaveria.'); expect(h).toContain('kt-sig w');
+    expect(x).toMatch(/Jaksopalaveri · \S+ \d+\.\d+\. · \d+ päivää/); expect(x).toContain('Yksi jakson yhteenveto auki ennen palaveria.'); expect(h).toContain('kt-sig w');
   });
-  it('Rytmi, kaikki katselmukset tehty → teal-kortti "Kaikki katselmukset ovat valmiina."; ei palaveria eikä auki olevia → ei korttia', () => {
-    const a = tila('kypsa', (d) => d.syote.joukkueet.forEach((j) => { j.katselmusAuki = false; })); expect(teksti(a.h)).toContain('Kaikki katselmukset ovat valmiina.'); expect(a.h).not.toContain('kt-sig w'); expect(a.h).not.toContain('Muistuta valmentajia');
+  it('Rytmi, kaikki katselmukset tehty → teal-kortti "Kaikki jakson yhteenvedot ovat valmiina."; ei palaveria eikä auki olevia → ei korttia', () => {
+    const a = tila('kypsa', (d) => d.syote.joukkueet.forEach((j) => { j.katselmusAuki = false; })); expect(teksti(a.h)).toContain('Kaikki jakson yhteenvedot ovat valmiina.'); expect(a.h).not.toContain('kt-sig w'); expect(a.h).not.toContain('Muistuta valmentajia');
     const b = tila('kypsa', (d) => { d.syote.joukkueet.forEach((j) => { j.katselmusAuki = false; }); d.syote.palaveri = null; }); expect(b.m.signaali).toBeNull(); expect(b.h).not.toContain('kt-sig');
   });
   it('tyhjä seura: "Kausi odottaa joukkueita." ilman nollia (ei 0/0) ja ilman aikajanaa', () => { const { h } = tila('tyhja'), x = teksti(h); expect(x).toContain('Kausi odottaa joukkueita.'); expect(x).not.toMatch(/\b0\/0\b/); expect(h).not.toContain('tilanneAikajana'); });

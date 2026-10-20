@@ -120,6 +120,7 @@ describe('ilmoituskanavat · kattavuus', () => {
 const SV_ODOTTAA_SANKTIOINTIA = [
   // Tyhjä 15.10.2026: erän 19 palautus (vp_kartta) vietiin scripts/i18n_vie_sv_era53_19.cjs:llä; uusi sanktiointia odottava avain → lisää tähän.
 ];
+{ const E80 = JSON.parse(readFileSync(new URL('../docs/i18n/sv_kaannoserae_80_gemini.json', import.meta.url), 'utf8')).osiot.vp_kartta.rivit; SV_ODOTTAA_SANKTIOINTIA.push(...Object.entries(E80).filter(([, r]) => !r.sv && !r.sv_nyt).map(([k]) => k)); }   // erä 80 (K1d): uudet avaimet ilman vanhaa sv:tä odottavat Geminiä
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {
   it('jokainen kääritty avain palauttaa AJOSSA sv:n, ei fi:tä', () => {

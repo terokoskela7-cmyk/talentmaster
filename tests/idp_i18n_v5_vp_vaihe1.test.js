@@ -20,16 +20,16 @@ describe('V1 plain-avainkattavuus (Tilanne + Koti sv)', () => {
   const V1_KEYS = [
     'Kausi', 'Viikko', '% kaudesta käyty', 'rekisteröity', 'vanhin', 'pv sitten',
     '↑ edellisestä mittauksesta', 'vaatii toimenpiteitä', 'Ei kriittisiä havaintoja', 'Tuntematon',
-    'pelaajaa myöhässä reviewistä →', 'Hyvää yötä', 'Hyvää aamua', 'Hyvää päivää', 'Hyvää iltaa', 'valmentaja',
+    'pelaajaa myöhässä yhteenvedosta tai keskustelusta →', 'Hyvää yötä', 'Hyvää aamua', 'Hyvää päivää', 'Hyvää iltaa', 'valmentaja',
     'Aloita näistä kolmesta', 'Tarkista joukkuelistasi', 'pelaajaa tuotu', 'Suunnittele ensimmäinen testipäivä',
     'Luo testi →', 'Kutsu valmentajat järjestelmään', 'Kutsu →', 'Seuraava testi', 'Testipäivä', 'päivää', 'Vinkki',
     'Suunnittele toinen testipäivä vertailua varten', 'Mitattu', 'kk sitten', 'päivitä mittaus ennen johtopäätöksiä.',
     'Harjoitettavuuskartoitus tekemättä —', 'joukkuetta', 'Avaa kartoituslomake →', 'tekniikkataso tarvitsee tukea',
-    'TKI-keskiarvo', 'Katso harjoitussuositukset →', 'IDP-ehdotusta odottaa hyväksyntää', 'Avaa jono →',
+    'TKI-keskiarvo', 'Katso harjoitussuositukset →', 'kehityssuunnitelmaehdotusta odottaa hyväksyntää', 'Avaa jono →',
     'TKI-data puuttuu osalta', 'pelaajaa lähellä pronssia', 'pelaajaa ilman suostumusta', 'Lähetä kutsut →',
     'seuran korkein TKI', 'Katso profiili →', 'pelaajaa saavutti kulta- tai hopea-merkin', 'Ei avoimia signaaleja tänään.',
     'KRIITTISET', 'Seuranta', 'Onnistumiset', 'vaatii toimenpidettä', 'Ei kriittisiä', 'tulossa',
-    'valmentajaa ilman mentorointikirjausta', 'pv', 'Mentoroi', 'Hidden Gem -nostoehdokasta (valmius ≥', 'Ehdota IDP',
+    'valmentajaa ilman mentorointikirjausta', 'pv', 'Mentoroi', 'Hidden Gem -nostoehdokasta (valmius ≥', 'Ehdota kehityssuunnitelmaa',
     'heikoin kehityskohde', 'pelaajalla', 'mm.', 'Luo treeniteema', 'Katso', 'Rekisteröintikonversio', 'odottaa vastausta',
     'Muistuta odottavia', 'pelaajalla → kalibraatio', 'tuotu', 'kutsuttu', 'suostumus', 'konversio', 'Kriittiset signaalit',
     'Ei kriittisiä signaaleja juuri nyt.', 'Kaikki signaalit yksityiskohtaisesti →', 'ei sähköpostia', 'liian pian edellisestä',
@@ -39,7 +39,7 @@ describe('V1 plain-avainkattavuus (Tilanne + Koti sv)', () => {
     'Lähetä mentorointiviesti valmentajalle', 'Aloitusopas', 'valmis', 'Näytä opas', 'Aloita tästä', 'Piilota opas',
     'askelta — klikkaa askelta siirtyäksesi.', 'Näin johdat TalentMasterilla', 'Piilota ohje',
     'Fyysinen taso vaatii pikahuomiota.', 'joukkuetta alle kansallisen tason.', 'tarvitsee erityishuomiota',
-    'Pelaajia', 'Valmius ka.', 'IDP odottaa', 'Avoimet testit', 'hyväksyntää', 'pel.',
+    'Pelaajia', 'Valmius ka.', 'Kehityssuunnitelma odottaa', 'Avoimet testit', 'hyväksyntää', 'pel.',
   ];
   it('kaikki V1-avaimet resolvoituvat sv:ksi (≠ fi, ei puutu)', () => {
     global.tmNykyinenKieli = () => 'sv';
@@ -85,7 +85,7 @@ describe('V1 wiring — dynaaminen JS reititetty vpT():llä + staattiset KPI-lab
     expect(VP).not.toContain("'<span class=\"hero-vaatii ok\">Ei kriittisiä havaintoja</span>'");
   });
   it('staattiset Tilanne-KPI-labelit tagattu data-i18n:llä (vpLokalisoi ei clobberaa laskettuja deltoja)', () => {
-    ['Pelaajia', 'Valmius ka.', 'IDP odottaa', 'Avoimet testit', 'hyväksyntää'].forEach((t) =>
+    ['Pelaajia', 'Valmius ka.', 'Kehityssuunnitelma odottaa', 'Avoimet testit', 'hyväksyntää'].forEach((t) =>
       expect(VP).toContain('data-i18n="' + t + '"'));
     // laskettu delta asetetaan sv-oletuksena JS:ssä (ei data-i18n → ei clobber)
     expect(VP).toContain("vpT('viimeisin testi')");

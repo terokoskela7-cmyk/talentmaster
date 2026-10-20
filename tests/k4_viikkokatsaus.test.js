@@ -140,7 +140,7 @@ describe('§7.22-portti — pelaajan HTML', () => {
     }
   });
   it('kortti: otsikko, ohje valmentajan katselmuksesta, kolme nappia (Onnistui usein · Joskus · Ei vielä), valinnainen vapaa lause maxlength 140, "Valmis"; ei Archivo-fonttia kovakoodattuna', () => {
-    expect(korttiH).toContain('Miten osat näkyivät pelissä?'); expect(korttiH).toContain('Vastauksesi näkyy valmentajan katselmuksessa.');
+    expect(korttiH).toContain('Miten osat näkyivät pelissä?'); expect(korttiH).toContain('Vastauksesi näkyy valmentajan jakson yhteenvedossa.');
     for (const t of ['Onnistui usein', 'Joskus', 'Ei vielä']) expect((korttiH.match(new RegExp('>' + t + '<', 'g')) || []).length).toBe(3);
     expect(korttiH).toContain('maxlength="140"'); expect(korttiH).toContain('Valmis'); expect(korttiH).toContain('aria-pressed="true"'); expect(korttiH).not.toMatch(/Archivo/);
     expect(korttiH).toMatch(/id="p7VkValmis"[^>]*>/);

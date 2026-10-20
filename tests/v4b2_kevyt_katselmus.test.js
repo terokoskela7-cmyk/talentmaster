@@ -29,9 +29,11 @@ describe('kevyt katselmus: kirjoitussuunnitelma (yksi tallennus)', () => {
     expect(Object.keys(x.reviewitData).sort()).toEqual(['kevyt', 'kevyt_tallennettu', 'lause_sisainen']);
     expect(K.tmKkAlku(P(), {}).nayta).toBe(false);   // oletus pois
   });
-  it('EI koske review_viimeisin_*-pikakenttiin eikä reviewit.tyyppi:ä (MDT-rytmi päivittyy vain täydestä katselmuksesta); suunnitelmassa ei pikakenttiä', () => {
-    const x = K.tmKkTallennus(P(), TAYSI(), CTX()); const avaimet = JSON.stringify(Object.keys(x)) + JSON.stringify(Object.keys(x.reviewitData));
+  it('K1d: jakson yhteenveto NOLLAA rytmin — suunnitelmassa pikakentat {review_viimeisin_pvm, review_viimeisin_tyyppi:"jakso"} (tmKirjaaKatselmus); reviewit-dokumentissa EI tyyppiä', () => {
+    const x = K.tmKkTallennus(P(), TAYSI(), CTX()); const avaimet = JSON.stringify(Object.keys(x.reviewitData));
     expect(avaimet).not.toMatch(/review_viimeisin|pikakentat|tyyppi/); expect(Object.keys(x.reviewitData).sort()).toEqual(['kevyt', 'kevyt_tallennettu']);
+    expect(x.pikakentat).toEqual({ review_viimeisin_pvm: CTX().pvm, review_viimeisin_tyyppi: 'jakso' });
+    const myohempi = K.tmKkTallennus(Object.assign(P(), { review_viimeisin_pvm: '2099-01-01' }), TAYSI(), CTX()); expect(myohempi.pikakentat).toEqual({});   // pikakentät eivät vanhene (sama sääntö kuin tmKirjaaKatselmus)
     expect(Object.keys(x.historiaLisays[0])).not.toContain('kevyt');   // pelaaja lukee oman dokumenttinsa → kolmen kysymyksen vastaukset EIVÄT historiariville (§39)
     expect(JSON.stringify(x.historiaLisays)).not.toMatch(/ohjatusti|itsenaisesti|"usein"/);
   });
@@ -78,19 +80,19 @@ describe('kevyt katselmus: kirjoitussuunnitelma (yksi tallennus)', () => {
 
 describe('kevyt katselmus: ruutu (HTML)', () => {
   const OPTS = { pinta: 'var(--surface)', vastausFn: '_v', lauseFn: '_l', ehdotusFn: '_e', tallennaFn: '_t', syvennaFn: '_s', suljeFn: '_c', k3: { paalleFn: '_p', valitseFn: '_x', lauseFn: '_z' } };
-  it('0b-jatko: valmentajan kenttä "Valmentajan lause" (ei VP:n); selite ei puhu VP:n puolesta sulkemisesta; nappi "Sulje jakso" kun kytkin pois, "Sulje jakso ja lähetä" kun päällä', () => {
+  it('0b-jatko: valmentajan kenttä "Valmentajan lause" (ei VP:n); selite ei puhu VP:n puolesta sulkemisesta; nappi "Tee jakson yhteenveto" kun kytkin pois, "Tee jakson yhteenveto ja lähetä" kun päällä', () => {
     const OPTS2 = { vastausFn: '_v', lauseFn: '_l', naytaFn: '_n', tallennaFn: '_t', suljeFn: '_c' };
     const val = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'oto' }), OPTS2), vp = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'oto', lahde: 'vp' }), OPTS2);
     expect(val).toContain('Valmentajan lause'); expect(val).not.toMatch(/VP:n lause|valmentajan puolesta|VP:n puolesta/); expect(val).toContain('Näytä myös pelaajalle'); expect(val).not.toContain('Pelaaja näkee tämän');
     expect(vp).toContain('VP:n lause');   // VP sulkee valmentajan puolesta → ennallaan
     const nappi = (h) => (/data-kvk-tallenna[^>]*>([^<]*)</.exec(h) || [])[1];
-    expect(nappi(val)).toBe('Sulje jakso');
-    const S = K.tmKkAlku(P(), { profiili: 'oto' }); S.nayta = true; expect(nappi(K.tmKkSheetHTML(S, OPTS2))).toBe('Sulje jakso ja lähetä');
+    expect(nappi(val)).toBe('Tee jakson yhteenveto');
+    const S = K.tmKkAlku(P(), { profiili: 'oto' }); S.nayta = true; expect(nappi(K.tmKkSheetHTML(S, OPTS2))).toBe('Tee jakson yhteenveto ja lähetä');
   });
-  it('3 kysymystä × 3 sanavaihtoehtoa, lause-kenttä (140), K3-osio, "Sulje jakso ja lähetä" + "Syvennä"; profiili-teksti: pakollinen / toivottu; ei hex-värejä', () => {
+  it('3 kysymystä × 3 sanavaihtoehtoa, lause-kenttä (140), K3-osio, "Tee jakson yhteenveto ja lähetä" + "Kehityskeskustelu"; profiili-teksti: pakollinen / toivottu; ei hex-värejä', () => {
     const osat = [{ k: 'a', teksti: 'Laukaus vauhdista' }];
     const oto = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'oto', kortit: KORTIT(), osat, nimi: 'Topias K.' }), OPTS), am = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'ammatti', kortit: KORTIT(), osat }), OPTS);
-    expect((oto.match(/data-kvk-arvo=/g) || []).length).toBe(9); for (const t of ['Näkyikö ydinvahvuus pelissä?', 'Treenattiinko sitä?', 'Oliko pelaaja mukana?', 'Ei vielä', 'Ohjatusti', 'Itsenäisesti', 'Harvoin', 'Joskus', 'Usein', 'Vähän', 'Jonkin verran', 'Hyvin', 'Sulje jakso', 'Syvennä (täysi katselmus)', 'Anna pelaajan valita seuraava reitti']) expect(oto, t).toContain(t);
+    expect((oto.match(/data-kvk-arvo=/g) || []).length).toBe(9); for (const t of ['Näkyikö ydinvahvuus pelissä?', 'Treenattiinko sitä?', 'Oliko pelaaja mukana?', 'Ei vielä', 'Ohjatusti', 'Itsenäisesti', 'Harvoin', 'Joskus', 'Usein', 'Vähän', 'Jonkin verran', 'Hyvin', 'Tee jakson yhteenveto', 'Kehityskeskustelu', 'Anna pelaajan valita seuraava reitti']) expect(oto, t).toContain(t);
     expect(oto).toContain('maxlength="140"'); expect(oto).toContain('toivottu'); expect(oto).toContain('data-kvk-ehdotukset'); expect(am).toContain('pakollinen'); expect(am).not.toContain('data-kvk-ehdotukset'); expect(oto).not.toMatch(/#[0-9a-fA-F]{6}\b/);
     expect(oto).toContain('onclick="_v(\'nakyi\',\'ohjatusti\')"'); expect(oto).not.toMatch(/[<>]script/);
     const vp = K.tmKkSheetHTML(Object.assign(K.tmKkAlku(P(), { profiili: 'oto', lahde: 'vp' }), {}), OPTS); expect(vp).toContain('VP:n lause');
@@ -129,7 +131,7 @@ describe('Hylkää valinta (§3 b)', () => {
     expect(K.tmHylkaaTallennus(VALITTAVANA(), ok(), { pvm: 'x' })).toMatchObject({ ok: false, syy: 'pvm' });
     expect(K.tmHylkaaVirhe('pakollinen', {})).toContain('perustelu'); expect(K.tmHylkaaVirhe('ei_valintaa', {})).toContain('ei hylättävää'); expect(K.tmHylkaaVirhe('luku', {})).toContain('lukuja');
   });
-  it('tmJaksoTila: "Hylkää valinta" ja "Syvennä" ovat nyt käytettävissä valikossa', () => {
+  it('tmJaksoTila: "Hylkää valinta" ja "Kehityskeskustelu" ovat nyt käytettävissä valikossa', () => {
     const t = AJ.tmJaksoTila(VALITTAVANA(), { nyt: Date.parse(NYT) }); expect(t.tila).toBe('valinta_tehty'); expect(t.valikko.find((m) => m.avain === 'hylkaa')).toMatchObject({ kaytettavissa: true });
     const paatt = AJ.tmJaksoTila(P({ jaksofokus: JF({ alkoi: '2026-09-01T08:00:00.000Z', kesto_vk: 4 }) }), { nyt: Date.parse(NYT) }); expect(paatt.valikko.find((m) => m.avain === 'syvenna').kaytettavissa).toBe(true);
   });

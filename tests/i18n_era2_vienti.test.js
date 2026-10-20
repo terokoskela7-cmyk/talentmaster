@@ -14,10 +14,11 @@ const PAL = JSON.parse(readFileSync(join(juuri, 'docs/i18n/sv_era2_palautetaan.j
 const palautettu = (osio, avain) => PAL.some((r) => r.osio === osio && r.avain === avain);
 const L = require('../lib/tm_lang.js').TM_LANG.sv;
 const LIB = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv;
-const VP = require('../lib/tm_vp_i18n.js').TM_VP_I18N.sv;
-const MA = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;
+const K1D = require('./helpers/k1d_korvaukset.cjs');   // K1d: sanastomuutos korvasi fi-avaimia → haku vanhalla avaimella toimii
+const VP = K1D.kartta(require('../lib/tm_vp_i18n.js').TM_VP_I18N.sv);
+const MA = K1D.kartta(require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv);
 const HE = require('../lib/tm_henkilosto_i18n.js').TM_HENKILOSTO_I18N.sv;
-const CO = require('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv;
+const CO = K1D.kartta(require('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv);
 const polku = (o, p) => p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);
 const rivit = (osio) => Object.entries(ERA.osiot[osio].rivit);
 
@@ -59,8 +60,8 @@ describe('Gemini-erä 2 — vienti', () => {
   });
   it('termistö: erän uudet termit tilalla sovittu', () => {
     const T = require('../docs/i18n/termisto.fi-sv.json'); const t = Array.isArray(T.termit) ? T.termit : Object.values(T.termit);
-    for (const fi of ['Havainnointi', 'Päätös / Päätöksenteko', 'Toteutus', 'Palautuminen', 'Pelihavainto', 'Otteluhavainnointi', 'Ottelutarkkailu']) {
-      const e = t.find((x) => x.fi === fi); expect(e, fi).toBeTruthy(); expect(e.tila).toBe('sovittu'); expect(e.kaannokset.sv).toBe(ERA.termisto.kaannettava[fi].sv);
+    for (const fi of ['Havainnointi', 'Päätös / Päätöksenteko', 'Toteutus', 'Reagointi', 'Pelihavainto', 'Otteluhavainnointi', 'Ottelutarkkailu']) {
+      const e = t.find((x) => x.fi === fi); expect(e, fi).toBeTruthy(); expect(e.tila).toBe('sovittu'); expect(e.kaannokset.sv).toBe(ERA.termisto.kaannettava[fi === 'Reagointi' ? 'Palautuminen' : fi].sv);   // K1d: R = Reagointi; sv (erän 2 'Palautuminen') korvataan erässä 80
     }
   });
   it('paikkamerkit säilyvät fi → sv jokaisella viedyllä rivillä', () => {

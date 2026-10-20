@@ -119,8 +119,8 @@ describe('(6) läsnäolo K2 + pelaajan ääni honest-empty + cue', () => {
 describe('(7) katselmus-rivi + (8) lähteet ⓘ-tapin taakse', () => {
   it('katselmus-rivi (EPPP) + Avaa katselmus → Kehitys', () => {
     const R = extract('function _vpViikkoKatselmusHTML(p, st) {');
-    expect(R).toContain('Seuraava katselmus ~');
-    expect(R).toContain('Avaa katselmus →');
+    expect(R).toContain('Seuraava yhteenveto tai kehityskeskustelu ~');
+    expect(R).toContain('Tee jakson yhteenveto →');
     expect(R).toContain('_vpKtSiirry(3)');
   });
   it('lähdekortit + mokknote default piilossa (⓵-toggle)', () => {

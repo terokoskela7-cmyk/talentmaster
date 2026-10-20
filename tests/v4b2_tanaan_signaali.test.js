@@ -27,7 +27,7 @@ describe('D48 — järjestys (taulukko): jokainen rivi yksinään', () => {
     ['8 ei tietoa', P(), {}, 'ei_tietoa', 'aloita']
   ];
   it.each(rivit)('%s → ensisijainen + nappi', (_n, p, ctx, avain, nappi) => { const x = S(p, ctx); expect(x.ensisijainen.avain).toBe(avain); expect((x.ensisijainen.nappi || {}).avain || null).toBe(nappi); });
-  it('JARJESTYS-vakio = D48:n kahdeksan riviä oikeassa järjestyksessä', () => { expect(TS.JARJESTYS).toEqual(['kuorma', 'valinta_tehty', 'suljettava', 'valinta_odottaa', 'sitoumus_odottaa', 'vk_ei_vastattu', 'askel_muu', 'havainto', 'tauko', 'yllapito', 'ei_tietoa']); });
+  it('JARJESTYS-vakio = D48:n kahdeksan riviä oikeassa järjestyksessä', () => { expect(TS.JARJESTYS).toEqual(['kuorma', 'valinta_tehty', 'suljettava', 'rytmi_myohassa', 'valinta_odottaa', 'sitoumus_odottaa', 'vk_ei_vastattu', 'askel_muu', 'rytmi', 'havainto', 'tauko', 'yllapito', 'ei_tietoa']); });   // K1d: yhteenvetorytmi omana signaalinaan (myöhässä 3b, erääntymässä 5c)
 });
 
 describe('D48 — kaksi riviä täyttyy: pienempi numero voittaa; toinen = pieni rivi', () => {
@@ -36,7 +36,7 @@ describe('D48 — kaksi riviä täyttyy: pienempi numero voittaa; toinen = pieni
   const parit = [
     ['kuorma > valinta tehty', P({ jaksofokus: Object.assign(TARJOUS()), ...VALINTA }), { askel: KUORMA }, 'kuorma', 'valinta_tehty'],
     ['kuorma > suljettava', P({ jaksofokus: PAATTYNYT(3) }), { askel: KUORMA }, 'kuorma', 'suljettava'],
-    ['valinta tehty > suljettava/review myöhässä (pelaajan odottama vahvistus ohittaa myöhässä olevan katselmuksen)', P({ jaksofokus: TARJOUS(), ...VALINTA }), { askel: MYOH, profiili: 'ammatti' }, 'valinta_tehty', 'suljettava'],
+    ['valinta tehty > yhteenvetorytmi myöhässä (pelaajan odottama vahvistus ohittaa myöhässä olevan yhteenvedon)', P({ jaksofokus: TARJOUS(), ...VALINTA }), { askel: MYOH, profiili: 'ammatti' }, 'valinta_tehty', 'rytmi_myohassa'],
     ['suljettava > viikkokatsaus', P({ jaksofokus: PAATTYNYT(1) }), { vkEiVastattu: true }, 'suljettava', 'vk_ei_vastattu'],
     ['suljettava > havainto', P({ jaksofokus: PAATTYNYT(1) }), { askel: HAV }, 'suljettava', 'havainto'],
     ['valinta odottaa > viikkokatsaus', P({ jaksofokus: TARJOUS() }), { vkEiVastattu: true }, 'valinta_odottaa', 'vk_ei_vastattu'],
@@ -51,14 +51,14 @@ describe('D48 — kaksi riviä täyttyy: pienempi numero voittaa; toinen = pieni
 });
 
 describe('D50 — profiili vaikuttaa vain sävyyn ja aikaikkunaan', () => {
-  it('suljettava: ammatti "odottaa · N pv"; 2 vk jälkeen amber (katselmus myöhässä); oto "kun ehdit", ei aikaikkunaa', () => {
+  it('suljettava: ammatti "odottaa · N pv"; 2 vk jälkeen amber (yhteenveto myöhässä); oto "kun ehdit", ei aikaikkunaa', () => {
     const am = S(P({ jaksofokus: PAATTYNYT(2) }), { profiili: 'ammatti' }).ensisijainen; expect(am.teksti).toContain('odottaa · 2 pv'); expect(am.savy).toBe('neutraali');
-    const myoh = S(P({ jaksofokus: PAATTYNYT(20) }), { profiili: 'ammatti' }).ensisijainen; expect(myoh.savy).toBe('amber'); expect(myoh.teksti).toContain('katselmus myöhässä');
+    const myoh = S(P({ jaksofokus: PAATTYNYT(20) }), { profiili: 'ammatti' }).ensisijainen; expect(myoh.savy).toBe('amber'); expect(myoh.teksti).toContain('yhteenveto myöhässä');
     const oto = S(P({ jaksofokus: PAATTYNYT(20) }), { profiili: 'oto' }).ensisijainen; expect(oto.teksti).toContain('kun ehdit'); expect(oto.teksti).not.toMatch(/\d+ pv/); expect(oto.savy).toBe('neutraali');
   });
-  it('review_myohassa (porras 1) nostetaan signaaliksi VAIN ammattiprofiilissa', () => {
+  it('review_myohassa (porras 1) nostetaan signaaliksi VAIN ammattiprofiilissa (K1d: oma rytmi-kortti, ei "jakso valmis suljettavaksi")', () => {
     const p = P({ jaksofokus: JF() });
-    expect(ensin(p, { askel: MYOH, profiili: 'ammatti' })).toBe('suljettava'); expect(ensin(p, { askel: MYOH, profiili: 'oto' })).not.toBe('suljettava');
+    expect(ensin(p, { askel: MYOH, profiili: 'ammatti' })).toBe('rytmi_myohassa'); expect(ensin(p, { askel: MYOH, profiili: 'oto' })).not.toBe('rytmi_myohassa');
   });
   it('valinta tehty: oto "…, vahvista kun ehdit"; ammatti pelkkä "{nimi} valitsi reitin A"; oma ehdotus tunnistetaan', () => {
     const p = P({ jaksofokus: TARJOUS(), ydinvahvuus_valinta: { vaihtoehto: 'seura_kierto', valittu_pvm: '2026-10-01' } });

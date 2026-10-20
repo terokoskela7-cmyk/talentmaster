@@ -29,7 +29,8 @@ describe('Gemini-erä 2 — master_kartta', () => {
   const ERA28 = JSON.parse(lue('docs/i18n/sv_kaannoserae_28.json')).osiot.master_kartta.rivit;   // erä 28 (K35-6d aamutreenit): sv tyhjä
   const ERA29J = JSON.parse(lue('docs/i18n/sv_kaannoserae_29.json')), ERA29 = ERA29J.osiot.master_kartta.rivit;   // erä 29 (K35-6f harjoituskertymä): sv tyhjä
   const ERA31J = JSON.parse(lue('docs/i18n/sv_kaannoserae_31.json')), ERA31 = ERA31J.osiot.master_kartta.rivit;   // erä 31 (K35-7b Lisää kalenteriini): sv tyhjä
-  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA8, ERA16, ERA18.master_kartta.rivit, ERA22, ERA23, ERA24, ERA25, ERA26, ERA27, ERA28, ERA29, ERA31, LIB18);
+  const ERA80 = JSON.parse(lue('docs/i18n/sv_kaannoserae_80_gemini.json')).osiot.master_kartta.rivit;   // erä 80 (K1d): uusi toast + sanastomuutoksen takia korvattavat rivit, sv tyhjä
+  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA80, ERA8, ERA16, ERA18.master_kartta.rivit, ERA22, ERA23, ERA24, ERA25, ERA26, ERA27, ERA28, ERA29, ERA31, LIB18);
   it('jokainen sv-riviä vailla oleva Masterin avain on erässä (avain = fi-teksti)', () => {
     const { puuttuu } = masterAvaimet(juuri);
     expect(puuttuu.filter((fi) => !rivit[fi]), 'aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);
@@ -46,7 +47,7 @@ describe('Gemini-erä 2 — master_kartta', () => {
     const era40 = new Set(Object.values(JSON.parse(lue('docs/i18n/sv_kaannoserae_40_palautus.json')).osiot).flatMap((o) => Object.keys(o.rivit)));
     // erän 53 vienti (scripts/i18n_vie_sv_era53_19.cjs, master_kartta 8 riviä): sv koodissa; erätiedosto jää tyhjäksi
     const era53 = JSON.parse(lue('docs/i18n/sv_kaannoserae_53_palautus.json')).osiot.master_kartta.rivit;
-    const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv && !(era3[fi] && era3[fi].sv) && !(era19osa.has(fi) && era19[fi] && era19[fi].sv) && !era40.has(fi) && !(era53[fi] && era53[fi].sv) && !libKaytossa[fi]);
+    const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv && !(era3[fi] && era3[fi].sv) && !(era19osa.has(fi) && era19[fi] && era19[fi].sv) && !era40.has(fi) && !(era53[fi] && era53[fi].sv) && !libKaytossa[fi] && !(ERA80[fi] && ERA80[fi].sv_nyt));   // erä 80: korvattava rivi — vanha sv säilyy kartassa (sv_nyt) kunnes Gemini palauttaa
     expect(vanhentuneet).toEqual([]);
   });
   it('EI VACUOUS: poiminta löytää satoja avaimia ja uudet PR 3 -avaimet', () => {
@@ -212,6 +213,6 @@ describe('Master — datataulukot reititetään kulutuskohdassa (skannerin allow
     on(/\$\{masterT\(suositus\)\}/, 'tsi-suositus'); on(/masterT\(NIMET\[g\.laji\]/, 'tki-nimet');
   });
   it('syy-koodit, loading-tekstit ja toastit reititetty', () => {
-    on(/syy: masterT\('ei yhteyttä'\)/, 'syy'); on(/masterT\('Ladataan pelaajia\.\.\.'\)/, 'loading'); on(/toast\(masterT\('VP vahvisti IDP-näkemyksesi'\)/, 'toast');
+    on(/syy: masterT\('ei yhteyttä'\)/, 'syy'); on(/masterT\('Ladataan pelaajia\.\.\.'\)/, 'loading'); on(/toast\(masterT\('VP vahvisti kehityssuunnitelmaa koskevan näkemyksesi'\)/, 'toast');
   });
 });

@@ -585,13 +585,13 @@ describe('(5) Rivien tilat ja alarivit', () => {
     expect(rivi, 'Nyt-luku poimi väärän arvion').not.toContain('Nyt 3/5');
   });
 
-  it('A10/D104: lähtötaso mittaamatta (lahto.arvo null, arviot tyhjä) → "tavoite taso N · lähtötaso katselmuksessa", EI "tavoite N/5"', () => {
+  it('A10/D104: lähtötaso mittaamatta (lahto.arvo null, arviot tyhjä) → "tavoite taso N · lähtötaso kehityskeskustelussa", EI "tavoite N/5"', () => {
     const p = pelaaja();
     p._idpTavoite.lahto = { arvo: null };
     p._idpTavoite.arviot = [];
     p._idpTavoite.tavoitearvo = 2;
     const rivi = rakenna({ p: p })._vpKtAlariviHTML(p._idpTavoite, true);
-    expect(rivi).toContain('tavoite taso 2 · lähtötaso katselmuksessa');
+    expect(rivi).toContain('tavoite taso 2 · lähtötaso kehityskeskustelussa');
     expect(rivi, 'oletus-/5 näkyy mitattuna').not.toContain('2/5');
     expect(rivi).not.toContain('Nyt');
   });

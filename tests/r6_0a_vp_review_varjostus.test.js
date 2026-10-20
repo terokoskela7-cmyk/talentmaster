@@ -1,6 +1,6 @@
 /**
  * R6.0a (hotfix) — VP_v25: `window._vpKirjaaReview` (modaali, 1 arg) varjosti saman nimisen kirjoittajan (pid, pvm, review) →
- * MDT-/bulk-"kirjaus" avasi modaalin eikä kirjoittanut mitään, silti "✓ Review merkitty". Kirjoittaja nimetty _vpKirjoitaReview.
+ * MDT-/bulk-"kirjaus" avasi modaalin eikä kirjoittanut mitään, silti "✓ Kehityskeskustelu merkitty". Kirjoittaja nimetty _vpKirjoitaReview.
  *  · vartija: ei kahta samannimistä globaalia VP_v25:ssä (funktiodeklaraatio vs window-funktio; tuplat)
  *  · MDT-review + bulk: toast "✓" ja ok++ VASTA kirjoituksen onnistuttua, virheestä näkyvä virheilmoitus, paikallinen tila vasta onnistumisen jälkeen
  * Fixturet: vain KPV U13 -testipelaajat (seura 'kpv'). Funktiot PURETAAN LÄHTEESTÄ ja ajetaan vm:ssä.
@@ -95,12 +95,12 @@ describe('MDT-review (_mdtMerkitseReview): ✓ vasta onnistumisen jälkeen', () 
     vm.runInContext(pura('async function _vpKirjoitaReview(') + '\n' + pura('window._mdtMerkitseReview = async function') + ';', c);
     return { c, log, p };
   }
-  it('onnistuu: batch kirjoitettu, paikallinen tila päivittyy, "✓ Review merkitty tehdyksi" (ok)', async () => {
+  it('onnistuu: batch kirjoitettu, paikallinen tila päivittyy, "✓ Kehityskeskustelu merkitty tehdyksi" (ok)', async () => {
     const m = mockDb(); const { c, log, p } = ymp(m);
     await c.window._mdtMerkitseReview();
     expect(m.kirjoitukset.map((o) => o.polku)).toEqual([POLKU(PID) + '/reviewit/2026-10-05', POLKU(PID)]);
     expect(p.review_viimeisin_pvm).toBe('2026-10-05');
-    expect(log.toastit).toEqual([['✓ Review merkitty tehdyksi', 'ok']]); expect(log.renderit).toBe(3);
+    expect(log.toastit).toEqual([['✓ Kehityskeskustelu merkitty tehdyksi', 'ok']]); expect(log.renderit).toBe(3);
   });
   it('kirjoitus epäonnistuu: virheilmoitus (error), EI "✓", paikallinen tila ennallaan, ei uudelleenpiirtoa onnistuneena', async () => {
     const m = mockDb({ kaada: true }); const { c, log, p } = ymp(m);

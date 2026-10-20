@@ -43,7 +43,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · Jakson
       await p.locator('[data-kvk-tallenna]').click({ force: true }); await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 });
       const b = await p.evaluate(() => window.__batch[0]); expect(b).toHaveLength(2);
       const upd = b.find((o) => o.update), set = b.find((o) => o.set);
-      expect(upd.path).toBe('seurat/demo/pelaajat/p2'); expect(Object.keys(upd.update).sort()).toEqual(['jaksofokus', 'jaksofokus_historia']);
+      expect(upd.path).toBe('seurat/demo/pelaajat/p2'); expect(Object.keys(upd.update).sort()).toEqual(['jaksofokus', 'jaksofokus_historia', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi']);
       const rivi = upd.update.jaksofokus_historia.__arrayUnion[0]; expect(rivi).toMatchObject({ konsepti_avain: 'y_h1', sulkutapa: 'suljettu', lause: 'Katsoi ylös ennen vastaanottoa.' }); expect(rivi.havainnot_vk).toEqual(VK);
       expect(set.path).toMatch(/^seurat\/demo\/pelaajat\/p2\/reviewit\/\d{4}-\d{2}-\d{2}$/); expect(set.set.kevyt).toEqual({ nakyi: 'itsenaisesti', treeni: 'usein', mukana: 'hyvin' });
       await p.waitForSelector('[data-kvk-kysymys]', { state: 'detached', timeout: 5000 }); expect(await p.locator('#toast-wrap').innerText()).toMatch(/Jakso suljettu/);

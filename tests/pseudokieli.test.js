@@ -61,7 +61,7 @@ describe('pseudokieli: Tilanne ja Koti (Käynnistys) — ei merkitsemätöntä t
     const km = KK.tmKotiKaynnistysMalli(m, { yhteensa: v.yhteensa, koosteJ: v.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: d.kalenteri, viestit, nytMs: NYT, seuraNimi: 'Demo FC' });
     km.askeleet.forEach((a) => { a.valmis = true; a.taytetty = false; });
     const fn = { opas: 'o', aloitaJaksot: 'a', kutsu: 'k', testit: 't', joukkue: 'j', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', demo: 'de', auki: 'au', tuo: 'tu' }, r = KK.tmKotiKaynnistysHTML(km, { t: ps, pika: [{ teksti: 'Uusi tapahtuma', fn: 'x' }], fn, auki: { odottaa: true } });
-    d.viestit = viestit; expect(r.main + r.rail).toContain('⟦Katselmusikkuna sulkeutuu 3 päivän päästä⟧'); expect(loydot(r.main + r.rail, d), 'merkitsemätöntä tekstiä').toEqual([]);
+    d.viestit = viestit; expect(r.main + r.rail).toContain('⟦Yhteenvetoikkuna sulkeutuu 3 päivän päästä⟧'); expect(loydot(r.main + r.rail, d), 'merkitsemätöntä tekstiä').toEqual([]);
     expect(loydot(KK.tmKotiDemoNauhaHTML({ t: ps, fn: { demo: 'de' } }), d)).toEqual([]);
   });
   it('Koti Rytmi, kaikki haarat: signaalikortti kaikista tyypeistä (yksittäinen ja ryhmä), viestit, huomiokortit, käynnistysrivi, esimerkkiseura; kielet fi/sv/en', () => {

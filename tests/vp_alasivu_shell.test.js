@@ -136,7 +136,7 @@ describe('VP · jaettu alasivu-shell', () => {
       'hlTapModal',        // vertailuarvot ikävaiheittain
       'hlLinkModal',       // "Linkitä kalibraatiopari" — valitse yksi pari
       '_vpD3Modal',        // "D3 VP-kalibraatio" — yksi arvio + tallennus
-      '_vpReviewModal',    // "＋ Kirjaa review" — 4-vaiheinen syöttölomake (asteikko + 2 tekstikenttää + arvo)
+      '_vpReviewModal',    // "＋ Kirjaa kehityskeskustelu" — 4-vaiheinen syöttölomake (asteikko + 2 tekstikenttää + arvo)
       /* VAIHE 2 -ARVIO: päivän tapahtumalista on VALITSIN, ei alasivu —
          tyypillisesti 1–5 klikattavaa riviä, jotka vievät varsinaiseen
          sisältöön (`vpTapDetailModal`, joka ON shellissä). 840px jättäisi

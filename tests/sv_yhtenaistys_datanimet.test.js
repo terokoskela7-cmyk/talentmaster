@@ -120,7 +120,7 @@ describe('(1) sv-kartta — Geminin linja, ei omaa ruotsia', () => {
   it.each(Object.entries(B))('B · %s', (avain, arvo) => expect(SV[avain]).toBe(arvo));
 
   it('Master-kartta: "har gått ut"', () => {
-    expect(MSV['🟠 Jakso umpeutunut · Sulje jakso → seuraava fokus'])
+    expect(MSV['🟠 Jakso umpeutunut · Tee jakson yhteenveto → seuraava fokus'])
       .toBe('🟠 Perioden har gått ut · Stäng period → nästa fokus');
   });
 

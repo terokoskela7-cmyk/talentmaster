@@ -18,7 +18,12 @@ const tayta = (p) => { const k = JSON.parse(JSON.stringify(p)); for (const o of 
 describe('erä 19 — koonti', () => {
   it('paketti täsmää erien tyhjiin riveihin: jokainen paketin rivi on jollain erällä tyhjänä, kaikki sv tyhjiä, rakenne osiot → _konteksti + rivit {fi,en,sv}', () => {
     const p = paketti(), K19 = K.kokoaEra19(tmp);
-    expect(Object.keys(p.osiot).sort()).toEqual(Object.keys(K19.osiot).sort()); expect(p._rivit_yhteensa).toBe(K19.yht);
+    // K1d (20.10.2026): sanastomuutos korvasi 23 koodissa olleen, vielä kääntämättömän fi-tekstin (katselmus/IDP/Raportointi → uusi termi). Lähetetty paketti säilyy ennallaan; korvatut rivit
+    // ovat nyt erässä 80. Sallitaan vain rivit joiden fi on k1d_fi_korvaukset-fixturen "vanha".
+    const K1D = require('./helpers/k1d_korvaukset.cjs'), korvatut = [];
+    for (const [osio, o] of Object.entries(p.osiot)) for (const a of Object.keys(o.rivit)) if (!(K19.osiot[osio] && K19.osiot[osio].rivit[a])) korvatut.push(a);
+    expect(korvatut.filter((a) => !K1D.KARTTA.has(a))).toEqual([]);
+    expect(Object.keys(p.osiot).sort()).toEqual(Object.keys(K19.osiot).sort()); expect(p._rivit_yhteensa).toBe(K19.yht + korvatut.length);
     for (const [osio, o] of Object.entries(p.osiot)) { expect(typeof o._konteksti, osio).toBe('string'); for (const [a, r] of Object.entries(o.rivit)) { expect(r.sv, osio + a).toBe(''); expect(typeof r.fi).toBe('string'); expect(typeof r.en).toBe('string'); } }
     expect(Object.values(p.osiot).reduce((s, o) => s + Object.keys(o.rivit).length, 0)).toBe(p._rivit_yhteensa);
   });

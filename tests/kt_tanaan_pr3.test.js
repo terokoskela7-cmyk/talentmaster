@@ -13,7 +13,7 @@ describe('PR 3 · 1 — ei tyhjää kenttää (D98)', () => {
   it('alue puuttuu → EI kenttäpiirrosta: jaksokortti samassa kohdassa (konsepti, osat a–e tiloineen, vk X/6, katselmuspäivä); ei "Aseta ydinvahvuus" -linkkiä', () => {
     const h = KOKO(pel()), t = plain(h);
     expect(h).not.toMatch(/<svg|class="kt"|kt-kentta|data-kt-kentta/); expect(h).toContain('data-kt-jaksokortti'); expect(h.indexOf('kt-t-kentta')).toBeLessThan(h.indexOf('data-kt-jaksokortti')); expect(h.indexOf('data-kt-jaksokortti')).toBeLessThan(h.indexOf('kt-t-oikea'));
-    expect(t).toContain('Pelaaminen paineessa'); expect(t).toMatch(/vk 1\/6/); expect(t).toMatch(/katselmus 16\.11\./); ['a', 'b', 'c', 'd', 'e'].forEach((k) => expect(h).toMatch(new RegExp('data-kt-jk-osa="[^"]*">' + k + ' · ')));
+    expect(t).toContain('Pelaaminen paineessa'); expect(t).toMatch(/vk 1\/6/); expect(t).toMatch(/Jakson yhteenveto 16\.11\./); ['a', 'b', 'c', 'd', 'e'].forEach((k) => expect(h).toMatch(new RegExp('data-kt-jk-osa="[^"]*">' + k + ' · ')));
     expect(t).not.toMatch(/Aseta ydinvahvuus|Valitse alue|Siirrä kentällä/i);
   });
   it('alue ({x,y,w,h}) olemassa → kenttä piirtyy tm_kentta.js:llä (alue mukana); ei jaksokorttia', () => {

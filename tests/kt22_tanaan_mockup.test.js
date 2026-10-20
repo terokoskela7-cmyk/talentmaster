@@ -145,7 +145,7 @@ describe('6 · kysymyskortit', () => {
 describe('7 · Osat-kortti', () => {
   it('otsikko "OSAT · {jakson nimi}" (.eb); rivit painikkeita (VP) joiden osaFn avaa paneelin tämä osa valittuna; tilat sanoina; Master pelkkää näyttöä', () => {
     const p = pel({ k1: 3, k2: 2 }), vp = nayta(p), ma = nayta(p, { paneeli: false, voiKirjoittaa: false, osaFn: null });
-    expect(plain(vp)).toContain('Osat · Haltuunotto'); expect(vp).toContain('<button type="button" class="kt-osa-r ok" data-kt-osa="k1" onclick="_ktHavaintoAvaa(&quot;p1&quot;,&quot;k1&quot;)">');
+    expect(plain(vp)).toContain('Ydinasiat · Haltuunotto'); expect(vp).toContain('<button type="button" class="kt-osa-r ok" data-kt-osa="k1" onclick="_ktHavaintoAvaa(&quot;p1&quot;,&quot;k1&quot;)">');
     for (const s of ['kt_st_itsenaisesti', 'kt_st_viikon_osa', 'kt_st_arvioi']) expect(vp.includes(s) || plain(vp).includes({ kt_st_itsenaisesti: 'itsenäisesti', kt_st_viikon_osa: 'viikon osa', kt_st_arvioi: 'arvioi' }[s])).toBe(true);
     expect(ma).not.toContain('<button type="button" class="kt-osa-r'); expect((ma.match(/<div class="kt-osa-r/g) || []).length).toBe(5);
   });
