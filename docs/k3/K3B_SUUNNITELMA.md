@@ -1,0 +1,10 @@
+# K3b · Kausitavoite uudelle sivulle (inventaario #8, erä 75) — suunnitelma
+
+1. Uusi `lib/tm_idp_lomake.js` (TM_IDP_LOMAKE): Masterin IDP-kortin MUOKKAUSOSAN renderöinti (fokusvalinta, tavoitearvo, "Tavoite pelissä", pelaajan omin sanoin) ja logiikka (opts-kokoaja, Ehdota, Aseta fokus, Vapaa fokus, kentät luonnokseen, kirjoitus idp_kausi + pikakentät). Yksi toteutus.
+2. Master (`_mIdpKorttiHTML`, `_mIdpFokusValintaHTML`, `_mIdpOpts`, `_mIdpEhdota`, `_mIdpAsetaFokus`, `_mIdpVapaaFokus`, `_mIdpTallenna`, `_mIdpTallennaDok`) kutsuu samoja libin funktioita ohuilla kääreillä. Masterin DOM ei saa muuttua: tarkistetaan DOM-vertailulla ennen/jälkeen (sama syöte → sama HTML).
+3. Uusi sivu: `tmIdpLomakeSheet(env)` (D100-sheet, ei sivunvaihtoa) avautuu Polku → Kausi → "Aseta / Muokkaa kauden tavoitetta" (`_ktToimi('kausitavoite')`, ei enää hyppyä Masteriin). Lataa voimassa olevan tavoitteen/ehdotuksen kuten Master (`tmKtPolkuLataaKausi`-logiikka), käyttää `tm_idp.js`:n moottoria (idpEhdotaTavoite, idpKohdeKandidaatti, idpRakennaTavoite, idpTavoitteetYhdista).
+4. D104: lähtötaso näytetään vain jos mitattu (sama sääntö kuin `tmKtPolkuKausi`: yksikkö ≠ taso/vapaa, arvo + pvm); oletus `taso+1` ei koskaan lukuna. Tavoitearvo-kenttä vain mitattavalle mittarille (kuten Master).
+5. Tallennuksen jälkeen `_pk[pid].kausi` päivitetään paikallisesti ja Polku piirretään uudelleen (Kausi-rivi heti, ei latausta).
+6. Pelaajan näkyvyys EI muutu: kentät ja kirjoitus samat kuin Masterissa (pelaajan_tavoite = pelaajan omin sanoin, tavoitearvo/mittari henkilökunnan tietoa). Raportoidaan erikseen mitä pelaaja-/perhe-app näyttää.
+7. Ei uusia Firestore-kenttiä, ei Rules-muutoksia (sama idp_kausi + pelaajan pikakentät kuin Master).
+8. Testit: lib-yksikkö + DOM-identiteetti (Master ennallaan) + selaintesti valmentaja ja VP (asetus, muokkaus, ehdotus, mittaamaton lähtö ei lukuna, Kausi-rivi päivittyy); päivitetään K1-testin hyppylista (kausitavoite pois). sv: erä 75 (uudet kidp_*-avaimet → LIB_SV_ODOTTAA). Poikkeamat kirjataan PR:ään.
