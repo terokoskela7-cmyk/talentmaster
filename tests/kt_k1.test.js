@@ -109,10 +109,10 @@ describe('K1 · Työkalut-deeplinkit, painikkeiden reititys, alueen valikkotekst
     expect(toimi).toContain("avain === 'klippi') return window._ktKlippiAvaa(pid)"); expect(toimi).toContain("tmKtMasterLinkki('kuorma')"); expect(toimi).not.toMatch(/'jatka' \|\| avain === 'avaa_polku' \|\| avain === 'kuorma'/);
     expect(SIVU).toContain('veo: function (pid) { return window._ktKlippiAvaa(pid); }');
   });
-  it('tmKtToimiReitti: jokaiselle sivun painikeavaimelle reitti; Masteriin jäävät vain K3/K4 + kuorma; tuntematon → master (varmuus)', () => {
+  it('tmKtToimiReitti: jokaiselle sivun painikeavaimelle reitti; Masteriin jäävät vain K3a/K4 + kuorma; tuntematon → master (varmuus)', () => {
     const master = Object.keys(KS.TOIMI_REITIT).filter((a) => KS.tmKtToimiReitti(a) === 'master').sort();
-    expect(master).toEqual(['anna_valita', 'hylkaa', 'kausitavoite', 'kuorma', 'syvenna']);
-    for (const a of ['havainto', 'aloita', 'vahvista', 'muokkaa', 'sulje', 'aseta_alue', 'klippi', 'vahvista_sitoumus']) expect(KS.tmKtToimiReitti(a)).toBe('sheet');
+    expect(master).toEqual(['anna_valita', 'hylkaa', 'kuorma', 'syvenna']);   // K3b: kausitavoite = sheet
+    for (const a of ['havainto', 'aloita', 'vahvista', 'muokkaa', 'sulje', 'aseta_alue', 'klippi', 'vahvista_sitoumus', 'kausitavoite']) expect(KS.tmKtToimiReitti(a)).toBe('sheet');
     for (const a of ['jatka', 'avaa_polku']) expect(KS.tmKtToimiReitti(a)).toBe('valilehti'); expect(KS.tmKtToimiReitti('tuntematon')).toBe('master'); expect(KS.tmKtToimiReitti('constructor')).toBe('master');
   });
   it('erä 72: ka_aseta_alue "Aseta alue" (sv Geminiltä) ja valikko käyttää ka_vaihda (olemassa) / ka_aseta_alue', () => {

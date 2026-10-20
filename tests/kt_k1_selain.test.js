@@ -125,7 +125,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K1 · klippi,
     } finally { await selain.close(); }
   }, 60000);
 
-  it('KLIKKAA JOKAINEN NAPPI: Tänään ja Polku valmentajana viidessä tilassa — mikään painike ei vie Masteriin paitsi K3/K4-kohdat (anna_valita, hylkaa, syvenna, kausitavoite) ja kuorma; jäljelle jäävät hypyt listataan', async () => {
+  it('KLIKKAA JOKAINEN NAPPI: Tänään ja Polku valmentajana JA VP:nä viidessä tilassa — mikään painike ei vie Masteriin paitsi K3a/K4-kohdat (anna_valita, hylkaa, syvenna) ja kuorma; kausitavoite (K3b) avaa sheetin; jäljelle jäävät hypyt listataan', async () => {
     await avaa(); const hypyt = new Set(), klikattu = new Set();
     const alkuPv = (pv) => new Date(Date.parse('2026-10-19T09:00:00+03:00') - pv * 86400000).toISOString(), JF = (pv, o) => ({ konsepti_avain: 'y_h1', konsepti_nimi: 'Haltuunotto', alkoi: alkuPv(pv), kesto_vk: 6, lahde: 'valmentaja', domeeni: 'teknis_taktinen', ...(o || {}) });
     try {
@@ -137,8 +137,9 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K1 · klippi,
       /* painikkeet = sisältöalueen napit ja linkit paitsi kuori-/välilehtinavigaatio (välilehdet, ‹ ›, ×, Pelaajan silmin) ja ulkoiset https-linkit; kuvaaja = onclick | href | teksti */
       const KERAA = '(function () { var a = document.getElementById("ktJuuri"); return Array.from(a.querySelectorAll("button, a[href]")).filter(function (e) { return !e.matches("[data-kt-valilehti],[data-kt-edellinen],[data-kt-seuraava],[data-kt-sulje],[data-kt-silmin],[disabled],[aria-disabled=true]") && (e.offsetParent !== null || e.closest("details")) && !/^https?:/.test(e.getAttribute("href") || ""); }); })()';   // vain näkyvät (piilotetun välilehden napit eivät ole painettavia); ⋯-valikon kohteet avataan ensin
       const KUVAAJA = '(function (e) { return (e.getAttribute("onclick") || "") + "|" + (e.getAttribute("href") || "") + "|" + e.textContent.trim().slice(0, 40); })';
-      for (const [nimi, pid, o] of tilat) for (const vl of ['tanaan', 'polku']) {
-        const alku = async () => { const x = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/' + pid + '/' + vl, pelaajat: P(pid, o) }); await masterKorvaus(x.p); await odota(x.p); await x.p.waitForTimeout(500); return x; };
+      for (const rooli of ['valmentaja', 'vp']) for (const [nimi0, pid, o] of tilat) for (const vl of ['tanaan', 'polku']) {
+        const nimi = rooli + '/' + nimi0;
+        const alku = async () => { const x = await kaynnista(selain, { rooli, hash: '#pelaaja/' + pid + '/' + vl, pelaajat: P(pid, o) }); await masterKorvaus(x.p); await odota(x.p); await x.p.waitForTimeout(500); return x; };
         let { sk, p } = await alku();
         const kuvaajat = [...new Set(await p.evaluate(KERAA + '.map(' + KUVAAJA + ')'))];
         for (const d of kuvaajat) {
@@ -155,8 +156,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K1 · klippi,
         await sk.close();
       }
       const lista = [...hypyt].sort(); console.log('K1 · klikattuja painikkeita ' + klikattu.size + '; jäljelle jäävät hypyt Masteriin:\n  ' + (lista.join('\n  ') || '(ei yhtään)'));
-      expect(klikattu.size).toBeGreaterThan(25);
-      expect(lista.filter((x) => !/^(kausitavoite|anna_valita|hylkaa|syvenna|kuorma) /.test(x))).toEqual([]);
+      expect(klikattu.size).toBeGreaterThan(50);
+      expect(lista.filter((x) => !/^(anna_valita|hylkaa|syvenna|kuorma) /.test(x))).toEqual([]);   // K3b: kausitavoite ei enää hyppää Masteriin
     } finally { await selain.close(); }
-  }, 900000);
+  }, 3600000);
 });

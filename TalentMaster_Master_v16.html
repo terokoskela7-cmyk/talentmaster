@@ -117,6 +117,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kaavio_ui.js?v=7"></script>         <!-- Taktiikkataulun UI-ohjain, JAETTU VP_v25:n kanssa (host-adapteri yllä) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=15"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
+<script src="lib/tm_idp_lomake.js?v=3"></script>   <!-- K3b: kausitavoitteen lomake (muokkausosa + logiikka) yhteinen Kehitystyöpöytä-sivun kanssa -->
 <script src="lib/tm_pelialy_yksilo.js?v=7"></script>
 <script src="lib/tm_adar_tekstit.js?v=5"></script>   <!-- Pelitilanne: luotettavuustekstit (FI-kartta + tmLibT) -->
 <script src="lib/tm_adar_pelitilanne.js?v=2"></script>   <!-- Pelitilanne Vaihe 1: luotettavuus + jakaumat (vain valmentajalle) -->   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
@@ -166,7 +167,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
 <script src="lib/tm_valmentaja_koti.js?v=4"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=4"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
-<script src="lib/tm_valmentaja_nav.js?v=3"></script><script src="lib/tm_kt_sivu.js?v=3"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit ja Masterin paluuparametrit -->   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
+<script src="lib/tm_valmentaja_nav.js?v=3"></script><script src="lib/tm_kt_sivu.js?v=4"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit ja Masterin paluuparametrit -->   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
 <script src="lib/tm_harjoituskertyma.js?v=2"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=3"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=5"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
@@ -7622,41 +7623,30 @@ function _mIdpReRender() {
   const slot = document.getElementById('_mIdpCard'); const p = window._mIdpPelaaja;
   if (slot && p) slot.innerHTML = _mIdpKorttiHTML(p, _mIdpVoiMuokata(p));
 }
-// Yksi opts-lähde moottorille. _devIkaSp palauttaa sp:n jo M/N-muodossa → johda spPT (P/T) tkLajiViite/tkLajiTaso-kutsuille.
-function _mIdpOpts(p, ehdotusIdx) {
-  const isp = (typeof _devIkaSp === 'function') ? _devIkaSp(p) : { ika: null, sp: 'M' };
-  const spMN = isp.sp || 'M', spPT = (spMN === 'N') ? 'T' : 'P';
-  const g = function (n) { return (typeof window[n] === 'function') ? window[n] : undefined; };
-  return {
-    tmTaksonomiaByAvain: g('tmTaksonomiaByAvain'), tmAdarHavaittu: g('tmAdarHavaittu'),
-    laskeD1Osaindeksit: g('laskeD1Osaindeksit'), eerikkilaNormiarvo: g('eerikkilaNormiarvo'),
-    hhSeuraavaTaso: g('hhSeuraavaTaso'), tkSekuntibudjetti: g('tkSekuntibudjetti'),
-    tkLajiViite: g('tkLajiViite'), tkLajiTaso: g('tkLajiTaso'),
-    tklajiAvain: (typeof tmMitattuMappaus === 'function') ? tmMitattuMappaus().tklaji : null,
-    ika: isp.ika, sp: spMN, spTk: spPT, nyt: new Date(), ehdotusIdx: (ehdotusIdx || 0)
-  };
+// Yksi opts-lähde moottorille (K3b: lib/tm_idp_lomake.js, sama kuin Kehitystyöpöytä-sivun kausitavoite-sheet). _devIkaSp palauttaa sp:n jo M/N-muodossa.
+function _mIdpLomakeCtx() {
+  const L = window.TM_IDP_LOMAKE;
+  return { esc: _mEsc, t: function (k) { return masterT(L.FI[k] != null ? L.FI[k] : k); }, ikaSp: _devIkaSp, nyt: function () { return new Date(); },
+    src: { tmTeemat: (typeof tmTeemat === 'function') ? tmTeemat : undefined, tmTeemaKohteet: (typeof tmTeemaKohteet === 'function') ? tmTeemaKohteet : undefined, tmTaksonomiaByAvain: (typeof tmTaksonomiaByAvain === 'function') ? tmTaksonomiaByAvain : undefined, taksonomia: (typeof ARVIOINTI_TAKSONOMIA !== 'undefined') ? ARVIOINTI_TAKSONOMIA : null },
+    fn: { teema: '_mIdpVaihdaTeema', fokus: '_mIdpAsetaFokus', vapaa: '_mIdpVapaaFokus' } };
 }
+function _mIdpOpts(p, ehdotusIdx) { return window.TM_IDP_LOMAKE.tmIdpOpts(p, ehdotusIdx, _mIdpLomakeCtx()); }
 function _mIdpLueKuvaus() { const el = document.getElementById('_mktTavKuvaus'); return el ? el.value.trim() : ''; }
 // "↻ Ehdota" — moottori luo luonnoksen pikakentistä. >1 kandidaatti → kierrä.
 window._mIdpEhdota = function (pid) {
   const p = _mIdpP(pid); if (!p || !_mIdpVoiMuokata(p) || typeof idpEhdotaTavoite !== 'function') return;
-  const n = (typeof idpKandidaatitJarjestetty === 'function') ? idpKandidaatitJarjestetty(p, _mIdpOpts(p)).length : 1;
-  if (p._mIdpTavoite && n > 1) p._mIdpEhdotusIdx = ((p._mIdpEhdotusIdx || 0) + 1) % n;
-  else if (!p._mIdpTavoite) p._mIdpEhdotusIdx = 0;
-  const t = idpEhdotaTavoite(p, _mIdpOpts(p, p._mIdpEhdotusIdx || 0));
-  if (!t) { if (typeof toast === 'function') toast(masterT('Ei kelvollista kehityskohdetta ehdotukseen (§28)'), 'ok'); return; }
-  p._mIdpTavoite = t; p._mIdpMuokkaus = true; p._mIdpKandN = n;
-  if (n <= 1) p._mIdpValitseFokus = true;
+  const r = window.TM_IDP_LOMAKE.tmIdpEhdota(p, { tavoite: p._mIdpTavoite, ehdotusIdx: p._mIdpEhdotusIdx }, _mIdpLomakeCtx());
+  if (!r) { if (typeof toast === 'function') toast(masterT('Ei kelvollista kehityskohdetta ehdotukseen (§28)'), 'ok'); return; }
+  p._mIdpEhdotusIdx = r.ehdotusIdx; p._mIdpTavoite = r.tavoite; p._mIdpMuokkaus = true; p._mIdpKandN = r.kandN;
+  if (r.valitseFokus) p._mIdpValitseFokus = true;
   _mIdpReRender();
 };
 window._mIdpVaihdaTeema = function (pid, teemaAvain) { const p = _mIdpP(pid); if (!p) return; p._mIdpFokTeema = teemaAvain; _mIdpReRender(); };
 // Valmentaja asettaa fokuksen taksonomia-kohteesta → rakentaa tavoitteen (lahde:'valmentaja').
 window._mIdpAsetaFokus = function (pid, avain) {
   const p = _mIdpP(pid); if (!p || !avain || !_mIdpVoiMuokata(p) || typeof idpKohdeKandidaatti !== 'function') return;
-  const opts = _mIdpOpts(p); const kuvaus = _mIdpLueKuvaus();
-  const t = idpRakennaTavoite(p, idpKohdeKandidaatti(p, avain, opts), opts);
+  const t = window.TM_IDP_LOMAKE.tmIdpAsetaFokus(p, avain, _mIdpLueKuvaus(), _mIdpLomakeCtx());
   if (!t) return;
-  if (kuvaus) t.kuvaus = kuvaus;
   p._mIdpTavoite = t; p._mIdpMuokkaus = true; p._mIdpValitseFokus = false;
   _mIdpReRender();
 };
@@ -7665,22 +7655,15 @@ window._mIdpVapaaFokus = function (pid) {
   const p = _mIdpP(pid); if (!p || !_mIdpVoiMuokata(p)) return;
   const inp = document.getElementById('_mktVapaaFokus'); const nimi = inp ? inp.value.trim() : '';
   if (!nimi) { if (typeof toast === 'function') toast(masterT('Kirjoita fokus-nimi'), 'ok'); return; }
-  const opts = _mIdpOpts(p); const kuvaus = _mIdpLueKuvaus();
-  const t = idpRakennaTavoite(p, { avain: 'vapaa', dim: (p._mIdpTavoite && p._mIdpTavoite.fokus && p._mIdpTavoite.fokus.dim) || null,
-    nimi: nimi, lahde: 'valmentaja', tyyppi: 'vapaa', vapaa: true, mittariTestId: null, mittariYks: 'vapaa', mittariSuunta: null }, opts);
+  const t = window.TM_IDP_LOMAKE.tmIdpVapaaFokus(p, nimi, _mIdpLueKuvaus(), (p._mIdpTavoite && p._mIdpTavoite.fokus && p._mIdpTavoite.fokus.dim) || null, _mIdpLomakeCtx());
   if (!t) return;
-  if (kuvaus) t.kuvaus = kuvaus;
   p._mIdpTavoite = t; p._mIdpMuokkaus = true; p._mIdpValitseFokus = false;
   _mIdpReRender();
 };
 // Tallenna/aktivoi — valmentaja aktivoi OMAT tavoitteensa suoraan (ei VP-hyväksyntää, §C.3).
 window._mIdpTallenna = async function (pid, uusiStatus) {
   const p = _mIdpP(pid); const t = p && p._mIdpTavoite; if (!t || !_mIdpVoiMuokata(p)) return;
-  const aani = document.getElementById('_mktTavAani'); if (aani) t.pelaajan_tavoite = aani.value.trim();
-  const kuvausEl = document.getElementById('_mktTavKuvaus'); if (kuvausEl) t.kuvaus = kuvausEl.value.trim();
-  const tavIn = document.getElementById('_mktTavArvo'); if (tavIn && tavIn.value !== '' && !isNaN(tavIn.value)) t.tavoitearvo = Number(tavIn.value);
-  if (uusiStatus) t.status = uusiStatus;
-  if (uusiStatus === 'aktiivinen') { t.hyvaksytty = new Date().toISOString(); t.omistaja = 'yhdessa'; }
+  const L = window.TM_IDP_LOMAKE; L.tmIdpKaytaKentat(t, L.tmIdpLueKentat(document), uusiStatus, new Date());   // kentät + aktivointi (lib/tm_idp_lomake.js)
   p._mIdpMuokkaus = false;
   _mIdpReRender();
   await _mIdpTallennaDok(p, masterT('Tavoite ') + (uusiStatus === 'aktiivinen' ? masterT('aktivoitu') : masterT('tallennettu')));
@@ -8208,16 +8191,11 @@ function _mIdpKorttiHTML(p, editable) {
   if (t.kuvaus && !muokkaus) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">' + masterT('Tavoite pelissä') + '</div><div class="jsp-kt-bl">' + _mEsc(t.kuvaus) + '</div></div>';
   if (muokkaus) {
     h += _mIdpFokusValintaHTML(p, pid, f);
-    if (yks !== 'taso' && yks !== 'vapaa') {
-      h += '<div class="jsp-kt-edit"><label>' + masterT('Tavoitearvo (') + _mEsc(yks) + ')</label><input id="_mktTavArvo" type="number" step="0.01" value="' + (tv != null ? tv : '') + '"></div>';
-    }
-    h += '<div class="jsp-kt-edit"><label>' + masterT('Tavoite pelissä (vapaa teksti)') + '</label>'
-      + '<textarea id="_mktTavKuvaus" class="jsp-kt-aani" placeholder="' + masterT('Mitä konkreettisesti tavoitellaan ottelussa…') + '" onclick="event.stopPropagation()">' + _mEsc(t.kuvaus || '') + '</textarea></div>';
+    h += window.TM_IDP_LOMAKE.tmIdpMuokkausKentatHTML(t, _mIdpLomakeCtx());   // tavoitearvo (vain mitattava) + Tavoite pelissä — sama lomake kuin Kehitystyöpöytä-sivun sheetissä
   }
   // pelaajan ääni — muokkaustilassa textarea, muuten read-only box (jos sisältöä)
   if (muokkaus) {
-    h += '<div class="jsp-kt-box" style="border-color:rgba(40,176,144,.3);margin-top:10px"><div class="jsp-kt-bt">' + masterT('Pelaajan ääni (omistajuus)') + '</div>'
-      + '<textarea id="_mktTavAani" class="jsp-kt-aani" placeholder="' + masterT('Pelaajan oma tavoite omin sanoin…') + '" onclick="event.stopPropagation()">' + _mEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
+    h += window.TM_IDP_LOMAKE.tmIdpAaniMuokkausHTML(t, _mIdpLomakeCtx());
   } else if (t.pelaajan_tavoite) {
     h += '<div class="jsp-kt-box" style="border-color:rgba(40,176,144,.3);margin-top:10px"><div class="jsp-kt-bt">' + masterT('Pelaajan ääni (omistajuus)') + '</div><div class="jsp-kt-bl">' + _mEsc(t.pelaajan_tavoite) + '</div></div>';
   }
@@ -8252,35 +8230,7 @@ function _mIdpKorttiHTML(p, editable) {
 }
 // Fokus-valintapaneeli (portattu). Valmentaja voi vaihtaa fokuksen mihin tahansa arvioituun/mitattuun kohteeseen.
 function _mIdpFokusValintaHTML(p, pid, f) {
-  if (typeof tmTeemat !== 'function' || typeof tmTeemaKohteet !== 'function') return '';
-  const taks = (typeof ARVIOINTI_TAKSONOMIA !== 'undefined') ? ARVIOINTI_TAKSONOMIA : null;
-  const teemat = tmTeemat(taks); if (!teemat.length) return '';
-  let teema = p._mIdpFokTeema;
-  if (!teema && f && f.alue) { const it = (typeof tmTaksonomiaByAvain === 'function') ? tmTaksonomiaByAvain(f.alue) : null; if (it) teema = it.dim + '_' + it.kategoria; }
-  if (!teema || !teemat.some(function (x) { return x.avain === teema; })) teema = teemat[0].avain;
-  const kohteet = tmTeemaKohteet(teema, taks);
-  const hav = p.arviointi_havaittu || {};
-  let h = '<div class="jsp-kt-fokval' + (p._mIdpValitseFokus ? ' korosta' : '') + '">';
-  h += '<div class="jsp-kt-bt">' + masterT('Vaihda fokus (valmentaja omistaa oman joukkueen tavoitteen)') + '</div>';
-  // Brändijako-attribuutio: kohdemerkit tulevat kahdesta lähteestä (Palloliiton kortti vs. TM-analytiikka).
-  h += '<div style="font-size:9.5px;color:var(--ink3);margin:-2px 0 6px;line-height:1.5"><span style="color:var(--blue)">' + masterT('🔵 Palloliitto-arvio') + '</span> ' + masterT('(havaittu 1–5)') + ' · <span style="color:var(--teal)">' + masterT('🟢 TM-mittaus') + '</span> ' + masterT('(testeistä)') + '</div>';
-  if (p._mIdpValitseFokus) h += '<div class="jsp-kt-vihje">' + masterT('Vain yksi datapohjainen kohde — valitse fokus itse alta.') + '</div>';
-  h += '<div class="jsp-kt-fokrow">';
-  h += '<select class="jsp-arv-select" onclick="event.stopPropagation()" onchange="_mIdpVaihdaTeema(\'' + pid + '\',this.value)">'
-    + teemat.map(function (x) { return '<option value="' + x.avain + '"' + (x.avain === teema ? ' selected' : '') + '>' + _mEsc(x.nimi) + '</option>'; }).join('') + '</select>';
-  h += '<select class="jsp-arv-select" onclick="event.stopPropagation()" onchange="if(this.value)_mIdpAsetaFokus(\'' + pid + '\',this.value)">'
-    + '<option value="">' + masterT('Valitse kohde…') + '</option>'
-    + kohteet.map(function (it) {
-        const merkki = it.mitattavissa ? '🟢' : ((hav[it.avain] != null) ? '🔵' : '○');
-        const sel = (f && f.alue === it.avain) ? ' selected' : '';
-        return '<option value="' + it.avain + '"' + sel + '>' + merkki + ' ' + _mEsc(it.nimi_fi) + '</option>';
-      }).join('') + '</select>';
-  h += '</div>';
-  h += '<div class="jsp-kt-fokrow" style="margin-top:6px">'
-    + '<input id="_mktVapaaFokus" class="jsp-kt-vapaainp" placeholder="' + masterT('…tai kirjoita fokus vapaana') + '" onclick="event.stopPropagation()" value="' + _mEsc((f && f.vapaa) ? (f.nimi || '') : '') + '">'
-    + '<button class="jsp-kt-btn" onclick="event.stopPropagation();_mIdpVapaaFokus(\'' + pid + '\')">' + masterT('Aseta vapaa') + '</button></div>';
-  h += '</div>';
-  return h;
+  return window.TM_IDP_LOMAKE.tmIdpFokusValintaHTML(p, f, { teema: p._mIdpFokTeema, valitseFokus: p._mIdpValitseFokus }, _mIdpLomakeCtx());
 }
 function _mIdpDviPilli(suunta, teksti) {
   const cls = suunta === 'up' ? 'up' : suunta === 'down' ? 'down' : 'flat';

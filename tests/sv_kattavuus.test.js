@@ -10,6 +10,7 @@ const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..'), lueJ = (f) =>
 const T = laske(join(JUURI, 'docs/i18n/sv_lapiajo_tulos.json'));
 const E53 = lueJ('docs/i18n/sv_kaannoserae_53_gemini.json');
 
+const ERA75_ODOTTAA = Object.keys(JSON.parse(readFileSync(join(JUURI, 'docs/i18n/sv_kaannoserae_75_gemini.json'), 'utf8')).osiot['lib.tm_idp_lomake'].rivit).length;
 describe('kattavuusraportti', () => {
   it('kaikki brieffin näkymät mukana', () => { expect(NAKYMAT.map((n) => n.id)).toEqual(['pelaaja', 'vanhempi', 'master', 'vp', 'adar', 'harjoitusarviointi', 'suostumus', 'toimintakortti', 'kehitystyopoyta']); });
   it('jokainen avain on tasan yhdessä tilassa: ok + puuttuu + odottaa + palautettu = avaimia', () => { for (const n of T.nakymat) expect(n.ok + n.puuttuu + n.odottaa + n.palautettu, n.id).toBe(n.avaimia); });
@@ -56,6 +57,6 @@ describe('Gemini-erä 54 (Sibbo-reititys)', () => {
   });
   it('DoD: harjoitusarviointi, suostumus ja kehitystyöpöytä = ok (erä 54 viety), ei kovakoodattuja rivejä, ei "puuttuu"', () => {
     const T2 = laske(join(JUURI, 'docs/i18n/sv_lapiajo_tulos.json'));
-    for (const id of ['harjoitusarviointi', 'suostumus', 'kehitystyopoyta']) { const n = T2.nakymat.find((x) => x.id === id); expect(n.puuttuu, id).toBe(0); expect(n.kovakoodattuStaattinen, id).toEqual([]); expect(n.ok, id).toBe(n.avaimia); expect(n.odottaa, id).toBe(0); }   // erä 72 viety 20.10.   // erä 65 (B4b Polku) odottaa Geminiä: vain sen rivit ovat 'odottaa'; poista era65 kun palautus viety   // erä 54 ja 64 vietiin   // erä 54 vietiin; erä 55 (suostumus vaihe 1) vietiin; erä 56 (tietosuojaikkuna) vietiin → suostumus 175/175, odottaa 0
+    for (const id of ['harjoitusarviointi', 'suostumus', 'kehitystyopoyta']) { const n = T2.nakymat.find((x) => x.id === id); expect(n.puuttuu, id).toBe(0); expect(n.kovakoodattuStaattinen, id).toEqual([]); const odottaa = id === 'kehitystyopoyta' ? ERA75_ODOTTAA : 0; expect(n.ok, id).toBe(n.avaimia - odottaa); expect(n.odottaa, id).toBe(odottaa); }   // erä 75 (K3b, 35 riviä lib/tm_idp_lomake.js) odottaa Geminiä: vain ne ovat 'odottaa'; poista ERA75_ODOTTAA kun palautus viety   // erä 72 viety 20.10.   // erä 65 (B4b Polku) odottaa Geminiä: vain sen rivit ovat 'odottaa'; poista era65 kun palautus viety   // erä 54 ja 64 vietiin   // erä 54 vietiin; erä 55 (suostumus vaihe 1) vietiin; erä 56 (tietosuojaikkuna) vietiin → suostumus 175/175, odottaa 0
   });
 });
