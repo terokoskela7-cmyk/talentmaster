@@ -27,6 +27,6 @@ describe('sv-erä 85 — vienti', () => {
   it('idempotentti: uusintakuiva-ajo ei lisää mitään eikä löydä virheitä', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.ohitettu).toHaveLength(12); });
   it('vanhat katselmus/granskning-rivit poissa; erä 85 ei ole enää odottavien listalla', () => {
     expect(JSON.stringify(SVC)).not.toMatch(/katselm|granskning/i); expect(SVL.tc_viimeisin_testi).toBe('Testad {pvm} · {ika}');
-    expect(teksti('tools/i18n/sv_kattavuus.mjs')).toMatch(/const ODOTTAVAT_ERAT = \[77, 80\];/);
+    { const rivi = teksti('tools/i18n/sv_kattavuus.mjs').match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].split(',').map((x) => x.trim())).not.toContain('85'); }   // erä 85 viety; 86 (Seuran STATUS-merkit, #1112) odottaa
   });
 });

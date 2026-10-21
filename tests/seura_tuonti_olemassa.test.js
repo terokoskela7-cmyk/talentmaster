@@ -93,10 +93,10 @@ describe('1 · olemassa oleva pelaaja esikatselussa ja päivitys', () => {
 
 describe('2 · monta sähköpostia yhdessä solussa', () => {
   const OSOITTEET = { 'a@tm-testi.fi; b@tm-testi.fi': 'a@tm-testi.fi', 'a@tm-testi.fi, b@tm-testi.fi': 'a@tm-testi.fi', 'a@tm-testi.fi b@tm-testi.fi': 'a@tm-testi.fi', 'a@tm-testi.fi\nb@tm-testi.fi': 'a@tm-testi.fi', ' A@TM-testi.fi ;b@tm-testi.fi': 'a@tm-testi.fi' };
-  it.each(Object.entries(OSOITTEET))('%j → ensimmäinen osoite, varoitus "Yksi sähköposti per solu" punaisella + "Kutsu lähtee: …"', async (raaka, eka) => {
+  it.each(Object.entries(OSOITTEET))('%j → ensimmäinen osoite, huomio "Yksi sähköposti per solu" ORANSSINA alarivillä (ei punaista) + "Kutsu lähtee: …"', async (raaka, eka) => {
     const t = ymp({}); const d = await esikatsele(t, [['Uusi', 'Pelaaja', 2016, 'P10', raaka, '']]);
     expect(d[0].huoltajaEmail).toBe(eka); expect(d[0]._emailUseita).toBe(true);
-    const html = t.E('excelEsikatseluTbody').innerHTML; expect(html).toContain('Yksi sähköposti per solu'); expect(html).toContain('var(--red)'); expect(html).toContain('Kutsu lähtee: ' + eka + '. Muut huoltajat lisätään myöhemmin.');
+    const html = t.E('excelEsikatseluTbody').innerHTML; expect(html).toContain('Yksi sähköposti per solu'); expect(html).toContain('var(--amber)'); expect(html).not.toContain('var(--red)'); expect(html).toContain('Kutsu lähtee: ' + eka + '. Muut huoltajat lisätään myöhemmin.');
   });
   it('tuonti tallentaa ja kutsuu VAIN ensimmäisen osoitteen', async () => {
     const t = ymp({}); await esikatsele(t, [['Uusi', 'Pelaaja', 2016, 'P10', 'a@tm-testi.fi; b@tm-testi.fi', '']]); await t.c.ajaExcelTuonti(true);
