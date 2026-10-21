@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { S67 } from './helpers/era67_korvatut.mjs';
+import { S67, E80AVAIN } from './helpers/era67_korvatut.mjs';
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,15 +24,15 @@ describe('Gemini-erä 3 — vienti', () => {
     const kaikki = Object.values(ERA.osiot).flatMap((o) => Object.values(o.rivit));
     expect(kaikki.length).toBe(88); expect(kaikki.filter((r) => !r.sv)).toEqual([]); expect(PAL).toEqual([]);
   });
-  it('tm_lang (24) → lib/tm_lang.js sv', () => { expect(rivit('tm_lang').length).toBe(24); for (const [p, r] of rivit('tm_lang')) expect(polku(L, p), p).toBe(S67(r.sv)); });
+  it('tm_lang (24) → lib/tm_lang.js sv', () => { expect(rivit('tm_lang').length).toBe(24); for (const [p, r] of rivit('tm_lang')) expect(polku(L, p), p).toBe(E80AVAIN(p, S67(r.sv))); });
   it('lib.tm_kehitystyopoyta (44) + lib.tm_tanaan_signaali (1) → lib/tm_lib_i18n.js sv', () => {
     expect(rivit('lib.tm_kehitystyopoyta').length).toBe(44); expect(rivit('lib.tm_tanaan_signaali').length).toBe(1);
-    for (const o of ['lib.tm_kehitystyopoyta', 'lib.tm_tanaan_signaali']) for (const [a, r] of rivit(o)) expect(LIB[a], a).toBe(S67(r.sv));
+    for (const o of ['lib.tm_kehitystyopoyta', 'lib.tm_tanaan_signaali']) for (const [a, r] of rivit(o)) expect(LIB[a], a).toBe(E80AVAIN(a, S67(r.sv)));
   });
   it('vp_kartta (9) → tm_vp_i18n.js; master_kartta (10) → tm_master_i18n.js', () => {
     expect(rivit('vp_kartta').length).toBe(9); expect(rivit('master_kartta').length).toBe(10);
-    for (const [a, r] of rivit('vp_kartta')) expect(VP[a], a).toBe(S67(r.sv));
-    for (const [a, r] of rivit('master_kartta')) expect(MA[a], a).toBe(S67(r.sv));
+    for (const [a, r] of rivit('vp_kartta')) expect(VP[a], a).toBe(E80AVAIN(a, S67(r.sv)));
+    for (const [a, r] of rivit('master_kartta')) expect(MA[a], a).toBe(E80AVAIN(a, S67(r.sv)));
   });
   it('paikkamerkit säilyvät fi → sv', () => {
     const pm = (s) => (String(s).match(/\{[A-Za-z0-9_]+\}/g) || []).sort().join('|');

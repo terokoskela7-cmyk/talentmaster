@@ -3,6 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
+import { E80AVAIN } from './helpers/era67_korvatut.mjs';
 const require = createRequire(import.meta.url);
 const lue = (f) => JSON.parse(readFileSync(new URL('../docs/i18n/' + f, import.meta.url), 'utf8')).osiot;
 const O = 'lib.tm_kt_polku', OHITETTU = 'ktp_siirra_ydinvahvuutta';
@@ -19,7 +20,7 @@ describe('sv-erä 64 — vienti', () => {
     expect(readFileSync(new URL('../lib/tm_kt_polku.js', import.meta.url), 'utf8')).toContain("'ka_vaihda'");
   });
   it('koodin sv = palautus merkki merkiltä; jokaiselle ktp_-avaimelle on sv', () => {
-    for (const [k, r] of Object.entries(P)) if (k !== OHITETTU) expect(SV[k], k).toBe(r.sv);
+    for (const [k, r] of Object.entries(P)) if (k !== OHITETTU) expect(SV[k], k).toBe(E80AVAIN(k, r.sv));
     expect(Object.keys(TX.FI).filter((k) => typeof SV[k] !== 'string' && !require('./helpers/k1d_korvaukset.cjs').era80Odottaa(k))).toEqual([]);   // K1d: erä 80 -avaimet odottavat Geminiä
   });
   it('idempotentti', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.ohitettu).toContain(OHITETTU); });

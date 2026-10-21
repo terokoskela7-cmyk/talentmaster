@@ -19,8 +19,8 @@ afterEach(() => { delete global.tmNykyinenKieli; });
 describe('V2 avainkattavuus (Pelaajat + 5 korttia)', () => {
   it('V2-avaimet resolvoituvat sv:ksi (≠ fi)', () => {
     global.tmNykyinenKieli = () => 'sv';
-    [['Talentin kehityssuunnitelma', 'Talang-IDP'], ['Ehdota', 'Föreslå'], ['Ikäluokka → Kehitysvaihe', 'Åldersklass → Utvecklingsfas'],
-      ['Ei pelaajia tässä kategoriassa', 'Inga spelare i denna kategori'], ['Ei odottavia kehityssuunnitelmaehdotuksia', 'Inga väntande IDP-förslag'],
+    [['Talentin kehityssuunnitelma', 'Talangens utvecklingsplan'], ['Ehdota', 'Föreslå'], ['Ikäluokka → Kehitysvaihe', 'Åldersklass → Utvecklingsfas'],
+      ['Ei pelaajia tässä kategoriassa', 'Inga spelare i denna kategori'], ['Ei odottavia kehityssuunnitelmaehdotuksia', 'Inga väntande förslag till utvecklingsplan'],
       ['Kiihdytys', 'Acceleration'], ['Datapuute', 'Databrist'], ['Harkitse talenttiohjelmaan', 'Överväg talangprogrammet'],
       ['Vauhti', 'Takt'], ['Jkl', 'Lag'], ['Ikävaihe-odotetut (ei kiireellisiä)', 'Åldersfas-förväntade (ej brådskande)']].forEach(([fi, sv]) =>
       expect(M.vpT(fi)).toBe(sv));

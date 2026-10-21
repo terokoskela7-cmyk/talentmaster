@@ -10,3 +10,11 @@ for (const [osio, o] of Object.entries(G)) for (const [avain, r] of Object.entri
   if (!KARTTA.has(r.sv_nyt)) KARTTA.set(r.sv_nyt, uusi);
 }
 export const S67 = (sv) => (KARTTA.has(sv) ? KARTTA.get(sv) : sv);
+/* Erä 80 (K1d; sanasto + ADAR-nimet; vienti 21.10.2026) korvasi 100+ aiemman erän sv-riviä (granskning / utvärdering / Återhämtning / IDP → jakson yhteenveto, kehityssuunnitelma, Reagering…).
+   Vanhojen erien testit vertaavat koodin sv:tä erän omaan palautukseen: E80(osio, avain, vanhaArvo) palauttaa erän 80 palautuksen arvon, jos kyseinen (osio, avain) on korvattu, muuten vanhan arvon.
+   Avain-tarkka (EI arvopohjainen kuten S67): sama vanha sv voi esiintyä korvaamattomalla avaimella. */
+const P80 = lue('sv_kaannoserae_80_palautus.json');
+export const E80 = (osio, avain, vanha) => { const r = P80[osio] && P80[osio].rivit[avain]; return r ? r.sv : vanha; };
+import { createRequire } from 'module';
+const K1D = createRequire(import.meta.url)('./k1d_korvaukset.cjs');   // vanha fi-avain → uusi (sanastomuutos)
+export const E80AVAIN = (avain, vanha) => { for (const k of [avain, K1D.uusi(avain)]) for (const o of Object.values(P80)) if (o.rivit[k]) return o.rivit[k].sv; return vanha; };   // osiosta riippumaton (avain jaetaan osioiden kesken)

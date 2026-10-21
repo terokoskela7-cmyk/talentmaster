@@ -23,7 +23,7 @@ function vie(opts) {
     const K1D = require('../tests/fixtures/k1d_lib_muutokset.json');   // K1d (20.10.2026): fi muuttui sanastopäätöksellä → erän (vanha) fi hyväksytään kun muutos on kirjattu
     if ((r.fi !== TX.FI[k] && !(K1D[k] && K1D[k].vanha === r.fi && K1D[k].uusi === TX.FI[k])) || r.fi !== (G[OSIO].rivit[k] || {}).fi) { virheet.push(k + ': fi ei vastaa lähetettyä erää/koodin lähdettä'); continue; }
     const syy = sopii(r.fi, r.sv); if (syy) { virheet.push(k + ': ' + syy); continue; }
-    if (typeof ol[k] === 'string') { if (ol[k] === r.sv) ohitettu.push(k); else virheet.push(k + ': jo koodissa eri sv:llä'); continue; }
+    if (typeof ol[k] === 'string') { if (ol[k] === r.sv || require('./i18n_era80_tuki.cjs').korvattu(k, ol[k])) ohitettu.push(k); else virheet.push(k + ': jo koodissa eri sv:llä'); continue; }
     uudet.push([k, r.sv]);
   }
   if (virheet.length) return { virheet, lisatty: 0, ohitettu, kirjoitettu: false };

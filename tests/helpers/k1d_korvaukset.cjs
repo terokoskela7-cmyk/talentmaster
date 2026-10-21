@@ -13,6 +13,8 @@ const LIBMUUTOKSET = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'fixt
 module.exports.LIBMUUTOKSET = LIBMUUTOKSET;
 module.exports.erassaFi = (avain, nykyinen) => (LIBMUUTOKSET[avain] && LIBMUUTOKSET[avain].uusi === nykyinen ? LIBMUUTOKSET[avain].vanha : nykyinen);
 /* Erän 80 lib-avaimet joilla EI vielä ole sv:tä (uudet K1d-avaimet, rivillä ei sv_nyt:ää): odottavat Geminiä — vanhojen erien "jokaiselle avaimelle on sv" -portit sallivat nämä. */
-const ERA80 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'i18n', 'sv_kaannoserae_80_gemini.json'), 'utf8')).osiot;
-module.exports.era80Odottaa = (avain) => Object.keys(ERA80).some((o) => /^lib\./.test(o) && ERA80[o].rivit[avain] && !ERA80[o].rivit[avain].sv_nyt && !ERA80[o].rivit[avain].sv);
-module.exports.era80FiOdottaa = () => { const r = []; for (const o of Object.keys(ERA80)) if (/^lib\./.test(o)) for (const x of Object.values(ERA80[o].rivit)) if (!x.sv_nyt && !x.sv && x.fi) r.push(x.fi); return r; };   // fi-tekstit joiden sv odottaa erää 80 (klippi_sv_selain: LIB_FI_ODOTTAA)
+/* Erä 80 on VIETY (21.10.2026): lähetetyn tiedoston sv on tyhjä, mutta palautus (PM:n kirjoittama) on koodissa → rivi odottaa vain jos palautuksesta puuttuu sv. */
+const ERA80 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'i18n', 'sv_kaannoserae_80_gemini.json'), 'utf8')).osiot, ERA80P = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'i18n', 'sv_kaannoserae_80_palautus.json'), 'utf8')).osiot;
+const palautettu80 = (o, k) => !!(ERA80P[o] && ERA80P[o].rivit[k] && ERA80P[o].rivit[k].sv);
+module.exports.era80Odottaa = (avain) => Object.keys(ERA80).some((o) => /^lib\./.test(o) && ERA80[o].rivit[avain] && !ERA80[o].rivit[avain].sv_nyt && !ERA80[o].rivit[avain].sv && !palautettu80(o, avain));
+module.exports.era80FiOdottaa = () => { const r = []; for (const o of Object.keys(ERA80)) if (/^lib\./.test(o)) for (const [k, x] of Object.entries(ERA80[o].rivit)) if (!x.sv_nyt && !x.sv && !palautettu80(o, k) && x.fi) r.push(x.fi); return r; };   // fi-tekstit joiden sv odottaa erää 80 (klippi_sv_selain: LIB_FI_ODOTTAA)

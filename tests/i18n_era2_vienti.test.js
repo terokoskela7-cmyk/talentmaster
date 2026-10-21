@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { S67 } from './helpers/era67_korvatut.mjs';
+import { S67, E80AVAIN } from './helpers/era67_korvatut.mjs';
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -37,19 +37,19 @@ describe('Gemini-erä 2 — vienti', () => {
     const tmLangTyhjat = tyhjat.filter(([o]) => o === 'tm_lang').map(([o, a]) => o + '::' + a).sort();
     expect(tmLangTyhjat).toEqual(ODOTTAA.slice().sort());
   });
-  it('tm_lang', () => { for (const [p, r] of rivit('tm_lang')) if (r.sv && !palautettu('tm_lang', p)) expect(polku(L, p), p).toBe(S67(r.sv)); });
+  it('tm_lang', () => { for (const [p, r] of rivit('tm_lang')) if (r.sv && !palautettu('tm_lang', p)) expect(polku(L, p), p).toBe(E80AVAIN(p, S67(r.sv))); });
   it('lib-osiot → TM_LIB_I18N.sv', () => {
     for (const o of ['lib_adar_nimet', 'lib.rubriikit', 'lib.tm_kentta', 'lib.tm_adar_tekstit', 'lib.tm_pelihavainto_valinta', 'lib.tm_havaintohistoria', 'lib.tm_tanaan_signaali'])
-      for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(LIB[a], o + ' ' + a).toBe(S67(r.sv));
+      for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(LIB[a], o + ' ' + a).toBe(E80AVAIN(a, S67(r.sv)));
   });
   it('vp_kartta / master_kartta / henkilosto_kartta', () => {
-    for (const [o, M] of [['vp_kartta', VP], ['master_kartta', MA], ['henkilosto_kartta', HE]]) for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(M[a], o + ' ' + a).toBe(S67(r.sv));
+    for (const [o, M] of [['vp_kartta', VP], ['master_kartta', MA], ['henkilosto_kartta', HE]]) for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(M[a], o + ' ' + a).toBe(E80AVAIN(a, S67(r.sv)));
   });
   it('jäännökset: Förening-rivit, kausifokus, VP×Master yhtenäistetty', () => {
     const kartta = { vp: VP, master: MA, common: CO };
-    for (const [a, r] of rivit('jaannos.seura_forening')) { if (palautettu('jaannos.seura_forening', a)) continue; expect(r.kohde === 'tm_lang' ? polku(L, r.polku) : kartta[r.kohde][r.fi], a).toBe(S67(r.sv)); }
-    for (const [a, r] of rivit('jaannos.kausifokus')) if (!palautettu('jaannos.kausifokus', a)) expect(kartta[r.kohde][r.fi], a).toBe(S67(r.sv));
-    for (const [fi, r] of rivit('jaannos.vp_master')) if (!palautettu('jaannos.vp_master', fi)) { expect(VP[fi], fi).toBe(S67(r.sv)); expect(MA[fi], fi).toBe(S67(r.sv)); }
+    for (const [a, r] of rivit('jaannos.seura_forening')) { if (palautettu('jaannos.seura_forening', a)) continue; expect(r.kohde === 'tm_lang' ? polku(L, r.polku) : kartta[r.kohde][r.fi], a).toBe(E80AVAIN(r.kohde === 'tm_lang' ? r.polku : r.fi, S67(r.sv))); }
+    for (const [a, r] of rivit('jaannos.kausifokus')) if (!palautettu('jaannos.kausifokus', a)) expect(kartta[r.kohde][r.fi], a).toBe(E80AVAIN(r.fi, S67(r.sv)));
+    for (const [fi, r] of rivit('jaannos.vp_master')) if (!palautettu('jaannos.vp_master', fi)) { expect(VP[fi], fi).toBe(E80AVAIN(fi, S67(r.sv))); expect(MA[fi], fi).toBe(E80AVAIN(fi, S67(r.sv))); }
   });
   it('uusi seura-sana: tm_lang/vp/master/common eivät sisällä enää "klubb" (paitsi palautetut)', () => {
     const jaljella = [];
@@ -60,8 +60,9 @@ describe('Gemini-erä 2 — vienti', () => {
   });
   it('termistö: erän uudet termit tilalla sovittu', () => {
     const T = require('../docs/i18n/termisto.fi-sv.json'); const t = Array.isArray(T.termit) ? T.termit : Object.values(T.termit);
-    for (const fi of ['Havainnointi', 'Päätös / Päätöksenteko', 'Toteutus', 'Reagointi', 'Pelihavainto', 'Otteluhavainnointi', 'Ottelutarkkailu']) {
-      const e = t.find((x) => x.fi === fi); expect(e, fi).toBeTruthy(); expect(e.tila).toBe('sovittu'); expect(e.kaannokset.sv).toBe(ERA.termisto.kaannettava[fi === 'Reagointi' ? 'Palautuminen' : fi].sv);   // K1d: R = Reagointi; sv (erän 2 'Palautuminen') korvataan erässä 80
+    const E80T = { Päätöksenteko: 'Beslutsfattande', Reagointi: 'Reagering' };   // K1d (erä 80, 21.10.2026): ADAR D/R korvattu; termistössä nyt "Päätöksenteko" (ent. "Päätös / Päätöksenteko") ja "Reagointi" (ent. Palautuminen/Återhämtning)
+    for (const fi of ['Havainnointi', 'Päätöksenteko', 'Toteutus', 'Reagointi', 'Pelihavainto', 'Otteluhavainnointi', 'Ottelutarkkailu']) {
+      const e = t.find((x) => x.fi === fi); expect(e, fi).toBeTruthy(); expect(e.tila).toBe('sovittu'); expect(e.kaannokset.sv).toBe(E80T[fi] || ERA.termisto.kaannettava[fi].sv);
     }
   });
   it('paikkamerkit säilyvät fi → sv jokaisella viedyllä rivillä', () => {

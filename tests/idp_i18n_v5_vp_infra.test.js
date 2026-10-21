@@ -23,7 +23,7 @@ describe('lib/tm_vp_i18n.js — string-avainkartta + vpT', () => {
   it('vpT: sv chrome-käännökset (fi-avain → sv)', () => {
     global.tmNykyinenKieli = () => 'sv';
     ['Pelaajat:Spelare', 'Kalenteri:Kalender', 'Tilanne:Läge', 'Valmentajat:Tränare',
-      'Seuran tilannekuva:Rapportering', 'Asetukset:Inställningar', 'Kirjaudu ulos:Logga ut',
+      'Seuran tilannekuva:Föreningens lägesbild', 'Asetukset:Inställningar', 'Kirjaudu ulos:Logga ut',
       'Koti:Hem', 'Joukkueet:Lag', 'Raportit:Rapporter', 'Testit:Tester', 'Lisää:Lägg till',
       'Kirjaa ja tuo testituloksia:Registrera och importera testresultat'].forEach((p) => {
       const [fi, sv] = p.split(':');

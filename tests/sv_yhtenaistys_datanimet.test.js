@@ -121,7 +121,7 @@ describe('(1) sv-kartta — Geminin linja, ei omaa ruotsia', () => {
 
   it('Master-kartta: "har gått ut"', () => {
     expect(MSV['🟠 Jakso umpeutunut · Tee jakson yhteenveto → seuraava fokus'])
-      .toBe('🟠 Perioden har gått ut · Stäng period → nästa fokus');
+      .toBe('🟠 Perioden har gått ut · Gör periodsammanfattning → nästa fokus');   // K1d: erä 80 korvasi 'Stäng period' (sanasto)
   });
 
   it('"löpt ut" = 0 kartoissa JA käännösmuisteissa', () => {

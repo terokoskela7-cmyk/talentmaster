@@ -10,7 +10,7 @@ const { sopii, lataaSv, q } = require('./i18n_vie_sv_era53_19.cjs');
 const ROOT = path.join(__dirname, '..');
 const PALAUTUS = 'docs/i18n/sv_kaannoserae_80_palautus.json', LAHETYS = 'docs/i18n/sv_kaannoserae_80_gemini.json';
 const KARTAT = { lib: { f: 'lib/tm_lib_i18n.js', nimi: 'TM_LIB_I18N' }, vp: { f: 'lib/tm_vp_i18n.js', nimi: 'TM_VP_I18N' }, master: { f: 'lib/tm_master_i18n.js', nimi: 'TM_MASTER_I18N' }, common: { f: 'lib/tm_i18n_common.js', nimi: 'TM_I18N_COMMON' } };
-const OLETUS = { vp_kartta: 'vp', master_kartta: 'master', yhteiset_kartta: 'common', lib_adar_nimet: 'lib' };   // muut lib.* → lib
+const OLETUS = { vp_kartta: 'vp', master_kartta: 'master', yhteiset_kartta: 'common', lib_adar_nimet: 'lib', 'lib.tm_seuran_pulssi': 'vp', 'lib.tm_vp_koti': 'vp', 'lib.tm_vp_tilanne': 'vp' };   // fi-tekstiavaimiset VP-libit → VP-kartta (vpT)   // muut lib.* → lib
 const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const ARVO = "(?:'((?:[^'\\\\]|\\\\.)*)'|\"((?:[^\"\\\\]|\\\\.)*)\")";
 function svLohko(src) { const a = src.search(/\n {2,4}sv:\s*\{/); if (a < 0) return null; const rel = src.slice(a + 1).search(/\n {2,4}en:\s*\{/); return [a, rel < 0 ? src.length : a + 1 + rel]; }

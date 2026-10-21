@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
-import { S67 } from './helpers/era67_korvatut.mjs';
+import { S67, E80AVAIN } from './helpers/era67_korvatut.mjs';
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const ERA = JSON.parse(lue('docs/i18n/sv_kaannoserae_2026-10-08.json'));
@@ -16,8 +16,8 @@ const LIB = require('../lib/tm_lib_i18n.js');
 const SV = LIB.TM_LIB_I18N.sv;
 const LIBIT = ['tm_kasvupyrahdys', 'tm_kt_arviointi', 'tm_kt_alue', 'tm_kt_toimintakortti', 'tm_sanasto', 'tm_kehitystyopoyta', 'tm_kevyt_katselmus', 'tm_klippi_perhe', 'tm_nakyvyys_kytkin', 'tm_historia_lause', 'tm_naytto_lohkot', 'tm_mediaviesti', 'tm_reitin_valinta', 'tm_ryhmat', 'tm_taman_tueksi', 'tm_kt_sivu', 'tm_kt_polku', 'tm_kt_havainto', 'tm_tanaan_kentta', 'tm_ilmoitus_lista', 'tm_kt_taulu', 'tm_tanaan_signaali', 'tm_viikkokatsaus', 'tm_idp_lomake', 'tm_sanasto_info', 'tm_idp_pelaaja', 'tm_todistekortit'];
 // Libin FI-avaimet, joille sv puuttuu (palautetaan Geminille; fi-fallback). Portti on elävä: sv saapui → poista rivi.
-// erä 80 (K1d; scripts/i18n_luo_gemini_era80.mjs): uudet lib-avaimet (82) odottavat Geminiä; muuttuneet avaimet säilyttävät vanhan sv:n (sv_nyt) kunnes erä viedään
-const LIB_SV_ODOTTAA = ['kt_viikon_fokus', 'kt_viikon_fokus_asetettu', 'k1_talla_viikolla', 'ts_rytmi_otsikko', 'ts_rytmi_otsikko_myohassa', 'ts_rytmi_selitys', 'ts_rytmi_selitys_ilman_ikaa', 'ts_rytmi_jakso', 'ts_rytmi_yhteenveto_nappi', 'ts_rytmi_keskustelu_nappi', 'ts_miksi_otsikko', 'ts_miksi_kuorma_tarkista', 'ts_miksi_review_myohassa', 'ts_miksi_review_eraantymassa', 'ts_miksi_valinta_odottaa', 'ts_miksi_valinta_pelaajalla', 'ts_miksi_ehdotus_odottaa', 'ts_miksi_sitoumus', 'ts_miksi_sitoumus_odottaa', 'ts_miksi_jakso_umpeutunut', 'ts_miksi_ei_jaksofokusta', 'ts_miksi_idp_jumissa', 'ts_miksi_valitavoite_valmis', 'ts_miksi_havainto', 'ts_miksi_yllapito', 'ts_miksi_vk', 'ts_miksi_tauko', 'ktp_otsikko', 'ktp_h_yhteenveto', 'ktp_rytmi_ajan_tasalla', 'ktp_rytmi_seuraava', 'ktp_rytmi_myohassa', 'k1_kauden_tavoite_rivi', 'k1_nyt_harjoittelet_rivi', 'k1_nyt_harjoittelet', 'si_n_kehityssuunnitelma', 'si_n_jakson_yhteenveto', 'si_n_kehityskeskustelu', 'si_n_pelaajaraportti', 'si_n_tilannekuva', 'si_kehityssuunnitelma', 'si_jakson_yhteenveto', 'si_kehityskeskustelu', 'si_pelaajaraportti', 'si_tilannekuva', 'si_aria', 'si_lue_lisaa', 'si_sulje', 'ke_otsikko', 'ke_ingressi', 'ke_d_suunnitelma', 'ke_d_suunnitelma_alla', 'ke_d_jakso', 'ke_d_jakso_alla', 'ke_d_yhteenveto', 'ke_d_yhteenveto_alla', 'ke_d_seuraava', 'ke_d_keskustelu', 'ke_d_keskustelu_alla', 'ke_d_raportti', 'ke_d_raportti_alla', 'ke_d_kaavio', 'ke_rytmi', 'ke_jakso', 'ke_raportti', 'ip_aloitit', 'ip_lahto_valmentaja', 'ip_lahto_yhdessa', 'ip_nyt', 'ip_nyt_note', 'ip_nyt_win', 'ip_nyt_pysyt', 'ip_askel', 'ip_askel_note', 'ip_askel_sujuu', 'ip_jatkoit', 'ip_jatkoit_note', 'ip_jatkoit_pysyit', 'ip_seuraava', 'ip_seuraava_teksti', 'ip_kehu', 'ip_tavoitteesi', 'ip_mika_oletus', 'ip_miksi_oletus', 'ip_mieti']   // erä 78 (K1c; scripts/i18n_luo_gemini_era78.mjs) odottaa Geminiä · erä 77 (K1b-jatko: Tämän viikon fokus) odottaa Geminiä (scripts/i18n_luo_gemini_era77.mjs) · aiemmin: erä 76 (K1b) vietiin 20.10.2026 (scripts/i18n_vie_sv_era76.cjs) · erä 75 (K3b: kausitavoite, 35 riviä) vietiin 20.10.2026 (scripts/i18n_vie_sv_era75.cjs) · aiemmin: erä 74 (K3a: Anna pelaajan valita + Hylkää valinta) vietiin 20.10.2026 (scripts/i18n_vie_sv_era74.cjs) · aiemmin: erä 73 (K2: Näyttö uudella sivulla, lib/tm_naytto_lohkot.js) vietiin 20.10.2026 (scripts/i18n_vie_sv_era73.cjs) · aiemmin: erä 72 (Kehitystyöpöytä K1: "Aseta alue", 1 rivi) vietiin 20.10. (scripts/i18n_vie_sv_era72.cjs) · aiemmin: erä 71 (Sulje jakso: valmentajan lause + Historian sisäinen-merkki) vietiin 19.10.2026 (scripts/i18n_vie_sv_era71.cjs) · aiemmin: erä 70 (palaute-näkyvyys 0b: kytkin) vietiin 19.10.2026 (scripts/i18n_vie_sv_era70.cjs) · aiemmin: erä 68 (A: klippikortti) vietiin 18.10.2026 (scripts/i18n_vie_sv_era68.cjs) · aiemmin: erät 65 + 66 vietiin 18.10.2026 (scripts/i18n_vie_sv_era65.cjs, era66.cjs)
+// erä 80 (K1d) vietiin 21.10.2026 (scripts/i18n_vie_sv_era80.cjs; PM:n kirjoittama) — erän 80 avaimet eivät ole enää odotuslistalla
+const LIB_SV_ODOTTAA = ['kt_viikon_fokus', 'kt_viikon_fokus_asetettu', 'k1_talla_viikolla']   // erä 78 (K1c; scripts/i18n_luo_gemini_era78.mjs) odottaa Geminiä · erä 77 (K1b-jatko: Tämän viikon fokus) odottaa Geminiä (scripts/i18n_luo_gemini_era77.mjs) · aiemmin: erä 76 (K1b) vietiin 20.10.2026 (scripts/i18n_vie_sv_era76.cjs) · erä 75 (K3b: kausitavoite, 35 riviä) vietiin 20.10.2026 (scripts/i18n_vie_sv_era75.cjs) · aiemmin: erä 74 (K3a: Anna pelaajan valita + Hylkää valinta) vietiin 20.10.2026 (scripts/i18n_vie_sv_era74.cjs) · aiemmin: erä 73 (K2: Näyttö uudella sivulla, lib/tm_naytto_lohkot.js) vietiin 20.10.2026 (scripts/i18n_vie_sv_era73.cjs) · aiemmin: erä 72 (Kehitystyöpöytä K1: "Aseta alue", 1 rivi) vietiin 20.10. (scripts/i18n_vie_sv_era72.cjs) · aiemmin: erä 71 (Sulje jakso: valmentajan lause + Historian sisäinen-merkki) vietiin 19.10.2026 (scripts/i18n_vie_sv_era71.cjs) · aiemmin: erä 70 (palaute-näkyvyys 0b: kytkin) vietiin 19.10.2026 (scripts/i18n_vie_sv_era70.cjs) · aiemmin: erä 68 (A: klippikortti) vietiin 18.10.2026 (scripts/i18n_vie_sv_era68.cjs) · aiemmin: erät 65 + 66 vietiin 18.10.2026 (scripts/i18n_vie_sv_era65.cjs, era66.cjs)
 const _VANHA_LIB_ODOTTAA = [];   // ts_otsikko saapui Gemini-erässä 2 (lib.tm_tanaan_signaali) ja vietiin scripts/i18n_vie_sv_era2.cjs:llä
 // PR 5: erän 2 lib-osiot (ADAR-nimet, rubriikit, Kenttä, ADAR-tekstit, pelihavainto-valinta, havaintohistoria, ts_otsikko) — avain = lib-avain tai fi-teksti
 const ERA2 = JSON.parse(lue('docs/i18n/sv_kaannoserae_2.json'));
@@ -56,7 +56,7 @@ describe('kirjastokartta: kattavuus ja muuttujat', () => {
   it('sv-arvot ovat täsmälleen Gemini-erän JSONin arvot (kopioitu skriptillä, ei käsin) — alun/lopun välilyönnit ja entiteetit mukaan', () => {
     for (const l of LIBIT.filter((x) => ERA.osiot['lib.' + x])) for (const [k, r] of Object.entries(ERA.osiot['lib.' + l].rivit)) {
       if (k === 'kk_vp_lause') { expect(SV[k]).toBe('Tränarchefens mening'); continue; }   // Teron oma teksti 19.10.2026 (korvasi Gemini-erän 'hälsning'); scripts/i18n_vie_sv_era71.cjs
-      expect(SV[k], l + ' ' + k).toBe(S67(r.sv));
+      expect(SV[k], l + ' ' + k).toBe(E80AVAIN(k, S67(r.sv)));
     }
   });
   it('mv_pohjat: 3 tyyppiä × 3 rekisteriä × 3 kysymystä, sama muoto kuin fi (POHJAT)', () => {
@@ -162,7 +162,7 @@ describe('vienti: kartat sisältävät Gemini-erän rivit sellaisinaan', () => {
   const sb = sandbox('sv');
   it('tm_lang: 58 riviä, sv = JSON; ei odotuslistalla', () => {
     const L = require('../lib/tm_lang.js').TM_LANG; const rivit = ERA.osiot.tm_lang.rivit; expect(Object.keys(rivit).length).toBe(58);
-    for (const [p, r] of Object.entries(rivit)) expect(p.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L.sv), p).toBe(S67(r.sv));
+    for (const [p, r] of Object.entries(rivit)) expect(p.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L.sv), p).toBe(E80AVAIN(p, S67(r.sv)));
     // erän 58 riviä ovat valmiita: yksikään niistä ei saa olla odotuslistalla (lista sisältää vain myöhempien PR:ien uudet fi+en-avaimet)
     expect(require('./tm_lang_sv_odotuslista.cjs').filter((a) => a in rivit)).toEqual([]);
   });
@@ -171,7 +171,7 @@ describe('vienti: kartat sisältävät Gemini-erän rivit sellaisinaan', () => {
     const cm = K1D.kartta(vm.runInContext('TM_I18N_COMMON.sv', sb)), vp = K1D.kartta(vm.runInContext('TM_VP_I18N.sv', sb)), ma = K1D.kartta(vm.runInContext('TM_MASTER_I18N.sv', sb));
     for (const [osio, kartta, n] of [['vp_kartta', vp, 193], ['vp_otsikot_data_i18n', vp, 4], ['master_kartta', ma, 67], ['master_otsikot_data_i18n', ma, 3]]) {
       const rivit = ERA.osiot[osio].rivit; expect(Object.keys(rivit).length, osio).toBe(n);
-      for (const [fi, r] of Object.entries(rivit)) expect(kartta[fi], osio + ' ' + fi).toBe(S67(r.sv));
+      for (const [fi, r] of Object.entries(rivit)) expect(kartta[fi], osio + ' ' + fi).toBe(E80AVAIN(fi, S67(r.sv)));
     }
     for (const k of [...Object.keys(ERA.osiot.vp_kartta.rivit), ...Object.keys(ERA.osiot.vp_otsikot_data_i18n.rivit), ...Object.keys(ERA.osiot.master_kartta.rivit), ...Object.keys(ERA.osiot.master_otsikot_data_i18n.rivit)]) expect(k in cm, 'dedupe-invariantti (common): ' + k).toBe(false);
   });

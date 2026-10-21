@@ -8,7 +8,7 @@ const teksti = (f) => readFileSync(new URL('../docs/i18n/' + f, import.meta.url)
 const P = JSON.parse(teksti('sv_kaannoserae_80_palautus.json')).osiot, G = JSON.parse(teksti('sv_kaannoserae_80_gemini.json')).osiot;
 const V = require('../scripts/i18n_vie_sv_era80.cjs');
 const LIB = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv, VP = require('../lib/tm_vp_i18n.js').TM_VP_I18N.sv, MA = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv, YH = require('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv;
-const KOHDE = { vp_kartta: VP, master_kartta: MA, yhteiset_kartta: YH };
+const KOHDE = { vp_kartta: VP, master_kartta: MA, yhteiset_kartta: YH, 'lib.tm_seuran_pulssi': VP, 'lib.tm_vp_koti': VP, 'lib.tm_vp_tilanne': VP };   // fi-tekstiavaimiset VP-libit → VP-kartta (vpT)
 describe('sv-erä 80 — vienti', () => {
   it('palautus = tarkistettu tiedosto (sha), 240 riviä = lähetetty erä; fi = lähetetty; sv täytetty; paikkamerkit säilyvät', () => {
     expect(createHash('sha256').update(teksti('sv_kaannoserae_80_palautus.json')).digest('hex').startsWith('f644ddf2')).toBe(true);

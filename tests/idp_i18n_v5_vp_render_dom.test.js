@@ -755,7 +755,7 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     // PR 5: D2-bugin ja S1.1:n rivit (TKI-pohjainen, TKI ka, Sovelluksen käyttö …) saapuivat Gemini-erässä 2 ja vietiin; lista on nyt tyhjä.
   ]);
   { const E19 = JSON.parse(readFileSync(new URL('../docs/i18n/sv_kaannoserae_19_palautus.json', import.meta.url), 'utf8')).osiot.vp_kartta.rivit; const viety = SV_ODOTTAA_SANKTIOINTIA.filter((k) => E19[k] && E19[k].sv); SV_ODOTTAA_SANKTIOINTIA.splice(0, SV_ODOTTAA_SANKTIOINTIA.length, ...SV_ODOTTAA_SANKTIOINTIA.filter((k) => viety.indexOf(k) < 0)); }   // erän 19 palautus vietiin 15.10.2026 (scripts/i18n_vie_sv_era53_19.cjs) → rivit pois odotuslistalta
-  { const E80 = JSON.parse(readFileSync(new URL('../docs/i18n/sv_kaannoserae_80_gemini.json', import.meta.url), 'utf8')).osiot.vp_kartta.rivit; SV_ODOTTAA_SANKTIOINTIA.push(...Object.entries(E80).filter(([, r]) => !r.sv && !r.sv_nyt).map(([k]) => k)); }   // erä 80 (K1d): uudet avaimet ilman vanhaa sv:tä odottavat Geminiä
+  /* erä 80 (K1d) vietiin 21.10.2026 — sen rivit eivät odota sanktiointia */
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
     const sb = kartat();

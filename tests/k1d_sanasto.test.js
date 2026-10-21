@@ -81,7 +81,7 @@ describe('K1d · sv-sanastoportti: erän 80 sv-tekstit', () => {
     expect(rivit).toHaveLength(240); expect(rivit.filter(([, , sv]) => SV_KIELLETTY.test(sv)).map(([o, k]) => o + ':' + k)).toEqual([]);
   });
   it('samat rivit koodin sv-kartoissa (viety): ei kiellettyjä sanoja, arvo = palautus', () => {
-    const KARTTA = { vp_kartta: 'lib/tm_vp_i18n.js', master_kartta: 'lib/tm_master_i18n.js', yhteiset_kartta: 'lib/tm_i18n_common.js' }, nimet = { vp_kartta: 'TM_VP_I18N', master_kartta: 'TM_MASTER_I18N', yhteiset_kartta: 'TM_I18N_COMMON' };
+    const VPL = 'lib/tm_vp_i18n.js', KARTTA = { vp_kartta: VPL, master_kartta: 'lib/tm_master_i18n.js', yhteiset_kartta: 'lib/tm_i18n_common.js', 'lib.tm_seuran_pulssi': VPL, 'lib.tm_vp_koti': VPL, 'lib.tm_vp_tilanne': VPL }, nimet = { vp_kartta: 'TM_VP_I18N', master_kartta: 'TM_MASTER_I18N', yhteiset_kartta: 'TM_I18N_COMMON', 'lib.tm_seuran_pulssi': 'TM_VP_I18N', 'lib.tm_vp_koti': 'TM_VP_I18N', 'lib.tm_vp_tilanne': 'TM_VP_I18N' };
     const LIB = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv, rikkojat = [];
     for (const [o, k, sv] of rivit) { const m = KARTTA[o] ? require('../' + KARTTA[o])[nimet[o]].sv : (o === 'tm_lang' ? null : LIB); if (!m) continue; if (m[k] !== sv) rikkojat.push(o + ':' + k + ' ≠ palautus'); if (SV_KIELLETTY.test(String(m[k]))) rikkojat.push(o + ':' + k + ' kielletty'); }
     expect(rikkojat).toEqual([]);
