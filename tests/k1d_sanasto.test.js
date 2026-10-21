@@ -70,3 +70,27 @@ describe('K1d · sanastoportti: ei kiellettyjä termejä käyttäjälle näkyvis
     expect(SI.si_kehityssuunnitelma).toBe('Pelaajan kauden tavoite ja sen alla etenevät 6 viikon jaksot.'); expect(VP).toContain('data-i18n="Seuran tilannekuva"');
   });
 });
+
+/* K1d (21.10.2026): UUSILLE ruotsinkielisille teksteille (erä 80: PM:n kirjoittama, vietiin karttoihin) kielletyt sanat granskning · review · IDP.
+   Termistö: docs/i18n/termisto.fi-sv.json (Utvecklingsplan · Periodsammanfattning · Utvecklingssamtal · Spelarrapport · Föreningens lägesbild). Vanhat, erän 80 ulkopuoliset sv-rivit eivät kuulu tähän. */
+describe('K1d · sv-sanastoportti: erän 80 sv-tekstit', () => {
+  const SV_KIELLETTY = /granskning|review|\bIDP\b/i;
+  const P = JSON.parse(readFileSync(join(JUURI, 'docs/i18n/sv_kaannoserae_80_palautus.json'), 'utf8')).osiot;
+  const rivit = Object.entries(P).flatMap(([o, x]) => Object.entries(x.rivit).map(([k, r]) => [o, k, r.sv]));
+  it('palautuksen 240 riviä: ei granskning / review / IDP', () => {
+    expect(rivit).toHaveLength(240); expect(rivit.filter(([, , sv]) => SV_KIELLETTY.test(sv)).map(([o, k]) => o + ':' + k)).toEqual([]);
+  });
+  it('samat rivit koodin sv-kartoissa (viety): ei kiellettyjä sanoja, arvo = palautus', () => {
+    const KARTTA = { vp_kartta: 'lib/tm_vp_i18n.js', master_kartta: 'lib/tm_master_i18n.js', yhteiset_kartta: 'lib/tm_i18n_common.js' }, nimet = { vp_kartta: 'TM_VP_I18N', master_kartta: 'TM_MASTER_I18N', yhteiset_kartta: 'TM_I18N_COMMON' };
+    const LIB = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv, rikkojat = [];
+    for (const [o, k, sv] of rivit) { const m = KARTTA[o] ? require('../' + KARTTA[o])[nimet[o]].sv : (o === 'tm_lang' ? null : LIB); if (!m) continue; if (m[k] !== sv) rikkojat.push(o + ':' + k + ' ≠ palautus'); if (SV_KIELLETTY.test(String(m[k]))) rikkojat.push(o + ':' + k + ' kielletty'); }
+    expect(rikkojat).toEqual([]);
+  });
+  it('EI VACUOUS: sv-portti tunnistaa kielletyn sanan; sovitut termit on tilassa "sovittu" termistössä (11 K1d-termiä)', () => {
+    expect(SV_KIELLETTY.test('Granskning av perioden')).toBe(true); expect(SV_KIELLETTY.test('IDP-mål')).toBe(true); expect(SV_KIELLETTY.test('Periodsammanfattning')).toBe(false);
+    const T = JSON.parse(readFileSync(join(JUURI, 'docs/i18n/termisto.fi-sv.json'), 'utf8')).termit, ODOTETUT = { Kehityssuunnitelma: 'Utvecklingsplan', 'Jakson yhteenveto': 'Periodsammanfattning', 'Tee jakson yhteenveto': 'Gör periodsammanfattning', Kehityskeskustelu: 'Utvecklingssamtal', Pelaajaraportti: 'Spelarrapport', 'Seuran tilannekuva': 'Föreningens lägesbild', Yhteenvetorytmi: 'sammanfattningsrytm', Yhteenvetoikkuna: 'sammanfattningsfönster', Ydinasiat: 'Nyckelpunkter', Päätöksenteko: 'Beslutsfattande', Reagointi: 'Reagering' };
+    for (const [fi, sv] of Object.entries(ODOTETUT)) { const t = T.find((x) => x.fi === fi); expect(t, fi).toBeTruthy(); expect(t.tila, fi).toBe('sovittu'); expect(t.kaannokset.sv, fi).toBe(sv); }
+    expect(T.filter((x) => x.tila === 'odottaa')).toEqual([]);
+    expect(require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv.Kehittyvä).toBe('under utveckling');   // Masterin käännösmuisti (Teron korjaus 21.10.)
+  });
+});
