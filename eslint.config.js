@@ -66,7 +66,7 @@ const APP_GLOBALS = {
   // lib/tm_havainto_kaavio.js (pelihavainto ↔ taktiikkataulu -linkki, jälkirikastus)
   tmHavaintoKaavio: 'readonly', tmHavaintoLiitaKaavio: 'readonly', tmKaavioLiitaHavaintoon: 'readonly',
   // lib/tm_historia.js (Trendi Vaihe 1 — mittaushistorian selkäranka)
-  TM_HISTORIA: 'readonly', tmHhSnapshot: 'readonly', tmTkiSnapshot: 'readonly', tmHistoriaLisaa: 'readonly',
+  TM_HISTORIA: 'readonly', TM_HISTORIATUONTI: 'readonly', tmHhSnapshot: 'readonly', tmTkiSnapshot: 'readonly', tmHistoriaLisaa: 'readonly',
   // lib/tm_pohja.js (P1.2 — itsekuvaava tuontipohja: sarakegenerointi + Meta-lehti)
   TM_POHJA: 'readonly',
   // lib/tm_pikakentat.js (P2.0) · tm_testikatalogi.js + tm_pikakirjaus.js (P2.1)
