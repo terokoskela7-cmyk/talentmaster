@@ -1,5 +1,5 @@
 /* K1e (21.10.2026) · pikkukorjaukset: (1) kaaviopankin "katselmus" → hyväksyntä/kommentit · (2) ADAR-koulutus: R = Reagointi (ei Palaudu/palautuminen)
-   · (3) Profiilin yhteenvedon rivi lyhyeksi "Testattu 4.10. · 2 vk" (ei katkea 390 px:ssä) · (4) sanastoportti laajempi (tests/k1d_sanasto.test.js) · erä 85 (sv tyhjä, PM kirjoittaa). */
+   · (3) Profiilin yhteenvedon rivi lyhyeksi "Testattu 4.10. · 2 vk" (ei katkea 390 px:ssä) · (4) sanastoportti laajempi (tests/k1d_sanasto.test.js) · erä 85 (vienti: tests/i18n_era85_vienti.test.js). */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
@@ -49,19 +49,5 @@ describe('K1e 3 · Profiili: "Testattu 4.10. · 2 vk" (lyhyt, ei katkea 390 px:s
   it('yli 11 kk vanha: vuosi mukaan (ei monitulkintaista "4.10.")', () => { expect(rivi('2025-09-01')).toBe('Testattu 1.9.2025 · 14 kk'); });
   it('fi-avaimet lyhyitä; vanha "Viimeisin testi" poistettu', () => {
     expect(FI.tc_viimeisin_testi).toBe('Testattu {pvm} · {ika}'); expect(FI.tc_ika_lyh_vk).toBe('{n} vk'); expect(JSON.stringify(FI)).not.toContain('Viimeisin testi');
-  });
-});
-
-describe('K1e · erä 85 (sv tyhjä; PM kirjoittaa)', () => {
-  const E = JSON.parse(lue('docs/i18n/sv_kaannoserae_85_gemini.json')), rivit = Object.entries(E.osiot).flatMap(([o, x]) => Object.entries(x.rivit).map(([k, r]) => [o, k, r]));
-  it('12 riviä, kaikki sv TYHJÄT (ei Code-kirjoitettua ruotsia), fi = koodin teksti', () => {
-    expect(rivit.length).toBe(12); for (const [, k, r] of rivit) { expect(r.sv, k).toBe(''); expect(r.fi, k).toBeTruthy(); }
-    const COMMON = lue('lib/tm_i18n_common.js'), UI = lue('lib/tm_kaavio_ui.js'), H = lue('TalentMaster_VP_v25.html');
-    for (const [o, k, r] of rivit) { if (o === 'yhteiset_kartta') expect(UI + H, k).toContain(r.fi); else expect(FI[k], k).toBe(r.fi); }
-    expect(COMMON).not.toContain("'Hyväksynnän kommentit':");   // ei sv-riviä koodissa kunnes PM toimittaa
-  });
-  it('erä 85 on ODOTTAVAT_ERAT-listalla ja lib-avaimet LIB_SV_ODOTTAA-listalla', () => {
-    expect(lue('tools/i18n/sv_kattavuus.mjs')).toMatch(/const ODOTTAVAT_ERAT = \[[^\]]*\b85\b/);
-    const LT = lue('tests/i18n_sv_era_lib.test.js'); for (const k of ['tc_viimeisin_testi', 'tc_ika_lyh_pv', 'tc_ika_lyh_vk', 'tc_ika_lyh_kk', 'tc_ika_lyh_tanaan']) expect(LT).toContain("'" + k + "'");
   });
 });
