@@ -8400,7 +8400,24 @@ window._mIdpTallennaReview = async function (pid) {
   window._mktRvArvioVal = null;
   const m = document.getElementById('_mIdpReviewModal'); if (m) m.remove();
   _mIdpReRender();
-  await _mIdpTallennaDok(p, masterT('Kehityskeskustelu kirjattu'));
+  const _ok = await _mIdpTallennaDok(p, masterT('Kehityskeskustelu kirjattu'));
+  if (!_ok) return;   // K1f: IDP-kirjoitus epäonnistui (toast näytetty) → ei katselmusmerkintää eikä valeonnistumista
+  /* K1f — KATSELMUS YHTEEN PAIKKAAN (kuten VP:n _vpTallennaReview): tmKirjaaKatselmus → reviewit/{pvm} + review_viimeisin_pvm/-tyyppi YHDESSÄ batchissa
+     → push-muistutus ja rytmi (tmRytmi) nollautuvat myös Masterin kehityskeskustelusta. Pelaajan sanaa ja kommenttia ei kopioida (jäävät IDP-arvioon). */
+  const _pvm = tmPaivaIso(new Date());   // paikallinen päivä (ei UTC)
+  const _kats = { tyyppi: 'kehityskeskustelu', pvm: _pvm, tekija_uid: arvio.kirjaaja_uid, tekija_rooli: _rooli || 'valmentaja', idp_paivitetty: true,
+    arvio: { arvo: isNaN(parseFloat(arvio.arvo)) ? null : parseFloat(arvio.arvo), pelaajan_arvio: arvio.pelaajan_arvio } };
+  try {
+    const plan = window.TM_KEHITYSSILMUKKA.tmKirjaaKatselmus(p, _kats);
+    if (!(_demo || !_seuraId || typeof _db === 'undefined' || !_db)) {   // demo: vain paikallinen tila
+      const pRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
+      const b = _db.batch();
+      b.set(pRef.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true });
+      if (Object.keys(plan.pikakentat).length) b.set(pRef, plan.pikakentat, { merge: true });
+      await b.commit();
+    }
+    Object.assign(p, plan.pikakentat);   // paikallinen tila VASTA onnistumisen jälkeen
+  } catch (e) { console.warn('[mIdpTallennaReview rytmi]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); }
 };
 window._mIdpElinkaari = async function (pid, toiminto, uusiTavoitearvo) {
   const p = _mIdpP(pid); const t = p && p._mIdpTavoite; if (!t || !_mIdpVoiMuokata(p) || typeof idpElinkaari !== 'function') return;
