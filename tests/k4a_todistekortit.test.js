@@ -94,10 +94,10 @@ describe('K4a PHV-säännöt (§28 / §25) — tmPhvTila kerran', () => {
     biologinenIka_viimeisin: koodi ? bio(koodi, tahti) : null, phv_tila: koodi || undefined, jaksofokus: null });
   it('test 1 · PRE vs POST: fyysinen-lause vaihtuu; heikointa ei nimetä kehityskohteeksi PRE/LAH/tuntematon', () => {
     const pre = malli(heikkoFyysinen('PRE')).m, post = malli(heikkoFyysinen('POST')).m;
-    expect(kortti(pre, 'fyysinen').lause).toContain('(§28)'); expect(kortti(pre, 'fyysinen').lause).not.toContain('käy fyysisen jakson kohteeksi');
-    expect(kortti(post, 'fyysinen').lause).toContain('Heikoin osa-alue käy fyysisen jakson kohteeksi.'); expect(kortti(post, 'fyysinen').lause).not.toContain('(§28)');
+    expect(kortti(pre, 'fyysinen').lause).not.toContain('§'); expect(kortti(pre, 'fyysinen').selite).toBe('Ennen kasvumittausta heikointa fyysistä testiä ei nimetä kehityskohteeksi, koska ero voi johtua kasvuvaiheesta.');   // perustelu ⓘ-selitteessä, ei lauseessa (K4a2)
+    expect(kortti(post, 'fyysinen').selite).toBeUndefined(); expect(kortti(post, 'fyysinen').lause).not.toContain('§');
     expect(pre.yhteenveto.kehityskohde).toBe(null); expect(post.yhteenveto.kehityskohde).toBeTruthy(); expect(post.yhteenveto.kehityskohde.alue).toBe('fyysinen');
-    ['LAH', null].forEach((k) => { const x = malli(heikkoFyysinen(k)).m; expect(x.yhteenveto.kehityskohde).toBe(null); expect(kortti(x, 'fyysinen').lause).toContain('(§28)'); });
+    ['LAH', null].forEach((k) => { const x = malli(heikkoFyysinen(k)).m; expect(x.yhteenveto.kehityskohde).toBe(null); expect(kortti(x, 'fyysinen').selite).toMatch(/^Ennen kasvumittausta/); });
     expect(malli(heikkoFyysinen('AN')).m.yhteenveto.kehityskohde.alue).toBe('fyysinen');
   });
   it('test 2 · tuntematon: Kasvu-kortti ohjaa mittaamaan (ainoa toiminto), fyysinen ei ehdota jaksoa', () => {
@@ -105,8 +105,8 @@ describe('K4a PHV-säännöt (§28 / §25) — tmPhvTila kerran', () => {
     expect(k.tyhja).toBe(true); expect(k.toiminto).toMatchObject({ avain: 'mittaus', arg: 'kasvumittaus', teksti: 'Suunnittele kasvumittaus' }); expect(m.phv).toBe('tuntematon');
     expect(kortti(m, 'fyysinen').lause).not.toContain('jakson kohteeksi'); expect(m.yhteenveto.puuttuu).toMatchObject({ nimi: 'Kasvumittaus' });
   });
-  it('PH → kuormahuomio: fyysinen "ei johtopäätöksiä yhdestä mittauksesta", kasvukortin toiminto = Tarkista jakson kuorma', () => {
-    const { m } = malli(heikkoFyysinen('PH', 5.0)); expect(kortti(m, 'fyysinen').lause).toContain('ei johtopäätöksiä yhdestä mittauksesta'); expect(kortti(m, 'kasvu').toiminto.avain).toBe('kuorma');
+  it('PH → kuormahuomio: fyysinen "Kasvupyrähdys käynnissä: tulokset vaihtelevat" (korvaa toisen virkkeen), kasvukortin toiminto = Tarkista jakson kuorma', () => {
+    const { m } = malli(heikkoFyysinen('PH', 5.0)); expect(kortti(m, 'fyysinen').lause).toBe('Taso on ikäisekseen kehittyvä. Kasvupyrähdys käynnissä: tulokset vaihtelevat.'); expect(kortti(m, 'kasvu').toiminto.avain).toBe('kuorma');
     expect(m.yhteenveto.kehityskohde).toBe(null);
   });
   it('test 5 · kasvutahti ≥ 7,2 → Huomio ja kuormalause riippumatta PHV-tilasta; 6,5–7,1 kiihtyy ilman Huomiota', () => {
@@ -225,7 +225,7 @@ describe('K4a tekstit ja koodin laatu', () => {
     ['kasvu', 'fyysinen', 'tekninen', 'peli', 'keho'].forEach((a) => expect(TC.FI['tc_a_' + a], a).toBeTypeOf('string'));
     ['lin5m', 'lin10m', 'lin30m', 'cmj', 'sj', 'mas', 'kasirata', 'sm_juoksu', 'sm_pallo', 'sm_ero', 'syotto', 'pujottelu', 'ponnauttelu', 'kuljetus_laukaus', 'a', 'd', 'ac', 'r', 'd3', 'keho', 'phv', 'phv_ika', 'kasvutahti'].forEach((t) => expect(TC.FI['tc_t_' + t], t).toBeTypeOf('string'));
     ['PRE', 'LAH', 'PH', 'POST', 'AN', 'tuntematon'].forEach((t) => expect(TC.FI['tc_phv_' + t], t).toBeTypeOf('string')); ['pre', 'lah', 'ph', 'post'].forEach((t) => { expect(TC.FI['tc_kasvu_' + t]).toBeTypeOf('string'); expect(TC.FI['tc_kasvu_' + t + '_ohje']).toBeTypeOf('string'); });
-    ['up', 'flat', 'down'].forEach((t) => { expect(TC.FI['tc_tr_label_' + t]).toBeTypeOf('string'); expect(TC.FI['tc_tr_fy_' + t]).toBeTypeOf('string'); expect(TC.FI['tc_ke_trendi_' + t]).toBeTypeOf('string'); });
+    ['up', 'flat', 'down'].forEach((t) => { expect(TC.FI['tc_tr_label_' + t]).toBeTypeOf('string'); });
     ['tk', 'hh', 'sm', 'adar', 'd3', 'flei', 'kasvu', 'fysiikka'].forEach((t) => expect(TC.FI['tc_l_' + t], t).toBeTypeOf('string'));
   });
   it('FI-tekstit ovat lauseita avaimista: muuttujat {…} täyttyvät (ei jäänyt {paikkamerkkejä} näkyviin)', () => {
