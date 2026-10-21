@@ -65,6 +65,7 @@ function lomake(arvot, ika) {
     document: { getElementById: () => null, createElement: () => ({ style: {}, setAttribute() {} }) },
     window: {}, setTimeout: (f) => f(),
   };
+  ctx.TM_SEURA_TUONTI = require_(new URL('../lib/tm_seura_tuonti.js', import.meta.url).pathname);   // 21.10.2026: kutsuhistorian tilateksti
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext('var _lahetysKaynnissa = false, _lahetettyOnnistuneesti = false;\n'
     + pura(LOMAKE, 'function val(id) {') + '\n' + pura(LOMAKE, 'function _ikaVuosina(d) {') + '\n' + pura(LOMAKE, 'function _naytaHuoltajakortti(age) {') + '\n'
@@ -130,6 +131,7 @@ async function seuraKortti(pelaaja, kutsut) {
     window: { tmEsc: require_(join(ROOT, 'lib', 'tm_esc.js')).tmEsc },
     document: { getElementById: () => modal, createElement: () => modal, body: { appendChild() {} } },
   };
+  ctx.TM_SEURA_TUONTI = require_(new URL('../lib/tm_seura_tuonti.js', import.meta.url).pathname);   // 21.10.2026: kutsuhistorian tilateksti
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(pura(S, 'function _suostumusAnnettu(p) {') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
   await ctx.nayta('p1').catch(() => {});

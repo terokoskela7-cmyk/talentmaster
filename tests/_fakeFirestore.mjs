@@ -29,10 +29,10 @@ export function fakeDb(alku) {
       add: async (d) => { const id = 'auto' + (++loki.auto); kirjoita(path + '/' + id, d); return docRef(path + '/' + id); },
       where: (k, op, v) => colRef(path, ehdot.concat([[k, op, v]])),
       limit: () => colRef(path, ehdot),
-      get: async () => ({ docs: lapset().filter((p) => ehdot.every(([k, op, v]) => {
+      get: async () => { const docs = lapset().filter((p) => ehdot.every(([k, op, v]) => {
         const a = (D.get(p) || {})[k];
         return op === '==' ? a === v : op === 'array-contains' ? Array.isArray(a) && a.indexOf(v) >= 0 : false;
-      })).map(snap) }),
+      })).map(snap); return { docs, empty: docs.length === 0, size: docs.length }; },   // .empty/.size kuten oikeassa QuerySnapshotissa
     };
   }
   const db = {

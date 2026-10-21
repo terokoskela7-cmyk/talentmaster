@@ -55,10 +55,12 @@ function seura(SEURA_LAHDE, lisat) {
     _pinVirheTeksti: () => 'x',
     _tmPelaajanKieli: () => ({}),
     tmOnPaikkamerkkiOsoite: PM.tmOnPaikkamerkkiOsoite, PAIKKAMERKKI_SYY: PM.PAIKKAMERKKI_SYY,
+    TM_SEURA_TUONTI: require_(join(ROOT, 'lib', 'tm_seura_tuonti.js')),   // 21.10.2026: kutsuikkunan joukkue + nimien trimmaus tulevat tästä libistä
     paivitaJoukkueValitsin() {}, naytaModalVirhe() {}, naytaToast() {},
     naytaPelaajaTiedot: (id) => loki.avattu.push(id),
     confirm: (t) => { loki.confirm.push(t); return ctx._confirmVastaus !== false; },
   };
+  ctx.tmJoukkueJasenyysIdlla = ctx.tmJoukkueJasenyysIdlla || require_(join(ROOT, 'lib', 'tm_joukkue.js')).tmJoukkueJasenyysIdlla;
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   const osat = ['function _rekBaseUrl() {', 'function avaaRekisteriModal() {', 'function avaaRekisteriModalPelaajalle(',
     'function luoRekisteriLinkki() {', 'async function lahetaRekisteriSahkoposti() {'];
@@ -218,6 +220,7 @@ function vahvista(pelaaja) {
     haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
     TM_BASE_URL: 'https://tm', suostumusTarkistus: T, suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
+  ctx.tmJoukkueJasenyysIdlla = ctx.tmJoukkueJasenyysIdlla || require_(join(ROOT, 'lib', 'tm_joukkue.js')).tmJoukkueJasenyysIdlla;
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(runko, ctx);
   const audit = () => [...f.D.entries()].filter(([k]) => k.startsWith('audit/')).map(([, v]) => v);
@@ -335,7 +338,7 @@ describe('Seura · suostumuksen uusiminen (ajettu)', () => {
     expect(l.searchParams.get('pelaajaId')).toBe('u1');
     expect(l.searchParams.get('suostumusAnnettu')).toBe('2026-06-12');
     expect(l.searchParams.get('kutsuId')).toBeTruthy();
-    expect(t.kutsut()[0].tila).toBe('odottaa');
+    expect(t.kutsut()[0].tila).toBe('lahetetty');   // 21.10.2026: onnistuneen lähetyksen jälkeen 'lahetetty' (vahvistaSuostumus hyväksyy sen avoimena kutsuna: AVOIMET_KUTSUTILAT)
   });
   it('annettu ilman päivämäärää → vahvistus ilman päivää, linkissä suostumusAnnettu=annettu', async () => {
     const t = seura(null, [Object.assign({}, ANNETTU, { suostumusAnnettu: undefined, suostumus: { annettu: true } })]);

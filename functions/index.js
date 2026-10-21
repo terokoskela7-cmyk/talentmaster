@@ -284,7 +284,7 @@ async function huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmail, jatkoUrl) {
 // SÄHKÖPOSTIPOHJAT
 // ─────────────────────────────────────────────────────────────────────────────
 const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaVahvistusLinkki, pohjaHuoltajakutsu, pohjaSoloLupa } = require('./sahkoposti_pohjat');
-const { otsikkoPuhdas, rakennaKutsuLinkki } = require('./sahkoposti_turva');
+const { otsikkoPuhdas, rakennaKutsuLinkki, onYksiOsoite } = require('./sahkoposti_turva');
 const { muodostaPalauteNotif } = require('./palaute_notif');
 const { huomisenRajat } = require('./helsinki_paiva');
 const kalenteriPelaajalle = require('./tm_kalenteri_pelaajalle');   // B4: ilmoitusjoukko = sama sääntö kuin pelaajan kalenteri
@@ -312,6 +312,10 @@ exports.lahetaRekisteriKutsu = functions
     const seuraId = String(data.seuraId || (context.auth.token && context.auth.token.seuraId) || '').trim();
     if (!seuraId || !(await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token)).sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta lähettää kutsuja tämän seuran nimissä.');
+    }
+    /* Yksi osoite per kutsu (21.10.2026): monta @:ia / välilyönti / erotin → hylätään ennen lähetystä, ei audit-riviä. */
+    if (!onYksiOsoite(hEmail)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Kutsun osoitteeksi kelpaa yksi sähköpostiosoite (ei useita osoitteita, ei välilyöntejä).', { syy: 'email_useita_tai_virheellinen' });
     }
     estaPaikkamerkkiOsoite(hEmail);   // ei kutsua eikä audit-riviä esimerkkiosoitteeseen
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';

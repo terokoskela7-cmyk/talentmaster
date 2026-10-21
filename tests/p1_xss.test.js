@@ -77,6 +77,7 @@ async function seuraKortti(pelaaja, kutsut) {
     db: f.db, tila: { seuraId: 'kpv', rooli: 'superadmin' }, console: { warn() {} }, naytaToast() {}, Date, Object, JSON, String, Array, Promise,
     encodeURIComponent, window: { tmEsc }, document: { getElementById: () => modal, createElement: () => modal, body: { appendChild() {} } },
   };
+  ctx.TM_SEURA_TUONTI = require_(join(ROOT, 'lib', 'tm_seura_tuonti.js'));   // kutsuhistorian tilateksti (21.10.2026)
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(pura(S, 'function _suostumusAnnettu(p) {') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
   await ctx.nayta('p1');
