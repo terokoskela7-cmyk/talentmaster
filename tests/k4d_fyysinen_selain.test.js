@@ -12,14 +12,14 @@ const DOKIT = { 'seurat/demo/testitapahtumat/t1': { tila: 'suljettu', luotu: 1 }
 const avaa = (selain, pid, o) => kaynnista(selain, Object.assign({ rooli: 'valmentaja', hash: '#pelaaja/' + pid + '/profiili', pelaajat: PEL, dokit: DOKIT }, o || {}));
 const odota = async (p) => { await p.waitForSelector('[data-kn-naytto]', { timeout: 15000 }); await p.waitForSelector('[data-tc-kortti="fyysinen"]', { timeout: 15000 }); };
 const avaaKortti = async (p) => { const d = p.locator('details.tc-k[data-tc-kortti="fyysinen"]'); if (!(await d.evaluate((e) => e.open))) await d.locator('> summary').click(); };   // 390 px: haitari suljettuna
-const TEKSTIT = { [VOIMA.id]: 'voimantuotto rajoittaa nopeutta', [JUOKSU.id]: 'juoksu ei vielä hyödynnä sitä', [SUUNNANMUUTOS.id]: 'suunnanmuutos jää jälkeen' };
+const TEKSTIT = { [VOIMA.id]: 'Hyppy ja sprintti ovat matalalla', [JUOKSU.id]: 'juoksu ei vielä hyödynnä sitä, joten painota', [SUUNNANMUUTOS.id]: 'suunnanmuutos jää jälkeen, joten painota' };
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4d · Fyysinen-kortin profiilitulkinta', () => {
   it('1280 + 390: tulkinta näkyy kolmella fixturella, ⓘ avautuu, ei vaakavieritystä, ei konsolivirheitä', async () => {
     const selain = await selainKaynnista(); try {
       for (const [pid, leveys] of [[VOIMA.id, 1280], [JUOKSU.id, 390], [SUUNNANMUUTOS.id, 390]]) {
         const { sk, p, virheet } = await avaa(selain, pid, { leveys, teema: leveys === 390 ? 'dark' : 'light' }); await odota(p); await avaaKortti(p);
         const kortti = p.locator('[data-tc-kortti="fyysinen"]'); const lause = await kortti.locator('.tc-lause').innerText();
-        expect(lause).toContain(TEKSTIT[pid]); expect(lause).not.toMatch(/Vahvin/); expect(lause.replace('ⓘ', '').trim().split(/(?<=\.)\s+/).length).toBeLessThanOrEqual(2);
+        expect(lause).toContain(TEKSTIT[pid]); expect(lause).not.toMatch(/Vahvin/); expect(lause).toMatch(/^Taso on ikäisekseen/); expect(lause.replace('ⓘ', '').trim().split(/(?<=\.)\s+/).length).toBeLessThanOrEqual(2);
         const sel = kortti.locator('.tc-i-t'); expect(await sel.isHidden()).toBe(true); await kortti.locator('[data-tc-selite]').click(); expect(await sel.innerText()).toContain('Perustuu hyppytason ja sprinttitason eroon samanikäisiin verrattuna.');
         expect(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
         expect(SUODATA(virheet)).toEqual([]); await sk.close();

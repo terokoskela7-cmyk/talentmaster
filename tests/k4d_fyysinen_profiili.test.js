@@ -65,13 +65,13 @@ describe('K4d · syöte perTestTasot-riveistä (testin oma pvm)', () => {
 });
 
 describe('K4d · Fyysinen-kortti', () => {
-  const VIRKKEET = { voima: 'Hyppy ja sprintti ovat molemmat matalalla: voimantuotto rajoittaa nopeutta. Painota voima- ja hyppyharjoittelua.', juoksu: 'Voimaa on, mutta juoksu ei vielä hyödynnä sitä. Painota kiihdytystä ja juoksutekniikkaa.', suunnanmuutos: 'Suora nopeus on hyvä, suunnanmuutos jää jälkeen. Painota jarrutusta ja suunnanmuutostaitoa.' };
+  const VIRKKEET = { voima: 'Hyppy ja sprintti ovat matalalla, joten painota voima- ja hyppyharjoittelua.', juoksu: 'Voimaa on, mutta juoksu ei vielä hyödynnä sitä, joten painota kiihdytystä ja juoksutekniikkaa.', suunnanmuutos: 'Suora nopeus on hyvä mutta suunnanmuutos jää jälkeen, joten painota jarrutusta ja suunnanmuutostaitoa.' };   // PM 22.10. (yksi virke)
   const virkkeet = (s) => s.split(/(?<=\.)\s+/).filter(Boolean);
   const osat = (k) => virkkeet(k.lause);
   [['voima', VOIMA], ['juoksu', JUOKSU], ['suunnanmuutos', SUUNNANMUUTOS]].forEach(([tyyppi, p]) => {
-    it(tyyppi + ': kortin lause = tulkinta (briefin sanamuoto, 2 virkettä), ei lukuja tulkinnassa, ei "Vahvin…heikoin"', () => {
+    it(tyyppi + ': kortin lause = Taso-virke + tulkinta (2 virkettä), ei lukuja tulkinnassa, ei "Vahvin…heikoin"', () => {
       const k = fyys(p); expect(k.profiili.tyyppi).toBe(tyyppi);
-      expect(k.lause).toBe(VIRKKEET[tyyppi]); expect(virkkeet(k.lause).length).toBeLessThanOrEqual(2);   // D102: sama kaksiosainen ohje, ei "Taso on…"-lisäystä → enintään 2 virkettä
+      expect(k.lause).toMatch(/^Taso on ikäisekseen \S+\. /); expect(k.lause.endsWith(' ' + VIRKKEET[tyyppi])).toBe(true); expect(virkkeet(k.lause)).toHaveLength(2);   // D102: "Taso on…" säilyy, tulkinta korvaa vain Vahvin/heikoin
       expect(VIRKKEET[tyyppi]).not.toMatch(/\d/); expect(k.selite).toContain('Perustuu hyppytason ja sprinttitason eroon samanikäisiin verrattuna.');
       expect(k.toiminto.avain).toBe('testihistoria');   // Kehityskohde-linkki ennallaan
     });

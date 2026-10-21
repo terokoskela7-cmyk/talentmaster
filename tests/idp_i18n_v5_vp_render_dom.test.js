@@ -447,8 +447,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js']
       .forEach((f) => vm.runInContext(readFileSync(join(__dir, '..', f), 'utf8'), sb));
     const map = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {}, common = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
-    const odottaa = Object.keys(JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_88_gemini.json'), 'utf8')).osiot.vp_kartta.rivit);   // erä 88 (K4d: CMJ-ⓘ-vinkki) odottaa PM:n sv:tä
-    const ilman = kentat.filter((k) => !map[k] && !common[k] && !odottaa.includes(k));
+    const ilman = kentat.filter((k) => !map[k] && !common[k]);
     expect(ilman).toEqual([]);
     // …ja render KÄÄNTÄÄ ne (muuten kartta olisi kuollutta painolastia)
     expect(HTML).toContain("+ vpT(o.otsikko) +");
