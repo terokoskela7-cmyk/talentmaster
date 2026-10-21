@@ -5659,3 +5659,34 @@ describe('v3.65 · reviewit.hylkays_sisainen: henkilökunta kirjoittaa ja lukee;
     await assertSucceeds(setDoc(rev(db(), '2026-12-06'), { kevyt: { nakyi: 'ohjatusti', treeni: 'usein', mukana: 'hyvin' }, kevyt_tallennettu: '2026-12-06T10:00:00.000Z' }, { merge: true }));
   });
 });
+
+/* ══ K4b (erä 84, 21.10.2026) — EI Rules-muutosta: Kehityskeskustelu kirjoittaa olemassa oleviin polkuihin. reviewit/{pvm}.sovitut_sisainen + kk_* ja pelaajadokumentin review_viimeisin_* samassa batchissa;
+   pelaaja ja huoltaja EIVÄT lue sisäistä tekstiä; sama päivä kuin jakson yhteenveto (lause_sisainen, kevyt) → merge säilyttää molemmat ══ */
+describe('K4b · kehityskeskustelu: reviewit/{pvm}.sovitut_sisainen + kk_* ja review_viimeisin_* samassa batchissa; sisäinen — pelaaja ja huoltaja eivät lue', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const pel = (db, sid, pid) => doc(db, 'seurat', sid, 'pelaajat', pid), lue = async (polku) => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), ...polku))).data(); }); return d; };
+  const rev = (db, pvm = '2026-11-12') => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm);
+  const KK = (rooli, uid) => ({ tyyppi: 'kehityskeskustelu', pvm: '2026-11-12', sovitut_sisainen: { teksti: 'Sovittiin ensiaskelharjoitus.', lahde: rooli === 'vp' ? 'vp' : 'valmentaja', uid, tallennettu: '2026-11-12T10:00:00.000Z' }, kk_tallennettu: '2026-11-12T10:00:00.000Z', kk_kausitavoite: 'pidetaan', kk_tekija_uid: uid, kk_tekija_rooli: rooli });
+  it('valmentaja ja VP kirjoittavat reviewit + pikakentät yhdessä batchissa ja lukevat tekstin; pelaaja ja huoltaja eivät lue eivätkä kirjoita; toisen seuran valmentaja ei kirjoita', async () => {
+    for (const [ctx, pvm, rooli, uid] of [[valmentajaContext(VALM_A_UID, SEURA_A), '2026-11-12', 'valmentaja', VALM_A_UID], [vpContext(SEURA_A), '2026-11-13', 'vp', 'vp-uid']]) {
+      const db = ctx.firestore(), b = FS_MOD.writeBatch(db);
+      b.set(rev(db, pvm), { ...KK(rooli, uid), pvm }, { merge: true });
+      b.set(pel(db, SEURA_A, PELAAJA_UID), { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }, { merge: true });
+      await assertSucceeds(b.commit());
+      const d = await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm]); expect(d.sovitut_sisainen.teksti).toBe('Sovittiin ensiaskelharjoitus.'); expect(d.kk_tekija_rooli).toBe(rooli);
+      expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).review_viimeisin_tyyppi).toBe('kehityskeskustelu');
+      await assertSucceeds(getDoc(rev(db, pvm)));
+    }
+    await assertFails(getDoc(rev(pelaajaItseContext().firestore()))); await assertFails(getDoc(rev(huoltajaContext().firestore()))); await assertFails(getDoc(rev(valmentajaContext(VALM_B_UID, SEURA_B).firestore())));
+    await assertFails(setDoc(rev(pelaajaItseContext().firestore(), '2026-11-14'), KK('valmentaja', VALM_A_UID), { merge: true })); await assertFails(setDoc(rev(huoltajaContext().firestore(), '2026-11-14'), KK('valmentaja', VALM_A_UID), { merge: true }));
+    await assertFails(setDoc(rev(valmentajaContext(VALM_B_UID, SEURA_B).firestore(), '2026-11-14'), KK('valmentaja', VALM_B_UID), { merge: true }));
+    await assertFails(getDocs(collection(pelaajaItseContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit')));   // listaus (Historia) ei pelaajalle
+  });
+  it('sama päivä kuin jakson yhteenveto: lause_sisainen + kevyt ja sovitut_sisainen + kk_* elävät samassa dokumentissa (merge molempiin suuntiin)', async () => {
+    const db = () => valmentajaContext(VALM_A_UID, SEURA_A).firestore(), LS = { teksti: 'Hyvä jakso.', lahde: 'valmentaja', uid: VALM_A_UID, tallennettu: '2026-11-12T09:00:00.000Z' };
+    await assertSucceeds(setDoc(rev(db()), { kevyt: { nakyi: 'ohjatusti', treeni: 'usein', mukana: 'hyvin' }, kevyt_tallennettu: '2026-11-12T09:00:00.000Z', lause_sisainen: LS }, { merge: true }));
+    await assertSucceeds(setDoc(rev(db()), KK('valmentaja', VALM_A_UID), { merge: true }));
+    const d = await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', '2026-11-12']);
+    expect(d.lause_sisainen).toEqual(LS); expect(d.kevyt.nakyi).toBe('ohjatusti'); expect(d.sovitut_sisainen.teksti).toBe('Sovittiin ensiaskelharjoitus.'); expect(d.kk_kausitavoite).toBe('pidetaan');
+  });
+});

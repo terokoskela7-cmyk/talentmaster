@@ -18,3 +18,6 @@ const ERA80 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs'
 const palautettu80 = (o, k) => !!(ERA80P[o] && ERA80P[o].rivit[k] && ERA80P[o].rivit[k].sv);
 module.exports.era80Odottaa = (avain) => Object.keys(ERA80).some((o) => /^lib\./.test(o) && ERA80[o].rivit[avain] && !ERA80[o].rivit[avain].sv_nyt && !ERA80[o].rivit[avain].sv && !palautettu80(o, avain));
 module.exports.era80FiOdottaa = () => { const r = []; for (const o of Object.keys(ERA80)) if (/^lib\./.test(o)) for (const [k, x] of Object.entries(ERA80[o].rivit)) if (!x.sv_nyt && !x.sv && !palautettu80(o, k) && x.fi) r.push(x.fi); return r; };   // fi-tekstit joiden sv odottaa erää 80 (klippi_sv_selain: LIB_FI_ODOTTAA)
+/* Erä 84 (K4b): lib-avaimet joiden sv odottaa Geminiä (docs/i18n/sv_kaannoserae_84_gemini.json); vanhojen erien "jokaiselle avaimelle on sv" -portit sallivat nämä kunnes erä viedään. */
+const ERA84 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'i18n', 'sv_kaannoserae_84_gemini.json'), 'utf8')).osiot;
+module.exports.era84Odottaa = (avain) => Object.keys(ERA84).some((o) => /^lib\./.test(o) && ERA84[o].rivit[avain] && !ERA84[o].rivit[avain].sv);

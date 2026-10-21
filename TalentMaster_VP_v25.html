@@ -155,11 +155,12 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_tanaan_signaali.js?v=11"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
 <script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
 <script src="lib/tm_kevyt_katselmus.js?v=7"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
+<script src="lib/tm_kt_keskustelu.js?v=2"></script>   <!-- K4b: Nelikulma-laskenta (jaettu uuden sivun kanssa) -->
 <script src="lib/tm_kentta.js?v=6"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=8"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_kentta_spec.js?v=3"></script>   <!-- B1: Kenttä-spec pelaajadokumentista (alue → ase, jakso → reitti, viikot, osat, historia; yksi adapteri) -->
 <script src="lib/tm_hash_reititin.js?v=2"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kt_sivu.js?v=8"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit (lippu kehitystyopoyta_v2) -->
+<script src="lib/tm_kt_sivu.js?v=9"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit (lippu kehitystyopoyta_v2) -->
 <script src="lib/tm_vp_navi.js?v=4"></script>   <!-- S2c PR 2: navigaatio v3 (D135) + Viestit v0 — rakenne ja reitit libissä -->
 <script src="lib/tm_vp_tilanne.js?v=14"></script>   <!-- S2c PR 1: Tilanne = kausi (D123) — malli + HTML libissä -->
 <script src="lib/tm_kt_komponentit.js?v=6"></script>
@@ -19832,10 +19833,9 @@ window._vpCockpitLiput = _vpCockpitLiput;
 
 // ── Nelikulma (MDT-domeenit) — jaksofokus.domeeni = nykyinen fokus, jaksofokus_historia = katetut, muut = ei arvioitu. ──
 var _RVC_NELIKULMA = [['fyysinen', vpT('Fyysinen')], ['teknis_taktinen', vpT('Teknis-taktinen')], ['psyykkinen', vpT('Psyykkinen')], ['sosiaalinen', vpT('Sosiaalinen')]];
-function _vpNelikulma(p) {
-  var cur = (p && p.jaksofokus && p.jaksofokus.domeeni) || null, katetut = {};
-  (Array.isArray(p && p.jaksofokus_historia) ? p.jaksofokus_historia : []).forEach(function (h) { if (h && h.domeeni) katetut[h.domeeni] = 1; });
-  return _RVC_NELIKULMA.map(function (d) { return { avain: d[0], nimi: d[1], tila: (d[0] === cur) ? 'cur' : (katetut[d[0]] ? 'fresh' : 'none') }; });
+function _vpNelikulma(p) {   // K4b: laskenta siirretty libiin (lib/tm_kt_keskustelu.js tmKeNelikulma; sama lähde uudella sivulla) — tässä vain nimet
+  var tilat = {}; window.TM_KT_KESKUSTELU.tmKeNelikulma(p).forEach(function (d) { tilat[d.avain] = d.tila; });
+  return _RVC_NELIKULMA.map(function (d) { return { avain: d[0], nimi: d[1], tila: tilat[d[0]] || 'none' }; });
 }
 window._vpNelikulma = _vpNelikulma;
 
