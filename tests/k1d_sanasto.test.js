@@ -3,7 +3,7 @@
  * (korvaajat: Kehityssuunnitelma · Jakson yhteenveto · Kehityskeskustelu · Pelaajaraportti · Seuran tilannekuva). Laajuus: Master, VP v25, Kehitystyöpöytä, Pelaaja, Vanhempi, ADAR-pikakortti ja niiden libit.
  * Skannaus: lib-FI-kartat (arvot) + merkkijonoliteraalit ja HTML-tekstit lähteistä; kommentit, tunnisteet (setWs('reviewit'), review_* …) ja konsolilokit ohitetaan.
  * SALLITUT POIKKEUKSET (nimetty, perusteltu — lista saa vain pienentyä):
- *   · kaaviopankin kaavioiden HYVÄKSYNTÄPROSESSI ("katselmus" = eri käsite kuin jakson yhteenveto): tm_i18n_common.js:n kaavioavaimet + Taktiikkataulu-tooltip (VP, Master)
+ *   · (K1e 21.10.2026: kaaviopankin "katselmus"-poikkeus poistettu — sanasto "hyväksyntä"/"kommentit")
  *   · sisäiset tunnisteet ja kehittäjälokit/-virheet: setWs('raportointi'|'reviewit'), "[polku] reviewit:", "[historia] reviewit:", "_vpKirjoitaReview: …" (heitetty virhe), tm_idp.js 'review ' (tallennettu idp_edistyma-arvo; näkyy muodossa "kehityskeskustelu N" idpEdistymaNayta:n kautta)
  *   · Seura/Admin/hinnoittelu (tm_henkilosto_i18n, tm_lang seura-ryhmä) ja Plan-Do-Review (tm_reflektio) eivät kuulu laajuuteen (brief 0: kehitystyöpöytä, Master, VP v25, pikakortti-upotukset, pelaaja/perhe).
  */
@@ -13,15 +13,12 @@ import { createRequire } from 'module';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 const require = createRequire(import.meta.url), JUURI = join(dirname(fileURLToPath(import.meta.url)), '..');
-const POIS = /^lib\/tm_(henkilosto_i18n|kaavio_ui|kaavio_policy|reflektio|teknistaktiset|teknistaktiset_sv|lang|vp_i18n|master_i18n|lib_i18n)\.js$/;   // i18n-kartat: sv-arvot sisältävät vanhaa termiä (erä 80 korvaa); avaimet katetaan alla
-const SIVUT = ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_ADAR_Pikakortti.html'];
+const POIS = /^lib\/tm_(henkilosto_i18n|reflektio|teknistaktiset|teknistaktiset_sv|lang|vp_i18n|master_i18n|lib_i18n)\.js$/;   // i18n-kartat: sv-arvot sisältävät vanhaa termiä (erä 80 korvaa); avaimet katetaan alla
+const SIVUT = ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_ADAR_Pikakortti.html', 'TalentMaster_ADAR_Koulutus.html'];   // K1e: + ADAR-koulutus
 const LIBIT = readdirSync(join(JUURI, 'lib')).filter((f) => f.endsWith('.js') && !POIS.test('lib/' + f)).map((f) => 'lib/' + f);
-const KIELLETTY = /(?<![\w_.\-])(?:[Kk]atselmu\w*|Review\w*|review(?:it|in|iä|ia|i)?(?![\w_])|Syvennä|IDP(?![\w_])|[Rr]aportointi\w*|MDT(?![\w_\-]))|[Jj]akson arviointi/;
+const KIELLETTY = /(?<![\w_.\-])(?:[Kk]atselmu\w*|Review\w*|review(?:it|in|iä|ia|i)?(?![\w_])|Syvennä|IDP(?![\w_])|[Rr]aportointi\w*|MDT(?![\w_\-]))|[Jj]akson arviointi|\bPalaudu\b|^(?=.*ADAR).*[Pp]alautumi\w*/;   // K1e: ADAR:n R = Reagointi → ei "Palaudu" eikä "palautuminen" ADAR-yhteydessä (fyysinen palautuminen muualla sallittu)
 const SALLITTU = [
-  /Taktiikkataulu — teknis-taktiset kuvat, katselmus ja hyväksyntä/,
   /setWs\(\\?'(?:raportointi|reviewit)\\?'\)/, /\[(?:polku|historia|vpTallennaReview[^\]]*)\]/, /_vpKirjoitaReview: pid/,
-  /^Katselmus$/,   // kaaviopankin välilehti (tm_i18n_common.js)
-  /Perustelu näkyy valmentajalle katselmuslangassa|Seuratason kaavion asettaa valmennuspäällikkö katselmuksessa|muokkaus vie takaisin katselmukseen|seuran omat kulkevat katselmuksen kautta|menee katselmukseen|tarkentaa katselmuksessa/,   // kaaviopankki (tm_i18n_common.js)
 ];
 function segmentit(rivi) {
   const ulos = []; let m; const r = /'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|`((?:[^`\\]|\\.)*)`/g;
@@ -62,7 +59,8 @@ describe('K1d · sanastoportti: ei kiellettyjä termejä käyttäjälle näkyvis
   it('EI VACUOUS: skanneri tunnistaa kielletyn sanan (negatiivitesti) ja poikkeukset ovat edelleen tarpeen', () => {
     expect(KIELLETTY.test('Tallenna review')).toBe(true); expect(KIELLETTY.test('Sulje jakso ja katselmus')).toBe(true); expect(KIELLETTY.test('IDP-tavoite')).toBe(true); expect(KIELLETTY.test('Syvennä')).toBe(true);
     expect(KIELLETTY.test('Jakson yhteenveto')).toBe(false); expect(KIELLETTY.test('Kehityskeskustelu')).toBe(false); expect(KIELLETTY.test('syvennytään siihen')).toBe(false); expect(KIELLETTY.test('review_viimeisin_pvm')).toBe(false);
-    expect(readFileSync(join(JUURI, 'lib/tm_i18n_common.js'), 'utf8')).toMatch(/katselmuksessa|katselmukseen/);
+    expect(KIELLETTY.test('Palaudu')).toBe(true); expect(KIELLETTY.test('Palaudu — täysi ADAR-sykli')).toBe(true); expect(KIELLETTY.test('ADAR: virheen jälkeinen palautuminen')).toBe(true);
+    expect(KIELLETTY.test('Palaudut pettymyksistä nopeasti')).toBe(false); expect(KIELLETTY.test('Muista palautuminen — voima kasvaa levolla.')).toBe(false); expect(KIELLETTY.test('Reagoi')).toBe(false);
   });
   it('uudet sanastotermit löytyvät kuoresta/libeistä (jakson yhteenveto, kehityskeskustelu, Seuran tilannekuva, Kehityssuunnitelma)', () => {
     const SJ = require('../lib/tm_tanaan_signaali.js').FI, KK = require('../lib/tm_kevyt_katselmus.js').FI, SI = require('../lib/tm_sanasto_info.js').FI, VP = readFileSync(join(JUURI, 'TalentMaster_VP_v25.html'), 'utf8');

@@ -30,7 +30,8 @@ describe('Gemini-erä 2 — master_kartta', () => {
   const ERA29J = JSON.parse(lue('docs/i18n/sv_kaannoserae_29.json')), ERA29 = ERA29J.osiot.master_kartta.rivit;   // erä 29 (K35-6f harjoituskertymä): sv tyhjä
   const ERA31J = JSON.parse(lue('docs/i18n/sv_kaannoserae_31.json')), ERA31 = ERA31J.osiot.master_kartta.rivit;   // erä 31 (K35-7b Lisää kalenteriini): sv tyhjä
   const ERA80 = JSON.parse(lue('docs/i18n/sv_kaannoserae_80_palautus.json')).osiot.master_kartta.rivit;   // erä 80 (K1d) VIETY 21.10.2026: rivit joilla sv jo koodissa (palautus) eivät ole vanhentuneita erätiedostossa   // erä 80 (K1d): uusi toast + sanastomuutoksen takia korvattavat rivit, sv tyhjä
-  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA80, ERA8, ERA16, ERA18.master_kartta.rivit, ERA22, ERA23, ERA24, ERA25, ERA26, ERA27, ERA28, ERA29, ERA31, LIB18);
+  const ERA85 = { 'Taktiikkataulu — teknis-taktiset kuvat ja hyväksyntä': JSON.parse(lue('docs/i18n/sv_kaannoserae_85_gemini.json')).osiot.yhteiset_kartta.rivit['Taktiikkataulu — teknis-taktiset kuvat ja hyväksyntä'] };   // erä 85 (K1e): kaaviopankin sanasto (tooltip), sv tyhjä
+  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA80, ERA8, ERA16, ERA18.master_kartta.rivit, ERA85, ERA22, ERA23, ERA24, ERA25, ERA26, ERA27, ERA28, ERA29, ERA31, LIB18);
   it('jokainen sv-riviä vailla oleva Masterin avain on erässä (avain = fi-teksti)', () => {
     const { puuttuu } = masterAvaimet(juuri);
     expect(puuttuu.filter((fi) => !rivit[fi]), 'aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);

@@ -197,6 +197,7 @@ describe('D — nimi on Taktiikkataulu', () => {
     const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
       + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     expect(sv).toContain("'Taktiikkataulu': 'Taktiktavla',");
-    expect(sv).toMatch(/'Taktiikkataulu — teknis-taktiset kuvat, katselmus ja hyväksyntä':/);
+    expect(sv).not.toContain('kuvat, katselmus ja hyväksyntä');   // K1e (erä 85): tooltip "… kuvat ja hyväksyntä" odottaa sv:tä (PM); vanha katselmus-avain poistettu
+    expect(VP).toContain('title="Taktiikkataulu — teknis-taktiset kuvat ja hyväksyntä"');
   });
 });
