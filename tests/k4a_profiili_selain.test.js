@@ -33,7 +33,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
       const kortit = await p.locator('[data-tc-kortti]').evaluateAll((l) => l.map((e) => e.getAttribute('data-tc-kortti'))); expect(kortit).toEqual(['tekninen', 'fyysinen', 'peli', 'keho', 'kasvu']);
       expect(await p.locator('[data-tc-fokus]').getAttribute('data-tc-kortti')).toBe('tekninen'); expect(await p.locator('[data-tc-fokus] .tc-badge.f').innerText()).toBe('Jakson fokus · Harhauttaminen');
       expect(await p.locator('[data-tc-fokus] .tc-rivi').count()).toBe(4);   // fokuskortti: 4 riviä (mockup); muut ≤ 3
-      for (const a of ['fyysinen', 'peli', 'keho']) expect(await p.locator('[data-tc-kortti="' + a + '"] .tc-rivi').count()).toBeLessThanOrEqual(3);
+      for (const a of ['fyysinen', 'peli', 'keho']) expect(await p.locator('[data-tc-kortti="' + a + '"] .tc-rivi').count()).toBeLessThanOrEqual(a === 'peli' ? 4 : 3);   // K4a2: Peli näyttää kaikki ikätason ADAR-ulottuvuudet (13-v: 3) + psyykkinen arvio
       expect(await p.locator('[data-kn-kaikki]').getAttribute('open')).toBeNull();   // suljettuna oletuksena
       expect(await p.locator('[data-kn-kaikki] > summary').innerText()).toContain('Näytä kaikki mittaukset');
       expect(await p.locator('[data-tc-raportti]').count()).toBe(1);
