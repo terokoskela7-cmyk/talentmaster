@@ -18,7 +18,7 @@ describe('sv-erä 79 — vienti', () => {
     expect(n).toBe(185);
   });
   it('koodin sv = palautus merkki merkiltä', () => {
-    for (const o of Object.keys(OSIOT)) for (const [k, r] of Object.entries(P[o].rivit)) { if (era79Ohita(k)) { expect(SV[k], k).toBeUndefined(); continue; } expect(SV[k], k).toBe(r.sv); }
+    for (const o of Object.keys(OSIOT)) for (const [k, r] of Object.entries(P[o].rivit)) { if (era79Ohita(k)) continue;   // K4a2: poistunut tai korvattu erällä 81 (sv: tests/i18n_era81_vienti.test.js) expect(SV[k], k).toBe(r.sv); }
   });
   it('idempotentti', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.ohitettu.length).toBe(185 - OHITETUT); });
 });

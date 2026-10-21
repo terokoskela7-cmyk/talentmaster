@@ -105,14 +105,14 @@ describe('K4a2 · lauseet lyhyiksi, ei pykäliä (D102)', () => {
     const k = kortti(malli(TOPIAS_DIAG).m, 'fyysinen'); expect(k.lause).toMatch(/^Taso on ikäisekseen [a-zäö]+\. Vahvin .+, heikoin .+\.$/); expect(k.lause).not.toMatch(/PHV|edellisestä|Nousussa|Laskussa/);
   });
   it('Fyysinen PRE/tuntematon: perustelu vain ⓘ-selitteessä (HTML), lauseessa ei', () => {
-    const { m, c } = malli(TOPIAS_DIAG), h = TH.tmTodisteHTML(m, c); expect(h.kortitHTML).toContain('class="tc-i"'); expect(h.kortitHTML).toContain('Ennen kasvumittausta heikointa fyysistä testiä ei nimetä kehityskohteeksi, koska ero voi johtua kasvuvaiheesta.');
+    const { m, c } = malli(TOPIAS_DIAG), h = TH.tmTodisteHTML(m, c); expect(h.kortitHTML).toContain('data-tc-selite'); expect(h.kortitHTML).toContain('Ennen kasvumittausta heikointa fyysistä testiä ei nimetä kehityskohteeksi, koska ero voi johtua kasvuvaiheesta.');
     expect(kortti(m, 'fyysinen').lause).not.toContain('kasvumittausta');
   });
   it('Fyysinen PH: toinen virke = "Kasvupyrähdys käynnissä: tulokset vaihtelevat."; tekninen PH vastaavasti ilman pykälää', () => {
     const { m } = malli(kaikki[4]); expect(kortti(m, 'fyysinen').lause).toMatch(/\. Kasvupyrähdys käynnissä: tulokset vaihtelevat\.$/); expect(kortti(m, 'tekninen').lause).toMatch(/Kasvupyrähdyksessä tekniikka voi notkahtaa tilapäisesti\.$/);
   });
-  it('lyhenteet selitettyinä: D3 → Psyykkinen arvio, H-H → Taitotestit (H-H), PHV → kasvupyrähdys, MAS → Aerobinen nopeus (MAS)', () => {
-    expect(TC.FI.tc_t_d3).toBe('Psyykkinen arvio'); expect(TC.FI.tc_l_hh).toBe('Taitotestit (H-H)'); expect(TC.FI.tc_t_mas).toBe('Aerobinen nopeus (MAS)');
+  it('lyhenteet selitettyinä: D3 → Valmennettavuus (lähde Psyykkinen arvio), H-H → H-H-testit, PHV → kasvupyrähdys, MAS → Aerobinen nopeus (MAS)', () => {
+    expect(TC.FI.tc_t_d3).toBe('Valmennettavuus'); expect(TC.FI.tc_l_d3).toBe('Psyykkinen arvio'); expect(TC.FI.tc_l_hh).toBe('H-H-testit');   // PM 21.10.: H-H ei ole taitotesti; D3-rivi on valmennettavuus expect(TC.FI.tc_t_mas).toBe('Aerobinen nopeus (MAS)');
     Object.entries(TC.FI).forEach(([k, v]) => { expect(v, k).not.toContain('§'); expect(v, k).not.toMatch(/PHV/); expect(v, k).not.toMatch(/\bD3\b/); });
   });
   it('Kasvu-kortti: ohjeissa ei pykäliä', () => { const t = teksti(Object.assign({}, TOPIAS, { biologinenIka_viimeisin: { phv_tila_koodi: 'PRE', phv_ika: 14, maturity_offset: -1.5, pvm: '2026-10-04', kasvutahti_cm_v: 7.5 } })); expect(t).not.toContain('§'); expect(t).toContain('Heikointa fyysistä testiä (30 m, hyppy, kestävyysjuoksu) ei nimetä kehityskohteeksi.'); });
