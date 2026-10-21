@@ -10,10 +10,12 @@ import { join } from 'path';
 import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT } from './helpers/kt_sivu.mjs';
 const KUVAT = join(JUURI, 'docs', 'ui-kuvat', 'k1d');
 const odota = (p) => p.waitForSelector('.kt-nimi', { timeout: 15000 });
-const ALKU = '2026-10-19T00:00:00+03:00';
+/* Päivämäärät PAIKALLISENA keskiyönä (ei +03:00): muuten UTC:ssä alkuhetki siirtyy edelliselle päivälle ja jaksopäivät heittävät yhdellä */
+const pv = (v, k, p, h = 0) => new Date(v, k - 1, p, h).toISOString();
+const ALKU = pv(2026, 10, 19);
 const jf = () => ({ konsepti_avain: 'y_h1', konsepti_nimi: 'Haltuunotto', alkoi: ALKU, kesto_vk: 6, lahde: 'valmentaja', domeeni: 'teknis_taktinen' });
-const topias = () => PELAAJAT.map((x) => x.id === 'p2' ? Object.assign({}, x, { jaksofokus: jf(), idp_sitoumus_pvm: '2026-10-19', jaksofokus_historia: [{ konsepti_avain: 'y_h2', konsepti_nimi: 'Syöttäminen', alkoi: '2026-09-07T00:00:00+03:00', paattyi: '2026-10-19T08:00:00+03:00', suljettu: '2026-10-19T08:00:00+03:00', sulkutapa: 'suljettu' }] }) : x);   // Topias-tapaus: edellinen jakso suljettu 19.10. (ennen K1d:tä ei nollannut rytmiä)
-const myohainen = () => PELAAJAT.map((x) => x.id === 'p2' ? Object.assign({}, x, { jaksofokus: Object.assign(jf(), { alkoi: '2026-10-05T00:00:00+03:00' }), review_viimeisin_pvm: '2026-09-10', review_viimeisin_tyyppi: 'kehityskeskustelu' }) : x);   // eräpäivä 22.10., jakso päättyy 16.11.
+const topias = () => PELAAJAT.map((x) => x.id === 'p2' ? Object.assign({}, x, { jaksofokus: jf(), idp_sitoumus_pvm: '2026-10-19', jaksofokus_historia: [{ konsepti_avain: 'y_h2', konsepti_nimi: 'Syöttäminen', alkoi: pv(2026, 9, 7), paattyi: pv(2026, 10, 19, 8), suljettu: pv(2026, 10, 19, 8), sulkutapa: 'suljettu' }] }) : x);   // Topias-tapaus: edellinen jakso suljettu 19.10. (ennen K1d:tä ei nollannut rytmiä)
+const myohainen = () => PELAAJAT.map((x) => x.id === 'p2' ? Object.assign({}, x, { jaksofokus: Object.assign(jf(), { alkoi: pv(2026, 10, 5) }), review_viimeisin_pvm: '2026-09-10', review_viimeisin_tyyppi: 'kehityskeskustelu' }) : x);   // eräpäivä 22.10., jakso päättyy 16.11.
 const dokit = (kieli) => (kieli === 'sv' ? { 'seurat/demo': { nimi: 'Demo FC', kieli: 'sv' } } : {});
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K1d · yhteenvetorytmi uudella sivulla', () => {
   it('Topias-tapaus (jakso 19.10.–30.11., edellinen jakson yhteenveto 19.10.): EI rytmi-ilmoitusta Tänäänissä; Polun yläreunassa "ajan tasalla · … viimeistään 30.11."', async () => {
