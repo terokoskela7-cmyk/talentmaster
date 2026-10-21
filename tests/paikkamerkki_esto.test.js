@@ -84,13 +84,13 @@ describe('Seura-sivu', () => {
   });
   it('Excel-tuonti: rivi merkitään hylätyksi syineen, ohitetaan tuonnissa ja lasketaan yhteenvetoon', () => {
     expect(SEURA).toContain('_hylatty: (r.huoltajaEmail && tmOnPaikkamerkkiOsoite(r.huoltajaEmail)) ? PAIKKAMERKKI_SYY : null');
-    expect(SEURA).toContain("const status    = p._hylatty ? '⛔ ' + p._hylatty");
+    expect(SEURA).toContain("if (p._hylatty) { status = '⛔ ' + p._hylatty;");   // 21.10.2026: _excelRiviStatus
     expect(SEURA).toContain('if (p._hylatty) { hylatty++; continue; }');
     expect(SEURA).toContain("riviä'} hylätty – esimerkkiosoite, korvaa huoltajan oikealla sähköpostilla");
     // tuotu = 0 → oranssi varoitus ilman ✅; hylätyn rivin sähköposti punaisena (1.10.2026)
     expect(SEURA).toContain("onni.textContent = eiTuotu ? `⚠️ Mitään ei tuotu: ${msg || 'ei tuotavia rivejä'}` : `✅ ${msg}`;");
     expect(SEURA).toContain("onni.style.color = eiTuotu ? 'var(--amber)' : 'var(--teal)';");
-    expect(SEURA).toContain("color:${p._hylatty ? 'var(--red)' : 'var(--teal)'};\">${p.huoltajaEmail || '—'}</td>");
+    expect(SEURA).toContain("color:${(p._hylatty || p._emailVirhe || p._emailUseita) ? 'var(--red)' : 'var(--teal)'};\">${tmEsc(p.huoltajaEmail || p._emailRaaka || '—')}</td>");
   });
   it('Excel-pohjan esimerkkirivi säilyy, mutta sen osoite on paikkamerkki (tuonti hylkää sen)', () => {
     expect(SEURA).toContain("'huoltaja@example.com'");

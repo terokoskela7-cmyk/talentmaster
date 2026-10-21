@@ -24,6 +24,8 @@ const APP_GLOBALS = {
   TM_TASOVARI: 'readonly', tmTasoVari: 'readonly', tmTasoCss: 'readonly', tmKattavuus: 'readonly', tmTkiBandi: 'readonly', tmLuokkaCss: 'readonly',   // lib/tm_tasovari.js (YKSI tasoväri + kattavuus)
   TM_TANAAN_SIGNAALI: 'readonly',   // lib/tm_tanaan_signaali.js (K1d: rytmi-notifin teksti VP:ssä ja Masterissa)
   TM_RYTMI: 'readonly',   // lib/tm_rytmi.js (K1d: yhteenvetorytmi)
+  tmEsc: 'readonly',   // lib/tm_esc.js (jaettu HTML-escape)
+  TM_SEURA_TUONTI: 'readonly',   // lib/tm_seura_tuonti.js (Seura: tuonti ja kutsuikkuna)
   TM_SANASTO_INFO: 'readonly',   // lib/tm_sanasto_info.js (K1d: ⓘ-selitteet)
   TM_TESTIPAIVA: 'readonly',   // lib/tm_testipaiva.js (testipäivän lähde: oikea / arvio / tuntematon)
   TM_ISTUNTO: 'readonly',   // lib/tm_istunto.js (istuntoturva)   // lib/tm_virhekoodi.js (tallennusvirheen koodi toastiin)

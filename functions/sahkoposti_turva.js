@@ -63,4 +63,14 @@ function rakennaKutsuLinkki(raaka, baseUrl, ylikirjoita) {
   return String(baseUrl).replace(/\/+$/, '') + '/' + KUTSU_SIVU + (out.toString() ? '?' + out.toString() : '');
 }
 
-module.exports = { esc, otsikkoPuhdas, rakennaKutsuLinkki, KUTSU_PARAMETRIT };
+/* Yksi vastaanottaja (21.10.2026): kutsun osoite ei saa sisältää välilyöntiä, rivinvaihtoa, ;/, -erottimia eikä useampaa @:ia ("a@x.fi; b@y.fi" tallentui kerran yhtenä merkkijonona ja kutsu lähti virheelliseen osoitteeseen).
+   Puhdas: true = yksi kelvollinen osoite. */
+function onYksiOsoite(email) {
+  const e = typeof email === 'string' ? email.trim() : '';
+  if (!e || e.length > 254 || /[\s;,<>"]/.test(e)) return false;
+  if ((e.match(/@/g) || []).length !== 1) return false;
+  const [paikka, domain] = e.split('@');
+  return !!paikka && !!domain && domain.indexOf('.') > 0 && !/^\.|\.$|\.\./.test(domain);
+}
+
+module.exports = { esc, otsikkoPuhdas, rakennaKutsuLinkki, KUTSU_PARAMETRIT, onYksiOsoite };

@@ -15,6 +15,7 @@ export const ESTA_LAHDE = CF.slice(CF.indexOf('function estaPaikkamerkkiOsoite('
 /** Lisää vm-kontekstiin onPaikkamerkkiOsoite ja (jos ei jo määritelty) estaPaikkamerkkiOsoite oikeasta lähteestä. */
 export function lisaaPaikkamerkki(ctx) {
   ctx.onPaikkamerkkiOsoite = onPaikkamerkkiOsoite;
+  ctx.onYksiOsoite = require_(join(ROOT, 'functions', 'sahkoposti_turva.js')).onYksiOsoite;   // lahetaRekisteriKutsu: yksi osoite per kutsu (21.10.2026)
   if (typeof ctx.estaPaikkamerkkiOsoite !== 'function') vm.runInContext(ESTA_LAHDE, ctx);
   return ctx;
 }

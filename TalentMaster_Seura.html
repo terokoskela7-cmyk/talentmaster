@@ -1179,7 +1179,11 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
         <span style="font-size:12px;font-weight:600;color:var(--ink2);" id="excelLkm"></span>
         <span style="font-size:11px;color:var(--ink3);">Tarkista tiedot ennen tuontia</span>
       </div>
-      <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+      <label id="excelPaivitaRivi" style="display:none;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:var(--ink2);cursor:pointer;">
+        <input type="checkbox" id="excelPaivitaKaikki" checked onchange="excelPaivitaKaikkiMuuta(this.checked)">
+        <span id="excelPaivitaTeksti">Päivitä olemassa olevat pelaajat Excelin mukaan</span>
+      </label>
+      <div style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;">
           <thead>
             <tr style="background:var(--bg3);">
@@ -1850,8 +1854,16 @@ function pelaajaRivi(p) {
 }
 
 // ─── Apufunktio: päivittää suodatin- ja joukkuenappien ulkoasun ──
+/* Sihteerin tarkistusnäkymä (21.10.2026): lukumäärät koko seurasta — sama sääntö kuin suodatin (TM_SEURA_TUONTI.tmSeuraPuuttuuVuosi / tmSeuraSuostumus). */
+function paivitaTarkistusLukumaarat() {
+  const kaikki = window._pelaajatKaikki || [];
+  const v = kaikki.filter(p => TM_SEURA_TUONTI.tmSeuraPuuttuuVuosi(p)).length, k = kaikki.filter(p => TM_SEURA_TUONTI.tmSeuraSuostumus(p) === 'ei_kutsua').length;
+  const a = document.getElementById('suod-puuttuu-vuosi-lkm'), b = document.getElementById('suod-ei-kutsua-lkm');
+  if (a) a.textContent = '(' + v + ')'; if (b) b.textContent = '(' + k + ')';
+}
 function paivitaNappienUlkoasu() {
-  ['kaikki','pilotti','odottaa','annettu','ei-palloid'].forEach(s => {
+  paivitaTarkistusLukumaarat();
+  ['kaikki','pilotti','odottaa','annettu','ei-palloid','puuttuu-vuosi','ei-kutsua'].forEach(s => {
     const btn = document.getElementById('suod-' + s);
     if (!btn) return;
     const ak = s === window._aktiiviSuodatin;
@@ -1905,6 +1917,8 @@ function suodataPelaajat(tila_suodin, hakuTeksti) {
         case 'odottaa':    return onOdottaa;
         case 'annettu':    return onAnnettu;
         case 'ei-palloid': return !p.palloID && !p.palloId && !p.palloid;
+        case 'puuttuu-vuosi': return TM_SEURA_TUONTI.tmSeuraPuuttuuVuosi(p);
+        case 'ei-kutsua':     return TM_SEURA_TUONTI.tmSeuraSuostumus(p) === 'ei_kutsua';
         default:           return true;
       }
     });
@@ -2024,6 +2038,16 @@ async function renderPelaajat(alue) {
         style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
         background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--ink3);">
         Ilman PalloID:tä
+      </button>
+      <button id="suod-puuttuu-vuosi" onclick="suodataPelaajat('puuttuu-vuosi')"
+        style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
+        background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--ink3);">
+        ${tmHT('Puuttuu: syntymävuosi')} <span id="suod-puuttuu-vuosi-lkm"></span>
+      </button>
+      <button id="suod-ei-kutsua" onclick="suodataPelaajat('ei-kutsua')"
+        style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
+        background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--ink3);">
+        ${tmHT('Ei kutsua')} <span id="suod-ei-kutsua-lkm"></span>
       </button>
       <span id="pelaajatLkm" style="font-size:11px;color:var(--ink3);margin-left:auto;"></span>
       <input id="pelaajaHaku" type="text" placeholder="Hae nimellä..."
@@ -3693,7 +3717,7 @@ async function lahetaRekisteriSahkoposti() {
   /* Tyhjä valinta ei saa koskaan korvata olemassa olevaa: linkin/kutsun joukkue = pelaajan nykyinen, jäsenyyttä ei kirjoiteta (_upd). */
   const joukkue     = joukkueObj2?.nimi || joukkueId || (_vanhaP ? (_vanhaP.joukkueNimi || _vanhaP.joukkue || '') : '');
   // §18-jäsenyys yhdestä paikasta (sama rakentaja kuin Excel-tuonnissa); tyhjä valinta → null
-  const _jasenyys   = joukkueId ? TM_SEURA_TUONTI.tmSeuraModalJasenyys(joukkueId, tila.joukkueet) : null;
+  const _jasenyys   = joukkueId ? tmJoukkueJasenyysIdlla(joukkueId, joukkue) : null;
 
   try {
     /* VAIHE 1 — kenelle kutsu kohdistuu (sisarusbugi 30.9.2026):
@@ -3736,10 +3760,10 @@ async function lahetaRekisteriSahkoposti() {
           sukunimi:      sukunimi || '',
           /* §18: joukkueet[] = team-doc ID:t, EI nimiä. Tässä kirjoitettiin aiemmin NIMI id:n
              paikalle, jolloin seurahallinnan suodatin ja pelaajamäärät eivät löytäneet pelaajaa. */
-          joukkue:        _jasenyys ? _jasenyys.joukkue : '',
-          joukkueNimi:    _jasenyys ? _jasenyys.joukkueNimi : '',
-          joukkueet:      _jasenyys ? _jasenyys.joukkueet : [],
-          joukkueetNimet: _jasenyys ? _jasenyys.joukkueetNimet : [],
+          joukkue:        _jasenyys.joukkue,   // uudelle pelaajalle joukkue on pakollinen (tarkistus ennen lähetystä)
+          joukkueNimi:    _jasenyys.joukkueNimi,
+          joukkueet:      _jasenyys.joukkueet,
+          joukkueetNimet: _jasenyys.joukkueetNimet,
           seuraId:       tila.seuraId,
           huoltajaEmail: tila._rekHEmail ? tila._rekHEmail.toLowerCase() : null,
           pelaajaId:     pelaajaId,
@@ -3761,8 +3785,8 @@ async function lahetaRekisteriSahkoposti() {
         // Päivitetään olemassa oleva dokumentti — §33: EI saa alentaa jo annettua suostumusta (suostumusTila ei tässä).
         /* Nimen päivitys yksin jätti vanhan joukkueet[]-id:n voimaan → pelaaja näkyi yhä
            väärän joukkueen alla. Kirjoitetaan koko jäsenyys (KORVAA, ei lisää). */
-        const _upd = { muokattu: firebase.firestore.FieldValue.serverTimestamp() };
-        if (_jasenyys) Object.assign(_upd, { joukkue: _jasenyys.joukkue, joukkueNimi: _jasenyys.joukkueNimi, joukkueet: _jasenyys.joukkueet, joukkueetNimet: _jasenyys.joukkueetNimet });   // vain valittu joukkue; tyhjä valinta jättää ennalleen
+        const _upd = { muokattu: firebase.firestore.FieldValue.serverTimestamp(),
+          ...(_jasenyys ? { joukkue: _jasenyys.joukkue, joukkueNimi: _jasenyys.joukkueNimi, joukkueet: _jasenyys.joukkueet, joukkueetNimet: _jasenyys.joukkueetNimet } : {}) };   // vain valittu joukkue; tyhjä valinta jättää ennalleen
         // suostumusTila → 'odottaa' asettuu palvelimella (lahetaRekisteriKutsu, Rules v3.33); annettua ei alenneta.
         await db.collection('seurat').doc(tila.seuraId)
           .collection('pelaajat').doc(pelaajaId)
@@ -5914,7 +5938,8 @@ async function lataaRekisteriPohja() {
       tmHT('5.  Talenttiohjelma: kirjoita "kyllä" jos pelaaja on talenttiryhmässä.'),
       tmHT('6.  TalenttiTaso: "perus" tai "laajennettu".'),
       tmHT('7.  Huoltajan s-posti: vanhempi saa tätä kautta suostumuspyynnön.'),
-      tmHT('8.  Tallenna → lataa takaisin TalentMasteriin.'),
+      tmHT('8.  Yksi sähköposti per solu. Toinen huoltaja lisätään myöhemmin sovelluksessa.'),
+      tmHT('9.  Tallenna → lataa takaisin TalentMasteriin.'),
     ];
 
     // Rakenna data-array
@@ -6463,6 +6488,41 @@ function avaaExcelTuontiModal() {
   document.getElementById('excelTuontiModal').classList.add('auki');
 }
 
+/* Esikatselun rivin tila (21.10.2026): Uusi / Jo järjestelmässä + mikä eroaa Excelistä (joukkue, syntymävuosi, huoltajan sähköposti, suostumus). Palauttaa { status, vari, lisa } (HTML). */
+function _excelRiviStatus(p, i) {
+  const T = TM_SEURA_TUONTI, rivi = (t) => '<div style="color:var(--ink3);margin-top:2px;">' + tmEsc(t) + '</div>', fmt = (t, m) => tmHT(t).replace(/\{(\w+)\}/g, (_, k) => (m && m[k] != null ? m[k] : ''));
+  const nimiOk = p.etunimi || p.sukunimi, emailOk = !!p.huoltajaEmail;
+  let status, vari = 'var(--teal)';
+  if (p._hylatty) { status = '⛔ ' + p._hylatty; vari = 'var(--red)'; }
+  else if (!nimiOk) { status = tmHT('⚠️ Nimi puuttuu'); vari = 'var(--amber)'; }
+  else if (p._eiVuotta) { status = tmHT('⚠️ Syntymävuosi puuttuu – riviä ei tuoda'); vari = 'var(--amber)'; }
+  else if (p._emailUseita) { status = '⛔ ' + tmHT('Yksi sähköposti per solu'); vari = 'var(--red)'; }
+  else if (p._emailVirhe) { status = '⛔ ' + tmHT('Sähköposti virheellinen – kutsua ei lähetetä'); vari = 'var(--red)'; }
+  else if (!p.joukkue) { status = tmHT('⚠️ Joukkue?'); vari = 'var(--amber)'; }
+  else if (p._joukkueOrpo) { status = tmHT('⚠️ Joukkue ei listassa'); vari = 'var(--amber)'; }   // #92 warn-not-block
+  else if (!emailOk) { status = '⚠️ Email?'; vari = 'var(--amber)'; }
+  else if (p._olemassa) { status = '↻ ' + tmHT('Jo järjestelmässä'); }
+  else status = '✓ ' + tmHT('Uusi');
+  let lisa = '';
+  if (p._emailUseita && !p._hylatty) lisa += rivi(fmt('Kutsu lähtee: {osoite}. Muut huoltajat lisätään myöhemmin.', { osoite: p.huoltajaEmail || '—' }));
+  if (p._olemassa && p._ero && !p._hylatty && !p._eiVuotta) {
+    const e = p._ero;
+    if (!status.includes(tmHT('Jo järjestelmässä'))) lisa += rivi('↻ ' + tmHT('Jo järjestelmässä'));
+    if (e.joukkue.muuttuu) lisa += rivi(fmt('Joukkue: {vanha} → {uusi}', { vanha: e.joukkue.vanha || '—', uusi: e.joukkue.uusi }));
+    if (e.syntymavuosi.tila === 'puuttuu') lisa += rivi(fmt('Syntymävuosi puuttuu → {uusi}', { uusi: e.syntymavuosi.uusi }));
+    else if (e.syntymavuosi.tila === 'eri') lisa += rivi(fmt('Syntymävuosi: {vanha} (Excelissä {uusi})', { vanha: e.syntymavuosi.vanha, uusi: e.syntymavuosi.uusi }));
+    if (e.email.tila === 'puuttuu') lisa += rivi(tmHT('Sähköposti puuttuu → lisätään'));
+    else if (e.email.tila === 'eri') lisa += rivi(tmHT(e.suostumus === 'annettu' ? 'Sähköposti eri – ei vaihdeta (suostumus annettu)' : 'Sähköposti eri → päivitetään'));
+    lisa += rivi(tmHT({ annettu: 'Suostumus: annettu', odottaa: 'Suostumus: kutsu lähetetty', ei_kutsua: 'Suostumus: ei kutsua' }[e.suostumus]));
+    lisa += '<label style="display:flex;align-items:center;gap:6px;margin-top:4px;cursor:pointer;color:var(--ink2);"><input type="checkbox" class="excelRivi" data-i="' + i + '" checked> ' + tmEsc(tmHT('Päivitä')) + '</label>';
+  }
+  return { status, vari, lisa };
+}
+function excelPaivitaKaikkiMuuta(v) { document.querySelectorAll('.excelRivi').forEach(c => { c.checked = !!v; }); }
+function _excelPaivitaValittu(i) {   // rivikohtainen valinta; puuttuessa globaali
+  const c = document.querySelector('.excelRivi[data-i="' + i + '"]'); if (c) return c.checked;
+  const g = document.getElementById('excelPaivitaKaikki'); return g ? g.checked : true;
+}
 function kasitteleExcelTuonti(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -6474,7 +6534,7 @@ function kasitteleExcelTuonti(event) {
   if (nappiTeksti) nappiTeksti.textContent = '⏳ Luetaan tiedostoa...';
 
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     try {
       let rivit = [];
       const data = new Uint8Array(e.target.result);
@@ -6540,14 +6600,20 @@ function kasitteleExcelTuonti(event) {
           // case/whitespace/NBSP-varianteista). Osuma → kanoninen nimi + id; ei osumaa → raw + orpolippu (warn).
           const _rawJ = iJouk >= 0 ? String(r[iJouk] || '').trim() : '';
           const _kanonJ = (_rawJ && typeof tmKanonisoiJoukkue === 'function') ? tmKanonisoiJoukkue(_rawJ, tila.joukkueet) : null;
+          /* Sähköposti: yksi osoite per solu (21.10.2026). Useita ("a; b", "a, b", rivinvaihto) → ensimmäinen, esikatselu varoittaa; virheellinen → ei kutsua. */
+          const _emRaaka = iEmail >= 0 ? String(r[iEmail] == null ? '' : r[iEmail]) : '';
+          const _em = TM_SEURA_TUONTI.tmSeuraEmail(_emRaaka);
           return {
-            etunimi:       iEtu     >= 0 ? String(r[iEtu]     || '').trim() : '',
-            sukunimi:      iSuku    >= 0 ? String(r[iSuku]    || '').trim() : '',
+            etunimi:       TM_SEURA_TUONTI.tmSeuraNimi(iEtu  >= 0 ? r[iEtu]  : ''),   // trimmattu ("Pekko " → "Pekko")
+            sukunimi:      TM_SEURA_TUONTI.tmSeuraNimi(iSuku >= 0 ? r[iSuku] : ''),
             joukkue:       _kanonJ ? _kanonJ.nimi : _rawJ,   // kanoninen nimi jos osuma (säilyvä muoto)
             _joukkueId:    _kanonJ ? _kanonJ.id : null,       // kanoninen id → joukkueet[] (§18)
             _joukkueOrpo:  !!(_rawJ && !_kanonJ),             // ei osumaa joukkuet-listaan → esikatselu varoittaa
-            huoltajaEmail: iEmail   >= 0 ? String(r[iEmail]   || '').trim().toLowerCase() : '',
-            palloId:       iPalloId >= 0 ? String(r[iPalloId] || '').trim() : '',
+            huoltajaEmail: _em.kelpaa ? _em.ensimmainen : '',
+            _emailUseita:  _em.useita,
+            _emailVirhe:   !!_emRaaka.trim() && !_em.kelpaa,
+            _emailRaaka:   _emRaaka.trim(),
+            palloId:       TM_SEURA_TUONTI.tmSeuraPalloId(iPalloId >= 0 ? r[iPalloId] : ''),   // aina merkkijono (Excel-solu voi olla numero)
             talentti:      iTalentti >= 0 ? String(r[iTalentti] || '').trim().toLowerCase() : '',
             talenttiTaso:  iTaso     >= 0 ? String(r[iTaso]    || '').trim().toLowerCase() : '',
             syntymaVuosi:  _tmSyntymaVuosi(iVuosi >= 0 ? r[iVuosi] : ''),
@@ -6567,6 +6633,15 @@ function kasitteleExcelTuonti(event) {
         throw new Error(tmHT('Tiedostosta ei löytynyt pelaajia. Tarkista että sarakeotsikoiden nimet täsmäävät pohjaan.'));
       }
 
+      // Olemassa olevat pelaajat jo esikatselussa (PalloID → nimi + joukkue); lukuvirhe → välimuistissa oleva lista
+      let _olemassaLista = [];
+      try { const _os = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').get(); _olemassaLista = _os.docs.map(d => Object.assign({ id: d.id }, d.data())); }
+      catch (_e) { _olemassaLista = window._pelaajatKaikki || []; }
+      _excelData.forEach(p => {
+        const ex = TM_SEURA_TUONTI.tmSeuraEtsiOlemassa(p, _olemassaLista);
+        p._olemassa = ex ? ex.id : null; p._ero = ex ? TM_SEURA_TUONTI.tmSeuraErot(p, ex) : null;
+      });
+
       // Näytetään esikatselu
       const tbody = document.getElementById('excelEsikatseluTbody');
       const lkm   = document.getElementById('excelLkm');
@@ -6574,32 +6649,25 @@ function kasitteleExcelTuonti(event) {
       const tuoN  = document.getElementById('excelTuoNappi');
       const tuoLN = document.getElementById('excelTuoJaLahetaNappi');
 
-      if (tbody) tbody.innerHTML = _excelData.map(p => {
-        const nimiOk    = p.etunimi || p.sukunimi;
-        const emailOk   = p.huoltajaEmail && p.huoltajaEmail.includes('@');
-        const joukkueOk = p.joukkue;
+      if (tbody) tbody.innerHTML = _excelData.map((p, i) => {
         const onTalentti = p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k';
-        const status    = p._hylatty ? '⛔ ' + p._hylatty
-          : !nimiOk ? tmHT('⚠️ Nimi puuttuu')
-          : p._eiVuotta ? tmHT('⚠️ Syntymävuosi puuttuu – riviä ei tuoda')
-          : !joukkueOk ? tmHT('⚠️ Joukkue?')
-          : p._joukkueOrpo ? tmHT('⚠️ Joukkue ei listassa')   // #92 warn-not-block: ei osu seuran joukkuet-doceihin
-          : !emailOk   ? '⚠️ Email?'
-          : tmHT('✓ Valmis');
-        const statusVari = p._hylatty ? 'var(--red)' : status.startsWith('⚠') ? 'var(--amber)' : 'var(--teal)';
+        const st = _excelRiviStatus(p, i);
         return `<tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:7px 10px;font-size:12px;font-weight:600;">${p.etunimi} ${p.sukunimi}</td>
-          <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${p.joukkue || '—'}</td>
-          <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:${p.palloId ? 'var(--ink2)' : 'var(--ink3)'};">${p.palloId || '—'}</td>
-          <td style="padding:7px 10px;font-size:12px;">${onTalentti ? '<span style="color:var(--teal);font-weight:700;">⭐ ' + (p.talenttiTaso||'perus') + '</span>' : '<span style="color:var(--ink3);">—</span>'}</td>
-          <td style="padding:7px 10px;font-size:12px;color:${p._hylatty ? 'var(--red)' : 'var(--teal)'};">${p.huoltajaEmail || '—'}</td>
-          <td style="padding:7px 10px;font-size:11px;color:${statusVari};">${status}</td>
+          <td style="padding:7px 10px;font-size:12px;font-weight:600;">${tmEsc(p.etunimi)} ${tmEsc(p.sukunimi)}</td>
+          <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${tmEsc(p.joukkue || '—')}</td>
+          <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:${p.palloId ? 'var(--ink2)' : 'var(--ink3)'};">${tmEsc(p.palloId || '—')}</td>
+          <td style="padding:7px 10px;font-size:12px;">${onTalentti ? '<span style="color:var(--teal);font-weight:700;">⭐ ' + (p.talenttiTaso||'perus') + '</span>' : '<span style="color:var(--ink3);">—</span>'}
+          <td style="padding:7px 10px;font-size:12px;color:${(p._hylatty || p._emailVirhe || p._emailUseita) ? 'var(--red)' : 'var(--teal)'};">${tmEsc(p.huoltajaEmail || p._emailRaaka || '—')}</td>
+          <td style="padding:7px 10px;font-size:11px;color:${st.vari};">${st.status}${st.lisa}</td>
         </tr>`;
       }).join('');
+      { const _vr = document.getElementById('excelPaivitaRivi'), _on = _excelData.some(p => p._olemassa && !p._hylatty && !p._eiVuotta);
+        if (_vr) { _vr.style.display = _on ? 'flex' : 'none'; const _sp = document.getElementById('excelPaivitaTeksti'); if (_sp) _sp.textContent = tmHT('Päivitä olemassa olevat pelaajat Excelin mukaan'); } const _g = document.getElementById('excelPaivitaKaikki'); if (_g) _g.checked = true; }
 
       const _hylLkm = _excelData.filter(p => p._hylatty).length;
       const _vuosiLkm = _excelData.filter(p => !p._hylatty && p._eiVuotta).length;
-      if (lkm) lkm.textContent = _excelData.length + ' pelaajaa tunnistettu' + (_hylLkm ? ' · ' + _hylLkm + ' hylätään (esimerkkiosoite)' : '')
+      const _olLkm = _excelData.filter(p => p._olemassa).length;
+      if (lkm) lkm.textContent = _excelData.length + ' pelaajaa tunnistettu' + (_olLkm ? ' · ' + _olLkm + ' ' + tmHT('jo järjestelmässä') : '') + (_hylLkm ? ' · ' + _hylLkm + ' hylätään (esimerkkiosoite)' : '')
         + (_vuosiLkm ? ' · ' + _vuosiLkm + ' ilman syntymävuotta (ei tuoda)' : '');
       if (esi) esi.style.display = '';
 
@@ -6671,8 +6739,49 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   const seuraNimi = tila.seuraNimi || tila.seuraId;
   const nyt = firebase.firestore.FieldValue.serverTimestamp();
 
-  let tuotu = 0, virheet = 0, ohitettu = 0, kutsut = 0, hylatty = 0, eiVuotta = 0;
+  let tuotu = 0, virheet = 0, paivitetty = 0, joukkueVaihtui = 0, ennallaan = 0, kutsut = 0, hylatty = 0, eiVuotta = 0;
   let seis = null;   // istuntovirhe → tuonti pysähtyy (ei satoja permission-denied-rivejä)
+  const pelCol = db.collection('seurat').doc(tila.seuraId).collection('pelaajat');
+
+  /* Kutsu yhdelle pelaajalle (uusi TAI olemassa oleva, jolta suostumus puuttuu): kutsudokumentti → lahetaRekisteriKutsu (pelaajaId mukana → palvelin merkitsee suostumusTilan 'odottaa', annettua ei alenneta)
+     → kutsun tila 'lahetetty' / 'epaonnistui'. */
+  async function lahetaKutsuRivi(pelaajaId, hEmail, p, joukkueNimi, rivinro) {
+    const params = new URLSearchParams({
+      seuraId:   tila.seuraId,
+      pelaajaId: pelaajaId,   // ← estää duplikaatin suostumuslomakkeella
+      seura:     seuraNimi,
+      etunimi:   p.etunimi,
+      sukunimi:  p.sukunimi,
+      joukkue:   joukkueNimi || '',   // ei hEmailia linkkiin
+      ...(p.palloId && { palloid: p.palloId }),
+    });
+    const linkki = baseUrl + '?' + params.toString();
+    const kutsuRef = await db.collection('seurat').doc(tila.seuraId).collection('kutsut').add({
+      tyyppi: 'excel_tuonti_kutsu', hEmail, pelaajaNimi: (p.etunimi + ' ' + p.sukunimi).trim(), pelaajaId, palloId: p.palloId || null, joukkue: joukkueNimi || null,
+      linkki, tila: 'odottaa', luotu: nyt, lahettaja: tila.kayttaja?.uid || 'tuntematon',
+    });
+    try {
+      await functions.httpsCallable('lahetaRekisteriKutsu')({ seuraId: tila.seuraId, pelaajaId, hEmail, linkki, seura: seuraNimi, etunimi: p.etunimi, sukunimi: p.sukunimi, joukkue: joukkueNimi || '' });
+      await kutsuRef.update({ tila: 'lahetetty', lahetetty: nyt });
+      return true;
+    } catch (mailErr) {
+      console.warn('[Excel] Sähköposti epäonnistui rivillä', rivinro, ':', mailErr.message);
+      await kutsuRef.update({ tila: 'epaonnistui', virhe: String(mailErr.message || mailErr).slice(0, 300) }).catch(() => {});
+      if (virhe) virhe.textContent = `Sähköposti epäonnistui (rivi ${rivinro}): ${mailErr.message}`;
+      return false;
+    }
+  }
+  /* Olemassa oleva: PalloID (merkkijono; varalla numerona tallennettu) → nimi + joukkue. Tuoreena Firestoresta (suostumus voi olla muuttunut esikatselun jälkeen). */
+  async function etsiOlemassa(p) {
+    let sn;
+    if (p.palloId) {
+      sn = await pelCol.where('palloID', '==', p.palloId).limit(1).get();
+      if (sn.empty && /^\d+$/.test(p.palloId)) sn = await pelCol.where('palloID', '==', Number(p.palloId)).limit(1).get();
+    } else {
+      sn = await pelCol.where('etunimi', '==', p.etunimi).where('sukunimi', '==', p.sukunimi).where('joukkue', '==', p.joukkue).limit(1).get();
+    }
+    return sn.empty ? null : Object.assign({ id: sn.docs[0].id }, sn.docs[0].data());
+  }
 
   for (let i = 0; i < _excelData.length; i++) {
     { const _s = TM_ISTUNTO.tmTuontiSeis(auth, null); if (_s) { seis = _s; break; } }   // currentUser null (istunto vaihtui/päättyi) → pysähdy ennen riviä
@@ -6684,37 +6793,32 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
     if (teksti) teksti.textContent = (i + 1) + '/' + _excelData.length + ' — ' + p.etunimi + ' ' + p.sukunimi;
 
     try {
-      // VAIHE 0: Tarkista onko sama pelaaja jo Firestoressä
-      // A) PalloID-tarkistus — luotettavin
-      if (p.palloId) {
-        const olemassa = await db.collection('seurat').doc(tila.seuraId)
-          .collection('pelaajat')
-          .where('palloID', '==', p.palloId)
-          .limit(1).get();
-        if (!olemassa.empty) {
-          if (teksti) teksti.textContent = '⏭ ' + p.etunimi + ' ' + p.sukunimi + ' — PalloID jo järjestelmässä, ohitetaan';
-          ohitettu++;
-          continue;
+      // VAIHE 0: onko pelaaja jo järjestelmässä? → päivitys Excelin mukaan (ei enää hiljaista ohitusta)
+      const ex = await etsiOlemassa(p);
+      if (ex) {
+        if (!_excelPaivitaValittu(i)) { ennallaan++; continue; }   // rivi pois päivityksestä → ei muutoksia eikä kutsua
+        const paiv = TM_SEURA_TUONTI.tmSeuraPaivitys(p, ex, { paivita: true });
+        const ref = pelCol.doc(ex.id);
+        let emailNyt = String((ex.huoltaja && ex.huoltaja.email) || ex.huoltajaEmail || '').trim().toLowerCase();
+        let muuttui = false;
+        if (Object.keys(paiv.patch).length) { await ref.update(Object.assign({}, paiv.patch, { muokattu: nyt })); muuttui = true; }
+        if (paiv.emailAsetus) {   // huoltajaEmail muuttuu VAIN palvelimella (Rules v3.33)
+          try { await firebase.app().functions('europe-west1').httpsCallable('asetaHuoltajaEmail')({ seuraId: tila.seuraId, pelaajaId: ex.id, huoltajaEmail: paiv.emailAsetus }); emailNyt = paiv.emailAsetus; muuttui = true; paiv.emailPaivitetty = true; }
+          catch (emErr) { paiv.emailPaivitetty = false; virheet++; console.warn('[Excel] huoltajan sähköposti ei päivittynyt rivillä', i + 2, ':', emErr.message); if (virhe) virhe.textContent = `Sähköpostin päivitys epäonnistui (rivi ${i+2}): ${emErr.message}`; }
         }
-      } else {
-        // B) Nimi + joukkue -tarkistus jos palloID puuttuu
-        const olemassa = await db.collection('seurat').doc(tila.seuraId)
-          .collection('pelaajat')
-          .where('etunimi', '==', p.etunimi)
-          .where('sukunimi', '==', p.sukunimi)
-          .where('joukkue',  '==', p.joukkue)
-          .limit(1).get();
-        if (!olemassa.empty) {
-          if (teksti) teksti.textContent = '⏭ ' + p.etunimi + ' ' + p.sukunimi + ' — jo järjestelmässä (nimi+joukkue), ohitetaan';
-          ohitettu++;
-          continue;
+        if (muuttui) { paivitetty++; if (paiv.joukkueVaihtui) joukkueVaihtui++; } else ennallaan++;
+        // VAIHE 2 (olemassa oleva): kutsu jos suostumus puuttuu (pilotti / ei kutsua; tai osoite vaihtui). Ei koskaan annetulle suostumukselle.
+        if (lahetaKutsut && TM_SEURA_TUONTI.tmSeuraKutsuTarvitaan(ex, paiv) && TM_SEURA_TUONTI.tmSeuraEmail(emailNyt).kelpaa && !tmOnPaikkamerkkiOsoite(emailNyt)) {
+          const mailOk = await lahetaKutsuRivi(ex.id, emailNyt, p, paiv.patch.joukkueNimi || ex.joukkueNimi || ex.joukkue || p.joukkue, i + 2);
+          kutsut++;
+          if (teksti) teksti.textContent = `${i+1}/${_excelData.length} — ${p.etunimi} ${p.sukunimi} ${mailOk ? tmHT('✉️ lähetetty') : tmHT('⚠️ sähköposti epäonnistui')}`;
         }
+        continue;
       }
 
       // VAIHE 1: Luodaan dokumenttiviite ensin → ID välitetään kutsulinkkiin
       // Näin suostumuslomake kirjoittaa SAMAAN dokumenttiin eikä luo duplikaattia
-      const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
-        .collection('pelaajat').doc();
+      const pelaajaRef = pelCol.doc();
       const pelaajaId = pelaajaRef.id;
 
       await pelaajaRef.set(Object.assign(_tmPelaajanKieli(tila.seuraKieli), {
@@ -6725,8 +6829,8 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         joukkue:       p.joukkue || '',
         joukkueet:     p._joukkueId ? [p._joukkueId] : [],   // #92b: VAIN kanoninen id (§18) — ei nimi-jäänteitä; orpo → [] (joukkue-string riittää dual-kyselyyn)
         seuraId:       tila.seuraId,
-        huoltajaEmail: p.huoltajaEmail ? String(p.huoltajaEmail).trim().toLowerCase() : null,
-        palloID:       p.palloId || null,
+        huoltajaEmail: p.huoltajaEmail ? String(p.huoltajaEmail).trim().toLowerCase() : null,   // yksi osoite (ensimmäinen)
+        palloID:       p.palloId || null,   // aina merkkijono
         pelaajaId:     pelaajaId,
         // Talenttiohjelma — luetaan Excel-sarakkeesta
         talenttiOhjelma: p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k',
@@ -6747,55 +6851,9 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
       }));
       tuotu++;
 
-      // VAIHE 2: Lähetetään kutsu jos pyydetty ja email löytyy
-      if (lahetaKutsut && p.huoltajaEmail && p.huoltajaEmail.includes('@')) {
-        const params = new URLSearchParams({
-          seuraId:   tila.seuraId,
-          pelaajaId: pelaajaId,   // ← estää duplikaatin suostumuslomakkeella
-          seura:     seuraNimi,
-          etunimi:   p.etunimi,
-          sukunimi:  p.sukunimi,
-          joukkue:   p.joukkue,   // ei hEmailia linkkiin
-          ...(p.palloId && { palloid: p.palloId }),
-        });
-        const linkki = baseUrl + '?' + params.toString();
-
-        // Tallennetaan kutsu Firestoreen
-        const kutsuRef = await db.collection('seurat').doc(tila.seuraId)
-          .collection('kutsut').add({
-            tyyppi:      'excel_tuonti_kutsu',
-            hEmail:      p.huoltajaEmail,
-            pelaajaNimi: (p.etunimi + ' ' + p.sukunimi).trim(),
-            pelaajaId:   pelaajaId,
-            palloId:     p.palloId || null,
-            joukkue:     p.joukkue || null,
-            linkki,
-            tila:        'odottaa',
-            luotu:       nyt,
-            lahettaja:   tila.kayttaja?.uid || 'tuntematon',
-          });
-
-        // Lähetetään sähköposti Cloud Functionin kautta
-        let mailOk = false;
-        try {
-          const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
-          await lahetaFn({
-            seuraId:  tila.seuraId,
-            hEmail:   p.huoltajaEmail,
-            linkki,
-            seura:    seuraNimi,
-            etunimi:  p.etunimi,
-            sukunimi: p.sukunimi,
-            joukkue:  p.joukkue,
-          });
-          mailOk = true;
-          // Merkitään kutsu lähetetyksi
-          await kutsuRef.update({ tila: 'lahetetty', lahetetty: nyt });
-        } catch(mailErr) {
-          console.warn('[Excel] Sähköposti epäonnistui rivillä', i+2, ':', mailErr.message);
-          if (virhe) virhe.textContent = `Sähköposti epäonnistui (rivi ${i+2}): ${mailErr.message}`;
-        }
-
+      // VAIHE 2: Lähetetään kutsu jos pyydetty ja (kelvollinen, yksi) email löytyy
+      if (lahetaKutsut && p.huoltajaEmail && TM_SEURA_TUONTI.tmSeuraEmail(p.huoltajaEmail).kelpaa) {
+        const mailOk = await lahetaKutsuRivi(pelaajaId, p.huoltajaEmail, p, p.joukkue, i + 2);
         kutsut++;
         // Päivitetään progress-teksti kertomaan sähköpostin tila
         if (teksti) teksti.textContent =
@@ -6819,18 +6877,18 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
 
   // Näytetään tulokset selkeästi
   const mailVirheitaOli = virheet > 0;
+  /* Yhteenveto (21.10.2026): "X uutta · Y päivitetty (joukkue vaihtui: n) · Z ennallaan · kutsuja K" — ei enää pelkkää "ohitettu". */
+  const yhteenveto = TM_SEURA_TUONTI.tmSeuraYhteenveto({ uusia: tuotu, paivitetty, joukkueVaihtui, ennallaan, kutsuja: kutsut }, tmHT);
   const msg = [
-    tuotu > 0    ? `${tuotu} pelaajaa tuotu` : null,
-    ohitettu > 0 ? `${ohitettu} ohitettu (jo järjestelmässä)` : null,
+    yhteenveto,
     hylatty > 0  ? `${hylatty} ${hylatty === 1 ? 'rivi' : 'riviä'} hylätty – esimerkkiosoite, korvaa huoltajan oikealla sähköpostilla` : null,
     eiVuotta > 0 ? `${eiVuotta} ei tuotu (syntymävuosi puuttuu tai virheellinen)` : null,
-    lahetaKutsut ? `${kutsut} kutsua käsitelty` : null,
     virheet > 0  ? `${virheet} riviä epäonnistui` : null,
   ].filter(Boolean).join(' · ');
 
   if (onni) {
     /* Mitään ei tuotu (1.10.2026): oranssi varoitus ILMAN ✅ — muuten "✅ 2 hylätty" näytti onnistumiselta. */
-    const eiTuotu = tuotu === 0;
+    const eiTuotu = tuotu === 0 && paivitetty === 0 && ennallaan === 0;   // uusia tai olemassa olevia ei käsitelty lainkaan
     onni.textContent = eiTuotu ? `⚠️ Mitään ei tuotu: ${msg || 'ei tuotavia rivejä'}` : `✅ ${msg}`;
     onni.style.color = eiTuotu ? 'var(--amber)' : 'var(--teal)';
     onni.style.background = eiTuotu ? 'rgba(224,160,64,.1)' : 'rgba(40,176,144,.1)';
@@ -6849,12 +6907,10 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   else if (virhe && virheet === 0) virhe.textContent = ''; // tyhjennä virheviesti jos kaikki ok
 
   naytaToast(
-    tuotu === 0
+    (tuotu === 0 && paivitetty === 0 && ennallaan === 0)
       ? tmHT('Mitään ei tuotu') + (hylatty ? ` – ${hylatty} hylätty (esimerkkiosoite)` : '')
-      : lahetaKutsut
-        ? `${tuotu} pelaajaa tuotu · ${kutsut} kutsua lähetetty`
-        : `${tuotu} pelaajaa tuotu`,
-    (virheet === 0 && tuotu > 0 && !seis) ? 'ok' : 'varoitus'
+      : yhteenveto,
+    (virheet === 0 && (tuotu > 0 || paivitetty > 0) && !seis) ? 'ok' : 'varoitus'
   );
 
   // Päivitetään pelaajalistaus
