@@ -30,6 +30,7 @@
 <script src="lib/tm_i18n_common.js?v=15"></script>
 <script src="lib/tm_henkilosto_i18n.js?v=9"></script>   <!-- sv-läpiajo PR 4: tmHT — teksti-avainreititin (Seurahallinta pysyy suomeksi 1.10. päätöksellä; sv-kartta tyhjä) -->
 <script src="lib/tm_joukkue.js?v=6"></script>
+<script src="lib/tm_seura_tuonti.js?v=1"></script>   <!-- Seura-tuonnin ja kutsun pure-säännöt: olemassa oleva pelaaja, monta sähköpostia, PalloID merkkijonona, kutsuikkunan joukkue -->
 <script src="lib/tm_paikkamerkki.js?v=1"></script>
 <!-- Kehitystilanne v0 (2.10.2026): mittarikirjasto + kehikot + näkymä; normit/IDP/taksonomia laskentaan -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (eerikkila_normit käyttää) -->
@@ -3478,7 +3479,12 @@ function avaaRekisteriModal() {
   document.getElementById('rek_joukkue').value = '';
   document.getElementById('rekisteriVirhe').classList.remove('nakyvilla');
   document.getElementById('linkkiBoksi').classList.remove('nakyvilla');
-  document.getElementById('lahetaSpostNappi').disabled = true;
+  /* "✓ Lähetetty" ei saa jäädä jumiin (21.10.2026): nappi, linkkiteksti ja kuvaus nollataan JOKA kerta kun ikkuna avataan (uusi ja olemassa oleva pelaaja). */
+  { const _n = document.getElementById('lahetaSpostNappi');
+    _n.disabled = true; _n.textContent = tmHT('📧 Lähetä sähköpostilla'); _n.style.background = 'var(--teal)'; _n.style.color = ''; _n.style.opacity = '';
+    const _lt = document.getElementById('linkkiTekstiEl'); if (_lt) _lt.textContent = '';
+    const _kv = document.querySelector('#rekisteriModal .modalKuvaus');
+    if (_kv) { if (_kv.dataset.oletus == null) _kv.dataset.oletus = _kv.innerHTML; else _kv.innerHTML = _kv.dataset.oletus; } }
   /* Sisarusbugi (30.9.2026): KAIKKI kutsutila nollataan joka kerta. _rekPelaajaId jäi aiemmin edellisestä
      "Lähetä uudelleen" -toiminnosta → uuden pelaajan kutsu ja suostumus kohdistuivat edelliselle pelaajalle.
      Olemassa olevan pelaajan kutsu asettaa sen uudelleen (avaaRekisteriModalPelaajalle). */
@@ -3504,7 +3510,10 @@ function avaaRekisteriModalPelaajalle(pelaajaId, etunimi, sukunimi, joukkue, hEm
     if (fn) fn.value = etunimi  || '';
     if (sn) sn.value = sukunimi || '';
     if (em) em.value = hEmail   || '';
-    if (jq && joukkue) jq.value = joukkue;
+    /* Valikon arvot ovat joukkueiden ID:itä → välitetään id (pelaajan joukkueet[0]; varalla nimi → kanoninen id), ei nimeä (21.10.2026: nimi jätti valinnan tyhjäksi). */
+    const _vp = (window._pelaajatKaikki || []).find(x => x.id === pelaajaId) || null;
+    const _jid = TM_SEURA_TUONTI.tmSeuraModalJoukkueId(_vp, joukkue, tila.joukkueet);
+    if (jq && _jid) jq.value = _jid;
     if (pi) pi.value = palloid  || '';
     if (si) si.value = sporttiId || '';
     if (pn) pn.value = pin || '';
@@ -3629,8 +3638,8 @@ function _rekDuplikaatti(etunimi, sukunimi, syntymaVuosi) {
 async function lahetaRekisteriSahkoposti() {
   // Haetaan arvot suoraan kentistä — ei riippuvuutta luoRekisteriLinkki():sta
   const hEmail     = document.getElementById('rek_hEmail')?.value?.trim() || tila._rekHEmail;
-  const _etu       = document.getElementById('rek_etunimi')?.value?.trim()  || '';
-  const _suku      = document.getElementById('rek_sukunimi')?.value?.trim() || '';
+  const _etu       = TM_SEURA_TUONTI.tmSeuraNimi(document.getElementById('rek_etunimi')?.value);
+  const _suku      = TM_SEURA_TUONTI.tmSeuraNimi(document.getElementById('rek_sukunimi')?.value);
   const _joukkueEl = document.getElementById('rek_joukkue');
   const _joukkue   = _joukkueEl?.options?.[_joukkueEl?.selectedIndex]?.text || _joukkueEl?.value || '';
 
@@ -3639,6 +3648,8 @@ async function lahetaRekisteriSahkoposti() {
     return;
   }
   if (tmOnPaikkamerkkiOsoite(hEmail)) { naytaToast(PAIKKAMERKKI_SYY + '.', 'virhe'); return; }
+  /* Joukkue * on pakollinen UUDELLE pelaajalle (olemassa olevalla tyhjä valinta jättää joukkuekentät ennalleen). */
+  if (!tila._rekPelaajaId && !document.getElementById('rek_joukkue')?.value) { naytaModalVirhe('rekisteriVirhe', tmHT('Valitse joukkue.')); return; }
 
   /* Suostumuksen uusiminen näkyväksi (2.10.2026): olemassa olevalla pelaajalla on jo annettu suostumus →
      vahvistus ennen lähetystä. Linkkiin päivämäärä (suostumusAnnettu=YYYY-MM-DD), jotta suostumussivu kertoo
@@ -3674,15 +3685,15 @@ async function lahetaRekisteriSahkoposti() {
   nappi.disabled    = true;
   nappi.textContent = 'Tallennetaan...';
 
-  const etunimi  = document.getElementById('rek_etunimi')?.value.trim() || '';
-  const sukunimi = document.getElementById('rek_sukunimi')?.value.trim() || '';
+  const etunimi  = TM_SEURA_TUONTI.tmSeuraNimi(document.getElementById('rek_etunimi')?.value);
+  const sukunimi = TM_SEURA_TUONTI.tmSeuraNimi(document.getElementById('rek_sukunimi')?.value);
   const joukkueId  = document.getElementById('rek_joukkue')?.value || '';
   const joukkueObj2 = tila.joukkueet.find(j => j.id === joukkueId);
-  const joukkue     = joukkueObj2?.nimi || joukkueId;
-  // §18-jäsenyys yhdestä paikasta (sama rakentaja kuin Excel-tuonnissa)
-  const _jasenyys   = (typeof tmJoukkueJasenyysIdlla === 'function')
-    ? tmJoukkueJasenyysIdlla(joukkueId, joukkue)
-    : { joukkue: joukkue || '', joukkueNimi: joukkue || '', joukkueet: joukkueId ? [joukkueId] : [], joukkueetNimet: joukkue ? [joukkue] : [] };
+  const _vanhaP     = tila._rekPelaajaId ? (window._pelaajatKaikki || []).find(x => x.id === tila._rekPelaajaId) : null;
+  /* Tyhjä valinta ei saa koskaan korvata olemassa olevaa: linkin/kutsun joukkue = pelaajan nykyinen, jäsenyyttä ei kirjoiteta (_upd). */
+  const joukkue     = joukkueObj2?.nimi || joukkueId || (_vanhaP ? (_vanhaP.joukkueNimi || _vanhaP.joukkue || '') : '');
+  // §18-jäsenyys yhdestä paikasta (sama rakentaja kuin Excel-tuonnissa); tyhjä valinta → null
+  const _jasenyys   = joukkueId ? TM_SEURA_TUONTI.tmSeuraModalJasenyys(joukkueId, tila.joukkueet) : null;
 
   try {
     /* VAIHE 1 — kenelle kutsu kohdistuu (sisarusbugi 30.9.2026):
@@ -3725,10 +3736,10 @@ async function lahetaRekisteriSahkoposti() {
           sukunimi:      sukunimi || '',
           /* §18: joukkueet[] = team-doc ID:t, EI nimiä. Tässä kirjoitettiin aiemmin NIMI id:n
              paikalle, jolloin seurahallinnan suodatin ja pelaajamäärät eivät löytäneet pelaajaa. */
-          joukkue:        _jasenyys.joukkue,
-          joukkueNimi:    _jasenyys.joukkueNimi,
-          joukkueet:      _jasenyys.joukkueet,
-          joukkueetNimet: _jasenyys.joukkueetNimet,
+          joukkue:        _jasenyys ? _jasenyys.joukkue : '',
+          joukkueNimi:    _jasenyys ? _jasenyys.joukkueNimi : '',
+          joukkueet:      _jasenyys ? _jasenyys.joukkueet : [],
+          joukkueetNimet: _jasenyys ? _jasenyys.joukkueetNimet : [],
           seuraId:       tila.seuraId,
           huoltajaEmail: tila._rekHEmail ? tila._rekHEmail.toLowerCase() : null,
           pelaajaId:     pelaajaId,
@@ -3750,9 +3761,8 @@ async function lahetaRekisteriSahkoposti() {
         // Päivitetään olemassa oleva dokumentti — §33: EI saa alentaa jo annettua suostumusta (suostumusTila ei tässä).
         /* Nimen päivitys yksin jätti vanhan joukkueet[]-id:n voimaan → pelaaja näkyi yhä
            väärän joukkueen alla. Kirjoitetaan koko jäsenyys (KORVAA, ei lisää). */
-        const _upd = { joukkue: _jasenyys.joukkue, joukkueNimi: _jasenyys.joukkueNimi,
-          joukkueet: _jasenyys.joukkueet, joukkueetNimet: _jasenyys.joukkueetNimet,
-          muokattu: firebase.firestore.FieldValue.serverTimestamp() };
+        const _upd = { muokattu: firebase.firestore.FieldValue.serverTimestamp() };
+        if (_jasenyys) Object.assign(_upd, { joukkue: _jasenyys.joukkue, joukkueNimi: _jasenyys.joukkueNimi, joukkueet: _jasenyys.joukkueet, joukkueetNimet: _jasenyys.joukkueetNimet });   // vain valittu joukkue; tyhjä valinta jättää ennalleen
         // suostumusTila → 'odottaa' asettuu palvelimella (lahetaRekisteriKutsu, Rules v3.33); annettua ei alenneta.
         await db.collection('seurat').doc(tila.seuraId)
           .collection('pelaajat').doc(pelaajaId)
@@ -3793,9 +3803,8 @@ async function lahetaRekisteriSahkoposti() {
       pelaajaId:   pelaajaId,
       joukkue,
       linkki:      tila._rekLinkki,
-      lahetetty:   firebase.firestore.FieldValue.serverTimestamp(),
       luotu:       firebase.firestore.FieldValue.serverTimestamp(),
-      tila:        'odottaa',
+      tila:        'odottaa',   // → 'lahetetty' kun sähköposti lähti, 'epaonnistui' (+ virhe) jos ei (kuten Excel- ja massakutsu)
       lahettaja:   tila.kayttaja?.uid || 'tuntematon',
     });
 
@@ -3813,6 +3822,7 @@ async function lahetaRekisteriSahkoposti() {
         sukunimi: sukunimi,
         joukkue:  joukkue,
       });
+      await kutsuRef.update({ tila: 'lahetetty', lahetetty: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => {});
       nappi.textContent = tmHT('✓ Lähetetty');
       nappi.style.background = 'var(--teal)';
       nappi.style.color = '#000';
@@ -3820,6 +3830,7 @@ async function lahetaRekisteriSahkoposti() {
       naytaToast((tmHT('✅ Rekisteröintikutsu lähetetty osoitteeseen') + ' ') + tila._rekHEmail, 'ok');
     } catch(fnErr) {
       console.warn('[Kutsu] Sähköposti epäonnistui:', fnErr.message);
+      await kutsuRef.update({ tila: 'epaonnistui', virhe: String(fnErr.message || fnErr).slice(0, 300) }).catch(() => {});
       naytaToast((tmHT('⚠️ Tallennettu mutta sähköposti ei lähtenyt:') + ' ') + fnErr.message, 'virhe');
       nappi.textContent = tmHT('Tallennettu ✓');
       naytaToast(`Kutsu tallennettu: ${tila._rekHEmail}`, 'ok');
@@ -4645,11 +4656,9 @@ async function naytaPelaajaTiedot(pelaajaId) {
     ? kutsut.map(k => {
         const pvm = k.luotu?.seconds
           ? new Date(k.luotu.seconds*1000).toLocaleDateString('fi-FI') : '—';
-        const tila_k = k.tila === 'hyvaksytty' ? '✓ Hyväksytty'
-          : k.tila === 'odottaa' ? tmHT('⏳ Odottaa')
-          : k.tila || '—';
-        const vari = k.tila === 'hyvaksytty' ? 'var(--teal)'
-          : k.tila === 'odottaa' ? 'var(--amber)' : 'var(--ink3)';
+        const tila_k = tmHT(TM_SEURA_TUONTI.tmSeuraKutsuTilaTeksti(k.tila));
+        const vari = k.tila === 'hyvaksytty' || k.tila === 'lahetetty' ? 'var(--teal)'
+          : k.tila === 'odottaa' ? 'var(--amber)' : k.tila === 'epaonnistui' ? 'var(--red)' : 'var(--ink3)';
         return `<div style="display:flex;justify-content:space-between;align-items:center;
           padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;">
           <div>
@@ -4817,11 +4826,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
             document.getElementById('${modalId}').classList.remove('auki');
             window.open('TalentMaster_VP_v25.html?seura=${encodeURIComponent(tila.seuraId)}&pelaaja=${encodeURIComponent(pelaajaId)}&nakyma=kehitys', '_blank');
           ">
-          ${tmHT('📋 Avaa kehityskortti (IDP)')}
-        </button>
-        <button class="lisaaNappi" style="background:rgba(40,176,144,.12);border:1px solid rgba(40,176,144,.3);flex:1;"
-          onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModalPelaajalle(_pkd.pelaajaId, _pkd.etunimi, _pkd.sukunimi, _pkd.joukkue, _pkd.huoltajaEmail, _pkd.palloID);">
-          ${tmHT('✉️ Lähetä rekisteröintikutsu')}
+          ${tmHT('📋 Avaa kehityssuunnitelma')}
         </button>
         ${!onAnnettu ? `
         <button class="lisaaNappi" style="background:rgba(42,93,176,.15);flex:1;"

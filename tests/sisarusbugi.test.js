@@ -55,6 +55,7 @@ function seura(SEURA_LAHDE, lisat) {
     _pinVirheTeksti: () => 'x',
     _tmPelaajanKieli: () => ({}),
     tmOnPaikkamerkkiOsoite: PM.tmOnPaikkamerkkiOsoite, PAIKKAMERKKI_SYY: PM.PAIKKAMERKKI_SYY,
+    TM_SEURA_TUONTI: require_(join(ROOT, 'lib', 'tm_seura_tuonti.js')),   // 21.10.2026: kutsuikkunan joukkue + nimien trimmaus tulevat tästä libistä
     paivitaJoukkueValitsin() {}, naytaModalVirhe() {}, naytaToast() {},
     naytaPelaajaTiedot: (id) => loki.avattu.push(id),
     confirm: (t) => { loki.confirm.push(t); return ctx._confirmVastaus !== false; },
@@ -335,7 +336,7 @@ describe('Seura · suostumuksen uusiminen (ajettu)', () => {
     expect(l.searchParams.get('pelaajaId')).toBe('u1');
     expect(l.searchParams.get('suostumusAnnettu')).toBe('2026-06-12');
     expect(l.searchParams.get('kutsuId')).toBeTruthy();
-    expect(t.kutsut()[0].tila).toBe('odottaa');
+    expect(t.kutsut()[0].tila).toBe('lahetetty');   // 21.10.2026: onnistuneen lähetyksen jälkeen 'lahetetty' (vahvistaSuostumus hyväksyy sen avoimena kutsuna: AVOIMET_KUTSUTILAT)
   });
   it('annettu ilman päivämäärää → vahvistus ilman päivää, linkissä suostumusAnnettu=annettu', async () => {
     const t = seura(null, [Object.assign({}, ANNETTU, { suostumusAnnettu: undefined, suostumus: { annettu: true } })]);
