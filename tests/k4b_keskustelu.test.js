@@ -155,3 +155,17 @@ describe('luonnos selaimen tallennukseen (D100 sääntö 3): per pelaaja, try/ca
     return o.avaa('p1').then((ok) => { expect(ok).toBe(true); });
   });
 });
+
+describe('D3-vertailu: uusi sivu "Psyykkinen arvio" / "Pelaaja · Valmentajat · VP"; vanha renderöinti tavu tavulta ennallaan (Master/VP, Sibbo 1.11.)', () => {
+  const SNAP = JSON.parse(lue('tests/fixtures/d3_vertailu_vanha.json')), A = { inner_drive: { pelaaja: 5, valmentaja: 3, vp: 3 }, coachability: { pelaaja: 4, valmentaja: 4 }, focus: { pelaaja: 2, valmentaja: 4 } }, B = { resilience: { pelaaja: 3, valmentaja: 3, vp: 3 } };
+  it('oletus (ilman optiota) = snapshot origin/mainin renderöinnistä: otsikko "D3 kalibraatio", sarakkeet Pel/Val/VP, 30 px, vihje', () => {
+    expect(N.renderD3VertailuHTML(A)).toBe(SNAP.a); expect(N.renderD3VertailuHTML(B)).toBe(SNAP.b); expect(N.renderD3VertailuHTML({})).toBe(SNAP.e); expect(N.renderD3VertailuHTML(null)).toBe(SNAP.n);
+    expect(SNAP.a).toContain('D3 kalibraatio'); expect(SNAP.a).toContain('>Pel<'); expect(SNAP.a).toContain('VP ei ole vielä arvioinut'.slice(0, 0));
+  });
+  it('uusi sivu: sheetin osio 2 näyttää "Psyykkinen arvio" ja "Pelaaja / Valmentajat / VP"; ei D3/Pel/Val/kalibraatio-sanastoa; samat luvut ja ⚠', () => {
+    const h = KE.tmKeSheetHTML(S({ pid: 'p1' }), { esc: String, t: (k) => k, p: pel({ d3_viimeisin: { pisteet: A } }), sovitutFn: 'a', kausiFn: 'b', tallennaFn: 'c', suljeFn: 'd', asetaFn: 'e', uudelleenFn: 'f', raporttiFn: 'g', nyt: NYT });
+    const t = h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    expect(t).toContain('Psyykkinen arvio Pelaaja Valmentajat VP'); expect(t).not.toMatch(/D3|kalibraatio|>Pel<|\bVal\b|\bPel\b/i); expect(h).toContain('⚠');
+    expect(N.renderD3VertailuHTML(A, { otsikko: 'O', sarakkeet: ['a', 'b', 'c'], kuilu: 'k' })).toContain('title="k"');
+  });
+});

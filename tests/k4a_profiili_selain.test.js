@@ -34,8 +34,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
       expect(await p.locator('[data-tc-fokus]').getAttribute('data-tc-kortti')).toBe('tekninen'); expect(await p.locator('[data-tc-fokus] .tc-badge.f').innerText()).toBe('Jakson fokus · Harhauttaminen');
       expect(await p.locator('[data-tc-fokus] .tc-rivi').count()).toBe(4);   // fokuskortti: 4 riviä (mockup); muut ≤ 3
       for (const a of ['fyysinen', 'peli', 'keho']) expect(await p.locator('[data-tc-kortti="' + a + '"] .tc-rivi').count()).toBeLessThanOrEqual(a === 'peli' ? 4 : 3);   // K4a2: Peli näyttää kaikki ikätason ADAR-ulottuvuudet (13-v: 3) + psyykkinen arvio
-      expect(await p.locator('[data-kn-kaikki]').getAttribute('open')).toBeNull();   // suljettuna oletuksena
-      expect(await p.locator('[data-kn-kaikki] > summary').innerText()).toContain('Näytä kaikki mittaukset');
+      expect(await p.locator('.mk-tausta').count()).toBe(0);   // K4c: "Näytä kaikki mittaukset" avaa sheetin (suljettuna oletuksena); vanhaa raakalistaa ei ole
+      expect(await p.locator('[data-kn-kaikki-avaa]').innerText()).toContain('Näytä kaikki mittaukset'); expect(await p.locator('[data-kn-kaikki]').count()).toBe(0);
       expect(await p.locator('[data-tc-raportti]').count()).toBe(1);
       const n = await luvut(p); console.log('K4a luvut oletusnäkymässä (Topias, 1280):', n); expect(n).toBeLessThanOrEqual(30); expect(n).toBeGreaterThan(8);
       expect(await vaakaOk(p)).toBe(true); expect(await p.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
@@ -54,8 +54,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
   it('LINKITYKSET: Näytä testihistoria avaa K2-lohkot · Kehityskohde (jakso käynnissä) → Polku · Ota puheeksi → Tänään · Pelaajaraportti/Mittaus = olemassa olevat kohteet', async () => {
     await avaa(); try {
       const { sk, p, virheet } = await avaaProfiili(selain, TOPIAS.id); await odota(p);
-      await p.locator('[data-tc-kortti="fyysinen"] [data-tc-toiminto="testihistoria"]').click(); expect(await p.locator('[data-kn-kaikki]').getAttribute('open')).not.toBeNull();
-      expect(await p.locator('[data-kn-kaikki]').textContent()).toContain('Perustiedot'); await p.waitForSelector('[data-kn-kaikki] .kt-otsikko-pieni', { timeout: 8000 });
+      await p.locator('[data-tc-kortti="fyysinen"] [data-tc-toiminto="testihistoria"]').click(); await p.waitForSelector('.mk-tausta', { timeout: 8000 });   // K4c: sheet, Fyysinen-osio + kortin käyrän testi (30 m) auki
+      expect(await p.locator('#mkH-fyysinen-lin30m').isVisible()).toBe(true); await p.locator('[data-mk-sulje]').click(); expect(await p.locator('.mk-tausta').count()).toBe(0);
       await p.locator('[data-tc-fokus] [data-tc-toiminto="polku"]').click(); await p.waitForFunction(() => /\/polku$/.test(location.hash)); expect(await p.locator('[data-kt-valilehti="polku"]').getAttribute('aria-selected')).toBe('true');
       await p.locator('[data-kt-valilehti="profiili"]').click(); await odota(p);
       await p.locator('[data-tc-kortti="peli"] [data-tc-toiminto="puheeksi"]').click(); await p.waitForFunction(() => /\/tanaan$/.test(location.hash));
@@ -141,15 +141,12 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
       expect(await k2.p.evaluate(() => location.hash)).toBe('#pelaaja/k4a_topias/profiili'); expect(await k2.p.locator('[data-kt-valilehti="profiili"]').getAttribute('aria-selected')).toBe('true'); await k2.sk.close();
     } finally { await selain.close(); }
   }, 120000);
-  it('LASKEVA TREND ja virhe: korttirenderin virhe näkyy viestinä (ei tyhjää); K2-lohkojen lataus ei estä kortteja', async () => {
+  it('korttirenderin virhe näkyy viestinä (ei tyhjää); Profiili ei lataa testitapahtumia', async () => {
     await avaa(); try {
       const { sk, p, virheet } = await avaaProfiili(selain, TOPIAS.id, { dokit: DOKIT }); await odota(p);
       expect(await p.locator('[data-tc-virhe]').count()).toBe(0);
+      expect(await p.evaluate(() => window.__pyynnot.filter((x) => /testitapahtumat/.test(x)).length)).toBe(0);   // K4c: Profiili ei hae testitapahtumia (vanha raakalista ei ole täällä)
       await sk.close();
-      const v = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/' + TOPIAS.id + '/profiili', pelaajat: PEL, dokit: DOKIT, vika: ['testitapahtumat'] }); await odota(v.p);
-      expect(await v.p.locator('[data-tc-kortti]').count()).toBe(5);   // kortit eivät riipu testitapahtumista
-      await v.p.locator('[data-testihistoria], [data-tc-toiminto="testihistoria"]').first().click(); await v.p.waitForSelector('[data-kn-tila="virhe"]', { timeout: 10000 });
-      expect(await v.p.locator('[data-kn-kaikki]').textContent()).toContain('Mittauksia ei saatu haettua'); await v.sk.close();
     } finally { await selain.close(); }
   }, 120000);
   it('KUVAT 390 tumma + 1280 vaalea (TM_KUVAT=1)', async () => {
