@@ -141,11 +141,13 @@ describe('C — nosto seuratasolle on kuratointitoimi', () => {
   it('kaikki uudet tekstit ovat sv-kartassa', () => {
     const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
       + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
-    ['Nosta seuratasolle', 'Kaavio nostettu seuratasolle', 'Ei oikeutta nostaa seuratasolle',
-     'Seuratason kaavion asettaa valmennuspäällikkö katselmuksessa.'].forEach((k) => {
+    ['Nosta seuratasolle', 'Kaavio nostettu seuratasolle', 'Ei oikeutta nostaa seuratasolle'].forEach((k) => {
       expect(UI, k).toContain("_kuiT('" + k + "')");
       expect(sv, k).toContain("'" + k + "':");
     });
+    /* K1e (erä 85): sanasto D250 — "katselmus" pois kaaviopankista; uusi teksti odottaa sv:tä (PM), vanha avain poistettu */
+    expect(UI).toContain("_kuiT('Seuratason kaavion asettaa valmennuspäällikkö hyväksynnässä.')");
+    expect(sv).not.toContain('Seuratason kaavion asettaa valmennuspäällikkö katselmuksessa.');
   });
 });
 

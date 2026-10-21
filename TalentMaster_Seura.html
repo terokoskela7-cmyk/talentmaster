@@ -27,7 +27,7 @@
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
 <script src="lib/tm_lang.js?v=50"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_i18n_common.js?v=15"></script>
+<script src="lib/tm_i18n_common.js?v=17"></script>
 <script src="lib/tm_henkilosto_i18n.js?v=10"></script>   <!-- sv-läpiajo PR 4: tmHT — teksti-avainreititin (Seurahallinta pysyy suomeksi 1.10. päätöksellä; sv-kartta tyhjä) -->
 <script src="lib/tm_joukkue.js?v=6"></script>
 <script src="lib/tm_seura_tuonti.js?v=1"></script>   <!-- Seura-tuonnin ja kutsun pure-säännöt: olemassa oleva pelaaja, monta sähköpostia, PalloID merkkijonona, kutsuikkunan joukkue -->
@@ -551,6 +551,19 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   .ke-kriteeri { grid-template-columns:1fr auto; }
   .ke-toim { flex:1 1 100%; } .ke-toim-kevyt { margin-left:0; }
   .ke-suod { width:100%; } .ke-ryhma { width:100%; } .ke-ryhma .ke-vaihto { flex:1; }
+}
+/* Excel-tuonnin esikatselu kapealla näytöllä (<600 px): rivi korttina, STATUS + Päivitä nimen alle (ei vaakavieritystä) */
+@media(max-width:600px){
+  #excelEsikatselu table { min-width:0 !important; }
+  #excelEsikatselu thead { display:none; }
+  #excelEsikatselu tr.excelPelRivi { display:grid; grid-template-columns:auto auto 1fr; column-gap:14px; align-items:center; }
+  #excelEsikatselu tr.excelPelRivi > td { display:block; min-width:0; overflow-wrap:anywhere; }
+  #excelEsikatselu td.excT-nimi { grid-column:1 / -1; order:1; padding-bottom:0 !important; }
+  #excelEsikatselu td.excT-status { grid-column:1 / -1; order:2; display:flex !important; flex-wrap:wrap; align-items:center; gap:2px 14px; padding-top:2px !important; }
+  #excelEsikatselu td.excT-status label { margin-top:0 !important; }
+  #excelEsikatselu td.excT-joukkue, #excelEsikatselu td.excT-pallo, #excelEsikatselu td.excT-tal { order:3; padding-top:2px !important; padding-bottom:2px !important; }
+  #excelEsikatselu td.excT-email { grid-column:1 / -1; order:4; padding-top:2px !important; }
+  #excelEsikatselu tr.excelSelitys, #excelEsikatselu tr.excelSelitys > td { display:block; }
 }
 @media(max-width:480px){
   .kpiRivi { grid-template-columns:1fr; }
@@ -1144,7 +1157,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 
 <!-- ══ EXCEL-TUONTI MODAL ══ -->
 <div class="modalTausta" id="excelTuontiModal">
-  <div class="modalKortti" style="max-width:620px;">
+  <div class="modalKortti" style="max-width:780px;">
     <button class="modalSuljeNappi" onclick="suljeModal('excelTuontiModal')">✕ Sulje</button>
     <div class="modalOtsikko" style="clear:both;">📥 Tuo pelaajat Excelistä</div>
     <div class="modalKuvaus">
@@ -1183,8 +1196,8 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
         <input type="checkbox" id="excelPaivitaKaikki" checked onchange="excelPaivitaKaikkiMuuta(this.checked)">
         <span id="excelPaivitaTeksti">Päivitä olemassa olevat pelaajat Excelin mukaan</span>
       </label>
-      <div style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
-        <table style="width:100%;border-collapse:collapse;">
+      <div id="excelEsikatseluKaare" style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:8px;">
+        <table style="width:100%;min-width:620px;border-collapse:collapse;">
           <thead>
             <tr style="background:var(--bg3);">
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Nimi</th>
@@ -6488,35 +6501,44 @@ function avaaExcelTuontiModal() {
   document.getElementById('excelTuontiModal').classList.add('auki');
 }
 
-/* Esikatselun rivin tila (21.10.2026): Uusi / Jo järjestelmässä + mikä eroaa Excelistä (joukkue, syntymävuosi, huoltajan sähköposti, suostumus). Palauttaa { status, vari, lisa } (HTML). */
+/* Esikatselun rivin tila (21.10.2026): STATUS-sarakkeeseen vain lyhyt merkki (Uusi / Jo järjestelmässä / ⛔ Virhe / ⚠️ Huomio) + Päivitä-ruutu;
+   selitykset (virhe, kutsun osoite, erot Excelistä) omalle täysleveälle alariville (_excelRiviSelitys). Palauttaa { status, vari, paivita, selitykset: [{ t, vari }] }. */
 function _excelRiviStatus(p, i) {
-  const T = TM_SEURA_TUONTI, rivi = (t) => '<div style="color:var(--ink3);margin-top:2px;">' + tmEsc(t) + '</div>', fmt = (t, m) => tmHT(t).replace(/\{(\w+)\}/g, (_, k) => (m && m[k] != null ? m[k] : ''));
-  const nimiOk = p.etunimi || p.sukunimi, emailOk = !!p.huoltajaEmail;
+  const T = TM_SEURA_TUONTI, fmt = (t, m) => tmHT(t).replace(/\{(\w+)\}/g, (_, k) => (m && m[k] != null ? m[k] : ''));
+  const nimiOk = p.etunimi || p.sukunimi, emailOk = !!p.huoltajaEmail, sel = [];
+  const NEUTR = 'var(--ink3)', PUN = 'var(--red)', OR = 'var(--amber)';
   let status, vari = 'var(--teal)';
-  if (p._hylatty) { status = '⛔ ' + p._hylatty; vari = 'var(--red)'; }
-  else if (!nimiOk) { status = tmHT('⚠️ Nimi puuttuu'); vari = 'var(--amber)'; }
-  else if (p._eiVuotta) { status = tmHT('⚠️ Syntymävuosi puuttuu – riviä ei tuoda'); vari = 'var(--amber)'; }
-  else if (p._emailUseita) { status = '⛔ ' + tmHT('Yksi sähköposti per solu'); vari = 'var(--red)'; }
-  else if (p._emailVirhe) { status = '⛔ ' + tmHT('Sähköposti virheellinen – kutsua ei lähetetä'); vari = 'var(--red)'; }
-  else if (!p.joukkue) { status = tmHT('⚠️ Joukkue?'); vari = 'var(--amber)'; }
-  else if (p._joukkueOrpo) { status = tmHT('⚠️ Joukkue ei listassa'); vari = 'var(--amber)'; }   // #92 warn-not-block
-  else if (!emailOk) { status = '⚠️ Email?'; vari = 'var(--amber)'; }
-  else if (p._olemassa) { status = '↻ ' + tmHT('Jo järjestelmässä'); }
+  if (p._hylatty) { status = '⛔ ' + tmHT('Virhe'); vari = PUN; sel.push({ t: p._hylatty, vari: PUN }); }
+  else if (!nimiOk) { status = tmHT('⚠️ Nimi puuttuu'); vari = OR; }
+  else if (p._eiVuotta) { status = tmHT('⚠️ Huomio'); vari = OR; sel.push({ t: tmHT('⚠️ Syntymävuosi puuttuu – riviä ei tuoda'), vari: OR }); }
+  else if (p._emailVirhe) { status = '⛔ ' + tmHT('Virhe'); vari = PUN; sel.push({ t: tmHT('Sähköposti virheellinen – kutsua ei lähetetä'), vari: PUN }); }
+  else if (!p.joukkue) { status = tmHT('⚠️ Joukkue?'); vari = OR; }
+  else if (p._joukkueOrpo) { status = tmHT('⚠️ Huomio'); vari = OR; sel.push({ t: tmHT('⚠️ Joukkue ei listassa'), vari: OR }); }   // #92 warn-not-block
+  else if (!emailOk) { status = '⚠️ Email?'; vari = OR; }
+  else if (p._olemassa) status = '↻ ' + tmHT('Jo järjestelmässä');
   else status = '✓ ' + tmHT('Uusi');
-  let lisa = '';
-  if (p._emailUseita && !p._hylatty) lisa += rivi(fmt('Kutsu lähtee: {osoite}. Muut huoltajat lisätään myöhemmin.', { osoite: p.huoltajaEmail || '—' }));
+  if (p._emailUseita && !p._hylatty) {   // monen osoitteen solu: ensimmäinen käytössä → oranssi huomio (ei punainen virhe)
+    sel.push({ t: tmHT('Yksi sähköposti per solu'), vari: OR });
+    sel.push({ t: fmt('Kutsu lähtee: {osoite}. Muut huoltajat lisätään myöhemmin.', { osoite: p.huoltajaEmail || '—' }), vari: NEUTR });
+  }
+  let paivita = '';
   if (p._olemassa && p._ero && !p._hylatty && !p._eiVuotta) {
     const e = p._ero;
-    if (!status.includes(tmHT('Jo järjestelmässä'))) lisa += rivi('↻ ' + tmHT('Jo järjestelmässä'));
-    if (e.joukkue.muuttuu) lisa += rivi(fmt('Joukkue: {vanha} → {uusi}', { vanha: e.joukkue.vanha || '—', uusi: e.joukkue.uusi }));
-    if (e.syntymavuosi.tila === 'puuttuu') lisa += rivi(fmt('Syntymävuosi puuttuu → {uusi}', { uusi: e.syntymavuosi.uusi }));
-    else if (e.syntymavuosi.tila === 'eri') lisa += rivi(fmt('Syntymävuosi: {vanha} (Excelissä {uusi})', { vanha: e.syntymavuosi.vanha, uusi: e.syntymavuosi.uusi }));
-    if (e.email.tila === 'puuttuu') lisa += rivi(tmHT('Sähköposti puuttuu → lisätään'));
-    else if (e.email.tila === 'eri') lisa += rivi(tmHT(e.suostumus === 'annettu' ? 'Sähköposti eri – ei vaihdeta (suostumus annettu)' : 'Sähköposti eri → päivitetään'));
-    lisa += rivi(tmHT({ annettu: 'Suostumus: annettu', odottaa: 'Suostumus: kutsu lähetetty', ei_kutsua: 'Suostumus: ei kutsua' }[e.suostumus]));
-    lisa += '<label style="display:flex;align-items:center;gap:6px;margin-top:4px;cursor:pointer;color:var(--ink2);"><input type="checkbox" class="excelRivi" data-i="' + i + '" checked> ' + tmEsc(tmHT('Päivitä')) + '</label>';
+    if (e.joukkue.muuttuu) sel.push({ t: fmt('Joukkue: {vanha} → {uusi}', { vanha: e.joukkue.vanha || '—', uusi: e.joukkue.uusi }), vari: NEUTR });
+    if (e.syntymavuosi.tila === 'puuttuu') sel.push({ t: fmt('Syntymävuosi puuttuu → {uusi}', { uusi: e.syntymavuosi.uusi }), vari: NEUTR });
+    else if (e.syntymavuosi.tila === 'eri') sel.push({ t: fmt('Syntymävuosi: {vanha} (Excelissä {uusi})', { vanha: e.syntymavuosi.vanha, uusi: e.syntymavuosi.uusi }), vari: NEUTR });
+    if (e.email.tila === 'puuttuu') sel.push({ t: tmHT('Sähköposti puuttuu → lisätään'), vari: NEUTR });
+    else if (e.email.tila === 'eri') sel.push({ t: tmHT(e.suostumus === 'annettu' ? 'Sähköposti eri – ei vaihdeta (suostumus annettu)' : 'Sähköposti eri → päivitetään'), vari: NEUTR });
+    sel.push({ t: tmHT({ annettu: 'Suostumus: annettu', odottaa: 'Suostumus: kutsu lähetetty', ei_kutsua: 'Suostumus: ei kutsua' }[e.suostumus]), vari: NEUTR });
+    paivita = '<label style="display:flex;align-items:center;gap:6px;margin-top:4px;cursor:pointer;color:var(--ink2);white-space:nowrap;"><input type="checkbox" class="excelRivi" data-i="' + i + '" checked> ' + tmEsc(tmHT('Päivitä')) + '</label>';
   }
-  return { status, vari, lisa };
+  return { status, vari, paivita, selitykset: sel };
+}
+/* Selitykset täysleveälle alariville: yksi asia per rivi, rivitys sallittu, ei leikkausta. Sticky-laatikon leveys = vierityskääreen näkyvä leveys (--excelKaare, asetetaan renderin jälkeen). */
+function _excelRiviSelitys(st) {
+  if (!st.selitykset.length) return '';
+  return '<tr class="excelSelitys" style="border-bottom:1px solid var(--border);"><td colspan="6" style="padding:0 10px 8px;"><div style="position:sticky;left:0;box-sizing:border-box;width:var(--excelKaare,100%);max-width:100%;padding-right:20px;font-size:11px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;">'
+    + st.selitykset.map(x => '<div style="color:' + x.vari + ';margin-top:2px;">' + tmEsc(x.t) + '</div>').join('') + '</div></td></tr>';
 }
 function excelPaivitaKaikkiMuuta(v) { document.querySelectorAll('.excelRivi').forEach(c => { c.checked = !!v; }); }
 function _excelPaivitaValittu(i) {   // rivikohtainen valinta; puuttuessa globaali
@@ -6652,15 +6674,17 @@ function kasitteleExcelTuonti(event) {
       if (tbody) tbody.innerHTML = _excelData.map((p, i) => {
         const onTalentti = p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k';
         const st = _excelRiviStatus(p, i);
-        return `<tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:7px 10px;font-size:12px;font-weight:600;">${tmEsc(p.etunimi)} ${tmEsc(p.sukunimi)}</td>
-          <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${tmEsc(p.joukkue || '—')}</td>
-          <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:${p.palloId ? 'var(--ink2)' : 'var(--ink3)'};">${tmEsc(p.palloId || '—')}</td>
-          <td style="padding:7px 10px;font-size:12px;">${onTalentti ? '<span style="color:var(--teal);font-weight:700;">⭐ ' + (p.talenttiTaso||'perus') + '</span>' : '<span style="color:var(--ink3);">—</span>'}
-          <td style="padding:7px 10px;font-size:12px;color:${(p._hylatty || p._emailVirhe || p._emailUseita) ? 'var(--red)' : 'var(--teal)'};">${tmEsc(p.huoltajaEmail || p._emailRaaka || '—')}</td>
-          <td style="padding:7px 10px;font-size:11px;color:${st.vari};">${st.status}${st.lisa}</td>
-        </tr>`;
+        const emailPun = p._hylatty || p._emailVirhe;   // punainen vain virheellisestä osoitteesta
+        return `<tr class="excelPelRivi" style="${st.selitykset.length ? '' : 'border-bottom:1px solid var(--border);'}">
+          <td class="excT-nimi" style="padding:7px 10px;font-size:12px;font-weight:600;">${tmEsc(p.etunimi)} ${tmEsc(p.sukunimi)}</td>
+          <td class="excT-joukkue" style="padding:7px 10px;font-size:12px;color:var(--ink3);">${tmEsc(p.joukkue || '—')}</td>
+          <td class="excT-pallo" style="padding:7px 10px;font-size:11px;font-family:monospace;color:${p.palloId ? 'var(--ink2)' : 'var(--ink3)'};">${tmEsc(p.palloId || '—')}</td>
+          <td class="excT-tal" style="padding:7px 10px;font-size:12px;">${onTalentti ? '<span style="color:var(--teal);font-weight:700;">⭐ ' + (p.talenttiTaso||'perus') + '</span>' : '<span style="color:var(--ink3);">—</span>'}</td>
+          <td class="excT-email" style="padding:7px 10px;font-size:12px;color:${emailPun ? 'var(--red)' : 'var(--teal)'};">${tmEsc(p.huoltajaEmail || p._emailRaaka || '—')}</td>
+          <td class="excT-status" style="padding:7px 10px;font-size:11px;color:${st.vari};white-space:nowrap;">${st.status}${st.paivita}</td>
+        </tr>${_excelRiviSelitys(st)}`;
       }).join('');
+      { const _k = document.getElementById('excelEsikatseluKaare'); if (_k && _k.style && _k.style.setProperty) _k.style.setProperty('--excelKaare', _k.clientWidth + 'px'); }
       { const _vr = document.getElementById('excelPaivitaRivi'), _on = _excelData.some(p => p._olemassa && !p._hylatty && !p._eiVuotta);
         if (_vr) { _vr.style.display = _on ? 'flex' : 'none'; const _sp = document.getElementById('excelPaivitaTeksti'); if (_sp) _sp.textContent = tmHT('Päivitä olemassa olevat pelaajat Excelin mukaan'); } const _g = document.getElementById('excelPaivitaKaikki'); if (_g) _g.checked = true; }
 

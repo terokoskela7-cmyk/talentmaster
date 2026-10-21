@@ -114,7 +114,7 @@ async function testituonti(m, pvm, s) {
 // ─── Excel_Tuonti-referenssi: ajetaan Excelin OMAA koodia (TKI-lohko + pvm-vahti + recalcHH:n kehityskohde) ──────
 const EX = lue('TalentMaster_Excel_Tuonti.html');
 function excelReferenssi(fd, pvmIso, s, uusiHhTaso) {
-  const ctx = { tmPaivaIso: PVM_LIB.tmPaivaIso, hhKehityskohde: N.hhKehityskohde, normiIka: N.normiIka, tmPhvKoodi: require('../lib/tm_phv_tila.js').tmPhvKoodi, Math, Object, Array, String, Date, parseFloat, parseInt, isNaN };
+  const ctx = { tmPaivaIso: PVM_LIB.tmPaivaIso, hhKehityskohde: N.hhKehityskohde, normiIka: N.normiIka, tmPhvKoodi: require('../lib/tm_phv_tila.js').tmPhvKoodi, TM_HISTORIATUONTI: require('../lib/tm_historiatuonti.js'), Math, Object, Array, String, Date, parseFloat, parseInt, isNaN };
   vm.createContext(ctx);
   const recalc = EX.indexOf('window.recalcHH = async function');
   const segAlku = EX.indexOf("    const joukkue = p.joukkue || (Array.isArray(p.joukkueet)", recalc);
@@ -133,6 +133,7 @@ function excelReferenssi(fd, pvmIso, s, uusiHhTaso) {
     '  (function (sp) {',                                      // prosessoiExcel: TKI-lohko + profiiliUpdate + pvm-vahti
     EX.slice(tkiAlku, EX.indexOf('\n', tkiAlku)), tkiBlokki,
     '  if (vahvuus) profiiliUpdate.tki_vahvuus = vahvuus; if (kehityskohde) profiiliUpdate.tki_kehityskohde = kehityskohde;',
+    '  const _pd = TM_HISTORIATUONTI.paata(p._firestoreData, { pvm: pvmIso, hh: { lin30m: hv.lin30m }, tki: true }); const _tkW = tki !== null && _pd.tki.uusi;',   // uusin voittaa -päätös (lib) kuten tallennuksessa
     vahti,
     '  })(spTki);',
     '  { p = Object.assign({}, p, { hh_pvm: pvmIso, hh_viimeisin: hv });',   // recalcHH ajetaan tuonnin jälkeen (oma skooppi)

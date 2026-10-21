@@ -97,8 +97,8 @@ describe('Kytkennät: Pelaaja_v7 + VP + Koulutus', () => {
     expect(P).toMatch(/d\.key === 'PSY' && p\.d3_taso != null\) return Math\.max\(1, Math\.min\(5, Math\.round\(p\.d3_taso\)\)\)/);
   });
   it('VP: _dimNorm5Adar = tmAdarNorm5 (lineaarinen 1–5)', () => { expect(V).toMatch(/function _dimNorm5Adar\(yht\) \{ return tmAdarNorm5\(yht\); \}/); });
-  it('Koulutus: palautumisosiossa ei 15 s -sääntöä eikä kellotusta', () => {
+  it('Koulutus: reagointiosiossa (K1e: R = Reagointi) ei 15 s -sääntöä eikä kellotusta', () => {
     expect(K).not.toMatch(/15 sekunnin|Käytä kelloa|alle 15|15–30s|Yli 30s/);
-    expect(K).toContain('Palasiko hän peliin heti virheen jälkeen?'); expect(K).toContain('Palaako peliin heti virheen jälkeen?'); expect(K).toContain('älä kellota.');
+    expect(K).toContain('Miten hän reagoi tilanteen jälkeen — jatkoiko hän peliä heti?'); expect(K).toContain('Miten pelaaja reagoi tilanteen jälkeen?');   // K1e: R = Reagointi expect(K).toContain('älä kellota.');
   });
 });

@@ -27,7 +27,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
       const { sk, p, virheet } = await avaaProfiili(selain, TOPIAS.id, { teema: 'light' }); await odota(p);
       const tabit = await p.locator('[data-kt-valilehti]').evaluateAll((l) => l.map((e) => e.textContent.trim())); expect(tabit).toEqual(['Tänään', 'Polku', 'Profiili']);
       expect(await p.locator('[data-kt-valilehti="profiili"]').getAttribute('aria-selected')).toBe('true'); expect(await p.locator('[data-kt-valilehti="naytto"]').count()).toBe(0);
-      const yht = await p.locator('.tc-s-yht').innerText(); expect(yht).toContain('Kuljetus ja laukaus'); expect(yht).toContain('Syöttö'); expect(yht).toContain('Kasvumittaus'); expect(yht).toMatch(/Viimeisin testi 4\.10\.2026 · 2 vk sitten/);
+      const yht = await p.locator('.tc-s-yht').innerText(); expect(yht).toContain('Kuljetus ja laukaus'); expect(yht).toContain('Syöttö'); expect(yht).toContain('Kasvumittaus'); expect(yht).toMatch(/Testattu 4\.10\. · 2 vk(?! sitten)/);
       expect(await p.locator('.tc-nauha').count()).toBe(5); expect(await p.locator('[data-tc-nauha="kasvu"] .tc-bar i.tyhja').count()).toBe(1); expect(await p.locator('[data-tc-nauha="kasvu"]').innerText()).toContain('ei mitattu');
       expect(await p.locator('.tc-nauha-sek').innerText()).toContain('4,5 / 5');
       const kortit = await p.locator('[data-tc-kortti]').evaluateAll((l) => l.map((e) => e.getAttribute('data-tc-kortti'))); expect(kortit).toEqual(['tekninen', 'fyysinen', 'peli', 'keho', 'kasvu']);
