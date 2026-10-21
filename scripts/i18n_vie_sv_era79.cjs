@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { sopii, lataaSv, q } = require('./i18n_vie_sv_era53_19.cjs');
+const { era79Ohita } = require('./i18n_era81_tuki.cjs');   // K4a2: poistuneet/muuttuneet tc_-rivit ohitetaan (erä 81)
 const ROOT = path.join(__dirname, '..');
 const PALAUTUS = 'docs/i18n/sv_kaannoserae_79_palautus.json', LAHETYS = 'docs/i18n/sv_kaannoserae_79_gemini.json';
 const OSIOT = { 'lib.tm_todistekortit': 'lib/tm_todistekortit.js', 'lib.tm_kehitystyopoyta': 'lib/tm_kehitystyopoyta.js' };
@@ -19,6 +20,7 @@ function vie(opts) {
     if (JSON.stringify(Object.keys(P[OSIO].rivit).sort()) !== JSON.stringify(Object.keys(G[OSIO].rivit).sort())) virheet.push(OSIO + ': avaimet ≠ lähetetty erä');
     const TX = require(path.join(juuri, tiedosto));
     for (const [k, r] of Object.entries(P[OSIO].rivit)) {
+      if (era79Ohita(k)) continue;   // K4a2: korvattu erällä 81
       if (r.fi !== TX.FI[k] || r.fi !== (G[OSIO].rivit[k] || {}).fi) { virheet.push(k + ': fi ei vastaa lähetettyä erää/koodin lähdettä'); continue; }
       const syy = sopii(r.fi, r.sv); if (syy) { virheet.push(k + ': ' + syy); continue; }
       if (typeof ol[k] === 'string') { if (ol[k] === r.sv) ohitettu.push(k); else virheet.push(k + ': jo koodissa eri sv:llä'); continue; }
