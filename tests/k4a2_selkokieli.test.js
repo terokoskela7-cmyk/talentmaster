@@ -77,7 +77,7 @@ describe('K4a2 · lähderivin päivä puuttuu', () => {
     expect(kortti(malli(Object.assign({}, ILMAN, { flei_historia: [{ flei: 60, pvm: '2026-10-04' }, { flei: 50, pvm: '2026-03-01' }] })).m, 'keho').lahdeTeksti).toBe('Kehon valmius -mittaus · 4.10.2026');
   });
   it('yhteenvedon "Viimeisin testi" huomioi historiasta löytyneen päivän', () => {
-    const m = malli(Object.assign({}, TOPIAS, { hh_pvm: undefined, tki_pvm: undefined, adar_viimeisin: null, flei_pvm: undefined, flei_historia: [{ flei: 62, pvm: '2026-10-10' }] })).m; expect(m.yhteenveto.viimeisin).toContain('10.10.2026');
+    const m = malli(Object.assign({}, TOPIAS, { hh_pvm: undefined, tki_pvm: undefined, adar_viimeisin: null, flei_pvm: undefined, flei_historia: [{ flei: 62, pvm: '2026-10-10' }] })).m; expect(m.yhteenveto.viimeisin).toContain('10.10.');
   });
 });
 

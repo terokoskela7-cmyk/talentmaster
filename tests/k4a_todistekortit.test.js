@@ -177,7 +177,7 @@ describe('K4a yhteenveto (Vahvuus · Kehityskohde · Puuttuu) samoista riveistä
   const { m } = malli(TOPIAS);
   it('Topias: vahvuus Kuljetus ja laukaus (tekninen 5/5), kehityskohde Syöttö (tekninen 2/5), puuttuu Kasvumittaus', () => {
     expect(m.yhteenveto.vahvuus).toMatchObject({ nimi: 'Kuljetus ja laukaus', meta: 'Tekninen · taso 5/5 · 4.10.' }); expect(m.yhteenveto.kehityskohde).toMatchObject({ nimi: 'Syöttö', meta: 'Tekninen · taso 2/5 · 4.10.' });
-    expect(m.yhteenveto.puuttuu.nimi).toBe('Kasvumittaus'); expect(m.yhteenveto.viimeisin).toBe('Viimeisin testi 4.10.2026 · 2 vk sitten');
+    expect(m.yhteenveto.puuttuu.nimi).toBe('Kasvumittaus'); expect(m.yhteenveto.viimeisin).toBe('Testattu 4.10. · 2 vk');
   });
   it('vahvuus vaatii vähintään tason 3/5 (60 %): vain matalia tasoja → "ei vielä"', () => {
     const { m: x } = malli(Object.assign({}, SJK, { sm_juoksu_viimeisin: null, sm_pallo_viimeisin: null })); expect(x.yhteenveto.vahvuus).toBe(null);
