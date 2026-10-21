@@ -9,7 +9,8 @@ const require = createRequire(import.meta.url);
 export const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const SIVU = 'file://' + join(JUURI, 'TalentMaster_Kehitystyopoyta.html');
 export const CHROME = [process.env.TM_CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].filter(Boolean).find((p) => existsSync(p));
-const NYT = Date.parse('2026-10-19T09:00:00+03:00');
+/* Paikallinen keskipäivä (ei kiinteä +03:00): lib laskee ajastuksen (klo 21–7) paikallisesta tunnista, joten 09:00+03:00 = 06:00 UTC:ssä olisi "yö" ja odotukset kaatuisivat TZ=UTC:ssä. */
+const NYT = new Date(2026, 9, 19, 12, 0).getTime();
 const ALKOI = new Date(NYT - 16 * 86400000).toISOString();
 
 export const PELAAJAT = [
