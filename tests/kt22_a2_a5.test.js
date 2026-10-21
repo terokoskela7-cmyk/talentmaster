@@ -19,7 +19,7 @@ describe('A2 · _jspVaihda V4:ssä', () => {
     const pid = siirry(true, null); pid.aja(3); expect(pid.loki).toEqual([['jsp', 3]]);   // ei aktiivista V4-pelaajaa → vanha reitti
   });
   it('Polun/Viikon CTA:t (Aloita jakso (Polku) →, avaa Kehitys →, Avaa katselmus →, 🩹) käyttävät _vpKtSiirry:a; lohko 20 on tyhjä V4:ssä', () => {
-    for (const teksti of ["vpT('Aloita jakso (Polku) →')", "vpT('avaa Kehitys →')", "vpT('Avaa katselmus →')", "Terveyssyy — katso Terveys/Mittaus-välilehti"]) {
+    for (const teksti of ["vpT('Aloita jakso (Polku) →')", "vpT('avaa Kehitys →')", "vpT('Tee jakson yhteenveto →')", "Terveyssyy — katso Terveys/Mittaus-välilehti"]) {
       const i = VP.indexOf(teksti); expect(i, teksti).toBeGreaterThan(0);
       const rivi = VP.slice(VP.lastIndexOf('\n', i) + 1, VP.indexOf('\n', i)); expect(rivi, teksti).toContain('_vpKtSiirry('); expect(rivi, teksti).not.toContain('_jspVaihda(');
     }

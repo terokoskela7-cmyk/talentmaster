@@ -42,7 +42,7 @@ function ymp({ kaada = false, demo = false, offline = false, pelaaja = {}, vt, e
     _mTuoreToken: async () => {}, _mVerkkoEnnenSulkua: () => !offline, _demo: demo, _seuraId: 'kpv', _db,
     toast: (t, k) => log.toastit.push([t, k]), masterT: (x) => x, console: { warn: (...a) => log.warn.push(a) }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), Date, Object, Array, Promise, Math, confirm: () => true,
   };
-  vm.createContext(sb);
+  sb.tmPaivaIso = require('./helpers/k1d_korvaukset.cjs').tmPaivaIso; vm.createContext(sb);
   vm.runInContext([pura('function _mJaksoVaihto('), pura('async function _mKirjoitaJaksofokus('), pura('window._ttVieTreeniin = async function'), pura('window._msAsetaFyysFokus = async function'),
     pura('window._ohjKaytaOhjelma = async function'), pura('window._mIdpVtAktivoi = async function'), pura('window._msTallenna = async function'), pura('function _kvkLahde(')].join(';\n') + ';', sb);
   return { sb, p, kirj, log };
@@ -58,7 +58,7 @@ describe('adapterit kutsuvat libiä — ei rinnakkaista päättelyä', () => {
   });
   it('kaikki 6 kirjoittavat _mKirjoitaJaksofokus:lla (update + arrayUnion; 6. = V4b-2 Hylkää valinta); Master lataa tm_kehityssilmukka.js', () => {
     expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(6);
-    expect(pura('async function _mKirjoitaJaksofokus(')).toMatch(/\.update\(upd\)/); expect(MASTER).toContain('lib/tm_kehityssilmukka.js?v=3');
+    expect(pura('async function _mKirjoitaJaksofokus(')).toMatch(/\.update\(upd\)/); expect(MASTER).toContain('lib/tm_kehityssilmukka.js?v=4');
     expect(MASTER.indexOf('tm_jaksokooste.js')).toBeLessThan(MASTER.indexOf('tm_kehityssilmukka.js'));
   });
 });
@@ -131,7 +131,7 @@ describe('M5 _msTallenna (sulku) — tmSuljeJakso + yksi update', () => {
   it('ilman uutta jaksoa: YKSI update {jaksofokus:null, jaksofokus_historia:arrayUnion(sulkurivi)}; rivi sulkutapa "suljettu", arviot, kalibraatio, ISO; ei set', async () => {
     const e = ymp({ pelaaja: { jaksofokus: JF } }); await aja(e, null);
     expect(e.kirj.length).toBe(1); expect(e.log.setit).toBe(0); expect(e.kirj[0].path).toBe(POLKU);
-    expect(Object.keys(e.kirj[0].data).sort()).toEqual(['jaksofokus', 'jaksofokus_historia']); expect(e.kirj[0].data.jaksofokus).toBeNull();
+    expect(Object.keys(e.kirj[0].data).sort()).toEqual(['jaksofokus', 'jaksofokus_historia', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi']); expect(e.kirj[0].data.jaksofokus).toBeNull();
     const r = e.kirj[0].data.jaksofokus_historia.__arrayUnion; expect(r.length).toBe(1);
     expect(r[0]).toMatchObject({ konsepti_avain: 'y_h2', domeeni: 'teknis_taktinen', alkoi: ALKOI, paattyi: '2026-10-04T10:00:00.000Z', sulkutapa: 'suljettu', harjoituksia: 5, arvio_itse: 4, arvio_valmentaja: 3, arvioija_rooli: 'valmentaja', tulos: 'parani', lahde_seuraava: null, kalibraatio_ero: J.tmKalibraatio(4, 3) });
     expect(new Date(r[0].suljettu).toISOString()).toBe(r[0].suljettu);

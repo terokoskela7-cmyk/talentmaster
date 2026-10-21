@@ -51,7 +51,7 @@ describe('ADAR-pikakortti — tekstit libissä (lib/tm_adar_tekstit.js)', () => 
       const k = T.tmAdarKortti(dim, (x) => x);
       expect(k.q, dim).toBe(alku.PH_TEKSTIT[dim].q);
       expect(k.d, dim).toEqual(KORJATUT_D[dim] || alku.PH_TEKSTIT[dim].d);
-      expect(k.tip, dim).toEqual(alku.PH_TEKSTIT[dim].tip);
+      expect(k.tip, dim).toEqual(dim === 'R' ? Object.assign({}, alku.PH_TEKSTIT.R.tip, { 2: 'Sovi yhteinen reagointitapa, esim. taputus ja seuraava tehtävä.' }) : alku.PH_TEKSTIT[dim].tip);   // K1d (20.10.2026): R = Reagointi → vinkki 2 ei enää "palautumisele"
     }
     for (const dim of ['D', 'R']) for (const n of [1, 2, 3]) expect(KORJATUT_D[dim][n], dim + n).not.toBe(alku.PH_TEKSTIT[dim].d[n]);   // muutos on todellinen
   });
@@ -71,7 +71,7 @@ describe('ADAR-pikakortti — tekstit libissä (lib/tm_adar_tekstit.js)', () => 
     expect(Object.keys(r).sort()).toEqual(Object.keys(T.FI).filter((a) => !E61[a]).sort());
     // erän 2 rivit, joiden fi muuttui (peliäly-tasokorjaus) → uusi fi + odottava sv erässä 58 (vanha sv poistettu libistä)
     const E58 = JSON.parse(lue('docs/i18n/sv_kaannoserae_58_gemini.json')).osiot['lib.tm_adar_tekstit'].rivit;
-    Object.keys(T.FI).filter((a) => !E61[a]).forEach((a) => { if (E58[a]) { expect(E58[a].fi, a).toBe(T.FI[a]); expect(r[a].fi, a).not.toBe(T.FI[a]); } else expect(r[a].fi, a).toBe(T.FI[a]); });
+    Object.keys(T.FI).filter((a) => !E61[a]).forEach((a) => { if (E58[a]) { expect(E58[a].fi, a).toBe(T.FI[a]); expect(r[a].fi, a).not.toBe(T.FI[a]); } else if (['adar_R_tip2', 'adar_partitiivi_r'].includes(a)) expect(r[a].fi, a).not.toBe(T.FI[a]);   /* K1d: R = Reagointi; uusi fi erässä 80 */ else expect(r[a].fi, a).toBe(T.FI[a]); });
     expect(Object.keys(E58).sort()).toEqual(['adar_D_d1', 'adar_D_d2', 'adar_D_d3', 'adar_D_v1', 'adar_D_v3', 'adar_R_d1', 'adar_R_d2', 'adar_R_d3']);
   });
   it('ADAR SW: uudet tiedostot allowlistissa ja cache nostettu', () => {
@@ -87,7 +87,7 @@ describe('Gemini-erä 2 — PR 4 -osiot (VP, henkilöstö, jäännökset)', () =
   const ei = (t) => /^(var\(|#)/.test(t) || /^[:%]/.test(t) || t.length < 2;
   it('vp_kartta kattaa jokaisen vpT-avaimen jolla ei ole sv-riviä (aja: node scripts/i18n_luo_gemini_era.cjs)', () => {
     const p = poimi({ juuri, tiedostot: ['TalentMaster_VP_v25.html'], routerit: ['vpT', '_mT'], kartat: KARTAT_VP, taulukot: ['TM_TESTI_OHJEET', '_ONB_VP', '_PHV_LABEL', '_VP_POS_NIMI', '_TAL_LAJINIMI', '_VP_HH_FOKUS_NIMI', '_VP_OHJ_PHV_NIMI', '_JSV_HH_TEEMA', 'TK_LAJI_NIMET', '_VKO_LASNA', '_JA_POSRYHMA'] });
-    const rivit = Object.assign({}, ERA.osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_4.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_5.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_6.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_7.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_9.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_15.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_16.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_17.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_18.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_20.json')).osiot.vp_kartta.rivit);   // erä 2 suljettu → uudet avaimet erässä 4
+    const rivit = Object.assign({}, ERA.osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_4.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_5.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_6.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_7.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_9.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_15.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_16.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_17.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_18.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_20.json')).osiot.vp_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_80_gemini.json')).osiot.vp_kartta.rivit);   // erä 80 (K1d) uudet/korvattavat rivit; erä 2 suljettu → uudet avaimet erässä 4
     const puuttuu = p.puuttuu.filter((t) => !ei(t) && !rivit[t]);
     expect(puuttuu).toEqual([]);
   });
@@ -105,7 +105,7 @@ describe('Gemini-erä 2 — PR 4 -osiot (VP, henkilöstö, jäännökset)', () =
   });
   it('termistölisäykset mukana (ADAR-termit + pelihavainto/otteluhavainnointi/ottelutarkkailu)', () => {
     const k = ERA.termisto.kaannettava;
-    ['Havainnointi', 'Päätös / Päätöksenteko', 'Toteutus', 'Palautuminen', 'Pelihavainto', 'Otteluhavainnointi', 'Ottelutarkkailu'].forEach((t) => expect(k[t], t).toBeTruthy());
+    ['Havainnointi', 'Päätös / Päätöksenteko', 'Toteutus', 'Reagointi', 'Pelihavainto', 'Otteluhavainnointi', 'Ottelutarkkailu'].forEach((t) => expect(k[t === 'Reagointi' ? 'Palautuminen' : t], t).toBeTruthy());   // K1d: R = Reagointi (erän 2 rivin avain oli 'Palautuminen')
   });
   it('jokaisella PR 4 -rivillä on fi ja sv on merkkijono (tyhjä kunnes Gemini täyttää)', () => {
     for (const o of ['vp_kartta', 'henkilosto_kartta', 'lib.tm_adar_tekstit', 'lib.tm_pelihavainto_valinta', 'lib.tm_havaintohistoria', 'jaannos.seura_forening', 'jaannos.kausifokus', 'jaannos.vp_master']) {

@@ -99,7 +99,7 @@ function ymp({ kaada = false, pelaaja = {}, vt } = {}) {
     _mTuoreToken: async () => {}, _mVerkkoEnnenSulkua: () => true, _demo: false, _seuraId: 'kpv', _db,
     toast: (t, tyyppi) => log.toastit.push([t, tyyppi]), masterT: (x) => x, console: { warn() {} }, Date, Object, Array, Promise, Math, confirm: () => true,
   };
-  vm.createContext(sb);
+  sb.tmPaivaIso = require('./helpers/k1d_korvaukset.cjs').tmPaivaIso; vm.createContext(sb);
   const koodi = [pura('function _mJaksoVaihto('), pura('async function _mKirjoitaJaksofokus('),
     pura('window._ttVieTreeniin = async function'), pura('window._msAsetaFyysFokus = async function'), pura('window._ohjKaytaOhjelma = async function'), pura('window._mIdpVtAktivoi = async function')].join(';\n') + ';';
   vm.runInContext(koodi, sb);
@@ -194,7 +194,7 @@ describe('_msTallenna (jakson sulku): vain LISÄÄ rivin → arrayUnion', () => 
       _db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: (id) => ({ update: async (d) => asetukset.push({ id, d, o: 'update' }), set: async () => asetukset.push({ id, o: 'SET-EI-SALLITTU' }) }) }) }) }) },
       firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } },
       document: { getElementById: () => null }, toast() {}, masterT: (x) => x, console: { warn() {} }, Date, Object, Array };
-    vm.createContext(sb); vm.runInContext(pura('async function _mKirjoitaJaksofokus(') + ';\n' + pura('function _kvkLahde(') + ';\n' + pura('window._msTallenna = async function') + ';', sb);
+    sb.tmPaivaIso = require('./helpers/k1d_korvaukset.cjs').tmPaivaIso; vm.createContext(sb); vm.runInContext(pura('async function _mKirjoitaJaksofokus(') + ';\n' + pura('function _kvkLahde(') + ';\n' + pura('window._msTallenna = async function') + ';', sb);
     await sb.window._msTallenna(null);
     expect(asetukset.length).toBe(1); expect(asetukset[0].id).toBe(PID); expect(asetukset[0].o).toBe('update');   // R6.1b: update() (ei set-merge)
     expect(Array.isArray(asetukset[0].d.jaksofokus_historia)).toBe(false);

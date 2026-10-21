@@ -23,7 +23,7 @@ describe('tmAdarNimet — lib', () => {
     const kutsut = [];
     const n = L.tmAdarNimet('pelaaja', (k) => { kutsut.push(k); return k === 'adar_nimi_pelaaja_a' ? 'Observation' : k; });
     expect(kutsut).toEqual(['adar_nimi_pelaaja_a', 'adar_nimi_pelaaja_d', 'adar_nimi_pelaaja_ac', 'adar_nimi_pelaaja_r']);
-    expect(n).toEqual({ a: 'Observation', d: 'Päätöksenteko', ac: 'Toteutus', r: 'Palautuminen' });
+    expect(n).toEqual({ a: 'Observation', d: 'Päätöksenteko', ac: 'Toteutus', r: 'Reagointi' });
   });
   it('kääntäjän heitto tai raaka tm_lang-polku ei vuoda näkyviin', () => {
     expect(L.tmAdarNimet('pelaaja', () => { throw new Error('x'); })).toEqual(L.TM_ADAR_NIMET.pelaaja);
@@ -53,11 +53,11 @@ describe('Pelaaja_v7 rAdar — nimet kielen mukaan', () => {
   }
   it('fi: suomalaiset nimet kuten ennen', () => {
     const h = ajaRAdar('fi');
-    ['Havainnointi', 'Päätöksenteko', 'Toteutus', 'Palautuminen'].forEach((n) => expect(h).toContain(n));
+    ['Havainnointi', 'Päätöksenteko', 'Toteutus', 'Reagointi'].forEach((n) => expect(h).toContain(n));
   });
   it('en: englanninkieliset nimet (tm_lang pelaaja.adar_nimi_pelaaja_*), ei suomalaisia ulottuvuusnimiä', () => {
     const h = ajaRAdar('en');
-    ['Observation', 'Decision-making', 'Execution', 'Recovery'].forEach((n) => expect(h).toContain(n));
-    ['Havainnointi', 'Päätöksenteko', 'Toteutus', 'Palautuminen'].forEach((n) => expect(h).not.toContain('>' + n + '<'));
+    ['Observation', 'Decision-making', 'Execution', 'Reaction'].forEach((n) => expect(h).toContain(n));
+    ['Havainnointi', 'Päätöksenteko', 'Toteutus', 'Reagointi'].forEach((n) => expect(h).not.toContain('>' + n + '<'));
   });
 });

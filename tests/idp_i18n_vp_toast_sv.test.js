@@ -120,6 +120,7 @@ describe('ilmoituskanavat · kattavuus', () => {
 const SV_ODOTTAA_SANKTIOINTIA = [
   // Tyhjä 15.10.2026: erän 19 palautus (vp_kartta) vietiin scripts/i18n_vie_sv_era53_19.cjs:llä; uusi sanktiointia odottava avain → lisää tähän.
 ];
+  /* erä 80 (K1d) vietiin 21.10.2026 — sen rivit eivät odota sanktiointia */
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {
   it('jokainen kääritty avain palauttaa AJOSSA sv:n, ei fi:tä', () => {

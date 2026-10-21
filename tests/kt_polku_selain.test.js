@@ -29,7 +29,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4a · Polku'
       await odota(p); await p.waitForSelector('[data-kt-klipit="ok"]', { timeout: 10000 });
       expect(await tila(p)).toBe('normaali');
       const teksti = await p.locator('[data-kt-polku]').innerText();
-      expect(teksti).toContain('Pelaaja, joka pitää pallon paineessa'); expect(teksti).toContain('Lähtötaso: 5.4 s (mitattu 5.6.).'); expect(teksti).toContain('viikko 3/6'); expect(teksti).toContain('arviointi 14.11.');
+      expect(teksti).toContain('Pelaaja, joka pitää pallon paineessa'); expect(teksti).toContain('Lähtötaso: 5.4 s (mitattu 5.6.).'); expect(teksti).toContain('viikko 3/6'); expect(teksti).toContain('Jakson yhteenveto 14.11.');
       const nimi = (await p.locator('[data-kt-jakso-nimi]').innerText()).trim(); expect(teksti.split(nimi).length - 1).toBe(1);   // konseptin nimi kerran
       expect(await p.locator('[data-kt-polku] [data-kt-osa]').count()).toBeGreaterThan(2);
       expect(await p.locator('[data-kt-polku] [data-kt-osa="a"] .kt-osa-st').innerText()).toContain('osaa jo');   // sama osakomponentti ja tila kuin Tänäänissä
@@ -45,7 +45,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4a · Polku'
     await kaynnistaSelain(); try {
       const { sk, p, virheet } = await avaa({ leveys: 390, korkeus: 844, teema: 'dark' })(selain); await odota(p); await p.waitForSelector('[data-kt-klipit="ok"]', { timeout: 10000 });
       expect(await eiVaakavieritysta(p)).toBe(true); expect(await p.locator('.kt-jr .kt-jd').first().isVisible()).toBe(true);
-      await p.locator('.kt-pk-valikko summary').click(); expect(await p.locator('.kt-pk-valikko [role="menuitem"]').allInnerTexts()).toEqual(['Lisää klippi', 'Piirrä taululle', 'Muokkaa jaksoa', 'Aseta alue', 'Sulje jakso', 'Anna pelaajan valita seuraava reitti\nYdinvahvuuden kuvaus puuttuu']);   /* K1: ei aluetta → 'Aseta alue' (alueen ollessa asetettu 'Vaihda aluetta'); K3a: 'Anna pelaajan valita' (harmaa + syy, kun ydinvahvuuden kuvausta ei ole) */
+      await p.locator('.kt-pk-valikko summary').click(); expect(await p.locator('.kt-pk-valikko [role="menuitem"]').allInnerTexts()).toEqual(['Lisää klippi', 'Piirrä taululle', 'Muokkaa jaksoa', 'Aseta alue', 'Tee jakson yhteenveto', 'Anna pelaajan valita seuraava reitti\nYdinvahvuuden kuvaus puuttuu']);   /* K1: ei aluetta → 'Aseta alue' (alueen ollessa asetettu 'Vaihda aluetta'); K3a: 'Anna pelaajan valita' (harmaa + syy, kun ydinvahvuuden kuvausta ei ole) */
       await p.locator('.kt-pk-valikko summary').click(); await kuva(p, 'polku_390_tumma_normaali'); expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 120000);

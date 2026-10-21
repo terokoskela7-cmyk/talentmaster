@@ -61,7 +61,7 @@ describe('vanhat reitit — taulukkotesti: jokainen vanha setWs-avain ja sivupal
     const puuttuu = [...avaimet].filter((k) => !(k in VANHAT)); expect(puuttuu, 'avain ilman uutta paikkaa: lisää REITIT/PYSYVAT').toEqual([]);
   });
   it('vanhat sivupalkin kohdat ilman työtilaa (Arvioi harjoitus, Aloita tästä, Pelihavainto …) on kartoitettu uuteen paikkaan', () => {
-    ['Arvioi harjoitus', 'Aloita tästä', 'Pelihavainto', 'Bio-banding', 'Taktiikkataulu', 'Ohjelmakirjasto', 'Jaksofokus', 'Seuranta', 'Raportointi', 'Ryhmät', 'Pelaajat'].forEach((k) => expect(N.VANHAT_KOHDAT[k], k).toBeTruthy());
+    ['Arvioi harjoitus', 'Aloita tästä', 'Pelihavainto', 'Bio-banding', 'Taktiikkataulu', 'Ohjelmakirjasto', 'Jaksofokus', 'Seuranta', 'Seuran tilannekuva', 'Ryhmät', 'Pelaajat'].forEach((k) => expect(N.VANHAT_KOHDAT[k], k).toBeTruthy());
     const vanhat = [...VP.matchAll(/<div class="sb-item"[^>]*>[\s\S]*?<span data-i18n="([^"]+)">/g)].map((m) => m[1]).filter((k) => !['Koti', 'Tilanne', 'Valmentajat', 'Testit', 'Kalenteri', 'Asetukset'].includes(k));
     vanhat.forEach((k) => expect(N.VANHAT_KOHDAT[k], 'vanha kohta ' + k).toBeTruthy());
   });

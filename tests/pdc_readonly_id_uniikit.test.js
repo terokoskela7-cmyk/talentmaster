@@ -65,7 +65,7 @@ function funktio(tunniste) {
 
 /* Kausitavoitteen EDITORI korvataan tyngällä joka päästää läpi juuri ne kirjoittavat toiminnot
    joita raportissa ei saa olla. Näin read-only-väite mittaa kohdetta, ei sattumaa. */
-const KT_EDITORI_TYNKA = '<button onclick="_vpKirjaaReview(\'x\')">＋ Kirjaa review</button>'
+const KT_EDITORI_TYNKA = '<button onclick="_vpKirjaaReview(\'x\')">＋ Kirjaa kehityskeskustelu</button>'
   + '<button onclick="_vpElinkaari(\'x\',\'saavutettu\')">✓ Saavutettu</button>'
   + '<button onclick="_vpJatkuuAvaa(\'x\')">↗ Jatkuu</button>'
   + '<button onclick="_vpTallennaTavoite(\'x\')">💾</button>'

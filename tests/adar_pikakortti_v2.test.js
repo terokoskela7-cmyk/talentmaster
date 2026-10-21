@@ -223,7 +223,7 @@ describe('(2) porras ohjaa ulottuvuudet, ikä on vain ehdotus', () => {
     /* sv-läpiajo PR 4: vakiot siirtyivät libiin (lib/tm_adar_tekstit.js FI) — sisältö ennallaan, kielireititys avainten kautta */
     const T = vaadi('../lib/tm_adar_tekstit.js').FI;
     expect([T.adar_verbi_a, T.adar_verbi_d, T.adar_verbi_ac]).toEqual(['havainnoi', 'ratkaisee', 'toteuttaa']);
-    expect([T.adar_partitiivi_d, T.adar_partitiivi_ac, T.adar_partitiivi_r]).toEqual(['päätöstä', 'toteutusta', 'palautumista']);
+    expect([T.adar_partitiivi_d, T.adar_partitiivi_ac, T.adar_partitiivi_r]).toEqual(['päätöstä', 'toteutusta', 'reagointia']);   // K1d: R = Reagointi
   });
 });
 
@@ -561,9 +561,9 @@ describe('(design) Pikakortti — otsikko, desimaalit, koodit, vinkki, tokenit',
     y.api.S.pisteet = { A: 2 }; y.api.S.fb = 'A'; y.api.render(); h = html(y);
     expect(h).toContain('Mitä näit?'); expect((h.match(/data-chip="A"/g) || []).length).toBe(4); expect(h).not.toContain('Mitä näit? ▾');
     y.api.S.fb = 'D'; y.api.S.fbKys = true; y.api.render(); h = html(y);
-    expect(h, 'nimen napautus: kysymys näkyviin').toMatch(/class="fb-q[^"]*">Päätös: Kuinka nopeasti/);
+    expect(h, 'nimen napautus: kysymys näkyviin').toMatch(/class="fb-q[^"]*">Päätöksenteko: Kuinka nopeasti/);
     y.api.S.pisteet.D = 3; y.api.S.fbKys = true; y.api.render(); h = html(y);
-    expect(h, 'pisteytetylle: kysymys + kuvaus').toContain('class="fb-q">Kuinka nopeasti'); expect(h).toContain('Päätös · 3 Hallitsee');
+    expect(h, 'pisteytetylle: kysymys + kuvaus').toContain('class="fb-q">Kuinka nopeasti'); expect(h).toContain('Päätöksenteko · 3 Hallitsee');
   });
   it('vinkin tila nollautuu pelaajaa vaihtaessa (kuten S.auki) eikä kuulu luonnokseen', () => {
     expect(SIVU).toMatch(/S\.pisteet = \{\}; S\.havaitut = \{\}; S\.vinkki = \{\};/);

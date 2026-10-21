@@ -39,10 +39,10 @@ describe('1 · neljä tilannekorttia (mockup 25 kpi)', () => {
   });
   it('HTML (mockup 30): neljä kysymyskorttia — kysymys · luku · lähde; ei nimiä, ei nauhaa', () => {
     const h = HTML(), t = teksti(h); expect((h.match(/class="kt-q"/g) || []).length).toBe(4); expect(h).toContain('kt-q3 four');
-    ['Onko joukkueilla jakso?', '2 /3', '1 ilman jaksoa', 'Ovatko katselmukset ajallaan?', '9 /11', '2 auki', 'Onko mitattu tällä kaudella?', 'testijakso vk 45–46', 'Odottaako IDP vahvistusta?', 'pelaajaa odottaa'].forEach((x) => expect(t, x).toContain(x));
+    ['Onko joukkueilla jakso?', '2 /3', '1 ilman jaksoa', 'Ovatko jakson yhteenvedot ajallaan?', '9 /11', '2 auki', 'Onko mitattu tällä kaudella?', 'testijakso vk 45–46', 'Odottaako kehityssuunnitelma vahvistusta?', 'pelaajaa odottaa'].forEach((x) => expect(t, x).toContain(x));
   });
   it('ei päättyneitä jaksoja → "—" (ei 0 %)', () => {
-    const t = teksti(HTML({ katselmusKausi: { ajallaan: 0, perusta: 0, jaksoja: 0 } })); expect(t).toContain('Ovatko katselmukset ajallaan? — ei vielä päättyneitä jaksoja');
+    const t = teksti(HTML({ katselmusKausi: { ajallaan: 0, perusta: 0, jaksoja: 0 } })); expect(t).toContain('Ovatko jakson yhteenvedot ajallaan? — ei vielä päättyneitä jaksoja');
   });
 });
 
@@ -56,7 +56,7 @@ describe('2 · kauden aikajana (D43)', () => {
     const h = HTML();
     expect((h.match(/class="tt-ajb( w)?"/g) || []).length).toBe(2); expect((h.match(/class="tt-ajk"/g) || []).length).toBe(2);
     expect(h).toContain('tt-ajm" style="--c:4'); expect(h).toContain('tt-ajm tp'); expect(h).toContain('tt-ajt');
-    ['◆ katselmus', '│ nyt', '┆ jaksopalaveri', '▒ testijakso vk 45–46'].forEach((x) => expect(teksti(h)).toContain(x));
+    ['◆ jakson yhteenveto', '│ nyt', '┆ jaksopalaveri', '▒ testijakso vk 45–46'].forEach((x) => expect(teksti(h)).toContain(x));
   });
   it('mobiili: aikajana vierii OMASSA laatikossaan (overflow-x), sivu ei', () => {
     expect(TT.CSS).toMatch(/\.tt-ajw\{overflow-x:auto/); expect(TT.CSS).toMatch(/\.tt-aj\{[^}]*min-width:660px/);
@@ -68,12 +68,12 @@ describe('3 · jaksopalaveri', () => {
     const m = TT.tmTilanneMalli(SYOTE()); expect(m.palaveri.valmiit).toBe(1); expect(m.palaveri.yht).toBe(3);
     expect(m.palaveri.ok.map((x) => x.tunniste)).toEqual(['P11']); expect(m.palaveri.w.map((x) => x.tunniste)).toEqual(['P13']); expect(m.palaveri.n.map((x) => x.tunniste)).toEqual(['P15']);
     expect(m.vaihe).toBe('rytmi'); expect(m.signaali).toMatchObject({ w: true, n: 1, auki: ['P13'] });   // 2/3 jaksolla → Rytmi → signaalikortti = jaksopalaverin valmius (D170)
-    const h = HTML(), t = teksti(h); expect(t).toMatch(/Jaksopalaveri · \S+ 2\.11\. · 24 päivää/); expect(t).toContain('Yksi katselmus auki ennen palaveria.'); expect(t).toContain('P13: jakso päättyy vk'); expect(t).toContain('Avaa esityslista');
-    expect(t).toContain('1 jakso käynnissä'); expect(t).toContain('1 katselmus auki'); expect(t).toContain('1 ei jaksoa'); expect(h).toContain('class="kt-nauha iso"'); expect(t).not.toContain('P13 Demo (katselmus)');   // ei joukkuenimiä lauseina
+    const h = HTML(), t = teksti(h); expect(t).toMatch(/Jaksopalaveri · \S+ 2\.11\. · 24 päivää/); expect(t).toContain('Yksi jakson yhteenveto auki ennen palaveria.'); expect(t).toContain('P13: jakso päättyy vk'); expect(t).toContain('Avaa esityslista');
+    expect(t).toContain('1 jakso käynnissä'); expect(t).toContain('1 jakson yhteenveto auki'); expect(t).toContain('1 ei jaksoa'); expect(h).toContain('class="kt-nauha iso"'); expect(t).not.toContain('P13 Demo (katselmus)');   // ei joukkuenimiä lauseina
   });
   it('esityslista: jaksot+katselmukset, poikkeamat, ehdotukset, onnistumiset', () => {
     const m = TT.tmTilanneMalli(SYOTE({ ehdotukset: [{ ids: ['a'], teksti: 'Ehdotus A', luotu: NYT }] })), t = teksti(TT.tmTilanneEsityslistaHTML(m, ['Onnistuminen X'], { t: (x) => x }));
-    ['1 · Jaksot ja katselmukset', '2 · Poikkeamat', '3 · Ehdotukset', '4 · Onnistumiset', 'Kesken 1 P13', 'Ei jaksoa 1 P15', 'Ehdotus A', 'Onnistuminen X'].forEach((x) => expect(t, x).toContain(x));
+    ['1 · Jaksot ja jakson yhteenvedot', '2 · Poikkeamat', '3 · Ehdotukset', '4 · Onnistumiset', 'Kesken 1 P13', 'Ei jaksoa 1 P15', 'Ehdotus A', 'Onnistuminen X'].forEach((x) => expect(t, x).toContain(x));
   });
 });
 
@@ -158,7 +158,7 @@ describe('adapteri vm-sandboxissa (oikeat VP-funktiot, ympäristö tynkinä)', (
 
 describe('murupolku (tbSivu) uudessa Tilanteessa', () => {
   const vm = require('vm'), { funktio } = require('./helpers/vp_koti_sandbox.cjs');
-  const NIMI = { koti: 'Koti', tilanne: 'Tilanne', reviewit: 'Seuranta', jaksofokus: 'Jaksofokus', raportointi: 'Raportointi' };
+  const NIMI = { koti: 'Koti', tilanne: 'Tilanne', reviewit: 'Seuranta', jaksofokus: 'Jaksofokus', raportointi: 'Seuran tilannekuva' };
   const luo = (lippu) => {
     const bc = { textContent: 'Koti', attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } }, aktiivinen = { ws: null }, visited = {}, kutsut = [];
     const ctx = { console, setTimeout: (f) => { f(); }, _currentWs: 'koti', vpT: (x) => x, localStorage: { setItem: (k, v) => { visited[k] = v; } },
@@ -169,7 +169,7 @@ describe('murupolku (tbSivu) uudessa Tilanteessa', () => {
     return { ctx, bc, visited, kutsut };
   };
   it('lippu päällä: setWs("tilanne") → murupolku "Tilanne" (ei "Koti")', () => { const y = luo(true); y.ctx.setWs('tilanne'); expect(y.bc.textContent).toBe('Tilanne'); expect(y.bc.attrs['data-i18n']).toBe('Tilanne'); expect(y.ctx._currentWs).toBe('tilanne'); });
-  it.each(['reviewit', 'jaksofokus', 'raportointi'])('lippu päällä: vanha avain "%s" ohjautuu Tilanteeseen JA murupolku on "Tilanne" (ei "Seuranta"/"Raportointi")', (ws) => {
+  it.each(['reviewit', 'jaksofokus', 'raportointi'])('lippu päällä: vanha avain "%s" ohjautuu Tilanteeseen JA murupolku on "Tilanne" (ei "Seuranta"/"Seuran tilannekuva")', (ws) => {
     const y = luo(true); y.ctx.setWs(ws); expect(y.bc.textContent).toBe('Tilanne'); expect(y.ctx._currentWs).toBe('tilanne'); expect(y.kutsut).toContain('avaa:' + ws);
   });
   it('lippu päällä: "raportointi" merkitään silti käydyksi (Aloita tästä -checklist käyttää vanhaa avainta)', () => { const y = luo(true); y.ctx.setWs('raportointi'); expect(y.visited['tm_vp_visited_raportointi']).toBe('1'); expect(y.visited['tm_vp_visited_tilanne']).toBeUndefined(); });
@@ -215,7 +215,7 @@ describe('harva data: tyhjät joukkueet pois, nauha, ryhmittely, kooste-kaista, 
     const h = KT.tmKtNauhaHTML(TT.tmTilanneMalli(TILA(KASVU)).nauha, { t: (x) => x, iso: true });
     expect((h.match(/<i /g) || []).length).toBe(15); expect([...h.matchAll(/title="([^:"]+):/g)].map((m) => m[1])).toEqual(NIMET);   // ikäjärjestys = syötteen järjestys
     expect((h.match(/<i class="ok"/g) || []).length).toBe(4); expect((h.match(/<i class="w"/g) || []).length).toBe(2); expect((h.match(/<i class=""/g) || []).length).toBe(9);
-    expect(h).toContain('title="P13: jakso käynnissä, katselmukset ajallaan" aria-label="P13: jakso käynnissä, katselmukset ajallaan"'); expect(h).toContain('title="P12: jakso kesken tai katselmus odottaa"'); expect(h).toContain('title="P9: ei jaksoa"');
+    expect(h).toContain('title="P13: jakso käynnissä, yhteenvedot ajallaan" aria-label="P13: jakso käynnissä, yhteenvedot ajallaan"'); expect(h).toContain('title="P12: jakso kesken tai yhteenveto odottaa"'); expect(h).toContain('title="P9: ei jaksoa"');
     expect(KT.CSS).toMatch(/\.kt-nauha i\{[^}]*border:1px dashed var\(--ink3\)/); expect(KT.CSS).toMatch(/\.kt-nauha i\.ok\{background:var\(--teal\)/); expect(KT.CSS).toMatch(/\.kt-nauha i\.w\{[^}]*border:1px solid var\(--amber\)/);   // muoto, ei vain väri
     expect(h).toContain('<span>P9</span><span>ikäjärjestys</span><span>T18</span>'); expect(KT.CSS).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });

@@ -19,7 +19,7 @@ const KOLME_ERI = ['a', 'b', 'c'].map((u, i) => ({ uid: u, luotu: '2026-10-0' + 
 describe('TM_ADAR_RUBRIIKKI — tasot', () => {
   it('tasot 1–5: yleiset nimet (Alussa · Kehittyvä · Vakaa · Vahva · Erinomainen), ei ulottuvuuksien nimiä', () => {
     expect([1, 2, 3, 4, 5].map((t) => A.alyTaso(t).nimi)).toEqual(['Alussa', 'Kehittyvä', 'Vakaa', 'Vahva', 'Erinomainen']);
-    for (let t = 1; t <= 5; t++) { const r = A.alyTaso(t); expect(r.nimi + r.nyt, t).not.toMatch(/Toteutat|Päätöksenteko|Toteutus|Palautuminen|Havainnointi|Duckworth/); }
+    for (let t = 1; t <= 5; t++) { const r = A.alyTaso(t); expect(r.nimi + r.nyt, t).not.toMatch(/Toteutat|Päätöksenteko|Toteutus|Palautuminen|Reagointi|Havainnointi|Duckworth/); }
     expect(A.alyTaso(1).nyt).toBe('Opettelet katsomaan, mitä pelissä tapahtuu 👀');
   });
   it('tasot 3 ja 4 neutraalit: "Luet peliä hyvin" — ei "valin" eikä "ratkais" (ei väitä päätöksestä/toteutuksesta)', () => {

@@ -43,12 +43,12 @@ beforeAll(() => {
    sama pelaaja näytti VP:lle ja valmentajalle eri asiaa. Testit ajavat yhä AIDON funktion,
    mutta odottavat porrasmallia. */
 describe('ADAR-koostumus — 4 osaa + porras', () => {
-  it('U13 (13) ilman tallennettua porrasta: ikäsuositus porras 3, Palautuminen lukossa', () => {
+  it('U13 (13) ilman tallennettua porrasta: ikäsuositus porras 3, Reagointi lukossa', () => {
     const h = AK({ adar_viimeisin: { a: 3, d: 2, ac: 3, r: 2, yht: 2.6, pvm: '2025-06-01' } }, 13);
     expect(h).toContain('D4 Peliäly · pelihavainnosta · 1–3');
     expect(h).toContain('Porras 3 / 4');
-    ['Havainnointi', 'Päätös', 'Toteutus', 'Palautuminen'].forEach((n) => expect(h).toContain(n));
-    expect(h).toContain('jsp-adar-row locked');       // Palautuminen lukossa portaalla 3
+    ['Havainnointi', 'Päätöksenteko', 'Toteutus', 'Reagointi'].forEach((n) => expect(h).toContain(n));
+    expect(h).toContain('jsp-adar-row locked');       // Reagointi lukossa portaalla 3
     expect(h).toContain('porras 4');                  // lukittu rivi kertoo portaan
     expect(h, 'ikäportin kieli ei saa palata').not.toContain('avautuu 16 v');
     expect(h).not.toContain('U13-portti');

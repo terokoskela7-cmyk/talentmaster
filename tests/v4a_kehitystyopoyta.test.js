@@ -79,7 +79,7 @@ describe('Tilakone (tm_aloita_jakso.tmJaksoTila) — kuusi tilaa johdetaan, ei t
     expect(tila(P({ jaksofokus: JF() }))).toMatchObject({ tila: 'vahvistettu', ensisijainen: { avain: 'havainto' }, rivitila: { teksti: 'Jakso käynnissä · vk 1 · sitoumus odottaa' } });
     expect(tila(P({ jaksofokus: JF(), idp_sitoumus_pvm: '2026-11-10T10:00:00.000Z' })).tila).toBe('kaynnissa'); expect(tila(P({ jaksofokus: JF(), idp_sitoumus_pvm: '2026-09-01T10:00:00.000Z' })).tila).toBe('vahvistettu');   // vanhan jakson sitoumus ei riitä
   });
-  it('paattynyt: alkoi + kesto_vk × 7 pv < nyt → "Sulje jakso", valikko Jatka jaksoa 2 vk · Syvennä (V4b-2: käytettävissä); amber', () => {
+  it('paattynyt: alkoi + kesto_vk × 7 pv < nyt → "Tee jakson yhteenveto", valikko Jatka jaksoa 2 vk · Syvennä (V4b-2: käytettävissä); amber', () => {
     const p = tila(P({ jaksofokus: JF({ alkoi: '2026-09-01T08:00:00.000Z', kesto_vk: 4 }) })); expect(p).toMatchObject({ tila: 'paattynyt', ensisijainen: { avain: 'sulje' }, rivitila: { savy: 'amber' } });
     expect(p.valikko.map((m) => [m.avain, m.kaytettavissa])).toEqual([['jatka', true], ['syvenna', true]]); expect(tila(P({ jaksofokus: JF({ alkoi: '2026-11-01T08:00:00.000Z', kesto_vk: 2 }) })).tila).toBe('kaynnissa');   // 14 pv, ei vielä yli
   });

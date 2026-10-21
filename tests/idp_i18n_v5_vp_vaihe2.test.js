@@ -19,8 +19,8 @@ afterEach(() => { delete global.tmNykyinenKieli; });
 describe('V2 avainkattavuus (Pelaajat + 5 korttia)', () => {
   it('V2-avaimet resolvoituvat sv:ksi (≠ fi)', () => {
     global.tmNykyinenKieli = () => 'sv';
-    [['Talentti-IDP', 'Talang-IDP'], ['Ehdota', 'Föreslå'], ['Ikäluokka → Kehitysvaihe', 'Åldersklass → Utvecklingsfas'],
-      ['Ei pelaajia tässä kategoriassa', 'Inga spelare i denna kategori'], ['Ei odottavia IDP-ehdotuksia', 'Inga väntande IDP-förslag'],
+    [['Talentin kehityssuunnitelma', 'Talangens utvecklingsplan'], ['Ehdota', 'Föreslå'], ['Ikäluokka → Kehitysvaihe', 'Åldersklass → Utvecklingsfas'],
+      ['Ei pelaajia tässä kategoriassa', 'Inga spelare i denna kategori'], ['Ei odottavia kehityssuunnitelmaehdotuksia', 'Inga väntande förslag till utvecklingsplan'],
       ['Kiihdytys', 'Acceleration'], ['Datapuute', 'Databrist'], ['Harkitse talenttiohjelmaan', 'Överväg talangprogrammet'],
       ['Vauhti', 'Takt'], ['Jkl', 'Lag'], ['Ikävaihe-odotetut (ei kiireellisiä)', 'Åldersfas-förväntade (ej brådskande)']].forEach(([fi, sv]) =>
       expect(M.vpT(fi)).toBe(sv));
@@ -29,7 +29,7 @@ describe('V2 avainkattavuus (Pelaajat + 5 korttia)', () => {
     global.tmNykyinenKieli = () => 'sv';
     expect(M.vpT('Kehon valmius -profiili')).toBe('Kroppslig beredskap-profil');   // VP-avain, drift korjattu
     expect(M.vpT('Pujottelu')).toBe('Slalom');   // _talenttiHuomio käyttää vpT(_TAL_LAJINIMI[kk]) → commonista
-    expect(/kroppens/i.test(M.vpT('Hidden Gem · X-Factor · IDP-jono · Kehon valmius -jakauma'))).toBe(false);
+    expect(/kroppens/i.test(M.vpT('Hidden Gem · X-Factor · Kehityssuunnitelmajono · Kehon valmius -jakauma'))).toBe(false);
   });
   it('tuotetermit verbatim (TKI/H-H/PHV/Hidden Gem säilyvät sv-arvoissa)', () => {
     global.tmNykyinenKieli = () => 'sv';
@@ -49,7 +49,7 @@ describe('V2 wiring: staattinen chrome data-i18n + dynaaminen render vpT', () =>
     expect(VP).toContain("vpT('Ei talentteja merkitty')");
     expect(VP).toContain("vpT('Talentit — extra-valmennuksen kohteet')");
     expect(VP).toContain("vpT('Ei poikkeamia — kaikki joukkueet odotetulla tasolla.')");
-    expect(VP).toContain("vpT('Ei odottavia IDP-ehdotuksia')");
+    expect(VP).toContain("vpT('Ei odottavia kehityssuunnitelmaehdotuksia')");
     expect(VP).toContain('vpT(k.nimi)');    // Kehityskortti label render-siteillä
     expect(VP).toContain('vpT(_TAL_LAJINIMI[kk] || kk)');   // laji-nimi commonista
   });

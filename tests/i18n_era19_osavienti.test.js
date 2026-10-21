@@ -8,7 +8,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { tmpdir } from 'os';
-import { S67 } from './helpers/era67_korvatut.mjs';
+import { S67, E80AVAIN } from './helpers/era67_korvatut.mjs';
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lueJ = (f) => JSON.parse(readFileSync(join(juuri, f), 'utf8'));
@@ -27,8 +27,8 @@ describe('sv-erä 19 — osavienti (24 riviä)', () => {
     for (const fi of OSA.MASTER_AVAIMET) { expect(P.osiot.master_kartta.rivit[fi].fi).toBe(fi); expect(P.osiot.master_kartta.rivit[fi].sv, fi).toBeTruthy(); }
   });
   it('(a) koodin sv = palautuksen sv merkki merkiltä', () => {
-    for (const [o, a] of OSA.LIB_AVAIMET) expect(LIB[a], a).toBe(P.osiot[o].rivit[a].sv);
-    for (const fi of OSA.MASTER_AVAIMET) expect(MA[fi], fi).toBe(P.osiot.master_kartta.rivit[fi].sv);
+    for (const [o, a] of OSA.LIB_AVAIMET) expect(LIB[a], a).toBe(E80AVAIN(a, P.osiot[o].rivit[a].sv));
+    for (const fi of OSA.MASTER_AVAIMET) expect(MA[fi], fi).toBe(E80AVAIN(fi, P.osiot.master_kartta.rivit[fi].sv));
   });
   it('(b) muut erän 19 rivit eivät ole koodissa — paitsi erän 3 jo viemät (sama sv)', () => {
     const osa = new Set(OSA.LIB_AVAIMET.map(([o, a]) => o + ' :: ' + a).concat(OSA.MASTER_AVAIMET.map((fi) => 'master_kartta :: ' + fi)));

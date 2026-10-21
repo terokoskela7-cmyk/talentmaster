@@ -58,7 +58,7 @@ function vie(opts) {
   const fLib = 'lib/tm_lib_i18n.js'; let sLib = lue(fLib); const olLib = lataaSv(sLib, 'TM_LIB_I18N'); const libUudet = [];
   for (const [osio, a] of LIB_AVAIMET) {
     const r = rivi(osio, a); if (!r) continue; const syy = sopii(r.fi, r.sv); if (syy) { virheet.push(osio + ' :: ' + a + ': ' + syy); continue; }
-    if (typeof olLib[a] === 'string') { if (olLib[a] === r.sv) R.ohitettu.push(a); else virheet.push('lib-avain on jo koodissa eri sv:llä: ' + a); continue; }
+    if (typeof olLib[a] === 'string') { if (olLib[a] === r.sv || require('./i18n_era80_tuki.cjs').korvattu(a, olLib[a])) R.ohitettu.push(a); else virheet.push('lib-avain on jo koodissa eri sv:llä: ' + a); continue; }
     libUudet.push([osio, a, r.sv]);
   }
   /* master */
@@ -67,7 +67,7 @@ function vie(opts) {
     const r = rivi('master_kartta', fi); if (!r) continue; if (r.fi !== fi) { virheet.push('master_kartta: avain ≠ fi: ' + fi); continue; }
     const syy = sopii(r.fi, r.sv); if (syy) { virheet.push('master_kartta :: ' + fi + ': ' + syy); continue; }
     if (typeof common[fi] === 'string') { virheet.push('avain on lukitussa yhteisessä glossaarissa (dedupe-invariantti): ' + fi); continue; }
-    if (typeof olMa[fi] === 'string') { if (olMa[fi] === r.sv) R.ohitettu.push(fi); else virheet.push('Master-avain on jo koodissa eri sv:llä: ' + fi); continue; }
+    if (typeof olMa[fi] === 'string') { if (olMa[fi] === r.sv || require('./i18n_era80_tuki.cjs').korvattu(fi, olMa[fi])) R.ohitettu.push(fi); else virheet.push('Master-avain on jo koodissa eri sv:llä: ' + fi); continue; }
     maUudet.push([fi, r.sv]);
   }
   if (virheet.length) return { virheet, lisatty: [], ohitettu: R.ohitettu, kirjoitettu: false };
@@ -88,8 +88,8 @@ function vie(opts) {
   }
   /* verifiointi: ladataan kirjoitettavat kartat ja verrataan palautukseen merkki merkiltä */
   const uLib = lataaSv(sLib, 'TM_LIB_I18N'), uMa = lataaSv(sMa, 'TM_MASTER_I18N');
-  for (const [osio, a] of LIB_AVAIMET) if (uLib[a] !== P.osiot[osio].rivit[a].sv) virheet.push('verifiointi: lib ' + a);
-  for (const fi of MASTER_AVAIMET) if (uMa[fi] !== P.osiot.master_kartta.rivit[fi].sv) virheet.push('verifiointi: master ' + fi);
+  for (const [osio, a] of LIB_AVAIMET) if (uLib[a] !== P.osiot[osio].rivit[a].sv && !require('./i18n_era80_tuki.cjs').korvattu(a, uLib[a])) virheet.push('verifiointi: lib ' + a);
+  for (const fi of MASTER_AVAIMET) if (uMa[fi] !== P.osiot.master_kartta.rivit[fi].sv && !require('./i18n_era80_tuki.cjs').korvattu(fi, uMa[fi])) virheet.push('verifiointi: master ' + fi);
   if (virheet.length) return { virheet, lisatty: [], ohitettu: R.ohitettu, kirjoitettu: false };
   if (opts.kirjoita && R.lisatty.length) { fs.writeFileSync(path.join(juuri, fLib), sLib); fs.writeFileSync(path.join(juuri, fMa), sMa); }
   return { virheet, lisatty: R.lisatty, ohitettu: R.ohitettu, kirjoitettu: !!(opts.kirjoita && R.lisatty.length) };

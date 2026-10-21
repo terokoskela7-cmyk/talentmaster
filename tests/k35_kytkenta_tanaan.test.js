@@ -28,8 +28,8 @@ describe('signaali tauolla (D131, D193)', () => {
   });
   it('myöhästynyt katselmus ei nouse amberiksi tauolla (johto): eräpäivä ei kulu tauon aikana', () => {
     const ctx = { nyt: NYT, rooli: 'vp', askel: { avain: 'review_myohassa' }, tila: { tila: 'kaynnissa' } };
-    const a = TS.tmSignaalit(P, ctx).find((s) => s.avain === 'suljettava');
-    const b = TS.tmSignaalit(P, Object.assign({ tauko: { tauko: true, nimi: 'Syysloma' } }, ctx)).find((s) => s.avain === 'suljettava');
+    const a = TS.tmSignaalit(P, ctx).find((s) => s.avain === 'rytmi_myohassa');   // K1d: yhteenvetorytmi omana signaalinaan
+    const b = TS.tmSignaalit(P, Object.assign({ tauko: { tauko: true, nimi: 'Syysloma' } }, ctx)).find((s) => s.avain === 'rytmi_myohassa');
     expect(a.savy).toBe('amber'); expect(b).toBe(undefined);
   });
   it('ilman taukoa käytös ennallaan (ei taukosignaalia)', () => {

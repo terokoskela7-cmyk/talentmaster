@@ -92,7 +92,7 @@ describe('(B) _vpJfEvidenssiHTML — jfBody mini-kaari + jaksosidos-delta', () =
   });
   it('sosiaalinen/psyykkinen → honest-empty-note, EI TKI-lukua/sirua', () => {
     const h = M._vpJfEvidenssiHTML({ jaksofokus: { konsepti_nimi: 'X', domeeni: 'sosiaalinen' }, tki_historia: TKI_HIST });
-    expect(h).toContain('arvio katselmuksessa');
+    expect(h).toContain('arvio kehityskeskustelussa');
     expect(h).not.toContain('<svg');
     expect(h).not.toContain('70');
   });

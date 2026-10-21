@@ -45,7 +45,7 @@ function vie(opts) {
   }
   const fLib = 'lib/tm_lib_i18n.js'; let sLib = lue(fLib); const olLib = lataaSv(sLib, 'TM_LIB_I18N'), uudet = [];
   for (const [avain, [sv]] of rivit) {
-    if (typeof olLib[avain] === 'string') { if (olLib[avain] === sv) R.ohitettu.push(avain); else virheet.push('lib-avain on jo koodissa eri sv:llä: ' + avain); continue; }
+    if (typeof olLib[avain] === 'string') { if (olLib[avain] === sv || require('./i18n_era80_tuki.cjs').korvattu(avain, olLib[avain])) R.ohitettu.push(avain); else virheet.push('lib-avain on jo koodissa eri sv:llä: ' + avain); continue; }
     uudet.push([avain, sv]);
   }
   if (virheet.length) return { virheet, lisatty: [], ohitettu: R.ohitettu, kirjoitettu: false, yhteensa: rivit.size };
@@ -55,7 +55,7 @@ function vie(opts) {
     sLib = sLib.slice(0, i) + blokki + sLib.slice(i); uudet.forEach(([a]) => R.lisatty.push(a));
   }
   const uLib = lataaSv(sLib, 'TM_LIB_I18N');   /* verifiointi: kartta ladataan uudelleen ja verrataan palautukseen merkki merkiltä */
-  for (const [avain, [sv]] of rivit) if (uLib[avain] !== sv) virheet.push('verifiointi: ' + avain);
+  for (const [avain, [sv]] of rivit) if (uLib[avain] !== sv && !require('./i18n_era80_tuki.cjs').korvattu(avain, uLib[avain])) virheet.push('verifiointi: ' + avain);
   if (virheet.length) return { virheet, lisatty: [], ohitettu: R.ohitettu, kirjoitettu: false, yhteensa: rivit.size };
   if (opts.kirjoita && R.lisatty.length) fs.writeFileSync(path.join(juuri, fLib), sLib);
   return { virheet, lisatty: R.lisatty, ohitettu: R.ohitettu, kirjoitettu: !!(opts.kirjoita && R.lisatty.length), yhteensa: rivit.size };

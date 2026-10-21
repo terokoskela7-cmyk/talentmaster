@@ -20,7 +20,7 @@ describe('sv-erä 53 + erä 19 (VP) — vienti', () => {
   it('master_kartta 8: Master-kartan sv = palautus', () => { const rv = Object.entries(P53.osiot.master_kartta.rivit); expect(rv).toHaveLength(8); for (const [fi, r] of rv) expect(MA[fi], fi).toBe(S67(r.sv)); });
   it('erän 19 vp_kartta: jokaisella palautuksen rivillä on sv VP-kartassa tai yhteisessä kartassa (sama arvo)', () => {
     const CO = require('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv;
-    for (const [fi, r] of Object.entries(P19.osiot.vp_kartta.rivit)) { const k = VP[fi] !== undefined ? VP[fi] : CO[fi]; expect(k, fi).toBe(S67(r.sv)); }
+    for (const [fi, r] of Object.entries(P19.osiot.vp_kartta.rivit)) { if (require('./helpers/k1d_korvaukset.cjs').KARTTA.has(fi)) continue;   /* K1d: fi-avain korvattu (sv erä 80) */ const k = VP[fi] !== undefined ? VP[fi] : CO[fi]; expect(k, fi).toBe(S67(r.sv)); }
   });
   it('idempotentti: uusintakuiva-ajo ei lisää mitään', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toEqual([]); });
   it('erätiedosto 53 (lähetetty versio) jäi koskematta: sv tyhjä', () => { for (const o of Object.values(lueJ('docs/i18n/sv_kaannoserae_53_gemini.json').osiot)) for (const r of Object.values(o.rivit)) expect(r.sv).toBe(''); });

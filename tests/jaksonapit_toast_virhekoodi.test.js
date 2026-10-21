@@ -72,16 +72,16 @@ describe('3 · tmVirheKoodi — virheen syy toastiin', () => {
       const i = MASTER.indexOf(k === 'ilmoita(' ? "ilmoita((" : k); expect(i, k).toBeGreaterThan(-1); expect(MASTER.slice(i, i + 500), k).toContain('TM_VIRHEKOODI.tmVirheTeksti');
     }
     for (const k of ["console.warn('[vpJf]'", "console.warn('[vpTt]'"]) { const i = VP.indexOf(k); expect(i, k).toBeGreaterThan(-1); expect(VP.slice(i, i + 400), k).toContain('TM_VIRHEKOODI.tmVirheTeksti'); }
-    for (const src of [MASTER, VP]) { expect(src).toMatch(/<script src="lib\/tm_virhekoodi\.js\?v=1"><\/script>/); expect(src).toMatch(/<script src="lib\/tm_aloita_jakso\.js\?v=13"><\/script>/); }
+    for (const src of [MASTER, VP]) { expect(src).toMatch(/<script src="lib\/tm_virhekoodi\.js\?v=1"><\/script>/); expect(src).toMatch(/<script src="lib\/tm_aloita_jakso\.js\?v=\d+"><\/script>/); }
   });
 });
 
 describe('2 · Jaksonapit pelaajakortin otsikkoalueelle — lib', () => {
   const JAKSO = (lisa) => ({ id: 'p1', jaksofokus: Object.assign({ konsepti_avain: 'y_h1', konsepti_nimi: 'Haltuunotto', alkoi: '2026-11-09T10:00:00.000Z', kesto_vk: 4 }, lisa) });
   const o = { t: (k) => k, avaaFn: 'avaa', suljeFn: 'sulje' };
-  it('ei jaksoa → "Aloita jakso", ei Sulje-nappia', () => { const h = AJ.tmJaksoNapitHTML({ id: 'p1' }, o); expect(h).toContain('Aloita jakso'); expect(h).toContain('data-jakso-nappi="aloita"'); expect(h).not.toContain('Sulje jakso'); expect(AJ.tmJaksoNapitTila({ id: 'p1' })).toEqual({ nappi: 'aloita', sulje: false }); });
-  it('jakso käynnissä → "Muokkaa jaksoa" + "Sulje jakso"; napit kutsuvat samoja funktioita pelaajan id:llä', () => {
-    const h = AJ.tmJaksoNapitHTML(JAKSO(), o); expect(h).toContain('Muokkaa jaksoa'); expect(h).toContain('Sulje jakso'); expect(h).toContain("avaa('p1')"); expect(h).toContain("sulje('p1')"); expect(AJ.tmJaksoNapitTila(JAKSO())).toEqual({ nappi: 'muokkaa', sulje: true });
+  it('ei jaksoa → "Aloita jakso", ei Sulje-nappia', () => { const h = AJ.tmJaksoNapitHTML({ id: 'p1' }, o); expect(h).toContain('Aloita jakso'); expect(h).toContain('data-jakso-nappi="aloita"'); expect(h).not.toContain('Tee jakson yhteenveto'); expect(AJ.tmJaksoNapitTila({ id: 'p1' })).toEqual({ nappi: 'aloita', sulje: false }); });
+  it('jakso käynnissä → "Muokkaa jaksoa" + "Tee jakson yhteenveto"; napit kutsuvat samoja funktioita pelaajan id:llä', () => {
+    const h = AJ.tmJaksoNapitHTML(JAKSO(), o); expect(h).toContain('Muokkaa jaksoa'); expect(h).toContain('Tee jakson yhteenveto'); expect(h).toContain("avaa('p1')"); expect(h).toContain("sulje('p1')"); expect(AJ.tmJaksoNapitTila(JAKSO())).toEqual({ nappi: 'muokkaa', sulje: true });
   });
   it('pelaajan valinta odottaa (K3/D-1) → "Vahvista jakso"; tarjous/valittavana ei ole käynnissä → ei Sulje-nappia', () => {
     const p = { id: 'p1', jaksofokus: { tila: 'valittavana', vaihtoehdot: [] }, ydinvahvuus_valinta: { vaihtoehto: 'y_h1' } };

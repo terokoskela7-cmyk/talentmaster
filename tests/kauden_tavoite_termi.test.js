@@ -50,7 +50,7 @@ const OSIO2 = [
   ['VP', 'Aseta kauden tavoite Kehityksessä — moottori ehdottaa datasta.', 'Sätt säsongsmål i Utveckling — motorn föreslår ur data.'],
   ['VP', 'Ei kauden tavoitetta. Johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).', 'Inget säsongsmål. Härleds från svagaste egenskapen (bedömning + §28-mognadsvakt).'],
   ['VP', 'Klikkaus luo ehdotuksen kauden tavoitteeksi suoraan tästä havainnosta ja avaa Kehitys-välilehden, jossa tarkistat ja hyväksyt. Tavoite säilyttää alkuperän — lähdesiru näyttää esim. "◎ Lähde: pelihavainto · pvm".', 'Ett klick skapar ett säsongsmålsförslag direkt från denna observation och öppnar Utveckling-fliken, där du granskar och godkänner. Målet behåller sitt ursprung — källchippet visar t.ex. "◎ Källa: spelobservation · pvm".'],
-  ['VP', 'Strateginen kauden tavoite (IDP-makro) sovitaan yhdessä; operatiivinen jaksofokus on valmentajan päivittäistä työtä.', 'Strategiskt säsongsmål (IDP-makro) avtalas tillsammans; operativt periodfokus är tränarens dagliga arbete.'],
+  ['VP', 'Strateginen kauden tavoite (kehityssuunnitelma) sovitaan yhdessä; operatiivinen jaksofokus on valmentajan päivittäistä työtä.', 'Strategiskt säsongsmål (IDP-makro) avtalas tillsammans; operativt periodfokus är tränarens dagliga arbete.'],
   ['VP', 'Ei ehdotusta datasta — mittaa lisää tai aseta fokus käsin kauden tavoitteesta.', 'Inget förslag ur datan — mät mer eller sätt fokus manuellt utifrån säsongsmålet.'],
   ['VP', 'Tyhjä — kauden tavoite toimii sellaisenaan. Lisää polku (esim. Haltuunotto → Tempokuljetus) jos haluat pilkkoa tavoitteen jaksoihin.', 'Tomt — säsongsmålet fungerar som det är. Lägg till en stig (t.ex. Mottagning → Tempodrivning) om du vill dela upp målet i perioder.'],
   ['VP', 'Aseta yksi strateginen kauden tavoite. Moottori ehdottaa datasta (heikoin/vahvin) tai valitse käsin. §37: kauden tavoite (makro) sovitaan yhdessä — VP vahvistaa, valmentaja ehdottaa.', 'Sätt ett strategiskt säsongsmål. Motorn föreslår utifrån data (svagast/starkast) eller välj för hand. §37: säsongsmålet (makro) kommer man överens om tillsammans — FU bekräftar, tränaren föreslår.'],
@@ -125,7 +125,7 @@ describe('(4) osio 2 — juoksevan tekstin sv on MUUTTUMATON (ei uutta ruotsia)'
 });
 
 /* PR B (KISS) poisti kolmen avaimen ainoan kutsupaikan VP:sta: kortin oma otsikko
-   ('Kauden tavoite ' + '· IDP-ydin'), vanha murupolku ja rolenote §37. Rivit on poistettu
+   ('Kauden tavoite ' + '· kehityssuunnitelman ydin'), vanha murupolku ja rolenote §37. Rivit on poistettu
    myos kartasta, koska kuollut kaannosrivi on vain yllapitovelkaa. Jos PR C tarvitsee niita
    uudelleen, sanktioitu sv loytyy koosteesta. */
 describe('(5) uudet fi-avaimet ovat kaytossa lahteissa', () => {

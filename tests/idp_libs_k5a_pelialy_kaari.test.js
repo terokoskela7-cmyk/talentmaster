@@ -85,7 +85,7 @@ describe('tmKehityskaari adar-haara (TODO ratkaistu, option b: data.dimensiot)',
     lib.tmKehityskaari(el, { ika: 16, dimensiot: { a: { nyt: 2.4, lahto: 2.1 }, r: { nyt: 2.0, lahto: 1.9 } } }, { ominaisuus: 'adar' });
     expect(html).toContain('peliäly · dimensioittain');
     expect(html).toContain('Havainnointi (A)');
-    expect(html).toContain('Palautuminen (R)');   // U16 → R mukana
+    expect(html).toContain('Reagointi (R)');   // U16 → R mukana
     expect(html).not.toContain('<svg');      // ei sparklinea
   });
 });

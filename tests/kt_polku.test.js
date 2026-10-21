@@ -43,7 +43,7 @@ describe('Kausi (D104: lähtötaso vain mitattuna)', () => {
 describe('Jakso nyt: tilat, osat, konseptin nimi', () => {
   it('Normaali: viikko X/Y, arviointipäivä, osat tiloineen, konseptin nimi TÄSMÄLLEEN kerran', () => {
     const p = pelaaja({ jaksofokus: Object.assign({}, JF, { osa_arviot: { y_h1: { a: 3, b: 2 } }, osa_havainnot: { y_h1: { a: { u1: { arvo: 3, pvm: '2026-10-15', rooli: 'valmentaja' } } } } }) }), h = html(p);
-    expect(h).toContain('data-kt-polku-tila="normaali"'); expect(h).toContain('viikko 3/6'); expect(h).toContain('arviointi 14.11.'); expect(h).toContain('Jakso nyt · 3.10.–14.11.'); expect(h).toContain('teknis-taktinen'); expect(h).toContain('tukiosa: Kehon hallinta');
+    expect(h).toContain('data-kt-polku-tila="normaali"'); expect(h).toContain('viikko 3/6'); expect(h).toContain('Jakson yhteenveto 14.11.'); expect(h).toContain('Jakso nyt · 3.10.–14.11.'); expect(h).toContain('teknis-taktinen'); expect(h).toContain('tukiosa: Kehon hallinta');
     expect(lkm(h, 'Ensimmäinen kosketus')).toBe(1);   // konseptin nimi vain Jakso nyt -otsikossa (osan "Ensimmäinen syöttö eteenpäin" on eri teksti)
     expect(h).toContain('data-kt-osa="a"'); expect(h).toMatch(/kt-osa-r ok[^>]*data-kt-osa="a"/);
   });
@@ -64,7 +64,7 @@ describe('Jakso nyt: tilat, osat, konseptin nimi', () => {
   });
   it('Katselmusvaihe: Sulje jakso korostettuna (täytetty nappi), ei "Merkitse viikkohavainto" -ensisijaista', () => {
     const p = pelaaja({ jaksofokus: Object.assign({}, JF, { alkoi: '2026-08-31' }) }), h = html(p);
-    expect(h).toContain('data-kt-polku-tila="katselmus"'); expect(h).toContain('päättynyt · suljettava'); expect(h).toMatch(/class="kt-btn" [^>]*data-kt-jakso-nappi="sulje"/); expect(h).not.toContain('data-kt-jakso-nappi="havainto"');
+    expect(h).toContain('data-kt-polku-tila="katselmus"'); expect(h).toContain('päättynyt · yhteenveto tekemättä'); expect(h).toMatch(/class="kt-btn" [^>]*data-kt-jakso-nappi="sulje"/); expect(h).not.toContain('data-kt-jakso-nappi="havainto"');
   });
   it('toiminnot: Merkitse viikkohavainto + ⋯ (Lisää klippi · Muokkaa jaksoa · Sulje jakso); lukijalle ei yhtään', () => {
     const h = html(pelaaja()); for (const a of ['data-kt-jakso-nappi="havainto"', 'data-kt-lisaa-klippi', 'data-kt-jakso-muokkaa', 'data-kt-jakso-sulje']) expect(h, a).toContain(a);

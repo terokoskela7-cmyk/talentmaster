@@ -75,7 +75,7 @@ describe('suunnitelman kaari + katselmusrytmi (EPPP)', () => {
     expect(h).toContain('Suunnitelman eteneminen');
     expect(h).toContain('Havainnointi');
     expect(h).toContain('2 suljettua jaksoa');
-    expect(h).toContain('Seuraava katselmus');
+    expect(h).toContain('Seuraava yhteenveto tai kehityskeskustelu');
     expect(h).toContain('6 vk (EPPP ≥12 v)');   // ika 13 → 6 vk
   });
   it('EPPP-rytmi ikäportilla: 9–11 v → 12 vk', () => {

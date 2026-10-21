@@ -120,8 +120,8 @@ describe('(1) sv-kartta — Geminin linja, ei omaa ruotsia', () => {
   it.each(Object.entries(B))('B · %s', (avain, arvo) => expect(SV[avain]).toBe(arvo));
 
   it('Master-kartta: "har gått ut"', () => {
-    expect(MSV['🟠 Jakso umpeutunut · Sulje jakso → seuraava fokus'])
-      .toBe('🟠 Perioden har gått ut · Stäng period → nästa fokus');
+    expect(MSV['🟠 Jakso umpeutunut · Tee jakson yhteenveto → seuraava fokus'])
+      .toBe('🟠 Perioden har gått ut · Gör periodsammanfattning → nästa fokus');   // K1d: erä 80 korvasi 'Stäng period' (sanasto)
   });
 
   it('"löpt ut" = 0 kartoissa JA käännösmuisteissa', () => {
