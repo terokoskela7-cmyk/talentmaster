@@ -8,6 +8,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
+const KE = createRequire(import.meta.url)('../lib/tm_kt_keskustelu.js');   // K4b: Nelikulma-laskenta on libissä (VP delegoi)
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
@@ -17,9 +19,9 @@ beforeAll(() => {
   const s = lines.findIndex(l => l.includes('var REVIEW_TAGIT = {'));
   const e = lines.findIndex(l => l.includes('window._vpNelikulma = _vpNelikulma;'));
   if (s < 0 || e < 0) throw new Error('R1-lohkoa ei löytynyt');
-  const src = 'var window = {}; var vpT = function(x){ return x; };\n' + lines.slice(s, e + 1).join('\n') +
+  const src = 'var window = { TM_KT_KESKUSTELU: KE }; var vpT = function(x){ return x; };\n' + lines.slice(s, e + 1).join('\n') +
     '\n return { REVIEW_TAGIT, DVI_MIN_N, _vpReviewTagitSanitoi, _vpOmistaaPelaajan, _vpCockpitDvi, _vpItsearvioEro, _vpCockpitLiput, _vpNelikulma };';
-  A = new Function(src)();
+  A = new Function('KE', src)(KE);
 });
 
 describe('_vpOmistaaPelaajan — omistajuuspredikaatti (oma vs vieras joukkue, §9367)', () => {
