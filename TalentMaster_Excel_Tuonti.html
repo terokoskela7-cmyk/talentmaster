@@ -33,7 +33,7 @@
 <script src="lib/tm_testipaiva.js?v=3"></script>   <!-- testipäivän lähde: oikea | arvio (kausi, pvm_arvio) | tuntematon — EI hiljaista varapäivää -->
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- Omat ennätykset (PB): paivitaEnnatykset (jaettu, TM_ENNATYKSET) -->
-<script src="lib/tm_historiatuonti.js?v=1"></script>   <!-- Historia-/tapahtumatuonti: uusin voittaa (testikohtainen pikakenttä-yhdistely, esikatseluviesti) -->
+<script src="lib/tm_historiatuonti.js?v=2"></script>   <!-- Historia-/tapahtumatuonti: uusin voittaa (testikohtainen pikakenttä-yhdistely, esikatseluviesti) -->
 <script src="lib/tm_historia.js?v=2"></script>   <!-- Trendi Vaihe 1a: mittaushistorian selkäranka (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_pohja.js?v=1"></script>   <!-- P1.2: itsekuvaava tuontipohja — TM_POHJA.sarakkeetTesteista/metaLehtiAoa/lueMetaLehti (joustava testivalitsin + Meta-lehti) -->
 <script src="lib/tm_testikatalogi.js?v=2"></script>   <!-- PR G: tmTestiProtokollaId/tmTkHhNormalisoi — H-H vs TK pujottelu/syöttö tunnisteella (IIFE → TM_TESTIKATALOGI, ei törmää inline-KATALOGI_META:an) -->
@@ -2415,6 +2415,9 @@ function suoritaValidointi() {
     // 4c) Kuljetus-laukaus: vähennys-sarake puuttuu → varoitus (ei hiljaista nollaa)
     (p._tkVaroitukset || []).forEach(m => varoitukset.push({ rivi: idx, kentta: 'Kuljetus-laukaus', msg: `${riviLabel}: ${m}` }));
 
+    // 4d) Todennäköinen yksikkövirhe (CMJ/SJ < 5 cm, 10 m < 1,4 s) — VAROITUS, ei estä, arvoja ei muuteta (lib/tm_historiatuonti.js)
+    TM_HISTORIATUONTI.yksikkoVaroitukset(p.testit).forEach(m => varoitukset.push({ rivi: idx, kentta: 'Yksikkö', msg: `${riviLabel}: ${m}` }));
+
     // 5) Testiarvojen validointi
     for (const ts of tuontiData.testiSarakkeet) {
       if (!ts.testiId) continue;
@@ -3387,6 +3390,8 @@ async function tallennaFirestoreen() {
           const _tkiEdell = (p._firestoreData && p._firestoreData.tki_historia) || [];
           profiiliUpdate.tki_historia = tmHistoriaLisaa(_tkiEdell, tmTkiSnapshot(pvmIso, { tki: tki, tkLajit: _tkLajit || {} }));
         }
+        // Kehitysvauhti: *_edellinen = toiseksi uusin mittaus historiasta (riippumaton tuontijärjestyksestä; idempotentti; yksi mittaus → ei edellistä)
+        Object.assign(profiiliUpdate, _H.edellisetHistoriasta(profiiliUpdate.hh_historia || _fd0.hh_historia, profiiliUpdate.tki_historia || _fd0.tki_historia));
         // KORTTI 1c-A — päivitä ennätykset (PB) pikakenttä varmoista pikakentistä (best-effort, ei kaada tuontia).
         try {
           const _ennatKand = _ennatysKandidaatit(hhRow, _tkLajit, fleiPct, pvmIso);
