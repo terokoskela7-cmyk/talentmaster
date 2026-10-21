@@ -552,6 +552,19 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   .ke-toim { flex:1 1 100%; } .ke-toim-kevyt { margin-left:0; }
   .ke-suod { width:100%; } .ke-ryhma { width:100%; } .ke-ryhma .ke-vaihto { flex:1; }
 }
+/* Excel-tuonnin esikatselu kapealla näytöllä (<600 px): rivi korttina, STATUS + Päivitä nimen alle (ei vaakavieritystä) */
+@media(max-width:600px){
+  #excelEsikatselu table { min-width:0 !important; }
+  #excelEsikatselu thead { display:none; }
+  #excelEsikatselu tr.excelPelRivi { display:grid; grid-template-columns:auto auto 1fr; column-gap:14px; align-items:center; }
+  #excelEsikatselu tr.excelPelRivi > td { display:block; min-width:0; overflow-wrap:anywhere; }
+  #excelEsikatselu td.excT-nimi { grid-column:1 / -1; order:1; padding-bottom:0 !important; }
+  #excelEsikatselu td.excT-status { grid-column:1 / -1; order:2; display:flex !important; flex-wrap:wrap; align-items:center; gap:2px 14px; padding-top:2px !important; }
+  #excelEsikatselu td.excT-status label { margin-top:0 !important; }
+  #excelEsikatselu td.excT-joukkue, #excelEsikatselu td.excT-pallo, #excelEsikatselu td.excT-tal { order:3; padding-top:2px !important; padding-bottom:2px !important; }
+  #excelEsikatselu td.excT-email { grid-column:1 / -1; order:4; padding-top:2px !important; }
+  #excelEsikatselu tr.excelSelitys, #excelEsikatselu tr.excelSelitys > td { display:block; }
+}
 @media(max-width:480px){
   .kpiRivi { grid-template-columns:1fr; }
   .sisalto { padding:10px; }
@@ -6662,13 +6675,13 @@ function kasitteleExcelTuonti(event) {
         const onTalentti = p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k';
         const st = _excelRiviStatus(p, i);
         const emailPun = p._hylatty || p._emailVirhe;   // punainen vain virheellisestä osoitteesta
-        return `<tr style="${st.selitykset.length ? '' : 'border-bottom:1px solid var(--border);'}">
-          <td style="padding:7px 10px;font-size:12px;font-weight:600;">${tmEsc(p.etunimi)} ${tmEsc(p.sukunimi)}</td>
-          <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${tmEsc(p.joukkue || '—')}</td>
-          <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:${p.palloId ? 'var(--ink2)' : 'var(--ink3)'};">${tmEsc(p.palloId || '—')}</td>
-          <td style="padding:7px 10px;font-size:12px;">${onTalentti ? '<span style="color:var(--teal);font-weight:700;">⭐ ' + (p.talenttiTaso||'perus') + '</span>' : '<span style="color:var(--ink3);">—</span>'}</td>
-          <td style="padding:7px 10px;font-size:12px;color:${emailPun ? 'var(--red)' : 'var(--teal)'};">${tmEsc(p.huoltajaEmail || p._emailRaaka || '—')}</td>
-          <td style="padding:7px 10px;font-size:11px;color:${st.vari};white-space:nowrap;">${st.status}${st.paivita}</td>
+        return `<tr class="excelPelRivi" style="${st.selitykset.length ? '' : 'border-bottom:1px solid var(--border);'}">
+          <td class="excT-nimi" style="padding:7px 10px;font-size:12px;font-weight:600;">${tmEsc(p.etunimi)} ${tmEsc(p.sukunimi)}</td>
+          <td class="excT-joukkue" style="padding:7px 10px;font-size:12px;color:var(--ink3);">${tmEsc(p.joukkue || '—')}</td>
+          <td class="excT-pallo" style="padding:7px 10px;font-size:11px;font-family:monospace;color:${p.palloId ? 'var(--ink2)' : 'var(--ink3)'};">${tmEsc(p.palloId || '—')}</td>
+          <td class="excT-tal" style="padding:7px 10px;font-size:12px;">${onTalentti ? '<span style="color:var(--teal);font-weight:700;">⭐ ' + (p.talenttiTaso||'perus') + '</span>' : '<span style="color:var(--ink3);">—</span>'}</td>
+          <td class="excT-email" style="padding:7px 10px;font-size:12px;color:${emailPun ? 'var(--red)' : 'var(--teal)'};">${tmEsc(p.huoltajaEmail || p._emailRaaka || '—')}</td>
+          <td class="excT-status" style="padding:7px 10px;font-size:11px;color:${st.vari};white-space:nowrap;">${st.status}${st.paivita}</td>
         </tr>${_excelRiviSelitys(st)}`;
       }).join('');
       { const _k = document.getElementById('excelEsikatseluKaare'); if (_k && _k.style && _k.style.setProperty) _k.style.setProperty('--excelKaare', _k.clientWidth + 'px'); }
