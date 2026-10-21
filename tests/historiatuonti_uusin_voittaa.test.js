@@ -81,7 +81,7 @@ function sivu(D, db) {
   sb.window = sb;   // IIFE-libit rekisteröityvät window.* (selainympäristö)
   vm.createContext(sb);
   for (const l of LIBIT) vm.runInContext(lue('lib/' + l), sb, { filename: l });
-  const tarvitaan = ['function _paivaIso', 'function laskeIka', 'function _ennatysKandidaatit', 'function _tkHhNorm', 'async function tallennaFirestoreen'];
+  const tarvitaan = ['function _paivaIso', 'function _protokollaRistiriita', 'function laskeIka', 'function _ennatysKandidaatit', 'function _tkHhNorm', 'async function tallennaFirestoreen'];
   vm.runInContext('const BATCH_KOKO = 400;\n' + tarvitaan.map((a) => funktio(EX, a)).join('\n') + '\nthis.__tallenna = tallennaFirestoreen;', sb, { filename: 'Excel_Tuonti(osa)' });
   return { sb, kirjaus };
 }
@@ -154,7 +154,7 @@ describe('Excel_Tuonti tallennus (sivun oikea koodi): uusin voittaa', () => {
     expect(D.get(PP).hh_viimeisin.lin30m).toBe(4.7); expect(D.get(PP).hh_pvm).toBe('2026-11-02'); expect(D.get(PP).hh_viimeisin.cmj).toBe(35);
   });
   it('lähdetaso: sivu lataa libin, käyttää lajittelua + yhteistä tilaa + esikatselupaneelia; ei vanhaa pvm-korvausta', () => {
-    expect(EX).toContain('<script src="lib/tm_historiatuonti.js?v=2"></script>');
+    expect(EX).toContain('<script src="lib/tm_historiatuonti.js?v=3"></script>');
     expect(EX).toContain('uusin-voittaa-paneeli'); expect(EX).toContain('_H.paata(_fd0'); expect(EX).toContain('_tilat[docId] = _H.sovella(_fd0, profiiliUpdate)');
     expect(EX).not.toContain("profiiliUpdate.hh_viimeisin = hhViimeisin; profiiliUpdate.hh_pvm = pvmIso; }");
     expect(EX).not.toMatch(/_fd\.hh_pvm !== pvmIso/);

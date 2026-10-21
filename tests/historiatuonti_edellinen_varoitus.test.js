@@ -39,7 +39,7 @@ function sivu(D, db) {
   sb.window = sb;   // IIFE-libit rekisteröityvät window.* (selainympäristö)
   vm.createContext(sb);
   for (const l of LIBIT) vm.runInContext(lue('lib/' + l), sb, { filename: l });
-  const tarvitaan = ['function _paivaIso', 'function laskeIka', 'function _ennatysKandidaatit', 'function _tkHhNorm', 'async function tallennaFirestoreen'];
+  const tarvitaan = ['function _paivaIso', 'function _protokollaRistiriita', 'function laskeIka', 'function _ennatysKandidaatit', 'function _tkHhNorm', 'async function tallennaFirestoreen'];
   vm.runInContext('const BATCH_KOKO = 400;\n' + tarvitaan.map((a) => funktio(EX, a)).join('\n') + '\nthis.__tallenna = tallennaFirestoreen;', sb, { filename: 'Excel_Tuonti(osa)' });
   return { sb, kirjaus };
 }
@@ -98,4 +98,32 @@ describe('Excel_Tuonti: *_edellinen historiasta (sivun oikea koodi)', () => {
     expect(D.get(PP).hh_taso_edellinen_pvm).toBe('2025-03-15'); expect(D.get(PP).hh_pvm).toBe('2026-10-09'); expect(D.get(PP).hh_taso).toBe(3);
     const a = JSON.stringify(D.get(PP)); await aja(D, db, [R('2025-03-15', '5.4', '30', '4:50')], { alkuTila: D.get(PP) }); expect(JSON.stringify(D.get(PP))).toBe(a);
   });
+});
+
+describe('protokollaRistiriita — HARD BLOCK väärä protokolla', () => {
+  const HHV = 'Tiedoston testit ovat H-H-testejä. Valitse protokollaksi HH-testi laaja.', TKV = 'Tiedoston testit ovat tekniikkakilpailun testejä. Valitse protokollaksi Tekniikkakilpailu.';
+  it('H-H-sarakkeet + tekniikkakilpailu → esto; TK-sarakkeet + H-H → esto; täsmäävä → ei', () => {
+    expect(H.protokollaRistiriita(['lin10m', 'lin30m', 'hyppy_cj', 'mas', 'kasirata'], 'tekniikkakilpailu')).toBe(HHV);
+    expect(H.protokollaRistiriita(['ponnauttelu', 'kuljetus_laukaus'], 'hh_laaja')).toBe(TKV); expect(H.protokollaRistiriita(['pituuspotku'], 'hh_suppea')).toBe(TKV);
+    expect(H.protokollaRistiriita(['lin30m', 'mas'], 'hh_laaja')).toBeNull(); expect(H.protokollaRistiriita(['ponnauttelu', 'pujottelu', 'syotto'], 'tekniikkakilpailu')).toBeNull();
+  });
+  it('osa H-H-sarakkeista (vain MAS) + H-H ok; tyhjä/tuntematon ei laukaise; moniselitteinen pujottelu/syotto ei laukaise; muu protokolla ei tarkisteta; sekatiedosto estetään nimeten', () => {
+    expect(H.protokollaRistiriita(['mas'], 'hh_laaja')).toBeNull(); expect(H.protokollaRistiriita([], 'tekniikkakilpailu')).toBeNull(); expect(H.protokollaRistiriita(undefined, 'hh_laaja')).toBeNull();
+    expect(H.protokollaRistiriita(['jokin_outo'], 'tekniikkakilpailu')).toBeNull(); expect(H.protokollaRistiriita(['pujottelu', 'syotto'], 'hh_laaja')).toBeNull(); expect(H.protokollaRistiriita(['lin30m'], 'harjoitettavuus_u15')).toBeNull();
+    const m = H.protokollaRistiriita(['lin30m', 'ponnauttelu'], 'hh_laaja'); expect(m).toContain('sekä H-H-testejä (30 m)'); expect(m).toContain('tekniikkakilpailun testejä (ponnauttelu)');
+  });
+});
+
+describe('protokollaesto: oikea tallennusfunktio ei kirjoita mitään', () => {
+  it('H-H-data + tekniikkakilpailu → ei kirjoituksia, virhetoast; H-H + hh_laaja kirjoittaa; tapahtumamoodi sama sääntö', async () => {
+    const { db, D } = luoDb({ [PP]: { ...PERUS } }); const alku = JSON.stringify([...D.entries()]);
+    const { sb, kirjaus } = sivu(D, db);
+    const rs = [rivi('2025-03-15', { lin30m: '5.3', hyppy_cj: '30' })]; rs.forEach((r) => { r._loytyyFirestoresta = true; r._firestoreDocId = PID; r._firestoreData = D.get(PP); });
+    sb.tuontiData = { valid: true, moodi: 'historia', meta: { kausi: '2025-kevat', protokolla: 'tekniikkakilpailu' }, testiSarakkeet: SAR, pelaajat: rs, tuontiStrategia: 'vain_loytyneet', palloIdTarkistus: {}, virheet: [], varoitukset: [] };
+    await sb.__tallenna();
+    expect(JSON.stringify([...D.entries()])).toBe(alku); expect(kirjaus.toast.at(-1)).toEqual(['Tiedoston testit ovat H-H-testejä. Valitse protokollaksi HH-testi laaja.', 'err']);
+    sb.tuontiData.moodi = 'tapahtuma'; sb.tuontiData.tapahtumaData = { id: 't1', pvm: '2025-03-15', protokolla: 'tekniikkakilpailu' }; await sb.__tallenna(); expect(JSON.stringify([...D.entries()])).toBe(alku);
+    const ok = luoDb({ [PP]: { ...PERUS } }); await aja(ok.D, ok.db, [rivi('2025-03-15', { lin30m: '5.3' })]); expect(ok.D.get(PP + '/testitulokset/2025-03-15_hh_laaja')).toBeTruthy();
+  });
+  it('lähdetaso: validointi lisää punaisen virheen (valid=false)', () => { expect(EX).toContain("virheet.push({ rivi: -1, kentta: 'Protokolla', msg: _rr })"); });
 });
