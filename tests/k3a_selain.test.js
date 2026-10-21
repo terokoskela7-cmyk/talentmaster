@@ -31,7 +31,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K3a · Anna p
         await avaaAnnaValita(p);
         expect(p.url()).toContain('TalentMaster_Kehitystyopoyta.html'); expect(await p.locator('[data-ts-tausta].ts-pitka').count()).toBe(1); expect(await p.locator('[data-k3-osio]').count()).toBe(1);
         expect(await p.evaluate(() => ['_ktArvK3Paalle', '_ktArvK3Valitse', '_ktArvK3Lause', '_ktHkPerustelu', '_ktHkNayta', '_ktHkTallenna', '_ktHkSulje', '_ktHkK3Valitse', '_ktHkK3Lause'].map((n) => typeof window[n]).concat(typeof window.TM_KT_HYLKAA, typeof window.TM_REITIN_VALINTA).join())).toBe('function,function,function,function,function,function,function,function,function,object,object');   // HTML-muutoksen typeof-tarkistus
-        expect(await p.locator('[data-k3-kortti]').count()).toBeGreaterThanOrEqual(1); expect(await p.locator('[data-kvk-syvenna]').count()).toBe(0);
+        expect(await p.locator('[data-k3-kortti]').count()).toBeGreaterThanOrEqual(1); expect(await p.locator('[data-kvk-syvenna]').count()).toBe(1);   /* K4b: Kehityskeskustelu-nappi (avaa oikean keskustelun) */
         expect(virheet.filter(ei)).toEqual([]); await sk.close();
       } finally { await selain.close(); }
     }, 60000);

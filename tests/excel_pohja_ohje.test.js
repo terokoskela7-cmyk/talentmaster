@@ -73,7 +73,7 @@ describe('tuonti: syntymävuosi pakollinen', () => {
     expect(SEURA).toContain("const iVuosi    = etsiSarake('Syntymävuosi', 'syntymavuosi');");
     expect(SEURA).toContain("syntymaVuosi:  _tmSyntymaVuosi(iVuosi >= 0 ? r[iVuosi] : ''),");
     expect(SEURA).toContain(".map(r => Object.assign(r, { _eiVuotta: r.syntymaVuosi == null }))");
-    expect(SEURA).toContain("else if (p._eiVuotta) { status = tmHT('⚠️ Syntymävuosi puuttuu – riviä ei tuoda');");   // 21.10.2026: rivin tila _excelRiviStatus-funktiossa
+    expect(SEURA).toContain("else if (p._eiVuotta) { status = tmHT('⚠️ Huomio'); vari = OR; sel.push({ t: tmHT('⚠️ Syntymävuosi puuttuu – riviä ei tuoda'), vari: OR });");   // 21.10.2026: rivin tila _excelRiviStatus-funktiossa
     expect(SEURA).toContain('if (p._eiVuotta) { eiVuotta++; continue; }');
     expect(SEURA).toContain('`${eiVuotta} ei tuotu (syntymävuosi puuttuu tai virheellinen)`');
     expect(SEURA).toContain("syntymaVuosi:  p.syntymaVuosi,   // numerona (§7.11)");

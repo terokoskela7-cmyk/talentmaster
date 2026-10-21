@@ -77,7 +77,7 @@ describe('K1b write-side wiring — aito alusta vain Testaus_v9:stä', () => {
   it('Excel-tuonti EI fabrikoi alustaa (import ei tunne mittausalustaa; Moodi B monta pvm → valhe-segmentointi)', () => {
     // guard-kommentti + snapshot-kutsu ILMAN alusta-avainta
     expect(EXCEL).toContain('K1b §22 — EI alustaa');
-    expect(EXCEL).toContain('tmHhSnapshot(pvmIso, {\n            hh_taso: hhTaso, d1_taso: profiiliUpdate.d1_taso, d2_taso: profiiliUpdate.d2_taso, hv: hhViimeisin\n          })');
+    expect(EXCEL).toContain('tmHhSnapshot(pvmIso, {\n            hh_taso: hhTasoRow, d1_taso: _snT.d1, d2_taso: _snT.d2, hv: hhRow');   // ei alusta-avainta (historiapiste = rivin omat arvot, uusin voittaa -tuonti)
     expect(EXCEL).toContain('tmHhSnapshot(pvm, { hv: hv, hh_taso: hh_taso, d1_taso: d1_taso })');
   });
 });

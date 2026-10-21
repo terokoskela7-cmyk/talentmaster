@@ -114,7 +114,7 @@ async function testituonti(m, pvm, s) {
 // ─── Excel_Tuonti-referenssi: ajetaan Excelin OMAA koodia (TKI-lohko + pvm-vahti + recalcHH:n kehityskohde) ──────
 const EX = lue('TalentMaster_Excel_Tuonti.html');
 function excelReferenssi(fd, pvmIso, s, uusiHhTaso) {
-  const ctx = { tmPaivaIso: PVM_LIB.tmPaivaIso, hhKehityskohde: N.hhKehityskohde, normiIka: N.normiIka, tmPhvKoodi: require('../lib/tm_phv_tila.js').tmPhvKoodi, Math, Object, Array, String, Date, parseFloat, parseInt, isNaN };
+  const ctx = { tmPaivaIso: PVM_LIB.tmPaivaIso, hhKehityskohde: N.hhKehityskohde, normiIka: N.normiIka, tmPhvKoodi: require('../lib/tm_phv_tila.js').tmPhvKoodi, TM_HISTORIATUONTI: require('../lib/tm_historiatuonti.js'), Math, Object, Array, String, Date, parseFloat, parseInt, isNaN };
   vm.createContext(ctx);
   const recalc = EX.indexOf('window.recalcHH = async function');
   const segAlku = EX.indexOf("    const joukkue = p.joukkue || (Array.isArray(p.joukkueet)", recalc);
@@ -133,6 +133,7 @@ function excelReferenssi(fd, pvmIso, s, uusiHhTaso) {
     '  (function (sp) {',                                      // prosessoiExcel: TKI-lohko + profiiliUpdate + pvm-vahti
     EX.slice(tkiAlku, EX.indexOf('\n', tkiAlku)), tkiBlokki,
     '  if (vahvuus) profiiliUpdate.tki_vahvuus = vahvuus; if (kehityskohde) profiiliUpdate.tki_kehityskohde = kehityskohde;',
+    '  const _pd = TM_HISTORIATUONTI.paata(p._firestoreData, { pvm: pvmIso, hh: { lin30m: hv.lin30m }, tki: true }); const _tkW = tki !== null && _pd.tki.uusi;',   // uusin voittaa -päätös (lib) kuten tallennuksessa
     vahti,
     '  })(spTki);',
     '  { p = Object.assign({}, p, { hh_pvm: pvmIso, hh_viimeisin: hv });',   // recalcHH ajetaan tuonnin jälkeen (oma skooppi)
@@ -288,7 +289,7 @@ describe('b) Pikakirjaus / Testaus_v9 / Testituonti tuottavat johdetut pikakent�
     }
     expect(lue('TalentMaster_Master_v16.html')).toContain('<script src="lib/tm_pikakentat.js?v=9"></script>');
     const tt = lue('TalentMaster_Testituonti_Master.html');
-    for (const l of ['lib/tm_pvm.js?v=7', 'lib/tm_eerikkila_normit.js?v=57']) expect(tt).toContain('<script src="' + l + '"></script>');   // K1d: tm_eerikkila_normit ?v=57
+    for (const l of ['lib/tm_pvm.js?v=7', 'lib/tm_eerikkila_normit.js?v=58']) expect(tt).toContain('<script src="' + l + '"></script>');   // K4b: tm_eerikkila_normit ?v=58 (D3-vertailun valinnainen parametri)
     for (const f of ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Testaus_v9.html', 'TalentMaster_Testituonti_Master.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) {
       expect(lue(f), f + ': ei vanhaa ?v:tä').not.toMatch(/tm_pikakentat\.js\?v=[34]"|tm_tki_core\.js\?v=1"/);
     }

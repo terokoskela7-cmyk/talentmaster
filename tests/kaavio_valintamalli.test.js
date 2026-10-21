@@ -369,9 +369,9 @@ describe('E — tallennuksen näkyvyys', () => {
     expect(fn()).toMatch(/uusi — tallentuu luonnoksena/);
     expect(fn()).toMatch(/m\._uusi \|\| !m\.id/);
   });
-  it('hyväksytyn muokkaus varoittaa paluusta katselmukseen', () => {
+  it('hyväksytyn muokkaus varoittaa paluusta hyväksyttäväksi', () => {
     expect(fn()).toMatch(/kaavioTilaMuokkauksenJalkeen\(m, _kaavioCtxNyt\(\)\) === 'odottaa'/);
-    expect(fn()).toMatch(/muokkaus vie takaisin katselmukseen/);
+    expect(fn()).toMatch(/muokkaus vie takaisin hyväksyttäväksi/);
   });
   it('rivi on editorissa ja päivittyy tilan muuttuessa', () => {
     expect(runko('_kaavioAvaaEditori')).toContain('_kvKohde');

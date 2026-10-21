@@ -26,13 +26,14 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tuontimuunnos + lukusääntö (kanoninen Mirwald) -->
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (D140) — ENNEN viikkoa käyttäviä kirjastoja -->
-<script src="lib/tm_eerikkila_normit.js?v=57"></script>
+<script src="lib/tm_eerikkila_normit.js?v=58"></script>
 <script src="lib/tm_joukkue.js?v=6"></script>
 <script src="lib/tm_joukkuejasenyys_tarkistus.js?v=1"></script>   <!-- §7.18: "Tarkista joukkuejäsenyydet" (SA) — logiikka libissä -->
 <script src="lib/tm_pvm.js?v=7"></script>
 <script src="lib/tm_testipaiva.js?v=3"></script>   <!-- testipäivän lähde: oikea | arvio (kausi, pvm_arvio) | tuntematon — EI hiljaista varapäivää -->
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- Omat ennätykset (PB): paivitaEnnatykset (jaettu, TM_ENNATYKSET) -->
+<script src="lib/tm_historiatuonti.js?v=3"></script>   <!-- Historia-/tapahtumatuonti: uusin voittaa (testikohtainen pikakenttä-yhdistely, esikatseluviesti) -->
 <script src="lib/tm_historia.js?v=2"></script>   <!-- Trendi Vaihe 1a: mittaushistorian selkäranka (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_pohja.js?v=1"></script>   <!-- P1.2: itsekuvaava tuontipohja — TM_POHJA.sarakkeetTesteista/metaLehtiAoa/lueMetaLehti (joustava testivalitsin + Meta-lehti) -->
 <script src="lib/tm_testikatalogi.js?v=2"></script>   <!-- PR G: tmTestiProtokollaId/tmTkHhNormalisoi — H-H vs TK pujottelu/syöttö tunnisteella (IIFE → TM_TESTIKATALOGI, ei törmää inline-KATALOGI_META:an) -->
@@ -2359,6 +2360,12 @@ function vahvistaHistoriaMeta() {
 // ════════════════════════════════════════
 // VAIHE C: VALIDOINTI
 // ════════════════════════════════════════
+// Testi-id:t joissa on dataa → protokollaristiriita (lib/tm_historiatuonti.js). Protokolla: tapahtuma tai historiavalinta.
+function _protokollaRistiriita() {
+  const t = tuontiData.tapahtumaData, proto = tuontiData.moodi === 'tapahtuma' ? (t && t.protokolla) : (tuontiData.meta && tuontiData.meta.protokolla);
+  const ids = (tuontiData.testiSarakkeet || []).map(s => s.testiId).filter(id => id && (tuontiData.pelaajat || []).some(p => p.testit && p.testit[id] !== '' && p.testit[id] != null));
+  return TM_HISTORIATUONTI.protokollaRistiriita(ids, proto);
+}
 function suoritaValidointi() {
   const pelaajat = tuontiData.pelaajat;
   const tapahtuma = tuontiData.tapahtumaData;
@@ -2413,6 +2420,9 @@ function suoritaValidointi() {
 
     // 4c) Kuljetus-laukaus: vähennys-sarake puuttuu → varoitus (ei hiljaista nollaa)
     (p._tkVaroitukset || []).forEach(m => varoitukset.push({ rivi: idx, kentta: 'Kuljetus-laukaus', msg: `${riviLabel}: ${m}` }));
+
+    // 4d) Todennäköinen yksikkövirhe (CMJ/SJ < 5 cm, 10 m < 1,4 s) — VAROITUS, ei estä, arvoja ei muuteta (lib/tm_historiatuonti.js)
+    TM_HISTORIATUONTI.yksikkoVaroitukset(p.testit).forEach(m => varoitukset.push({ rivi: idx, kentta: 'Yksikkö', msg: `${riviLabel}: ${m}` }));
 
     // 5) Testiarvojen validointi
     for (const ts of tuontiData.testiSarakkeet) {
@@ -2482,6 +2492,7 @@ function suoritaValidointi() {
     }
   });
 
+  { const _rr = _protokollaRistiriita(); if (_rr) virheet.push({ rivi: -1, kentta: 'Protokolla', msg: _rr }); }   // HARD BLOCK: väärä protokolla (H-H ↔ tekniikkakilpailu)
   tuontiData.virheet = virheet;
   tuontiData.varoitukset = varoitukset;
   tuontiData.valid = virheet.length === 0;
@@ -2793,6 +2804,30 @@ function naytaEsikatselu() {
     taulukkoOver.parentNode.insertBefore(el, taulukkoOver);
   })();
 
+  // UUSIN VOITTAA (lib/tm_historiatuonti.js): pelaajat joilta pikakenttiä ei päivitetä, koska järjestelmässä on jo uudempi tulos.
+  // Testitulos-dokumentti (historia) tallentuu silti; vain profiilin "nykytila" jää ennalleen. Sama laskenta kuin tallennuksessa.
+  (function() {
+    document.getElementById('uusin-voittaa-paneeli')?.remove();
+    const kausi = (tuontiData.meta && tuontiData.meta.kausi) || '', tapPvm = tuontiData.tapahtumaData && tuontiData.tapahtumaData.pvm;
+    const onTkI = tuontiData.meta && tuontiData.meta.protokolla === 'tekniikkakilpailu', ryhmat = {};
+    (tuontiData.pelaajat || []).forEach(function(p) {
+      if (!p._firestoreData) return;
+      const raaka = p.testauspvm || tapPvm || '', tp = TM_TESTIPAIVA.tmTestipaiva({ pvm: _paivaIso(raaka), teksti: raaka, kausi: kausi });
+      if (!tp.pvm) return;
+      const id = p._firestoreDocId || p.tunniste, r = ryhmat[id] = ryhmat[id] || { id: id, nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(), fd: p._firestoreData, rivit: [] };
+      r.rivit.push({ pvm: tp.pvm, hh: TM_HISTORIATUONTI.hhRivilta(p.testit), tki: !!onTkI });
+    });
+    const ohi = TM_HISTORIATUONTI.suunnitelma(Object.keys(ryhmat).map(function(k) { return ryhmat[k]; })).pelaajat.filter(function(x) { return x.viestit.length; });
+    if (!ohi.length) return;
+    const el = document.createElement('div');
+    el.id = 'uusin-voittaa-paneeli';
+    el.style.cssText = 'margin-bottom:14px;padding:12px 14px;background:rgba(224,160,64,.12);border:.5px solid rgba(224,160,64,.5);border-radius:8px;font-size:12px;color:var(--text);';
+    el.innerHTML = '<strong>' + ohi.length + ' pelaajalla on jo uudempi tulos järjestelmässä</strong> — vanhempi tulos tallentuu historiaan, mutta profiilin nykytila ei muutu.'
+      + ohi.slice(0, 20).map(function(x) { return '<div style="margin-top:4px;"><strong>' + escapeHtml(x.nimi) + '</strong>: ' + escapeHtml(x.viestit.join(' ')) + '</div>'; }).join('')
+      + (ohi.length > 20 ? '<div style="margin-top:4px;">… +' + (ohi.length - 20) + ' pelaajaa</div>' : '');
+    taulukkoOver.parentNode.insertBefore(el, taulukkoOver);
+  })();
+
   const taulukko = document.getElementById('esikatselu-taulukko');
   taulukko.style.display = 'block';
 
@@ -2952,6 +2987,8 @@ async function tallennaFirestoreen() {
   if (moodi === 'historia' && (!tuontiData.meta.kausi || !tuontiData.meta.protokolla)) {
     toast('Kausi ja protokolla pakollisia historiapohjaisessa tuonnissa', 'err'); return;
   }
+
+  { const _rr = _protokollaRistiriita(); if (_rr) { toast(_rr, 'err'); return; } }   // HARD BLOCK ennen mitään kirjoitusta
 
   const nappi = document.getElementById('tallenna-nappi');
   const progressWrap = document.getElementById('tallennus-progress');
@@ -3120,9 +3157,10 @@ async function tallennaFirestoreen() {
     const pvmIso = _tp.pvm, pvmArvio = _tp.arvio;
     const pvmTeksti = (String(pvmRaw).trim() !== '' && String(pvmRaw).trim() !== pvmIso) ? String(pvmRaw).trim() : null;   // alkuperäinen teksti (esim. kausiteksti)
 
-    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmArvio, pvmTeksti, syntymaVuosi, ika, kokonaistulos };
+    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmArvio, pvmTeksti, syntymaVuosi, ika, kokonaistulos, hhSp: sp };
   });
-  const paketit = paketit0.filter(x => x.pvmIso);   // ei päivää (ei oikea, ei kausiarvio) → EI tallenneta (ei keksittyä päivää)
+  const paketit = paketit0.filter(x => x.pvmIso).sort((a, b) => a.pvmIso < b.pvmIso ? -1 : a.pvmIso > b.pvmIso ? 1 : 0);   // pvm nousevaan (uusin voittaa: TM_HISTORIATUONTI); sort on vakaa → saman päivän rivit tiedostojärjestyksessä
+  const _tilat = {};   // docId → yhteinen pelaajatila (saman pelaajan rivit laskevat peräkkäin, ei vanhentunutta _firestoreDataa)   // ei päivää (ei oikea, ei kausiarvio) → EI tallenneta (ei keksittyä päivää)
   if (paketit0.length > paketit.length) { toast((paketit0.length - paketit.length) + ' riviä ohitettu: testipäivä tuntematon (anna TestiPvm tai kausi)', 'err'); console.warn('[tuonti] ohitettu ilman testipäivää: ' + (paketit0.length - paketit.length)); }
 
   // Aja batchina, jaa 400:n eriin
@@ -3137,7 +3175,7 @@ async function tallennaFirestoreen() {
     const batch = db.batch();
 
     era.forEach(pkg => {
-      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmArvio, pvmTeksti, ika, syntymaVuosi, kokonaistulos } = pkg;   // ika/syntymaVuosi: laskettu paketinrakennuksessa → välitetään forEach:iin
+      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin: hhRow, hhTaso: hhTasoRow, pvmIso, pvmArvio, pvmTeksti, ika, syntymaVuosi, kokonaistulos, hhSp } = pkg;   // ika/syntymaVuosi: laskettu paketinrakennuksessa → välitetään forEach:iin
       // FIX: sp puuttui tallennussilmukan skoopista → ReferenceError 3004 → 0/0. Keskitetty M/N-johto lib-helperiin.
       const sp = (typeof normSukupuoliMN === 'function')
         ? normSukupuoliMN(p.sukupuoli || (p._firestoreData && p._firestoreData.sukupuoli))
@@ -3194,45 +3232,50 @@ async function tallennaFirestoreen() {
       if (p._loytyyFirestoresta === true) {
         const pelaajaRef = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(docId);
         const profiiliUpdate = {};
-        if (fleiPct !== null) profiiliUpdate.flei_viimeisin = fleiPct;
-        if (tki !== null)     profiiliUpdate.tki_viimeisin = tki;
-        if (fleiPct !== null) profiiliUpdate.flei_pvm = pvmIso;
-        if (tki !== null)     profiiliUpdate.tki_pvm = pvmIso;
-        if (merkki)           profiiliUpdate.tki_merkki = merkki;
-        if (vahvuus)          profiiliUpdate.tki_vahvuus = vahvuus;
-        if (kehityskohde)     profiiliUpdate.tki_kehityskohde = kehityskohde;
+        // UUSIN VOITTAA (lib/tm_historiatuonti.js): pikakentät testikohtaisesti/ryhmittäin; vanhempi tuonti ei korvaa uudempaa.
+        // p._firestoreData = pelaajan yhteinen tila (aiemmat rivit jo mukana). Historia (testitulokset, *_historia, PB) kirjataan aina.
+        const _H = TM_HISTORIATUONTI;
+        const _fdAlku = p._firestoreData;   // palautetaan blokin lopussa (retry ei saa nähdä kirjoittamatonta tilaa kirjoitettuna)
+        const _fd0 = p._firestoreData = (_tilat[docId] = _tilat[docId] || _H.alkutila(_fdAlku));
+        const _pd = _H.paata(_fd0, { pvm: pvmIso, hh: hhRow, tki: tki !== null, flei: fleiPct !== null, tsi: testit.sm_juoksu != null && testit.sm_pallo != null });
+        const _tkW = tki !== null && _pd.tki.uusi;   // TKI-ryhmän pikakentät vain jos tuotu pvm >= tki_pvm
+        const hhViimeisin = _pd.hh.viimeisin;       // yhdistelmä (merge per testi) tai null = hh-pikakentät ennallaan
+        const _ikaH = (_pd.hh.pvm === pvmIso || !syntymaVuosi) ? ika : laskeIka(syntymaVuosi, _pd.hh.pvm);   // taso testihetken iästä (normiIka), ei muuteta §7.22
+        const hhTaso = hhViimeisin ? laskeHHTaso(_H.hvTesteiksi(hhViimeisin), _ikaH, hhSp) : null;
+        if (fleiPct !== null && _pd.flei.uusi) { profiiliUpdate.flei_viimeisin = fleiPct; profiiliUpdate.flei_pvm = pvmIso; }
+        if (_tkW)             { profiiliUpdate.tki_viimeisin = tki; profiiliUpdate.tki_pvm = pvmIso; }
+        if (merkki && _tkW)   profiiliUpdate.tki_merkki = merkki;
+        if (vahvuus && _tkW)  profiiliUpdate.tki_vahvuus = vahvuus;
+        if (kehityskohde && _tkW) profiiliUpdate.tki_kehityskohde = kehityskohde;
         // TKI-analyysimalli VAIHE 1 — per-laji + kokonaistulos-pikakentät (detail-paneeli + abs-delta)
         const _tkLajit = (tki !== null) ? _tkLajitPikakentat(testit, ika) : null;
-        if (_tkLajit)             { profiiliUpdate.tk_lajit_viimeisin = _tkLajit; profiiliUpdate.tk_lajit_pvm = pvmIso; }
-        if (kokonaistulos != null) profiiliUpdate.tk_kokonaistulos_viimeisin = kokonaistulos;
-        if (hhViimeisin)      { profiiliUpdate.hh_viimeisin = hhViimeisin; profiiliUpdate.hh_pvm = pvmIso; }
+        if (_tkLajit && _tkW)     { profiiliUpdate.tk_lajit_viimeisin = _tkLajit; profiiliUpdate.tk_lajit_pvm = pvmIso; }
+        if (kokonaistulos != null && _tkW) profiiliUpdate.tk_kokonaistulos_viimeisin = kokonaistulos;
+        if (hhViimeisin)      { profiiliUpdate.hh_viimeisin = hhViimeisin; if (_pd.hh.pvmMuuttuu) profiiliUpdate.hh_pvm = pvmIso; }
         if (hhTaso != null)   profiiliUpdate.hh_taso = hhTaso;
         // testipaivat (§26 per-patteristo-pvm) — deep-merge (set merge:true) → vain oma patteristo päivittyy.
         // hhViimeisin = H-H (ei TKI) → fyysinen_hh / tekniikka_hh; tki erikseen. Pari-invariantti (arvo+pvm yhdessä).
         {
           // KENTTÄPOHJAINEN mäppäys (kanoninen tmTestipaivaPatteristot lib/tm_pvm.js) hhViimeisin:istä (H-H, ei TKI;
           // normalisoidut nimet syotto/pujottelu/lin30m/cmj/mas). tekniikka_hh syntyy syöttö/pujottelu-kentistä.
-          const _tp = {};
-          if (hhViimeisin && typeof tmTestipaivaPatteristot === 'function') {
-            tmTestipaivaPatteristot({ protokolla: 'hh', testit: hhViimeisin }).forEach(function(k){ _tp[k] = pvmIso; });
-          }
-          if (tki !== null) _tp.tki = pvmIso;
+          const _tp = Object.assign({}, _pd.testipaivat);   // patteristo päivittyy vain jos sen testi päivittyi eikä pvm mene taaksepäin
+          if (_tkW && !(_H.iso(_fd0.testipaivat && _fd0.testipaivat.tki) > pvmIso)) _tp.tki = pvmIso;
           if (Object.keys(_tp).length) profiiliUpdate.testipaivat = _tp;
         }
         // VAIHE 2 — kehitysvauhti: vangitse EDELLINEN taso vain aidolla uudella testillä (eri pvm)
         // ennen ylikirjoitusta → mielekäs delta (pvm-vahti estää re-importin nolladeltan).
         {
           const _fd = p._firestoreData || {};
-          if (hhTaso != null && _fd.hh_taso != null && _fd.hh_pvm && _fd.hh_pvm !== pvmIso) {
+          if (hhTaso != null && _fd.hh_taso != null && _fd.hh_pvm && _pd.hh.edellinen) {
             profiiliUpdate.hh_taso_edellinen = _fd.hh_taso;
             profiiliUpdate.hh_taso_edellinen_pvm = _fd.hh_pvm;
           }
-          if (tki !== null && _fd.tki_viimeisin != null && _fd.tki_pvm && _fd.tki_pvm !== pvmIso) {
+          if (_tkW && _fd.tki_viimeisin != null && _fd.tki_pvm && _pd.tki.edellinen) {
             profiiliUpdate.tki_edellinen = _fd.tki_viimeisin;
             profiiliUpdate.tki_edellinen_pvm = _fd.tki_pvm;
           }
           // TKI-analyysimalli VAIHE 1 — kokonaistulos-abs-delta: edellinen vain aidolla uudella testillä
-          if (kokonaistulos != null && _fd.tk_kokonaistulos_viimeisin != null && _fd.tk_lajit_pvm && _fd.tk_lajit_pvm !== pvmIso) {
+          if (kokonaistulos != null && _tkW && _fd.tk_kokonaistulos_viimeisin != null && _fd.tk_lajit_pvm && _pd.tki.edellinen) {
             profiiliUpdate.tk_kokonaistulos_edellinen = _fd.tk_kokonaistulos_viimeisin;
             profiiliUpdate.tk_kokonaistulos_edellinen_pvm = _fd.tk_lajit_pvm;
           }
@@ -3240,12 +3283,12 @@ async function tallennaFirestoreen() {
         if (syntymaVuosi)     profiiliUpdate.syntymaVuosi = syntymaVuosi;   // Excel-SyntymaVuosi → profiili (tarkka ikä)
         { const _spR = TM_SUKUPUOLI.tmSukupuoliMN(p.sukupuoli); if (_spR && !TM_SUKUPUOLI.tmSukupuoliMN(p._firestoreData && p._firestoreData.sukupuoli)) profiiliUpdate.sukupuoli = _spR; }   // sukupuoli puuttuu pelaajadokista → testitulosrivin sukupuoli samaan batchiin (ei ylikirjoita olemassa olevaa)
         // MAS-johdannaiset profiiliin → VP/Pelaaja syvä analyysi (km/h, m/s, alkuperäinen aika)
-        if (testit.mas_kmh != null)      profiiliUpdate.mas_kmh = testit.mas_kmh;
-        if (testit.mas_ms != null)       profiiliUpdate.mas_ms = testit.mas_ms;
-        if (testit.mas_aika_min != null) profiiliUpdate.mas_aika_min = testit.mas_aika_min;
-        if (p.phv_tila)       profiiliUpdate.phv_tila = p.phv_tila;   // PR C: aina kanoninen (tmPhvTuontiKoodi), AN-solua ei tallenneta
+        if (testit.mas_kmh != null && (!hhRow || _pd.hh.uudet.indexOf('mas') >= 0))      profiiliUpdate.mas_kmh = testit.mas_kmh;
+        if (testit.mas_ms != null && (!hhRow || _pd.hh.uudet.indexOf('mas') >= 0))       profiiliUpdate.mas_ms = testit.mas_ms;
+        if (testit.mas_aika_min != null && (!hhRow || _pd.hh.uudet.indexOf('mas') >= 0)) profiiliUpdate.mas_aika_min = testit.mas_aika_min;
+        if (p.phv_tila && _pd.onUusin) profiiliUpdate.phv_tila = p.phv_tila;   // vanhempi rivi ei korvaa uudempaa PHV-tilaa   // PR C: aina kanoninen (tmPhvTuontiKoodi), AN-solua ei tallenneta
         // TSI-pikakentät — SM-juoksu + SM-pallo testituloksesta. TSI = SM-pallo − SM-juoksu (§22).
-        if (testit && testit.sm_juoksu != null && testit.sm_pallo != null) {
+        if (testit && testit.sm_juoksu != null && testit.sm_pallo != null && _pd.tsi.uusi) {
           const smJ = parseFloat(testit.sm_juoksu), smP = parseFloat(testit.sm_pallo);
           if (!isNaN(smJ) && !isNaN(smP)) {
             profiiliUpdate.tsi_viimeisin = Math.round((smP - smJ) * 100) / 100;
@@ -3254,13 +3297,14 @@ async function tallennaFirestoreen() {
             profiiliUpdate.tsi_pvm = pvmIso;
             // VAIHE 1 — kehitysvauhti: edellinen TSI vain aidolla uudella testillä (eri pvm) → pvm-vahti (§29).
             const _fdT = p._firestoreData || {};
-            if (_fdT.tsi_viimeisin != null && _fdT.tsi_pvm && _fdT.tsi_pvm !== pvmIso) {
+            if (_fdT.tsi_viimeisin != null && _fdT.tsi_pvm && _pd.tsi.edellinen) {
               profiiliUpdate.tsi_edellinen = _fdT.tsi_viimeisin;
               profiiliUpdate.tsi_edellinen_pvm = _fdT.tsi_pvm;
             }
           }
         }
         // SM-tasot (Eerikkilä 1–5) + D2-taso. Ikä/sp joukkuenimestä (fallback syntymaVuosi/sukupuoli).
+        let _smPOwn = null;   // rivin oma sm_pallo-taso (historiapisteen d2; pikakenttään vain jos _pd.tsi.uusi)
         if (typeof eerikkilaTaso === 'function' && testit && testit.sm_juoksu != null && testit.sm_pallo != null) {
           const jk = p.joukkue || (p._firestoreData && p._firestoreData.joukkue) || '';
           const jm = String(jk).match(/\b([PTU])\s?(\d{1,2})\b/i);
@@ -3271,13 +3315,16 @@ async function tallennaFirestoreen() {
           if (_ika && _sp) {
             const smJTaso = eerikkilaTaso(parseFloat(testit.sm_juoksu), 'sm_juoksu', _ika, _sp);
             const smPTaso = eerikkilaTaso(parseFloat(testit.sm_pallo), 'sm_pallo', _ika, _sp);
-            profiiliUpdate.sm_juoksu_taso = smJTaso;   // D1 (fyysinen ketteryys) — pikakenttä, EI D2:een
-            profiiliUpdate.sm_pallo_taso = smPTaso;     // D2 (lajitekniikka) — käytetään sm_pallo-fallbackissa H-H-lohkon jälkeen
+            _smPOwn = smPTaso;
+            if (_pd.tsi.uusi) {
+              profiiliUpdate.sm_juoksu_taso = smJTaso;   // D1 (fyysinen ketteryys) — pikakenttä, EI D2:een
+              profiiliUpdate.sm_pallo_taso = smPTaso;     // D2 (lajitekniikka) — käytetään sm_pallo-fallbackissa H-H-lohkon jälkeen
+            }
           }
         }
         // D2-tekninen TK-lajitasoista (§8.7): vain jos SM-d2:ta EI kirjoiteta tässä päivityksessä JA
         // olemassa oleva d2 puuttuu tai on jo TK-pohjainen (ÄLÄ ylikirjoita SM/H-H-pohjaista d2:ta).
-        if (_tkLajit && profiiliUpdate.d2_taso == null && typeof laskeD2Tekninen === 'function') {
+        if (_tkLajit && _tkW && profiiliUpdate.d2_taso == null && typeof laskeD2Tekninen === 'function') {
           const _fdD2 = p._firestoreData || {};
           if (_fdD2.d2_taso == null || _fdD2.d2_lahde === 'tk') {
             const _spD2 = (sp === 'M') ? 'P' : (sp === 'N') ? 'T' : sp;
@@ -3288,14 +3335,14 @@ async function tallennaFirestoreen() {
         // JOUSTAVA INDEKSILASKENTA (§30): d1_taso (fyysiset H-H-tasot) + d2_taso H-H-fallback (syöttö/pujottelu).
         // Laskee saatavilla olevista H-H-testeistä — fiksaa ulkomaiset/erilaiset patterit (esim. Pallo-Iirot P10).
         // Kanoniset funktiot lib/tm_eerikkila_normit.js (sama logiikka kuin recalcHH). Jos ikä/sp puuttuu → recalcHH backfillaa.
-        if (hhViimeisin && ika && sp && typeof laskeD1Joustava === 'function') {
-          const _d1 = laskeD1Joustava(hhViimeisin, ika, sp);
+        if (hhViimeisin && _ikaH && sp && typeof laskeD1Joustava === 'function') {
+          const _d1 = laskeD1Joustava(hhViimeisin, _ikaH, sp);
           if (_d1) { profiiliUpdate.d1_taso = _d1.taso; profiiliUpdate.d1_lahde = _d1.lahde; profiiliUpdate.d1_kattavuus = _d1.kattavuus; profiiliUpdate.d1_pvm = pvmIso; }
           // D2 H-H-fallback: vain jos SM/TK ei kirjoittanut d2:ta tässä päivityksessä (älä ylikirjoita parempaa lähdettä)
           if (profiiliUpdate.d2_taso == null && typeof laskeD2HH === 'function') {
             const _fdHH = p._firestoreData || {};
             if (_fdHH.d2_taso == null || _fdHH.d2_lahde === 'hh' || _fdHH.d2_lahde === 'sm' || _fdHH.d2_lahde === 'sm_pallo') {
-              const _d2hh = laskeD2HH(hhViimeisin, ika, sp);
+              const _d2hh = laskeD2HH(hhViimeisin, _ikaH, sp);
               if (_d2hh) { profiiliUpdate.d2_taso = _d2hh.taso; profiiliUpdate.d2_lahde = _d2hh.lahde; profiiliUpdate.d2_kattavuus = _d2hh.kattavuus; profiiliUpdate.d2_pvm = pvmIso; }
             }
           }
@@ -3314,7 +3361,7 @@ async function tallennaFirestoreen() {
           if (_rae) profiiliUpdate.rae_kvartaali = _rae;
         }
         // EI = CMJ − SJ (jos molemmat hyppytestit mitattu; sj_jump = Testaus_v9 vanha id)
-        if (testit) {
+        if (testit && (!hhRow || _pd.hh.uudet.indexOf('cmj') >= 0)) {
           const cmjA = (testit.hyppy_cj != null) ? parseFloat(testit.hyppy_cj) : null;
           const sjA  = (testit.hyppy_sj != null) ? parseFloat(testit.hyppy_sj) : (testit.sj_jump != null ? parseFloat(testit.sj_jump) : null);
           if (cmjA != null && !isNaN(cmjA) && sjA != null && !isNaN(sjA)) {
@@ -3334,23 +3381,29 @@ async function tallennaFirestoreen() {
         // Trendi Vaihe 1b — H-H/TKI-historia (aikasarja): liitä snapshot jokaiseen mittaukseen (jaettu tm_historia-lib).
         // Upsert pvm:llä → re-import samalle pvm:lle EI duplikaattia; katko 20; testijoukko-agnostinen (vain mitatut).
         // d1_taso/d2_taso ovat jo laskettu tässä profiiliUpdate:ssa (yllä). Backfill jää idempotentiksi varaverkoksi.
-        if (hhViimeisin && typeof tmHhSnapshot === 'function' && typeof tmHistoriaLisaa === 'function') {
+        if (hhRow && typeof tmHhSnapshot === 'function' && typeof tmHistoriaLisaa === 'function') {
           const _hhEdell = (p._firestoreData && p._firestoreData.hh_historia) || [];
+          const _snT = { d1: null, d2: null };
+          if (ika && sp && typeof laskeD1Joustava === 'function') { const _o1 = laskeD1Joustava(hhRow, ika, sp), _o2 = typeof laskeD2HH === 'function' ? laskeD2HH(hhRow, ika, sp) : null; _snT.d1 = _o1 && _o1.taso; _snT.d2 = _o2 && _o2.taso; }
+          if (profiiliUpdate.d2_lahde && profiiliUpdate.d2_lahde !== 'hh' && profiiliUpdate.d2_taso != null) _snT.d2 = profiiliUpdate.d2_taso;   // SM/TK-pohjainen d2 kuten ennen
+          if (_snT.d2 == null) _snT.d2 = _smPOwn;   // sm_pallo-fallback myös kun pikakenttää ei päivitetä (idempotentti historiapiste)
           // K1b §22 — EI alustaa: Excel-tuonti ei kanna per-mittaus-alustaa (`pv-alusta` on vain pohjageneraattorin
           // valitsin, ei lueta takaisin; testitulokset-doceissa ei alustakenttää). Sama silmukka tuo myös Moodi B:n
           // (historiapohja) = monta eri testipäivää → yksi julistettu alusta tageaisi ne VÄÄRIN → valhe-segmentointi.
           // → jätä alusta null (== vertailukelpoinen, ei regressiota). Aito per-piste-alusta tulee vain Testaus_v9:stä.
           profiiliUpdate.hh_historia = tmHistoriaLisaa(_hhEdell, tmHhSnapshot(pvmIso, {
-            hh_taso: hhTaso, d1_taso: profiiliUpdate.d1_taso, d2_taso: profiiliUpdate.d2_taso, hv: hhViimeisin
+            hh_taso: hhTasoRow, d1_taso: _snT.d1, d2_taso: _snT.d2, hv: hhRow   // rivin OMAT tasot (historiapiste = sen päivän testi, ei yhdistelmä)
           }));
         }
         if (tki !== null && typeof tmTkiSnapshot === 'function' && typeof tmHistoriaLisaa === 'function') {
           const _tkiEdell = (p._firestoreData && p._firestoreData.tki_historia) || [];
           profiiliUpdate.tki_historia = tmHistoriaLisaa(_tkiEdell, tmTkiSnapshot(pvmIso, { tki: tki, tkLajit: _tkLajit || {} }));
         }
+        // Kehitysvauhti: *_edellinen = toiseksi uusin mittaus historiasta (riippumaton tuontijärjestyksestä; idempotentti; yksi mittaus → ei edellistä)
+        Object.assign(profiiliUpdate, _H.edellisetHistoriasta(profiiliUpdate.hh_historia || _fd0.hh_historia, profiiliUpdate.tki_historia || _fd0.tki_historia));
         // KORTTI 1c-A — päivitä ennätykset (PB) pikakenttä varmoista pikakentistä (best-effort, ei kaada tuontia).
         try {
-          const _ennatKand = _ennatysKandidaatit(hhViimeisin, _tkLajit, fleiPct, pvmIso);
+          const _ennatKand = _ennatysKandidaatit(hhRow, _tkLajit, fleiPct, pvmIso);
           if (_ennatKand.length) {
             const _nykyEnn = (p._firestoreData && p._firestoreData.ennatykset) || null;
             // PR D: siemen pelaajan aiemmasta datasta (tuonnin alusta 'tuntematon' → alustaherkissä ei juhlaa, §22)
@@ -3365,7 +3418,9 @@ async function tallennaFirestoreen() {
         Object.keys(profiiliUpdate).filter(k => /^(tki|hh|tsi|d1|d2|flei|tk_lajit)_pvm$/.test(k) && profiiliUpdate[k] === pvmIso).forEach(k => { profiiliUpdate[k + '_arvio'] = pvmArvio ? true : firebase.firestore.FieldValue.delete(); });
         if (Object.keys(profiiliUpdate).length > 0) {
           batch.set(pelaajaRef, profiiliUpdate, { merge: true });
+          _tilat[docId] = _H.sovella(_fd0, profiiliUpdate);   // seuraava rivi (sama pelaaja) lähtee tästä tilasta
         }
+        p._firestoreData = _fdAlku;
       }
     });
 
