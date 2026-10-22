@@ -1,0 +1,5 @@
+# Erä 86 vienti + selaintestien päivämäärätarkistus (22.10.2026)
+
+**A. Erä 86** (Seura-tuonnin STATUS-merkit, #1112; henkilosto_kartta: "Virhe", "⚠️ Huomio"; 2 riviä). Palautus docs/i18n/sv_kaannoserae_86_palautus.json (sha 14a39daf…79cb). Vienti scripts/i18n_vie_sv_era86.cjs (mallina era82): sv kopioidaan merkki merkiltä lib/tm_henkilosto_i18n.js sv-kartan loppuun, fi=avain täsmätään lähetettyyn erään, idempotentti, verifiointi uudelleenlatauksella, virhe -> ei kirjoiteta. ODOTTAVAT_ERAT: [77, 80, 86] -> [77, 80]. tm_henkilosto_i18n ?v 10 -> 11 (Seura, ADAR_Pikakortti, Pelihavainto_Kentta) + lib_versiot --kirjoita; sw_adar tm-adar-v53 -> v54; lib_vartijat-katto 575 -> 578. Testi tests/i18n_era86_vienti.test.js; i18n_pr4_henkilosto-laskuri +86.
+
+**B. Selaintestit.** tests/k1d_kt_selain.test.js + tests/kt_k1_selain.test.js ajettu main (e91c45a8) vasten, --testTimeout=120000, yksin: TZ=UTC ja oletus-TZ (Europe/Helsinki), koneen päivä 22.10.2026. Tulos: 15/15 läpi molemmilla -> ei kovakoodattu-päivä-kaatumista; testejä ei muutettu.
