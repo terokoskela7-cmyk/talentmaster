@@ -101,7 +101,7 @@ describe('lähdekontrakti — tallentavat kohdat eivät käytä UTC-päivää', 
     ['TalentMaster_VP_v25.html', "var pvm = tmPaivaIso(new Date());   // reviewit/{pvm}-doc-ID + review_viimeisin_pvm: paikallinen päivä", 2, 'reviewit/{pvm} + review_viimeisin_pvm (kaksi kohtaa)'],
     ['TalentMaster_VP_v25.html', "const pvm = tmPaivaIso(new Date());   // paikallinen päivä (ei UTC)\n  const d3v", 1, 'd3_viimeisin.pvm + d3_vp_pvm'],
     ['TalentMaster_Master_v16.html', "pvm: tmPaivaIso(new Date()), lahteet: lahteet };", 1, 'd3_viimeisin.pvm (+ d3_pvm samassa set():ssä)'],
-    ['TalentMaster_Pelaaja_v7.html', "pvm: _paivaIso(), lahteet: lahteet, jakso_alkoi", 1, 'd3_viimeisin.pvm (sivun oma paikallinen _paivaIso)'],
+    ['TalentMaster_Pelaaja_v7.html', "{ pvm: _paivaIso(), jaksoAlkoi: _p7JaksoAlkoi() }", 1, 'd3_itsearvio.pvm (sivun oma paikallinen _paivaIso; Vaihe 1 / 1d)'],
     ['TalentMaster_ADAR_Pikakortti.html', "pvm: tmPaivaIso(new Date()),   // havainnon päivä", 1, 'havainnon pvm'],
     ['TalentMaster_Seura.html', "{ pvm: tmPaivaIso(new Date()), arvo: null, pelaajaId: null, huomio: 'Kumottu kirjaus'", 1, 'omat_tavoitteet/kirjaukset kumoamis-pvm'],
     ['TalentMaster_TalentID_v1.html', "var tanaan=tmPaivaIso(new Date());", 1, 'snapshotin päiväavain (localStorage)'],
@@ -115,9 +115,9 @@ describe('lähdekontrakti — tallentavat kohdat eivät käytä UTC-päivää', 
     expect(t.split("String(_aktiivinenTapahtuma.pvm).slice(0, 10) : tmPaivaIso(new Date());").length - 1).toBe(2);
   });
   it('§26-parit samassa kirjoituksessa: d3 (Master/Pelaaja: d3_viimeisin+d3_pvm), VP (d3_viimeisin+d3_vp_pvm), review_viimeisin_pvm+_tyyppi', () => {
-    expect(S('TalentMaster_Master_v16.html')).toContain(".set({ d3_viimeisin: d3v, d3_taso: d3_taso, d3_pvm: d3v.pvm, d3_varmuus: d3_varmuus }, { merge: true });");
-    expect(S('TalentMaster_Pelaaja_v7.html')).toContain(".set({ d3_viimeisin: d3v, d3_taso: d3_taso, d3_pvm: d3v.pvm, d3_varmuus: d3_varmuus }, { merge: true });");
-    expect(S('TalentMaster_VP_v25.html')).toContain(".set({ d3_viimeisin: d3v, d3_vp_pvm: pvm }, { merge: true });");
+    expect(S('TalentMaster_Master_v16.html')).toContain('tmSisainenKirjoita(_db, _seuraId, pid, { d3_viimeisin: d3v, d3_taso: d3_taso, d3_pvm: d3v.pvm, d3_varmuus: d3_varmuus })');
+    expect(S('TalentMaster_Pelaaja_v7.html')).toContain('tmD3ItsearvioKirjoitus(_minaD3, _pelaaja, { pvm: _paivaIso(), jaksoAlkoi: _p7JaksoAlkoi() })');   // pelaaja kirjoittaa vain d3_itsearvio (pvm sen sisällä)
+    expect(S('TalentMaster_VP_v25.html')).toContain('tmSisainenKirjoita(db, _seuraId, pid, { d3_viimeisin: d3v, d3_vp_pvm: pvm })');
     // review: pari yhdessä set-kutsussa atomisen batch-apurin sisällä (§26), jota MDT-review + bulk kutsuvat
     // R6.2a: pari rakentuu lib/tm_kehityssilmukka.js tmKirjaaKatselmus:ssa (kummallekin polulle sama) ja kirjoitetaan YHDESSÄ set-kutsussa batchissa
     expect(S('lib/tm_kehityssilmukka.js')).toContain("pk.review_viimeisin_pvm = pvm; pk.review_viimeisin_tyyppi = tyyppi;");

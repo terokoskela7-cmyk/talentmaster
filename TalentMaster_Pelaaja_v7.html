@@ -569,6 +569,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 <script src="tm_why_lauseet.js?v=3"></script>
+<script src="lib/tm_d3_itsearvio.js?v=1"></script>   <!-- Vaihe 1 (1d): pelaajan oma D3-itsearvio (d3_itsearvio); EI tm_sisainen.js:ää -->
 <script src="lib/tm_idp_pelaaja.js?v=1"></script>   <!-- K1d: pelaajan aikajana + konsepti (tekstit käännösavaimiin) -->
 <script src="lib/tm_idp.js?v=16"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_koti_luvut.js?v=3"></script>   <!-- PR 4 (K14): kypsyysEstetty (§28) tm_fyysinen:lle — YKSI kypsyysvahti -->
@@ -2931,14 +2932,11 @@ function _p7VahvistusNyky(sit) {
 
 function rMinaItsearvio() {
   var d = _pelaaja;
-  if (d && d.d3_viimeisin && d.d3_viimeisin.pisteet) {
-    _MINA_D3_KYS.forEach(function (k) {
-      var pt = d.d3_viimeisin.pisteet[k.key];
-      if (pt && pt.pelaaja != null && _minaD3[k.key] == null) _minaD3[k.key] = pt.pelaaja;
-    });
-  }
+  /* Vaihe 1 (1d): pelaaja lukee VAIN oman itsearvionsa (d3_itsearvio; varalla vanhan d3_viimeisin-datan `.pelaaja`-osa) — ei valmentajan pisteitä. */
+  var omat = (window.TM_D3_ITSEARVIO && d) ? window.TM_D3_ITSEARVIO.tmD3ItsearvioPisteet(d) : {};
+  _MINA_D3_KYS.forEach(function (k) { if (omat[k.key] != null && _minaD3[k.key] == null) _minaD3[k.key] = omat[k.key]; });
   // C2 — vanhentunut itsearvio: arvot PYSYVÄT näkyvissä ja muokattavina (ei tyhjennystä), vain pehmeä kehote.
-  var vanhentunut = _p7Vanhentunut(d && d.d3_viimeisin && d.d3_viimeisin.jakso_alkoi);
+  var vanhentunut = _p7Vanhentunut((window.TM_D3_ITSEARVIO && d) ? window.TM_D3_ITSEARVIO.tmD3ItsearvioJakso(d) : null);
   var h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:6px;letter-spacing:.01em">' + T('miten_sina_koet_itsesi') + '</div>';
   h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:12px;color:#8C8B86;margin-bottom:14px;line-height:1.5">' + T('tama_ei_ole_testi_eika') + '</div>';
@@ -2975,32 +2973,15 @@ async function _tallennaItsearvio() {
   if (!_pelaaja || !_pelaaja.id || !_pelaaja.seuraId || !window._db) return;
   var annettu = Object.keys(_minaD3).filter(function (k) { return _minaD3[k] != null; });
   if (!annettu.length) return;
-  var pisteet = (_pelaaja.d3_viimeisin && _pelaaja.d3_viimeisin.pisteet)
-    ? JSON.parse(JSON.stringify(_pelaaja.d3_viimeisin.pisteet)) : {};
-  annettu.forEach(function (k) { pisteet[k] = pisteet[k] || {}; pisteet[k].pelaaja = _minaD3[k]; });
-  // per-dim avg = saatavilla olevien valmentaja/pelaaja keskiarvo; d3_taso = avg-arvojen keskiarvo (1 desimaali)
-  var avgs = [];
-  Object.keys(pisteet).forEach(function (k) {
-    var pt = pisteet[k], vals = [];
-    if (pt.valmentaja != null) vals.push(pt.valmentaja);
-    if (pt.pelaaja != null) vals.push(pt.pelaaja);
-    if (vals.length) { pt.avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length * 10) / 10; avgs.push(pt.avg); }
-  });
-  var d3_taso = avgs.length ? Math.round(avgs.reduce(function (a, b) { return a + b; }, 0) / avgs.length * 10) / 10 : null;
-  var onV = false, onP = false;
-  Object.keys(pisteet).forEach(function (k) { if (pisteet[k].valmentaja != null) onV = true; if (pisteet[k].pelaaja != null) onP = true; });
-  var lahteet = []; if (onV) lahteet.push('valmentaja'); if (onP) lahteet.push('pelaaja');
-  // C1 — leimaa jakson identiteetti snapshotiin (d3_viimeisin-olion sisään → Rules sallii jo, ei muutosta).
-  var d3v = { pisteet: pisteet, pvm: _paivaIso(), lahteet: lahteet, jakso_alkoi: _p7JaksoAlkoi() };
-  // d3_varmuus pikakenttä (§26) — 'itsearvio' kun vain pelaaja, 'trianguloitu' jos valmentaja jo arvioinut.
-  // EI näytetä pelaajalle (§7.22); aikuisnäkymät (Master/VP) lukevat tästä.
-  var d3_varmuus = (typeof d3Varmuus === 'function') ? d3Varmuus(lahteet)
-    : (onV && onP ? 'trianguloitu' : onP ? 'itsearvio' : onV ? 'valmentaja' : null);
+  /* Vaihe 1 (1d): pelaaja kirjoittaa VAIN oman itsearvionsa B-kenttään d3_itsearvio { pisteet:{dim:n}, pvm, jakso_alkoi } (lib/tm_d3_itsearvio.js). Valmentajan/VP:n pisteet (A) ovat
+     sisainen/tiedot-dokumentissa, eikä pelaaja lue eikä kirjoita niitä. d3_taso/d3_varmuus/d3_viimeisin lasketaan ja kirjoitetaan henkilökunnan puolella. */
+  var kirj = window.TM_D3_ITSEARVIO ? window.TM_D3_ITSEARVIO.tmD3ItsearvioKirjoitus(_minaD3, _pelaaja, { pvm: _paivaIso(), jaksoAlkoi: _p7JaksoAlkoi() }) : null;
+  if (!kirj) return;
   try {
     await window._db.collection('seurat').doc(_pelaaja.seuraId)
       .collection('pelaajat').doc(_pelaaja.id)
-      .set({ d3_viimeisin: d3v, d3_taso: d3_taso, d3_pvm: d3v.pvm, d3_varmuus: d3_varmuus }, { merge: true });
-    _pelaaja.d3_viimeisin = d3v; _pelaaja.d3_taso = d3_taso; _pelaaja.d3_varmuus = d3_varmuus;
+      .set(kirj, { merge: true });
+    _pelaaja.d3_itsearvio = kirj.d3_itsearvio;
     alert(T('kiitos_tallensin_sinun_ajatuksesi'));
     if (typeof draw === 'function') draw();
   } catch (e) { console.warn('[itsearvio]', e && e.message); }
@@ -3624,7 +3605,7 @@ function rMina() {
   var esc = _thEsc;
   // Toimintapiste-signaalit (amber •) — datavetoiset.
   var iaDone = false;
-  if (p && p.d3_viimeisin && p.d3_viimeisin.pisteet) { try { iaDone = Object.values(p.d3_viimeisin.pisteet).some(function (x) { return x && x.pelaaja != null; }); } catch (e) {} }
+  if (p && window.TM_D3_ITSEARVIO) { try { iaDone = Object.keys(window.TM_D3_ITSEARVIO.tmD3ItsearvioPisteet(p)).length > 0; } catch (e) {} }   // Vaihe 1 (1d): vain pelaajan oma itsearvio
   if (typeof _minaD3 !== 'undefined' && Object.keys(_minaD3).some(function (k) { return _minaD3[k] != null; })) iaDone = true;
   var fokusNimi = (typeof _p7FokusNimi === 'function') ? _p7FokusNimi() : null;
   var sit = (window._p7Sitoumus) || {};
@@ -5703,12 +5684,8 @@ function _fcKorttiData(p) {
   const d2 = (p.tki_viimeisin != null) ? Math.round(p.tki_viimeisin) : (p.d2_taso != null ? norm5(p.d2_taso) : null);
   dims.push(d2 != null ? { key:'TEK', lbl:T('tekniikka'), val:d2, state:'measured', w:.25, counts:true }
                        : { key:'TEK', lbl:T('tulossa_2'), val:null, state:'soon', w:.25, counts:false });
-  // D3 PSY ← d3_viimeisin || seura-lukko
-  let d3ka = null;
-  if (p.d3_viimeisin && p.d3_viimeisin.pisteet) {
-    const a = Object.values(p.d3_viimeisin.pisteet).map(x => (x && x.avg != null) ? x.avg : x).filter(x => typeof x === 'number');
-    if (a.length) d3ka = a.reduce((s,x)=>s+x,0)/a.length;
-  }
+  // D3 PSY ← pelaajan OMA itsearvio (d3_itsearvio; Vaihe 1 / 1d: ei valmentajan pisteitä, ei d3_taso/avg) || seura-lukko
+  const d3ka = window.TM_D3_ITSEARVIO ? window.TM_D3_ITSEARVIO.tmD3ItsearvioKa(p) : null;
   dims.push(d3ka != null ? { key:'PSY', lbl:T('paa'), val:norm5(d3ka), state:'measured', w:.15, counts:true }
                          : { key:'PSY', lbl:T('seura_avaa'), val:null, state:'club', w:.15, counts:false });
   // D4 ÄLY ← adar_viimeisin.yht (ADAR-kaanon = KESKIARVO 1–3, ei summa 0–12); norm = tmAdarNorm99(yht) (lib/tm_pelialy_yksilo.js, lineaarinen 1→0 · 2→50 · 3→99)
@@ -5732,7 +5709,7 @@ function _fcKorttiData(p) {
   const _dimTaso5 = (d) => {
     if (d.key === 'FYS' && p.d1_taso != null) return Math.max(1, Math.min(5, Math.round(p.d1_taso)));
     if (d.key === 'TEK') { if (p.d2_taso != null) return Math.max(1, Math.min(5, Math.round(p.d2_taso))); if (p.tki_viimeisin != null) return Math.max(1, Math.min(5, Math.round(p.tki_viimeisin / 20))); }
-    if (d.key === 'PSY' && p.d3_taso != null) return Math.max(1, Math.min(5, Math.round(p.d3_taso)));
+    if (d.key === 'PSY' && d3ka != null) return Math.max(1, Math.min(5, Math.round(d3ka)));   // oma itsearvio (ei d3_taso: se sisältää valmentajan pisteet)
     if (d.key === 'ÄLY' && ad && ad.yht != null) return tmAdarTaso5(ad.yht);   // yht = ka 1–3 → 1–5 lineaarisesti (1→1, 3→5)
     if (d.val != null) return Math.max(1, Math.min(5, Math.round(d.val / 20)));
     return null;

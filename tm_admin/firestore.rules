@@ -1,10 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.65
+// TalentMaster™ — firestore.rules v3.66
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.65 → v3.66 (Tietoturva vaihe 1 · PR 1a + 1d: henkilökunnan sisäiset kentät pois pelaajan luettavasta dokumentista; LUONNOS — Tero tarkistaa ja deployaa; additiivinen, ei migraatiota Rulesissa):
+//   · seurat/{sid}/pelaajat/{pid}/sisainen/{doc} (UUSI blokki, doc-id 'tiedot'): luku SA | oman seuran henkilökunta (onOmaSeura, kaikki roolit kuten reviewit); kirjoitus SA | onOmanJoukkueenValmentaja
+//     (valmentaja oma joukkue · talenttivalmentaja · VP/UTJ) JA dokumentin `seuraId` == polun {sid}; delete SA. Pelaaja ja huoltaja EIVÄT lue eivätkä kirjoita mitään.
+//   · collectionGroup-sääntö /{path=**}/sisainen/{d}: vain LUKU, kun dokumentin `seuraId` == kirjautuneen `seuraId`-claim (tai SA) — mahdollistaa YHDEN kyselyn koko seuralle (where seuraId == sid, ei N+1).
+//     Edellyttää indeksiä sisainen.seuraId (COLLECTION_GROUP; firestore.indexes.json fieldOverrides).
+//   · seurat/{sid}/pelaajat/{pid}: pelaajan hasOnly-listaan UUSI B-kenttä `d3_itsearvio` { pisteet:{inner_drive|coachability|resilience|focus|emotional_control: 1–5}, pvm (YYYY-MM-DD), jakso_alkoi? } — vain pelaajan OMA itsearvio.
+//     ⚠ SIIRTYMÄ: vanhat avaimet d3_viimeisin / d3_taso / d3_pvm / d3_varmuus JÄÄVÄT pelaajalle sallituiksi (vanha Master/Sibbo + välimuistissa olevat vanhat Pelaaja-sivut). Poisto + A-kenttien kielto: PR 2.
 // Muutokset v3.64 → v3.65 (K3a · Hylkää valinta, Teron päätös 20.10.2026; additiivinen — uusi kenttä valinnainen, ei migraatiota):
 //   · seurat/{sid}/pelaajat/{pid}/reviewit/{pvm}: UUSI valinnainen kenttä `hylkays_sisainen` { teksti (1–200), lahde 'valmentaja'|'vp', uid (string|null), tallennettu (ISO ≤ 40) } — täsmälleen nämä neljä.
 //     Hylkää valinta -sheetin perustelu kun "Näytä myös pelaajalle" on pois. Lukijat ja kirjoittajat ennallaan (reviewit: luku/kirjoitus oman seuran henkilökunta + SA; pelaaja ja huoltaja EIVÄT lue).
@@ -955,6 +962,15 @@ service cloud.firestore {
                       && request.resource.data.ydinvahvuus.get('asetettu_pvm', null) is string
                       && request.resource.data.ydinvahvuus.asetettu_pvm.size() == 10)));
     }
+    /* v3.66 (Vaihe 1 / 1d): pelaajan d3_itsearvio — täsmälleen { pisteet, pvm, jakso_alkoi? }; pisteet-avaimet = D3-ulottuvuudet (lib/tm_d3_itsearvio.js DIMS), arvot kokonaislukuja 1–5; pvm 'YYYY-MM-DD'. */
+    function d3ItsearvioKelpaa() {
+      let d = request.resource.data.d3_itsearvio;
+      return d is map && d.keys().hasOnly(['pisteet', 'pvm', 'jakso_alkoi']) && d.keys().hasAll(['pisteet', 'pvm'])
+          && d.pisteet is map && d.pisteet.keys().hasOnly(['inner_drive', 'coachability', 'resilience', 'focus', 'emotional_control'])
+          && d.pisteet.values().hasOnly([1, 2, 3, 4, 5])
+          && d.pvm is string && d.pvm.size() == 10
+          && (!('jakso_alkoi' in d) || d.jakso_alkoi == null || (d.jakso_alkoi is string && d.jakso_alkoi.size() <= 40));
+    }
     function jaksofokusReittiKelpaa() {
       let jf = request.resource.data.get('jaksofokus', null);
       return !(jf is map) || !('reitti' in jf)
@@ -1409,7 +1425,9 @@ service cloud.firestore {
                       // d3_varmuus = johdettu pikakenttä (D3_KALIBRAATIO_SPEC malli A): pelaaja kirjoittaa
                       // 'itsearvio'/'trianguloitu' lahteet[]:stä → kuuluu sallittuihin avaimiin.
                       || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus']))
+                          .hasOnly(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus']))   // ⚠ SIIRTYMÄ (v3.66): poistetaan PR 2:ssa — korvaaja d3_itsearvio (alla)
+                      // v3.66 (Vaihe 1 / 1d): pelaajan OMA D3-itsearvio (B) — VAIN tämä kenttä, muoto validoitu; valmentajan/VP:n pisteet ovat sisainen/tiedot-dokumentissa (pelaaja ei pääse).
+                      || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['d3_itsearvio']) && d3ItsearvioKelpaa())
                       // IDP-kortti v2 §4 — PIN-pelaaja: oma sitoumus-pikakenttä (idp_sitoumus_pvm). Sama anon-luottamusmalli.
                       || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['idp_sitoumus_pvm']))
@@ -1539,6 +1557,15 @@ service cloud.firestore {
         // ── Reviewit — MDT-tarkistuskirjaukset (MDT_RAPORTTI / review-kadenssi) ──
         // create/update: johto (VP/UTJ/seurasihteeri) + oman seuran valmentaja + SA. delete: vain SA.
         // Pikakentät (review_viimeisin_pvm/-tyyppi) kirjoitetaan pelaaja-dokumenttiin → pelaajat-update-säännön piirissä.
+        // ── SISAINEN (v3.66, Vaihe 1 / PR 1a) — henkilökunnan sisäiset kentät (A), doc-id 'tiedot'. Pelaaja ja huoltaja EIVÄT lue eivätkä kirjoita (ei seuraId-claimia → onOmaSeura epätosi).
+        // Kirjoitus: SA | oman joukkueen valmentaja/johto (kuten pelaajadokumentin update) + `seuraId` == polun {sid} (collectionGroup-luku nojaa tähän kenttään). Ryhmät: lib/tm_sisainen.js.
+        match /sisainen/{dokId} {
+          allow read:           if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId));
+          allow create, update: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))
+                                && dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId;
+          allow delete:         if onSuperAdmin();
+        }
+
         match /reviewit/{reviewId} {
           allow read:           if onSuperAdmin() || onOmaSeura(seuraId);
           allow create, update: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || onOmanSeuranValmentaja(seuraId)) && reviewKevytKelpaa();   // v3.46: kevyt-enum
@@ -2224,6 +2251,13 @@ service cloud.firestore {
                       && aikaPaivitysKelpaa();                        // A5-jälki
         allow delete: if onSuperAdmin();
       }
+    }
+
+    // v3.66 — collectionGroup('sisainen') -luku YHDELLÄ kyselyllä (where seuraId == sid): vain oman seuran henkilökunta / SA. Pelaajalla ja huoltajalla ei ole seuraId-claimia → ei pääse.
+    // Kirjoitus EI tätä kautta (vain pelaajat/{pid}/sisainen/{doc} -blokki). Dokumentin seuraId on pakotettu == polun {sid} kirjoituksessa.
+    match /{path=**}/sisainen/{dokId} {
+      allow read: if onSuperAdmin()
+                  || (onKirjautunut() && request.auth.token.get('seuraId', '') != '' && resource.data.get('seuraId', '') == request.auth.token.seuraId);
     }
 
     // ──────────────────────────────────────────────────────────────────────

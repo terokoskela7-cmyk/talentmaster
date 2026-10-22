@@ -36,6 +36,7 @@
 <script src="lib/tm_idp.js?v=16"></script>
 <script src="lib/tm_jaksofokus.js?v=6"></script>
 <script src="lib/tm_kehityspolku.js?v=2"></script>
+<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=1"></script>
 <script src="lib/tm_tukitavoitteet.js?v=5"></script>
 <script src="lib/tm_joukkue.js?v=6"></script>
 <script src="lib/tm_liput.js?v=1"></script>
@@ -667,6 +668,7 @@ async function _kaynnista(user) {
   await _lataaKonseptikerros();
   try { _pelaajat = await KS.tmKtSivuLataaPelaajat({ db: _db, sid: _seuraId, rooli: _rooli, joukkueet: _omatJoukkueet(), joukkueDocs: _joukkueDocs }); }
   catch (e) { console.warn('[pelaajat]', e && e.message); _viesti(T('kts_lataus_virhe'), T('kts_yrita_uudelleen'), T('kts_avaa_master'), KS.MASTER); return; }
+  if (window.TM_SISAINEN) _pelaajat = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajat);   // Vaihe 1 (1d): sisainen/tiedot yhdistetään (D3-ehdotukset); virhe → vanhat kentät
   _S.reititin = H.tmHashReititin({ win: window, lippu: function () { return true; }, onReitti: _reitti, onTyhja: function () { _ktListalle(); } });
   if (!_S.reititin.liita() || !H.tmHashParse(window.location.hash)) _ktListalle();
 }
