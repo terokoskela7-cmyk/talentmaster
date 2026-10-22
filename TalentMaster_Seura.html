@@ -3786,7 +3786,7 @@ async function lahetaRekisteriSahkoposti() {
           sporttiID:     sporttiIdArvo, // Universaali urheilija-ID (null toistaiseksi)
           // ──────────────────────────────────────────────────────────────
           tuotu:         firebase.firestore.FieldValue.serverTimestamp(),
-          tuoja:         tila.kayttaja?.email || 'tuntematon',
+          /* Tietoturva (vaihe 1): tuojan sähköpostia EI tallenneta pelaajadokumenttiin (pelaaja/huoltaja lukee). Sisäinen tuojan tunniste tulee sisainen/tiedot-dokumenttiin PR 1a:ssa. */
         }));
 
         /* Suostumus ennen PIN:iä (1.10.2026): uusi pelaaja on tilassa 'odottaa' → PIN:iä EI luoda nyt.
@@ -6869,8 +6869,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         // 'odottaa' = kutsu lähetetty, huoltajan suostumus puuttuu
         suostumusTila: lahetaKutsut ? 'odottaa' : 'pilotti',
         tila:          'pilotti',
-        tuotu:         nyt,
-        tuoja:         tila.kayttaja?.email || 'tuntematon',
+        tuotu:         nyt,   // tuojan sähköpostia ei tallenneta pelaajadokumenttiin (tietoturva, vaihe 1)
         lahde:         'excel_tuonti',
       }));
       tuotu++;
