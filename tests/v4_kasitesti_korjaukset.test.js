@@ -66,9 +66,9 @@ describe('D48 + sitoumus: järjestys ja yksittäistapaukset', () => {
 });
 
 describe('4 · Kehitys-välilehden pelaajapillerit → V4 (pickPlayer)', () => {
-  const pp = funktio(MASTER, 'function pickPlayer(pid)');
+  const pp = ['function _mKtSivuTieto(', 'function _mKtSivuPaatos(', 'function _mAvaaPelaaja(', 'function _mAvaaPelaajaVanha(', 'function pickPlayer(pid)'].map((t) => funktio(MASTER, t)).join('\n');   // pickPlayer → _mAvaaPelaaja → (lippu pois) V4a / vanha näkymä
   function aja({ lippu, luettu, kaynnistaaLipun }) {
-    const log = { v4: [], renderDev: [] }, sb = { renderDev: (p) => log.renderDev.push(p), _demo: false, _seuraId: 'kpv', window: { _ktLippu: lippu, _ktLippuLuettu: luettu, _ktAvaa: (pid) => { log.v4.push(pid); return true; } } };
+    const log = { v4: [], renderDev: [] }, sb = { renderDev: (p) => log.renderDev.push(p), _demo: false, _seuraId: 'kpv', window: { _tmKtSivu: false, TM_KT_SIVU: {}, _ktLippu: lippu, _ktLippuLuettu: luettu, _ktAvaa: (pid) => { log.v4.push(pid); return true; } } };
     sb._ktKaynnista = () => Promise.resolve().then(() => { if (kaynnistaaLipun) { sb.window._ktLippu = true; sb.window._ktLippuLuettu = true; } else sb.window._ktLippuLuettu = true; });
     vm.createContext(sb); vm.runInContext(pp + '\nthis.__p=pickPlayer;', sb); return { sb, log };
   }

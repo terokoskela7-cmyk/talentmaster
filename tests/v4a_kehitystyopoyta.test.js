@@ -230,7 +230,7 @@ for (const sov of ['Master', 'VP']) {
 
 describe('Kytkennät (lähdetarkistukset) — lippu pois → ennallaan', () => {
   it('Master: pickPlayer ja _mJaAvaa ohjaavat uuteen näkymään VAIN lipulla; muuten renderDev / V1-modaali kuten ennen; J4-lista saa tilakoneen vain lipulla', () => {
-    const pp = pala(MASTER, 'function pickPlayer(pid) {', '\n}\n'); expect(pp).toMatch(/if \(window\._ktLippu && typeof window\._ktAvaa === 'function' && window\._ktAvaa\(pid, 'tanaan'\)\) return;[\s\S]*\n\s*renderDev\(pid\);\s*$/);
+    expect(pala(MASTER, 'function pickPlayer(pid) {', '\n')).toContain('_mAvaaPelaaja(pid)'); const pp = pala(MASTER, 'function _mAvaaPelaajaVanha(pid) {', '\n}\n'); expect(pp).toMatch(/if \(window\._ktLippu && typeof window\._ktAvaa === 'function' && window\._ktAvaa\(pid, 'tanaan'\)\) return true;[\s\S]*\n\s*renderDev\(pid, true\);\s*\n\s*return true;\s*$/);
     expect(pala(MASTER, 'window._mJaAvaa = function (pid) {', '\n};')).toMatch(/window\._ktLippu && .*_ktAvaa\(pid, 'polku'\)\) return;[\s\S]*return window\._mAloitaJaksoAvaa\(pid\);/);
     expect(MASTER).toContain("tilakone: window._ktLippu === true"); expect(MASTER).toMatch(/_paivitaKaikkiNakymat\(\);\s*\n\s*if \(typeof _ktKaynnista === 'function'\) _ktKaynnista\(\);/);
   });
