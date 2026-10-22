@@ -94,10 +94,10 @@ describe('K4a PHV-säännöt (§28 / §25) — tmPhvTila kerran', () => {
     biologinenIka_viimeisin: koodi ? bio(koodi, tahti) : null, phv_tila: koodi || undefined, jaksofokus: null });
   it('test 1 · PRE vs POST: fyysinen-lause vaihtuu; heikointa ei nimetä kehityskohteeksi PRE/LAH/tuntematon', () => {
     const pre = malli(heikkoFyysinen('PRE')).m, post = malli(heikkoFyysinen('POST')).m;
-    expect(kortti(pre, 'fyysinen').lause).not.toContain('§'); expect(kortti(pre, 'fyysinen').selite).toBe('Ennen kasvumittausta heikointa fyysistä testiä ei nimetä kehityskohteeksi, koska ero voi johtua kasvuvaiheesta.');   // perustelu ⓘ-selitteessä, ei lauseessa (K4a2)
-    expect(kortti(post, 'fyysinen').selite).toBeUndefined(); expect(kortti(post, 'fyysinen').lause).not.toContain('§');
+    expect(kortti(pre, 'fyysinen').lause).not.toContain('§'); expect(kortti(pre, 'fyysinen').selite).toContain('Ennen kasvumittausta heikointa fyysistä testiä ei nimetä kehityskohteeksi, koska ero voi johtua kasvuvaiheesta.');   // K4d: juoksu-ehto osuu tässä datassa → tulkinnan ⓘ on selitteen alussa   // perustelu ⓘ-selitteessä, ei lauseessa (K4a2)
+    expect(kortti(post, 'fyysinen').selite || '').not.toContain('Ennen kasvumittausta'); expect(kortti(post, 'fyysinen').lause).not.toContain('§');
     expect(pre.yhteenveto.kehityskohde).toBe(null); expect(post.yhteenveto.kehityskohde).toBeTruthy(); expect(post.yhteenveto.kehityskohde.alue).toBe('fyysinen');
-    ['LAH', null].forEach((k) => { const x = malli(heikkoFyysinen(k)).m; expect(x.yhteenveto.kehityskohde).toBe(null); expect(kortti(x, 'fyysinen').selite).toMatch(/^Ennen kasvumittausta/); });
+    ['LAH', null].forEach((k) => { const x = malli(heikkoFyysinen(k)).m; expect(x.yhteenveto.kehityskohde).toBe(null); expect(kortti(x, 'fyysinen').selite).toMatch(/Ennen kasvumittausta/); });
     expect(malli(heikkoFyysinen('AN')).m.yhteenveto.kehityskohde.alue).toBe('fyysinen');
   });
   it('test 2 · tuntematon: Kasvu-kortti ohjaa mittaamaan (ainoa toiminto), fyysinen ei ehdota jaksoa', () => {
