@@ -2,6 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import vm from 'vm';
+import { createRequire } from 'module';
+const TM_SISAINEN = createRequire(import.meta.url)('../lib/tm_sisainen.js');   // Vaihe 1 (1d): VP kirjoittaa D3:n tmSisainenKirjoita:n kautta
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const VP = lue('TalentMaster_VP_v25.html');
 const funktio = (alku) => { const i = VP.indexOf(alku); if (i < 0) throw new Error('ei löydy ' + alku); let d = 0, j = VP.indexOf('{', i); for (; j < VP.length; j++) { if (VP[j] === '{') d++; else if (VP[j] === '}') { d--; if (d === 0) break; } } return VP.slice(i, j + 1); };
@@ -62,10 +64,10 @@ describe('A4 · Mittauslistan roolit', () => {
 
 describe('A5 · D3 "Arvioi (VP)" roolitarkistus', () => {
   function aja(johto) {
-    const kirj = { set: [], toast: [] };
-    const sb = { console: { warn() {} }, JSON, Object, document: { getElementById: () => null }, window: {}, _vpSeurantaOnJohto: () => johto, D3_DIMS: [{ key: 'a' }], _vpD3Vastaukset: { a: 2 }, _seuraId: 'kpv', tmPaivaIso: () => '2026-10-20', vpT: (x) => x,
+    const kirj = { set: [], sis: [], toast: [] };
+    const sb = { console: { warn() {} }, JSON, Object, document: { getElementById: () => null }, window: { TM_SISAINEN }, _vpSeurantaOnJohto: () => johto, D3_DIMS: [{ key: 'a' }], _vpD3Vastaukset: { a: 2 }, _seuraId: 'kpv', tmPaivaIso: () => '2026-10-20', vpT: (x) => x,
       _vpD3PelaajaById: () => ({ id: 'p1', d3_viimeisin: { pisteet: { a: { valmentaja: 3, pelaaja: 2 } }, lahteet: ['valmentaja'] } }), toast: (m) => kirj.toast.push(m),
-      db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ set: async (d) => { kirj.set.push(d); } }) }) }) }) } };
+      db: (() => { const ref = (p) => ({ _path: p, set: async (d) => { kirj.set.push(d); }, collection: (c) => ({ doc: (id) => ref(p + '/' + c + '/' + id) }) }); return { collection: (c) => ({ doc: (id) => ref(c + '/' + id) }), batch: () => { const b = []; return { set: (r, d) => b.push([r._path, d]), commit: async () => b.forEach(([p, d]) => (/\/sisainen\/tiedot$/.test(p) ? kirj.sis : kirj.set).push(d)) }; } }; })() };
     vm.createContext(sb); vm.runInContext(funktio('window._tallennaVpD3 = async function(pid)') + '\nthis.f = window._tallennaVpD3;', sb);
     return { kirj, aja: () => sb.f('p1') };
   }
@@ -73,6 +75,7 @@ describe('A5 · D3 "Arvioi (VP)" roolitarkistus', () => {
     const v = aja(false); await v.aja(); expect(v.kirj.set).toEqual([]); expect(v.kirj.toast.length).toBe(1);
     const j = aja(true); await j.aja(); expect(j.kirj.set.length).toBe(1);
     const d3 = j.kirj.set[0].d3_viimeisin; expect(d3.pisteet.a).toEqual({ valmentaja: 3, pelaaja: 2, vp: 2 }); expect(d3.lahteet).toContain('vp');
+    expect(j.kirj.sis.length).toBe(1); expect(j.kirj.sis[0].d3_viimeisin).toEqual(d3); expect(j.kirj.sis[0].seuraId).toBe('kpv');   // dual-write: sisainen/tiedot samalla sisällöllä
   });
   it('"Arvioi (VP)" -nappi näkyy vain johdolle; modaalin avaus on rooliportin takana', () => {
     expect(VP).toMatch(/\(!_vpSeurantaOnJohto\(\) \? '' : '<button onclick="event\.stopPropagation\(\);_avaaVpD3Arvio/);

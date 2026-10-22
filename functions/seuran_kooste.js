@@ -99,7 +99,7 @@ async function laskeSeura(deps, sid, opts) {
       jaksofokus: _norm(x.jaksofokus) || null, jaksofokus_historia: _norm(x.jaksofokus_historia) || [], ydinvahvuus: _norm(x.ydinvahvuus) || null, ydinvahvuus_valinta: _norm(x.ydinvahvuus_valinta) || null, idp_sitoumus_pvm: _norm(x.idp_sitoumus_pvm) || null,
       // S1.1 Käyttöaste (versio 2): vain päivämääriä ja totuusarvo — ei sisältöä
       suostumus: suostumusAnnettu(x), viimeisinKirjautuminen: _pvmIso(x.viimeisinKirjautuminen), huoltajaViimeisinKaynti: _pvmIso(x.huoltajaViimeisinKaynti),
-      oma: [x.idp_sitoumus_pvm, x.d3_pvm, x.streak_paivitetty, x.ydinvahvuus_valinta && x.ydinvahvuus_valinta.valittu_pvm].map(_pvmIso).filter(Boolean),
+      oma: [x.idp_sitoumus_pvm, x.d3_pvm, x.d3_itsearvio && x.d3_itsearvio.pvm, x.streak_paivitetty, x.ydinvahvuus_valinta && x.ydinvahvuus_valinta.valittu_pvm].map(_pvmIso).filter(Boolean),
       // v4 (S2): silmukan toiminnot ja perheen kuittaukset — täydentyvät keraaOma:ssa
       toiminto: [x.ydinvahvuus_valinta && x.ydinvahvuus_valinta.valittu_pvm].map(_pvmIso).filter(Boolean), perhe: [], harjoite: [] });   // v5: harjoite täydentyy keraaOma:ssa
   });

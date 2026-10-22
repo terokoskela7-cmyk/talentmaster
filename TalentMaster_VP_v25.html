@@ -153,7 +153,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_viikkokatsaus.js?v=3"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_reitin_valinta.js?v=4"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa (Kenttä-lipun takana) -->
 <script src="lib/tm_tanaan_signaali.js?v=11"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
-<script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
+<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=1"></script><script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
 <script src="lib/tm_kevyt_katselmus.js?v=7"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kt_keskustelu.js?v=3"></script>   <!-- K4b: Nelikulma-laskenta (jaettu uuden sivun kanssa) -->
 <script src="lib/tm_kentta.js?v=6"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
@@ -4000,6 +4000,7 @@ async function lataaPelaajat() {
     });
     // Lajittele sukunimen mukaan
     _pelaajat.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
+    if (window.TM_SISAINEN) { _pelaajat = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(db, _seuraId, _pelaajat); }   // Vaihe 1 (1d): sisainen/tiedot yhdistetään (D3); virhe → vanhat kentät
     _vpJasenyydet();
     if (typeof _ktKaynnista === 'function') _ktKaynnista();   // V4a: lippu + hash-reititin (vain lipulla)
   } catch(e) {
@@ -16417,8 +16418,7 @@ window._tallennaVpD3 = async function(pid) {
   const d3v = Object.assign({}, p.d3_viimeisin || {}, { pisteet: pisteet, lahteet: lahteet });
   if (!d3v.pvm) d3v.pvm = pvm;
   try {
-    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
-      .set({ d3_viimeisin: d3v, d3_vp_pvm: pvm }, { merge: true });   // EI d3_taso/d3_varmuus
+    await window.TM_SISAINEN.tmSisainenKirjoita(db, _seuraId, pid, { d3_viimeisin: d3v, d3_vp_pvm: pvm });   // dual-write (sisainen/tiedot + vanha kenttä); EI d3_taso/d3_varmuus
     p.d3_viimeisin = d3v; p.d3_vp_pvm = pvm;
     if (typeof toast === 'function') toast(vpT('VP-kalibraatioarvio tallennettu ✓'), 'ok');
     document.getElementById('_vpD3Modal')?.remove();

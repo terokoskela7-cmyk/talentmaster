@@ -10,7 +10,7 @@ function fakeDb(alku) {
 }
 describe('Rules v3.62', () => {
   it('versio + changelog + salaiset-blokki (read, write: if false) seurat-blokin sisällä', () => {
-    expect(RULES).toMatch(/firestore\.rules v3\.6[2345]/); expect(RULES).toContain('Muutokset v3.61 → v3.62'); expect(RULES).toMatch(/match \/salaiset\/\{dokId\} \{\s*allow read, write: if false;\s*\}/);
+    expect(RULES).toMatch(/firestore\.rules v3\.6[23456]/); expect(RULES).toContain('Muutokset v3.61 → v3.62'); expect(RULES).toMatch(/match \/salaiset\/\{dokId\} \{\s*allow read, write: if false;\s*\}/);
     const i = RULES.indexOf('match /salaiset/{dokId}'), j = RULES.indexOf('match /seurat/{seuraId} {'); expect(i).toBeGreaterThan(j);
   });
 });

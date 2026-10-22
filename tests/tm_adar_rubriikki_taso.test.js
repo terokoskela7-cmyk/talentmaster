@@ -94,7 +94,7 @@ describe('Kytkennät: Pelaaja_v7 + VP + Koulutus', () => {
     expect(P).toMatch(/const _heik = \(p\.adar_heikoin && ad\[p\.adar_heikoin\] != null\) \? ad\[p\.adar_heikoin\] : undefined/);
     expect(P).toMatch(/porras: p\.havainto_porras \|\| null[^}]*ehdotus: p\.havainto_porras_ehdotus/); expect(P).not.toMatch(/Math\.min\.apply\(null, _adP\)/);   // heikoin portaan joukosta, ei kaikista (bonus pois)
     expect(P).toMatch(/d\.key === 'FYS' && p\.d1_taso != null\) return Math\.max\(1, Math\.min\(5, Math\.round\(p\.d1_taso\)\)\)/);
-    expect(P).toMatch(/d\.key === 'PSY' && p\.d3_taso != null\) return Math\.max\(1, Math\.min\(5, Math\.round\(p\.d3_taso\)\)\)/);
+    expect(P).toMatch(/d\.key === 'PSY' && d3ka != null\) return Math\.max\(1, Math\.min\(5, Math\.round\(d3ka\)\)\)/);
   });
   it('VP: _dimNorm5Adar = tmAdarNorm5 (lineaarinen 1–5)', () => { expect(V).toMatch(/function _dimNorm5Adar\(yht\) \{ return tmAdarNorm5\(yht\); \}/); });
   it('Koulutus: reagointiosiossa (K1e: R = Reagointi) ei 15 s -sääntöä eikä kellotusta', () => {
