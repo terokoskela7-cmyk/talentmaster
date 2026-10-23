@@ -287,7 +287,6 @@ pelaajat.forEach((p) => {
     phv_tila: viimBio.phv_tila_koodi, biologinenIka_viimeisin: Object.assign({}, viimBio), kehitysvaihe_kaista: viimBio.kehitysvaihe_kaista,
     kasvutahti_cm_v: viimBio.kasvutahti_cm_v, kasvutahti_vyohyke: viimBio.kasvutahti_vyohyke,
     arviointi_havaittu: viimKohteet, arviointi_pvm: ARVIOINTIPVM[1], arviointi_kehys: 'palloliitto',
-    d3_taso: ka('D3'), d3_pvm: ARVIOINTIPVM[1].slice(0, 10),
     adar_viimeisin: { a: Math.min(3, Math.max(1, Math.round(ka('D4') * 3 / 5))), d: 2, ac: 2, r: 2, yht: r1(ka('D4') * 3 / 5), pvm: ARVIOINTIPVM[1] },
     adar_pvm: ARVIOINTIPVM[1], adar_havaintoja: 2,
     talenttiOhjelma: talentti, talenttiTaso: talentti ? 'perus' : null, talenttiAlku: talentti ? ts('2026-01-15T10:00:00Z') : null,
@@ -303,6 +302,7 @@ pelaajat.forEach((p) => {
   if (p.i % 3 === 0) pelaaja.jaksofokus = { konsepti_avain: 'nopeus', konsepti_nimi: 'Nopeus', konsepti_koodi: null, domeeni: 'fyysinen',
     alkoi: '2026-09-01T08:00:00.000Z', kesto_vk: 4, lahde: 'valmentaja' };
   kirjoita(P, pelaaja);
+  kirjoita(P + '/sisainen/tiedot', { seuraId: SEURA_ID, d3_taso: ka('D3'), d3_pvm: ARVIOINTIPVM[1].slice(0, 10), paivitetty: serverTs(), demo: true });   // PR 1b-1 (PM #1129): demo-D3 VAIN sisainen/tiedot:iin (ei pelaajadokumenttiin)
   bio.forEach((b) => kirjoita(P + '/biologinen_ika/' + b.mittauspaiva, b));
   if (idp) kirjoita(P + '/idp_kausi/' + VUOSI, idp);
   kerrat.forEach((k) => {
