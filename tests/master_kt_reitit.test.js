@@ -17,7 +17,7 @@ const ilmanKomm = (x) => x.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm,
 const odota = () => new Promise((r) => setTimeout(r, 0));
 
 /* Masterin oikeat funktiot; tynkien nimet = tuotannon muuttujat (ReferenceError ei peity). */
-const NIMET = ['_mKtSivuTieto', '_mKtSivuPaatos', '_mAvaaPelaaja', '_mAvaaD3', '_mAvaaPelaajaVanha', 'pickPlayer'];
+const NIMET = ['_mKtSivuTieto', '_mKtSivuPaatos', '_mAvaaPelaaja', '_mAvaaPelaajaVanha', 'pickPlayer'];
 function master(o) {
   o = o || {}; const kutsut = [], ctx = {
     console: { warn() {}, log() {} }, Promise, Boolean, _demo: !!o.demo, _seuraId: o.seura === undefined ? 'sjk' : o.seura, TM_KT_SIVU: KS, location: { href: '' },
@@ -52,15 +52,19 @@ describe('Master · _mAvaaPelaaja', () => {
     const d = master({ lippu: true, demo: true }); d._f._mAvaaPelaaja('p2'); expect(d.location.href).toBe(''); expect(d._kutsut).toEqual([['renderDev', 'p2', true]]);
     const e = master({ lippu: true, seura: '' }); e._f._mAvaaPelaaja('p2'); expect(e.location.href).toBe('');
   });
-  it('V-KOTI "Arvioi" (d3): lippu päällä → Profiili; pois → D3-arviomodaali ennallaan', () => {
-    const on = master({ lippu: true }); on._f._mAvaaD3('p2'); expect(on.location.href).toMatch(/#pelaaja\/p2\/profiili$/); expect(on._kutsut).toEqual([]);
-    const off = master({ lippu: false }); off._f._mAvaaD3('p2'); expect(off._kutsut).toEqual([['d3', 'p2']]); expect(off.location.href).toBe('');
+  it('V-KOTI "Arvioi" (d3) on toimintomodaali: _avaaD3Arvio suoraan sekä lippu päällä että pois — ei navigointia, ei pelaajanäkymää (PM-katselmointi #1124)', () => {
+    const koti = new Function('return ' + pura(MA, 'const toimi = n =>').replace(/^const toimi = /, '').replace(/;\s*$/, ''));
+    expect(typeof koti).toBe('function');
+    for (const lippu of [true, false, undefined]) {
+      const c = master({ lippu }); c.eval = (js) => vm.runInContext(js, c); const toiminto = koti()({ toiminto: 'd3', arg: 'p2' });
+      expect(toiminto).toBe("_avaaD3Arvio('p2')"); c.eval(toiminto); expect(c._kutsut).toEqual([['d3', 'p2']]); expect(c.location.href).toBe('');
+    }
   });
 });
 
 describe('Master · lähdevartijat', () => {
-  it('V-KOTI: pelaaja → _mAvaaPelaaja, d3 → _mAvaaD3 (ei suoraa renderDev/_avaaD3Arvio)', () => {
-    expect(MA).toContain(`case 'pelaaja': return "_mAvaaPelaaja('" + a + "')"; case 'd3': return "_mAvaaD3('" + a + "')";`); expect(MA).not.toContain(`"setWs('dev');renderDev('"`);
+  it('V-KOTI: pelaaja → _mAvaaPelaaja (ei suoraa renderDev); d3 → _avaaD3Arvio (toimintomodaali)', () => {
+    expect(MA).toContain(`case 'pelaaja': return "_mAvaaPelaaja('" + a + "')"; case 'd3': return "_avaaD3Arvio('" + a + "')";`); expect(MA).not.toContain(`"setWs('dev');renderDev('"`);
   });
   it('GREP-PORTTI: renderDev(pid …) -kutsuja pelaajan avaamiseen ei ole muualla kuin _mAvaaPelaajaVanha / _ktVanhaAvaa (+ renderDevin oma uudelleenpiirto)', () => {
     let s = ilmanKomm(MA);
