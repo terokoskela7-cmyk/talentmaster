@@ -7,7 +7,7 @@ export function fakeDb(alku) {
   function kirjoita(path, d, opts) {
     if (opts && opts.merge) {
       const v = Object.assign({}, D.get(path) || {});
-      Object.keys(d).forEach((k) => { v[k] = d[k] && d[k].__inc != null ? (v[k] || 0) + d[k].__inc : d[k]; });
+      Object.keys(d).forEach((k) => { if (d[k] && d[k].__poista) delete v[k]; else v[k] = d[k] && d[k].__inc != null ? (v[k] || 0) + d[k].__inc : d[k]; });   // __poista = FieldValue.delete()-sentinel (siivoa_d3_vanhat)
       D.set(path, v);
     } else D.set(path, d);
   }

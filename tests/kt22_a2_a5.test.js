@@ -75,7 +75,7 @@ describe('A5 · D3 "Arvioi (VP)" roolitarkistus', () => {
     const v = aja(false); await v.aja(); expect(v.kirj.set).toEqual([]); expect(v.kirj.toast.length).toBe(1);
     const j = aja(true); await j.aja(); expect(j.kirj.set.length).toBe(1);
     const d3 = j.kirj.set[0].d3_viimeisin; expect(d3.pisteet.a).toEqual({ valmentaja: 3, pelaaja: 2, vp: 2 }); expect(d3.lahteet).toContain('vp');
-    expect(j.kirj.sis.length).toBe(1); expect(j.kirj.sis[0].d3_viimeisin).toEqual(d3); expect(j.kirj.sis[0].seuraId).toBe('kpv');   // dual-write: sisainen/tiedot samalla sisällöllä
+    expect(j.kirj.sis.length).toBe(0); expect(j.kirj.set[0].seuraId).toBe('kpv'); expect(Object.keys(j.kirj.set[0]).sort()).toEqual(['d3_viimeisin', 'd3_vp_pvm', 'paivitetty', 'seuraId']);   // PR 2a: VAIN sisainen/tiedot (yksi set), ei batchia eikä pelaajadokumentin kirjoitusta
   });
   it('"Arvioi (VP)" -nappi näkyy vain johdolle; modaalin avaus on rooliportin takana', () => {
     expect(VP).toMatch(/\(!_vpSeurantaOnJohto\(\) \? '' : '<button onclick="event\.stopPropagation\(\);_avaaVpD3Arvio/);

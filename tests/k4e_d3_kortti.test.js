@@ -117,7 +117,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4e · Chrome
   const avaa = (selain, o) => kaynnista(selain, Object.assign({ rooli: 'valmentaja', hash: '#pelaaja/p2/profiili', pelaajat: PEL }, o || {}));
   const odota = async (p) => { await p.waitForSelector('[data-tc-kortti="d3"]', { timeout: 15000 }); };
   const auki = async (p) => { const d = p.locator('details.tc-k[data-tc-kortti="d3"]'); if (!(await d.evaluate((e) => e.open))) await d.locator('> summary').click(); };
-  it('kortti näkyy Fyysisen jälkeen: 5 riviä, ⚠ sinnikkyydellä, lause + päivämäärä; "Päivitä arvio" → modaali → tallennus päivittää kortin ja kirjoittaa sisainen/tiedot + pelaajadokumentin', async () => {
+  it('kortti näkyy Fyysisen jälkeen: 5 riviä, ⚠ sinnikkyydellä, lause + päivämäärä; "Päivitä arvio" → modaali → tallennus päivittää kortin ja kirjoittaa VAIN sisainen/tiedot:iin (PR 2a)', async () => {
     const selain = await selainKaynnista(); try {
       const { sk, p, virheet } = await avaa(selain); await odota(p); await auki(p);
       const avaimet = await p.$$eval('[data-tc-kortti]', (e) => e.map((x) => x.getAttribute('data-tc-kortti'))); if (avaimet.indexOf('fyysinen') >= 0) expect(avaimet.indexOf('d3')).toBe(avaimet.indexOf('fyysinen') + 1);
@@ -128,9 +128,10 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4e · Chrome
       await k.locator('[data-tc-toiminto="d3_arvio"]').click(); await p.waitForSelector('#d3Modal .tc-d3m-n', { timeout: 5000 }); expect(await p.locator('#d3Modal .tc-d3m-n').count()).toBe(25);
       expect(await p.locator('#d3Modal [data-dim="resilience"][data-n="4"]').getAttribute('aria-pressed')).toBe('true');   // esivalinta = nykyinen valmentajan arvio
       await p.locator('#d3Modal [data-dim="resilience"][data-n="2"]').click(); await p.locator('#d3Modal .tc-d3m-tallenna').click();
-      await p.waitForFunction(() => window.__batch && window.__batch.length > 0, null, { timeout: 8000 }); await p.waitForSelector('#d3Modal', { state: 'detached', timeout: 5000 });
-      const erat = await p.evaluate(() => window.__batch); expect(erat).toHaveLength(1); const polut = erat[0].map((x) => x.path);   // dual-write: YKSI batch, kaksi paikkaa
-      expect(polut).toEqual(['seurat/demo/pelaajat/p2', 'seurat/demo/pelaajat/p2/sisainen/tiedot']); const sis = erat[0][1].set; expect(sis.seuraId).toBe('demo'); expect(sis.d3_viimeisin.pisteet.resilience).toMatchObject({ valmentaja: 2, vp: 4, pelaaja: 2 }); expect(erat[0][0].set.d3_taso).toBe(sis.d3_taso);
+      await p.waitForFunction(() => window.__kirj && window.__kirj.length > 0, null, { timeout: 8000 }); await p.waitForSelector('#d3Modal', { state: 'detached', timeout: 5000 });
+      const kirj = await p.evaluate(() => window.__kirj), erat = await p.evaluate(() => window.__batch || []); expect(erat).toHaveLength(0);   // PR 2a: ei batchia (ei dual-writea)
+      expect(kirj.map((x) => x.path)).toEqual(['seurat/demo/pelaajat/p2/sisainen/tiedot']);   // D3 VAIN sisainen/tiedot:iin; pelaajadokumenttiin ei kirjoiteta
+      const sis = kirj[0].set; expect(sis.seuraId).toBe('demo'); expect(sis.d3_viimeisin.pisteet.resilience).toMatchObject({ valmentaja: 2, vp: 4, pelaaja: 2 }); expect(Object.keys(sis).sort()).toEqual(['d3_pvm', 'd3_taso', 'd3_varmuus', 'd3_viimeisin', 'paivitetty', 'seuraId']);
       await auki(p);
       expect(await p.locator('[data-tc-kortti="d3"] [data-d3-rivi="resilience"]').innerText()).toMatch(/2\s+2\s+4/);   // PEL 2 · VAL 2 (uusi) · VP 4
       expect(await p.locator('[data-tc-kortti="d3"] [data-d3-rivi="resilience"] .tc-d3-varo').innerText()).toBe('⚠');   // PEL 2 vs VP 4: ero 2
