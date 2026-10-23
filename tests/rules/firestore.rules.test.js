@@ -442,9 +442,9 @@ describe('Pelaaja itse (palvelintoken, v3.28)', () => {
     ));
   });
 
-  it('Pelaaja päivittää d3-itsearvion pikakentät (§C D3, rajattu affectedKeys)', async () => {
+  it('v3.67: pelaaja EI enää kirjoita vanhoja D3-pikakenttiä (d3_viimeisin/d3_taso/d3_pvm/d3_varmuus) — vain d3_itsearvio (sisainen.rules.test.js)', async () => {
     const db = pelaajaItseContext().firestore();
-    await assertSucceeds(updateDoc(
+    await assertFails(updateDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
       {
         d3_viimeisin: { pisteet: { inner_drive: { pelaaja: 4, avg: 4 } }, pvm: '2026-06-15', lahteet: ['pelaaja'] },
@@ -452,6 +452,10 @@ describe('Pelaaja itse (palvelintoken, v3.28)', () => {
         d3_pvm: '2026-06-15',
         d3_varmuus: 'itsearvio'
       }
+    ));
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
+      { d3_itsearvio: { pisteet: { inner_drive: 4 }, pvm: '2026-06-15' } }
     ));
   });
 

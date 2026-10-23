@@ -103,10 +103,23 @@ describe('v3.66 · pelaajan d3_itsearvio (B) ja siirtymäajan vanhat D3-avaimet'
       await assertFails(updateDoc(pel(d), Object.assign(IT(), lisa)));
     for (const yksin of [{ review_viimeisin_pvm: '2026-10-22' }, { scout_potentiaali: 5 }, { signaali: 'xfactor' }, { 'jaksofokus.osa_havainnot': {} }, { adar_arvioijat: [] }, { tuoja: 'a@b.fi' }]) await assertFails(updateDoc(pel(d), yksin));
   });
-  it('SIIRTYMÄ (dokumentoitu): vanhat d3_viimeisin/d3_taso/d3_pvm/d3_varmuus ovat vielä pelaajalle sallittuja — poistuvat PR 2:ssa', async () => {
-    await assertSucceeds(updateDoc(pel(pelaaja()), { d3_viimeisin: { pisteet: { focus: { pelaaja: 4 } } }, d3_taso: 4, d3_pvm: '2026-10-22', d3_varmuus: 'itsearvio' }));
+  it('v3.67 (PR 2a): pelaaja EI kirjoita vanhoja D3-kenttiä (d3_viimeisin / d3_taso / d3_pvm / d3_varmuus / d3_vp_pvm) — yksittäin eikä yhdessä, ei set merge eikä update', async () => {
+    for (const k of [{ d3_viimeisin: { pisteet: { focus: { pelaaja: 4 } } } }, { d3_taso: 4 }, { d3_pvm: '2026-10-22' }, { d3_varmuus: 'itsearvio' }, { d3_vp_pvm: '2026-10-22' }]) {
+      await assertFails(updateDoc(pel(pelaaja()), k)); await assertFails(setDoc(pel(pelaaja()), k, { merge: true }));
+    }
+    await assertFails(updateDoc(pel(pelaaja()), { d3_viimeisin: { pisteet: { focus: { pelaaja: 4 } } }, d3_taso: 4, d3_pvm: '2026-10-22', d3_varmuus: 'itsearvio' }));
+    await assertFails(updateDoc(pel(pelaaja()), Object.assign(IT(), { d3_taso: 5 })));   // d3_itsearvio:n kanssa ei mitään vanhaa
+    await assertSucceeds(updateDoc(pel(pelaaja()), IT()));   // ainoa sallittu D3-kirjoitus
   });
-  it('henkilökunta kirjoittaa edelleen pelaajadokumenttiin (dual-write vanha polku) ja sisainen:iin', async () => { await assertSucceeds(setDoc(pel(valm12()), { d3_viimeisin: { pisteet: {} }, d3_taso: 3 }, { merge: true })); await assertSucceeds(setDoc(sis(valm12()), SIS, { merge: true })); });
+  it('v3.67: huoltaja EI kirjoita mitään D3:a (vanhat kentät eikä d3_itsearvio) lapsen dokumenttiin', async () => {
+    for (const k of [{ d3_viimeisin: { pisteet: {} } }, { d3_taso: 4 }, { d3_varmuus: 'itsearvio' }, IT()]) await assertFails(updateDoc(pel(huoltaja()), k));
+  });
+  it('v3.67: valmentaja ja VP kirjoittavat D3:n sisainen/tiedot:iin; toisen seuran valmentaja/VP ei; pelaaja ei; henkilökunnan pelaajadokumentti-kirjoitus ei muutu (stale-asiakkaat)', async () => {
+    const d3 = { d3_viimeisin: { pisteet: { focus: { valmentaja: 3, avg: 3 } }, pvm: '2026-10-23', lahteet: ['valmentaja'] }, d3_taso: 3, d3_pvm: '2026-10-23', d3_varmuus: 'valmentaja', seuraId: A };
+    await assertSucceeds(setDoc(sis(valm12()), d3, { merge: true })); await assertSucceeds(setDoc(sis(vp()), Object.assign({}, d3, { d3_vp_pvm: '2026-10-23' }), { merge: true }));
+    await assertFails(setDoc(sis(valmB()), d3, { merge: true })); await assertFails(setDoc(sis(staff('vp-b', 'vp', B)), d3, { merge: true })); await assertFails(setDoc(sis(pelaaja()), d3, { merge: true }));
+    await assertSucceeds(setDoc(pel(valm12()), { d3_viimeisin: { pisteet: {} }, d3_taso: 3 }, { merge: true }));   // ei kiristetä (henkilökunnan vanha polku); siivous poistaa datan, koodi ei enää kirjoita sinne
+  });
   it('pelaaja lukee oman d3_itsearvio:nsa pelaajadokumentista, mutta ei sisainen/tiedot-dokumenttia', async () => {
     await env.withSecurityRulesDisabled(async (c) => { await setDoc(pel(c.firestore()), IT(), { merge: true }); });
     const s = await assertSucceeds(getDoc(pel(pelaaja()))); if (!s.data().d3_itsearvio) throw new Error('d3_itsearvio puuttuu'); await assertFails(getDoc(sis(pelaaja())));

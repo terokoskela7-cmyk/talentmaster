@@ -1,10 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.66
+// TalentMaster™ — firestore.rules v3.67
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.66 → v3.67 (Vaihe 1 · PR 2a: D3-aukon sulkeminen; KIRISTÄÄ — poistaa v3.66:n siirtymäajan sallinnan; Tero tarkistaa, CI deployaa mergestä):
+//   · seurat/{sid}/pelaajat/{pid}: pelaajan hasOnly-listasta POIS vanhat avaimet d3_viimeisin / d3_taso / d3_pvm / d3_varmuus. Pelaaja (PIN-token) saa kirjoittaa D3:sta VAIN `d3_itsearvio` (validoitu, d3ItsearvioKelpaa).
+//     Huoltaja ei kirjoittanut D3:a ennenkään. Henkilökunnan kirjoitukset ennallaan (Master/VP kirjoittavat D3:n nyt vain sisainen/tiedot:iin; lib/tm_sisainen.js).
+//   · Pelaajan/huoltajan LUKU: Firestore-luku on dokumenttitasolla → vanhat d3_*-kentät pelaajadokumentissa pysyvät luettavina kunnes siivousskripti (scripts/siivoa_d3_vanhat.js) poistaa ne; uutta D3-dataa niihin ei enää kirjoiteta.
+//   · Ei muita muutoksia (staff-kirjoitus, sisainen-blokki, collectionGroup ennallaan).
 // Muutokset v3.65 → v3.66 (Tietoturva vaihe 1 · PR 1a + 1d: henkilökunnan sisäiset kentät pois pelaajan luettavasta dokumentista; LUONNOS — Tero tarkistaa ja deployaa; additiivinen, ei migraatiota Rulesissa):
 //   · seurat/{sid}/pelaajat/{pid}/sisainen/{doc} (UUSI blokki, doc-id 'tiedot'): luku SA | oman seuran henkilökunta (onOmaSeura, kaikki roolit kuten reviewit); kirjoitus SA | onOmanJoukkueenValmentaja
 //     (valmentaja oma joukkue · talenttivalmentaja · VP/UTJ) JA dokumentin `seuraId` == polun {sid}; delete SA. Pelaaja ja huoltaja EIVÄT lue eivätkä kirjoita mitään.
@@ -1419,13 +1424,7 @@ service cloud.firestore {
                       // (_tallennaKirjaus-batch). Sama luottamusmalli kuin kirjaukset.
                       || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['xp', 'streak', 'streak_paivitetty']))
-                      // PIN-pelaaja: D3-psyykkinen itsearvio (§C) — vain d3-pikakentät omaan dokumenttiin.
-                      // Valmentajan pisteet[dim].valmentaja säilyvät: client tekee merge nykyisistä (sama
-                      // anon-luottamusmalli kuin xp/kirjaukset; nested-validointia rules ei tee).
-                      // d3_varmuus = johdettu pikakenttä (D3_KALIBRAATIO_SPEC malli A): pelaaja kirjoittaa
-                      // 'itsearvio'/'trianguloitu' lahteet[]:stä → kuuluu sallittuihin avaimiin.
-                      || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus']))   // ⚠ SIIRTYMÄ (v3.66): poistetaan PR 2:ssa — korvaaja d3_itsearvio (alla)
+                      // v3.67: PIN-pelaajan vanhat D3-pikakentät (d3_viimeisin / d3_taso / d3_pvm / d3_varmuus) EIVÄT ole enää sallittuja — pelaaja kirjoittaa D3:sta vain d3_itsearvio (alla).
                       // v3.66 (Vaihe 1 / 1d): pelaajan OMA D3-itsearvio (B) — VAIN tämä kenttä, muoto validoitu; valmentajan/VP:n pisteet ovat sisainen/tiedot-dokumentissa (pelaaja ei pääse).
                       || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['d3_itsearvio']) && d3ItsearvioKelpaa())
                       // IDP-kortti v2 §4 — PIN-pelaaja: oma sitoumus-pikakenttä (idp_sitoumus_pvm). Sama anon-luottamusmalli.

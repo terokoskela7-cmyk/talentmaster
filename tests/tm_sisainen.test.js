@@ -42,11 +42,17 @@ describe('dual-read: tmSisainenYhdista', () => {
   });
 });
 
-describe('dual-write: tmSisainenJaa', () => {
-  it('A-kentät MOLEMPIIN (siirtymä), muut vain pelaajalle; sisainen saa seuraId + paivitetty', () => {
-    const j = S.tmSisainenJaa({ d3_viimeisin: { a: 1 }, d3_taso: 3, nimi: 'X' }, { seuraId: 'sjk', nytISO: '2026-10-22T10:00:00.000Z' });
-    expect(j.pelaaja).toEqual({ d3_viimeisin: { a: 1 }, d3_taso: 3, nimi: 'X' });
-    expect(j.sisainen).toEqual({ d3_viimeisin: { a: 1 }, d3_taso: 3, seuraId: 'sjk', paivitetty: '2026-10-22T10:00:00.000Z' });
+const MUU_RYHMA = { d3: { kytketty: true, vainSisainen: true, kentat: ['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus', 'd3_vp_pvm'] }, testi: { kytketty: true, kentat: ['a_kentta'] } };   // tuleva A-ryhmä ilman vainSisainen-lippua = dual-write
+describe('kirjoitusjako: tmSisainenJaa (PR 2a: D3 VAIN sisainen:iin)', () => {
+  it('D3 ei mene pelaajadokumenttiin (ei dual-writea); muut kentät vain pelaajalle; sisainen saa seuraId + paivitetty', () => {
+    const j = S.tmSisainenJaa({ d3_viimeisin: { a: 1 }, d3_taso: 3, d3_pvm: 'x', d3_varmuus: 'v', d3_vp_pvm: 'y', nimi: 'X' }, { seuraId: 'sjk', nytISO: '2026-10-22T10:00:00.000Z' });
+    expect(j.pelaaja).toEqual({ nimi: 'X' });
+    expect(j.sisainen).toEqual({ d3_viimeisin: { a: 1 }, d3_taso: 3, d3_pvm: 'x', d3_varmuus: 'v', d3_vp_pvm: 'y', seuraId: 'sjk', paivitetty: '2026-10-22T10:00:00.000Z' });
+    expect(S.tmSisainenVainSisaiset().sort()).toEqual(['d3_pvm', 'd3_taso', 'd3_varmuus', 'd3_viimeisin', 'd3_vp_pvm']);
+  });
+  it('tuleva A-ryhmä ilman vainSisainen-lippua kirjoitetaan yhä MOLEMPIIN (siirtymä); D3 samassa payloadissa vain sisainen:iin', () => {
+    const j = S.tmSisainenJaa({ a_kentta: 1, d3_taso: 3 }, { seuraId: 's', nytISO: 't', ryhmat: MUU_RYHMA });
+    expect(j.pelaaja).toEqual({ a_kentta: 1 }); expect(j.sisainen).toEqual({ a_kentta: 1, d3_taso: 3, seuraId: 's', paivitetty: 't' });
   });
   it('ei A-kenttiä → sisainen null; PR 2 -tila (pelaajaIlmanA): A ei pelaajalle', () => {
     expect(S.tmSisainenJaa({ nimi: 'X' }, { seuraId: 's' })).toEqual({ pelaaja: { nimi: 'X' }, sisainen: null });
@@ -57,24 +63,36 @@ describe('dual-write: tmSisainenJaa', () => {
 /* Minimaalinen db-tynkä */
 function db(opts) {
   opts = opts || {}; const ops = [];
-  const ref = (path) => ({ _path: path, set: (d, o) => { ops.push(['set', path, d, o]); return opts.yksinVirhe ? Promise.reject(opts.yksinVirhe) : Promise.resolve(); }, collection: (c) => ({ doc: (id) => ref(path + '/' + c + '/' + id) }) });
+  const ref = (path) => ({ _path: path, set: (d, o) => { ops.push(['set', path, d, o]); return opts.yksinVirhe ? Promise.reject(opts.yksinVirhe) : (opts.sisainenSetVirhe && /\/sisainen\/tiedot$/.test(path)) ? Promise.reject(opts.sisainenSetVirhe) : Promise.resolve(); }, collection: (c) => ({ doc: (id) => ref(path + '/' + c + '/' + id) }) });
   return { ops, collection: (c) => ({ doc: (id) => ({ collection: (c2) => ({ doc: (id2) => ref(c + '/' + id + '/' + c2 + '/' + id2) }) }) }),
     batch: () => { const b = []; return { set: (r, d, o) => b.push(['set', r._path, d, o]), commit: () => { if (opts.batchVirhe) return Promise.reject(opts.batchVirhe); b.forEach((x) => ops.push(x)); ops.push(['commit']); return Promise.resolve(); } }; } };
 }
 describe('tmSisainenKirjoita', () => {
-  it('YKSI batch: pelaajadokumentti + sisainen/tiedot (kaksi paikkaa)', async () => {
-    const d = db(); const r = await S.tmSisainenKirjoita(d, 'sjk', 'p1', { d3_viimeisin: { x: 1 }, d3_taso: 2 });
+  it('PR 2a: D3-payload → YKSI set sisainen/tiedot:iin; pelaajadokumenttiin EI kirjoiteta (ei batchia, ei tyhjää kirjoitusta)', async () => {
+    const d = db(); const r = await S.tmSisainenKirjoita(d, 'sjk', 'p1', { d3_viimeisin: { x: 1 }, d3_taso: 2, d3_pvm: '2026-10-23', d3_varmuus: 'valmentaja' });
     expect(r.ok).toBe(true); expect(r.sisainenOhitettu).toBe(false);
-    expect(d.ops.filter((o) => o[0] === 'set').map((o) => o[1])).toEqual(['seurat/sjk/pelaajat/p1', 'seurat/sjk/pelaajat/p1/sisainen/tiedot']);
-    expect(d.ops.find((o) => o[1] && o[1].endsWith('/sisainen/tiedot'))[2].seuraId).toBe('sjk'); expect(d.ops.filter((o) => o[0] === 'commit')).toHaveLength(1);
+    expect(d.ops.map((o) => o[1])).toEqual(['seurat/sjk/pelaajat/p1/sisainen/tiedot']); expect(d.ops[0][3]).toEqual({ merge: true });
+    expect(d.ops[0][2]).toMatchObject({ d3_viimeisin: { x: 1 }, d3_taso: 2, seuraId: 'sjk' }); expect(d.ops.filter((o) => o[0] === 'commit')).toHaveLength(0);
   });
-  it('permission-denied (Rules v3.66 ei vielä käytössä) → VAIN vanha kenttä, sisainenOhitettu + console.warn (ei hiljaista)', async () => {
+  it('sekapayload (D3 + muu kenttä) → YKSI batch: pelaajadokumentti vain muulle kentälle + sisainen/tiedot D3:lle', async () => {
+    const d = db(); await S.tmSisainenKirjoita(d, 'sjk', 'p1', { d3_taso: 2, nimi: 'X' });
+    expect(d.ops.filter((o) => o[0] === 'set').map((o) => o[1])).toEqual(['seurat/sjk/pelaajat/p1', 'seurat/sjk/pelaajat/p1/sisainen/tiedot']); expect(d.ops[0][2]).toEqual({ nimi: 'X' }); expect(d.ops.filter((o) => o[0] === 'commit')).toHaveLength(1);
+  });
+  it('PR 2a: permission-denied EI enää pudota D3:a vanhaan kenttään — virhe heitetään (näkyvä virhe), vanhaan kenttään ei kirjoiteta, ei hiljaista varapolkua', async () => {
     const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const d = db({ batchVirhe: Object.assign(new Error('denied'), { code: 'permission-denied' }) }); const r = await S.tmSisainenKirjoita(d, 'sjk', 'p1', { d3_taso: 2 });
+    const d = db({ sisainenSetVirhe: Object.assign(new Error('denied'), { code: 'permission-denied' }) });
+    await expect(S.tmSisainenKirjoita(d, 'sjk', 'p1', { d3_taso: 2 })).rejects.toThrow('denied'); expect(d.ops.map((o) => o[1])).toEqual(['seurat/sjk/pelaajat/p1/sisainen/tiedot']);
+    const d2 = db({ batchVirhe: Object.assign(new Error('denied'), { code: 'permission-denied' }) }); await expect(S.tmSisainenKirjoita(d2, 'sjk', 'p1', { d3_taso: 2, nimi: 'X' })).rejects.toThrow('denied'); expect(d2.ops).toEqual([]);
+    expect(w).not.toHaveBeenCalled(); w.mockRestore();
+  });
+  it('varapolku säilyy vain tuleville dual-write-ryhmille (ei vainSisainen): permission-denied → vain vanha kenttä + console.warn', async () => {
+    const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const d = db({ batchVirhe: Object.assign(new Error('denied'), { code: 'permission-denied' }) }); const r = await S.tmSisainenKirjoita(d, 'sjk', 'p1', { a_kentta: 2 }, { ryhmat: MUU_RYHMA });
     expect(r).toMatchObject({ ok: true, sisainenOhitettu: true }); expect(d.ops.map((o) => o[1])).toEqual(['seurat/sjk/pelaajat/p1']); expect(w).toHaveBeenCalled(); w.mockRestore();
   });
   it('muu virhe heitetään eteenpäin; ilman A-kenttiä vain pelaajadokumentti', async () => {
-    await expect(S.tmSisainenKirjoita(db({ batchVirhe: new Error('verkko') }), 's', 'p', { d3_taso: 1 })).rejects.toThrow('verkko');
+    await expect(S.tmSisainenKirjoita(db({ batchVirhe: new Error('verkko') }), 's', 'p', { d3_taso: 1, nimi: 'X' })).rejects.toThrow('verkko');
+    await expect(S.tmSisainenKirjoita(db({ sisainenSetVirhe: new Error('verkko') }), 's', 'p', { d3_taso: 1 })).rejects.toThrow('verkko');
     const d = db(); await S.tmSisainenKirjoita(d, 's', 'p', { nimi: 'X' }); expect(d.ops.map((o) => o[1])).toEqual(['seurat/s/pelaajat/p']);
   });
 });
