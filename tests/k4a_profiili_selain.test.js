@@ -17,7 +17,7 @@ const vaakaOk = (p) => p.evaluate(() => document.documentElement.scrollWidth <= 
 const nakyvat = (p, sel) => p.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => e.offsetParent !== null).length, sel);
 const luvut = (p) => p.evaluate(() => {   // näkyvät luvut oletusnäkymässä (Näytä kaikki suljettuna): lehtielementit joissa numero, ei päivämääriä eikä otsikkorivin meta (PHV / joukkue / n/m)
   const juuri = document.querySelector('[data-kn-kortit]'); let n = 0;
-  juuri.querySelectorAll('*').forEach((e) => { if (e.children.length || e.offsetParent === null) return; const t = e.textContent.trim(); if (!/\d/.test(t.replace(/\d{1,2}\.\d{1,2}\.(\d{4})?/g, ''))) return; /* päivämäärät eivät ole mittalukuja */ if (e.closest('.tc-raportti-rivi')) return; n++; });
+  juuri.querySelectorAll('*').forEach((e) => { if (e.children.length || e.offsetParent === null) return; const t = e.textContent.trim(); if (!/\d/.test(t.replace(/\d{1,2}\.\d{1,2}\.(\d{4})?/g, ''))) return; /* päivämäärät eivät ole mittalukuja */ if (e.closest('.tc-raportti-rivi')) return; if (e.closest('[data-tc-kortti="d3"]')) return; /* K4e: Psyykkinen (D3) -taulukko (5 × PEL/VAL/VP, briiffi) on oma kortti eikä kuulu ≤ 30 mittaluvun rajaan — PM päättää rajan (raportissa) */ n++; });
   return n;
 });
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profiili uudella sivulla', () => {
@@ -30,7 +30,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
       const yht = await p.locator('.tc-s-yht').innerText(); expect(yht).toContain('Kuljetus ja laukaus'); expect(yht).toContain('Syöttö'); expect(yht).toContain('Kasvumittaus'); expect(yht).toMatch(/Testattu 4\.10\. · 2 vk(?! sitten)/);
       expect(await p.locator('.tc-nauha').count()).toBe(5); expect(await p.locator('[data-tc-nauha="kasvu"] .tc-bar i.tyhja').count()).toBe(1); expect(await p.locator('[data-tc-nauha="kasvu"]').innerText()).toContain('ei mitattu');
       expect(await p.locator('.tc-nauha-sek').innerText()).toContain('4,5 / 5');
-      const kortit = await p.locator('[data-tc-kortti]').evaluateAll((l) => l.map((e) => e.getAttribute('data-tc-kortti'))); expect(kortit).toEqual(['tekninen', 'fyysinen', 'peli', 'keho', 'kasvu']);
+      const kortit = await p.locator('[data-tc-kortti]').evaluateAll((l) => l.map((e) => e.getAttribute('data-tc-kortti'))); expect(kortit).toEqual(['tekninen', 'fyysinen', 'd3', 'peli', 'keho', 'kasvu']);
       expect(await p.locator('[data-tc-fokus]').getAttribute('data-tc-kortti')).toBe('tekninen'); expect(await p.locator('[data-tc-fokus] .tc-badge.f').innerText()).toBe('Jakson fokus · Harhauttaminen');
       expect(await p.locator('[data-tc-fokus] .tc-rivi').count()).toBe(4);   // fokuskortti: 4 riviä (mockup); muut ≤ 3
       for (const a of ['fyysinen', 'peli', 'keho']) expect(await p.locator('[data-tc-kortti="' + a + '"] .tc-rivi').count()).toBeLessThanOrEqual(a === 'peli' ? 4 : 3);   // K4a2: Peli näyttää kaikki ikätason ADAR-ulottuvuudet (13-v: 3) + psyykkinen arvio
@@ -47,7 +47,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
   it.each(['vp', 'super_admin'])('ROOLI %s: sama Profiili (seura-laajuus)', async (rooli) => {
     await avaa(); try {
       const { sk, p, virheet } = await avaaProfiili(selain, TOPIAS.id, { rooli }); await odota(p);
-      expect(await p.locator('.tc-nauha').count()).toBe(5); expect(await p.locator('[data-tc-kortti]').count()).toBe(5); expect(await p.locator('.tc-s-yht').innerText()).toContain('Kuljetus ja laukaus');
+      expect(await p.locator('.tc-nauha').count()).toBe(5); expect(await p.locator('[data-tc-kortti]').count()).toBe(6); expect(await p.locator('.tc-s-yht').innerText()).toContain('Kuljetus ja laukaus');
       expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 120000);
@@ -82,8 +82,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4a · Profii
     await avaa(); try {
       const { sk, p, virheet } = await avaaProfiili(selain, TOPIAS.id, { leveys: 390, teema: 'dark' }); await odota(p);
       expect(await p.locator('[data-tc-fokus] .tc-rivi').count()).toBe(4); expect(await p.locator('[data-tc-fokus]').isVisible()).toBe(true);
-      const auki = await p.locator('details.tc-k').evaluateAll((l) => l.map((e) => e.hasAttribute('open'))); expect(auki.length).toBe(4); expect(auki.every((x) => x === false)).toBe(true);
-      expect(await nakyvat(p, 'details.tc-k > summary')).toBe(4); expect(await p.locator('details.tc-k > summary').first().innerText()).toMatch(/fyysinen/i);
+      const auki = await p.locator('details.tc-k').evaluateAll((l) => l.map((e) => e.hasAttribute('open'))); expect(auki.length).toBe(5); expect(auki.every((x) => x === false)).toBe(true);
+      expect(await nakyvat(p, 'details.tc-k > summary')).toBe(5); expect(await p.locator('details.tc-k > summary').first().innerText()).toMatch(/fyysinen/i);
       expect(await p.locator('.tc-kattavuus').first().isVisible()).toBe(false); expect(await p.locator('.tc-lyhyt').first().isVisible()).toBe(true);
       const y = async (s) => (await p.locator(s).boundingBox()).y; expect(await y('.tc-raportti-rivi')).toBeGreaterThan(await y('.tc-nauha-sek')); expect(await y('.tc-raportti-rivi')).toBeLessThan(await y('.tc-s-kortit'));
       await p.locator('details.tc-k[data-tc-kortti="peli"] > summary').click(); expect(await p.locator('details.tc-k[data-tc-kortti="peli"]').getAttribute('open')).not.toBeNull();
