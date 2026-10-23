@@ -133,3 +133,38 @@ describe('v3.66 · regressio: reviewit ja muu pelaajadokumentti ennallaan', () =
     await assertSucceeds(getDoc(pel(huoltaja()))); await assertFails(getDoc(sis(huoltaja())));
   });
 });
+
+/* v3.68 (Vaihe 1 · PR 1b-1, S1): jaksofokuksen sisäiset osat sisainen/tiedot:ssa + fysioterapeutin rajattu kirjoitus */
+const fysio = (seura) => staff('fys-1', 'fysioterapeutti', seura || A);
+const JF = { jaksofokus_sisainen: { osa_havainnot: { y_h1: { a: { 'u-1': { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' } } } }, tavoite_tarkenteet: ['x'] }, historia_sisainen: { '2026-10-01T08:00:00,000Z_y_h1': { arvio_itse: 2, arvio_valmentaja: 3, arvioija_rooli: 'valmentaja' } } };
+describe('v3.68 · jaksofokus_sisainen / historia_sisainen — kirjoittajat ja lukijat', () => {
+  it('valmentaja (oma joukkue) ja VP kirjoittavat jaksofokus_sisainen + historia_sisainen (merge, seuraId == sid)', async () => {
+    await assertSucceeds(setDoc(sis(valm12()), Object.assign({ seuraId: A }, JF), { merge: true })); await assertSucceeds(setDoc(sis(vp()), Object.assign({ seuraId: A }, JF), { merge: true }));
+    await assertSucceeds(updateDoc(sis(valm12()), { 'jaksofokus_sisainen.oma_jakso': { x: 1 } }));
+  });
+  it('FYSIOTERAPEUTTI kirjoittaa vain jaksofokus_sisainen / historia_sisainen (+ seuraId, paivitetty): create uuteen dokumenttiin ja update/merge olemassa olevaan', async () => {
+    await assertSucceeds(setDoc(sis(fysio(), 'p-uusi'), Object.assign({ seuraId: A, paivitetty: '2026-10-23T10:00:00.000Z' }, JF)));   // create
+    await assertSucceeds(setDoc(sis(fysio()), Object.assign({ seuraId: A, paivitetty: 'x' }, JF), { merge: true })); await assertSucceeds(updateDoc(sis(fysio()), { 'historia_sisainen.2026-10-01_x': { arvio_itse: 1 } }));
+  });
+  it('fysioterapeutti EI kirjoita D3:a eikä muita A-kenttiä sisainen:iin (create hasOnly, update affectedKeys)', async () => {
+    for (const k of [{ d3_taso: 5 }, { d3_viimeisin: { pisteet: {} } }, { signaali: 'xfactor' }, { review_viimeisin_pvm: '2026-10-23' }, { vastuuhenkilo: { uid: 'x' } }, { scout_potentiaali: 5 }, { tukitarve: { alue: 'x' } }]) {
+      await assertFails(setDoc(sis(fysio()), Object.assign({ seuraId: A }, k), { merge: true })); await assertFails(updateDoc(sis(fysio()), k)); await assertFails(setDoc(sis(fysio(), 'p-uusi2'), Object.assign({ seuraId: A }, JF, k)));
+    }
+    await assertFails(setDoc(sis(fysio()), Object.assign({ seuraId: A }, JF, { d3_taso: 1 }), { merge: true }));   // sallitun kanssa ei mitään muuta
+  });
+  it('fysioterapeutti: seuraId == sid pakollinen; toisen seuran fysioterapeutti ei kirjoita; fysioterapeutti lukee (oma seura) mutta ei poista', async () => {
+    await assertFails(setDoc(sis(fysio()), Object.assign({ seuraId: B }, JF), { merge: true })); await assertFails(setDoc(sis(fysio(), 'p-uusi3'), JF));   // seuraId puuttuu
+    await assertFails(setDoc(sis(fysio(B)), Object.assign({ seuraId: A }, JF), { merge: true })); await assertFails(setDoc(sis(fysio(B)), Object.assign({ seuraId: B }, JF), { merge: true }));
+    await assertSucceeds(getDoc(sis(fysio()))); await assertFails(getDoc(sis(fysio(B)))); await assertFails(deleteDoc(sis(fysio())));
+  });
+  it('muut roolit eivät saa kirjoitusoikeutta jaksofokus-osiin: seurasihteeri (ei valmennusrooli), pelaaja, huoltaja, toisen seuran valmentaja ja VP; pelaaja/huoltaja eivät lue', async () => {
+    await assertFails(setDoc(sis(pelaaja()), Object.assign({ seuraId: A }, JF), { merge: true })); await assertFails(setDoc(sis(huoltaja()), Object.assign({ seuraId: A }, JF), { merge: true }));
+    await assertFails(setDoc(sis(valmB()), Object.assign({ seuraId: A }, JF), { merge: true })); await assertFails(setDoc(sis(staff('vp-b', 'vp', B)), Object.assign({ seuraId: A }, JF), { merge: true }));
+    await assertFails(setDoc(sis(valm14()), Object.assign({ seuraId: A }, JF), { merge: true }));   // toisen joukkueen valmentaja (U14) ei kirjoita U12-pelaajan sisainen:iin
+    await assertFails(getDoc(sis(pelaaja()))); await assertFails(getDoc(sis(huoltaja())));
+  });
+  it('pelaajadokumentti: pelaaja ei voi kirjoittaa jaksofokus-A-kenttiä (hasOnly-lista) eikä lukea niitä sisainen:stä; fysioterapeutin vanha pelaajadokumentti-kirjoitus (jaksofokus + historia) ennallaan', async () => {
+    await assertFails(updateDoc(pel(pelaaja()), { 'jaksofokus.osa_havainnot': {} })); await assertFails(updateDoc(pel(pelaaja()), { jaksofokus: { osa_havainnot: {} } }));
+    await assertSucceeds(updateDoc(pel(fysio()), { jaksofokus: { konsepti_avain: 'x' }, jaksofokus_historia: [] }));
+  });
+});

@@ -1,10 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.67
+// TalentMaster™ — firestore.rules v3.68
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.67 → v3.68 (Vaihe 1 · PR 1b-1 (viipale S1, jaksofokuksen sisäiset osat): perusta; ADDITIIVINEN — vain laajentaa sisainen/tiedot-kirjoittajia, ei kiristä mitään; Tero tarkistaa, CI deployaa mergestä):
+//   · seurat/{sid}/pelaajat/{pid}/sisainen/tiedot: create/update sallitaan lisäksi fysioterapeutille (oma seura), VAIN avaimille jaksofokus_sisainen / historia_sisainen / seuraId / paivitetty
+//     (create: keys().hasOnly, update: affectedKeys().hasOnly). Muut kirjoittajat (SA, oman joukkueen valmentaja/johto) ja luku (oma seura) ennallaan. Pelaaja ja huoltaja eivät lue eivätkä kirjoita.
+//   · Uudet sisainen-kentät (kirjoittajat kytketään 1b-2/1b-3:ssa): jaksofokus_sisainen {osa_havainnot, osa_havainnot_vk, tavoite_tarkenteet, onnistumiskriteeri, linkitetyt, tavoite_alue, valitavoite_idx, poikkeama, oma_jakso},
+//     historia_sisainen {<alkoi>_<konsepti_avain>: {havainnot_vk, arvio_*, arvioija_rooli, kalibraatio_ero, delta_mitattu, d3_snapshot, sitoumus_snapshot}}. jaksofokus.asetti {rooli,pvm} ja .lahde (tyyppi) JÄÄVÄT pelaajadokumenttiin.
 // Muutokset v3.66 → v3.67 (Vaihe 1 · PR 2a: D3-aukon sulkeminen; KIRISTÄÄ — poistaa v3.66:n siirtymäajan sallinnan; Tero tarkistaa, CI deployaa mergestä):
 //   · seurat/{sid}/pelaajat/{pid}: pelaajan hasOnly-listasta POIS vanhat avaimet d3_viimeisin / d3_taso / d3_pvm / d3_varmuus. Pelaaja (PIN-token) saa kirjoittaa D3:sta VAIN `d3_itsearvio` (validoitu, d3ItsearvioKelpaa).
 //     Huoltaja ei kirjoittanut D3:a ennenkään. Henkilökunnan kirjoitukset ennallaan (Master/VP kirjoittavat D3:n nyt vain sisainen/tiedot:iin; lib/tm_sisainen.js).
@@ -1558,10 +1563,18 @@ service cloud.firestore {
         // Pikakentät (review_viimeisin_pvm/-tyyppi) kirjoitetaan pelaaja-dokumenttiin → pelaajat-update-säännön piirissä.
         // ── SISAINEN (v3.66, Vaihe 1 / PR 1a) — henkilökunnan sisäiset kentät (A), doc-id 'tiedot'. Pelaaja ja huoltaja EIVÄT lue eivätkä kirjoita (ei seuraId-claimia → onOmaSeura epätosi).
         // Kirjoitus: SA | oman joukkueen valmentaja/johto (kuten pelaajadokumentin update) + `seuraId` == polun {sid} (collectionGroup-luku nojaa tähän kenttään). Ryhmät: lib/tm_sisainen.js.
+        // v3.68 (Vaihe 1 · PR 1b-1, S1): FYSIOTERAPEUTTI saa kirjoittaa sisainen/tiedot:iin VAIN jaksofokus-osat (jaksofokus_sisainen, historia_sisainen + seuraId/paivitetty) — sama rajaus kuin
+        // pelaajadokumentissa (v3.11: fysioterapeutti → vain jaksofokus + jaksofokus_historia). Ei d3_* eikä muita A-kenttiä; ei joukkuerajausta (kuten pelaajadokumentissa).
         match /sisainen/{dokId} {
           allow read:           if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId));
-          allow create, update: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))
-                                && dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId;
+          allow create:         if dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId
+                                && ( onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
+                                  || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
+                                      && request.resource.data.keys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty'])) );
+          allow update:         if dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId
+                                && ( onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
+                                  || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
+                                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty'])) );
           allow delete:         if onSuperAdmin();
         }
 
