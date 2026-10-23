@@ -10,7 +10,9 @@
 html.tm-auth-odottaa #sLogin{display:none!important}
 html.tm-auth-odottaa body::after{content:"";position:fixed;left:50%;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid rgba(128,128,120,.3);border-top-color:#28B090;border-radius:50%;animation:tmAuthSpin .8s linear infinite}
 @keyframes tmAuthSpin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){html.tm-auth-odottaa body::after{animation:none}}</style>
+@media (prefers-reduced-motion:reduce){html.tm-auth-odottaa body::after{animation:none}}
+.ws-view[data-view="dev"][data-lista] #tlSub, .ws-view[data-view="dev"][data-lista] #pinfoCard, .ws-view[data-view="dev"][data-lista] .sect-hdr, .ws-view[data-view="dev"][data-lista] #narrativeList, .ws-view[data-view="dev"][data-lista] .dev-historia { display: none; }   /* Pelaajat = vain lista (kehitystyopoyta_v2) */
+</style>
 <script>document.documentElement.classList.add('tm-auth-odottaa');</script>
 <style>/* K1b (kohta 7): upotettu tila (?upotettu=taktiikka, iframe Kehitystyöpöytä-sivun päällä): vain taulu näkyy; Masterin kuori ja kirjautumislomake piiloon. lib/tm_kt_taulu.js */
 html.tm-upotettu #sDash,html.tm-upotettu #sLogin{display:none!important}
@@ -1857,7 +1859,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
 
       <div class="dev-header">
         <div>
-          <h2 class="serif" style="font-size:28px;margin-bottom:4px" data-i18n="Pelaajan elämäkerta">Pelaajan elämäkerta</h2>
+          <h2 class="serif" id="devOtsikko" style="font-size:28px;margin-bottom:4px" data-i18n-lista="Pelaajat" data-i18n-vanha="Pelaajan elämäkerta" data-i18n="Pelaajan elämäkerta">Pelaajan elämäkerta</h2>
           <div class="muted" id="tlSub" style="font-size:13px" data-i18n="Kehitysaikajana">Kehitysaikajana</div>
         </div>
       </div>
@@ -4844,7 +4846,7 @@ function _alusta(nimi) {
   }
   // §IA — aktivoi oikea näkymä (Koti oletus / palautettu) + tab-barit
   if (window.TM_VALMENTAJA_NAV && !_demo) window.TM_VALMENTAJA_NAV.tmNavAsenna({ db: _db, seuraId: _seuraId, t: masterT, ws: () => _ws, ryhmia: () => _mRyHaeLista().then(l => l.length > 0) }).then(on => { window._tmNavV2 = !!on; if (on) setWs(window.TM_VALMENTAJA_NAV.tmNavReitti(_ws).ws); _mKtSivuParametrit(); }).catch(() => {});
-  if (!_demo && typeof _mJjLataaLiput === 'function') _mJjLataaLiput().then(l => { window._tmKtSivu = !!(l && l.kehitystyopoyta_v2 === true); }).catch(() => {});   // B7: oma lippu kehitystyopoyta_v2 (ei valmentaja_v2)   // V-KOTI B: lippu liput.valmentaja_v2
+  if (!_demo && typeof _mJjLataaLiput === 'function') _mJjLataaLiput().then(l => { window._tmKtSivu = !!(l && l.kehitystyopoyta_v2 === true); }, () => { window._tmKtSivu = false; }).then(() => { if (window._tmKtSivu && _ws === 'dev') renderDev(); });   // B7: oma lippu kehitystyopoyta_v2 (ei valmentaja_v2)   // V-KOTI B: lippu liput.valmentaja_v2
   setWs(_ws);   // 'koti' → renderKoti → renderCoachAloitaKortti (pysyvä "Aloita tästä" -kortti, gating localStorage)
   if (window.TM_KT_TAULU && window.TM_KT_SIVU) window.TM_KT_TAULU.tmKtTauluMasterAvaa({ win: window, doc: document, parametrit: window.TM_KT_SIVU.tmKtTauluParametrit, nimi: function (pid) { const p = (_pelaajatData || []).find(function (x) { return x.id === pid; }); return p ? _tmHenkiloNimi(p) : ''; }, tallentamattomia: function () { return typeof _kaavioTallentamattomia === 'function' && !!_kaavioTallentamattomia(); }, vahvista: function () { return window.confirm(window.TM_KT_TAULU.tmKtTauluT(masterT, 'kt_taulu_tallentamatta')); }, avaa: function () { return avaaKaaviopankki(); } });   // K1b: upotettu tila (?upotettu=taktiikka) → taulu heti
 }
@@ -5140,7 +5142,7 @@ function renderKotiV2() {
     kirjaukset: (_kirjaukset || []).map(k => ({ pelaajaId: k._pelaajaId || k.playerId, pvm: tmPaivaIso(new Date(k.t || 0)), tyyppi: k.tyyppi, tehty: k.tehty })),
     viestit: (_vpViestit || []).map(v => ({ id: v._firestoreId, kuka: v.fromNimi, teksti: v.teksti, luettu: v.luettu === true, vastattu: true, aika: v.t })), uusi: !pel.length });
   const toimi = n => { const a = n.arg == null ? '' : String(n.arg).replace(/'/g, ''); switch (n.toiminto) {
-    case 'avaa': return "calEventClick('" + a + "')"; case 'lasnaolo': return "calEventClick('" + a + "')"; case 'pelaaja': return "setWs('dev');renderDev('" + a + "')"; case 'd3': return "_avaaD3Arvio('" + a + "')"; case 'havainto': return "openDrill('adar'" + (a ? ",'" + a + "'" : '') + ")";
+    case 'avaa': return "calEventClick('" + a + "')"; case 'lasnaolo': return "calEventClick('" + a + "')"; case 'pelaaja': return "_mAvaaPelaaja('" + a + "')"; case 'd3': return "_avaaD3Arvio('" + a + "')"; case 'havainto': return "openDrill('adar'" + (a ? ",'" + a + "'" : '') + ")";
     case 'kalenteri': case 'jakso': case 'viesti': return "setWs('" + (n.toiminto === 'kalenteri' ? 'cal' : n.toiminto === 'jakso' ? 'season' : 'inbox') + "')"; case 'viestit': case 'viesti_vastaa': return "setWs('inbox')"; case 'tayta': return "setWs('cal')"; case 'pulssi': return "setWs('pulse')"; default: return "setWs('koti')"; } };
   el.innerHTML = N.tmKotiHTML(m, { t: masterT, on: toimi });
   if (m.seuraava && (window._kotiSaatHaettu !== m.seuraava.id)) { window._kotiSaatHaettu = m.seuraava.id; N.tmKotiLataaSaatavuus(_db, _seuraId, m.seuraava.id, pel).then(r => { if (r) { window._kotiSaat = Object.assign({}, window._kotiSaat, { [m.seuraava.id]: r }); renderKotiV2(); } }); }
@@ -5738,7 +5740,15 @@ function _renderPlayersToday() {
    KEHITYS
 ════════════════════════════════════════════════════════════ */
 let _devFetchKey = null;   // estää renderDev→_lataaPelaajat-silmukan samalle seura/joukkue-kontekstille
-function renderDev(pid) {
+/* Kehitystyöpöytä-lippu päällä: Pelaajat-välilehti = otsikko "Pelaajat" + haku/lista; pinfo, tapahtumat ja aikajana piiloon (CSS [data-lista]). Lippu pois / tietoinen vanha näkymä → entinen. */
+function _mDevLista(on) {
+  const v = document.querySelector('.ws-view[data-view="dev"]'), h = document.getElementById('devOtsikko'); if (!v) return;
+  if (on) v.setAttribute('data-lista', '1'); else v.removeAttribute('data-lista');
+  if (h) { const k = h.getAttribute(on ? 'data-i18n-lista' : 'data-i18n-vanha'); h.setAttribute('data-i18n', k); h.textContent = masterT(k); }   // avaimet HTML:stä (otsikon data-i18n-lista / data-i18n-vanha)
+}
+function renderDev(pid, vanha) {
+  window._mDevVanha = vanha === true;
+  _mDevLista(!vanha && _mKtSivuTieto() !== false);   // vain _ktVanhaAvaa (tietoinen "vanha näkymä") saa piirtää vanhan pelaajanäkymän lipun ollessa päällä
   // KORJAUS: kirjautuneena (ei _demo) Kehitys käyttää AINA Firestore-dataa (_pelaajatData) —
   // EI koskaan demo-/TMBus-seediä. Aiemmin gate vaati _pelaajatData.length>0 → tyhjällä datalla
   // putosi demo-haaraan (DEMO.pelaajat) ja näytti demopelaajia tuotannossa. TMBus jää demoa varten.
@@ -5756,6 +5766,18 @@ function renderDev(pid) {
       }
       _renderTimeline(null);
       return;
+    }
+    if (!vanha) {   // Kehitystyöpöytä-lippu (kehitystyopoyta_v2): Pelaajat = vain lista; pelaajan sisältö avautuu uudelle sivulle (_mAvaaPelaaja), ei vanhaa Perustiedot/raportti/D3-näkymää
+      const kt = _mKtSivuTieto();
+      if (kt !== false) {
+        const pk = document.getElementById('playerPicker'), pc = document.getElementById('pinfoCard');
+        if (kt === true) { _renderPlayerPickerFirestore(); if (pc) pc.innerHTML = ''; _renderTimeline(null); return; }
+        if (pc) pc.innerHTML = '';   // lippu vielä lukematta → ei vanhaa näkymää välähdyksenä; piirretään uudelleen kun lippu selviää (rivi ~4847)
+        if (pk && !_pelaajatData.length) pk.innerHTML = '';
+        _renderPlayerPickerFirestore(); _renderTimeline(null);
+        _mKtSivuPaatos().then(function () { renderDev(pid); });
+        return;
+      }
     }
     if (pid) _activePelaaja = pid;
     // Jos _activePelaaja on demo-id (teemu/aino jne.), vaihda ensimmäiseen oikeaan
@@ -5786,16 +5808,36 @@ function _mKtSivuParametrit() {
   setWs(window.TM_VALMENTAJA_NAV.tmNavReitti(r.ws).ws); const f = window.TM_KT_SIVU.tmKtMasterToiminto(r.toiminto); if (f === 'openDrill') openDrill('adar'); else if (f && typeof window[f] === 'function') window[f]();   // + Havainto tai Työkalut-kohde suoraan (K1: taktiikka · itsearvio · kehittyminen · asetukset)
   try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* ei historiaa */ }
 }
-function pickPlayer(pid) {
-  if (window._tmKtSivu && !_demo && window.TM_KT_SIVU) { const l = window.TM_KT_SIVU.tmKtSivuLinkki(pid, 'tanaan'); if (l) { window.location.href = l; return; } }   // B7: uusi sivu (lippu valmentaja_v2)
-  if (window._ktLippu && typeof window._ktAvaa === 'function' && window._ktAvaa(pid, 'tanaan')) return;   // V4a: lipulla koko ruudun näkymä (URL #pelaaja/{pid}/tanaan)
+/* YKSI SISÄÄNKÄYNTI pelaajan avaamiseen (Kehitystyöpöytä-lippu kehitystyopoyta_v2). KAIKKI pelaajan avaukset (pillit, lämpökartta, V-KOTI, haku, paletti, viestit, joukkuejakso) kulkevat tämän kautta.
+   _mKtSivuTieto(): true/false kun lippu on luettu, undefined kun ei vielä (kirjautunut) · _mKtSivuPaatos(): Promise<boolean>, odottaa lipun (sama _mJjLataaLiput-lupaus kuin _ktKaynnista) — ei kilpailutilannetta vanhaan näkymään.
+   Lippu päällä eikä _demo → uusi sivu (#pelaaja/{pid}/{välilehti}); muuten entinen logiikka (_mAvaaPelaajaVanha) täsmälleen ennallaan. */
+function _mKtSivuTieto() {
+  if (_demo || !window.TM_KT_SIVU || !_seuraId) return false;
+  return window._tmKtSivu === true ? true : window._tmKtSivu === false ? false : undefined;
+}
+function _mKtSivuPaatos() {
+  const t = _mKtSivuTieto(); if (t !== undefined) return Promise.resolve(t);
+  return _mJjLataaLiput().then(function (l) { window._tmKtSivu = !!(l && l.kehitystyopoyta_v2 === true); return window._tmKtSivu; }, function () { window._tmKtSivu = false; return false; });
+}
+function _mAvaaPelaaja(pid, valilehti) {
+  const v = valilehti || 'tanaan';
+  const sivu = function () { const l = window.TM_KT_SIVU.tmKtSivuLinkki(pid, v) || window.TM_KT_SIVU.tmKtSivuLinkki(pid, 'tanaan'); if (l) { window.location.href = l; return true; } return false; };
+  const t = _mKtSivuTieto();
+  if (t === true && sivu()) return true;
+  if (t === undefined) { _mKtSivuPaatos().then(function (on) { if (!(on && sivu())) _mAvaaPelaajaVanha(pid); }); return true; }
+  return _mAvaaPelaajaVanha(pid);
+}
+function _mAvaaPelaajaVanha(pid) {
+  if (window._ktLippu && typeof window._ktAvaa === 'function' && window._ktAvaa(pid, 'tanaan')) return true;   // V4a: lipulla koko ruudun näkymä (URL #pelaaja/{pid}/tanaan)
   // Käsitesti 7.10.: lippu voi olla vielä lukematta (käynnistys kesken) → odota käynnistys ja avaa V4; vanha näkymä vain jos lippu on pois / ei käynnisty
   if (!window._ktLippu && !_demo && _seuraId && typeof _ktKaynnista === 'function' && !window._ktLippuLuettu) {
-    _ktKaynnista().then(function () { if (!(window._ktLippu && window._ktAvaa(pid, 'tanaan'))) renderDev(pid); }, function () { renderDev(pid); });
-    return;
+    _ktKaynnista().then(function () { if (!(window._ktLippu && window._ktAvaa(pid, 'tanaan'))) renderDev(pid, true); }, function () { renderDev(pid, true); });
+    return true;
   }
-  renderDev(pid);
+  renderDev(pid, true);
+  return true;
 }
+function pickPlayer(pid) { return _mAvaaPelaaja(pid); }   // säilyy: ~15 onclick-merkkijonoa
 
 /* ── Firestore-pelaajan kehitysnäkymä ── */
 function _renderPlayerPickerFirestore() {
@@ -5806,7 +5848,7 @@ function _renderPlayerPickerFirestore() {
     // Näytä numero vain jos se on olemassa Firestoressa
     const numTeksti = p.numero ? ` <span style="color:var(--ink3);font-size:11px;margin-left:4px">#${p.numero}</span>` : '';
     const haku = (nimi + ' ' + (p.numero || '')).toLowerCase().replace(/"/g, '');
-    return `<div class="player-pill${_activePelaaja===p.id?' active':''}" data-haku="${haku}"
+    return `<div class="player-pill${_activePelaaja===p.id && !(window._tmKtSivu === true && window._mDevVanha !== true) ?' active':''}" data-haku="${haku}"
       onclick="pickPlayer('${p.id}')">${nimi}${numTeksti}</div>`;
   }).join('');
   // Nimihaku vasta isolla listalla (>12) — pienellä joukkueella pillit riittävät
@@ -6764,7 +6806,7 @@ window._ktSilmin = function () {
   _ktNayta();
 };
 window._ktVanhaNakyma = function (pid) { if (_ktS.reititin) _ktS.reititin.sulje(); _ktTyhja(); if (typeof setWs === 'function') setWs('dev'); _ktVanhaAvaa(pid); };
-function _ktVanhaAvaa(pid) { try { renderDev(pid); } catch (e) { console.warn('[V4a] vanha näkymä:', e && e.message); } }
+function _ktVanhaAvaa(pid) { try { renderDev(pid, true); } catch (e) { console.warn('[V4a] vanha näkymä:', e && e.message); } }
 // Otsikkorivin napit → olemassa olevat toiminnot (ei uutta logiikkaa; sama funktio kuin J4-rivillä ja vanhalla napilla)
 window._ktKirjaaKeskustelu = function (pid) {   // K1d: ei hiljaista no-opia — _mIdpKirjaaReview vaatii voimassa olevan kauden tavoitteen; muuten toimintaohje
   const p = _mIdpP(pid);
@@ -8007,6 +8049,7 @@ window._mJaHyvaksy = async function (pid) {
   _mJaPiirra();
 };
 window._mJaAvaa = function (pid) {
+  if (_mKtSivuTieto() === true) { _mAvaaPelaaja(pid, 'polku'); return; }   // Kehitystyöpöytä-lippu: J4-rivi → uuden sivun Polku
   if (window._ktLippu && typeof window._ktAvaa === 'function' && window._ktAvaa(pid, 'polku')) return;   // V4a: J4-rivi → työpöytä Polkuun (D47; jakson toiminnot otsikkorivin napista)
   return window._mAloitaJaksoAvaa(pid);
 };

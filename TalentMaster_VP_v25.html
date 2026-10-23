@@ -15673,6 +15673,10 @@ function _vpKorttiValmista(p) {
   p._kehRenderTunnus = undefined;
 }
 window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
+  if (!_isDemoMode && _seuraId && window._ktSivuLippu === undefined && typeof _vpLataaLiput === 'function') {   // B7: lippu kehitystyopoyta_v2 vielä lukematta (avaus ennen _ktKaynnista) → odota lippu, älä putoa vanhaan modaaliin
+    _vpLataaLiput().then(function (l) { window._ktSivuLippu = !!(l && l.kehitystyopoyta_v2 === true); }, function () { window._ktSivuLippu = false; }).then(function () { window._avaaPerPelaajaPikakatsaus(idx, joukkueNimi); });
+    return;
+  }
   if ((window._ktLippu || window._ktSivuLippu) && typeof window._ktAvaaIdx === 'function' && window._ktAvaaIdx(idx)) return;   // V4a: lipulla koko ruudun näkymä (URL #pelaaja/{pid}/tanaan); vanha pelaajamodaali vain lipun ollessa pois
   const lista = window._jsvPelaajat || [];
   const nP = lista.length;
