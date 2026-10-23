@@ -1887,6 +1887,26 @@ describe('Tavoitteet (IDP, Vaihe 2)', () => {
     ));
     await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1')));
   });
+
+  // K4e vaihe A (PM_VASTAUS_K4E #2, 23.10.): yhteinen Pelaajaraportti kirjoittaa tavoitteita myös VP:n tunnuksella. Tarkistus: onOmanSeuranValmentaja = onOmaSeura && onValmentajaRooli,
+  // ja onValmentajaRooli sisältää vp + urheilutoimenjohtaja → sääntö kattaa VP:n jo nyt; Rules EI muutu (ei deployta). Nämä testit dokumentoivat ja lukitsevat sen.
+  it('K4e: oman seuran VP LUO ja PÄIVITTÄÄ tavoitteen + lukee sen (ja pikakenttä tavoite_aktiivinen_kpl pelaajadokumenttiin)', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-vp'), { teksti: 'VP:n tavoite', tila: 'kaynnissa', valmentajaUid: 'vp-uid', luotu: new Date() }));
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1')));
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1'), { tila: 'saavutettu' }));
+    await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { tavoite_aktiivinen_kpl: 1 }, { merge: true }));
+  });
+  it('K4e: toisen seuran VP EI luo, päivitä eikä lue seura A:n tavoitetta', async () => {
+    const db = vpContext(SEURA_B).firestore();
+    await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-vp-b'), { teksti: 'ei saa', tila: 'kaynnissa', luotu: new Date() }));
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1'), { tila: 'saavutettu' }));
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1')));
+  });
+  it('K4e: pelaaja EI päivitä tavoitteen tilaa', async () => {
+    const db = pelaajaItseContext().firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1'), { tila: 'saavutettu' }));
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

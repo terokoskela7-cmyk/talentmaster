@@ -160,7 +160,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_tanaan_kentta.js?v=8"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_kentta_spec.js?v=3"></script>   <!-- B1: Kenttä-spec pelaajadokumentista (alue → ase, jakso → reitti, viikot, osat, historia; yksi adapteri) -->
 <script src="lib/tm_hash_reititin.js?v=2"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kt_sivu.js?v=9"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit (lippu kehitystyopoyta_v2) -->
+<script src="lib/tm_kt_sivu.js?v=10"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit (lippu kehitystyopoyta_v2) -->
 <script src="lib/tm_vp_navi.js?v=4"></script>   <!-- S2c PR 2: navigaatio v3 (D135) + Viestit v0 — rakenne ja reitit libissä -->
 <script src="lib/tm_vp_tilanne.js?v=14"></script>   <!-- S2c PR 1: Tilanne = kausi (D123) — malli + HTML libissä -->
 <script src="lib/tm_kt_komponentit.js?v=6"></script>
@@ -19095,7 +19095,13 @@ function _mdtTaytaPicker() {
   var P = (_pelaajat || []).slice().sort(function(a,b){ return ((a.sukunimi||'')+(a.etunimi||'')).localeCompare((b.sukunimi||'')+(b.etunimi||'')); });
   sel.innerHTML = '<option value="">' + vpT('— Valitse pelaaja —') + '</option>' + P.map(function(p){ return '<option value="' + p.id + '"' + (p.id===_mdtPid?' selected':'') + '>' + (_tmHenkiloNimi(p)) + ' · ' + (p.joukkue||'—') + '</option>'; }).join('');
 }
-window._mdtValitse = function(pid){ _mdtPid = pid || null; _mdtPalaveri = false; _mdtVanhEdit = false; if (_mdtPid) _mdtLataaTavoitteet(_mdtPid); _renderMDTProfiili(); };
+window._mdtValitse = function(pid){
+  /* K4e (vaihe A): lippu kehitystyopoyta_v2 päällä → yhteinen Pelaajaraportti Kehitystyöpöydällä (lib/tm_pelaajaraportti.js); lippu lukematta → odota; lippu pois / demo → tämä vanha raportti ennallaan */
+  if (pid && !_isDemoMode && _seuraId && window.TM_KT_SIVU && window.TM_KT_SIVU.tmKtRaporttiLinkki) {
+    if (window._ktSivuLippu === true) { window.location.href = window.TM_KT_SIVU.tmKtRaporttiLinkki(pid); return; }
+    if (window._ktSivuLippu === undefined && typeof _vpLataaLiput === 'function') { _vpLataaLiput().then(function (l) { window._ktSivuLippu = !!(l && l.kehitystyopoyta_v2 === true); }, function () { window._ktSivuLippu = false; }).then(function () { window._mdtValitse(pid); }); return; }
+  }
+  _mdtPid = pid || null; _mdtPalaveri = false; _mdtVanhEdit = false; if (_mdtPid) _mdtLataaTavoitteet(_mdtPid); _renderMDTProfiili(); };
 window._mdtVaihdaSkin = function(skin){ _mdtSkin = skin; _mdtVanhEdit = false; _renderMDTProfiili(); };
 window._mdtPrint = function(){ window.print(); };
 /* Review-kirjaus ATOMISESTI (§26): reviewit/{pvm} + pikakentät review_viimeisin_pvm/-tyyppi yhdessä batchissa →
