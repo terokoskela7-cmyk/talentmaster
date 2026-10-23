@@ -197,7 +197,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_lasnaolo.js?v=2"></script>   <!-- K35-6e: läsnäolon oletus kaikki paikalla (esivalinta) + yhteenveto -->
 <script src="lib/tm_kalenteri_siirto.js?v=1"></script>   <!-- K35-6b: siirto vetämällä / Siirrä… -->
 <script src="lib/tm_valmentaja_koti.js?v=4"></script><script src="lib/tm_valmentaja_koti_nakyma.js?v=4"></script>   <!-- V-KOTI A: Koti v2 "mitä teen nyt" (D245) -->
-<script src="lib/tm_valmentaja_nav.js?v=3"></script><script src="lib/tm_kt_sivu.js?v=9"></script><script src="lib/tm_kt_taulu.js?v=3"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit ja Masterin paluuparametrit -->   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
+<script src="lib/tm_valmentaja_nav.js?v=3"></script><script src="lib/tm_kt_sivu.js?v=10"></script><script src="lib/tm_kt_taulu.js?v=3"></script>   <!-- B7: Kehitystyöpöytä-sivun linkit ja Masterin paluuparametrit -->   <!-- V-KOTI B: Navigaatio v2 (lippu liput.valmentaja_v2; ilman lippua ei tee mitään) -->
 <script src="lib/tm_harjoituskertyma.js?v=2"></script><script src="lib/tm_harjoituskertyma_nakyma.js?v=3"></script>   <!-- K35-6f: pelaajan harjoituskertymä (Harjoittelu-lohko + Pulssi) -->
 <script src="lib/tm_aamutreeni.js?v=1"></script>   <!-- K35-6d: aamutreeni = harjoituksen esiasetus (poimitut pelaajat, viikoittain) -->
 <script src="lib/tm_kalenteri_taytto.js?v=5"></script>   <!-- K35-6a: Täytä viikko -ohjain (D184) -->
@@ -8589,6 +8589,12 @@ function _prRaporttiHTML(p){
   return header + lahteet + vkr;
 }
 window._avaaPelaajaraportti = function (pid){
+  /* K4e (vaihe A): lippu kehitystyopoyta_v2 päällä → yhteinen Pelaajaraportti Kehitystyöpöydällä (lib/tm_pelaajaraportti.js); lippu lukematta → odota lupaus; lippu pois / _demo → tämä vanha raportti ennallaan */
+  if (typeof _mKtSivuTieto === 'function' && window.TM_KT_SIVU && window.TM_KT_SIVU.tmKtRaporttiLinkki) {
+    var _kt = _mKtSivuTieto();
+    if (_kt === true) { window.location.href = window.TM_KT_SIVU.tmKtRaporttiLinkki(pid); return; }
+    if (_kt === undefined) { _mKtSivuPaatos().then(function (){ window._avaaPelaajaraportti(pid); }); return; }
+  }
   var p = (_pelaajatData || []).find(function (x){ return x.id === pid; });
   if (!p){ if (typeof toast === 'function') toast(masterT('Pelaajaa ei löydy'), 'error'); return; }
   if (!window._prVoiNahda(p)){ if (typeof toast === 'function') toast(masterT('Ei oikeutta tähän pelaajaan'), 'error'); return; }
