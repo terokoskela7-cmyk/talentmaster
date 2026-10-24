@@ -6,7 +6,7 @@ import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebas
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { setDoc, getDoc, doc, updateDoc, deleteDoc, collectionGroup, query, where, getDocs, collection } from 'firebase/firestore';
+import { setDoc, getDoc, doc, updateDoc, deleteDoc, deleteField, collectionGroup, query, where, getDocs, collection } from 'firebase/firestore';
 import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -166,5 +166,19 @@ describe('v3.68 · jaksofokus_sisainen / historia_sisainen — kirjoittajat ja l
   it('pelaajadokumentti: pelaaja ei voi kirjoittaa jaksofokus-A-kenttiä (hasOnly-lista) eikä lukea niitä sisainen:stä; fysioterapeutin vanha pelaajadokumentti-kirjoitus (jaksofokus + historia) ennallaan', async () => {
     await assertFails(updateDoc(pel(pelaaja()), { 'jaksofokus.osa_havainnot': {} })); await assertFails(updateDoc(pel(pelaaja()), { jaksofokus: { osa_havainnot: {} } }));
     await assertSucceeds(updateDoc(pel(fysio()), { jaksofokus: { konsepti_avain: 'x' }, jaksofokus_historia: [] }));
+  });
+});
+
+/* v3.68 · PR 1b-3: jakson elinkaaren kirjoitusmuodot (tmJaksofokusElinkaariKirjoita): set + mergeFields, jaksofokus_sisainen korvataan / poistetaan (deleteField), historia_sisainen.<avain> lisätään. Rules ennallaan (ei uutta versiota). */
+describe('v3.68 · PR 1b-3 elinkaarikirjoitus: set mergeFields + deleteField', () => {
+  const kirj = (db, pid, lisa) => setDoc(sis(db, pid), Object.assign({ seuraId: A, paivitetty: '2026-11-16T09:00:00.000Z' }, lisa), { mergeFields: ['seuraId', 'paivitetty', 'jaksofokus_sisainen', 'historia_sisainen.2026-10-05T08:00:00,000Z_y_h2'] });
+  const kentat = () => ({ jaksofokus_sisainen: { jakso_avain: 'x', linkitetyt: ['a'], valitavoite_idx: 0, poikkeama: true }, historia_sisainen: { '2026-10-05T08:00:00,000Z_y_h2': { arvio_vp: 3, kalibraatio_ero: 1 } } });
+  it('valmentaja (oma joukkue), VP ja fysioterapeutti: korvaus olemassa olevaan dokumenttiin ja uuden dokumentin luonti; deleteField-versio (sulku ilman uutta jaksoa) onnistuu', async () => {
+    const fysioDb = fysio(); for (const db of [valm12(), vp(), fysioDb]) { await assertSucceeds(kirj(db, PID, kentat())); if (db === fysioDb) await assertSucceeds(kirj(db, 'p-uusi', kentat())); await assertSucceeds(kirj(db, PID, { jaksofokus_sisainen: deleteField(), historia_sisainen: kentat().historia_sisainen })); }
+    await assertSucceeds(setDoc(sis(fysio(), 'p-vain-delete'), { seuraId: A, paivitetty: 'x', jaksofokus_sisainen: deleteField() }, { mergeFields: ['seuraId', 'paivitetty', 'jaksofokus_sisainen'] }));   // delete-only uuteen dokumenttiin
+  });
+  it('pelaaja, huoltaja, seurasihteeri ja toisen seuran valmentaja EIVÄT kirjoita tätä muotoa; fysioterapeutti ei saa lisätä muuta A-kenttää samaan mergeFields-kirjoitukseen', async () => {
+    for (const db of [pelaaja(), huoltaja(), sihteeri(), valmB()]) await assertFails(kirj(db, PID, kentat()));
+    await assertFails(setDoc(sis(fysio()), { seuraId: A, paivitetty: 'x', d3_taso: 5, jaksofokus_sisainen: deleteField() }, { mergeFields: ['seuraId', 'paivitetty', 'd3_taso', 'jaksofokus_sisainen'] }));
   });
 });

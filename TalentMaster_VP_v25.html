@@ -153,7 +153,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_viikkokatsaus.js?v=3"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_reitin_valinta.js?v=4"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa (Kenttä-lipun takana) -->
 <script src="lib/tm_tanaan_signaali.js?v=11"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
-<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=4"></script><script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
+<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=6"></script><script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
 <script src="lib/tm_kevyt_katselmus.js?v=7"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kt_keskustelu.js?v=3"></script>   <!-- K4b: Nelikulma-laskenta (jaettu uuden sivun kanssa) -->
 <script src="lib/tm_kentta.js?v=6"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
@@ -8731,7 +8731,7 @@ window._vpAloitaJaksoTallenna = async function (pid) {
     p.jaksofokus = v.jaksofokus; p.ydinvahvuus = tulos.ydinvahvuus; if (vh) p.vastuuhenkilo = vh;
     if (v.historiaLisays && v.historiaLisays.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(v.historiaLisays);
     p._jfTila = null; window._vpAloitaJaksoSulje(); _vpJaksoReRender(p);
-  });
+  }, { jaksofokus: v.jaksofokus, historiaLisays: v.historiaLisays || [] });   // PR 1b-3
 };
 /* Vastuuhenkilö per pelaaja (additiivinen kenttä vastuuhenkilo {uid, rooli, asetettu_pvm}). Rivi henkilökunnalle IDP-kortin yläosassa; asettaa VP/UTJ/talenttivalmentaja/SA
    (Rules v3.38; joukkueen valmentaja asettaa Masterissa). EI "omat vastuupelaajat" -näkymää (R6.6). Ei pelaajan/huoltajan näkymiin. */
@@ -9722,12 +9722,14 @@ function _vpJaksoNapitHTML(p) {
   }, 0);
   return '<div id="vpJaksoNapit_' + _jsvEsc(p.id) + '" style="margin-top:8px"></div>';
 }
-async function _vpJfKirjoita(pid, upd, viesti, paivita) {
+async function _vpJfKirjoita(pid, upd, viesti, paivita, elinkaari) {   // elinkaari (PR 1b-3) = { jaksofokus, historiaLisays } kun upd sisältää kokonaisen jaksofokus-olion; { ..., taydenna(batch) } lisäoperaatioille
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); if (paivita) paivita(); return true; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     /* PR 1b-2: osapäivitykset (linkitetyt, tavoite_tarkenteet, onnistumiskriteeri … dot-polut) kulkevat tm_sisainen.js:n kautta → dual-write sisainen/tiedot:iin kun lippu on päällä (oletus pois = ennallaan). Kokonaisen jaksofokus-olion kirjoitukset ennallaan (1b-3). */
-    if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusKirjoita(db, _seuraId, pid, upd, {});
+    /* PR 1b-3: kokonaisen jaksofokus-olion kirjoitukset (aloitus/vaihto/sulku) → tmJaksofokusElinkaariKirjoita (jaksofokus_sisainen korvataan, historia_sisainen.<avain> lisätään; sama lippu). */
+    if (elinkaari && window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(db, _seuraId, pid, upd, { jaksofokus: elinkaari.jaksofokus, historiaLisays: elinkaari.historiaLisays }, { FV: firebase.firestore.FieldValue, taydenna: elinkaari.taydenna });
+    else if (!elinkaari && window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusKirjoita(db, _seuraId, pid, upd, {});
     else await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(upd);
     if (paivita) paivita();
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
@@ -9748,7 +9750,7 @@ async function _vpKirjoitaJaksofokus(p, v, viesti, extra, onnistui) {
     // historia näkyviin vasta kun se on tallennettu (meso-kaari + Aloitus lukevat jaksofokus_historiaa)
     if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
     if (typeof renderJaksofokus === 'function' && typeof _currentWs !== 'undefined' && _currentWs === 'jaksofokus') renderJaksofokus();
-  });
+  }, { jaksofokus: v.jaksofokus, historiaLisays: rivit });   // PR 1b-3: kokonainen jaksofokus → sisainen-elinkaarikirjoitus
 }
 // Osapäivitys dot-poluilla (tmPaivitaJaksofokus.polut): POISTA → FieldValue.delete(); muut sellaisenaan.
 function _vpJfPolut(polut) {
@@ -11221,13 +11223,13 @@ async function _kvkKirjoita(p, plan, viesti, onnistui) {   // YKSI batch: pelaaj
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); lokaali(); return true; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
-    const FV = firebase.firestore.FieldValue, ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id), batch = db.batch(), upd = { jaksofokus: plan.jaksofokus };
+    const FV = firebase.firestore.FieldValue, ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id), upd = { jaksofokus: plan.jaksofokus };
     if (rivit.length) upd.jaksofokus_historia = FV.arrayUnion.apply(null, rivit);
     if (plan.poistaValinta) upd.ydinvahvuus_valinta = FV.delete();
     if (plan.pikakentat) Object.assign(upd, plan.pikakentat);   // K1d: jakson yhteenveto nollaa rytmin (review_viimeisin_*) samassa update():ssa
-    batch.update(ref, upd);
-    if (plan.reviewitData) batch.set(ref.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true });
-    await batch.commit();
+    const S = window.TM_SISAINEN, taydenna = function (batch) { if (plan.reviewitData) batch.set(ref.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true }); };
+    if (S && typeof S.tmJaksofokusElinkaariKirjoita === 'function') await S.tmJaksofokusElinkaariKirjoita(db, _seuraId, p.id, upd, { jaksofokus: plan.jaksofokus, historiaLisays: rivit }, { FV: FV, taydenna: taydenna });   // PR 1b-3: sama batch myös sisainen/tiedot:ille (lippu päällä; oletus pois = kuten ennen)
+    else { const batch = db.batch(); batch.update(ref, upd); taydenna(batch); await batch.commit(); }
     lokaali(); if (typeof toast === 'function') toast(viesti + ' ✓', 'ok'); return true;
   } catch (e) { console.warn('[kkKirjoita]', e); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); return false; }
 }

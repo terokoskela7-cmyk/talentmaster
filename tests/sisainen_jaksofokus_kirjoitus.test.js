@@ -6,6 +6,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const S = require('../lib/tm_sisainen.js'), KT = require('../lib/tm_kehitystyopoyta.js'), KS = require('../lib/tm_kehityssilmukka.js');
+const YP = (p, s) => S.tmSisainenYhdista(p, s, { kirjoitus: true });   // dual-read seuraa lippua (PR 1b-3): luku sisainen:stä vain lippu päällä
 const DEL = { __delete: true };
 
 /* Tallentava db: update (suora) ja batch (update + set) kirjataan järjestyksessä; pelaajan polku = .../pelaajat/<pid>, sisainen = .../sisainen/tiedot */
@@ -78,7 +79,7 @@ describe('tmKtTallennaOsaArvio (VP + Master + KT yhteinen ydin) → sisainen', (
   it('dual-read: kirjoitettu sisainen-olio yhdistettynä pelaajaan antaa saman kuin paikallinen tila (sisainen voittaa, vanha varalla)', async () => {
     const a = mk(true); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'k', 'a', 3); const sis = a.m.ops.find((o) => o.t === 'set').d;
     const julkinen = JSON.parse(JSON.stringify(a.p)); delete julkinen.jaksofokus.osa_havainnot; delete julkinen.jaksofokus.osa_havainnot_vk;   // pelaajadokumentista A-osat siivottu (PR 2 -tila)
-    const y = S.tmSisainenYhdista(julkinen, sis); expect(y.jaksofokus.osa_havainnot).toEqual(a.p.jaksofokus.osa_havainnot); expect(y.jaksofokus.osa_havainnot_vk).toEqual(a.p.jaksofokus.osa_havainnot_vk); expect(y.jaksofokus.osa_arviot).toEqual(a.p.jaksofokus.osa_arviot);
+    const y = YP(julkinen, sis); expect(y.jaksofokus.osa_havainnot).toEqual(a.p.jaksofokus.osa_havainnot); expect(y.jaksofokus.osa_havainnot_vk).toEqual(a.p.jaksofokus.osa_havainnot_vk); expect(y.jaksofokus.osa_arviot).toEqual(a.p.jaksofokus.osa_arviot);
   });
   it('Kumoa kulkee samaa reittiä: palauttava osapäivitys (DELETE-sentinel) menee molempiin dokumentteihin', async () => {
     const a = mk(true); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'k', 'a', 2); await a.kumoa()();
@@ -99,7 +100,7 @@ describe('VP:n osapäivitys (R6.1c: linkitetyt / tavoite_tarkenteet / onnistumis
   it('VP _vpJfKirjoita käyttää tmJaksofokusKirjoita:a (varalla vanha update); Master/VP/KT lataavat tm_sisainen.js ENNEN tm_kehitystyopoyta.js:ää; versiot ylös', () => {
     const vp = lue('TalentMaster_VP_v25.html'); expect(vp).toMatch(/window\.TM_SISAINEN\.tmJaksofokusKirjoita\(db, _seuraId, pid, upd, \{\}\)/);
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) {
-      const h = lue(f); expect(h.indexOf('lib/tm_sisainen.js?v=4'), f).toBeGreaterThan(-1); expect(h.indexOf('lib/tm_sisainen.js'), f).toBeLessThan(h.indexOf('lib/tm_kehitystyopoyta.js?v=40'));
+      const h = lue(f); expect(h.indexOf('lib/tm_sisainen.js?v=6'), f).toBeGreaterThan(-1); expect(h.indexOf('lib/tm_sisainen.js'), f).toBeLessThan(h.indexOf('lib/tm_kehitystyopoyta.js?v=40'));
     }
   });
   it('lippu on koodissa POIS (ei kytketty tässä PR:ssä) ja Pelaaja/Vanhempi eivät lataa tm_sisainen.js:ää', () => {

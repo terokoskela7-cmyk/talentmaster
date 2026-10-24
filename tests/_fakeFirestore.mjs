@@ -5,7 +5,15 @@ export function fakeDb(alku) {
   const loki = { commits: 0, batchOps: [], auto: 0 };
   const snap = (path) => ({ id: path.split('/').pop(), exists: D.has(path), data: () => D.get(path), get: (k) => (D.get(path) || {})[k], ref: docRef(path) });
   function kirjoita(path, d, opts) {
-    if (opts && opts.merge) {
+    if (opts && opts.mergeFields) {   // PR 1b-3: vain nimetyt kenttäpolut (pistepolku → sisäkkäinen asetus); arvo otetaan d:stä samalla polulla
+      const v = JSON.parse(JSON.stringify(D.get(path) || {}));
+      opts.mergeFields.forEach((f) => {
+        const arvo = f.split('.').reduce((o, k) => (o == null ? undefined : o[k]), d), k = f.split('.'); let o = v;
+        for (let i = 0; i < k.length - 1; i++) { if (!o[k[i]] || typeof o[k[i]] !== 'object') o[k[i]] = {}; o = o[k[i]]; }
+        if (arvo && arvo.__poista) delete o[k[k.length - 1]]; else o[k[k.length - 1]] = arvo === undefined ? undefined : JSON.parse(JSON.stringify(arvo));
+      });
+      D.set(path, v);
+    } else if (opts && opts.merge) {
       const v = Object.assign({}, D.get(path) || {});
       Object.keys(d).forEach((k) => { if (d[k] && d[k].__poista) delete v[k]; else v[k] = d[k] && d[k].__inc != null ? (v[k] || 0) + d[k].__inc : d[k]; });   // __poista = FieldValue.delete()-sentinel (siivoa_d3_vanhat)
       D.set(path, v);

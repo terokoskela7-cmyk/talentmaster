@@ -180,7 +180,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_reitin_valinta.js?v=4"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa + rivitila (Kenttä-lipun takana) -->
 <script src="lib/tm_polun_tila.js?v=2"></script>   <!-- Polun tila + kolme kysymystä (13 §1) -->
 <script src="lib/tm_tanaan_signaali.js?v=11"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
-<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=4"></script><script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
+<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=6"></script><script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
 <script src="lib/tm_kevyt_katselmus.js?v=7"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=6"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=8"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
@@ -6555,7 +6555,9 @@ async function _mKirjoitaJaksofokus(p, v, pid, extra) {
   var rivit = Array.isArray(v.historiaLisays) ? v.historiaLisays : [];
   var upd = Object.assign({ jaksofokus: v.jaksofokus }, extra || {});   // extra: K3 — vanha ydinvahvuus_valinta pois samassa updatessa
   if (rivit.length) upd.jaksofokus_historia = firebase.firestore.FieldValue.arrayUnion.apply(null, rivit);
-  await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid || p.id).update(upd);
+  /* PR 1b-3: jakson elinkaari kulkee tm_sisainen.js:n tmJaksofokusElinkaariKirjoita:n kautta → A-osat dual-write sisainen/tiedot:iin kun lippu on päällä (oletus pois = täsmälleen kuten ennen: yksi update()); lib puuttuu → vanha polku. */
+  if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(_db, _seuraId, pid || p.id, upd, { jaksofokus: v.jaksofokus, historiaLisays: rivit }, { FV: firebase.firestore.FieldValue });
+  else await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid || p.id).update(upd);
   if (rivit.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(rivit);   // lokaali vasta onnistumisen jälkeen
 }
 window._ttVieTreeniin = async function (pid, avain) {
@@ -6920,14 +6922,14 @@ async function _ktVkLataa(p, pvm) {
   _ktPaivita();
 }
 async function _kvkKirjoita(p, plan, pid) {   // YKSI batch: pelaajadokki + reviewit/{pvm} (jos kevyt) — kaikki tai ei mitään
-  const FV = firebase.firestore.FieldValue, ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid || p.id), batch = _db.batch();
+  const FV = firebase.firestore.FieldValue, ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid || p.id);
   const rivit = Array.isArray(plan.historiaLisays) ? plan.historiaLisays : [], upd = { jaksofokus: plan.jaksofokus };
   if (rivit.length) upd.jaksofokus_historia = FV.arrayUnion.apply(null, rivit);
   if (plan.poistaValinta) upd.ydinvahvuus_valinta = FV.delete();
   if (plan.pikakentat) Object.assign(upd, plan.pikakentat);   // K1d: jakson yhteenveto nollaa rytmin (review_viimeisin_*) samassa update():ssa
-  batch.update(ref, upd);
-  if (plan.reviewitData) batch.set(ref.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true });
-  await batch.commit();
+  const taydenna = function (batch) { if (plan.reviewitData) batch.set(ref.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true }); };
+  if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(_db, _seuraId, pid || p.id, upd, { jaksofokus: plan.jaksofokus, historiaLisays: rivit }, { FV: FV, taydenna: taydenna });   // PR 1b-3: sama batch myös sisainen/tiedot:ille (lippu päällä; oletus pois = kuten ennen)
+  else { const batch = _db.batch(); batch.update(ref, upd); taydenna(batch); await batch.commit(); }
   if (plan.pikakentat) Object.assign(p, plan.pikakentat);
   if (rivit.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(rivit);   // lokaali vasta onnistumisen jälkeen
   p.jaksofokus = plan.jaksofokus; if (plan.poistaValinta) delete p.ydinvahvuus_valinta;
