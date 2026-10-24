@@ -19,6 +19,7 @@ Sisainen-puolen säännöt (`lib/tm_sisainen.js`):
 - `historia_sisainen.<alkoi>_<konsepti_avain>` lisätään riveittäin (vanhoihin ei kosketa). Julkiselle riville jää B/C ja `lause`.
 - Kaikki 9 A-kenttää: `osa_havainnot`, `osa_havainnot_vk` (1b-2 osapäivityksinä), `tavoite_tarkenteet`, `onnistumiskriteeri`, `linkitetyt`, `tavoite_alue`, `valitavoite_idx`, `poikkeama`, `oma_jakso` (kokonaisen jaksofokuksen mukana). `asetti` ja `lahde` jäävät pelaajadokumenttiin (PM 23.10.).
 - Rules: **ei muutosta** (v3.68 kattaa; uusi Rules-testi vahvistaa `set + mergeFields + deleteField` -muodon valmentajalle, VP:lle, fysioterapeutille ja kieltää muilta).
+- Dual-read (`tmSisainenYhdista`) lukee jaksofokus- ja historia-sisainen:in vain kun lippu on päällä.
 - `permission-denied` (Rules ei käytössä) → uusi batch ilman sisainen:iä, `console.warn`; käyttäjä ei näe virhettä, data tallentuu vanhaan kenttään.
 
 ## Migraatioskriptin muutos (scripts/migroi_sisainen_jaksofokus.js)
@@ -32,7 +33,7 @@ Uusi tulosteluku: `vanhentunut`.
 
 Periaate: **lippu ensin, migraatio heti perään.** Jos migraatio ajetaan lipun ollessa pois, sisainen jää jälkeen jokaisesta uudesta kirjoituksesta ja voittaa silti luvussa.
 
-1. **Merge tämä PR** (lippu pois). Varmista livenä bundlen vaihtuminen hash-vertailulla (`tm_sisainen.js?v=5`), älä merkkijonolla.
+1. **Merge tämä PR** (lippu pois). Varmista livenä bundlen vaihtuminen hash-vertailulla (`tm_sisainen.js?v=6`), älä merkkijonolla.
 2. **Rules:** v3.68 on jo livenä (#1130). Tarkista CI:n `deploy-rules` -ajo main-pushille; tässä PR:ssä ei Rules-muutosta.
 3. **Dry-run:** `node scripts/migroi_sisainen_jaksofokus.js` → luvut PM:lle (`kopioi`, `eroaa`, `vanhentunut`, `rivia_ilman_avainta`). Älä kirjoita vielä.
 4. **PM kuittaa** luvut.
@@ -44,7 +45,12 @@ Periaate: **lippu ensin, migraatio heti perään.** Jos migraatio ajetaan lipun 
 
 ## Peruutus
 
-Lippu pois (`kirjoitus: false`) + `?v` ylös palauttaa kirjoitukset pelkkään pelaajadokumenttiin, ja pelaajadokumentti on koko ajan täydellinen. **Luku ei kuitenkaan palaudu itsestään:** dual-read antaa sisainen:lle etusijan, joten lipun sulkemisen jälkeen sisainen alkaa jäädä jälkeen. Siksi peruutus on käytännössä "korjaa eteenpäin" (lippu pysyy päällä, virhe korjataan); jos lippu on pakko sulkea pidemmäksi aikaa, tarvitaan erillinen sisainen-jaksoosien tyhjennysskripti (ei tässä PR:ssä).
+**Dual-read seuraa samaa lippua kuin kirjoitus** (`tmSisainenYhdista`): lippu pois → `jaksofokus_sisainen` ja `historia_sisainen` ohitetaan ja luetaan vanha kenttä; lippu päällä → sisainen voittaa. Peruutus on siis yksi muutos: `kirjoitus: false` + `?v` ylös palauttaa luvun ja kirjoituksen yhdessä. Pelaajadokumentti on koko ajan täydellinen (dual-write), joten luku vanhasta kentästä on oikein. (D3 ja muut ryhmät eivät riipu tästä lipusta.)
+
+Rajaukset:
+- Jos lippu on ollut päällä jonkin aikaa ja sen jälkeen suljetaan, sisainen jää jälkeen; uudelleenkytkennässä aja migraatio (täydennys + vanhentuneen korvaus) ennen kuin luet sisainen:stä luotettavana.
+- PR 2:n jälkeen (A-osat poistettu pelaajadokumentista) peruutus ei enää toimi: silloin vanha kenttä on tyhjä. Siksi PR 2 vasta viikon puhtaan dry-runin (`kopioi: 0`, `vanhentunut: 0`) jälkeen.
+- Staff-näkymät, jotka eivät käytä `tmSisainenYhdista`:a (suora luku), eivät muutu lipusta.
 
 ## Testit
 

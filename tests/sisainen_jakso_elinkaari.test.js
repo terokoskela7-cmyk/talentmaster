@@ -9,6 +9,7 @@ import vm from 'vm';
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const S = require('../lib/tm_sisainen.js'), KS = require('../lib/tm_kehityssilmukka.js'), KT = require('../lib/tm_kehitystyopoyta.js'), TK = require('../lib/tm_tanaan_kentta.js');
+const YP = (p, s) => S.tmSisainenYhdista(p, s, { kirjoitus: true });   // dual-read seuraa lippua (PR 1b-3): luku sisainen:stä vain lippu päällä
 const VO = require('../lib/tm_viikon_osa.js'), KH = require('../lib/tm_kotiharjoitteet.js');
 const LIPPU = S.RYHMAT.jaksofokus_sisainen;
 afterEach(() => { LIPPU.kirjoitus = false; });
@@ -175,9 +176,9 @@ describe('tmJaksofokusElinkaariKirjoita: lippu, batch, varapolku, taydenna', () 
 describe('dual-read: leima suojaa vanhan asiakkaan jaksonvaihdolta', () => {
   it('sisainen on toiselta jaksolta (jakso_avain ≠ nykyinen jakso) → sisainen-osat ohitetaan; sama jakso / ei leimaa (migraatio, 1b-2) → sisainen voittaa kuten ennen', () => {
     const jfUusi = { konsepti_avain: 'y_h5', alkoi: '2026-11-16T09:00:00.000Z', osa_havainnot: { x: { a: { u: { arvo: 3 } } } } }, sis = { jaksofokus_sisainen: { jakso_avain: ALKOI1 + '_y_h2', osa_havainnot: { y_h2: { a: { u: { arvo: 1 } } } }, linkitetyt: ['vanha'] } };
-    const y = S.tmSisainenYhdista({ jaksofokus: jfUusi }, sis); expect(y.jaksofokus).toEqual(jfUusi);
-    const sama = S.tmSisainenYhdista({ jaksofokus: { konsepti_avain: 'y_h2', alkoi: ALKOI1 } }, sis); expect(sama.jaksofokus.linkitetyt).toEqual(['vanha']); expect(sama.jaksofokus.jakso_avain).toBeUndefined();
-    const ilmanLeimaa = S.tmSisainenYhdista({ jaksofokus: jfUusi }, { jaksofokus_sisainen: { linkitetyt: ['m'] } }); expect(ilmanLeimaa.jaksofokus.linkitetyt).toEqual(['m']);
+    const y = YP({ jaksofokus: jfUusi }, sis); expect(y.jaksofokus).toEqual(jfUusi);
+    const sama = YP({ jaksofokus: { konsepti_avain: 'y_h2', alkoi: ALKOI1 } }, sis); expect(sama.jaksofokus.linkitetyt).toEqual(['vanha']); expect(sama.jaksofokus.jakso_avain).toBeUndefined();
+    const ilmanLeimaa = YP({ jaksofokus: jfUusi }, { jaksofokus_sisainen: { linkitetyt: ['m'] } }); expect(ilmanLeimaa.jaksofokus.linkitetyt).toEqual(['m']);
   });
 });
 
@@ -203,7 +204,7 @@ describe.each([['Master', masterAjuri, masterKirjoitukset], ['VP', vpAjuri, vpKi
     // 4) uusi jakso yhdellä A-osalla → leima uudelle jaksolle; sulku ilman uutta → kenttä pois, historia_sisainen kasvaa
     expect(tilat[3][SIS].jaksofokus_sisainen).toMatchObject({ linkitetyt: ['z'], jakso_avain: expect.stringMatching(/_y_h7$/) }); expect(tilat[4][SIS].jaksofokus_sisainen).toBeUndefined(); expect(Object.keys(tilat[4][SIS].historia_sisainen)).toHaveLength(2);
     // yhdistetty luku = täysi dokumentti (myös kun pelaajadokumentin A-osat on siivottu, PR 2)
-    tilat.forEach((t, i) => { const pel = t[PEL], sis = t[SIS]; const y = S.tmSisainenYhdista(julkinenPelaaja(pel), sis); expect(ilmanNull(y.jaksofokus), `${nimi} vaihe ${i + 1} jaksofokus`).toEqual(ilmanNull(pel.jaksofokus)); expect(ilmanNull(y.jaksofokus_historia), `${nimi} vaihe ${i + 1} historia`).toEqual(ilmanNull(pel.jaksofokus_historia)); });
+    tilat.forEach((t, i) => { const pel = t[PEL], sis = t[SIS]; const y = YP(julkinenPelaaja(pel), sis); expect(ilmanNull(y.jaksofokus), `${nimi} vaihe ${i + 1} jaksofokus`).toEqual(ilmanNull(pel.jaksofokus)); expect(ilmanNull(y.jaksofokus_historia), `${nimi} vaihe ${i + 1} historia`).toEqual(ilmanNull(pel.jaksofokus_historia)); });
   });
   it('lippu päällä mutta Rules ei vielä (permission-denied): koko elinkaari toimii vanhaan kenttään, ei sisainen-dokumenttia, ei virhettä käyttäjälle', async () => {
     LIPPU.kirjoitus = true; const f = mkFs({ hylkaaSisainen: true }), c = ajuri(f), k = kirj(c); const { p } = await ajaElinkaari(c, k.jakso, k.katselmus, f, 'rules');
@@ -218,8 +219,8 @@ describe('RUNTIME vanha Master lippu pois + uusi sivu lippu päällä samalle pe
     // vanha Master (välimuisti): sulkee jakson ja aloittaa uuden JF3:n (linkitetyt: ['z']) — vain pelaajadokumenttiin
     const s = KS.tmSuljeJakso(p, { harjoituksia: 2, arvioija_rooli: 'valmentaja', arvio_valmentaja: 2, uusi: JF3() }, { nytISO: NYT2, pvm: '2026-11-16' }); await vanhaMaster(f, p, { jaksofokus: s.jaksofokus, historiaLisays: s.historiaLisays });
     expect(f.docs[SIS].jaksofokus_sisainen.linkitetyt).toEqual(['a', 'b']);   // vanhentunut
-    const y = S.tmSisainenYhdista(f.docs[PEL], f.docs[SIS]); expect(y.jaksofokus.linkitetyt).toEqual(['z']); expect(y.jaksofokus.tavoite_alue).toBeUndefined();   // edellisen jakson A-osat EIVÄT vuoda uuteen jaksoon
-    const julk = S.tmSisainenYhdista(julkinenPelaaja(f.docs[PEL]), f.docs[SIS]); expect(julk.jaksofokus.linkitetyt).toBeUndefined();   // PR 2 -tilassa vanhentunut sisainen vain piilotetaan (ei näytetä väärää)
+    const y = YP(f.docs[PEL], f.docs[SIS]); expect(y.jaksofokus.linkitetyt).toEqual(['z']); expect(y.jaksofokus.tavoite_alue).toBeUndefined();   // edellisen jakson A-osat EIVÄT vuoda uuteen jaksoon
+    const julk = YP(julkinenPelaaja(f.docs[PEL]), f.docs[SIS]); expect(julk.jaksofokus.linkitetyt).toBeUndefined();   // PR 2 -tilassa vanhentunut sisainen vain piilotetaan (ei näytetä väärää)
     // uusi sivu kirjoittaa seuraavan elinkaaritapahtuman → sisainen korjautuu
     const s2 = KS.tmSuljeJakso(Object.assign({}, p, { jaksofokus: s.jaksofokus }), { harjoituksia: 1, arvioija_rooli: 'vp', arvio_vp: 3 }, { nytISO: NYT3, pvm: '2026-11-20' }); await k.katselmus(p, { jaksofokus: s2.jaksofokus, historiaLisays: s2.historiaLisays, pikakentat: s2.pikakentat, reviewitPvm: '2026-11-20', reviewitData: null });
     expect(f.docs[SIS].jaksofokus_sisainen).toBeUndefined();
@@ -264,7 +265,7 @@ describe('kytkentä ja versiot', () => {
     expect(lue('TalentMaster_Master_v16.html')).toMatch(/window\.TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(_db, _seuraId, pid \|\| p\.id, upd,/);
     expect(lue('TalentMaster_VP_v25.html')).toMatch(/TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, pid, upd,/); expect(lue('TalentMaster_VP_v25.html')).toMatch(/S\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, p\.id, upd,/);
     ['tm_kt_arviointi', 'tm_kt_hylkaa', 'tm_kt_jakso'].forEach((f) => expect(lue('lib/' + f + '.js'), f).toMatch(/tmJaksofokusElinkaariKirjoita/));
-    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toContain('lib/tm_sisainen.js?v=5');
+    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toContain('lib/tm_sisainen.js?v=6');
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f)).not.toMatch(/<script[^>]+src="lib\/(tm_sisainen|tm_kehitystyopoyta)\.js/));
   });
 });
@@ -285,21 +286,35 @@ describe('migraatio uudelleen lipun kytkennän jälkeen: osittaiset kartat täyd
   });
   it('osittainen osa_havainnot täydentyy lehti kerrallaan (sisainen voittaa ristiriidassa), eikä dual-read enää piilota vanhempia lehtiä; toinen ajo = 0', async () => {
     const fakeDb = await mkDb(); const { db, D } = fakeDb(tila());
-    const ennen = S.tmSisainenYhdista(julkinenPelaaja(D.get('seurat/s/pelaajat/a')), D.get('seurat/s/pelaajat/a/sisainen/tiedot')); expect(ennen.jaksofokus.osa_havainnot.y_h2.a.u1).toBeUndefined();   // ongelma ilman täydennystä
+    const ennen = YP(julkinenPelaaja(D.get('seurat/s/pelaajat/a')), D.get('seurat/s/pelaajat/a/sisainen/tiedot')); expect(ennen.jaksofokus.osa_havainnot.y_h2.a.u1).toBeUndefined();   // ongelma ilman täydennystä
     const dry = await M.aja({ db, kirjoita: false }); expect(dry).toMatchObject({ kopioi: 2, vanhentunut: 1, kirjoitettu: 0 });
     await M.aja({ db, kirjoita: true, nytISO: 'T' });
     const s = D.get('seurat/s/pelaajat/a/sisainen/tiedot'); expect(s.jaksofokus_sisainen.osa_havainnot.y_h2.a).toEqual({ u1: LEHTI(1), u2: LEHTI(3) }); expect(s.jaksofokus_sisainen.jakso_avain).toBe(ALKOI1 + '_y_h2');
-    const jalkeen = S.tmSisainenYhdista(julkinenPelaaja(D.get('seurat/s/pelaajat/a')), s); expect(jalkeen.jaksofokus).toEqual(D.get('seurat/s/pelaajat/a').jaksofokus);
+    const jalkeen = YP(julkinenPelaaja(D.get('seurat/s/pelaajat/a')), s); expect(jalkeen.jaksofokus).toEqual(D.get('seurat/s/pelaajat/a').jaksofokus);
     expect(await M.aja({ db, kirjoita: true })).toMatchObject({ kopioi: 0, kirjoitettu: 0 });
   });
   it('VANHENTUNUT sisainen (eri jakso): jaksofokus_sisainen KORVATAAN nykyisen jakson A-osilla + uusi leima (ei J1:n jäänteitä); historia_sisainen koskematon; toinen ajo = 0', async () => {
     const fakeDb = await mkDb(); const { db, D } = fakeDb(tila()); await M.aja({ db, kirjoita: true, nytISO: 'T' });
     const s = D.get('seurat/s/pelaajat/b/sisainen/tiedot'); expect(s.jaksofokus_sisainen).toEqual({ jakso_avain: S.tmJaksoAvain(J2(JF3())), linkitetyt: ['z'] }); expect(s.historia_sisainen).toEqual({ vanha_rivi: { arvio_vp: 2 } }); expect(s.seuraId).toBe('s');
-    expect(S.tmSisainenYhdista(julkinenPelaaja(D.get('seurat/s/pelaajat/b')), s).jaksofokus.linkitetyt).toEqual(['z']);
+    expect(YP(julkinenPelaaja(D.get('seurat/s/pelaajat/b')), s).jaksofokus.linkitetyt).toEqual(['z']);
     expect(await M.aja({ db, kirjoita: true })).toMatchObject({ kopioi: 0, vanhentunut: 0 });
   });
   it('vanhentunut mutta nykyisellä jaksolla ei A-osia: ei kirjoitusta (skripti ei poista kenttiä); raportoidaan vanhentunut:1 → PR 2 -siivous hoitaa', async () => {
     const fakeDb = await mkDb(); const t = tila(); t['seurat/s/pelaajat/b'] = { jaksofokus: J2(JF2()) }; const { db } = fakeDb(t);
     expect(await M.aja({ db, kirjoita: false })).toMatchObject({ vanhentunut: 1, kopioi: 1, ei_a: 1 });   // vain a kopioituu; b jää (raportoidaan)
+  });
+});
+
+describe('dual-read seuraa samaa lippua kuin kirjoitus (peruutus palauttaa luvun ja kirjoituksen yhdessä)', () => {
+  const pel = () => ({ jaksofokus: Object.assign(JF1(), { linkitetyt: ['vanha'], osa_havainnot: { k: { a: { u1: { arvo: 1 } } } } }), jaksofokus_historia: [{ alkoi: ALKOI1, konsepti_avain: 'y_h2', arvio_vp: 1, lause: 'l' }] });
+  const sis = () => ({ jaksofokus_sisainen: { linkitetyt: ['ERI'], osa_havainnot: { k: { a: { u1: { arvo: 3 } } } } }, historia_sisainen: { [S.tmHistoriaAvain({ alkoi: ALKOI1, konsepti_avain: 'y_h2' })]: { arvio_vp: 3 } } });
+  it('lippu POIS: luku = vanha kenttä, vaikka sisainen on olemassa ja eroaa (jaksofokus + historia)', () => {
+    expect(LIPPU.kirjoitus).toBe(false); const y = S.tmSisainenYhdista(pel(), sis());
+    expect(y.jaksofokus).toEqual(pel().jaksofokus); expect(y.jaksofokus_historia).toEqual(pel().jaksofokus_historia);
+    const lista = S.tmSisainenYhdistaLista([Object.assign({ id: 'p1' }, pel())], { p1: sis() }); expect(lista[0].jaksofokus.linkitetyt).toEqual(['vanha']);
+  });
+  it('lippu PÄÄLLÄ: sisainen voittaa kuten ennen; D3 (oma ryhmä) yhdistyy lipusta riippumatta', () => {
+    LIPPU.kirjoitus = true; const y = S.tmSisainenYhdista(pel(), sis()); expect(y.jaksofokus.linkitetyt).toEqual(['ERI']); expect(y.jaksofokus.osa_havainnot.k.a.u1.arvo).toBe(3); expect(y.jaksofokus_historia[0].arvio_vp).toBe(3);
+    LIPPU.kirjoitus = false; const d = S.tmSisainenYhdista({}, { d3_taso: 4 }); expect(d.d3_taso).toBe(4);
   });
 });

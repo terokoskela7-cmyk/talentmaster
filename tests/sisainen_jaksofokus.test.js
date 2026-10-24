@@ -7,6 +7,7 @@ import { fakeDb } from './_fakeFirestore.mjs';
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const S = require('../lib/tm_sisainen.js'), M = require('../scripts/migroi_sisainen_jaksofokus.js'), JK = require('../lib/tm_jaksokooste.js');
+const YP = (p, s) => S.tmSisainenYhdista(p, s, { kirjoitus: true });   // dual-read seuraa lippua (PR 1b-3): luku sisainen:stä vain lippu päällä
 const SRC = lue('scripts/migroi_sisainen_jaksofokus.js');
 
 const eiNull = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null));
@@ -73,7 +74,7 @@ describe('jako ja yhdistys (pure)', () => {
   it('tmSisainenYhdista: jaksofokus + historia + D3 yhdistyvät samalla kertaa; puuttuva sisainen → pelaaja ennallaan (dual-read varalla); d3-yhdistys säilyy', () => {
     const p = { id: 'p', jaksofokus: S.tmJaksofokusJaa(JF).julkinen, jaksofokus_historia: [S.tmHistoriaJaa(HIS).julkinen], d3_itsearvio: { pisteet: { focus: 4 }, pvm: '2026-10-20' } };
     const sis = { seuraId: 's', jaksofokus_sisainen: S.tmJaksofokusJaa(JF).sisainen, historia_sisainen: { [S.tmHistoriaAvain(HIS)]: S.tmHistoriaJaa(HIS).sisainen }, d3_viimeisin: { pisteet: { focus: { valmentaja: 3 } }, lahteet: ['valmentaja'], pvm: '2026-10-12' } };
-    const y = S.tmSisainenYhdista(p, sis); expect(y.jaksofokus).toEqual(JF); expect(y.jaksofokus_historia[0].arvio_itse).toBe(2); expect(y.jaksofokus_historia[0].lause).toBe('Pelaajalle näkyvä lause'); expect(y.d3_viimeisin.pisteet.focus).toMatchObject({ valmentaja: 3, pelaaja: 4 });
+    const y = YP(p, sis); expect(y.jaksofokus).toEqual(JF); expect(y.jaksofokus_historia[0].arvio_itse).toBe(2); expect(y.jaksofokus_historia[0].lause).toBe('Pelaajalle näkyvä lause'); expect(y.d3_viimeisin.pisteet.focus).toMatchObject({ valmentaja: 3, pelaaja: 4 });
     expect(S.tmSisainenYhdista(JSON.parse(JSON.stringify(Object.assign({}, p, { jaksofokus: JF, jaksofokus_historia: [HIS] }))), null).jaksofokus).toEqual(JF);   // vanha muoto ilman sisainen:ia = ennallaan
     expect(p.jaksofokus.osa_havainnot).toBeUndefined();   // syöte ei muuttunut
   });
@@ -109,7 +110,7 @@ describe('migraatio scripts/migroi_sisainen_jaksofokus.js (fake-Firestore; tuota
   it('MIGRAATION JÄLKEEN dual-read palauttaa täsmälleen vanhan muodon (sisainen yhdistettynä julkiseen = alkuperäinen pelaajadokumentti)', async () => {
     const { db, D } = fakeDb(data()); await M.aja({ db, kirjoita: true }); const p = D.get('seurat/sjk/pelaajat/a'), s = D.get('seurat/sjk/pelaajat/a/sisainen/tiedot');
     const julkinen = Object.assign({}, p, { jaksofokus: S.tmJaksofokusJaa(p.jaksofokus).julkinen, jaksofokus_historia: p.jaksofokus_historia.map((r) => S.tmHistoriaJaa(r).julkinen) });
-    const y = S.tmSisainenYhdista(julkinen, s); expect(y.jaksofokus).toEqual(p.jaksofokus); expect(y.jaksofokus_historia[0]).toEqual(eiNull(HIS)); expect(y.jaksofokus_historia[1]).toEqual(p.jaksofokus_historia[1]);
+    const y = YP(julkinen, s); expect(y.jaksofokus).toEqual(p.jaksofokus); expect(y.jaksofokus_historia[0]).toEqual(eiNull(HIS)); expect(y.jaksofokus_historia[1]).toEqual(p.jaksofokus_historia[1]);
   });
   it('--seura rajaa; skriptin turvallisuus: dry-run oletuksena, KIRJOITA-vahvistus, ADC, require ei käynnistä ajoa, vain yksi set (merge), ei poistoa/updatea', async () => {
     const { db } = fakeDb(data()); expect((await M.aja({ db, seura: 'kpv' })).pelaajia).toBe(1);
