@@ -182,3 +182,36 @@ describe('v3.68 · PR 1b-3 elinkaarikirjoitus: set mergeFields + deleteField', (
     await assertFails(setDoc(sis(fysio()), { seuraId: A, paivitetty: 'x', d3_taso: 5, jaksofokus_sisainen: deleteField() }, { mergeFields: ['seuraId', 'paivitetty', 'd3_taso', 'jaksofokus_sisainen'] }));
   });
 });
+
+/* v3.69 · PR 1c-1 (S2): henkilokunta-ryhmän kentät sisainen/tiedot:ssa — scout_potentiaali* vain johto/SA, vastuuhenkilo kuten pelaajadokumentissa, testivastaava/pelaaja/huoltaja/toisen seuran käyttäjä ei */
+describe('v3.69 · henkilokunta-kentät sisainen/tiedot:ssa', () => {
+  const utj = () => staff('utj-a', 'urheilutoimenjohtaja', A), tv = () => staff('tv-a', 'testivastaava', A), talentti = () => staff('tal-a', 'talenttivalmentaja', A);
+  const VH = { uid: 'valm-12', rooli: 'valmentaja', asetettu_pvm: '2026-10-24' };
+  const HK = { tukitarve: { alue: 'kestävyys', merkitty_pvm: '2026-10-24' }, talentti_ehdotus: { lahde: 'vp', pvm: '2026-10-24' }, review_viimeisin_pvm: '2026-10-24', review_viimeisin_tyyppi: 'jakso', review_tagit: ['a'], idp_edistyma: 40, idp_lahde: 'vp', idp_viim_review: '2026-10-24', idp_dvi: { x: 1 } };
+  const SC = { scout_potentiaali: 4, scout_potentiaali_taso: 'korkea', scout_potentiaali_huomiot: 'h', scout_potentiaali_pvm: '2026-10-24', scout_potentiaali_arvioija: 'vp-a' };
+  const kirj = (db, lisa, pid) => setDoc(sis(db, pid), Object.assign({ seuraId: A, paivitetty: 'T' }, lisa), { merge: true });
+  it('valmentaja (oma joukkue), talenttivalmentaja, johto ja SA kirjoittavat tukitarve / talentti_ehdotus / review_* / idp_* (kuten pelaajadokumenttiin)', async () => {
+    for (const db of [valm12(), talentti(), vp(), utj(), sa()]) await assertSucceeds(kirj(db, HK));
+    await assertFails(kirj(valm14(), HK));   // toisen joukkueen valmentaja ei (kuten pelaajadokumentti)
+  });
+  it('scout_potentiaali*: vain SA ja johto (vp, urheilutoimenjohtaja); valmentaja, talenttivalmentaja, fysioterapeutti, testivastaava, seurasihteeri EIVÄT — create ja update', async () => {
+    for (const db of [vp(), utj(), sa()]) { await assertSucceeds(kirj(db, SC)); await assertSucceeds(updateDoc(sis(db), { scout_potentiaali: 5, seuraId: A })); }
+    for (const db of [valm12(), talentti(), fysio(), tv(), sihteeri()]) { await assertFails(kirj(db, SC)); await assertFails(updateDoc(sis(db), { scout_potentiaali_taso: 'x', seuraId: A })); }
+    await assertFails(setDoc(sis(valm12(), 'p-uusi'), Object.assign({ seuraId: A }, SC)));
+  });
+  it('vastuuhenkilo: asettajat (vp, utj, talenttivalmentaja, oman joukkueen valmentaja, SA) + muoto {uid, rooli, asetettu_pvm}, uid = seuran käyttäjä; poisto sallittu asettajille; muut eivät', async () => {
+    for (const db of [valm12(), vp(), utj(), talentti(), sa()]) await assertSucceeds(kirj(db, { vastuuhenkilo: VH }));
+    await assertSucceeds(updateDoc(sis(valm12()), { vastuuhenkilo: deleteField(), seuraId: A }));
+    await assertFails(kirj(valm14(), { vastuuhenkilo: VH })); for (const db of [fysio(), tv(), sihteeri()]) await assertFails(kirj(db, { vastuuhenkilo: VH }));
+    await assertFails(kirj(vp(), { vastuuhenkilo: { uid: 'ei-kayttaja', rooli: 'valmentaja', asetettu_pvm: '2026-10-24' } })); await assertFails(kirj(vp(), { vastuuhenkilo: { uid: 'valm-12', rooli: 'valmentaja' } }));
+    await assertFails(kirj(vp(), { vastuuhenkilo: { uid: 'valm-12', rooli: 'pelaaja', asetettu_pvm: '2026-10-24' } })); await assertFails(kirj(vp(), { vastuuhenkilo: Object.assign({ ylimaarainen: 1 }, VH) }));
+  });
+  it('testivastaava EI kirjoita mitään sisainen-kenttää (ei myöskään henkilökunta-ryhmää) mutta lukee; fysioterapeutti vain jaksofokus-osat', async () => {
+    await assertFails(kirj(tv(), HK)); await assertFails(kirj(tv(), { jaksofokus_sisainen: { linkitetyt: ['a'] } })); await assertSucceeds(getDoc(sis(tv())));
+    await assertFails(kirj(fysio(), HK)); await assertSucceeds(kirj(fysio(), { jaksofokus_sisainen: { linkitetyt: ['a'] } }));
+  });
+  it('pelaaja, huoltaja ja toisen seuran käyttäjät (valmentaja, VP) eivät lue eivätkä kirjoita henkilökunta-kenttiä', async () => {
+    await assertSucceeds(kirj(sa(), Object.assign({}, HK, SC, { vastuuhenkilo: VH })));
+    for (const db of [pelaaja(), huoltaja(), valmB(), staff('vp-b', 'vp', B)]) { await assertFails(getDoc(sis(db))); await assertFails(kirj(db, HK)); await assertFails(kirj(db, SC)); await assertFails(kirj(db, { vastuuhenkilo: VH })); }
+  });
+});

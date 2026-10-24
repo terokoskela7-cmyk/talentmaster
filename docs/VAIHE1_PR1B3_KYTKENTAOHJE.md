@@ -33,7 +33,7 @@ Uusi tulosteluku: `vanhentunut`.
 
 Periaate: **lippu ensin, migraatio heti perään.** Jos migraatio ajetaan lipun ollessa pois, sisainen jää jälkeen jokaisesta uudesta kirjoituksesta ja voittaa silti luvussa.
 
-1. **Merge tämä PR** (lippu pois). Varmista livenä bundlen vaihtuminen hash-vertailulla (`tm_sisainen.js?v=6`), älä merkkijonolla.
+1. **Merge tämä PR** (lippu pois). Varmista livenä bundlen vaihtuminen hash-vertailulla (`tm_sisainen.js?v=7`), älä merkkijonolla.
 2. **Rules:** v3.68 on jo livenä (#1130). Tarkista CI:n `deploy-rules` -ajo main-pushille; tässä PR:ssä ei Rules-muutosta.
 3. **Dry-run:** `node scripts/migroi_sisainen_jaksofokus.js` → luvut PM:lle (`kopioi`, `eroaa`, `vanhentunut`, `rivia_ilman_avainta`). Älä kirjoita vielä.
 4. **PM kuittaa** luvut.
