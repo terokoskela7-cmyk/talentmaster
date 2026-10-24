@@ -1,10 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.68
+// TalentMaster™ — firestore.rules v3.69
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.68 → v3.69 (Vaihe 1 · PR 1c-1 (viipale S2, henkilökunnan kenttäryhmä): KIRISTÄÄ vain sisainen/tiedot:n uusia kenttiä, ei kosketa nykyisiä kirjoituksia):
+//   · sisainen/tiedot: `scout_potentiaali*`-avaimet vain SA | oman seuran johto (onJohtoRooli) — sama rajaus kuin pelaajadokumentissa (FA-potentiaali); valmentaja, talenttivalmentaja, fysioterapeutti, testivastaava eivät.
+//   · sisainen/tiedot: `vastuuhenkilo` vain vastuuhenkiloAsettaja + vastuuhenkiloMuotoKelpaa (poisto sallittu asettajille) — sama ehto kuin pelaajadokumentin vastuuhenkiloMuutosKelpaa (v3.38).
+//   · Testivastaava ei kirjoita sisainen:iin (ei ollut ennenkään), fysioterapeutti ennallaan (hasOnly jaksofokus-osat). Kirjoittajia ei vielä kytketä (1c-2/1c-3; lippu RYHMAT.henkilokunta.kirjoitus pois).
 // Muutokset v3.67 → v3.68 (Vaihe 1 · PR 1b-1 (viipale S1, jaksofokuksen sisäiset osat): perusta; ADDITIIVINEN — vain laajentaa sisainen/tiedot-kirjoittajia, ei kiristä mitään; Tero tarkistaa, CI deployaa mergestä):
 //   · seurat/{sid}/pelaajat/{pid}/sisainen/tiedot: create/update sallitaan lisäksi fysioterapeutille (oma seura), VAIN avaimille jaksofokus_sisainen / historia_sisainen / seuraId / paivitetty
 //     (create: keys().hasOnly, update: affectedKeys().hasOnly). Muut kirjoittajat (SA, oman joukkueen valmentaja/johto) ja luku (oma seura) ennallaan. Pelaaja ja huoltaja eivät lue eivätkä kirjoita.
@@ -751,6 +755,16 @@ service cloud.firestore {
           && v.asetettu_pvm is string && v.asetettu_pvm.size() == 10
           && (exists(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(v.uid))
               || get(/databases/$(database)/documents/seurat/$(seuraId)).data.get('vp_uid', '') == v.uid);
+    }
+    /* v3.69 (PR 1c-1) — sisainen/tiedot: avaimet = create → request.resource.data.keys(); update → diff(...).affectedKeys(). Scout-potentiaali vain johto/SA; vastuuhenkilo kuten pelaajadokumentissa. */
+    function sisainenScoutKelpaa(seuraId, avaimet) {
+      return !avaimet.hasAny(['scout_potentiaali', 'scout_potentiaali_taso', 'scout_potentiaali_huomiot', 'scout_potentiaali_pvm', 'scout_potentiaali_arvioija'])
+          || onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+    }
+    function sisainenVastuuKelpaa(seuraId, pelaajaId, avaimet) {
+      return !avaimet.hasAny(['vastuuhenkilo'])
+          || (vastuuhenkiloAsettaja(seuraId, pelaajaId)
+              && (!('vastuuhenkilo' in request.resource.data) || vastuuhenkiloMuotoKelpaa(seuraId, request.resource.data.vastuuhenkilo)));
     }
     function vastuuhenkiloMuutosKelpaa(seuraId, pelaajaId) {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['vastuuhenkilo'])
@@ -1570,11 +1584,13 @@ service cloud.firestore {
           allow create:         if dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId
                                 && ( onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                                   || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
-                                      && request.resource.data.keys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty'])) );
+                                      && request.resource.data.keys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty'])) )
+                                && sisainenScoutKelpaa(seuraId, request.resource.data.keys()) && sisainenVastuuKelpaa(seuraId, pelaajaId, request.resource.data.keys());   // v3.69
           allow update:         if dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId
                                 && ( onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                                   || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
-                                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty'])) );
+                                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty'])) )
+                                && sisainenScoutKelpaa(seuraId, request.resource.data.diff(resource.data).affectedKeys()) && sisainenVastuuKelpaa(seuraId, pelaajaId, request.resource.data.diff(resource.data).affectedKeys());   // v3.69
           allow delete:         if onSuperAdmin();
         }
 
