@@ -8,11 +8,11 @@ describe('rekisteri', () => {
   it('vain d3-ryhmä on kytketty; muut ryhmät määritelty mutta eivät vaikuta (inventaario 22.10.)', () => {
     expect(Object.keys(S.RYHMAT).filter((n) => S.RYHMAT[n].kytketty)).toEqual(['d3']);
     expect(S.tmSisainenKentat()).toEqual(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus', 'd3_vp_pvm']);
-    ['jaksofokus_sisainen', 'historia_sisainen', 'henkilokunta', 'staff_paatokset', 'arviointi', 'adar_sisainen', 'kypsyys_sisainen', 'perhe', 'talentti_terveys', 'tuonti_meta'].forEach((r) => expect(S.RYHMAT[r], r).toBeDefined());
+    ['jaksofokus_sisainen', 'historia_sisainen', 'henkilokunta', 's4', 'signaali', 'arviointi', 'adar_sisainen', 'kypsyys_sisainen', 'talentti_terveys', 'tuonti_meta'].forEach((r) => expect(S.RYHMAT[r], r).toBeDefined());
   });
   it('PM:n päätökset: signaali = A; korjattu/korjaus = C (ei rekisterissä); havainto_porras_ehdotus kuuluu adar_sisainen-ryhmään (viipale 1e)', () => {
     const kaikki = Object.values(S.RYHMAT).flatMap((r) => r.kentat);
-    expect(kaikki).toContain('signaali'); expect(kaikki).not.toContain('korjattu'); expect(kaikki).not.toContain('korjaus'); expect(S.RYHMAT.adar_sisainen.kentat).toContain('havainto_porras_ehdotus');
+    expect(kaikki).toContain('signaali'); expect(kaikki).not.toContain('korjattu'); expect(kaikki).not.toContain('korjaus'); expect(S.RYHMAT.adar_sisainen.kentat).toContain('havainto_porras_hist'); expect(S.RYHMAT.adar_sisainen.kentat).not.toContain('havainto_porras_ehdotus');
     expect(S.RYHMAT.adar_sisainen.kytketty).toBe(false);
   });
   it('polku', () => { expect(S.tmSisainenPolku('sjk', 'p1')).toBe('seurat/sjk/pelaajat/p1/sisainen/tiedot'); });

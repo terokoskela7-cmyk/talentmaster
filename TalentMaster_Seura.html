@@ -1458,6 +1458,13 @@ function _tmPelaajanKieli(seuranKieli) {
   var k = seuranKieli ? String(seuranKieli).toLowerCase().trim() : '';
   return (k && k !== 'fi') ? { kieli: k } : {};
 }
+/* Tietoturva (vaihe 1, PR 1e-1): tuojan tunniste (uid, EI sähköpostia) henkilökunnan sisainen/tiedot-dokumenttiin — pelaaja/huoltaja eivät lue sitä. Ei lippua: ei lukijoita. Epäonnistuminen EI peruuta pelaajan luontia (metatieto) → console.warn. */
+async function _tmKirjaaTuoja(seuraId, pelaajaId) {
+  try {
+    await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId).collection('sisainen').doc('tiedot')
+      .set({ seuraId: seuraId, paivitetty: new Date().toISOString(), tuojaUid: (tila.kayttaja && tila.kayttaja.uid) || null }, { merge: true });
+  } catch (e) { console.warn('[Seura] tuojaUid ei tallentunut sisainen/tiedot:iin (pelaaja luotu):', e && (e.code || e.message)); }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // AKTIIVISEN SEURAN ASETTAMINEN
@@ -3786,8 +3793,9 @@ async function lahetaRekisteriSahkoposti() {
           sporttiID:     sporttiIdArvo, // Universaali urheilija-ID (null toistaiseksi)
           // ──────────────────────────────────────────────────────────────
           tuotu:         firebase.firestore.FieldValue.serverTimestamp(),
-          /* Tietoturva (vaihe 1): tuojan sähköpostia EI tallenneta pelaajadokumenttiin (pelaaja/huoltaja lukee). Sisäinen tuojan tunniste tulee sisainen/tiedot-dokumenttiin PR 1a:ssa. */
+          /* Tietoturva (vaihe 1): tuojan sähköpostia EI tallenneta pelaajadokumenttiin (pelaaja/huoltaja lukee). Tuojan uid → sisainen/tiedot (PR 1e-1, _tmKirjaaTuoja). */
         }));
+        await _tmKirjaaTuoja(tila.seuraId, pelaajaId);
 
         /* Suostumus ennen PIN:iä (1.10.2026): uusi pelaaja on tilassa 'odottaa' → PIN:iä EI luoda nyt.
            Palvelin luo sen automaattisesti, kun huoltaja antaa suostumuksen (vahvistaSuostumus). */
@@ -6872,6 +6880,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         tuotu:         nyt,   // tuojan sähköpostia ei tallenneta pelaajadokumenttiin (tietoturva, vaihe 1)
         lahde:         'excel_tuonti',
       }));
+      await _tmKirjaaTuoja(tila.seuraId, pelaajaId);   // PR 1e-1: tuojan uid → sisainen/tiedot
       tuotu++;
 
       // VAIHE 2: Lähetetään kutsu jos pyydetty ja (kelvollinen, yksi) email löytyy

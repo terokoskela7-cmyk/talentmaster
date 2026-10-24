@@ -215,3 +215,34 @@ describe('v3.69 · henkilokunta-kentät sisainen/tiedot:ssa', () => {
     for (const db of [pelaaja(), huoltaja(), valmB(), staff('vp-b', 'vp', B)]) { await assertFails(getDoc(sis(db))); await assertFails(kirj(db, HK)); await assertFails(kirj(db, SC)); await assertFails(kirj(db, { vastuuhenkilo: VH })); }
   });
 });
+
+/* v3.70 · PR 1e-1 (S4): sisainen/tiedot — S4-ryhmät (valmentaja/johto/SA kuten ennen), testivastaava vain kasvumittauksen kypsyys-avaimet, johto vain tuojaUid; pelaaja ja huoltaja eivät lue eivätkä kirjoita mitään uutta */
+describe('v3.70 · S4-ryhmät + tuojaUid sisainen/tiedot:ssa', () => {
+  const tv = () => staff('tv-a', 'testivastaava', A), utj = () => staff('utj-a', 'urheilutoimenjohtaja', A), talentti = () => staff('tal-a', 'talenttivalmentaja', A);
+  const kirj = (db, lisa, pid) => setDoc(sis(db, pid), Object.assign({ seuraId: A, paivitetty: 'T' }, lisa), { merge: true });
+  const KYP_TV = { kasvutahti_cm_v: 6, kasvutahti_vyohyke: 'nopea', maturity_offset: -0.4, kehitysvaihe_kaista: 'circa', kronologinen_ika: 13.2, phv_raaka: 'LAH', phv_huom: 'x', phv_ongelma: null };
+  const S4 = { adar_arvioijia: 2, adar_luotettavuus: 'hyva', havainto_viimeisin_pvm: '2026-10-24', havainto_porras_hist: [3, 2], arviointi_kooste: { a: 1 }, arviointi_kooste_pvm: '2026-10-24', talenttiTaso: 'perus', loukkaantuminen_tyyppi: 'nilkka', paluu_arvio: '2026-11-01', signaali: 'xfactor', isa_pituus_cm: 180, aiti_pituus_cm: 168, vanhempi_pituus_pvm: '2026-10-24' };
+  it('oman joukkueen valmentaja, talenttivalmentaja-johto (vp, utj) ja SA kirjoittavat S4-ryhmien kentät kuten muutkin sisainen-kentät; toisen joukkueen valmentaja ei', async () => {
+    for (const db of [valm12(), vp(), utj(), sa()]) await assertSucceeds(kirj(db, Object.assign({}, S4, KYP_TV)));
+    await assertFails(kirj(valm14(), S4)); await assertFails(kirj(valmB(), S4)); await assertFails(kirj(sihteeri(), S4));
+  });
+  it('TESTIVASTAAVA: kirjoittaa vain kasvumittauksen kypsyys-avaimet (create + update); mikään muu S4-kenttä, d3, henkilokunta tai jaksofokus ei; lukee silti', async () => {
+    await assertSucceeds(kirj(tv(), KYP_TV, 'p-uusi')); await assertSucceeds(kirj(tv(), KYP_TV)); await assertSucceeds(updateDoc(sis(tv()), { kasvutahti_cm_v: 7, seuraId: A })); await assertSucceeds(getDoc(sis(tv())));
+    for (const lisa of [{ talenttiTaso: 'perus' }, { loukkaantuminen_tyyppi: 'x' }, { adar_arvioijia: 1 }, { arviointi_kooste: {} }, { signaali: 'xfactor' }, { isa_pituus_cm: 180 }, { phv_ilmoitettu_ph: true }, { d3_taso: 5 }, { tukitarve: { alue: 'a', merkitty_pvm: '2026-10-24' } }, { jaksofokus_sisainen: { linkitetyt: ['a'] } }]) {
+      await assertFails(kirj(tv(), lisa)); await assertFails(kirj(tv(), Object.assign({}, KYP_TV, lisa)));
+    }
+    await assertFails(deleteDoc(sis(tv()))); await assertFails(setDoc(sis(tv()), Object.assign({ seuraId: B }, KYP_TV)));   // seuraId pakotettu == sid
+  });
+  it('toisen seuran testivastaava ei kirjoita eikä lue', async () => { const tvB = staff('tv-b', 'testivastaava', B); await assertFails(kirj(tvB, KYP_TV)); await assertFails(getDoc(sis(tvB))); });
+  it('JOHTO (vp, utj, seurasihteeri): tuojaUid + seuraId/paivitetty onnistuu; seurasihteeri: tuojaUid + mikä tahansa muu avain ei; fysio/testivastaava/toisen seuran johto tuojaUid:ia ei', async () => {
+    let n = 0; for (const db of [vp(), utj(), sihteeri()]) { n++; await assertSucceeds(kirj(db, { tuojaUid: 'uid-x' + n }, 'p-uusi2')); await assertSucceeds(kirj(db, { tuojaUid: 'uid-y' + n })); await assertSucceeds(updateDoc(sis(db), { tuojaUid: 'uid-z' + n, seuraId: A })); }   // arvo muuttuu joka kerta: no-op-merge ei oikeuta (hasAny)
+    await assertFails(kirj(sihteeri(), { tuojaUid: 'uid-q', talenttiTaso: 'perus' })); await assertFails(kirj(sihteeri(), { tuojaUid: 'uid-q2', d3_taso: 1 }));   // vp/utj kirjoittavat kaiken jo ennestään (onOmanJoukkueenValmentaja) → rajaus koskee vain seurasihteeriä
+    await assertFails(kirj(sihteeri(), { talenttiTaso: 'perus' })); await assertFails(kirj(fysio(), { tuojaUid: 'uid-x' })); await assertFails(kirj(tv(), { tuojaUid: 'uid-x' }));
+    await assertFails(kirj(staff('sih-b', 'seurasihteeri', B), { tuojaUid: 'uid-x' }));   // toisen seuran johto
+  });
+  it('pelaaja, huoltaja, toisen seuran käyttäjät: eivät lue eivätkä kirjoita S4-kenttiä, kypsyys-avaimia eivätkä tuojaUid:ia; tallennettu S4-data ei vuoda collectionGroup-kyselyssä', async () => {
+    await assertSucceeds(kirj(sa(), Object.assign({}, S4, KYP_TV, { tuojaUid: 'uid-x' })));
+    for (const db of [pelaaja(), huoltaja(), valmB(), staff('vp-b', 'vp', B)]) { await assertFails(getDoc(sis(db))); await assertFails(kirj(db, S4)); await assertFails(kirj(db, KYP_TV)); await assertFails(kirj(db, { tuojaUid: 'x' })); }
+    await assertFails(getDocs(query(collectionGroup(pelaaja(), 'sisainen'), where('seuraId', '==', A)))); await assertFails(getDocs(query(collectionGroup(huoltaja(), 'sisainen'), where('seuraId', '==', A))));
+  });
+});

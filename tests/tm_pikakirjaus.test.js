@@ -46,7 +46,8 @@ describe('tm_pikakirjaus — tulokset + payload + upsert-doc-id', () => {
   });
   it('_testitulosPayload: §22 Moodi B -muoto', () => {
     const p = F()._testitulosPayload({ lin_30m: 5 }, '2026-05-02', 'uid1', null, '2026-06-01T00:00:00Z');
-    expect(p).toMatchObject({ protokolla: 'pikakirjaus', lahde: 'pikakirjaus', testauspvm: '2026-05-02', tuojaUid: 'uid1', testit: { lin_30m: 5 } });
+    expect(p).toMatchObject({ protokolla: 'pikakirjaus', lahde: 'pikakirjaus', testauspvm: '2026-05-02', testit: { lin_30m: 5 } });
+    expect(p).not.toHaveProperty('tuojaUid');   // PR 1e-1: henkilökunnan tunniste ei pelaajan luettavaan dokumenttiin
   });
 });
 

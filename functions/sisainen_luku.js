@@ -1,14 +1,14 @@
 'use strict';
 /* Vaihe 1 / PR 1c-2 — CF:ien dual-read: pelaajadokumentin A-kentät (henkilokunta: review_viimeisin_*, vastuuhenkilo …; jaksofokus-osat) yhdistetään sisainen/tiedot:iin SAMALLA logiikalla kuin selaimessa
    (functions/tm_sisainen.js = tavu tavulta lib/tm_sisainen.js, functions/jaettu_lib.json). Admin SDK ohittaa Rulesin → luku onnistuu ilman oikeuksia.
-   LIPPU: ei omaa vakiota — luetaan SAMASTA lähteestä kuin selain (RYHMAT.henkilokunta.kirjoitus / RYHMAT.jaksofokus_sisainen.kirjoitus jaetussa kopiossa). Kopio on pakotetusti identtinen libin kanssa
+   LIPPU: ei omaa vakiota — luetaan SAMASTA lähteestä kuin selain (RYHMAT.henkilokunta.kirjoitus / RYHMAT.jaksofokus_sisainen.kirjoitus / RYHMAT.s4.kirjoitus jaetussa kopiossa). Kopio on pakotetusti identtinen libin kanssa
    (tests/functions_jaettu_lib.test.js), joten CF ja selain eivät voi erota; lipun kytkentä = lib-muutos + sama Functions-deploy. Lippu(jen) ollessa pois: EI lisälukuja, data palautetaan sellaisenaan.
    Virhe sisainen-luvussa EI kaada ajoa: tmSisainenLataaSeura palauttaa tyhjän mapin → vanhat kentät (console.warn). */
 const S = require('./tm_sisainen.js');
 
 function liputPaalla(ryhmat) {
   const r = ryhmat || S.RYHMAT;
-  return !!((r.henkilokunta && r.henkilokunta.kirjoitus) || (r.jaksofokus_sisainen && r.jaksofokus_sisainen.kirjoitus));
+  return !!((r.henkilokunta && r.henkilokunta.kirjoitus) || (r.jaksofokus_sisainen && r.jaksofokus_sisainen.kirjoitus) || (r.s4 && r.s4.kirjoitus));
 }
 /* rivit: [{ id, data }] → sama muoto, data yhdistettynä. YKSI collectionGroup-kysely per seura (indeksi sisainen.seuraId).
    opts.aina = true: ohita lippu — D3-ryhmä (d3_pvm, d3_taso …) EI ole lipun takana (PR 1d/2a: kirjoitetaan vain sisainen:iin), joten D3:a lukevat CF:t (seuran_kooste) yhdistävät aina. */

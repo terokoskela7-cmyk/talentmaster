@@ -1,10 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.69
+// TalentMaster™ — firestore.rules v3.70
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.69 → v3.70 (Vaihe 1 · PR 1e-1 (viipale S4 perusta + tuoja-korjaus): ADDITIIVINEN — vain LAAJENTAA sisainen/tiedot-kirjoittajia kahdelle kapealle avainjoukolle, ei kiristä mitään):
+//   · sisainen/tiedot: TESTIVASTAAVA (oma seura) saa kirjoittaa VAIN kasvumittauksen kypsyys_sisainen-avaimet (kasvutahti_cm_v, kasvutahti_vyohyke, maturity_offset, kehitysvaihe_kaista, kronologinen_ika, phv_raaka, phv_huom, phv_ongelma) + seuraId/paivitetty.
+//     Testaus_v9 kirjoittaa nämä pelaajadokumenttiin jo nyt (onTestivastaava) → sama kirjoittaja, uusi koti. Muut S4-ryhmät (adar_sisainen, arviointi, talentti_terveys, signaali, vanhempien pituudet) eivät: testivastaava ei niitä ennenkään kirjoittanut sisainen:iin.
+//   · sisainen/tiedot: JOHTO (vp, urheilutoimenjohtaja, seurasihteeri; oma seura) saa kirjoittaa VAIN tuojaUid + seuraId/paivitetty (Seura-sivun pelaajaluonti/Excel-tuonti kirjaa tuojan uid:n; tuoja-sähköposti ei enää pelaajadokumenttiin).
+//   · Pelaaja ja huoltaja: ei lue eikä kirjoita (sisainen-blokki ennallaan). Kirjoittajia S4-ryhmille ei vielä kytketä (1e-2 CF, 1e-3 selain; yhteinen lippu RYHMAT.s4.kirjoitus pois).
 // Muutokset v3.68 → v3.69 (Vaihe 1 · PR 1c-1 (viipale S2, henkilökunnan kenttäryhmä): KIRISTÄÄ vain sisainen/tiedot:n uusia kenttiä, ei kosketa nykyisiä kirjoituksia):
 //   · sisainen/tiedot: `scout_potentiaali*`-avaimet vain SA | oman seuran johto (onJohtoRooli) — sama rajaus kuin pelaajadokumentissa (FA-potentiaali); valmentaja, talenttivalmentaja, fysioterapeutti, testivastaava eivät.
 //   · sisainen/tiedot: `vastuuhenkilo` vain vastuuhenkiloAsettaja + vastuuhenkiloMuotoKelpaa (poisto sallittu asettajille) — sama ehto kuin pelaajadokumentin vastuuhenkiloMuutosKelpaa (v3.38).
@@ -760,6 +765,15 @@ service cloud.firestore {
     function sisainenScoutKelpaa(seuraId, avaimet) {
       return !avaimet.hasAny(['scout_potentiaali', 'scout_potentiaali_taso', 'scout_potentiaali_huomiot', 'scout_potentiaali_pvm', 'scout_potentiaali_arvioija'])
           || onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+    }
+    /* v3.70 (PR 1e-1): kapeat lisäkirjoittajat — testivastaava (kypsyys_sisainen: kasvumittaus) ja johto (tuojaUid). avaimet kuten yllä (create: keys(); update: affectedKeys()). */
+    function sisainenTestivastaavaKelpaa(seuraId, avaimet) {
+      return onTestivastaava(seuraId)
+          && avaimet.hasOnly(['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma', 'seuraId', 'paivitetty'])
+          && avaimet.hasAny(['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma']);   // hasAny: tyhjä muutosjoukko (no-op-merge) ei oikeuta
+    }
+    function sisainenTuojaKelpaa(seuraId, avaimet) {
+      return onOmaSeura(seuraId) && onJohtoRooli() && avaimet.hasOnly(['tuojaUid', 'seuraId', 'paivitetty']) && avaimet.hasAny(['tuojaUid']);
     }
     function sisainenVastuuKelpaa(seuraId, pelaajaId, avaimet) {
       return !avaimet.hasAny(['vastuuhenkilo'])
@@ -1584,12 +1598,16 @@ service cloud.firestore {
           allow create:         if dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId
                                 && ( onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                                   || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
-                                      && request.resource.data.keys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty'])) )
+                                      && request.resource.data.keys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty']))
+                                  || sisainenTestivastaavaKelpaa(seuraId, request.resource.data.keys())      // v3.70
+                                  || sisainenTuojaKelpaa(seuraId, request.resource.data.keys()) )            // v3.70
                                 && sisainenScoutKelpaa(seuraId, request.resource.data.keys()) && sisainenVastuuKelpaa(seuraId, pelaajaId, request.resource.data.keys());   // v3.69
           allow update:         if dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId
                                 && ( onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                                   || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
-                                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty'])) )
+                                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty']))
+                                  || sisainenTestivastaavaKelpaa(seuraId, request.resource.data.diff(resource.data).affectedKeys())      // v3.70
+                                  || sisainenTuojaKelpaa(seuraId, request.resource.data.diff(resource.data).affectedKeys()) )            // v3.70
                                 && sisainenScoutKelpaa(seuraId, request.resource.data.diff(resource.data).affectedKeys()) && sisainenVastuuKelpaa(seuraId, pelaajaId, request.resource.data.diff(resource.data).affectedKeys());   // v3.69
           allow delete:         if onSuperAdmin();
         }

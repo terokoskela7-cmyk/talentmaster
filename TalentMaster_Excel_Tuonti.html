@@ -3196,8 +3196,7 @@ async function tallennaFirestoreen() {
         pvm_arvio: pvmArvio === true,   // true = päivä on kauden keskipäivä (arvio), ei mitattu päivä
         kausi: tuontiData.meta.kausi || (tapahtuma && tapahtuma.kausi) || '',
         protokolla: protokollaKey,
-        tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
-        tallensiUid: kayttaja.uid
+        tallennettu: firebase.firestore.FieldValue.serverTimestamp()   /* PR 1e-1: ei henkilökunnan tunnistetta pelaajan/huoltajan lukemaan alikokoelmaan */
       };
       if (pvmTeksti)        tallennusData.testauspvm_teksti = pvmTeksti;  // OSA 4: alkuperäinen ("Kevät 2026")
       if (fleiPct !== null) tallennusData.flei_pct = fleiPct;
@@ -3223,7 +3222,6 @@ async function tallennaFirestoreen() {
           .collection('testitulokset').doc(docKey);
         tallennusData.lahde = 'historiapohja';
         tallennusData.tuotu = NYT_ISO;
-        tallennusData.tuojaUid = kayttaja.uid;
       }
       batch.set(ref, tallennusData, { merge: true });
 
@@ -4040,8 +4038,7 @@ async function tallennaPdfFirestoreen() {
         tapahtuma: tapahtumaNimi,
         lahde_tiedosto: pdfData.tiedostonimi,
         tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
-        tuotu: NYT_ISO,
-        tuojaUid: kayttaja.uid
+        tuotu: NYT_ISO   /* PR 1e-1: ei henkilökunnan tunnistetta pelaajan/huoltajan lukemaan alikokoelmaan */
       };
       const ref = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(docId)
         .collection('testitulokset').doc(_pdfDocKey(pvmIso, r.ikaluokka));

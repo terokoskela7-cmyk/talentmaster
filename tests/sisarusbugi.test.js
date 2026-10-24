@@ -65,6 +65,7 @@ function seura(SEURA_LAHDE, lisat) {
   const osat = ['function _rekBaseUrl() {', 'function avaaRekisteriModal() {', 'function avaaRekisteriModalPelaajalle(',
     'function luoRekisteriLinkki() {', 'async function lahetaRekisteriSahkoposti() {'];
   if (S.indexOf('function _rekDuplikaatti(') >= 0) osat.push('function _rekDuplikaatti(');
+  if (S.indexOf('async function _tmKirjaaTuoja(') >= 0) osat.push('async function _tmKirjaaTuoja(');   // PR 1e-1 (negatiivikontrollin vanhalla sivulla ei ole)
   // Suostumuksen uusiminen (2.10.2026): vahvistus, kun pelaajalla on jo annettu suostumus
   ['function _suostumusAnnettu(', 'function _suostumusPvm(', 'function _tkKieli(', 'function _tk('].forEach((o) => { if (S.indexOf(o) >= 0) osat.push(o); });
   vm.runInContext(osat.map((o) => pura(S, o)).join('\n')

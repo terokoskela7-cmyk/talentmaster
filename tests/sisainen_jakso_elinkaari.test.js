@@ -265,7 +265,7 @@ describe('kytkentä ja versiot', () => {
     expect(lue('TalentMaster_Master_v16.html')).toMatch(/window\.TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(_db, _seuraId, pid \|\| p\.id, upd,/);
     expect(lue('TalentMaster_VP_v25.html')).toMatch(/TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, pid, upd,/); expect(lue('TalentMaster_VP_v25.html')).toMatch(/S\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, p\.id, upd,/);
     ['tm_kt_arviointi', 'tm_kt_hylkaa', 'tm_kt_jakso'].forEach((f) => expect(lue('lib/' + f + '.js'), f).toMatch(/tmJaksofokusElinkaariKirjoita/));
-    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toContain('lib/tm_sisainen.js?v=8');
+    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toContain('lib/tm_sisainen.js?v=9');
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f)).not.toMatch(/<script[^>]+src="lib\/(tm_sisainen|tm_kehitystyopoyta)\.js/));
   });
 });
