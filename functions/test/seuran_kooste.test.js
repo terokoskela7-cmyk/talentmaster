@@ -36,6 +36,9 @@ function luoDb(data, opts) {
     STORE, kirjoitukset,
     collection: (n) => colRef(n),
     getAll: async (...refs) => refs.map((r) => docSnap(r.path)),
+    collectionGroup: (nimi) => { let sid = null; const q = { where: (k, op, v) => { sid = v; return q; }, get: async () => {   // sisainen/tiedot-dokumentit (where seuraId == sid)
+      const docs = [...STORE.keys()].map((k) => k.match(/^seurat\/([^/]+)\/pelaajat\/([^/]+)\/sisainen\/tiedot$/)).filter((m) => m && m[1] === sid && nimi === 'sisainen')
+        .map((m) => ({ id: 'tiedot', data: () => STORE.get(m[0]), ref: { parent: { parent: { id: m[2] } } } })); return { docs, forEach: (fn) => docs.forEach(fn) }; } }; return q; },
     batch: () => { const ops = []; return { set: (ref, d) => { ops.push([ref.path, d]); }, commit: async () => { ops.forEach(([p, d]) => { kirjoitukset.push(p); STORE.set(p, d); }); } }; },
   };
 }
@@ -305,4 +308,26 @@ test('kooste v5: harjoitekirjaus-säännöt — tehty T, ei viikkokatsaus/catapu
   assert.strictEqual(doc.joukkueet.u13.n_toiminto_7, 2, 'toiminto ennallaan: vk (viikkokatsaus) + jk (jakso_kuittaus); kirjaukset eivät');
   assert.strictEqual(doc.yhteensa.n_toiminto_7, 2);
   assert.deepStrictEqual(S.HARJOITE_TYYPIT, ['T', 'D', 'S', 'P']);
+});
+
+// ── Korjaus: D3-päivä (d3_pvm) asuu vain sisainen/tiedot:ssa (1d/2a) → kooste yhdistää sen aina (D3 ei ole lipun takana) ──
+test('käyttöaste: valmentajan D3-päivä (d3_pvm) vain sisainen/tiedot:ssa lasketaan pelaajan aktiivisuuteen; ilman sisainen-dokumenttia ei; lipuista (henkilokunta/jaksofokus) riippumatta', async () => {
+  const ilman = luoDb(seuraData('kpv'));
+  await S.laskeSeura(deps(ilman), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT });
+  assert.strictEqual(ilman.STORE.get('seurat/kpv/kooste/2026-W41').joukkueet.u13.n_aktiivinen_7, 0);
+  const d = seuraData('kpv'); d['seurat/kpv/pelaajat/a/sisainen/tiedot'] = { seuraId: 'kpv', d3_pvm: '2026-10-09', d3_taso: 4 };   // pelaajadokumentissa EI d3_pvm:ää
+  d['seurat/muu/pelaajat/a/sisainen/tiedot'] = { seuraId: 'muu', d3_pvm: '2026-10-10' };                                          // toisen seuran dokumentti ei vaikuta
+  const db = luoDb(d);
+  await S.laskeSeura(deps(db), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT });
+  const j = db.STORE.get('seurat/kpv/kooste/2026-W41').joukkueet.u13;
+  assert.strictEqual(j.n_aktiivinen_7, 1); assert.strictEqual(j.n_aktiivinen_30, 1);
+  const s = JSON.stringify([...db.STORE.entries()].filter(([p]) => /kooste/.test(p)));
+  for (const kielletty of ['2026-10-09', 'd3_', 'Aleksi']) assert.ok(!s.includes(kielletty), 'vuoto: ' + kielletty);
+});
+
+test('käyttöaste: sisainen-luku epäonnistuu (indeksi/oikeudet) → kooste silti lasketaan vanhoilla kentillä (ei kaadu, ei puolikasta)', async () => {
+  const d = seuraData('kpv'); d['seurat/kpv/pelaajat/a/sisainen/tiedot'] = { seuraId: 'kpv', d3_pvm: '2026-10-09' };
+  const db = luoDb(d); db.collectionGroup = () => ({ where: () => ({ get: async () => { throw new Error('FAILED_PRECONDITION'); } }) });
+  const w = console.warn; console.warn = () => {}; try { await S.laskeSeura(deps(db), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT }); } finally { console.warn = w; }
+  assert.strictEqual(db.STORE.get('seurat/kpv/kooste/2026-W41').joukkueet.u13.n_aktiivinen_7, 0);
 });

@@ -30,6 +30,9 @@ describe('CF:n lippu = selaimen lippu', () => {
     const l = lue('functions/sisainen_luku.js'); expect(l.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\bkirjoitus\s*[:=]\s*(true|false)|process\.env|const\s+\w*LIPPU\w*\s*=|HENKILOKUNTA_KIRJOITUS/i);
     expect(lue('functions/index.js')).not.toMatch(/HENKILOKUNTA_KIRJOITUS|SISAINEN_LIPPU|process\.env\.\w*SISAINEN/);
   });
+  it('(e) seuran_kooste yhdistää D3-ryhmän AINA (opts.aina) — D3 ei ole lipun takana; lippu pois ei estä', () => {
+    expect(lue('functions/seuran_kooste.js')).toMatch(/yhdistaLista\(db, sid, [^\n]*\{ aina: true \}\)/); expect(lue('functions/sisainen_luku.js')).toMatch(/!o\.aina && !liputPaalla/);
+  });
   it('(d) kutsupaikat: notifReviewEraantyy (yhdistaLista) ja notifValintaOdottaa (yhdistaYksi); CF ei kirjoita henkilokunta-kenttiä (ei tm_aloita_jakso.tmAloitaJaksoKirjoitus-kutsua functions/-koodissa)', () => {
     const i = lue('functions/index.js'); expect(i).toMatch(/sisainenLuku\.yhdistaLista\(db, sid,/); expect(i).toMatch(/sisainenLuku\.yhdistaYksi\(db, seuraId, pelaajaId,/);
     const src = ['index.js', 'valinta_viesti.js', 'rytmi_notif.js', 'seuran_kooste.js', 'valmennusapuri.js', 'tm_joukkuejakso.js', 'tm_sitoumus.js'];

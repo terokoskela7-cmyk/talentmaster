@@ -6,6 +6,7 @@
  * VAIN kooste- ja kooste_joukkue-dokumentit (set, idempotentti; ei mitään pelaaja- tai joukkuedokumenttiin). db / FieldValue / FieldPath injektoidaan (testattava).
  * Ei nimiä eikä pelaaja-ID:itä koosteessa (tmKoosteRikkomukset-vartija ennen kirjoitusta).
  */
+const { yhdistaLista } = require('./sisainen_luku');
 const K = require('./tm_seuran_kooste');
 const H = require('./helsinki_paiva');
 const { suostumusAnnettu } = require('./suostumus');
@@ -92,9 +93,11 @@ async function laskeSeura(deps, sid, opts) {
   const seuraRef = db.collection('seurat').doc(sid);
   const [jSnap, pSnap] = await Promise.all([seuraRef.collection('joukkueet').get(), seuraRef.collection('pelaajat').get()]);
   const joukkueet = jSnap.docs.map((d) => { const x = d.data() || {}; return { id: d.id, nimi: x.nimi || '', ikaryhma: x.ikaryhma || null, jaksofokus: _norm(x.jaksofokus) || null, tyyppi: x.tyyppi || null, valmentajaprofiili: x.valmentajaprofiili || null }; });   // v4: joukkueen asetukset (D70, D50)
+  /* PR korjaus: d3_pvm asuu vain sisainen/tiedot:ssa (1d/2a) → yhdistetään aina (D3 ei ole lipun takana). Lukuvirhe → vanhat kentät (kooste ei kaadu). */
+  const pRivit = await yhdistaLista(db, sid, pSnap.docs.map((d) => ({ id: d.id, data: d.data() || {} })), { aina: true });
   const pelaajat = [];
-  pSnap.docs.forEach((d) => {
-    const x = d.data() || {}; if (_poissa(x)) return;
+  pRivit.forEach((d) => {
+    const x = d.data || {}; if (_poissa(x)) return;
     pelaajat.push({ id: d.id, joukkue: x.joukkue || null, joukkueet: Array.isArray(x.joukkueet) ? x.joukkueet : [], syntymaVuosi: x.syntymaVuosi != null ? x.syntymaVuosi : null,
       jaksofokus: _norm(x.jaksofokus) || null, jaksofokus_historia: _norm(x.jaksofokus_historia) || [], ydinvahvuus: _norm(x.ydinvahvuus) || null, ydinvahvuus_valinta: _norm(x.ydinvahvuus_valinta) || null, idp_sitoumus_pvm: _norm(x.idp_sitoumus_pvm) || null,
       // S1.1 Käyttöaste (versio 2): vain päivämääriä ja totuusarvo — ei sisältöä

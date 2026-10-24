@@ -10,10 +10,11 @@ function liputPaalla(ryhmat) {
   const r = ryhmat || S.RYHMAT;
   return !!((r.henkilokunta && r.henkilokunta.kirjoitus) || (r.jaksofokus_sisainen && r.jaksofokus_sisainen.kirjoitus));
 }
-/* rivit: [{ id, data }] → sama muoto, data yhdistettynä. YKSI collectionGroup-kysely per seura (indeksi sisainen.seuraId). */
+/* rivit: [{ id, data }] → sama muoto, data yhdistettynä. YKSI collectionGroup-kysely per seura (indeksi sisainen.seuraId).
+   opts.aina = true: ohita lippu — D3-ryhmä (d3_pvm, d3_taso …) EI ole lipun takana (PR 1d/2a: kirjoitetaan vain sisainen:iin), joten D3:a lukevat CF:t (seuran_kooste) yhdistävät aina. */
 async function yhdistaLista(db, sid, rivit, opts) {
   const o = opts || {};
-  if (!liputPaalla(o.ryhmat)) return rivit;
+  if (!o.aina && !liputPaalla(o.ryhmat)) return rivit;
   const r = await S.tmSisainenLataaSeura(db, sid);
   return rivit.map((x) => ({ id: x.id, data: S.tmSisainenYhdista(x.data, r.mapa[x.id], o.ryhmat ? { ryhmat: o.ryhmat } : undefined) }));
 }
