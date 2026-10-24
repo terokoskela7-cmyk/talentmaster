@@ -38,3 +38,33 @@ Jaettu kolmeen PR:ään (PM hyväksyi 24.10.): **1c-1 perusta** (tämä) → **1
 8. Viikon kuluttua dry-run uudelleen → vasta sitten PR 2.
 
 Peruutus: lippu pois (selain + CF) palauttaa luvun ja kirjoituksen yhdessä; pelaajadokumentti on koko ajan täydellinen. Ei toimi PR 2:n jälkeen.
+
+---
+
+# 1c-2: Cloud Functions (dual-read)
+
+## Mitä muuttui
+- **`functions/sisainen_luku.js`** (uusi): `yhdistaLista(db, sid, rivit)` (YKSI `collectionGroup('sisainen').where('seuraId','==',sid)` per seura) ja `yhdistaYksi(db, sid, pid, data)` (yksi dokumenttiluku). Yhdistys on sama `tmSisainenYhdista` kuin selaimessa. **Lippu pois → ei lisälukuja**, data palautetaan sellaisenaan. Lukuvirhe (indeksi/oikeudet) → vanhat kentät + `console.warn`, ajo ei kaadu.
+- **Jaetut kopiot** (`functions/jaettu_lib.json`): `tm_sisainen.js` ja `tm_d3_itsearvio.js` (tm_sisainen vaatii d3-riippuvuuden). Synkattu `node scripts/sync_functions_lib.js`; tavu tavulta -testi vahtii.
+- **`functions/index.js`**: kaksi kutsupaikkaa (alla).
+
+## Lipun ratkaisu (CF ↔ selain)
+CF:llä **ei ole omaa lippuvakiota**. `sisainen_luku.js` lukee lipun (`RYHMAT.henkilokunta.kirjoitus` ja `RYHMAT.jaksofokus_sisainen.kirjoitus`) samasta, `lib/tm_sisainen.js`:n tavu tavulta kopiosta. Peruste: kaksi erillistä arvoa voisi erota (esim. selain kytketty, Functions deployaamatta); yksi lähde ei voi. Seuraus: **lipun kytkentä = yksi muutos `lib/tm_sisainen.js`:ään + `sync_functions_lib.js` + Functions-deploy samassa vaiheessa** — ilman deployta CF jää vanhaan lippuun (lukee vanhat kentät, jotka dual-write pitää ajan tasalla; ei virhettä). Testi `tests/functions_sisainen_lippu.test.js` kaatuu, jos kopio eroaa libistä, CF:n tulkinta eroaa RYHMAT-lipuista, CF:lle ilmestyy oma lippuvakio tai kutsupaikka puuttuu.
+
+## Kartoitus: mitkä CF:t koskevat kenttiä
+| Tiedosto / funktio | Kenttä | Ratkaisu |
+|---|---|---|
+| `index.js` **`notifReviewEraantyy`** (ajastettu) + `rytmi_notif.js` / `tm_rytmi.js` | `review_viimeisin_pvm/-tyyppi` | **MUUTETTU**: `yhdistaLista` ennen `rytmiNotifit`:ia |
+| `index.js` **`notifValintaOdottaa`** (onUpdate pelaajat) + `valinta_viesti.js` | `vastuuhenkilo` | **MUUTETTU**: `yhdistaYksi` vasta kun päätös on olemassa (ei turhia lukuja) |
+| `tm_aloita_jakso.js` (`tmAloitaJaksoKirjoitus` kirjoittaa `vastuuhenkilo`) | — | **Ei CF-kirjoittajaa**: funktiota kutsuu vain selain (`tm_kt_jakso`, VP) → dual-write tulee 1c-3:ssa; CF:t eivät kirjoita yhtään henkilokunta-kenttää (testi vahtii) |
+| `seuran_kooste.js` / `tm_seuran_kooste.js` | `idp_sitoumus_pvm`, `d3_pvm`, `d3_itsearvio.pvm`, `streak_paivitetty` | Ei S2-kenttiä (`idp_sitoumus_*` = pelaajan oma B-kenttä). **Huom (1d:stä periytyvä):** `d3_pvm` kirjoitetaan nykyään vain sisainen:iin (#1129) → `seuran_kooste.js:102` ei näe sitä; `oma`-käyttöastelista menettää valmentajan D3-päivän (itsearvion pvm kattaa pelaajan oman). Ei korjattu tässä; ehdotus: erillinen pieni korjaus (`yhdistaLista` myös kooste-ajoon) |
+| `tm_sitoumus.js`, `valmennusapuri.js`, `tm_joukkuejakso.js` | — | Ei S2- eikä jaksofokus-A-kenttiä (tm_sitoumus: `idp_sitoumus_*`; tm_joukkuejakso kirjoittaa `joukkueet`-dokumenttia). Ei muutosta |
+| `tm_rytmi.js` | `jaksofokus_historia[].sulkutapa/suljettu`, `jaksofokus.alkoi/kesto_vk` | B-kenttiä, jäävät pelaajadokumenttiin → 1b-lippu ei vaikuta CF:iin |
+
+## Deploy-ohje (Tero)
+Muuttuvat funktiot: **`notifReviewEraantyy`** ja **`notifValintaOdottaa`** (index.js:n kautta). Muut funktiot eivät käytä muuttuneita moduuleja, mutta `firebase deploy --only functions` päivittää kaikki; kohdennettu: 
+`firebase deploy --only functions:notifReviewEraantyy,functions:notifValintaOdottaa`.
+Lippu on pois, joten deploy on käytökseltään neutraali (ei lisälukuja). **Deploy ennen lipun kytkentää** (selaimen kirjoittajat, 1c-3, kytketään vasta kun CF osaa lukea). Tarkista deployn jälkeen lokista, ettei `[sisainen_luku]`/`joukkolataus`-varoituksia tule (indeksi `sisainen.seuraId` on olemassa: firestore.indexes.json).
+
+## Rules
+Ei muutosta 1c-2:ssa (kasvukatto 2400 riviä ennallaan; nosto ei tarvittu — 1c-3:kin tarvitsee Rules-rivejä vain jos sulun/IDP:n kirjoitus vaatii uusia ehtoja; ei näytä tarvitsevan).
