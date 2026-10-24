@@ -36,7 +36,7 @@
 <script src="lib/tm_idp.js?v=16"></script>
 <script src="lib/tm_jaksofokus.js?v=6"></script>
 <script src="lib/tm_kehityspolku.js?v=2"></script>
-<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=4"></script>
+<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=5"></script>
 <script src="lib/tm_tukitavoitteet.js?v=5"></script>
 <script src="lib/tm_joukkue.js?v=6"></script>
 <script src="lib/tm_liput.js?v=1"></script>
@@ -76,12 +76,12 @@
 <script src="lib/tm_sanasto.js?v=4"></script>
 <script src="lib/tm_sheet.js?v=1"></script>
 <script src="lib/tm_kt_havainto.js?v=4"></script>
-<script src="lib/tm_kt_jakso.js?v=2"></script>
+<script src="lib/tm_kt_jakso.js?v=3"></script>
 <script src="lib/tm_kasvupyrahdys.js?v=3"></script>   <!-- kasvupyrähdys-fysiikka: Teron hyväksymä ENNEN/NYT/JÄLKEEN-taulu + 25 uutta harjoitetta — ENNEN toimintakorttia (suodatus) -->
 <script src="lib/tm_kt_toimintakortti.js?v=5"></script>
 <script src="lib/tm_kalenteri_lataus.js?v=1"></script>
-<script src="lib/tm_kt_arviointi.js?v=7"></script>
-<script src="lib/tm_kt_hylkaa.js?v=2"></script>   <!-- K3a: Hylkää valinta sheetinä -->
+<script src="lib/tm_kt_arviointi.js?v=8"></script>
+<script src="lib/tm_kt_hylkaa.js?v=3"></script>   <!-- K3a: Hylkää valinta sheetinä -->
 <script src="lib/tm_kt_keskustelu.js?v=3"></script><script src="lib/tm_kt_keskustelu_sheet.js?v=1"></script>   <!-- K4b: Kehityskeskustelu sheetinä (sisäinen) -->
 <script src="lib/tm_kt_alue.js?v=3"></script>
 <script src="lib/tm_mediaviesti.js?v=9"></script>   <!-- klippiketjut (Polku, B4a): tmMvLataaPelaajanKlipit + tmMvRivit; K1: lähetyssheetin runko + kirjoitus -->
@@ -361,7 +361,7 @@ async function _liput() {
 let _henkilosto = null;
 let _jaksoInst = null;
 function _jaksoSheet() { return _jaksoInst || (_jaksoInst = window.TM_KT_JAKSO.tmKtJaksoSheet({ KS: window.TM_KEHITYSSILMUKKA, db: _db, sid: _seuraId, rooli: _rooli, uid: _uid, seuranNimi: (_seuraDoc && _seuraDoc.nimi) || null, joukkueDocs: _joukkueDocs, doc: document, t: TT, esc: _e, sheet: _sheet, toast: function (m) { toast(m); }, nayta: function () { _nayta(); }, pelaaja: _pelaaja, auth: function () { return _auth.currentUser; },
-  arrayUnion: function () { return firebase.firestore.FieldValue.arrayUnion.apply(null, arguments); }, verkossa: function () { return navigator.onLine !== false; }, liput: _liput, nyt: function () { return new Date(); },
+  arrayUnion: function () { return firebase.firestore.FieldValue.arrayUnion.apply(null, arguments); }, FV: firebase.firestore.FieldValue, verkossa: function () { return navigator.onLine !== false; }, liput: _liput, nyt: function () { return new Date(); },
   henkilosto: async function () { if (_henkilosto) return _henkilosto; try { const sn = await _db.collection('seurat').doc(_seuraId).collection('kayttajat').get(); _henkilosto = sn.docs.map(function (d) { const x = d.data() || {}; return { id: d.id, nimi: String(x.nimi || ((x.etunimi || '') + ' ' + (x.sukunimi || ''))).trim(), rooli: x.rooli || '', aktiivinen: x.aktiivinen !== false }; }); } catch (e) { _henkilosto = []; } return _henkilosto; },   // valmentaja ei listaa kayttajat (Rules) → tyhjä lista, lomake toimii
   virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); } })); }
 window._ktJaksoTallenna = function (pid) { return _jaksoSheet().tallenna(pid); }; window._ktJaksoSulje = function () { _jaksoSheet().sulje(); };

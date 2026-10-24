@@ -92,17 +92,17 @@ describe('migraatio scripts/migroi_sisainen_jaksofokus.js (fake-Firestore; tuota
   it('DRY-RUN (oletus): ei kirjoita mitään; laskee; ei nimiä eikä id:itä tulosteessa', async () => {
     const { db, D, loki } = fakeDb(data()); const ennen = JSON.stringify([...D.entries()]), rivit = [];
     const y = await M.aja({ db, kirjoita: false, loki: (r) => rivit.push(r) });
-    expect(y).toMatchObject({ seuraa: 2, pelaajia: 6, ei_a: 2, kopioi: 3, jo_siirretty: 0, ilman_avainta: 1, kirjoitettu: 0, rivia_ilman_avainta: 1, eroaa: 1 }); expect(y.jaksofokus_kenttia).toBe(9 + 1 + 1); expect(y.historia_rivia).toBe(2);
+    expect(y).toMatchObject({ seuraa: 2, pelaajia: 6, ei_a: 2, kopioi: 3, jo_siirretty: 0, ilman_avainta: 1, kirjoitettu: 0, rivia_ilman_avainta: 1, eroaa: 0, vanhentunut: 0 }); expect(y.jaksofokus_kenttia).toBe(9 + 1 + 1 + 1);   // PR 1b-3: d:n osa_havainnot täydennetään syvästi (+1), ei enää 'eroaa' expect(y.historia_rivia).toBe(2);
     expect(JSON.stringify([...D.entries()])).toBe(ennen); expect(loki.commits).toBe(0); expect(rivit.join('\n')).not.toMatch(/Aatu|Bertta|Cecil|Dani|Eero|Fanni|\/a\b/);
   });
   it('KIRJOITUS: kopioi sisainen:iin (+ seuraId); vanhat kentät JÄÄVÄT; asetti/lahde ei kopioida; sisainen voittaa; toinen ajo = 0 (idempotentti)', async () => {
     const { db, D } = fakeDb(data()); const y = await M.aja({ db, kirjoita: true, nytISO: '2026-10-23T10:00:00.000Z' }); expect(y.kirjoitettu).toBe(3);
-    const a = D.get('seurat/sjk/pelaajat/a/sisainen/tiedot'); expect(a.seuraId).toBe('sjk'); expect(a.paivitetty).toBe('2026-10-23T10:00:00.000Z'); expect(Object.keys(a.jaksofokus_sisainen).sort()).toEqual(S.JAKSOFOKUS_A.slice().sort());
+    const a = D.get('seurat/sjk/pelaajat/a/sisainen/tiedot'); expect(a.seuraId).toBe('sjk'); expect(a.paivitetty).toBe('2026-10-23T10:00:00.000Z'); expect(Object.keys(a.jaksofokus_sisainen).sort()).toEqual(S.JAKSOFOKUS_A.concat(['jakso_avain']).sort()); expect(a.jaksofokus_sisainen.jakso_avain).toBe(JF.alkoi + '_y_h1');   // PR 1b-3: leima nykyiselle jaksolle
     expect(a.jaksofokus_sisainen).not.toHaveProperty('asetti'); expect(a.jaksofokus_sisainen).not.toHaveProperty('lahde'); expect(Object.keys(a.historia_sisainen).sort()).toEqual(['2026-09-01_x', '2026-10-01T08:00:00,000Z_y_h1']);
     expect(a.historia_sisainen['2026-10-01T08:00:00,000Z_y_h1']).toMatchObject({ arvio_itse: 2, kalibraatio_ero: 1, d3_snapshot: HIS.d3_snapshot }); expect(a.historia_sisainen['2026-10-01T08:00:00,000Z_y_h1']).not.toHaveProperty('arvio_vp'); expect(a.historia_sisainen['2026-09-01_x']).toEqual({ arvio_itse: 1 });
     expect(D.get('seurat/sjk/pelaajat/a').jaksofokus).toEqual(JF); expect(D.get('seurat/sjk/pelaajat/a').jaksofokus_historia[0]).toEqual(HIS);   // kopio, ei poisto
     expect(D.has('seurat/sjk/pelaajat/b/sisainen/tiedot')).toBe(false); expect(D.has('seurat/sjk/pelaajat/c/sisainen/tiedot')).toBe(false); expect(D.has('seurat/sjk/pelaajat/e/sisainen/tiedot')).toBe(false);
-    const d = D.get('seurat/sjk/pelaajat/d/sisainen/tiedot'); expect(d.jaksofokus_sisainen.osa_havainnot).toEqual({ uusin: 9 }); expect(d.jaksofokus_sisainen.oma_jakso).toEqual({ x: 1 }); expect(d.d3_taso).toBe(3);   // sisainen voitti, d3 koskematon
+    const d = D.get('seurat/sjk/pelaajat/d/sisainen/tiedot'); expect(d.jaksofokus_sisainen.osa_havainnot).toEqual(Object.assign({ uusin: 9 }, OSAH));   // PR 1b-3: syvä täydennys — sisainen:n lehti säilyy, puuttuvat (vanhemmat) lehdet kopioidaan expect(d.jaksofokus_sisainen.oma_jakso).toEqual({ x: 1 }); expect(d.d3_taso).toBe(3);   // sisainen voitti, d3 koskematon
     expect(D.get('seurat/kpv/pelaajat/f/sisainen/tiedot')).toMatchObject({ seuraId: 'kpv', jaksofokus_sisainen: { tavoite_tarkenteet: ['t'] } });
     const y2 = await M.aja({ db, kirjoita: true }); expect(y2).toMatchObject({ kopioi: 0, kirjoitettu: 0, ilman_avainta: 1 }); expect(y2.jo_siirretty).toBe(3);
   });
