@@ -146,7 +146,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kaavio_ui.js?v=9"></script>         <!-- Taktiikkataulun UI-ohjain, JAETTU VP_v25:n kanssa (host-adapteri yllä) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=16"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
-<script src="lib/tm_idp_lomake.js?v=3"></script>   <!-- K3b: kausitavoitteen lomake (muokkausosa + logiikka) yhteinen Kehitystyöpöytä-sivun kanssa -->
+<script src="lib/tm_idp_lomake.js?v=4"></script>   <!-- K3b: kausitavoitteen lomake (muokkausosa + logiikka) yhteinen Kehitystyöpöytä-sivun kanssa -->
 <script src="lib/tm_pelialy_yksilo.js?v=8"></script>
 <script src="lib/tm_adar_tekstit.js?v=6"></script>   <!-- Pelitilanne: luotettavuustekstit (FI-kartta + tmLibT) -->
 <script src="lib/tm_adar_pelitilanne.js?v=2"></script>   <!-- Pelitilanne Vaihe 1: luotettavuus + jakaumat (vain valmentajalle) -->   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
@@ -180,7 +180,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_reitin_valinta.js?v=4"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa + rivitila (Kenttä-lipun takana) -->
 <script src="lib/tm_polun_tila.js?v=2"></script>   <!-- Polun tila + kolme kysymystä (13 §1) -->
 <script src="lib/tm_tanaan_signaali.js?v=11"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
-<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=7"></script><script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
+<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=8"></script><script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
 <script src="lib/tm_kevyt_katselmus.js?v=7"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=6"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=8"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
@@ -7798,7 +7798,9 @@ async function _mIdpTallennaDok(p, viesti) {
       // null = ei merkittävää (jo vaihdettu tai ei löytynyt) → ei turhaa kirjoitusta.
       if (toinenYhd) tx.set(_toinenRef, { tavoitteet: toinenYhd, paivitetty: new Date().toISOString() }, { merge: true });
     });
-    await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_lahde: pk.idp_lahde || null }, { merge: true });
+    const _idpUpd = { idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_lahde: pk.idp_lahde || null };
+    if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmHenkilokuntaKirjoita === 'function') await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, p.id, _idpUpd, { pelaajaSet: true });   // PR 1c-3: idp_edistyma/_lahde/_viim_review dual-write (lippu pois = set-merge kuten ennen)
+    else await ref.set(_idpUpd, { merge: true });
     _asetaPikakentat();
     /* Ankkuri seuraa kirjoitettua dokkia → seuraavat tallennukset osuvat samaan eikä A3:n luku toistu.
        VAIN voimassa olevalle: jos valmentaja tallentaa C:n EHDOTUKSENA, tavoite-ankkurin on jäätävä vanhaan
@@ -8009,7 +8011,10 @@ async function _mAjKirjoitaJakso(p, tulos, vh, opts) {
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { paivita(); ilmoita(masterT('Jakso aloitettu (demo — ei kirjoitettu)'), 'ok'); return { ok: true }; }
   try {
     await _mTuoreToken(firebase.auth().currentUser);
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).update(AJ.tmAloitaJaksoKirjoitus(v, tulos, vh, { arrayUnion: function () { return firebase.firestore.FieldValue.arrayUnion.apply(null, arguments); } }));
+    const _ajUpd = AJ.tmAloitaJaksoKirjoitus(v, tulos, vh, { arrayUnion: function () { return firebase.firestore.FieldValue.arrayUnion.apply(null, arguments); } });
+    /* PR 1c-3: jakson aloitus (jaksofokus + vastuuhenkilo) tm_sisainen.js:n elinkaarihelperin kautta (aiemmin suora update → sisainen ei seurannut lippu päällä); lippu pois = yksi update() kuten ennen. */
+    if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(_db, _seuraId, p.id, _ajUpd, { jaksofokus: v.jaksofokus, historiaLisays: v.historiaLisays || [] }, { FV: firebase.firestore.FieldValue });
+    else await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).update(_ajUpd);
     paivita();   // paikallinen tila vasta onnistumisen jälkeen
     ilmoita(masterT('Jakso aloitettu') + ' ✓', 'ok'); return { ok: true };
   } catch (e) { console.warn('[aloitaJakso]', e && e.message); ilmoita(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), e), 'error'); return { ok: false, syy: (e && e.code === 'permission-denied') ? masterT('ei oikeutta') : masterT('tallennus epäonnistui') }; }
@@ -8208,7 +8213,9 @@ window._mAsetaVastuuhenkilo = async function (pid, arvo) {
   if (_demo || !_seuraId) { paivita(); return; }
   try {
     await _mTuoreToken(firebase.auth().currentUser);
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update({ vastuuhenkilo: plan.kirjoitus.vastuuhenkilo === L.POISTA ? firebase.firestore.FieldValue.delete() : plan.kirjoitus.vastuuhenkilo });
+    const _vhUpd = { vastuuhenkilo: plan.kirjoitus.vastuuhenkilo === L.POISTA ? firebase.firestore.FieldValue.delete() : plan.kirjoitus.vastuuhenkilo };
+    if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmHenkilokuntaKirjoita === 'function') await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, pid, _vhUpd, {});   // PR 1c-3: dual-write sisainen/tiedot:iin kun RYHMAT.henkilokunta.kirjoitus päällä (oletus pois = yksi update() kuten ennen)
+    else await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(_vhUpd);
     paivita();   // paikallinen tila vasta onnistumisen jälkeen
     if (typeof toast === 'function') toast(masterT('Vastuuhenkilö tallennettu') + ' ✓', 'ok');
   } catch (e) { console.warn('[mVastuuhenkilo]', e && e.message); if (typeof toast === 'function') toast(masterT('Vastuuhenkilön asetus epäonnistui'), 'error'); if (typeof _mIdpReRender === 'function') _mIdpReRender(); }
@@ -8457,10 +8464,14 @@ window._mIdpTallennaReview = async function (pid) {
     const plan = window.TM_KEHITYSSILMUKKA.tmKirjaaKatselmus(p, _kats);
     if (!(_demo || !_seuraId || typeof _db === 'undefined' || !_db)) {   // demo: vain paikallinen tila
       const pRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
-      const b = _db.batch();
-      b.set(pRef.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true });
-      if (Object.keys(plan.pikakentat).length) b.set(pRef, plan.pikakentat, { merge: true });
-      await b.commit();
+      const _reviewitOp = function (b) { b.set(pRef.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true }); };
+      if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmHenkilokuntaKirjoita === 'function') await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, p.id, plan.pikakentat, { pelaajaSet: true, taydenna: _reviewitOp });   // PR 1c-3: review_viimeisin_* dual-write samassa batchissa (lippu pois = sama batch kuin ennen)
+      else {
+        const b = _db.batch();
+        _reviewitOp(b);
+        if (Object.keys(plan.pikakentat).length) b.set(pRef, plan.pikakentat, { merge: true });
+        await b.commit();
+      }
     }
     Object.assign(p, plan.pikakentat);   // paikallinen tila VASTA onnistumisen jälkeen
   } catch (e) { console.warn('[mIdpTallennaReview rytmi]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); }
@@ -11069,9 +11080,9 @@ window._ehdotaTalentti = async function (pid) {
   if (!pid || !_seuraId || !_db) { if (typeof toast === 'function') toast(masterT('Talenttiehdotus ei onnistunut (ei yhteyttä)'), 'virhe'); return; }
   try {
     const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({
-      talentti_ehdotus: { lahde: 'ristiinarvio', pvm: new Date().toISOString(), ehdottaja_uid: _uid || null, ehdottaja_rooli: _rooli || null }
-    }, { merge: true });
+    const _teUpd = { talentti_ehdotus: { lahde: 'ristiinarvio', pvm: new Date().toISOString(), ehdottaja_uid: _uid || null, ehdottaja_rooli: _rooli || null } };
+    if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmHenkilokuntaKirjoita === 'function') await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, pid, _teUpd, { pelaajaSet: true });   // PR 1c-3: dual-write (lippu pois = set-merge kuten ennen)
+    else await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set(_teUpd, { merge: true });
     if (typeof toast === 'function') toast(masterT('💎 Talenttiehdotus lähetetty VP:lle'), 'ok');
   } catch (e) {
     // §silent-failure: näytä virhe, älä niele (kirjoitusoikeus voi puuttua muun joukkueen pelaajaan).

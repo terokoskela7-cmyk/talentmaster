@@ -68,3 +68,31 @@ Lippu on pois, joten deploy on käytökseltään neutraali (ei lisälukuja). **D
 
 ## Rules
 Ei muutosta 1c-2:ssa (kasvukatto 2400 riviä ennallaan; nosto ei tarvittu — 1c-3:kin tarvitsee Rules-rivejä vain jos sulun/IDP:n kirjoitus vaatii uusia ehtoja; ei näytä tarvitsevan).
+
+---
+
+# 1c-3: selaimen kirjoittajat (lippu edelleen pois)
+
+## Kirjoituspaikat — muutettu
+| Kenttä | Paikka | Reitti |
+|---|---|---|
+| `vastuuhenkilo` | Master `_mAsetaVastuuhenkilo`, VP `_vpAsetaVastuuhenkilo` | `tmHenkilokuntaKirjoita` (update; poisto = `FieldValue.delete` molempiin) |
+| `vastuuhenkilo` (jakson aloituksen mukana) | VP `_vpAloitaJaksoTallenna`, `tm_kt_jakso`, **Master `_mAloitaJakso…`** | `tmJaksofokusElinkaariKirjoita` |
+| `idp_edistyma`, `idp_lahde`, `idp_viim_review`, `idp_dvi` | Master + VP IDP-tallennus, `lib/tm_idp_lomake.js` | `tmHenkilokuntaKirjoita({ pelaajaSet })` (set-merge säilyy: `idp_fokus`-kartan syvä yhdistys) |
+| `scout_potentiaali*` | VP: tallennus (transaktio ja suora haara) + poisto | `tmHenkilokuntaKirjoita` / transaktiossa `tmHenkilokuntaLisaa` + `tmHenkilokuntaVarapolulla`. VP-kohdat on kirjoitettu INLINE (lib puuttuu → vanha kirjoitus samalla rivillä): useat testit poimivat VP-funktioita irti sivusta, eikä VP-kuoren kasvukatto (23800) salli apuria |
+| `talentti_ehdotus` | Master `_ehdotaTalentti` | `tmHenkilokuntaKirjoita({ pelaajaSet })` |
+| `review_viimeisin_pvm/-tyyppi`, `review_tagit`, `tukitarve` | VP `_vpKirjoitaReview` (MDT, bulk, cockpit; tukitarve `lisa`), Master K1f-katselmus, `lib/tm_kt_keskustelu_sheet.js` | `tmHenkilokuntaKirjoita({ pelaajaSet, taydenna: reviewit })` — sama batch kuin ennen |
+| `review_viimeisin_*` jakson sulussa (`pikakentat`) | Master/VP `_kvkKirjoita`, `_mKirjoitaJaksofokus`/`_vpKirjoitaJaksofokus` (extra), `tm_kt_arviointi` | **ei adapterimuutosta**: `tmJaksofokusElinkaariKirjoita` poimii nyt `upd`:sta myös henkilokunta-kentät samaan sisainen-kirjoitukseen |
+
+Jätetty (ei kirjoita näitä kenttiä): `tm_admin/setup_demo_kehitys.js` (demo-siemen, admin), `tm_admin/demo_pulssi.js`, CF:t.
+
+## Korjaus 1b-3:een (löytyi kartoituksessa)
+Masterin jakson aloitus (`_mAloitaJakso…`) kirjoitti kokonaisen `jaksofokus`-olion **suoraan `update()`:lla** helperin ohi → jaksofokus-lipun ollessa päällä sisainen ei olisi seurannut Masterin aloituksia (leima olisi piilottanut vanhentuneen sisainen:in, ei data olisi kadonnut). Nyt helperin kautta; testi kieltää suoran `update(AJ.tmAloitaJaksoKirjoitus…)`-kutsun.
+
+## Lippu ja varapolku
+- Lippu pois (oletus) → jokainen polku kirjoittaa täsmälleen kuten ennen (testit vertaavat dokumentteja). Päällä → pelaajadokumentti ennallaan + sisainen `set` `mergeFields`-kirjoituksella samassa batchissa/transaktiossa.
+- Rules v3.69 ei vielä käytössä (`permission-denied`) → uusi yritys ilman sisainen:iä + `console.warn`; käyttäjälle ei virhettä.
+- Kaksi lippua toimii itsenäisesti (`henkilokunta`, `jaksofokus_sisainen`); jos molemmat päällä, jakson sulku kirjoittaa yhden `set`:in (jaksofokus-osat + historia + henkilokunta).
+
+## Kytkentäjärjestys (täydennys 1c-1/1c-2-osioihin)
+1c-1 ✓ (Rules v3.69 + migraatio) → 1c-2 ✓ (+ korjaus-PR; Functions-deploy) → **1c-3 (tämä, lippu pois)** → dry-run `migroi_sisainen_henkilokunta.js` → PM kuittaa → lippu päälle **kerralla** lib-muutoksella (`RYHMAT.henkilokunta.kirjoitus: true`) + `sync_functions_lib.js` + `?v` + Functions-deploy → migraatio heti → dry-run 0/0 → viikon kuluttua uusi dry-run → PR 2.
