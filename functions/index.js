@@ -25,6 +25,7 @@ const suostumuskortit = require('./suostumuskortit');   // PR B: QR-suostumuskor
 const suostumusTarkistus = require('./suostumus_tarkistus');
 const { suostumusAnnettu, suostumusTilaKutsunJalkeen } = require('./suostumus');   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
+const sisainenLuku = require('./sisainen_luku');   // PR 1c-2: dual-read sisainen/tiedot (jaettu lippu)
 const { onPaikkamerkkiOsoite } = require('./paikkamerkki');   // paikkamerkkidomainien esto (1.10.2026)
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
 if (!admin.apps.length) {
@@ -1651,7 +1652,8 @@ exports.notifReviewEraantyy = functions
       const sid = seuraDoc.id;
       try {
         const pelaajatSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
-        const eraantyvat = rytmiNotifit(pelaajatSnap.docs.map((pd) => ({ id: pd.id, data: pd.data() })), nyt).map((e) => Object.assign({ paivia: -e.myohassa_pv }, e));
+        const pelaajaRivit = await sisainenLuku.yhdistaLista(db, sid, pelaajatSnap.docs.map((pd) => ({ id: pd.id, data: pd.data() })));   // PR 1c-2: review_viimeisin_* sisainen:stä kun lippu päällä (oletus pois: ei lisälukuja)
+        const eraantyvat = rytmiNotifit(pelaajaRivit, nyt).map((e) => Object.assign({ paivia: -e.myohassa_pv }, e));
         if (!eraantyvat.length) continue;
         const vpSnap = await db.collection('seurat').doc(sid).collection('kayttajat').where('rooli', '==', 'vp').get();
         if (vpSnap.empty) continue;
@@ -2352,10 +2354,11 @@ exports.notifValintaOdottaa = functions
   .onUpdate(async (change, context) => {
     const { seuraId, pelaajaId } = context.params;
     const before = change.before.data() || {};
-    const after = change.after.data() || {};
-    const paatos = valintaViesti.valintaPaatos(before, after);
+    const afterRaaka = change.after.data() || {};
+    const paatos = valintaViesti.valintaPaatos(before, afterRaaka);
     if (!paatos) return null;
     try {
+      const after = await sisainenLuku.yhdistaYksi(db, seuraId, pelaajaId, afterRaaka);   // PR 1c-2: vastuuhenkilo sisainen:stä kun lippu päällä
       const seuraRef = db.collection('seurat').doc(seuraId);
       const [seuraSnap, kSnap] = await Promise.all([seuraRef.get(), seuraRef.collection('kayttajat').get()]);
       const seura = seuraSnap.exists ? (seuraSnap.data() || {}) : {};
