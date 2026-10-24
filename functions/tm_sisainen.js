@@ -218,6 +218,8 @@
      permission-denied (Rules v3.68 ei käytössä) → uusi batch ilman sisainen:iä (vanha polku) + varoitus. Muu virhe heitetään. */
   function tmJaksofokusElinkaariKirjoita(db, sid, pid, upd, v, deps) {
     deps = deps || {}; var pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), s = _jfKirjoitusPaalla(deps) ? tmJaksofokusElinkaariSisainen(sid, v, deps) : null, taydenna = typeof deps.taydenna === 'function' ? deps.taydenna : null;
+    var h = tmHenkilokuntaOsa(sid, upd, deps);   // PR 1c-3: upd:n henkilokunta-kentät (review_viimeisin_*, vastuuhenkilo …) samaan sisainen-kirjoitukseen
+    if (h) s = s ? { data: Object.assign({}, s.data, h.data), mergeFields: s.mergeFields.concat(h.mergeFields.filter(function (x) { return s.mergeFields.indexOf(x) < 0; })) } : h;
     function ilman(ohitettu) {
       if (!taydenna) return pel.update(upd).then(function () { return { ok: true, sisainen: false, sisainenOhitettu: !!ohitettu }; });
       var b = db.batch(); b.update(pel, upd); taydenna(b); return b.commit().then(function () { return { ok: true, sisainen: false, sisainenOhitettu: !!ohitettu }; });
@@ -240,16 +242,33 @@
     var data = { seuraId: sid, paivitetty: deps.nytISO || new Date().toISOString() }; kentat.forEach(function (k) { data[k] = upd[k]; });
     return { data: data, mergeFields: ['seuraId', 'paivitetty'].concat(kentat) };
   }
+  /* deps.pelaajaSet = true: pelaajadokumentti kirjoitetaan set-mergenä (kuten vanhat kirjoittajat: IDP-pikakentät, scout, talentti_ehdotus — syvä yhdistys säilyy), muuten update. Tyhjä upd → pelaajaa ei kirjoiteta (vain taydenna). */
   function tmHenkilokuntaKirjoita(db, sid, pid, upd, deps) {
-    deps = deps || {}; var pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), s = tmHenkilokuntaOsa(sid, upd, deps), taydenna = typeof deps.taydenna === 'function' ? deps.taydenna : null;
+    deps = deps || {}; var pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), s = tmHenkilokuntaOsa(sid, upd, deps), taydenna = typeof deps.taydenna === 'function' ? deps.taydenna : null, onUpd = _olio(upd) && Object.keys(upd).length > 0;
+    function pelaajaOp(b) { if (!onUpd) return; if (deps.pelaajaSet) b.set(pel, upd, { merge: true }); else b.update(pel, upd); }
     function ilman(ohitettu) {
-      if (!taydenna) return pel.update(upd).then(function () { return { ok: true, sisainen: false, sisainenOhitettu: !!ohitettu }; });
-      var b = db.batch(); b.update(pel, upd); taydenna(b); return b.commit().then(function () { return { ok: true, sisainen: false, sisainenOhitettu: !!ohitettu }; });
+      var ulos = { ok: true, sisainen: false, sisainenOhitettu: !!ohitettu };
+      if (!taydenna && onUpd) return (deps.pelaajaSet ? pel.set(upd, { merge: true }) : pel.update(upd)).then(function () { return ulos; });
+      if (!taydenna) return Promise.resolve(ulos);
+      var b = db.batch(); pelaajaOp(b); taydenna(b); return b.commit().then(function () { return ulos; });
     }
     if (!s) return ilman(false);
-    var b = db.batch(); b.update(pel, upd); b.set(pel.collection(ALIKOKOELMA).doc(DOKUMENTTI), s.data, { mergeFields: s.mergeFields }); if (taydenna) taydenna(b);
+    var b = db.batch(); pelaajaOp(b); b.set(pel.collection(ALIKOKOELMA).doc(DOKUMENTTI), s.data, { mergeFields: s.mergeFields }); if (taydenna) taydenna(b);
     return b.commit().then(function () { return { ok: true, sisainen: true, sisainenOhitettu: false }; }, function (e) {
       if (e && e.code === 'permission-denied' && deps.varapolku !== false) { console.warn('[tm_sisainen] sisainen/tiedot ei kirjoitettavissa (Rules v3.69 ei vielä käytössä?) — tallennettu vanhaan kenttään:', e.message); return ilman(true); }
+      throw e;
+    });
+  }
+  /* Yleiset rakennuspalikat monimutkaisille kirjoituksille (transaktio, oma batch): tmHenkilokuntaLisaa lisää sisainen-kirjoituksen annettuun batchiin/transaktioon (→ true jos lisättiin; lippu pois / ei kenttiä → false);
+     tmHenkilokuntaVarapolulla(deps, fn) ajaa fn(mukaan) ensin sisainen mukana (jos lippu päällä) ja permission-denied → uudelleen ilman sitä + console.warn. */
+  function tmHenkilokuntaLisaa(kohde, db, sid, pid, upd, deps) {
+    var s = tmHenkilokuntaOsa(sid, upd, deps); if (!s) return false;
+    kohde.set(db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).collection(ALIKOKOELMA).doc(DOKUMENTTI), s.data, { mergeFields: s.mergeFields }); return true;
+  }
+  function tmHenkilokuntaVarapolulla(deps, fn) {
+    var mukaan = _hkPaalla(deps || {});
+    return Promise.resolve().then(function () { return fn(mukaan); }).catch(function (e) {
+      if (mukaan && e && e.code === 'permission-denied' && !(deps && deps.varapolku === false)) { console.warn('[tm_sisainen] sisainen/tiedot ei kirjoitettavissa (Rules v3.69 ei vielä käytössä?) — tallennettu vanhaan kenttään:', e.message); return fn(false); }
       throw e;
     });
   }
@@ -272,6 +291,6 @@
 
   var API = { tmSisainenLataaJaYhdista: tmSisainenLataaJaYhdista, ALIKOKOELMA: ALIKOKOELMA, DOKUMENTTI: DOKUMENTTI, RYHMAT: RYHMAT, tmSisainenKentat: tmSisainenKentat, tmSisainenVainSisaiset: tmSisainenVainSisaiset,
     JAKSOFOKUS_A: JAKSOFOKUS_A, HISTORIA_A: HISTORIA_A, tmHistoriaAvain: tmHistoriaAvain, tmJaksofokusJaa: tmJaksofokusJaa, tmJaksofokusYhdista: tmJaksofokusYhdista, tmHistoriaJaa: tmHistoriaJaa, tmHistoriaYhdista: tmHistoriaYhdista, tmSisainenPolku: tmSisainenPolku, tmSisainenYhdista: tmSisainenYhdista,
-    tmSisainenYhdistaLista: tmSisainenYhdistaLista, tmSisainenJaa: tmSisainenJaa, tmSisainenKirjoita: tmSisainenKirjoita, tmJaksofokusPolutJaa: tmJaksofokusPolutJaa, tmJaksofokusKirjoita: tmJaksofokusKirjoita, tmJaksoAvain: tmJaksoAvain, tmHenkilokuntaKentat: tmHenkilokuntaKentat, tmHenkilokuntaOsa: tmHenkilokuntaOsa, tmHenkilokuntaKirjoita: tmHenkilokuntaKirjoita, tmJaksofokusElinkaariSisainen: tmJaksofokusElinkaariSisainen, tmJaksofokusElinkaariKirjoita: tmJaksofokusElinkaariKirjoita, tmSisainenLataaSeura: tmSisainenLataaSeura };
+    tmSisainenYhdistaLista: tmSisainenYhdistaLista, tmSisainenJaa: tmSisainenJaa, tmSisainenKirjoita: tmSisainenKirjoita, tmJaksofokusPolutJaa: tmJaksofokusPolutJaa, tmJaksofokusKirjoita: tmJaksofokusKirjoita, tmJaksoAvain: tmJaksoAvain, tmHenkilokuntaKentat: tmHenkilokuntaKentat, tmHenkilokuntaOsa: tmHenkilokuntaOsa, tmHenkilokuntaKirjoita: tmHenkilokuntaKirjoita, tmHenkilokuntaLisaa: tmHenkilokuntaLisaa, tmHenkilokuntaVarapolulla: tmHenkilokuntaVarapolulla, tmHenkilokuntaPaalla: _hkPaalla, tmJaksofokusElinkaariSisainen: tmJaksofokusElinkaariSisainen, tmJaksofokusElinkaariKirjoita: tmJaksofokusElinkaariKirjoita, tmSisainenLataaSeura: tmSisainenLataaSeura };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else if (root) root.TM_SISAINEN = API;
 })(typeof window !== 'undefined' ? window : this);
