@@ -570,6 +570,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm-demo.js?v=3"></script>
 <script src="tm_why_lauseet.js?v=3"></script>
 <script src="lib/tm_d3_itsearvio.js?v=1"></script>   <!-- Vaihe 1 (1d): pelaajan oma D3-itsearvio (d3_itsearvio); EI tm_sisainen.js:ää -->
+<script src="lib/tm_idp_pelaaja_dok.js?v=1"></script>   <!-- Vaihe 1 · 1f-3: idp_pelaaja dual-read/-write (lippu pois oletuksena) -->
 <script src="lib/tm_idp_pelaaja.js?v=2"></script>   <!-- K1d: pelaajan aikajana + konsepti (tekstit käännösavaimiin) -->
 <script src="lib/tm_idp.js?v=16"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_koti_luvut.js?v=3"></script>   <!-- PR 4 (K14): kypsyysEstetty (§28) tm_fyysinen:lle — YKSI kypsyysvahti -->
@@ -2584,6 +2585,11 @@ async function _p7LataaTavoite() {
       .collection('pelaajat').doc(_pelaaja.id).collection('idp_kausi');
     var snap = await kausiCol.doc(vuosi).get();
     var data = snap.exists ? (snap.data() || {}) : {};
+    /* Vaihe 1 / 1f-3: dual-read seuraa lippua (TM_IDP_PELAAJA_DOK). Lippu pois → ei lisäkyselyä, idp_kausi kuten ennen.
+       Päällä → idp_pelaaja/{vuosi} (puhdistettu, ei lukuja) voittaa; luku-virhe → idp_kausi. */
+    var IPD = window.TM_IDP_PELAAJA_DOK, ipPaalla = !!(IPD && IPD.LIPPU && IPD.LIPPU.kirjoitus), ipCol = ipPaalla ? window._db.collection('seurat').doc(_pelaaja.seuraId).collection('pelaajat').doc(_pelaaja.id).collection('idp_pelaaja') : null;
+    var ipLue = async function (v, kd) { try { var ps = await ipCol.doc(v).get(); return IPD.tmIdpPelaajaValitse(ps.exists ? ps.data() : null, kd, {}); } catch (e) { return IPD.tmIdpPelaajaValitse(null, kd, {}); } };
+    if (ipPaalla) { var vl = await ipLue(vuosi, snap.exists ? data : null); data = Object.assign({}, data, { tavoitteet: vl.tavoitteet || undefined, pelaaja_sitoumus: vl.pelaaja_sitoumus || undefined }); }
     var arr = data.tavoitteet;
     /* HOTFIX · vuodenvaihde: doc-id on kalenterivuosi → 1.1. syksyn tavoite katoaisi näkyvistä.
        Edellinen vuosi luetaan vain jos kuluvassa ei ole VOIMASSA OLEVAA tavoitetta; pelkkä valmentajan
@@ -2593,7 +2599,8 @@ async function _p7LataaTavoite() {
     if (!idpJaaVoimassaJaEhdotus(arr).tavoite) {
       try {
         var se = await kausiCol.doc(edVuosi).get();
-        edArr = (se.exists ? (se.data() || {}) : {}).tavoitteet || null;
+        var edKd = se.exists ? (se.data() || {}) : {};
+        edArr = (ipPaalla ? (await ipLue(edVuosi, se.exists ? edKd : null)).tavoitteet : edKd.tavoitteet) || null;
       } catch (e) { /* best-effort */ }
     }
     var val = idpValitseKausidokista(arr, vuosi, edArr, edVuosi);
@@ -3102,7 +3109,8 @@ async function _tallennaSitoumus() {
     if (cu) { try { await cu.getIdToken(true); } catch (e) { /* jatka silti */ } }
     var vuosi = idpKausivuosi(new Date());
     var ref = window._db.collection('seurat').doc(_pelaaja.seuraId).collection('pelaajat').doc(_pelaaja.id);
-    await ref.collection('idp_kausi').doc(vuosi).set({ pelaaja_sitoumus: sit }, { merge: true });
+    if (window.TM_IDP_PELAAJA_DOK) await window.TM_IDP_PELAAJA_DOK.tmIdpSitoumusKirjoita(window._db, _pelaaja.seuraId, _pelaaja.id, vuosi, sit, {});   // 1f-3: idp_kausi + idp_pelaaja (lippu); lippu pois = vanha yksittäinen set
+    else await ref.collection('idp_kausi').doc(vuosi).set({ pelaaja_sitoumus: sit }, { merge: true });
     // Kevyt pikakenttä pelaajadokkiin (VP-lista/kortti voi lukea ilman alikokoelmakyselyä).
     try { await ref.set({ idp_sitoumus_pvm: sit.sitoumus_pvm }, { merge: true }); } catch (e) { /* ei-kriittinen */ }
     _pelaaja.idp_sitoumus_pvm = sit.sitoumus_pvm;
