@@ -69,8 +69,7 @@
 <script src="lib/tm_havaintohistoria.js?v=3"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
 <script src="lib/tm_valmentajaviesti.js?v=5"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
-<script src="lib/tm_idp.js?v=16"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
-<script src="lib/tm_idp_pelaaja_dok.js?v=1"></script>   <!-- Vaihe 1 · PR 1f-2: idp_pelaaja-dual-write (lippu pois oletuksena) -->
+<script src="lib/tm_idp.js?v=16"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 --><script src="lib/tm_idp_pelaaja_dok.js?v=1"></script>   <!-- Vaihe 1 · PR 1f-2: idp_pelaaja-dual-write (lippu pois oletuksena) -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_piirros.js?v=2"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_konsepti_resolve.js?v=2"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
@@ -7308,10 +7307,8 @@ async function _vpTallennaIdpDok(p, viesti) {
       }
       tx.set(kausiRef, { tavoitteet: yhd, paivitetty: new Date().toISOString() }, { merge: true });
       // null = ei merkittävää (jo vaihdettu tai ei löytynyt) → ei turhaa kirjoitusta.
-      if (toinenYhd) tx.set(_toinenRef, { tavoitteet: toinenYhd, paivitetty: new Date().toISOString() }, { merge: true });
-      if (mukaan && _IPD) { _IPD.tmIdpPelaajaLisaa(tx, db, _seuraId, p.id, vuosi, yhd, {}); if (toinenYhd) _IPD.tmIdpPelaajaLisaa(tx, db, _seuraId, p.id, _toinenVuosi, toinenYhd, {}); }
-    }); };
-    if (_IPD) await _IPD.tmIdpPelaajaVarapolulla({}, _ajaTx); else await _ajaTx(false);
+      if (toinenYhd) tx.set(_toinenRef, { tavoitteet: toinenYhd, paivitetty: new Date().toISOString() }, { merge: true }); if (mukaan && _IPD) { _IPD.tmIdpPelaajaLisaa(tx, db, _seuraId, p.id, vuosi, yhd, {}); if (toinenYhd) _IPD.tmIdpPelaajaLisaa(tx, db, _seuraId, p.id, _toinenVuosi, toinenYhd, {}); }
+    }); }; if (_IPD) await _IPD.tmIdpPelaajaVarapolulla({}, _ajaTx); else await _ajaTx(false);
     const _ip = { idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_dvi: _dvi }; await (window.TM_SISAINEN ? window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, p.id, _ip, { pelaajaSet: true }) : ref.set(_ip, { merge: true }));   // PR 1c-3: + sisainen (lippu)
     _asetaPikakentat();
     /* Ankkuri seuraa kirjoitettua dokkia: seuraavat tallennukset (review, elinkaari) osuvat samaan
@@ -7349,8 +7346,7 @@ async function _vpLataaTavoite(p) {
     }
     const val = idpValitseKahdestaVuodesta(arr, vuosi, edArr, edVuosi);
     const tgt = (window._vpArvPelaaja && window._vpArvPelaaja.id === p.id) ? window._vpArvPelaaja : p;
-    const _sitL = window.TM_IDP_PELAAJA_DOK ? await window.TM_IDP_PELAAJA_DOK.tmIdpPelaajaLueSitoumus(db, _seuraId, p.id, vuosi, sdata, {}) : (sdata.pelaaja_sitoumus || null);   // PR 1f-2: dual-read (lippu pois = idp_kausi kuten ennen)
-    if (_sitL) tgt._idpSitoumus = _sitL;   // v2 §4 — pelaajan itsearvio + sitoumus
+    const _sitL = window.TM_IDP_PELAAJA_DOK ? await window.TM_IDP_PELAAJA_DOK.tmIdpPelaajaLueSitoumus(db, _seuraId, p.id, vuosi, sdata, {}) : (sdata.pelaaja_sitoumus || null);   // PR 1f-2: dual-read (lippu pois = idp_kausi kuten ennen) if (_sitL) tgt._idpSitoumus = _sitL;   // v2 §4 — pelaajan itsearvio + sitoumus
     if (val.tavoite || val.luonnos || (arr && arr.length)) {
       // §33: aseta SAMAAN objektiin jonka kortti renderöi (voi vaihtua await:n aikana); re-render vain jos vielä auki.
       /* Vaihe 1.5 + A3 — voimassa oleva tavoite ja TALLENNETTU EHDOTUS erikseen, ja ne voivat olla ERI
