@@ -392,7 +392,7 @@ describe('(9) §7.22 — portaan nousu ei näy lapselle laskuna', () => {
 
   it('"uusi taito" vaatii TALLENNETUN portaan ja alle kolme havaintoa', () => {
     expect(lohko).toContain('_porrasTallennettu && _porrasTallennettu > 1');
-    expect(lohko).toContain('_ehdHist.length < 3');
+    expect(lohko).toContain('_ehdN < 3');   // PR 1e-3a: hist_n ?? hist.length
     /* Pelkkä _porras sisältää ikäsuosituksen → koskisi jokaista 13+ -pelaajaa. */
     const i5 = lohko.indexOf('const _uusiNakyy');
     const rivi5 = lohko.slice(i5, lohko.indexOf(';', i5));

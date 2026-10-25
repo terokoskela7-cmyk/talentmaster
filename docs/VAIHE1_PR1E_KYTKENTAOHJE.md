@@ -10,6 +10,8 @@ Jaettu kolmeen PR:ään (PM hyväksyi 24.10.): **1e-1 perusta + tuoja-korjaus** 
 | 2 | `RYHMAT.henkilokunta.kirjoitus` | henkilökunnan kentät (S2, 1c) | oma pieni PR + Functions-deploy |
 | 3 | `RYHMAT.s4.kirjoitus` | adar_sisainen · arviointi · kypsyys_sisainen · talentti · terveys (oma dokumentti) · signaali (S4, 1e) | oma pieni PR + Functions-deploy |
 
+**Yhteinen kytkentäjärjestys (kukin oma pieni PR + Functions-deploy, väli smoke KPV-testipelaajilla):** 1 → `jaksofokus_sisainen` (S1) → 2 → `henkilokunta` (S2) → 3 → `s4` (S4). Kukin lippu ohjaa kirjoituksen JA dual-readin; peruutus = lippu pois (selain + CF yhdessä). Edellytys jokaiselle: kyseisen viipaleen kirjoittaja- ja lukija-PR:t mergetty (S4: 1e-1 → 1e-2 → 1e-3a → 1e-3b), Rules deployattu, migraation dry-run luettu. Lippuja EI käännetä samassa PR:ssä.
+
 `functions/sisainen_luku.js` (`liputPaalla`) lukee kaikki kolme samasta jaetusta kopiosta (`functions/tm_sisainen.js` = `lib/tm_sisainen.js`); CF:llä ei ole omaa lippua. Opts-ohitukset testeille: `jaksofokus`: `deps.kirjoitus`, `henkilokuntaKirjoitus`, `s4Kirjoitus`.
 
 ## 1e-1: mitä tässä PR:ssä on
@@ -52,6 +54,35 @@ Jaettu kolmeen PR:ään (PM hyväksyi 24.10.): **1e-1 perusta + tuoja-korjaus** 
 - **Testit:** `tests/sisainen_s4_cf.test.js` (vm-sandbox, oikea `index.js`-lähde + oikeat moduulit): lippu pois/päällä molemmille CF:ille, dual-read, batchin atomisuus, ei tyhjää sisainen-dokumenttia. Vanhojen vahvistaSuostumus-harnessien sandboxiin lisätty `sisainenLuku` + `tmSisainen` (nimet = tuotannon muuttujat).
 - **DEPLOY-LISTA (Teron kaista; ei tässä PR:ssä, merge ei deployaa Functionsia):** `firebase deploy --only functions:arviointikertaOnWrite,functions:vahvistaSuostumus`. Lippu pois → toiminta ennallaan, deploy turvallinen. **Lipun käännön yhteydessä** (oma PR, lib-muutos `RYHMAT.s4.kirjoitus = true`) kaikki `tm_sisainen.js`:ää kutsuvat funktiot samaan deployhin, jotta CF- ja selainlippu ovat samat: `arviointikertaOnWrite`, `vahvistaSuostumus`, `notifReviewEraantyy`, `notifValintaOdottaa`, `laskeSeuranKooste`, `laskeSeuranKoosteMa`, `paivitaSeuranKooste` (+ muut 1c/1b-vaiheen deployt, jos vielä tekemättä).
 
+## 1e-3 jaettu kahteen (PM hyväksyi): 1e-3a lukupuoli + apurit → 1e-3b kirjoittajat
+
+Jokainen `origin/mainin` päälle, ei pinoamista: **1e-3b aloitetaan vasta kun 1e-3a on mergetty** (tarvitsee sen apurit; P7 osaa `hist_n`:n ennen kuin mikään kirjoittaa sitä).
+
+### 1e-3a (tämä PR; lippu POIS → käytös ennallaan)
+
+- **Uudet apurit** (`lib/tm_sisainen.js` = `functions/tm_sisainen.js`, `?v` 10 → 11 VP/Master/Kehitystyöpöytä):
+  - **Syvä kenttä** `RYHMAT.arviointi.syva = ['arviointi_havaittu']`: `tmS4Osa/Kirjoita/Lisaa` kirjoittavat sen **pistepoluin** (`arviointi_havaittu.<avain>`), ei koko kartan korvauksena. Syy: VP kirjoittaa pelaajalle `set+merge` yksi avain kerrallaan; `mergeFields: ['arviointi_havaittu']` olisi pyyhkinyt muut avaimet. Avain jossa `. ~ * / [ ]` jää pois sisainen-puolelta (pelaajadokumentti saa sen aina).
+  - **`tmAdarS4Valmista(kentat, deps)`** → `{ upd, lisa }`: lippu päällä pelaajalle `havainto_porras_ehdotus` + `hist_n` (hist säilyy dual-write-ajan), raakapisteet `havainto_porras_hist` vain sisainen-puolelle (`deps.lisa`; **ei pelaajadokumenttiin**). Lippu pois → sama olio, `lisa: null`.
+  - **`tmS4Sisainen` / `tmTerveysSisainen(db, sid, pid, upd, deps)`**: VAIN sisainen-dokumentti omana kirjoituksenaan (Pikakortin havainnon jälkeen, luontipolut). **Ei koskaan heitä** (permission-denied, verkko → `{ ok: false }` + `console.warn`); `deps.hiljainen: false` heittää. Puuttuva kopio paikataan migraation uudelleenajossa.
+  - **`tmTerveysLukuOpts(rooli, lista)`**: lataus-opts roolin mukaan (`tmTerveysLuvunTapa`): koko seura (SA, vp, utj, fysioterapeutti, talenttivalmentaja) → `'seura'`; valmentaja → oman joukkueen idt (lista = jo ladatut pelaajat); **seurasihteeri, testivastaava, fysiikkavalmentaja ym. → `{}` = terveyttä ei yritetä lukea**. `superadmin`-claim-kirjoitusasu hyväksytään SA:ksi.
+- **Lukijat**: VP (`lataaPelaajat`), Master (`_pelaajatData`), Kehitystyöpöytä kutsuvat `tmSisainenLataaJaYhdista(…, tmTerveysLukuOpts(rooli, lista))`. Lippu pois → ei terveyskyselyä (kuten ennen). Signaalin lukijat (VP, `tm_seuraava_askel`, `tm_kehitystilanne`, `tm_eerikkila_normit`, Master) saavat jo yhdistetyn listan; testi vahtii, että tulos on identtinen kun talenttisignaali on siirtynyt sisaiseen, ja että `'phv'` jää pelaajalle.
+- **P7 (Pelaaja_v7)**: `_ehdN = hist_n ?? hist.length` (pelaaja näkee vain määrän). Snapshot-testi: `rAdar()` tuottaa täsmälleen saman kortin vanhalla `{hist}`- ja uudella `{hist_n}`-muodolla, n = 0…3.
+- **Testi**: `tests/sisainen_s4_selain_lukijat.test.js`.
+
+### 1e-3b (seuraava PR): kirjoittajat
+
+Pikakortti (3 paikkaa), Master `paivitaAdarPikakentat`, VP `_vpTallennaHavaittu` (tx), Testaus_v9 kasvumittaus, Seura (terveys, talentti-muokkaus, Excel-luonti). **Pikakortti: sisainen-kirjoitus OMANA batchinaan havainnon JÄLKEEN** (`tmS4Sisainen`), ei samassa batchissa — havainto ei saa koskaan hylkäytyä sisainen-osan takia. Testi: sisainen-batch permission-denied → havainto silti tallessa. `phv_raaka/phv_huom/phv_ongelma` eivät ole kirjoitettuja kenttiä (Excel-/Testituonti vain laskee ne virheilmoituksiin; kirjoittaa vain `phv_tila`, joka on B) → niille ei kirjoittajaa.
+
+## ⚠ PR 2 -varoitus: where-kyselyjen kentät eivät saa poistua pelaajadokumentista ennen kuin kyselyt on muutettu
+
+Dual-write pitää S4-kentät pelaajadokumentissa, joten kyselyt toimivat. PR 2:n siivous (kenttien poisto pelaajadokumentista) rikkoisi hiljaa kaikki `where(<S4-kenttä>, …)`-kyselyt — Firestore palauttaa tyhjän tuloksen, ei virhettä. Nykyiset kyselyt (grep 25.10.2026):
+
+| Kenttä | Paikka |
+|---|---|
+| `talenttiOhjelma == true` | `Master_v16` :10169 (roster-kaksoiskysely) ja :10508 (talentti-id:t ryhmille) · `Seura` :2519 (Talentit-näkymä) · `VP_v25` :18125 (ryhmän talenttijäsenet) |
+
+Lisäksi **ei-kyselynä** mutta samalla riskillä: sivut jotka lukevat S4-kenttiä suoraan pelaajalistasta ilman dual-readia (Seura, Pikakortti, Testaus, `tm_kt_sivu`; `tm_ryhmat.js` sääntöryhmä `talenttiOhjelma === true`, Seuran `kaytettavyys`-merkit). **Ennen PR 2:ta:** (1) muuta kyselyt (esim. collectionGroup `sisainen` where `talenttiOhjelma == true` + indeksi, tai oma pikakenttä joka jää pelaajalle) tai ratkaise että kenttä jää pelaajalle; (2) kytke dual-read em. sivuille; (3) PR 2:n kenttälista poistaa vain kentät joille kumpikaan ei päde. Grep-portti PR 2:een: `where('<kenttä>'` kaikille `tmS4Kentat()`-kentille.
+
 ## Havainnot lukijoista (1e-2/1e-3:a varten)
 
 - **Pelaaja/Vanhempi (HTML)** eivät viittaa yhteenkään siirrettävään S4-kenttään (grep-portti `tests/sisainen_s4.test.js`). Jaetut libit joissa S4-kenttänimiä: `tm_phv_tila.js` (`bio.maturity_offset` = `biologinenIka_viimeisin`-alaolio → B), `tm_tukitavoitteet.js` + `tm_idp.js` (`arviointi_havaittu/_pvm`; henkilökunnan ehdotinlogiikka, P7 ei kutsu kandidaattifunktioita), `tm_eerikkila_normit.js` (`talenttiOhjelma`, henkilökunnan KPI), `tm_pelialy_yksilo.js` (`adar_*`-pikakenttien LASKENTA; kirjoittajat Master/Pikakortti). `TalentMaster_Rekisterointi_Suostumus.html` LÄHETTÄÄ vanhempien pituudet CF:lle (`vahvistaSuostumus`), ei lue.
@@ -62,7 +93,7 @@ Jaettu kolmeen PR:ään (PM hyväksyi 24.10.): **1e-1 perusta + tuoja-korjaus** 
 
 1. Merge 1e-1 (Rules v3.70 deployataan CI:llä main-pushista; tarkista ajo). Ei muutosta selaimessa, paitsi tuoja-korjaus (Seura, Testaus, Excel).
 2. Merge 1e-2, **`firebase deploy --only functions`** (lista 1e-2:n raportissa). Lippu pois.
-3. Merge 1e-3 (selaimen kirjoittajat + P7 `hist_n`-luku, lippu pois).
+3. Merge 1e-3a (lukupuoli, apurit, P7 `hist_n`-luku; lippu pois), sen jälkeen 1e-3b (selaimen kirjoittajat; lippu pois).
 4. Dry-run: `node scripts/migroi_sisainen_s4.js` → luvut PM:lle. (Teron kaista, ADC.)
 5. PM kuittaa. **Lippu `RYHMAT.s4.kirjoitus` päälle samassa vaiheessa selaimessa JA CF:ssä** — oma pieni PR + Functions-deploy. Kolmen lipun yhteinen järjestys: jaksofokus → henkilokunta → s4 (kukin oma PR, väli smoke).
 6. Migraatio heti perään: `--kirjoita` (+ `KIRJOITA`). Dry-run uudelleen: odotus `kopioi: 0`, `vanhentunut: 0`.
