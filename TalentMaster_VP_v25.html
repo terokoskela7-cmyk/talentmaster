@@ -12375,7 +12375,7 @@ window._vpTallennaHavaittu = async function(pid, avain, arvo) {
        vain yhden kohteen per päivä. Transaktio lukee ensin: uusi doc → luotu mukaan, olemassa
        oleva → kenttä jätetään pois. Pari-invariantti (§26) säilyy: molemmat kirjoitukset
        samassa atomisessa operaatiossa. Samalla talteen korjaushistoria (§2.1). */
-    await db.runTransaction(async function (tx) {
+    const _SIS4 = window.TM_SISAINEN, _kirjA = async function (mukaan) { await db.runTransaction(async function (tx) {   // PR 1e-3b (S4): arviointi_* sisainen/tiedot samaan transaktioon (lippu)
       const snap = await tx.get(kertaRef);
       const vanha = snap.exists ? (snap.data() || {}) : {};
       const vanhatKohteet = vanha.kohteet || {};
@@ -12410,7 +12410,9 @@ window._vpTallennaHavaittu = async function(pid, avain, arvo) {
         pikaPaivitys.arviointi_havaittu = pikaObj;
       }
       tx.set(ref, pikaPaivitys, { merge: true });
-    });
+      if (mukaan && _SIS4) _SIS4.tmS4Lisaa(tx, db, _seuraId, pid, pikaPaivitys, {});   // arviointi_havaittu pistepolulla (muut avaimet säilyvät); delete-sentinel kulkee sellaisenaan
+    }); };
+    if (_SIS4 && _SIS4.tmS4Varapolulla) await _SIS4.tmS4Varapolulla({}, _kirjA); else await _kirjA(false);   // permission-denied (Rules v3.70 ei käytössä) → uusi yritys ilman sisainen:iä
     if (typeof toast === 'function') toast(vpT('Arvio tallennettu ✓'), 'ok');
   } catch (e) { console.warn('[_vpTallennaHavaittu]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
 };

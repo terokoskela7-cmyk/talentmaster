@@ -20,6 +20,7 @@
      domainilla (hiljainen: kasvumittaus olisi menettänyt Mirwald-laskennan). Sama vikaluokka
      kuin #491. lib/ tarjoillaan molemmilla originilla. -->
 <script src="lib/tm_bioika.js?v=4"></script>
+<script src="lib/tm_sisainen.js?v=11"></script>   <!-- PR 1e-3b (S4): kasvumittauksen kypsyyskentät → sisainen/tiedot (lippu RYHMAT.s4.kirjoitus, oletus pois) -->
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) — ennen tm_ennatykset/valikkoa -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- Omat ennätykset (PB): jaettu kaikille kirjoittajille (TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js?v=2"></script>   <!-- Trendi Vaihe 1b: H-H/TKI-historia online-tallennuksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
@@ -3250,17 +3251,24 @@ async function _kasvuTallennaPHV(p) {
   if (!ops) return false;
   try {
     // §26: historia-dokumentti + PHV-pikakentät SAMASSA batchissa → kaikki tai ei mitään (ennen kaksi kirjoitusta).
-    const b = baseRef.firestore.batch();
-    b.set(baseRef.collection('biologinen_ika').doc(ops.mittausPvmId), ops.dokumentti);
-    b.update(baseRef, {
+    // PR 1e-3b (S4): kypsyyskentät (kehitysvaihe_kaista, kasvutahti_*) kirjoitetaan lisäksi sisainen/tiedot:iin samaan batchiin (lippu pois → ei mitään); permission-denied (Rules v3.70 ei käytössä) → uusi yritys ilman sisainen:iä.
+    const upd = {
       biologinenIka_viimeisin: ops.dokumentti,
       phv_tila: ops.dokumentti.phv_tila_koodi,   // 'PRE'|'LAH'|'PH'|'POST'|'AN'
       // Bio-banding V1 -pikakentät (§26) — luetaan VP/valmentaja-näkymissä ilman alikokoelmakyselyä
       kehitysvaihe_kaista: ops.dokumentti.kehitysvaihe_kaista || null,   // 'pre'|'circa'|'post'
       kasvutahti_cm_v:     ops.dokumentti.kasvutahti_cm_v,               // null jos <2 mittausta
       kasvutahti_vyohyke:  ops.dokumentti.kasvutahti_vyohyke || null     // 'hidas'|'kohtalainen'|'nopea'
-    });
-    await b.commit();
+    };
+    const S4 = window.TM_SISAINEN;
+    const kirjoita = async function (mukaan) {
+      const b = baseRef.firestore.batch();
+      b.set(baseRef.collection('biologinen_ika').doc(ops.mittausPvmId), ops.dokumentti);
+      b.update(baseRef, upd);
+      if (mukaan && S4) S4.tmS4Lisaa(b, baseRef.firestore, _seuraId, p.id, upd, {});
+      await b.commit();
+    };
+    if (S4 && S4.tmS4Varapolulla) await S4.tmS4Varapolulla({}, kirjoita); else await kirjoita(false);
     return true;
   } catch(e) {
     console.warn('[kasvu] tallennus', p.id, e.code, e.message);

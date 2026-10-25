@@ -237,6 +237,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" -->
 <script src="lib/tm_pelialy_yksilo.js?v=5"></script>   <!-- Portaat + konsensus + pikakentät (PR 2A) -->
+<script src="lib/tm_sisainen.js?v=11"></script>   <!-- PR 1e-3b (S4): sisainen-kopio omana kirjoituksenaan (tmS4Sisainen; lippu pois = ei tee mitään) -->
 <script src="lib/tm_lang.js?v=50"></script>   <!-- sv-läpiajo PR 4: kieli seuran kielestä (tmKieliInitSeura) -->
 <script src="lib/tm_i18n_common.js?v=17"></script>
 <script src="lib/tm_lib_i18n.js?v=37"></script>   <!-- jaettu kirjastokartta (tmLibT): ADAR-tekstit + nimikanoni -->
@@ -1282,6 +1283,18 @@ function _phPelaajaRef(seuraId, pelaajaId) {
 }
 
 /** Pikakentät (§26) libin kanonisella funktiolla — tässä tiedostossa ei ole omaa laskentaa. */
+/* PR 1e-3b (S4): adar_*-pikakenttien sisainen-jako. _phS4Valmista → { upd (pelaajalle), lisa (vain sisainen) }; _phS4Sisainen kirjoittaa sisainen/tiedot-kopion OMANA kirjoituksenaan pelaajadokumentin JÄLKEEN
+   (tmS4Sisainen: ei koskaan heitä — havainto/pikakentät eivät hylkäydy sisainen-osan takia; puuttuva kopio paikataan migraation uudelleenajossa). Lippu RYHMAT.s4.kirjoitus pois → upd = kentat, ei sisainen-kirjoitusta. */
+function _phS4Valmista(kentat) {
+  try { if (window.TM_SISAINEN) return window.TM_SISAINEN.tmAdarS4Valmista(kentat); } catch (e) { /* vanha polku */ }
+  return { upd: kentat, lisa: null };
+}
+function _phS4Sisainen(seuraId, pelaajaId, v) {
+  try {
+    if (!window.TM_SISAINEN || !_PH_DB) return Promise.resolve({ ok: true, sisainen: false });
+    return window.TM_SISAINEN.tmS4Sisainen(_PH_DB, seuraId, pelaajaId, v.upd, { lisa: v.lisa || undefined });
+  } catch (e) { return Promise.resolve({ ok: false, sisainen: false }); }
+}
 async function _phPaivitaPikakentat(seuraId, pelaajaId, porras, kirjoitaPorras) {
   try {
     var pRef = _phPelaajaRef(seuraId, pelaajaId);
@@ -1300,7 +1313,9 @@ async function _phPaivitaPikakentat(seuraId, pelaajaId, porras, kirjoitaPorras) 
       : null;
     if (!kentat) return;
     if (kirjoitaPorras) kentat.havainto_porras = porras;
-    await pRef.set(kentat, { merge: true });
+    var _s4 = _phS4Valmista(kentat);
+    await pRef.set(_s4.upd, { merge: true });
+    await _phS4Sisainen(seuraId, pelaajaId, _s4);   // PR 1e-3b: sisainen-kopio omana kirjoituksenaan pelaajan jälkeen (ei heitä)
     /* Paikallinen map ajan tasalle: järjestys ja ehdotuskortti lukevat sitä (§26). */
     if (window._pelaajaMap && window._pelaajaMap[pelaajaId]) {
       var m = window._pelaajaMap[pelaajaId];
@@ -1364,10 +1379,13 @@ async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId,
   if (_jako.kopioRef) batch.set(_jako.kopioRef, _jako.kopio);   // pelaajan luettava kopio samassa batchissa (kaikki tai ei mitään)
   if (havPvm) batch.set(pRef, { havainto_viimeisin_pvm: havPvm }, { merge: true });
   var commit = batch.commit();
+  /* PR 1e-3b (S4): havainto_viimeisin_pvm:n sisainen-kopio OMANA kirjoituksenaan havainnon JÄLKEEN — havainto ei koskaan hylkäydy sisainen-osan takia (tmS4Sisainen ei heitä). Lippu pois → ei kirjoitusta. */
+  if (havPvm) commit = commit.then(function (v) { return _phS4Sisainen(seuraId, pelaajaId, { upd: { havainto_viimeisin_pvm: havPvm }, lisa: null }).then(function () { return v; }); });
   /* commit.pikakentat = lupaus joka AINA resolvaa {ok, code}: kutsuja (Master) tietää onnistuiko adar-yhteenveto. Aiemmin vain
      console.warn → pikakenttien epäonnistuminen oli täysin näkymätön ja Masterin kortti jäi "ei havaintoja". */
+  var _s4k = kentat ? _phS4Valmista(kentat) : null;
   var pikakentat = kentat
-    ? pRef.set(kentat, { merge: true }).then(function () { return { ok: true }; }, function (e) {
+    ? pRef.set(_s4k.upd, { merge: true }).then(function () { return _phS4Sisainen(seuraId, pelaajaId, _s4k); }).then(function () { return { ok: true }; }, function (e) {
         console.warn('[ADAR pikakentat kirjoitus]', e && (e.code || e.message));
         return { ok: false, code: (e && e.code) || 'virhe' };
       })

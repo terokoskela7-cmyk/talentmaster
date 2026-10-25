@@ -49,7 +49,7 @@ describe('pikakortti: oletus sisäinen; pelaajan dokumentissa vain teksti', () =
   const aja = async (data) => {
     const m = mockDb({}), ctx = { _PH_DB: m.db, Date, console: { warn() {} }, _phIka: () => 14, tmAdarPikakentat: () => null, window: { _pelaajaMap: { p1: {} } } };
     vm.createContext(ctx);
-    vm.runInContext(pura(ADAR, 'function _phPelaajaRef(') + '\n' + pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat; this.ref = _phPelaajaRef;', ctx);
+    vm.runInContext(pura(ADAR, 'function _phPelaajaRef(') + '\n' + pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'function _phS4Valmista(') + '\n' + pura(ADAR, 'function _phS4Sisainen(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat; this.ref = _phPelaajaRef;', ctx);
     const havRef = ctx.ref('kpv', 'p1').collection('havainnot').doc('sis');
     await ctx.f(havRef, data, 'kpv', 'p1', 1, false);
     return m;

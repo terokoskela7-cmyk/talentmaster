@@ -17,6 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <script src="lib/tm_pvm.js?v=7"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
+<script src="lib/tm_sisainen.js?v=11"></script>   <!-- PR 1e-3b (S4): käytettävyys/terveys + talenttiohjelma → sisainen (lippu RYHMAT.s4.kirjoitus, oletus pois) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia; tuonnit pysähtyvät istuntovirheeseen -->
 <script src="lib/tm_sukupuoli.js?v=1"></script>   <!-- sukupuoli M/N (§7.12) -->
@@ -2494,7 +2495,10 @@ async function tallennakKaytettavyys(pelaajaId) {
   }
 
   try {
-    await db.collection('seurat').doc(tila.seuraId)
+    /* PR 1e-3b (S4): kaytettavyys + loukkaantuminen_* + paluu_arvio (GDPR art. 9) → lisäksi sisainen/terveys samaan batchiin (lippu pois → yksi update() kuten ennen);
+       permission-denied (Rules v3.70 ei käytössä) → vanha kenttä ilman sisainen:iä. `muokattu` jää vain pelaajalle. */
+    if (window.TM_SISAINEN) await window.TM_SISAINEN.tmTerveysKirjoita(db, tila.seuraId, pelaajaId, data, {});
+    else await db.collection('seurat').doc(tila.seuraId)
       .collection('pelaajat').doc(pelaajaId)
       .update(data);
     document.getElementById('kaytettavyysModaali')?.remove();
@@ -5215,7 +5219,9 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
   }
 
   try {
-    await db.collection('seurat').doc(tila.seuraId)
+    /* PR 1e-3b (S4): talentti* → lisäksi sisainen/tiedot samaan batchiin (lippu pois → yksi update() kuten ennen); permission-denied → vanha kenttä ilman sisainen:iä. */
+    if (window.TM_SISAINEN) await window.TM_SISAINEN.tmS4Kirjoita(db, tila.seuraId, pelaajaId, paivitys, {});
+    else await db.collection('seurat').doc(tila.seuraId)
       .collection('pelaajat').doc(pelaajaId)
       .update(paivitys);
     const _hUusi = hEmail ? hEmail.trim().toLowerCase() : null;
@@ -6881,6 +6887,11 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         lahde:         'excel_tuonti',
       }));
       await _tmKirjaaTuoja(tila.seuraId, pelaajaId);   // PR 1e-1: tuojan uid → sisainen/tiedot
+      /* PR 1e-3b (S4): talentti*-kentät sisainen/tiedot:iin OMANA kirjoituksenaan pelaajan luonnin jälkeen (tmS4Sisainen ei heitä → tuonti ei kaadu sisainen-osaan; lippu pois → ei kirjoitusta). */
+      if (window.TM_SISAINEN) {
+        const _tal = p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k';
+        await window.TM_SISAINEN.tmS4Sisainen(db, tila.seuraId, pelaajaId, { talenttiOhjelma: _tal, talenttiTaso: _tal ? (p.talenttiTaso || 'perus') : null, talenttiAlku: _tal ? nyt : null, talenttiAktivoi: _tal ? (tila.kayttaja?.uid || 'tuntematon') : null }, {});
+      }
       tuotu++;
 
       // VAIHE 2: Lähetetään kutsu jos pyydetty ja (kelvollinen, yksi) email löytyy
