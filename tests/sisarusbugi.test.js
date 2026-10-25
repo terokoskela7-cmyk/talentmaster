@@ -219,7 +219,7 @@ function vahvista(pelaaja) {
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' }, Timestamp: { fromDate: (d) => ({ toDate: () => d, iso: d.toISOString() }) } } },
     auth: { generatePasswordResetLink: async () => 'https://reset' },
     haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
-    TM_BASE_URL: 'https://tm', suostumusTarkistus: T, suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
+    TM_BASE_URL: 'https://tm', sisainenLuku: require_(join(ROOT, 'functions', 'sisainen_luku.js')), tmSisainen: require_(join(ROOT, 'functions', 'tm_sisainen.js')), suostumusTarkistus: T, suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
   ctx.tmJoukkueJasenyysIdlla = ctx.tmJoukkueJasenyysIdlla || require_(join(ROOT, 'lib', 'tm_joukkue.js')).tmJoukkueJasenyysIdlla;
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);

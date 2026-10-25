@@ -25,6 +25,7 @@ const suostumuskortit = require('./suostumuskortit');   // PR B: QR-suostumuskor
 const suostumusTarkistus = require('./suostumus_tarkistus');
 const { suostumusAnnettu, suostumusTilaKutsunJalkeen } = require('./suostumus');   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
+const tmSisainen = require('./tm_sisainen');   // PR 1e-2: S4-kirjoitusapurit (tmS4Lisaa) — jaettu kopio, sama lippu kuin selaimessa
 const sisainenLuku = require('./sisainen_luku');   // PR 1c-2: dual-read sisainen/tiedot (jaettu lippu)
 const { onPaikkamerkkiOsoite } = require('./paikkamerkki');   // paikkamerkkidomainien esto (1.10.2026)
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
@@ -1232,8 +1233,10 @@ exports.vahvistaSuostumus = functions
         if (pvm != null) paivitys.vanhempi_pituus_pvm = pvm;
       }
       // puuttuu-lippu lopputilasta (tallennettu + uusi), ei pelkästä lomakkeesta
-      const isaLopuksi = isa != null ? isa : (snap.get('isa_pituus_cm') != null ? snap.get('isa_pituus_cm') : null);
-      const aitiLopuksi = aiti != null ? aiti : (snap.get('aiti_pituus_cm') != null ? snap.get('aiti_pituus_cm') : null);
+      /* PR 1e-2 (S4) dual-read: tallennettu pituus luetaan sisainen/tiedot:ista (sisainen voittaa) kun s4-lippu on päällä; lippu pois → ei lisälukua, pelkkä pelaajadokumentti kuten ennen. */
+      const tallennettu = (isa != null && aiti != null) ? {} : (await sisainenLuku.yhdistaYksi(db, seuraId, pelaajaId, snap.data() || {}) || {});
+      const isaLopuksi = isa != null ? isa : (tallennettu.isa_pituus_cm != null ? tallennettu.isa_pituus_cm : null);
+      const aitiLopuksi = aiti != null ? aiti : (tallennettu.aiti_pituus_cm != null ? tallennettu.aiti_pituus_cm : null);
       paivitys.vanhempi_pituus_puuttuu = (isaLopuksi == null || aitiLopuksi == null);
     }
 
@@ -1268,7 +1271,13 @@ exports.vahvistaSuostumus = functions
     let pin = (snap.get('pin') && /^(\d{4}|\d{6})$/.test(String(snap.get('pin')))) ? String(snap.get('pin')) : null;
 
     try {
-      await pelRef.update(paivitys);
+      /* PR 1e-2 (S4): vanhempien pituudet (kypsyys_sisainen) kirjoitetaan myös sisainen/tiedot:iin, kun RYHMAT.s4.kirjoitus on päällä (oletus POIS → täsmälleen kuten ennen).
+         YKSI batch: pelaajan update + sisainen set mergeFields (tmS4Lisaa poimii paivitys-oliosta vain S4-kentät: isa_pituus_cm, aiti_pituus_cm, vanhempi_pituus_pvm, vanhempi_pituus_puuttuu).
+         Admin SDK ohittaa Rulesin → ei permission-denied-varapolkua; virhe → sama 'internal' kuin ennen (suostumus ei tallennu puoliksi). */
+      const kirjBatch = db.batch();
+      kirjBatch.update(pelRef, paivitys);
+      tmSisainen.tmS4Lisaa(kirjBatch, db, seuraId, pelaajaId, paivitys, {});
+      await kirjBatch.commit();
     } catch (e) {
       throw new functions.https.HttpsError('internal',
         `Suostumuksen tallennus epäonnistui: ${e.message}`);
@@ -2328,11 +2337,13 @@ exports.arviointikertaOnWrite = functions
       /* Review 6: `set(..., {merge:true})` YHDISTÄÄ sisäkkäiset mapit, joten 12 kk ikkunasta
          pudonnut kohde jäisi pikakenttään ikuisesti. mergeFields korvaa nimetyt kentät
          kokonaan ja jättää muun pelaajadokin koskematta. */
-      await pelaajaRef.set({
-        arviointi_kooste: kooste,
-        potentiaali_kooste: potKooste,
-        arviointi_kooste_pvm: new Date().toISOString(),
-      }, { mergeFields: ['arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'] });
+      /* PR 1e-2 (S4): arviointi-ryhmä kirjoitetaan myös sisainen/tiedot:iin kun RYHMAT.s4.kirjoitus on päällä (oletus POIS → vain pelaajadokumentti, kuten ennen).
+         YKSI batch; sisainen-puolella tmS4Lisaa käyttää mergeFields (korvaa nimetyt kentät kokonaan — sama syy kuin yllä: ikkunasta pudonnut kohde ei jää karttaan). */
+      const kirjoitus = { arviointi_kooste: kooste, potentiaali_kooste: potKooste, arviointi_kooste_pvm: new Date().toISOString() };
+      const dbA = admin.firestore(), batch = dbA.batch();
+      batch.set(pelaajaRef, kirjoitus, { mergeFields: ['arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'] });
+      tmSisainen.tmS4Lisaa(batch, dbA, seuraId, pelaajaId, kirjoitus, {});
+      await batch.commit();
     } catch (e) {
       console.error('[arviointikertaOnWrite]', seuraId, pelaajaId, e && e.message);
     }
