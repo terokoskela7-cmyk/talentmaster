@@ -24,7 +24,8 @@ function ymp(kentat) {
   c.document = Object.assign({}, c.document, { getElementById: E, querySelector: () => null, querySelectorAll: () => [], createElement: () => ({ style: {}, classList: { add() {}, remove() {} }, appendChild() {}, set textContent(v) {} }) });
   return { c, f, loki, E, rivit };
 }
-const pelaajat = (t) => [...t.f.D.entries()].filter(([k]) => k.startsWith('seurat/demo/pelaajat/')).map(([, v]) => v);
+const pelaajat = (t) => [...t.f.D.entries()].filter(([k]) => k.startsWith('seurat/demo/pelaajat/') && !k.includes('/sisainen/')).map(([, v]) => v);
+const sisainen = (t) => [...t.f.D.entries()].filter(([k]) => /^seurat\/demo\/pelaajat\/[^/]+\/sisainen\/tiedot$/.test(k)).map(([, v]) => v);
 const onSposti = (v) => JSON.stringify(v).includes(SPOSTI);
 
 describe('tuoja-sähköposti pois pelaajadokumentista', () => {
@@ -34,6 +35,7 @@ describe('tuoja-sähköposti pois pelaajadokumentista', () => {
     await t.c.ajaExcelTuonti(true);
     const p = pelaajat(t); expect(p).toHaveLength(1);
     expect('tuoja' in p[0]).toBe(false); expect(onSposti(p[0])).toBe(false);
+    expect(sisainen(t)).toHaveLength(1); expect(sisainen(t)[0]).toMatchObject({ seuraId: 'demo', tuojaUid: 'vp-uid' }); expect(onSposti(sisainen(t))).toBe(false);   // PR 1e-1: tuojan uid sisainen/tiedot:iin, ei sähköpostia
     expect(p[0]).toMatchObject({ etunimi: 'Liisa', sukunimi: 'Uusi', seuraId: 'demo', huoltajaEmail: 'l@tm-testi.fi', suostumusTila: 'odottaa', tila: 'pilotti', lahde: 'excel_tuonti', tuotu: 'TS' });
   });
   it('Yksittäinen lisäys (kutsu sähköpostilla): uusi pelaajadokumentti ei sisällä tuoja-kenttää eikä henkilökunnan sähköpostia; muu sisältö ennallaan', async () => {
@@ -41,6 +43,7 @@ describe('tuoja-sähköposti pois pelaajadokumentista', () => {
     await t.c.lahetaRekisteriSahkoposti();
     const p = pelaajat(t); expect(p).toHaveLength(1);
     expect('tuoja' in p[0]).toBe(false); expect(onSposti(p[0])).toBe(false);
+    expect(sisainen(t)).toHaveLength(1); expect(sisainen(t)[0]).toMatchObject({ seuraId: 'demo', tuojaUid: 'vp-uid' }); expect(onSposti(sisainen(t))).toBe(false);
     expect(p[0]).toMatchObject({ etunimi: 'Pekko', sukunimi: 'Testi', seuraId: 'demo', huoltajaEmail: 'huoltaja@tm-testi.fi', suostumusTila: 'odottaa', tuotu: 'TS' });
     expect(t.loki.fn.map((x) => x[0])).toContain('lahetaRekisteriKutsu');
   });

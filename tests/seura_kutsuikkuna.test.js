@@ -46,7 +46,7 @@ function seura(pelaajat, opts) {
   };
   ctx.tmHT = (s) => s; vm.createContext(ctx);
   const osat = ['function _rekBaseUrl() {', 'function avaaRekisteriModal() {', 'function avaaRekisteriModalPelaajalle(', 'function luoRekisteriLinkki() {', 'async function lahetaRekisteriSahkoposti() {',
-    'function _rekDuplikaatti(', 'function _suostumusAnnettu(', 'function _suostumusPvm(', 'function _tkKieli(', 'function _tk('].filter((o) => S.indexOf(o) >= 0);
+    'async function _tmKirjaaTuoja(', 'function _rekDuplikaatti(', 'function _suostumusAnnettu(', 'function _suostumusPvm(', 'function _tkKieli(', 'function _tk('].filter((o) => S.indexOf(o) >= 0);
   vm.runInContext(osat.map(pura).join('\n') + '\nthis.uusi=avaaRekisteriModal; this.vanha=avaaRekisteriModalPelaajalle; this.laheta=lahetaRekisteriSahkoposti;', ctx);
   const kentat = (m) => Object.keys(m).forEach((k) => { E(k).value = m[k]; });
   const D = (polku) => f.D.get(polku);

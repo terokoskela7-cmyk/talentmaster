@@ -80,23 +80,23 @@ function seuraYmp({ rivit = 5, tapahtuma = {}, kirjautunut = true, rooli = 'vp' 
   return { c, log, auth, asetaKayttaja: (u) => { user = u; } };
 }
 describe('Seura.ajaExcelTuonti: pysähtyy istuntovirheeseen ja kertoo montako tuotiin', () => {
-  it('ilman virheitä kaikki rivit tuodaan (ei pysäytystä)', async () => { const e = seuraYmp(); await e.c.ajaExcelTuonti(false); expect(e.log.set).toHaveLength(5); expect(e.log.virheTeksti).toBe(''); });
+  it('ilman virheitä kaikki rivit tuodaan (ei pysäytystä)', async () => { const e = seuraYmp(); await e.c.ajaExcelTuonti(false); expect(e.log.set.filter((x) => x !== undefined)).toHaveLength(5); /* PR 1e-1: lisäksi sisainen-set (tuojaUid) per pelaaja ilman etunimeä */  expect(e.log.virheTeksti).toBe(''); });
   it('permission-denied riviltä 3: tuonti pysähtyy SIIHEN (ei satoja virheitä), "tuotiin 2 / 5" + syy', async () => {
     const e = seuraYmp({ rivit: 5 }); let n = 0; const orig = e.c.db; e.c.db = { collection: () => { const r = orig.collection(); return r; } };
-    const set = []; e.c.db = { collection: () => { const mk = () => ({ doc: mk, collection: mk, where: mk, limit: mk, get: async () => ({ empty: true }), set: async (d) => { n++; if (n === 3) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); set.push(d.etunimi); } }); return mk(); } };
+    const set = []; e.c.db = { collection: () => { const mk = () => ({ doc: mk, collection: (nimi) => (nimi === 'sisainen' ? { doc: () => ({ set: async () => {} }) } : mk()), where: mk, limit: mk, get: async () => ({ empty: true }), set: async (d) => { n++; if (n === 3) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); set.push(d.etunimi); } }); return mk(); } };
     await e.c.ajaExcelTuonti(false); expect(set).toEqual(['P0', 'P1']); expect(n).toBe(3); expect(e.log.virheTeksti).toMatch(/^Tuonti pysäytetty: tuotiin 2 \/ 5 pelaajaa\. Syy: ei oikeutta \(permission-denied\)/);
   });
   it('currentUser muuttuu null:ksi kesken tuonnin (istunto vaihtui) → pysähtyy ennen seuraavaa riviä, ei yritä kirjoittaa', async () => {
     const e = seuraYmp({ rivit: 5 }); let n = 0;
-    e.c.db = { collection: () => { const mk = () => ({ doc: mk, collection: mk, where: mk, limit: mk, get: async () => ({ empty: true }), set: async () => { n++; if (n === 2) e.asetaKayttaja(null); } }); return mk(); } };
+    e.c.db = { collection: () => { const mk = () => ({ doc: mk, collection: (nimi) => (nimi === 'sisainen' ? { doc: () => ({ set: async () => {} }) } : mk()), where: mk, limit: mk, get: async () => ({ empty: true }), set: async () => { n++; if (n === 2) e.asetaKayttaja(null); } }); return mk(); } };
     await e.c.ajaExcelTuonti(false); expect(n).toBe(2); expect(e.log.virheTeksti).toMatch(/tuotiin 2 \/ 5 pelaajaa\. Syy: istunto päättyi/);
   });
   it('unauthenticated-virhe pysäyttää; muu virhe (esim. unavailable) vain ohittaa rivin ja jatkaa', async () => {
     const e = seuraYmp({ rivit: 4 }); let n = 0;
-    e.c.db = { collection: () => { const mk = () => ({ doc: mk, collection: mk, where: mk, limit: mk, get: async () => ({ empty: true }), set: async () => { n++; if (n === 2) throw Object.assign(new Error('x'), { code: 'unavailable' }); } }); return mk(); } };
+    e.c.db = { collection: () => { const mk = () => ({ doc: mk, collection: (nimi) => (nimi === 'sisainen' ? { doc: () => ({ set: async () => {} }) } : mk()), where: mk, limit: mk, get: async () => ({ empty: true }), set: async () => { n++; if (n === 2) throw Object.assign(new Error('x'), { code: 'unavailable' }); } }); return mk(); } };
     await e.c.ajaExcelTuonti(false); expect(n).toBe(4);   // rivi 2 epäonnistui, muut jatkuivat
     const f = seuraYmp({ rivit: 4 }); let m = 0;
-    f.c.db = { collection: () => { const mk = () => ({ doc: mk, collection: mk, where: mk, limit: mk, get: async () => ({ empty: true }), set: async () => { m++; if (m === 2) throw Object.assign(new Error('x'), { code: 'unauthenticated' }); } }); return mk(); } };
+    f.c.db = { collection: () => { const mk = () => ({ doc: mk, collection: (nimi) => (nimi === 'sisainen' ? { doc: () => ({ set: async () => {} }) } : mk()), where: mk, limit: mk, get: async () => ({ empty: true }), set: async () => { m++; if (m === 2) throw Object.assign(new Error('x'), { code: 'unauthenticated' }); } }); return mk(); } };
     await f.c.ajaExcelTuonti(false); expect(m).toBe(2); expect(f.log.virheTeksti).toContain('unauthenticated');
   });
   it('JATKOTOIMINNOT ESTETTY: ei kirjautunutta käyttäjää tai ei hyväksyttyä roolia (väärän roolin tila) → ei yhtään kirjoitusta', async () => {

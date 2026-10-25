@@ -24,8 +24,8 @@ describe('rekisteri: S2-ryhmä', () => {
     expect(Object.keys(S.RYHMAT).filter((n) => S.RYHMAT[n].kytketty)).toEqual(['d3']); expect(S.tmSisainenKentat()).toEqual(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus', 'd3_vp_pvm']);
     expect(S.tmHenkilokuntaKentat()).toEqual(KENTAT);
   });
-  it('signaali jää viipale 1e:lle (kytkemätön ryhmä), tavoitteet = C (ei rekisterissä); kenttiä ei ole kahdessa ryhmässä; migraation yksiköt kattavat täsmälleen ryhmän', () => {
-    expect(S.RYHMAT.staff_paatokset).toEqual({ kytketty: false, kentat: ['signaali'] }); expect(S.RYHMAT.idp_sisainen).toBeUndefined(); expect(S.RYHMAT.review).toBeUndefined();
+  it('signaali on S4-ryhmä (kytkemätön), tavoitteet = C (ei rekisterissä); kenttiä ei ole kahdessa ryhmässä; migraation yksiköt kattavat täsmälleen ryhmän', () => {
+    expect(S.RYHMAT.signaali.kentat).toEqual(['signaali']); expect(S.RYHMAT.signaali.kytketty).toBe(false); expect(S.RYHMAT.staff_paatokset).toBeUndefined(); expect(S.RYHMAT.idp_sisainen).toBeUndefined(); expect(S.RYHMAT.review).toBeUndefined();
     const kaikki = Object.values(S.RYHMAT).flatMap((r) => r.kentat); expect(kaikki).not.toContain('tavoitteet'); expect(new Set(kaikki).size).toBe(kaikki.length);
     expect(M.YKSIKOT.flatMap((y) => y.kentat).sort()).toEqual(KENTAT.slice().sort());
   });
@@ -129,7 +129,7 @@ describe('GREP-PORTTI: pelaajan ja vanhemman sovellukset (+ libit) eivät viitta
 describe('Rules v3.69 (tekstitarkistus; toiminta: tests/rules/sisainen.rules.test.js)', () => {
   const R = lue('tm_admin/firestore.rules');
   it('versio 3.69 + changelog; sisainen-blokin create/update kutsuvat scout- ja vastuuhenkilö-ehtoja; scout-ehto = SA | johto; vastuuhenkilö kuten pelaajadokumentissa', () => {
-    expect(R).toContain('firestore.rules v3.69'); expect(R).toContain('Muutokset v3.68 → v3.69');
+    expect(R).toMatch(/firestore.rules v3.(69|70)/); expect(R).toContain('Muutokset v3.68 → v3.69');
     expect((R.match(/sisainenScoutKelpaa\(seuraId, /g) || []).length).toBe(3); expect((R.match(/sisainenVastuuKelpaa\(seuraId, pelaajaId, /g) || []).length).toBe(3);   // määritys + create + update
     expect(R).toMatch(/function sisainenScoutKelpaa[\s\S]{0,400}onSuperAdmin\(\) \|\| \(onOmaSeura\(seuraId\) && onJohtoRooli\(\)\)/); expect(R).toMatch(/function sisainenVastuuKelpaa[\s\S]{0,400}vastuuhenkiloAsettaja\(seuraId, pelaajaId\)[\s\S]{0,200}vastuuhenkiloMuotoKelpaa/);
   });
