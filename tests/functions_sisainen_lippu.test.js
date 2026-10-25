@@ -17,7 +17,7 @@ describe('CF:n lippu = selaimen lippu', () => {
     expect(liput(CF)).toEqual(liput(LIB)); expect(liput(LIB)).toEqual({ henkilokunta: false, jaksofokus_sisainen: false }); expect(LUKU.liputPaalla()).toBe(true);   // s4-lippu (oma testinsä) päällä → CF:n yhteinen liputPaalla tosi
   });
   it('(b) CF:n tulkinta seuraa selaimen RYHMAT-lippuja kummassakin ryhmässä: kun lib-lippu käännetään (kopio rakennetaan samasta lähteestä), CF näkee saman', () => {
-    const s4 = LIB.RYHMAT.s4.kirjoitus; LIB.RYHMAT.s4.kirjoitus = CF.RYHMAT.s4.kirjoitus = false;   // eristä hk/js-yhdistelmät s4:stä
+    LIB.RYHMAT.s4.kirjoitus = CF.RYHMAT.s4.kirjoitus = false;   // eristä hk/js-yhdistelmät s4:stä
     for (const [hk, js] of [[true, false], [false, true], [true, true], [false, false]]) {
       LIB.RYHMAT.henkilokunta.kirjoitus = hk; LIB.RYHMAT.jaksofokus_sisainen.kirjoitus = js;
       const odotettu = hk || js;
