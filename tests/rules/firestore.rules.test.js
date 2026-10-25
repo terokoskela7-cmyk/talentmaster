@@ -2115,6 +2115,55 @@ describe('IDP-kausitavoite (idp_kausi) — Vaihe 3a', () => {
   });
 });
 
+describe('IDP pelaajalle (idp_pelaaja) — Vaihe 1 · PR 1f-1 (v3.71)', () => {
+  const PUHDAS = { tavoitteet: [{ status: 'aktiivinen', fokus: { nimi: 'Lyhyt syöttö' }, kuvaus: '', pelaajan_tavoite: '', perustelu: { pelilause: '' }, mitattava: true, arviot: [{ win: true, pelaajan_note: '' }] }], paivitetty: '2026-10-26T00:00:00.000Z' };
+  const ipRef = (db) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'idp_pelaaja', '2026');
+  beforeEach(async () => { await seedSeuraAndPelaaja(); });   // pelaajadokumentti (huoltajaEmail) tarvitaan onLapsenHuoltaja-haaraan
+  const SIT = (v) => ({ pelaaja_sitoumus: { itsearvio: { q1: 'a' }, rekisteri: 'showcase', sitoumus_pvm: '2026-10-01', vahvistettu_pvm: v === undefined ? null : v }, paivitetty: '2026-10-01T00:00:00.000Z' });
+
+  it('Johto ja oman seuran valmentaja kirjoittavat; toisen seuran ei (tenant-eristys)', async () => {
+    await assertSucceeds(setDoc(ipRef(vpContext(SEURA_A).firestore()), PUHDAS));
+    await assertSucceeds(setDoc(ipRef(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), PUHDAS));
+    await assertFails(setDoc(ipRef(randomContext().firestore()), PUHDAS));
+  });
+  it('Pelaaja (token) ja huoltaja LUKEVAT; vieras ei', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { await setDoc(ipRef(ctx.firestore()), PUHDAS); });
+    await assertSucceeds(getDoc(ipRef(pelaajaItseContext().firestore())));
+    await assertSucceeds(getDoc(ipRef(huoltajaContext().firestore())));
+    await assertSucceeds(getDoc(ipRef(vpContext(SEURA_A).firestore())));
+    await assertFails(getDoc(ipRef(randomContext().firestore())));
+  });
+  it('Pelaaja EI kirjoita tavoitteita; huoltaja EI kirjoita mitään', async () => {
+    await assertFails(setDoc(ipRef(pelaajaItseContext().firestore()), PUHDAS));
+    await assertFails(setDoc(ipRef(pelaajaItseContext().firestore()), Object.assign({ tavoitteet: [] }, SIT())));
+    await assertFails(setDoc(ipRef(huoltajaContext().firestore()), SIT()));
+  });
+  it('Pelaaja LUO ja PÄIVITTÄÄ oman sitoumuksensa; ei voi asettaa eikä muuttaa vahvistettu_pvm:ää', async () => {
+    await assertSucceeds(setDoc(ipRef(pelaajaItseContext().firestore()), SIT()));
+    await assertFails(setDoc(ipRef(pelaajaItseContext().firestore()), SIT('2026-10-02T00:00:00.000Z'), { merge: true }));
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { await setDoc(ipRef(ctx.firestore()), Object.assign({}, PUHDAS, SIT('2026-09-01T00:00:00.000Z'))); });
+    await assertSucceeds(setDoc(ipRef(pelaajaItseContext().firestore()), SIT('2026-09-01T00:00:00.000Z'), { merge: true }));   // vahvistus ennallaan
+    await assertFails(setDoc(ipRef(pelaajaItseContext().firestore()), SIT('2026-09-02T00:00:00.000Z'), { merge: true }));
+    await assertFails(setDoc(ipRef(pelaajaItseContext().firestore()), SIT(null), { merge: true }));   // vahvistuksen nollaus
+  });
+  it('Henkilökunta vahvistaa sitoumuksen (vahvistettu_pvm)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { await setDoc(ipRef(ctx.firestore()), Object.assign({}, PUHDAS, SIT())); });
+    await assertSucceeds(setDoc(ipRef(vpContext(SEURA_A).firestore()), SIT('2026-10-03T00:00:00.000Z'), { merge: true }));
+  });
+  it('Poisto vain SA', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { await setDoc(ipRef(ctx.firestore()), PUHDAS); });
+    await assertFails(deleteDoc(ipRef(valmentajaContext(VALM_A_UID, SEURA_A).firestore())));
+    await assertFails(deleteDoc(ipRef(pelaajaItseContext().firestore())));
+  });
+  it('idp_kausi ENNALLAAN (v3.71 ei kavenna): pelaaja lukee ja kirjoittaa sitoumuksensa vielä', async () => {
+    const kRef = (db) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'idp_kausi', '2026');
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { await setDoc(kRef(ctx.firestore()), { tavoitteet: [] }); });
+    await assertSucceeds(getDoc(kRef(pelaajaItseContext().firestore())));
+    await assertSucceeds(setDoc(kRef(pelaajaItseContext().firestore()), { pelaaja_sitoumus: SIT().pelaaja_sitoumus }, { merge: true }));
+    await assertFails(getDoc(kRef(huoltajaContext().firestore())));
+  });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Vaihe 7.2a (v3.12) — ohjelmakirjasto seurat/{sid}/ohjelmat/{id}
 // ═══════════════════════════════════════════════════════════════════════════

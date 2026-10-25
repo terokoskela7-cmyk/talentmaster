@@ -1,9 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.70
+// TalentMaster™ — firestore.rules v3.71
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.70 → v3.71 (Vaihe 1 · PR 1f-1 (idp_pelaaja perusta): ADDITIIVINEN — uusi alikokoelma, ei kiristä eikä muuta mitään olemassa olevaa):
+//   · UUSI seurat/{sid}/pelaajat/{pid}/idp_pelaaja/{vuosi}: pelaajan §7.22-muotoinen IDP (tavoitteen nimi + sanatila, EI lukuja) + pelaaja_sitoumus. Lukijat: SA | oman seuran johto/valmentaja | pelaaja itse | lapsen huoltaja.
+//     Kirjoittajat: kuten idp_kausi (SA | oman seuran valmentaja | johto); pelaaja itse VAIN pelaaja_sitoumus (+ paivitetty), vahvistettu_pvm ei muutu (sama vartija kuin idp_kausi). Delete vain SA.
+//   · idp_kausi EI muutu tässä: pelaaja lukee ja kirjoittaa sitä edelleen (P7 lukee sieltä, kunnes lippu käännetään). idp_kausi suljetaan pelaajalta ja pelaaja_sitoumus-kirjoitusoikeus poistetaan
+//     VASTA siivouksessa lipun käännön jälkeen (oma Rules-versio) — muuten nykyinen P7 menettäisi tavoitteensa heti mergessä (Rules deployataan CI:llä).
 //
 // Muutokset v3.69 → v3.70 (Vaihe 1 · PR 1e-1 (viipale S4 perusta + tuoja-korjaus): ADDITIIVINEN — vain LAAJENTAA sisainen/tiedot-kirjoittajia kahdelle kapealle avainjoukolle, ei kiristä mitään):
 //   · sisainen/tiedot: TESTIVASTAAVA (oma seura) saa kirjoittaa VAIN kasvumittauksen kypsyys_sisainen-avaimet (kasvutahti_cm_v, kasvutahti_vyohyke, maturity_offset, kehitysvaihe_kaista, kronologinen_ika, phv_raaka, phv_huom, phv_ongelma) + seuraId/paivitetty.
@@ -1860,6 +1866,30 @@ service cloud.firestore {
                         || (onPelaajaItse(seuraId, pelaajaId)
                             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pelaaja_sitoumus', 'paivitetty'])
                             && request.resource.data.pelaaja_sitoumus.vahvistettu_pvm ==
+                               (('pelaaja_sitoumus' in resource.data) ? resource.data.pelaaja_sitoumus.get('vahvistettu_pvm', null) : null));
+          allow delete: if onSuperAdmin();
+        }
+
+        // ── IDP pelaajalle (v3.71, Vaihe 1 · PR 1f) ───────────────────────
+        // seurat/{sid}/pelaajat/{pid}/idp_pelaaja/{vuosi} → { tavoitteet: [§7.22-tavoite], pelaaja_sitoumus, paivitetty }.
+        // Tavoite on puhdistettu (nimi, status, pelaajan oma ääni, win-liput; EI mittaria/lähtöä/tavoitearvoa/arvoja/perustelu.teksti:ä). Henkilökunnan raaka tavoite pysyy idp_kausi:ssa.
+        // Pelaaja kirjoittaa vain oman sitoumuksensa (kuten idp_kausi:ssa); VP/johto/valmentaja vahvistaa (vahvistettu_pvm).
+        match /idp_pelaaja/{vuosi} {
+          allow read:   if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()))
+                        || onPelaajaItse(seuraId, pelaajaId)
+                        || onLapsenHuoltaja(seuraId, pelaajaId);
+          allow create: if onSuperAdmin()
+                        || onOmanSeuranValmentaja(seuraId)
+                        || (onOmaSeura(seuraId) && onJohtoRooli())
+                        || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.keys().hasOnly(['pelaaja_sitoumus', 'paivitetty'])
+                            && request.resource.data.pelaaja_sitoumus.get('vahvistettu_pvm', null) == null);
+          allow update: if onSuperAdmin()
+                        || onOmanSeuranValmentaja(seuraId)
+                        || (onOmaSeura(seuraId) && onJohtoRooli())
+                        || (onPelaajaItse(seuraId, pelaajaId)
+                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pelaaja_sitoumus', 'paivitetty'])
+                            && request.resource.data.pelaaja_sitoumus.get('vahvistettu_pvm', null) ==
                                (('pelaaja_sitoumus' in resource.data) ? resource.data.pelaaja_sitoumus.get('vahvistettu_pvm', null) : null));
           allow delete: if onSuperAdmin();
         }
