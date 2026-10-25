@@ -32,8 +32,8 @@ Lippu `TM_IDP_PELAAJA_DOK.LIPPU.kirjoitus` (**oletus POIS**) ohjaa kirjoituksen 
 
 | PR | Sisältö | Tila |
 |---|---|---|
-| **1f-1** (tämä) | lib, Rules v3.71, testit, kytkentäohje; `tm_idp_pelaaja.js` ymmärtää `win`/`mitattava` (P7 `?v=2`, `sw_pelaaja` v156). Ei kirjoittajia/lukijoita kytketty. | draft |
-| **1f-2** | Henkilökunnan kirjoittajat + lukijat: Master, VP, Kehitystyöpöytä/`tm_idp_lomake` kirjoittavat tavoitteen ja elinkaaren molempiin; sitoumuksen vahvistus (Master:6842, VP:7507, Kehitystyöpöytä:521) → `tmIdpSitoumusKirjoita`; henkilökunnan sitoumuslukijat (VP:7349/7369, `tm_kehitystilanne:113`) dual-readiin; migraatioskripti `scripts/migroi_idp_pelaaja.js` (dry-run oletus, ADC, kuten `migroi_sisainen_s4.js`). | — |
+| **1f-1** (tämä) | lib, Rules v3.71, testit, kytkentäohje; `tm_idp_pelaaja.js` ymmärtää `win`/`mitattava` (P7 `?v=2`, `sw_pelaaja` v156). Ei kirjoittajia/lukijoita kytketty. | mergetty (#1141) |
+| **1f-2** | Henkilökunnan kirjoittajat + lukijat: Master, VP, Kehitystyöpöytä/`tm_idp_lomake` kirjoittavat tavoitteen ja elinkaaren molempiin; sitoumuksen vahvistus (Master:6842, VP:7507, Kehitystyöpöytä:521) → `tmIdpSitoumusKirjoita`; henkilökunnan sitoumuslukijat (VP:7349/7369, `tm_kehitystilanne:113`) dual-readiin; migraatioskripti `scripts/migroi_idp_pelaaja.js` (dry-run oletus, ADC, kuten `migroi_sisainen_s4.js`). | — | **Tehty (draft):** kirjoittajat Master `_mIdpTallennaDok`, VP `_vpTallennaIdpDok`, `lib/tm_idp_lomake.js` (`?v=5`) — `tmIdpPelaajaVarapolulla`+`tmIdpPelaajaLisaa` samaan transaktioon; vahvistukset → `tmIdpSitoumusKirjoita`; lukijat `tmIdpPelaajaLueSitoumus` (uusi apuri: lippu pois = ei lisäkyselyä, virhe → `idp_kausi`): Master, VP-lataus, Kehitystyöpöytä, Seura/kehitystilanne (`_ktLataa`); `scripts/migroi_idp_pelaaja.js` (dry-run oletus). Lippu pois → käytös ennallaan.
 | **1f-3** | Pelaajan puoli: P7 `_p7LataaTavoite` lukee `tmIdpPelaajaValitse`n kautta, `_p7TallennaSitoumus` (:3105) → `tmIdpSitoumusKirjoita`; `tm_idp_pelaaja_dok.js` P7:n skripteihin + `sw_pelaaja`; Vanhempi_v2 ei lue `idp_kausi`a (ei muutosta, vain Rules-oikeus on valmiina). | — |
 
 ## Kytkentäjärjestys (kun 1f-1 → 1f-3 on mergetty)

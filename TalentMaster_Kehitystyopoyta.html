@@ -89,7 +89,8 @@
 <script src="lib/tm_kt_klippi.js?v=1"></script>   <!-- K1: klipin lähetys sheetinä (Polku ⋯ Lisää klippi + viikkohavainnon VEO-linkki) -->
 <script src="lib/tm_historia_lause.js?v=2"></script>   <!-- 0b-jatko: suljetun jakson lause (myös sisäinen) + sulkupäivä Historiaan -->
 <script src="lib/tm_kt_polku.js?v=15"></script>
-<script src="lib/tm_idp_lomake.js?v=4"></script>   <!-- K3b: kausitavoite sheetinä (sama lomake ja logiikka kuin Masterin IDP-kortissa) -->
+<script src="lib/tm_idp_lomake.js?v=5"></script>   <!-- K3b: kausitavoite sheetinä (sama lomake ja logiikka kuin Masterin IDP-kortissa) -->
+<script src="lib/tm_idp_pelaaja_dok.js?v=1"></script>   <!-- Vaihe 1 · PR 1f-2: idp_pelaaja-dual-write (lippu pois oletuksena) -->
 <script src="lib/tm_tasovari.js?v=2"></script>
 <script src="lib/tm_adar_tekstit.js?v=6"></script>
 <script src="lib/tm_adar_pelitilanne.js?v=2"></script>
@@ -518,10 +519,12 @@ window._ktVahvistaSitoumus = async function (pid) {
   try {
     const cu = _auth.currentUser; await cu.getIdToken(true);
     const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear()), pRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid), kRef = pRef.collection('idp_kausi').doc(vuosi);
-    const sn = await kRef.get(), sit = sn.exists ? ((sn.data() || {}).pelaaja_sitoumus || null) : null;
+    const sn = await kRef.get(), _IPD = window.TM_IDP_PELAAJA_DOK, sit = _IPD ? await _IPD.tmIdpPelaajaLueSitoumus(_db, _seuraId, pid, vuosi, sn.exists ? sn.data() : null, {}) : (sn.exists ? ((sn.data() || {}).pelaaja_sitoumus || null) : null);   // PR 1f-2: dual-read (lippu)
     if (!sit || !sit.sitoumus_pvm) { toast(TT('Sitoumusta ei löytynyt')); return; }
     if (sit.jakso_alkoi != null && jakso != null && sit.jakso_alkoi !== jakso) { toast(TT('Sitoumus on edelliseltä jaksolta')); return; }
-    await kRef.set({ pelaaja_sitoumus: { vahvistettu_pvm: new Date().toISOString(), vahvistettu_jakso_alkoi: jakso, vahvistaja_rooli: (_superAdmin || ['vp', 'urheilutoimenjohtaja'].indexOf(_rooli) >= 0) ? 'vp' : (_rooli || 'valmentaja'), vahvistaja_uid: cu ? cu.uid : null }, paivitetty: new Date().toISOString() }, { merge: true });
+    const _sitV = { vahvistettu_pvm: new Date().toISOString(), vahvistettu_jakso_alkoi: jakso, vahvistaja_rooli: (_superAdmin || ['vp', 'urheilutoimenjohtaja'].indexOf(_rooli) >= 0) ? 'vp' : (_rooli || 'valmentaja'), vahvistaja_uid: cu ? cu.uid : null };
+    if (_IPD) await _IPD.tmIdpSitoumusKirjoita(_db, _seuraId, pid, vuosi, _sitV, { kausiLisa: { paivitetty: new Date().toISOString() } });   // PR 1f-2: idp_kausi + idp_pelaaja (lippu)
+    else await kRef.set({ pelaaja_sitoumus: _sitV, paivitetty: new Date().toISOString() }, { merge: true });
     await pRef.set({ idp_sitoumus_vahv_jakso: jakso }, { merge: true });
     p.idp_sitoumus_vahv_jakso = jakso; toast(TT('Sitoumus vahvistettu ✓')); _nayta();
   } catch (e) { console.warn('[A1] vahvistaSitoumus:', e && e.message); toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(TT('Vahvistus epäonnistui'), e)); }

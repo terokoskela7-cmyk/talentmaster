@@ -146,7 +146,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kaavio_ui.js?v=9"></script>         <!-- Taktiikkataulun UI-ohjain, JAETTU VP_v25:n kanssa (host-adapteri yllä) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=16"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
-<script src="lib/tm_idp_lomake.js?v=4"></script>   <!-- K3b: kausitavoitteen lomake (muokkausosa + logiikka) yhteinen Kehitystyöpöytä-sivun kanssa -->
+<script src="lib/tm_idp_lomake.js?v=5"></script>   <!-- K3b: kausitavoitteen lomake (muokkausosa + logiikka) yhteinen Kehitystyöpöytä-sivun kanssa -->
+<script src="lib/tm_idp_pelaaja_dok.js?v=1"></script>   <!-- Vaihe 1 · PR 1f-2: idp_pelaaja-dual-write (lippu pois oletuksena) -->
 <script src="lib/tm_pelialy_yksilo.js?v=8"></script>
 <script src="lib/tm_adar_tekstit.js?v=6"></script>   <!-- Pelitilanne: luotettavuustekstit (FI-kartta + tmLibT) -->
 <script src="lib/tm_adar_pelitilanne.js?v=2"></script>   <!-- Pelitilanne Vaihe 1: luotettavuus + jakaumat (vain valmentajalle) -->   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
@@ -6839,10 +6840,12 @@ window._ktVahvistaSitoumus = async function (pid) {
     const cu = firebase.auth().currentUser; await _mTuoreToken(cu);   // yhteystesti + tuore token (M_VERKKO)
     const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
     const pRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid), kRef = pRef.collection('idp_kausi').doc(vuosi);
-    const sn = await kRef.get(), s = sn.exists ? ((sn.data() || {}).pelaaja_sitoumus || null) : null;
+    const sn = await kRef.get(), _IPD = window.TM_IDP_PELAAJA_DOK, s = _IPD ? await _IPD.tmIdpPelaajaLueSitoumus(_db, _seuraId, pid, vuosi, sn.exists ? sn.data() : null, {}) : (sn.exists ? ((sn.data() || {}).pelaaja_sitoumus || null) : null);   // PR 1f-2: dual-read (lippu)
     if (!s || !s.sitoumus_pvm) { toast(masterT('Sitoumusta ei löytynyt'), 'error'); return; }
     if (s.jakso_alkoi != null && jakso != null && s.jakso_alkoi !== jakso) { toast(masterT('Sitoumus on edelliseltä jaksolta'), 'error'); return; }
-    await kRef.set({ pelaaja_sitoumus: { vahvistettu_pvm: new Date().toISOString(), vahvistettu_jakso_alkoi: jakso, vahvistaja_rooli: _kvkLahde() === 'vp' ? 'vp' : (_rooli || 'valmentaja'), vahvistaja_uid: cu ? cu.uid : null }, paivitetty: new Date().toISOString() }, { merge: true });
+    const _sitV = { vahvistettu_pvm: new Date().toISOString(), vahvistettu_jakso_alkoi: jakso, vahvistaja_rooli: _kvkLahde() === 'vp' ? 'vp' : (_rooli || 'valmentaja'), vahvistaja_uid: cu ? cu.uid : null };
+    if (_IPD) await _IPD.tmIdpSitoumusKirjoita(_db, _seuraId, pid, vuosi, _sitV, { kausiLisa: { paivitetty: new Date().toISOString() } });   // PR 1f-2: idp_kausi + idp_pelaaja (lippu)
+    else await kRef.set({ pelaaja_sitoumus: _sitV, paivitetty: new Date().toISOString() }, { merge: true });
     await pRef.set({ idp_sitoumus_vahv_jakso: jakso }, { merge: true });
     p.idp_sitoumus_vahv_jakso = jakso; toast(masterT('Sitoumus vahvistettu ✓'), 'ok'); _ktPaivita();
   } catch (e) { console.warn('[A1] vahvistaSitoumus:', e && e.message); toast(masterT('Vahvistus epäonnistui'), 'error'); }
@@ -7782,7 +7785,7 @@ async function _mIdpTallennaDok(p, viesti) {
        joten vanha jäisi toiseen dokkiin tilaan 'aktiivinen'. Sama kokoelma/roolit → ei Rules-muutosta. */
     const _toinenVuosi = (p._idpVuosi && p._idpVuosi !== vuosi && p._idpVuosiLuotu && p._idpVuosiLuotu !== t.luotu && idpOnVoimassa(t)) ? p._idpVuosi : null;
     const _toinenRef = _toinenVuosi ? ref.collection('idp_kausi').doc(_toinenVuosi) : null;
-    await _db.runTransaction(async function (tx) {
+    const _IPD = window.TM_IDP_PELAAJA_DOK, _ajaTx = async function (mukaan) { await _db.runTransaction(async function (tx) {   // PR 1f-2: idp_pelaaja samaan transaktioon (lippu); permission-denied → uusi yritys ilman
       // KAIKKI LUKEMISET ENNEN KIRJOITUKSIA (Firestore-transaktion sääntö).
       const s = await tx.get(kausiRef);
       const s2 = _toinenRef ? await tx.get(_toinenRef) : null;
@@ -7797,7 +7800,9 @@ async function _mIdpTallennaDok(p, viesti) {
       tx.set(kausiRef, { tavoitteet: yhd, paivitetty: new Date().toISOString() }, { merge: true });
       // null = ei merkittävää (jo vaihdettu tai ei löytynyt) → ei turhaa kirjoitusta.
       if (toinenYhd) tx.set(_toinenRef, { tavoitteet: toinenYhd, paivitetty: new Date().toISOString() }, { merge: true });
-    });
+      if (mukaan && _IPD) { _IPD.tmIdpPelaajaLisaa(tx, _db, _seuraId, p.id, vuosi, yhd, {}); if (toinenYhd) _IPD.tmIdpPelaajaLisaa(tx, _db, _seuraId, p.id, _toinenVuosi, toinenYhd, {}); }
+    }); };
+    if (_IPD) await _IPD.tmIdpPelaajaVarapolulla({}, _ajaTx); else await _ajaTx(false);
     const _idpUpd = { idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_lahde: pk.idp_lahde || null };
     if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmHenkilokuntaKirjoita === 'function') await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, p.id, _idpUpd, { pelaajaSet: true });   // PR 1c-3: idp_edistyma/_lahde/_viim_review dual-write (lippu pois = set-merge kuten ennen)
     else await ref.set(_idpUpd, { merge: true });
