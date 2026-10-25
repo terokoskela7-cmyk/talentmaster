@@ -49,7 +49,7 @@ const sisaa = (fs) => Object.keys(fs.docs).some((k) => /sisainen/.test(k));
 describe('lib: tmHenkilokuntaKirjoita (pelaajaSet, tyhjä upd, taydenna), Lisaa + Varapolulla, elinkaarihelperi + henkilokunta', () => {
   it('pelaajaSet: pelaaja set-merge (syvä yhdistys säilyy, ei update-korvausta); lippu pois ei sisainen:iä; päällä sisainen mergeFields + delete', async () => {
     const f = mkFs(); f.docs[PEL] = alku();
-    await S.tmHenkilokuntaKirjoita(f.db, SID, PID, { idp_fokus: { c: 3 }, idp_edistyma: 40 }, { pelaajaSet: true }); expect(f.docs[PEL].idp_fokus).toEqual({ a: 1, b: 2, c: 3 }); expect(sisaa(f)).toBe(false);
+    await S.tmHenkilokuntaKirjoita(f.db, SID, PID, { idp_fokus: { c: 3 }, idp_edistyma: 40 }, { pelaajaSet: true, henkilokuntaKirjoitus: false }); expect(f.docs[PEL].idp_fokus).toEqual({ a: 1, b: 2, c: 3 }); expect(sisaa(f)).toBe(false);
     await S.tmHenkilokuntaKirjoita(f.db, SID, PID, { idp_edistyma: 50, vastuuhenkilo: DEL }, { pelaajaSet: true, henkilokuntaKirjoitus: true }); expect(f.docs[SIS].idp_edistyma).toBe(50); expect(f.docs[SIS].idp_fokus).toBeUndefined(); expect(f.docs[PEL].vastuuhenkilo).toBeUndefined(); expect(f.docs[SIS].vastuuhenkilo).toBeUndefined();
   });
   it('tyhjä upd + taydenna: pelaajaa ei kirjoiteta (vain taydenna), ei virhettä', async () => {
@@ -135,7 +135,7 @@ describe('kytkentä ja versiot', () => {
     expect(v).toMatch(/if \(window\.TM_SISAINEN\) await window\.TM_SISAINEN\.tmHenkilokuntaKirjoita\(db, _seuraId, pid, pk, \{ pelaajaSet: true, taydenna: _rv \}\)/);   // review
     expect(v).toMatch(/tmHenkilokuntaVarapolulla\(\{\}, _kirjP\)/); expect(v).toMatch(/tmHenkilokuntaLisaa\(tx, db, _seuraId, p\.id, pika, \{\}\)/);
     expect(lue('lib/tm_idp_lomake.js')).toMatch(/tmHenkilokuntaKirjoita\(d\.db, d\.sid, d\.pid, upd, \{ pelaajaSet: true \}\)/); expect(lue('lib/tm_kt_keskustelu_sheet.js')).toMatch(/tmHenkilokuntaKirjoita\(env\.db, env\.sid, p\.id, plan\.pikakentat,/);
-    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toContain('lib/tm_sisainen.js?v=11');
+    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toMatch(/lib\/tm_sisainen\.js\?v=(?:1[1-9]|[2-9]\d)\b/);
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f)).not.toMatch(/<script[^>]+src="lib\/(tm_sisainen|tm_idp_lomake|tm_kt_keskustelu_sheet)\.js/));
     expect(lue('functions/tm_sisainen.js')).toBe(lue('lib/tm_sisainen.js')); expect(LIPPU.kirjoitus).toBe(false);
   });

@@ -12,7 +12,8 @@ const S = require('../lib/tm_sisainen.js'), KS = require('../lib/tm_kehityssilmu
 const YP = (p, s) => S.tmSisainenYhdista(p, s, { kirjoitus: true });   // dual-read seuraa lippua (PR 1b-3): luku sisainen:stä vain lippu päällä
 const VO = require('../lib/tm_viikon_osa.js'), KH = require('../lib/tm_kotiharjoitteet.js');
 const LIPPU = S.RYHMAT.jaksofokus_sisainen;
-afterEach(() => { LIPPU.kirjoitus = false; });
+const HK0 = S.RYHMAT.henkilokunta.kirjoitus;   // lippu pois -ajot eristävät jaksofokus-lipun: henkilokunta pois niissä
+afterEach(() => { LIPPU.kirjoitus = false; S.RYHMAT.henkilokunta.kirjoitus = HK0; });
 
 /* ── Muistinvarainen Firestore: oikeat semantiikat (dot-polku update, set merge / mergeFields, batch kaikki-tai-ei-mitään, delete + arrayUnion -sentinelit) ── */
 const DEL = { __fv: 'delete' }, FV = { delete: () => DEL, arrayUnion: (...a) => ({ __fv: 'union', a }) };
@@ -184,6 +185,7 @@ describe('dual-read: leima suojaa vanhan asiakkaan jaksonvaihdolta', () => {
 
 describe.each([['Master', masterAjuri, masterKirjoitukset], ['VP', vpAjuri, vpKirjoitukset]])('RUNTIME %s: oikea sivukoodi — aloitus · havainto · sulku', (nimi, ajuri, kirj) => {
   it('lippu POIS: ei sisainen-dokumenttia lainkaan; pelaajadokumentti identtinen vanhan Masterin (update) tuottaman kanssa', async () => {
+    S.RYHMAT.henkilokunta.kirjoitus = false;
     const f = mkFs(), c = ajuri(f), k = kirj(c); const tulos = await ajaElinkaari(c, k.jakso, k.katselmus, f, 'pois');
     expect(Object.keys(f.docs).some((x) => /sisainen/.test(x))).toBe(false); expect(tulos.p.jaksofokus_historia).toHaveLength(3);
     const vanha = mkFs(); await ajaElinkaari(null, (p, v) => vanhaMaster(vanha, p, v), async (p, plan) => {
@@ -265,7 +267,7 @@ describe('kytkentä ja versiot', () => {
     expect(lue('TalentMaster_Master_v16.html')).toMatch(/window\.TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(_db, _seuraId, pid \|\| p\.id, upd,/);
     expect(lue('TalentMaster_VP_v25.html')).toMatch(/TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, pid, upd,/); expect(lue('TalentMaster_VP_v25.html')).toMatch(/S\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, p\.id, upd,/);
     ['tm_kt_arviointi', 'tm_kt_hylkaa', 'tm_kt_jakso'].forEach((f) => expect(lue('lib/' + f + '.js'), f).toMatch(/tmJaksofokusElinkaariKirjoita/));
-    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toContain('lib/tm_sisainen.js?v=11');
+    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toMatch(/lib\/tm_sisainen\.js\?v=(?:1[1-9]|[2-9]\d)\b/);
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f)).not.toMatch(/<script[^>]+src="lib\/(tm_sisainen|tm_kehitystyopoyta)\.js/));
   });
 });

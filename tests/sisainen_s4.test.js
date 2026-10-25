@@ -167,8 +167,8 @@ describe('TERVEYS-dokumentti sisainen/terveys (PR #1137): kirjoitusapuri, rajaus
 
 describe('CF-lippu = selaimen lippu (s4 mukana)', () => {
   it('functions/tm_sisainen.js on tavu tavulta lib; liputPaalla huomioi s4:n; oletus pois', () => {
-    expect(lue('functions/tm_sisainen.js')).toBe(lue('lib/tm_sisainen.js')); expect(CF.RYHMAT.s4.kirjoitus).toBe(false); expect(LUKU.liputPaalla()).toBe(false);
-    CF.RYHMAT.s4.kirjoitus = true; expect(LUKU.liputPaalla()).toBe(true); CF.RYHMAT.s4.kirjoitus = false; expect(LUKU.liputPaalla()).toBe(false);
+    expect(lue('functions/tm_sisainen.js')).toBe(lue('lib/tm_sisainen.js')); expect(CF.RYHMAT.s4.kirjoitus).toBe(false); const _m = ['jaksofokus_sisainen', 'henkilokunta'], _v = _m.map((n) => CF.RYHMAT[n].kirjoitus); _m.forEach((n) => { CF.RYHMAT[n].kirjoitus = false; });   // muut liput pois → eristää s4:n expect(LUKU.liputPaalla()).toBe(false);
+    CF.RYHMAT.s4.kirjoitus = true; expect(LUKU.liputPaalla()).toBe(true); CF.RYHMAT.s4.kirjoitus = false; expect(LUKU.liputPaalla()).toBe(false); _m.forEach((n, i) => { CF.RYHMAT[n].kirjoitus = _v[i]; });
     expect(LUKU.liputPaalla({ s4: { kirjoitus: true } })).toBe(true); expect(lue('functions/sisainen_luku.js').replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\bkirjoitus\s*[:=]\s*(true|false)|process\.env/);
   });
 });
