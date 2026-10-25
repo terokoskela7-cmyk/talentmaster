@@ -52,12 +52,12 @@ after(() => fft.cleanup());
 
 const SID = 'kpv', PID = 'p1';
 const HK = S.RYHMAT.henkilokunta, JS = S.RYHMAT.jaksofokus_sisainen;
-const lippu = (hk, js) => { HK.kirjoitus = !!hk; JS.kirjoitus = !!js; };
+const lippu = (hk, js) => { HK.kirjoitus = !!hk; JS.kirjoitus = !!js; S.RYHMAT.s4.kirjoitus = false; };   // testit eristävät kaksi lippua; s4 pois (oma testinsä)
 function alusta() { STORE.clear(); KIRJOITUKSET.length = 0; LUVUT = { cg: 0, sisainenDoc: 0 }; CG_VIRHE = false; lippu(false, false); }
 afterEach(() => lippu(false, false));
 
-test('liputPaalla: oletus pois; kumpi tahansa lippu (henkilokunta tai jaksofokus) → päällä; ryhmat-parametri ohittaa', () => {
-  assert.strictEqual(L.liputPaalla(), false); lippu(true, false); assert.strictEqual(L.liputPaalla(), true); lippu(false, true); assert.strictEqual(L.liputPaalla(), true);
+test('liputPaalla: kaikki pois → pois; kumpi tahansa lippu (henkilokunta tai jaksofokus) → päällä; ryhmat-parametri ohittaa', () => {
+  lippu(false, false); assert.strictEqual(L.liputPaalla(), false); lippu(true, false); assert.strictEqual(L.liputPaalla(), true); lippu(false, true); assert.strictEqual(L.liputPaalla(), true);
   lippu(false, false); assert.strictEqual(L.liputPaalla({ henkilokunta: { kirjoitus: true } }), true);
 });
 
