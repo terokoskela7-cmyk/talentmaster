@@ -120,9 +120,9 @@ describe('Rules v3.71 (tekstitarkistus; toiminta: tests/rules/firestore.rules.te
   it('idp_kausi EI kavennettu tässä PR:ssä (pelaaja lukee ja kirjoittaa sitoumuksensa edelleen; siivous lipun jälkeen)', () => {
     const b = blokki('idp_kausi'); expect(b).toMatch(/onPelaajaItse\(seuraId, pelaajaId\);\s*\/\/ pelaaja lukee oman kausitavoitteensa/); expect(b).toMatch(/hasOnly\(\['pelaaja_sitoumus'\]\)/); expect(b).not.toMatch(/onLapsenHuoltaja/);
   });
-  it('lib on kytketty henkilökunnan sivuihin (1f-2) mutta ei vielä pelaajan/huoltajan (1f-3); lippu pois', () => {
-    ['Pelaaja_v7', 'Vanhempi_v2'].forEach((s) => expect(lue('TalentMaster_' + s + '.html')).not.toContain('tm_idp_pelaaja_dok'));
-    ['Master_v16', 'VP_v25', 'Kehitystyopoyta', 'Seura'].forEach((s) => expect(lue('TalentMaster_' + s + '.html')).toContain('lib/tm_idp_pelaaja_dok.js?v=1'));
+  it('lib on kytketty henkilökunnan (1f-2) ja pelaajan (1f-3) sivuihin, ei Vanhempaan; lippu pois', () => {
+    expect(lue('TalentMaster_Vanhempi_v2.html')).not.toContain('tm_idp_pelaaja_dok');
+    ['Pelaaja_v7', 'Master_v16', 'VP_v25', 'Kehitystyopoyta', 'Seura'].forEach((s) => expect(lue('TalentMaster_' + s + '.html')).toContain('lib/tm_idp_pelaaja_dok.js?v=1'));
     expect(D.LIPPU.kirjoitus).toBe(false);
   });
 });
