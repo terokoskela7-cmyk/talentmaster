@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-/* migroi_sisainen_s4.js — Tietoturva vaihe 1 / PR 1e-1 (viipale S4): kopioi viiden ryhmän kentät pelaajadokumentista `sisainen/tiedot`:iin.
+/* migroi_sisainen_s4.js — Tietoturva vaihe 1 / PR 1e-1 (viipale S4): kopioi S4-ryhmien kentät pelaajadokumentista `sisainen/tiedot`:iin — TERVEYSKENTÄT (käytettävyys, loukkaantuminen, paluu; GDPR art. 9) omaan dokumenttiinsa `sisainen/terveys` (seuraavain terveysSeuraId).
  *
- * Ryhmät (lib/tm_sisainen.js, lippu RYHMAT.s4.kirjoitus): adar_sisainen · arviointi · kypsyys_sisainen (+ vanhempien pituudet) · talentti_terveys · signaali.
+ * Ryhmät (lib/tm_sisainen.js, lippu RYHMAT.s4.kirjoitus): adar_sisainen · arviointi · kypsyys_sisainen (+ vanhempien pituudet) · talentti · signaali · terveys (oma dokumentti).
  * JAETUT ARVOT: signaali → vain talenttisignaalit (SIGNAALI_SISAINEN: xfactor, x-factor, hidden-gem, hidden) kopioidaan; 'phv' ja muut jäävät pelaajalle. havainto_porras_ehdotus.hist → sisainen.havainto_porras_hist (pelaajalle jää {valmis, seuraava} + hist; hist_n lasketaan PR 2:n siivouksessa ennen hist:in poistoa — P7 lukee hist_n ?? hist.length).
  * KOPIOI, EI POISTA: vanhat kentät jäävät pelaajadokumenttiin (dual-write/dual-read -siirtymä); poisto on PR 2:n siivous.
  * IDEMPOTENTTI, samat kolme sääntöä kuin migroi_sisainen_henkilokunta.js: (1) yksikköä ei sisainen:ssä → kopioi; (2) molemmissa → SISAINEN VOITTAA (eroaa++), puuttuvat lehdet täydennetään; (3) pelaajadokumentin yksikön pvm myöhäisempi → VANHENTUNUT, korvataan pelaajadokumentin arvoilla.
  *   Päivämäärälliset yksiköt: adar (havainto_viimeisin_pvm), arviointi (arviointi_kooste_pvm | arviointi_pvm). Muut päivämäärättömiä → eivät vanhene.
- * Kirjoitus: yksi set mergeFields per pelaaja. TULOSTE: vain lukumäärät (seuroittain) — ei nimiä, ei dokumentti-id:itä, ei sisältöä (loukkaantumis-/terveystieto GDPR art. 9).
+ * Kirjoitus: yksi set mergeFields per pelaaja ja dokumentti (tiedot, terveys). TULOSTE: vain lukumäärät (seuroittain) — ei nimiä, ei dokumentti-id:itä, ei sisältöä (loukkaantumis-/terveystieto GDPR art. 9).
  *
  * AJO (Teron kaista; gcloud ADC, EI palveluavainta). EI AJETA ennen kuin Rules v3.70 on deployattu ja PM on kuitannut dry-runin:
  *   Dry-run (OLETUS, ei kirjoita):                    node scripts/migroi_sisainen_s4.js            [--seura=<id>]
@@ -25,9 +25,11 @@ const YKSIKOT = [
   { nimi: 'adar_sisainen', kentat: RK.adar_sisainen.kentat, pvm: (x) => x.havainto_viimeisin_pvm },
   { nimi: 'arviointi', kentat: RK.arviointi.kentat, pvm: (x) => x.arviointi_kooste_pvm || x.arviointi_pvm },
   { nimi: 'kypsyys_sisainen', kentat: RK.kypsyys_sisainen.kentat, pvm: () => null },
-  { nimi: 'talentti_terveys', kentat: RK.talentti_terveys.kentat, pvm: () => null },
-  { nimi: 'signaali', kentat: RK.signaali.kentat, pvm: () => null }
+  { nimi: 'talentti', kentat: RK.talentti.kentat, pvm: () => null },
+  { nimi: 'signaali', kentat: RK.signaali.kentat, pvm: () => null },
+  { nimi: 'terveys', kentat: RK.terveys.kentat, pvm: () => null, dok: 'terveys' }   // GDPR art. 9 → OMA dokumentti sisainen/terveys (seuraavain terveysSeuraId), ei tiedot:iin
 ];
+const YKSIKOT_TIEDOT = YKSIKOT.filter((y) => !y.dok), YKSIKOT_TERVEYS = YKSIKOT.filter((y) => y.dok === 'terveys');
 /* Pelaajadokumentin LÄHDEARVOT migraatiolle: johdetut kentät (hist, talenttisignaali). 'phv'-signaali ei kopioidu. */
 function lahde(p) {
   const l = Object.assign({}, p || {});
@@ -50,9 +52,14 @@ function taydenna(vanha, uusi) {
 }
 
 /* PURE: mitä tälle pelaajalle kirjoitettaisiin? → { luokka:'ei_a'|'jo_siirretty'|'kopioi', kentat:{kenttä:arvo}, eroaa, vanhentunut, data|null, mergeFields|null } */
-function suunnittele(pelaaja, sisainen, sid, nytISO) {
-  const p = lahde(pelaaja), s = sisainen || {}, kirj = {}; let eroaa = 0, vanhentunut = 0, onA = false;
-  YKSIKOT.forEach((y) => {
+function suunnittele(pelaaja, sisainen, sid, nytISO, terveys) {
+  const p = lahde(pelaaja), r = suunnitteleDok(p, sisainen, YKSIKOT_TIEDOT, 'seuraId', sid, nytISO);
+  r.terveys = suunnitteleDok(p, terveys, YKSIKOT_TERVEYS, 'terveysSeuraId', sid, nytISO);   // sisainen/terveys — oma suunnitelma, sama kolmen säännön logiikka
+  return r;
+}
+function suunnitteleDok(p, sisainen, yksikot, seuraAvain, sid, nytISO) {
+  const s = sisainen || {}, kirj = {}; let eroaa = 0, vanhentunut = 0, onA = false;
+  yksikot.forEach((y) => {
     const polla = y.kentat.filter((k) => onArvo(p[k]));
     if (!polla.length) return; onA = true;
     const sisassa = y.kentat.filter((k) => onArvo(s[k]));
@@ -68,26 +75,28 @@ function suunnittele(pelaaja, sisainen, sid, nytISO) {
   if (!onA) return { luokka: 'ei_a', kentat: {}, eroaa: 0, vanhentunut: 0, data: null, mergeFields: null };
   const nimet = Object.keys(kirj);
   if (!nimet.length) return { luokka: 'jo_siirretty', kentat: {}, eroaa, vanhentunut, data: null, mergeFields: null };
-  return { luokka: 'kopioi', kentat: kirj, eroaa, vanhentunut, data: Object.assign({ seuraId: sid, paivitetty: nytISO }, kirj), mergeFields: ['seuraId', 'paivitetty'].concat(nimet) };
+  return { luokka: 'kopioi', kentat: kirj, eroaa, vanhentunut, data: Object.assign({ [seuraAvain]: sid, paivitetty: nytISO }, kirj), mergeFields: [seuraAvain, 'paivitetty'].concat(nimet) };
 }
 
 /* Ajo injektoidulla db:llä (testattavissa fake-Firestorella). deps: { db, kirjoita, seura, nytISO, loki(fn), BATCH } → yhteenveto */
 async function aja(deps) {
   const db = deps.db, loki = deps.loki || (() => {}), BATCH = deps.BATCH || 400, nytISO = deps.nytISO || new Date().toISOString();
   const seurat = deps.seura ? [deps.seura] : (await db.collection('seurat').get()).docs.map((d) => d.id);
-  const yht = { seuraa: seurat.length, pelaajia: 0, ei_a: 0, jo_siirretty: 0, kopioi: 0, kenttia: 0, eroaa: 0, vanhentunut: 0, kirjoitettu: 0 };
+  const yht = { seuraa: seurat.length, pelaajia: 0, ei_a: 0, jo_siirretty: 0, kopioi: 0, kenttia: 0, eroaa: 0, vanhentunut: 0, kirjoitettu: 0, terveys_kopioi: 0, terveys_kenttia: 0, terveys_eroaa: 0 };
   const kirj = [];
   for (const sid of seurat) {
     const snap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
-    const r = { ei_a: 0, jo_siirretty: 0, kopioi: 0, kenttia: 0, eroaa: 0, vanh: 0 };
+    const r = { ei_a: 0, jo_siirretty: 0, kopioi: 0, kenttia: 0, eroaa: 0, vanh: 0, t_kopioi: 0, t_kenttia: 0, t_eroaa: 0 };
     for (const d of snap.docs) {
-      const sref = d.ref.collection('sisainen').doc('tiedot'), ss = await sref.get();
-      const pl = suunnittele(d.data() || {}, ss.exists ? ss.data() : null, sid, nytISO);
+      const sref = d.ref.collection('sisainen').doc('tiedot'), ss = await sref.get(), tref = d.ref.collection('sisainen').doc('terveys'), ts = await tref.get();
+      const pl = suunnittele(d.data() || {}, ss.exists ? ss.data() : null, sid, nytISO, ts.exists ? ts.data() : null);
       r[pl.luokka]++; r.kenttia += Object.keys(pl.kentat).length; r.eroaa += pl.eroaa; r.vanh += pl.vanhentunut;
       if (pl.luokka === 'kopioi') kirj.push({ ref: sref, data: pl.data, mergeFields: pl.mergeFields });
+      if (pl.terveys.luokka === 'kopioi') { r.t_kopioi++; r.t_kenttia += Object.keys(pl.terveys.kentat).length; kirj.push({ ref: tref, data: pl.terveys.data, mergeFields: pl.terveys.mergeFields }); }
+      r.t_eroaa += pl.terveys.eroaa;
     }
-    yht.pelaajia += snap.docs.length; yht.ei_a += r.ei_a; yht.jo_siirretty += r.jo_siirretty; yht.kopioi += r.kopioi; yht.kenttia += r.kenttia; yht.eroaa += r.eroaa; yht.vanhentunut += r.vanh;
-    loki('[' + sid + '] pelaajia ' + snap.docs.length + ' · ei S4-kenttiä ' + r.ei_a + ' · jo siirretty ' + r.jo_siirretty + ' · kopioitavia ' + r.kopioi + ' (kenttiä ' + r.kenttia + ') · eroaa sisainen:sta ' + r.eroaa + ' · vanhentunut sisainen ' + r.vanh);
+    yht.pelaajia += snap.docs.length; yht.ei_a += r.ei_a; yht.jo_siirretty += r.jo_siirretty; yht.kopioi += r.kopioi; yht.kenttia += r.kenttia; yht.eroaa += r.eroaa; yht.vanhentunut += r.vanh; yht.terveys_kopioi += r.t_kopioi; yht.terveys_kenttia += r.t_kenttia; yht.terveys_eroaa += r.t_eroaa;
+    loki('[' + sid + '] pelaajia ' + snap.docs.length + ' · ei S4-kenttiä ' + r.ei_a + ' · jo siirretty ' + r.jo_siirretty + ' · kopioitavia ' + r.kopioi + ' (kenttiä ' + r.kenttia + ') · eroaa sisainen:sta ' + r.eroaa + ' · vanhentunut sisainen ' + r.vanh + ' · TERVEYS (sisainen/terveys): kopioitavia ' + r.t_kopioi + ' (kenttiä ' + r.t_kenttia + ') · eroaa ' + r.t_eroaa);
   }
   if (deps.kirjoita) {
     for (let i = 0; i < kirj.length; i += BATCH) {

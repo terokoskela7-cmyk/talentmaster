@@ -221,7 +221,7 @@ describe('v3.70 · S4-ryhmät + tuojaUid sisainen/tiedot:ssa', () => {
   const tv = () => staff('tv-a', 'testivastaava', A), utj = () => staff('utj-a', 'urheilutoimenjohtaja', A), talentti = () => staff('tal-a', 'talenttivalmentaja', A);
   const kirj = (db, lisa, pid) => setDoc(sis(db, pid), Object.assign({ seuraId: A, paivitetty: 'T' }, lisa), { merge: true });
   const KYP_TV = { kasvutahti_cm_v: 6, kasvutahti_vyohyke: 'nopea', maturity_offset: -0.4, kehitysvaihe_kaista: 'circa', kronologinen_ika: 13.2, phv_raaka: 'LAH', phv_huom: 'x', phv_ongelma: null };
-  const S4 = { adar_arvioijia: 2, adar_luotettavuus: 'hyva', havainto_viimeisin_pvm: '2026-10-24', havainto_porras_hist: [3, 2], arviointi_kooste: { a: 1 }, arviointi_kooste_pvm: '2026-10-24', talenttiTaso: 'perus', loukkaantuminen_tyyppi: 'nilkka', paluu_arvio: '2026-11-01', signaali: 'xfactor', isa_pituus_cm: 180, aiti_pituus_cm: 168, vanhempi_pituus_pvm: '2026-10-24' };
+  const S4 = { adar_arvioijia: 2, adar_luotettavuus: 'hyva', havainto_viimeisin_pvm: '2026-10-24', havainto_porras_hist: [3, 2], arviointi_kooste: { a: 1 }, arviointi_kooste_pvm: '2026-10-24', talenttiTaso: 'perus', signaali: 'xfactor', isa_pituus_cm: 180, aiti_pituus_cm: 168, vanhempi_pituus_pvm: '2026-10-24' };
   it('oman joukkueen valmentaja, talenttivalmentaja-johto (vp, utj) ja SA kirjoittavat S4-ryhmien kentät kuten muutkin sisainen-kentät; toisen joukkueen valmentaja ei', async () => {
     for (const db of [valm12(), vp(), utj(), sa()]) await assertSucceeds(kirj(db, Object.assign({}, S4, KYP_TV)));
     await assertFails(kirj(valm14(), S4)); await assertFails(kirj(valmB(), S4)); await assertFails(kirj(sihteeri(), S4));
@@ -244,5 +244,65 @@ describe('v3.70 · S4-ryhmät + tuojaUid sisainen/tiedot:ssa', () => {
     await assertSucceeds(kirj(sa(), Object.assign({}, S4, KYP_TV, { tuojaUid: 'uid-x' })));
     for (const db of [pelaaja(), huoltaja(), valmB(), staff('vp-b', 'vp', B)]) { await assertFails(getDoc(sis(db))); await assertFails(kirj(db, S4)); await assertFails(kirj(db, KYP_TV)); await assertFails(kirj(db, { tuojaUid: 'x' })); }
     await assertFails(getDocs(query(collectionGroup(pelaaja(), 'sisainen'), where('seuraId', '==', A)))); await assertFails(getDocs(query(collectionGroup(huoltaja(), 'sisainen'), where('seuraId', '==', A))));
+  });
+});
+
+describe('v3.70 · sisainen/terveys — oma dokumentti (PM 25.10., PR #1137; GDPR art. 9)', () => {
+  const terv = (db, pid) => doc(db, 'seurat', A, 'pelaajat', pid || PID, 'sisainen', 'terveys');
+  const TV = { terveysSeuraId: A, kaytettavyys: 'rajoitettu', loukkaantuminen_tyyppi: 'nilkka', loukkaantuminen_alue: 'oikea', loukkaantuminen_pvm: '2026-10-20', paluu_arvio: '2026-11-15' };
+  const kirj = (db, lisa, pid) => setDoc(terv(db, pid), Object.assign({ terveysSeuraId: A, paivitetty: 'T' }, lisa), { merge: true });
+  const utj = () => staff('utj-a', 'urheilutoimenjohtaja', A), talentti = () => staff('tal-a', 'talenttivalmentaja', A), fiisi = () => staff('fiisi-a', 'fysiikkavalmentaja', A), tv = () => staff('tv-a', 'testivastaava', A);
+  const vpB = () => staff('vp-b', 'vp', B);
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (c) => {
+      const db = c.firestore();
+      await setDoc(doc(db, 'seurat', A, 'pelaajat', PID, 'sisainen', 'terveys'), TV);
+      await setDoc(doc(db, 'seurat', B, 'pelaajat', 'pb', 'sisainen', 'terveys'), Object.assign({}, TV, { terveysSeuraId: B }));
+      for (const id of ['p-uusi', 'p-uusi1', 'p-uusi2', 'p-uusi3', 'p-uusi4', 'p-uusi5']) await setDoc(doc(db, 'seurat', A, 'pelaajat', id), { etunimi: 'Uusi', joukkueet: [U12] });   // terveys-dokumentti kuuluu aina olemassa olevalle pelaajalle (valmentajan joukkuetarkistus lukee pelaajan)
+    });
+  });
+  it('LUKIJAT: SA, vp, urheilutoimenjohtaja, fysioterapeutti, talenttivalmentaja (oma seura, PM 25.10.) ja pelaajan oman joukkueen valmentaja', async () => {
+    for (const db of [sa(), vp(), utj(), fysio(), talentti(), valm12()]) await assertSucceeds(getDoc(terv(db)));
+  });
+  it('EI-LUKIJAT: seurasihteeri, testivastaava, fysiikkavalmentaja, toisen joukkueen valmentaja, toisen seuran käyttäjät, pelaaja, huoltaja, kirjautumaton', async () => {
+    for (const db of [sihteeri(), tv(), fiisi(), valm14(), valmB(), vpB(), fysio(B), staff('tal-b', 'talenttivalmentaja', B), pelaaja(), huoltaja(), env.unauthenticatedContext().firestore(), env.authenticatedContext('x', {}).firestore()]) await assertFails(getDoc(terv(db)));
+  });
+  it('seurasihteeri ja testivastaava lukevat edelleen sisainen/tiedot:in (ennallaan), mutta eivät terveyttä', async () => {
+    for (const db of [sihteeri(), tv()]) { await assertSucceeds(getDoc(sis(db))); await assertFails(getDoc(terv(db))); }
+  });
+  it('KIRJOITTAJAT (create + update/merge): SA, oman joukkueen valmentaja, talenttivalmentaja, vp, urheilutoimenjohtaja (= onOmanJoukkueenValmentaja) JA fysioterapeutti (PM 25.10.)', async () => {
+    let n = 0; for (const db of [sa(), valm12(), talentti(), vp(), utj(), fysio()]) { n++; await assertSucceeds(kirj(db, { paluu_arvio: '2026-12-0' + n }, 'p-uusi' + n)); await assertSucceeds(kirj(db, { paluu_arvio: '2026-12-1' + n })); await assertSucceeds(updateDoc(terv(db), { kaytettavyys: 'vapaa' + n, terveysSeuraId: A })); }
+    await assertSucceeds(kirj(valm12(), { loukkaantuminen_tyyppi: deleteField() }));   // kentän poisto (merge) onnistuu
+  });
+  it('EI-KIRJOITTAJAT: seurasihteeri, testivastaava, fysiikkavalmentaja, toisen seuran fysioterapeutti ja talenttivalmentaja, toisen joukkueen valmentaja, toisen seuran valmentaja ja vp, pelaaja, huoltaja', async () => {
+    for (const db of [sihteeri(), tv(), fiisi(), fysio(B), staff('tal-b', 'talenttivalmentaja', B), valm14(), valmB(), vpB(), pelaaja(), huoltaja()]) { await assertFails(kirj(db, { kaytettavyys: 'x' })); await assertFails(kirj(db, { kaytettavyys: 'x' }, 'p-uusi')); await assertFails(deleteDoc(terv(db))); }
+    await assertFails(deleteDoc(terv(vp()))); await assertFails(deleteDoc(terv(fysio()))); await assertFails(deleteDoc(terv(talentti()))); await assertSucceeds(deleteDoc(terv(sa())));   // delete vain SA
+  });
+  it('terveysSeuraId pakollinen ja == polun sid; ylimääräiset avaimet (seuraId, d3_taso, talenttiTaso, vieras) hylätään; doc-id vain "terveys"/"tiedot"', async () => {
+    await assertFails(setDoc(terv(vp()), Object.assign({}, TV, { terveysSeuraId: B }))); await assertFails(setDoc(terv(vp(), 'p-uusi'), { kaytettavyys: 'x', paivitetty: 'T' }));   // seuraavain puuttuu / väärä
+    for (const lisa of [{ seuraId: A }, { d3_taso: 3 }, { talenttiTaso: 'perus' }, { vieras: 1 }, { tukitarve: { alue: 'a' } }]) { await assertFails(kirj(fysio(), lisa)); await assertFails(kirj(vp(), lisa)); await assertFails(kirj(sa(), lisa, 'p-uusi')); await assertFails(kirj(valm12(), lisa)); }
+    await assertFails(setDoc(doc(vp(), 'seurat', A, 'pelaajat', PID, 'sisainen', 'muu'), TV));   // muu doc-id kuin tiedot/terveys: ei kirjoitusta
+  });
+  it('sisainen/tiedot EI sisällä terveysavaimia: kukaan (myös SA, vp, valmentaja) ei kirjoita niitä tiedot:iin — create eikä update; muut kentät toimivat kuten ennen', async () => {
+    const tied = (db, lisa, pid) => setDoc(sis(db, pid), Object.assign({ seuraId: A, paivitetty: 'T' }, lisa), { merge: true });
+    for (const k of ['kaytettavyys', 'loukkaantuminen_tyyppi', 'loukkaantuminen_alue', 'loukkaantuminen_pvm', 'paluu_arvio']) {
+      for (const db of [sa(), vp(), valm12(), talentti()]) { await assertFails(tied(db, { [k]: 'x' })); await assertFails(tied(db, { [k]: 'x', talenttiTaso: 'perus' }, 'p-uusi')); await assertFails(updateDoc(sis(db), { [k]: 'x', seuraId: A })); }
+    }
+    for (const db of [sa(), vp(), valm12(), talentti()]) { await assertSucceeds(tied(db, { talenttiTaso: 'perus' + Math.random() })); await assertSucceeds(tied(db, { talenttiOhjelma: true, adar_arvioijia: 2 }, PID2)); }
+  });
+  describe('collectionGroup("sisainen")', () => {
+    const tiedotKysely = (db, sid) => getDocs(query(collectionGroup(db, 'sisainen'), where('seuraId', '==', sid)));
+    const tervKysely = (db, sid) => getDocs(query(collectionGroup(db, 'sisainen'), where('terveysSeuraId', '==', sid)));
+    it('tiedot-kysely (where seuraId) toimii kaikille oman seuran rooleille ENNALLAAN eikä palauta terveys-dokumentteja (ei seuraId-kenttää) — seurasihteeri, testivastaava ja valmentaja eivät kaadu', async () => {
+      for (const db of [valm12(), vp(), sihteeri(), tv(), fysio(), talentti()]) { const s = await assertSucceeds(tiedotKysely(db, A)); if (s.size !== 2) throw new Error('odotettiin 2 tiedot-dokumenttia, saatiin ' + s.size); s.forEach((d) => { if (d.id !== 'tiedot' || 'loukkaantuminen_tyyppi' in d.data() || 'kaytettavyys' in d.data()) throw new Error('terveys vuosi tiedot-kyselyyn'); }); }
+    });
+    it('terveys-kysely (where terveysSeuraId): SA, vp, urheilutoimenjohtaja, fysioterapeutti ja talenttivalmentaja saavat; seurasihteeri, testivastaava, valmentaja (joukkuerajausta ei voi ilmaista → pelaajakohtaiset get:it), pelaaja, huoltaja eivät', async () => {
+      for (const db of [sa(), vp(), utj(), fysio(), talentti()]) { const s = await assertSucceeds(tervKysely(db, A)); if (s.size !== 1) throw new Error('odotettiin 1 terveys-dokumentti, saatiin ' + s.size); }
+      for (const db of [sihteeri(), tv(), valm12(), valm14(), fiisi(), staff('tal-b', 'talenttivalmentaja', B), pelaaja(), huoltaja(), env.authenticatedContext('x', {}).firestore()]) await assertFails(tervKysely(db, A));
+    });
+    it('toisen seuran vp/fysioterapeutti: oma seura sallittu, seura A ei; rajaamaton kysely (ei terveysSeuraId-ehtoa) hylätään henkilökunnalta, SA saa', async () => {
+      await assertSucceeds(tervKysely(vpB(), B)); await assertSucceeds(tervKysely(fysio(B), B)); await assertFails(tervKysely(vpB(), A)); await assertFails(tervKysely(fysio(B), A));
+      await assertFails(getDocs(collectionGroup(vp(), 'sisainen'))); await assertSucceeds(getDocs(collectionGroup(sa(), 'sisainen')));
+    });
   });
 });
