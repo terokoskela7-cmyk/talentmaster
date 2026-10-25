@@ -112,7 +112,7 @@ describe('CF-kirjoittajien rajaus (PR 1e-2)', () => {
     const j = CF.indexOf('exports.vahvistaSuostumus'); expect(CF.slice(j, CF.indexOf('\n  });', j))).toContain('tmSisainen.tmS4Lisaa(kirjBatch');
   });
   it('CF-lippu oletuksena POIS ja sisainen_luku.liputPaalla seuraa s4:ää (ei omaa vakiota)', () => {
-    expect(TS4.RYHMAT.s4.kirjoitus).toBe(false); const jf = TS4.RYHMAT.jaksofokus_sisainen.kirjoitus; TS4.RYHMAT.jaksofokus_sisainen.kirjoitus = false; expect(LUKU.liputPaalla()).toBe(false); TS4.RYHMAT.s4.kirjoitus = true; expect(LUKU.liputPaalla()).toBe(true); TS4.RYHMAT.jaksofokus_sisainen.kirjoitus = jf;
+    expect(TS4.RYHMAT.s4.kirjoitus).toBe(false); const _m = ['jaksofokus_sisainen', 'henkilokunta'], _v = _m.map((n) => TS4.RYHMAT[n].kirjoitus); _m.forEach((n) => { TS4.RYHMAT[n].kirjoitus = false; }); expect(LUKU.liputPaalla()).toBe(false); TS4.RYHMAT.s4.kirjoitus = true; expect(LUKU.liputPaalla()).toBe(true); _m.forEach((n, i) => { TS4.RYHMAT[n].kirjoitus = _v[i]; });
   });
   it('functions/tm_sisainen.js on tavu tavulta lib (deploy pakkaa vain functions/)', () => {
     expect(readFileSync(join(ROOT, 'functions', 'tm_sisainen.js'), 'utf8')).toBe(readFileSync(join(ROOT, 'lib', 'tm_sisainen.js'), 'utf8'));
