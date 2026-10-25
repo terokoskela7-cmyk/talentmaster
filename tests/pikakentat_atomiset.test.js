@@ -131,7 +131,8 @@ describe('Testaus_v9 · PHV-kasvumittaus: biologinen_ika/{pvm} + PHV-pikakentät
   it('historia + pikakentät samassa batchissa, yksi commit; ei erillisiä set/update-kutsuja', () => {
     expect(f).toContain('const b = baseRef.firestore.batch();');
     expect(f).toContain("b.set(baseRef.collection('biologinen_ika').doc(ops.mittausPvmId), ops.dokumentti);");
-    expect(f).toMatch(/b\.update\(baseRef, \{\s*biologinenIka_viimeisin: ops\.dokumentti,\s*phv_tila: ops\.dokumentti\.phv_tila_koodi/);
+    expect(f).toMatch(/const upd = \{\s*biologinenIka_viimeisin: ops\.dokumentti,\s*phv_tila: ops\.dokumentti\.phv_tila_koodi/);   // PR 1e-3b: upd-olio jaetaan sisainen-puolelle
+    expect(f).toContain('b.update(baseRef, upd);');
     expect((f.match(/await b\.commit\(\)/g) || []).length).toBe(1);
     expect(f).not.toMatch(/await baseRef\.(update|collection)/);
   });

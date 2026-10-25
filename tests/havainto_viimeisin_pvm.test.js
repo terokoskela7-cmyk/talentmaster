@@ -38,7 +38,7 @@ function aja({ data, vanha = {}, kentat = { adar_pvm: 'x', adar_havaintoja: 1 },
   const map = { m93GBdOaGCUuenMiCL0I: {} };
   const ctx = { _PH_DB, _phPelaajaRef: () => pRef, _phIka: () => 13, console: { warn() {} }, window: { _pelaajaMap: map }, Date, Object, Promise, tmAdarPikakentat: () => kentat };
   vm.createContext(ctx);
-  vm.runInContext(pura('function _phJaaPelaajalle(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
+  vm.runInContext(pura('function _phJaaPelaajalle(') + '\n' + pura('function _phS4Valmista(') + '\n' + pura('function _phS4Sisainen(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
   return { p: ctx.f(havRef, data, 'kpv', 'm93GBdOaGCUuenMiCL0I', 1, false), kirjattu, map };
 }
 const batchPelaaja = (r) => r.kirjattu.find((k) => k.kohde === 'pelaaja' && k.kautta === 'batch');
@@ -91,8 +91,8 @@ describe('havainto_viimeisin_pvm kirjoitus (ADAR-pikakortti, KPV U13 -testipelaa
   it('lähde: molemmat kirjoituspolut (online _phTallenna + offline-synkka) kulkevat tämän funktion kautta; sw_adar-cache nostettu; ei suoraa havRef.set(data) -kirjoitusta', () => {
     expect((ADAR.match(/_phKirjoitaHavaintoJaPikakentat\(/g) || []).length).toBeGreaterThanOrEqual(3);   // määrittely + 2 kutsua
     expect(readFileSync(join(juuri, 'sw_adar.js'), 'utf8')).toMatch(/const CACHE = 'tm-adar-v\d+'/);
-    expect(pura('async function _phKirjoitaHavaintoJaPikakentat(')).not.toMatch(/havRef\.set\(/);
-    expect(pura('async function _phKirjoitaHavaintoJaPikakentat(')).toMatch(/_PH_DB\.batch\(\)[\s\S]*batch\.set\(havRef, data\)[\s\S]*havainto_viimeisin_pvm/);
+    expect(pura('function _phS4Valmista(') + '\n' + pura('function _phS4Sisainen(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(')).not.toMatch(/havRef\.set\(/);
+    expect(pura('function _phS4Valmista(') + '\n' + pura('function _phS4Sisainen(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(')).toMatch(/_PH_DB\.batch\(\)[\s\S]*batch\.set\(havRef, data\)[\s\S]*havainto_viimeisin_pvm/);
   });
 });
 

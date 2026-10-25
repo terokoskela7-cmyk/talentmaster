@@ -11000,6 +11000,14 @@ function drillDo(label) {
    synkassa. Tämä helper jää Master-puolen mahdollista käyttöä varten.
    Älä riko olemassa olevaa ADAR-kirjauslogiikkaa — tämä vain päivittää pikakentät.
 ════════════════════════════════════════════════════════════ */
+/* PR 1e-3b (S4): adar_*-pikakenttien kirjoitus — pelaajadokumentti set-mergenä kuten ennen + sisainen/tiedot-kopio (tm_sisainen.js; lippu RYHMAT.s4.kirjoitus pois → täsmälleen vanha set-merge, ei sisainen-kirjoitusta).
+   Lippu päällä: YKSI batch (pelaaja + sisainen); permission-denied (Rules v3.70 ei käytössä) → vanha kenttä ilman sisainen:iä + varoitus. Raakapisteet (havainto_porras_hist) vain sisainen-puolelle (tmAdarS4Valmista). */
+function _adarS4Kirjoita(pelaajaId, kentat) {
+  const S4 = window.TM_SISAINEN;
+  if (!S4 || typeof S4.tmS4Kirjoita !== 'function') return _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).set(kentat, { merge: true });
+  const v = S4.tmAdarS4Valmista(kentat);
+  return S4.tmS4Kirjoita(_db, _seuraId, pelaajaId, v.upd, { pelaajaSet: true, lisa: v.lisa || undefined });
+}
 async function paivitaAdarPikakentat(pelaajaId) {
   if (!_seuraId || !pelaajaId || _demo) return false;
   try {
@@ -11027,10 +11035,7 @@ async function paivitaAdarPikakentat(pelaajaId) {
     if (typeof tmAdarPikakentat === 'function') {
       const _porrasP = _pdAdar ? (_pdAdar.havainto_porras || null) : null;
       const _kentat = tmAdarPikakentat(havainnot, _ikaAdar, _porrasP, { edellinen: _oldAv });
-      if (_kentat) {
-        await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId)
-          .set(_kentat, { merge: true });
-      }
+      if (_kentat) await _adarS4Kirjoita(pelaajaId, _kentat);
       return !!_kentat;
     }
     // Fallback jos lib puuttuu: vanha käytös (konsensus tai viimeisin yksittäinen havainto).
@@ -11068,7 +11073,7 @@ async function paivitaAdarPikakentat(pelaajaId) {
     if (_oldAv && _oldAv.pvm && uusinPvm && _oldAv.pvm !== uusinPvm) {
       _adarKentat.adar_edellinen = { a: _oldAv.a, d: _oldAv.d, ac: _oldAv.ac, r: _oldAv.r, yht: _oldAv.yht, pvm: _oldAv.pvm };
     }
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).set(_adarKentat, { merge: true });
+    await _adarS4Kirjoita(pelaajaId, _adarKentat);
     return true;
   } catch (e) { console.warn('[paivitaAdarPikakentat]', e.message); _adarSentry('paivitaAdarPikakentat', e && (e.code || e.message)); return false; }
 }

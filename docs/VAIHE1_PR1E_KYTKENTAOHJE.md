@@ -69,7 +69,11 @@ Jokainen `origin/mainin` päälle, ei pinoamista: **1e-3b aloitetaan vasta kun 1
 - **P7 (Pelaaja_v7)**: `_ehdN = hist_n ?? hist.length` (pelaaja näkee vain määrän). Snapshot-testi: `rAdar()` tuottaa täsmälleen saman kortin vanhalla `{hist}`- ja uudella `{hist_n}`-muodolla, n = 0…3.
 - **Testi**: `tests/sisainen_s4_selain_lukijat.test.js`.
 
-### 1e-3b (seuraava PR): kirjoittajat
+### 1e-3b (tämä PR; lippu POIS → käytös ennallaan): kirjoittajat
+
+**Toteutettu** (testi `tests/sisainen_s4_selain_kirjoittajat.test.js`): Pikakortti (`_phS4Valmista`/`_phS4Sisainen`; pelaajan set/batch ensin, sisainen omana kirjoituksenaan perään, ei heitä; lib + sw_adar allowlist, CACHE v58), Master `_adarS4Kirjoita` (tmS4Kirjoita + hist_n/havainto_porras_hist), VP `_vpTallennaHavaittu` (tmS4Lisaa transaktioon + Varapolulla), Testaus_v9 kasvumittaus (tmS4Lisaa batchiin + Varapolulla), Seura (käytettävyys → tmTerveysKirjoita; talentti-muokkaus → tmS4Kirjoita; Excel-luonti → tmS4Sisainen). Ei Rules-/CF-muutosta, lippua ei käännetä.
+
+**Suunnitelma (alkuperäinen):**
 
 Pikakortti (3 paikkaa), Master `paivitaAdarPikakentat`, VP `_vpTallennaHavaittu` (tx), Testaus_v9 kasvumittaus, Seura (terveys, talentti-muokkaus, Excel-luonti). **Pikakortti: sisainen-kirjoitus OMANA batchinaan havainnon JÄLKEEN** (`tmS4Sisainen`), ei samassa batchissa — havainto ei saa koskaan hylkäytyä sisainen-osan takia. Testi: sisainen-batch permission-denied → havainto silti tallessa. `phv_raaka/phv_huom/phv_ongelma` eivät ole kirjoitettuja kenttiä (Excel-/Testituonti vain laskee ne virheilmoituksiin; kirjoittaa vain `phv_tila`, joka on B) → niille ei kirjoittajaa.
 
