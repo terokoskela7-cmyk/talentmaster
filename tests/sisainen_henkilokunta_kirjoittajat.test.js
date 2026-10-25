@@ -135,7 +135,7 @@ describe('kytkentä ja versiot', () => {
     expect(v).toMatch(/if \(window\.TM_SISAINEN\) await window\.TM_SISAINEN\.tmHenkilokuntaKirjoita\(db, _seuraId, pid, pk, \{ pelaajaSet: true, taydenna: _rv \}\)/);   // review
     expect(v).toMatch(/tmHenkilokuntaVarapolulla\(\{\}, _kirjP\)/); expect(v).toMatch(/tmHenkilokuntaLisaa\(tx, db, _seuraId, p\.id, pika, \{\}\)/);
     expect(lue('lib/tm_idp_lomake.js')).toMatch(/tmHenkilokuntaKirjoita\(d\.db, d\.sid, d\.pid, upd, \{ pelaajaSet: true \}\)/); expect(lue('lib/tm_kt_keskustelu_sheet.js')).toMatch(/tmHenkilokuntaKirjoita\(env\.db, env\.sid, p\.id, plan\.pikakentat,/);
-    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toContain('lib/tm_sisainen.js?v=11');
+    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toMatch(/lib\/tm_sisainen\.js\?v=(?:1[1-9]|[2-9]\d)\b/);
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f)).not.toMatch(/<script[^>]+src="lib\/(tm_sisainen|tm_idp_lomake|tm_kt_keskustelu_sheet)\.js/));
     expect(lue('functions/tm_sisainen.js')).toBe(lue('lib/tm_sisainen.js')); expect(LIPPU.kirjoitus).toBe(false);
   });

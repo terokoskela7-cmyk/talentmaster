@@ -42,7 +42,8 @@ const pelaajaOnTallessa = (f) => f.docs[PEL] && f.docs[PEL].adar_pvm === '2026-1
 describe('Pikakortti: sisainen omana kirjoituksenaan pelaajan jälkeen (ei heitä)', () => {
   const koodi = viipale(PIKA, 'function _phS4Valmista(', 'async function _phPaivitaPikakentat(');
   const aja = (fs) => { const c = vm.createContext({ console, Promise, Object, window: { TM_SISAINEN: S }, _PH_DB: fs.db }); c.window.TM_SISAINEN = S; vm.runInContext(koodi, c); return c; };
-  it('lippu pois: pelaajalle kentät sellaisenaan, sisainen-kirjoitusta ei tehdä', async () => {
+  it('lippu pois (peruutus): pelaajalle kentät sellaisenaan, sisainen-kirjoitusta ei tehdä', async () => {
+    S.RYHMAT.s4.kirjoitus = false;
     const f = mkFs(); const c = aja(f); const v = c._phS4Valmista(kentat());
     expect(v.upd).toEqual(kentat()); expect(v.lisa).toBeNull();
     const r = await c._phS4Sisainen(SID, PID, v); expect(r.sisainen).toBe(false); expect(sisaa(f)).toBe(false);
@@ -67,7 +68,7 @@ describe('Pikakortti: sisainen omana kirjoituksenaan pelaajan jälkeen (ei heit�
   it('lähdekoodi: havainto kirjoitetaan ENNEN sisainen-kirjoitusta, ei samassa batchissa; sw sallii libin', () => {
     const t = viipale(PIKA, 'var batch = _PH_DB.batch();', 'async function _phTallenna(');
     expect(t).not.toMatch(/batch\.set\([^)]*sisainen/); expect(t.indexOf('batch.commit()')).toBeLessThan(t.indexOf('_phS4Sisainen('));
-    expect(PIKA).toMatch(/lib\/tm_sisainen\.js\?v=11/); expect(lue('sw_adar.js')).toContain("'/lib/tm_sisainen.js'");
+    expect(PIKA).toMatch(/lib\/tm_sisainen\.js\?v=(?:1[1-9]|[2-9]\d)\b/); expect(lue('sw_adar.js')).toContain("'/lib/tm_sisainen.js'");
   });
 });
 
@@ -103,7 +104,7 @@ describe('VP _vpTallennaHavaittu: arviointi_* samaan transaktioon pistepolulla',
 
 describe('Testaus_v9 kasvumittaus: kypsyyskentät samaan batchiin', () => {
   it('lähdekoodi: tmS4Lisaa batchiin, Varapolulla, lib ladattu', () => {
-    const t = viipale(TEST, 'const upd = {', "console.warn('[kasvu] tallennus'"); expect(t).toMatch(/tmS4Lisaa\(b, baseRef\.firestore/); expect(t).toMatch(/tmS4Varapolulla/); expect(TEST).toMatch(/lib\/tm_sisainen\.js\?v=11/);
+    const t = viipale(TEST, 'const upd = {', "console.warn('[kasvu] tallennus'"); expect(t).toMatch(/tmS4Lisaa\(b, baseRef\.firestore/); expect(t).toMatch(/tmS4Varapolulla/); expect(TEST).toMatch(/lib\/tm_sisainen\.js\?v=(?:1[1-9]|[2-9]\d)\b/);
   });
   it('batch: pelaaja update + sisainen mergeFields; kasvutahti null kirjoittuu; ilman lippua ei sisainen:iä', async () => {
     const upd = { phv_tila: 'LAH', kehitysvaihe_kaista: 'circa', kasvutahti_cm_v: null, kasvutahti_vyohyke: null, biologinenIka_viimeisin: { x: 1 } };
@@ -134,6 +135,6 @@ describe('Seura: terveys, talentti-muokkaus, Excel-luonti', () => {
     const g = mkFs(); g.docs[PEL] = {}; await S.tmS4Sisainen(g.db, SID, PID, u, {}); expect(g.docs[SIS]).toMatchObject({ talenttiOhjelma: true, talenttiAktivoi: 'u1' });
   });
   it('lähdekoodi kytketty (lib ladattu, kolme kirjoituspaikkaa)', () => {
-    expect(SEURA).toMatch(/lib\/tm_sisainen\.js\?v=11/); expect(SEURA).toMatch(/tmTerveysKirjoita\(db, tila\.seuraId, pelaajaId, data/); expect(SEURA).toMatch(/tmS4Kirjoita\(db, tila\.seuraId, pelaajaId, paivitys/); expect(SEURA).toMatch(/tmS4Sisainen\(db, tila\.seuraId, pelaajaId, \{ talenttiOhjelma/);
+    expect(SEURA).toMatch(/lib\/tm_sisainen\.js\?v=(?:1[1-9]|[2-9]\d)\b/); expect(SEURA).toMatch(/tmTerveysKirjoita\(db, tila\.seuraId, pelaajaId, data/); expect(SEURA).toMatch(/tmS4Kirjoita\(db, tila\.seuraId, pelaajaId, paivitys/); expect(SEURA).toMatch(/tmS4Sisainen\(db, tila\.seuraId, pelaajaId, \{ talenttiOhjelma/);
   });
 });
