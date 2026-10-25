@@ -100,7 +100,7 @@ describe('VP:n osapäivitys (R6.1c: linkitetyt / tavoite_tarkenteet / onnistumis
   it('VP _vpJfKirjoita käyttää tmJaksofokusKirjoita:a (varalla vanha update); Master/VP/KT lataavat tm_sisainen.js ENNEN tm_kehitystyopoyta.js:ää; versiot ylös', () => {
     const vp = lue('TalentMaster_VP_v25.html'); expect(vp).toMatch(/window\.TM_SISAINEN\.tmJaksofokusKirjoita\(db, _seuraId, pid, upd, \{\}\)/);
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) {
-      const h = lue(f); expect(h.indexOf('lib/tm_sisainen.js?v=10'), f).toBeGreaterThan(-1); expect(h.indexOf('lib/tm_sisainen.js'), f).toBeLessThan(h.indexOf('lib/tm_kehitystyopoyta.js?v=40'));
+      const h = lue(f); expect(h.indexOf('lib/tm_sisainen.js?v=11'), f).toBeGreaterThan(-1); expect(h.indexOf('lib/tm_sisainen.js'), f).toBeLessThan(h.indexOf('lib/tm_kehitystyopoyta.js?v=40'));
     }
   });
   it('lippu on koodissa POIS (ei kytketty tässä PR:ssä) ja Pelaaja/Vanhempi eivät lataa tm_sisainen.js:ää', () => {

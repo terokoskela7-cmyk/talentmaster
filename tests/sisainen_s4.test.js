@@ -228,7 +228,7 @@ describe('GREP-PORTTI: pelaajan ja vanhemman sivut eivät lue siirrettäviä S4-
     }
   });
   it('Pelaaja_v7 lukee signaalin vain PH-merkkinä ("phv") ja porrasehdotuksesta vain hist-määrän (hist_n-siirtymä 1e-3:ssa)', () => {
-    const h = lue('TalentMaster_Pelaaja_v7.html'); expect(h).toMatch(/_pelaaja\?\.signaali/); expect(h).toContain("'phv'"); expect(h).toContain('havainto_porras_ehdotus.hist');
+    const h = lue('TalentMaster_Pelaaja_v7.html'); expect(h).toMatch(/_pelaaja\?\.signaali/); expect(h).toContain("'phv'"); expect(h).toContain('_ehdE.hist_n');   // 1e-3a: hist_n ensin, hist.length varalla
   });
 });
 

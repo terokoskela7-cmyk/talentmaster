@@ -180,7 +180,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_reitin_valinta.js?v=4"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa + rivitila (Kenttä-lipun takana) -->
 <script src="lib/tm_polun_tila.js?v=2"></script>   <!-- Polun tila + kolme kysymystä (13 §1) -->
 <script src="lib/tm_tanaan_signaali.js?v=11"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
-<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=10"></script><script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
+<script src="lib/tm_d3_itsearvio.js?v=1"></script><script src="lib/tm_sisainen.js?v=11"></script><script src="lib/tm_historia_lause.js?v=2"></script><script src="lib/tm_nakyvyys_kytkin.js?v=2"></script>   <!-- 0b: yhtenäinen kytkin "Näytä myös pelaajalle" (oletus pois) + sisäisen lauseen suunnitelma -->
 <script src="lib/tm_kevyt_katselmus.js?v=7"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=6"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=8"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
@@ -2788,7 +2788,7 @@ async function _lataaPelaajat() {
     // PR C: PHV-tila normalisoidaan TÄSSÄ (yksi rajapinta, kuten VP lataaPelaajat): kanoninen Mirwald-koodi vain
     // mittauslähteestä (biologinenIka_viimeisin), muuten null = tuntematon. Ilmoitettu PH → lippu henkilökunnalle.
     _pelaajatData = docs.map(d => { const o = { id: d.id, ...d.data() }; o.phv_ilmoitettu_ph = tmPhvIlmoitettuPH(o); o.phv_ei_mitattu = tmPhvEiMitattu(o); o.phv_tila = tmPhvKoodi(o); return o; });
-    if (!_demo && window.TM_SISAINEN) _pelaajatData = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajatData);   // Vaihe 1 (1d): sisainen/tiedot yhdistetään (D3); virhe/puuttuva → vanhat kentät
+    if (!_demo && window.TM_SISAINEN) _pelaajatData = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajatData, window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, _pelaajatData));   // Vaihe 1 (1d): sisainen/tiedot yhdistetään (D3); virhe/puuttuva → vanhat kentät
     _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
     if (!_demo) {
       // Renderöi kaikki pelaajadataa käyttävät näkymät (alkulataus + jokainen lataus)
