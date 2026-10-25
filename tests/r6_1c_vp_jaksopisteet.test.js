@@ -14,6 +14,7 @@ import { dirname, join } from 'path';
 import vm from 'vm';
 
 const require = createRequire(import.meta.url);
+require('../lib/tm_sisainen.js').RYHMAT.jaksofokus_sisainen.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_jaksofokus_kirjoitus.test.js
 const VP = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_VP_v25.html'), 'utf8');
 const J = require('../lib/tm_jaksokooste.js');
 const KS = require('../lib/tm_kehityssilmukka.js');
