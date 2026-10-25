@@ -131,7 +131,7 @@ function ajaLapsiRealmissa() {
   ctx.self = ctx;
 
   vm.runInContext(pura(ADAR, 'function _phPelaajaRef(') + '\n'
-    + pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\n'
+    + pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'function _phS4Valmista(') + '\n' + pura(ADAR, 'function _phS4Sisainen(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\n'
     + pura(ADAR, 'async function _phTallenna(') + '\n'
     // _phTallenna ei awaitaa kirjoitusta (UI etenee) → odotetaan että batch ehtii commitoitua
     + 'globalThis.__aja = async () => { await _phTallenna(); await new Promise((r) => setTimeout(r, 0)); };', ctx);
