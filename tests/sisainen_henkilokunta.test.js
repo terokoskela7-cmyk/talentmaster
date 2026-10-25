@@ -129,7 +129,7 @@ describe('GREP-PORTTI: pelaajan ja vanhemman sovellukset (+ libit) eivät viitta
 describe('Rules v3.69 (tekstitarkistus; toiminta: tests/rules/sisainen.rules.test.js)', () => {
   const R = lue('tm_admin/firestore.rules');
   it('versio 3.69 + changelog; sisainen-blokin create/update kutsuvat scout- ja vastuuhenkilö-ehtoja; scout-ehto = SA | johto; vastuuhenkilö kuten pelaajadokumentissa', () => {
-    expect(R).toMatch(/firestore.rules v3.(69|70)/); expect(R).toContain('Muutokset v3.68 → v3.69');
+    expect(R).toMatch(/firestore.rules v3.(69|70|71)/); expect(R).toContain('Muutokset v3.68 → v3.69');
     expect((R.match(/sisainenScoutKelpaa\(seuraId, /g) || []).length).toBe(3); expect((R.match(/sisainenVastuuKelpaa\(seuraId, pelaajaId, /g) || []).length).toBe(3);   // määritys + create + update
     expect(R).toMatch(/function sisainenScoutKelpaa[\s\S]{0,400}onSuperAdmin\(\) \|\| \(onOmaSeura\(seuraId\) && onJohtoRooli\(\)\)/); expect(R).toMatch(/function sisainenVastuuKelpaa[\s\S]{0,400}vastuuhenkiloAsettaja\(seuraId, pelaajaId\)[\s\S]{0,200}vastuuhenkiloMuotoKelpaa/);
   });

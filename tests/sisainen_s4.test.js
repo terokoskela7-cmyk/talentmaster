@@ -235,7 +235,7 @@ describe('GREP-PORTTI: pelaajan ja vanhemman sivut eivät lue siirrettäviä S4-
 describe('Rules v3.70 (tekstitarkistus; toiminta: tests/rules/sisainen.rules.test.js)', () => {
   const R = lue('tm_admin/firestore.rules');
   it('versio 3.70 + changelog; testivastaava vain kasvumittauksen kypsyys-avaimet; johto vain tuojaUid; kutsut create + update', () => {
-    expect(R).toContain('firestore.rules v3.70'); expect(R).toContain('Muutokset v3.69 → v3.70');
+    expect(R).toMatch(/firestore\.rules v3\.7\d/); expect(R).toContain('Muutokset v3.69 → v3.70');   // PR 1f-1: versio nousi v3.71:een (changelog säilyy)
     expect((R.match(/sisainenTestivastaavaKelpaa\(seuraId, /g) || []).length).toBe(3); expect((R.match(/sisainenTuojaKelpaa\(seuraId, /g) || []).length).toBe(3);   // määritys + create + update
     const f = R.match(/function sisainenTestivastaavaKelpaa[\s\S]*?\n    }/)[0]; ['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma', 'seuraId', 'paivitetty'].forEach((a) => expect(f, a).toContain("'" + a + "'"));
     ADAR.concat(ARV, TT, ['isa_pituus_cm', 'aiti_pituus_cm', 'signaali', 'phv_ilmoitettu_ph']).forEach((a) => expect(f, a).not.toContain("'" + a + "'")); expect(f).toContain('onTestivastaava(seuraId)');
