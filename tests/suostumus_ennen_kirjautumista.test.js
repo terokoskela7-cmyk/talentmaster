@@ -111,7 +111,7 @@ describe('vahvistaSuostumus luo PIN:n (best-effort) ja säilyttää olemassa ole
   const i = CF.indexOf('exports.vahvistaSuostumus');
   const runko = CF.slice(i, CF.indexOf('\n  });', i));
   it('PIN luodaan suostumuksen tallennuksen JÄLKEEN vain jos puuttuu, samalla apurilla kuin luoPinitSeuralle; virhe ei kaada', () => {
-    const tallennus = runko.indexOf('await pelRef.update(paivitys);');
+    const tallennus = runko.indexOf('await kirjBatch.commit();');
     const pinLuonti = runko.indexOf("pelaajapin.lisaaPinKirjoitukset(db, b, { seuraId, pelaajaId, data: snap.data() || {}, pin: uusi, lahde: 'vahvistaSuostumus', TS });");
     expect(tallennus).toBeGreaterThan(-1);
     expect(pinLuonti).toBeGreaterThan(tallennus);
