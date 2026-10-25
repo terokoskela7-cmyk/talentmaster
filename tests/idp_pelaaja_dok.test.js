@@ -65,10 +65,10 @@ describe('§7.22-näkymä identtinen raa\'alla ja puhdistetulla tavoitteella', (
 });
 
 describe('kirjoitusapurit: lippu POIS = ei mitään uutta', () => {
-  it('Osa/Lisaa lippu pois → null/false, ei kirjoitusta', () => {
-    const f = mkFs(), b = f.db.batch();
+  it('Osa/Lisaa lippu pois (peruutus) → null/false, ei kirjoitusta', () => {
+    D.LIPPU.kirjoitus = false; const f = mkFs(), b = f.db.batch();
     expect(D.tmIdpPelaajaOsa([raaka()], {})).toBeNull(); expect(D.tmIdpPelaajaLisaa(b, f.db, SID, PID, '2026', [raaka()], {})).toBe(false);
-    expect(D.LIPPU.kirjoitus).toBe(false);
+    expect(D.tmIdpPelaajaOsa([raaka()], { idpPelaajaKirjoitus: false })).toBeNull();
   });
   it('Lisaa lippu päällä: puhdistettu taulukko mergeFields-asetuksella → pelaaja_sitoumus säilyy', async () => {
     const f = mkFs(); f.docs[PEL] = { pelaaja_sitoumus: { rekisteri: 'a', vahvistettu_pvm: null } };
@@ -120,9 +120,9 @@ describe('Rules v3.71 (tekstitarkistus; toiminta: tests/rules/firestore.rules.te
   it('idp_kausi EI kavennettu tässä PR:ssä (pelaaja lukee ja kirjoittaa sitoumuksensa edelleen; siivous lipun jälkeen)', () => {
     const b = blokki('idp_kausi'); expect(b).toMatch(/onPelaajaItse\(seuraId, pelaajaId\);\s*\/\/ pelaaja lukee oman kausitavoitteensa/); expect(b).toMatch(/hasOnly\(\['pelaaja_sitoumus'\]\)/); expect(b).not.toMatch(/onLapsenHuoltaja/);
   });
-  it('lib on kytketty henkilökunnan (1f-2) ja pelaajan (1f-3) sivuihin, ei Vanhempaan; lippu pois', () => {
+  it('lib on kytketty henkilökunnan (1f-2) ja pelaajan (1f-3) sivuihin, ei Vanhempaan; lippu PÄÄLLÄ oletuksena (lähde)', () => {
     expect(lue('TalentMaster_Vanhempi_v2.html')).not.toContain('tm_idp_pelaaja_dok');
-    ['Pelaaja_v7', 'Master_v16', 'VP_v25', 'Kehitystyopoyta', 'Seura'].forEach((s) => expect(lue('TalentMaster_' + s + '.html')).toContain('lib/tm_idp_pelaaja_dok.js?v=1'));
-    expect(D.LIPPU.kirjoitus).toBe(false);
+    ['Pelaaja_v7', 'Master_v16', 'VP_v25', 'Kehitystyopoyta', 'Seura'].forEach((s) => expect(lue('TalentMaster_' + s + '.html')).toMatch(/lib\/tm_idp_pelaaja_dok\.js\?v=\d+\b/));
+    expect(lue('lib/tm_idp_pelaaja_dok.js')).toMatch(/var LIPPU = \{ kirjoitus: true \}/);
   });
 });
