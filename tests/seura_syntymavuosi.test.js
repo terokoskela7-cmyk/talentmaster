@@ -59,6 +59,28 @@ describe('tmIkaluokkaVaroitus (ei este)', () => {
   });
 });
 
+describe('tmSyntyma11Tilasto (lukeva tarkistus, vain lukumäärät)', () => {
+  const ts = (y, m, d) => ({ seconds: Date.UTC(y, m - 1, d) / 1000 });
+  it('laskee 1.1. ja niistä Seura-muokatut; muut päivät ja puuttuva eivät lasketa', () => {
+    const t = L.tmSyntyma11Tilasto([
+      { syntymaaika: ts(2014, 1, 1), muokkaajaUid: 'u1' },
+      { syntymaaika: ts(2014, 1, 1) },
+      { syntymaaika: ts(2014, 1, 1), muokattu: {} },
+      { syntymaaika: ts(2014, 3, 1), muokkaajaUid: 'u1' },
+      { syntymaVuosi: 2014 },
+    ]);
+    expect(t).toEqual({ pelaajia: 5, ykkosyksi: 3, ykkosyksi_ja_muokattu: 2 });
+  });
+  it('tyhjä / virheellinen syöte', () => {
+    expect(L.tmSyntyma11Tilasto(null)).toEqual({ pelaajia: 0, ykkosyksi: 0, ykkosyksi_ja_muokattu: 0 });
+  });
+  it('skripti on lukeva: ei kirjoituskutsuja, vain lukumäärät tulostetaan', () => {
+    const src = fs.readFileSync(require('path').join(__dirname, '..', 'scripts', 'tarkista_syntymaaika_1_1.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//, '');
+    expect(src).not.toMatch(/\.(set|update|add|delete|create)\(|batch\(|FieldValue/);
+    expect(src).not.toMatch(/etunimi|sukunimi|\bnimi\b/);   // ei henkilötietoja ulos
+  });
+});
+
 describe('Seura-HTML käyttää libiä', () => {
   const html = fs.readFileSync(require('path').join(__dirname, '..', 'TalentMaster_Seura.html'), 'utf8');
   it('ei esitäytä date-kenttää vuodesta eikä kirjoita syntymaaikaa suoraan', () => {
