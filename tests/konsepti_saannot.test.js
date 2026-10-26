@@ -100,9 +100,27 @@ describe('J-H4', () => {
     expect(mit(ajo(F.jh4({ leveys: true }), 'j_h4'), 'blokin_venytys')).toMatchObject({ tila: 'ok', arvo: { leveys: 48, siirto: 0 } });
     expect(mit(ajo(F.jh4(), 'j_h4'), 'blokin_venytys')).toMatchObject({ tila: 'poikkeama', raja: { leveys: 40, siirto: 8 } });
   });
-  it('ohitetut = pallon takana olevat vastustajat; 8v8-raja eri', () => {
-    expect(mit(ajo(F.jh4(), 'j_h4'), 'ohitetut')).toMatchObject({ tila: 'ok', arvo: 6, raja: 4 });
+  it('ohitetut = vastustajien määrän lasku pallon ja maalin välissä ikkunan alusta loppuun', () => {
+    const palloLiike = (t, x0, x1) => { t.pallo = Array.from({ length: 21 }, (_, i) => ({ t: i / 2, x: i / 2 <= 1 ? x0 : i / 2 >= 3 ? x1 : x0 + (x1 - x0) * (i / 2 - 1) / 2, y: 0 })); return t; };
+    // pallo 10 → 24: taka (4) + kk (4) ovat ennen edessä, jälkeen vain taka → 4 ohitettua
+    expect(mit(ajo(palloLiike(F.jh4(), 10, 24), 'j_h4'), 'ohitetut')).toMatchObject({ tila: 'ok', arvo: 4, raja: 4 });
+    // pallo 19 → 24: kk (x ≤ 18) on jo pallon takana alussa → lasku 0 → poikkeama
+    expect(mit(ajo(palloLiike(F.jh4(), 19, 24), 'j_h4'), 'ohitetut')).toMatchObject({ tila: 'poikkeama', arvo: 0 });
     expect(mit(ajo(F.jh4({ pelimuoto: '8v8' }), 'j_h4'), 'ohitetut').raja).toBe(3);
+  });
+  it('kaksi vastustajaa valmiiksi pallon takana ei lisää tulosta', () => {
+    const palloLiike = (t) => { t.pallo = Array.from({ length: 21 }, (_, i) => ({ t: i / 2, x: i / 2 <= 1 ? 10 : i / 2 >= 3 ? 24 : 10 + 14 * (i / 2 - 1) / 2, y: 0 })); return t; };
+    const kaikki = palloLiike(F.jh4());
+    const ilman = palloLiike(F.jh4());
+    ilman.pelaajat = ilman.pelaajat.filter((q) => q.tunniste !== 19 && q.tunniste !== 20);   // x = 5, pallon takana koko ajan
+    expect(mit(ajo(kaikki, 'j_h4'), 'ohitetut').arvo).toBe(4);
+    expect(mit(ajo(ilman, 'j_h4'), 'ohitetut').arvo).toBe(4);
+    expect(mit(ajo(kaikki, 'j_h4'), 'ohitetut').tunnisteet).not.toContain(19);
+  });
+  it('ohitetut ikkunalla [t, t+ikkuna_s]', () => {
+    const t = F.jh4();
+    t.pallo = Array.from({ length: 21 }, (_, i) => ({ t: i / 2, x: i / 2 <= 4 ? 10 : 24, y: 0 }));
+    expect(mit(ajo(t, 'j_h4', { t: 3, ikkuna_s: 2 }), 'ohitetut')).toMatchObject({ arvo: 4, tila: 'ok', t: 5 });
   });
 });
 
