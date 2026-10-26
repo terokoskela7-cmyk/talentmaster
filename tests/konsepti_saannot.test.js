@@ -164,6 +164,28 @@ describe('asetukset, suunta, aikaväli, virheet', () => {
   });
 });
 
+describe('yksi interpolointi V0-1:n kanssa', () => {
+  const V0 = require('../lib/tm_tilanne_kaavio.js');
+  it('V1-1 näkee saman sijainnin samalle hetkelle kuin V0-1:n tilanneInterp (harva polku, väliaika)', () => {
+    const t = F.jp2();
+    const liikkuva = t.pelaajat.find((q) => q.tunniste === 1);
+    liikkuva.polku = [{ t: 2, x: -34, y: -15 }, { t: 3, x: -34, y: -30 }];   // harva: väliajalla interpolaatio
+    [2.25, 2.5, 2.9].forEach((aika) => {
+      const sij = V0.tilanneInterp(liikkuva.polku, aika);
+      const ys = [sij.y, -5, 5, 15].sort((a, b) => a - b);
+      const odotettu = Math.round(Math.max(ys[1] - ys[0], ys[2] - ys[1], ys[3] - ys[2]) * 2) / 2;
+      expect(mit(ajo(t, 'j_p2', { t: aika }), 'takalinja_aukko').arvo).toBe(odotettu);
+    });
+  });
+  it('sama kelpoisuus: yli 0,5 s päässä oleva havainto on null V0-1:ssä ja pelaaja puuttuu V1-1:stä', () => {
+    const t = F.jp2();
+    const liikkuva = t.pelaajat.find((q) => q.tunniste === 1);
+    liikkuva.polku = [{ t: 0, x: -34, y: -15 }, { t: 1, x: -34, y: -15 }];
+    expect(V0.tilanneInterp(liikkuva.polku, 3)).toBeNull();
+    expect(mit(ajo(t, 'j_p2', { t: 3 }), 'takalinja_aukko').tunnisteet).not.toContain(1);
+  });
+});
+
 describe('vartijat', () => {
   const lahde = readFileSync(join(juuri, 'lib/tm_konsepti_saannot.js'), 'utf8');
   it('sääntödatassa ei ole fi/sv-tekstejä: kaikki merkkijonot ovat tunnisteita', () => {
@@ -180,7 +202,7 @@ describe('vartijat', () => {
     });
   });
   it('lähteessä ei ole Firestore-, verkko-, tallennus- eikä DOM-kutsuja', () => {
-    const ilmanKommentteja = lahde.replace(/\/\/.*$/gm, '');
+    const ilmanKommentteja = lahde.replace(/\/\/.*$/gm, '').replace("require('./tm_tilanne_kaavio.js')", '');   // ainoa sallittu: V0-1:n interpolointi (tilanneInterp)
     expect(ilmanKommentteja.match(/firebase|firestore|\.set\(|\.update\(|\.add\(|\.delete\(|fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|document\.|require\(|import\s|console\./)).toBeNull();
   });
 });
