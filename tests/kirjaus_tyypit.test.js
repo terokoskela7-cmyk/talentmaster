@@ -77,3 +77,11 @@ describe('kytkentä', () => {
     expect(create).not.toMatch(/hasOnly|keys\(\)/);
   });
 });
+
+describe('sv (PM 26.10.2026)', () => {
+  const Msv = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;
+  it.each([['Päivän harjoitus', 'Dagens träning'], ['Kohdennettu kehitys', 'Riktad utveckling'], ['Pallo joka päivä', 'Bollen varje dag'], ['Omatoiminen treeni', 'Egen träning'], ['Kaverin kanssa', 'Med en kompis'], ['Oma keho', 'Egen kropp']])('%s → %s', (fi, sv) => {
+    expect(Msv[fi]).toBe(sv);
+    expect(K.tmKirjausOtsikko({ tyyppi: 'x' }, { t: (s) => s })).toBe('Kirjasi treenin');
+  });
+});
