@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1792935694209';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1793028737670';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <style>/* K1b: kirjautumislomaketta ei näytetä ennen kuin Firebase on kertonut istunnon tilan (deeplink ?ws=…&toiminto=… ei saa vilauttaa "kirjautumista ulos"). _naytaLogin() poistaa luokan. */
 html.tm-auth-odottaa #sLogin{display:none!important}
 html.tm-auth-odottaa body::after{content:"";position:fixed;left:50%;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid rgba(128,128,120,.3);border-top-color:#28B090;border-radius:50%;animation:tmAuthSpin .8s linear infinite}
@@ -65,7 +65,7 @@ html.tm-upotettu #_kvCanvas svg{width:100%!important;height:auto!important}   /*
 <script src="lib/tm_lang.js?v=50"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_lib_i18n.js?v=37"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="lib/tm_i18n_common.js?v=17"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=38"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=39"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_rytmi.js?v=2"></script>   <!-- K1d: yhteenvetorytmi (laskeReviewKadenssi delegoi tänne) -->
 <script src="lib/tm_eerikkila_normit.js?v=58"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -74,6 +74,7 @@ html.tm-upotettu #_kvCanvas svg{width:100%!important;height:auto!important}   /*
 <script src="lib/tm_joukkuesaanto.js?v=3"></script>   <!-- PR 3: YKSI joukkuesääntö (tekniikka + fyysinen) -->
 <script src="lib/tm_tekniikka.js?v=6"></script>   <!-- PR 3: D2 = YKSI tekniikka-määritelmä (TKI → SM-tasot) -->
 <script src="lib/tm_fyysinen.js?v=4"></script>   <!-- PR 3: D1 = YKSI fyysisen heikkouden määritelmä (H-H-fyysiset tasot, §28) -->
+<script src="lib/tm_kirjaus_tyypit.js?v=1"></script>   <!-- Pelaajan kirjauksen tyyppi selkokielelle (D/S/T → otsikko + harjoitteen nimi); yksi totuus Viestit + Pulssi -->
 <script src="lib/tm_nakyma_ryhmat.js?v=3"></script>   <!-- YKSI TOTUUS: D1/D2-ryhmittely, kortti, banneri, kattavuus samasta luokittelusta (ei omia rajoja näkymissä) -->
 <script src="lib/tm_harjoitusarviointi.js?v=7"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -4360,7 +4361,7 @@ function renderInbox(){
       coach: '<span class="inbox-tag coach">' + masterT('Joukkue') + '</span>'
     }[e.source]) || '<span class="inbox-tag">' + masterT('Omatoimi') + '</span>';
 
-    const tyypit={pihapeli:masterT('Pihapeli'),uinti:masterT('Uintia'),pyora:masterT('Pyöräily'),pallo:masterT('Palloleikki'),metsa:masterT('Metsässä'),muu:masterT('Muu liike'),individual:masterT('Omatoimi'),team:masterT('Joukkueharjoitus')};
+    const _kt=window.TM_KIRJAUS_TYYPIT, _ktO={t:masterT};
     const fiilisEmoji=['','🤕','😴','😐','😊','💪'];
     const fiilisLabel=['',masterT('Loukkasi'),masterT('Väsynyt'),masterT('Neutraali'),masterT('Iloinen'),masterT('Innoissaan')];
 
@@ -4373,7 +4374,8 @@ function renderInbox(){
     };
     const title = vpTitleMap[e.type]
       || (e.type==='injury' ? masterT('Loukkaantumisesta ilmoitus')
-      : (tyypit[e.tyyppi]||e.tyyppi||masterT('Kirjasi treenin')));
+      : _kt.tmKirjausOtsikko(e,_ktO));
+    const harjoiteRivi = (!vpEra && e.type!=='injury') ? _kt.tmKirjausAlarivi(e,_ktO) : null;   // mitä pelaaja teki: harjoitteen nimi tai vapaan liikkeen laji
 
     // VP-era text on payloadissa
     const noteText = e.note || e.payload?.text || e.payload?.reason || e.payload?.note;
@@ -4397,7 +4399,8 @@ function renderInbox(){
           ${sourceTag}
           <span class="inbox-time">${_fmtTime(evtTime)}</span>
         </div>
-        <div style="font-size:13px;color:var(--ink);font-weight:500;margin-bottom:6px">${title}</div>
+        <div style="font-size:13px;color:var(--ink);font-weight:500;margin-bottom:${harjoiteRivi?'2px':'6px'}">${_mEsc(title)}</div>
+        ${harjoiteRivi?`<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">${_mEsc(harjoiteRivi)}</div>`:''}
         ${note}
         <div class="inbox-chips">${chips.join('')}</div>
         <div class="inbox-reactions" onclick="event.stopPropagation()">
@@ -4744,13 +4747,12 @@ function renderPulse(){
     if(!todayEvts.length){
       todayEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--ink3);font-size:12px;background:var(--card);border:.5px solid var(--line);border-radius:8px">' + masterT('Ei kirjauksia tältä päivältä.') + '</div>';
     } else {
-      const tyypit={pihapeli:masterT('pihapeli'),uinti:masterT('uinti'),pyora:masterT('pyöräily'),pallo:masterT('palloleikki'),metsa:masterT('metsä'),muu:masterT('muu'),individual:masterT('omatoimi'),team:masterT('joukkue')};
       todayEl.innerHTML=todayEvts.map(e=>{
         const p=players[e.playerId]||{name:e.playerId,num:'?'};
         const src=e.source==='parent'?masterT('vanhempi kirjasi'):e.source==='player'?masterT('pelaaja kirjasi'):masterT('joukkue');
         return `<div class="pulse-today-card">
           <div class="who">${p.name} · <span style="color:var(--ink3)">#${p.num}</span></div>
-          <div class="what">${tyypit[e.tyyppi]||e.tyyppi||masterT('treeni')}${e.minutes?' · '+e.minutes+' min':''}${e.fiilis?' · '+['','🤕','😴','😐','😊','💪'][e.fiilis]:''}</div>
+          <div class="what">${_mEsc(window.TM_KIRJAUS_TYYPIT.tmKirjausRivi(e,{t:masterT}))}${e.minutes?' · '+e.minutes+' min':''}${e.fiilis?' · '+['','🤕','😴','😐','😊','💪'][e.fiilis]:''}</div>
           <div class="when">${src} · ${_fmtTime(e.at)}</div>
         </div>`;
       }).join('');

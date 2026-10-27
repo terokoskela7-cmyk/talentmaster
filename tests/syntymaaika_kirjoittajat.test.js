@@ -45,7 +45,7 @@ describe('syntymaaika-kirjoittajien skanneri', () => {
   const osumat = [];
   for (const f of KOHTEET) lue(f).split('\n').forEach((r, i) => { const k = luokittele(r); if (k) osumat.push({ f, n: i + 1, k, r: r.trim() }); });
   it('EI VACUOUS: löytää tunnetut kirjoittajat (Seura-lomake, vahvistaSuostumus, IDP-demo)', () => {
-    expect(osumat.some((o) => o.f === 'TalentMaster_Seura.html' && /Date\.UTC/.test(o.r))).toBe(true);
+    expect(osumat.some((o) => o.f === 'lib/tm_syntymavuosi.js' && /Date\.UTC/.test(o.r))).toBe(true);   // Seura-lomakkeen kirjoittaja siirretty libiin (syntymävuosi-PR)
     expect(osumat.some((o) => o.f === 'functions/index.js' && /syntymaPaiva/.test(o.r))).toBe(true);
     expect(KOHTEET.length).toBeGreaterThan(60);
   });
@@ -91,14 +91,11 @@ describe('tallennettava syntymäaika-Timestamp on UTC-keskiyö (h=m=s=ms=0)', ()
     }
     expect(lomakePaiva('2013-02-31')).toBeNull();   // virheellinen päivä hylätään
   });
-  it('Seura-lomake: oikea koodilohko tuottaa UTC-keskiyön myös TZ=Europe/Helsinki ja America/New_York', () => {
-    const S = lue('TalentMaster_Seura.html');
-    const i = S.indexOf('const [y, m, d] = syntymaaika_str.split'); expect(i).toBeGreaterThan(-1);
-    const alku = S.lastIndexOf('if (syntymaaika_str) {', i);
-    const lohko = S.slice(alku, S.indexOf('}', S.indexOf('paivitys.syntymaVuosi', i)) + 1);
+  it('Seura-lomake (lib/tm_syntymavuosi.js): tmSyntymaPaivitys tuottaa UTC-keskiyön myös TZ=Europe/Helsinki ja America/New_York', () => {
+    const lib = JSON.stringify(join(juuri, 'lib', 'tm_syntymavuosi.js'));
     for (const tz of ['Europe/Helsinki', 'America/New_York', 'UTC']) {
       for (const syote of ['2013-05-02', '2011-03-29', '2011-10-25']) {
-        const koodi = `const paivitys={};const syntymaaika_str=${JSON.stringify(syote)};${lohko};const d=paivitys.syntymaaika;
+        const koodi = `const L=require(${lib});const paivitys=L.tmSyntymaPaivitys(${JSON.stringify(syote)},'').kentat;const d=paivitys.syntymaaika;
           console.log([d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds(),d.getUTCMilliseconds(),d.toISOString().slice(0,10),paivitys.syntymaVuosi].join(','))`;
         expect(ajaTz(koodi, tz), tz + ' ' + syote).toBe(`0,0,0,0,${syote},${Number(syote.slice(0, 4))}`);
       }
