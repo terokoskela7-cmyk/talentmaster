@@ -30,17 +30,7 @@ const YKSIKOT = [
   { nimi: 'review', kentat: ['review_viimeisin_pvm', 'review_viimeisin_tyyppi', 'review_tagit'], pvm: (x) => x.review_viimeisin_pvm },
   { nimi: 'idp', kentat: ['idp_edistyma', 'idp_lahde', 'idp_viim_review', 'idp_dvi'], pvm: (x) => x.idp_viim_review }
 ];
-/* Arvon tyyppi selitystä varten (ei arvoa): null · Timestamp · kenttäoperaatio (sentinel) · taulukko · tyhjä map · map · typeof. */
-const tyyppi = (v) => {
-  if (v === undefined) return 'puuttuu'; if (v === null) return 'null'; if (Array.isArray(v)) return v.length ? 'taulukko' : 'tyhjä taulukko';
-  if (typeof v === 'object') {
-    const n = (v.constructor && v.constructor.name) || '';
-    if (typeof v.toDate === 'function' || n === 'Timestamp') return 'Timestamp'; if (/Field.?Value|Transform|Sentinel/.test(n) || (typeof v.isEqual === 'function' && !Object.keys(v).length)) return 'kenttäoperaatio(' + n + ')';   // serverTimestamp/increment/poisto-sentinel
-    if (n && n !== 'Object') return n; return Object.keys(v).length ? 'map' : 'tyhjä map';
-  }
-  return typeof v;
-};
-const turvaAvain = (k) => (/^[A-Za-z0-9_-]{16,}$/.test(k) && /\d/.test(k)) ? '<id>' : k;   // id-näköiset map-avaimet (uid tms.) peitetään
+const { tyyppi, turvaAvain, rivi: selitysRivi } = require('./migraatio_selitys.js');
 const paiva = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) ? v.slice(0, 10) : null;
 
 /* Lehtitason täydennys: puuttuvat lehdet kopioidaan, sisainen voittaa ristiriidassa. → { tulos, lisatty, eroaa } */
@@ -49,7 +39,7 @@ function taydenna(vanha, uusi, polku, selitys) {
   Object.keys(uusi).forEach((k) => {
     const pk = (polku || '') + '.' + turvaAvain(k);
     if (!onArvo(uusi[k])) return;   // pelaajadokumentin null-lehti ei ole täydennettävää (muuten null kopioituu joka ajolla uudelleen: kopioi 1 ei koskaan nollaudu)
-    if (!onArvo(vanha[k])) { tulos[k] = uusi[k]; lisatty++; if (selitys) selitys.push({ polku: pk, syy: 'lehti puuttuu sisainen:sta', pelaaja: tyyppi(uusi[k]), sisainen: tyyppi(vanha[k]) }); }
+    if (!onArvo(vanha[k])) { tulos[k] = uusi[k]; lisatty++; if (selitys) selitys.push({ polku: pk, syy: 'lehti puuttuu sisainen:sta', a: tyyppi(uusi[k]), b: tyyppi(vanha[k]) }); }
     else if (onKartta(vanha[k]) && onKartta(uusi[k])) { const r = taydenna(vanha[k], uusi[k], pk, selitys); tulos[k] = r.tulos; lisatty += r.lisatty; eroaa += r.eroaa; }
     else if (kanon(vanha[k]) !== kanon(uusi[k])) eroaa++;
   });
@@ -63,11 +53,11 @@ function suunnittele(pelaaja, sisainen, sid, nytISO, selitys) {
     const polla = y.kentat.filter((k) => onArvo(p[k]));
     if (!polla.length) return; onA = true;
     const sisassa = y.kentat.filter((k) => onArvo(s[k]));
-    if (!sisassa.length) { polla.forEach((k) => { kirj[k] = p[k]; if (selitys) selitys.push({ polku: k, syy: 'yksikkö puuttuu sisainen:sta', pelaaja: tyyppi(p[k]), sisainen: tyyppi(s[k]) }); }); return; }   // 1. yksikköä ei sisainen:ssä → kopioi
+    if (!sisassa.length) { polla.forEach((k) => { kirj[k] = p[k]; if (selitys) selitys.push({ polku: k, syy: 'yksikkö puuttuu sisainen:sta', a: tyyppi(p[k]), b: tyyppi(s[k]) }); }); return; }   // 1. yksikköä ei sisainen:ssä → kopioi
     const pp = paiva(y.pvm(p)), sp = paiva(y.pvm(s));
-    if (pp && sp && pp > sp) { vanhentunut++; polla.forEach((k) => { if (kanon(p[k]) !== kanon(s[k])) { kirj[k] = p[k]; if (selitys) selitys.push({ polku: k, syy: 'vanhentunut', pelaaja: tyyppi(p[k]), sisainen: tyyppi(s[k]) }); } }); return; }   // 3. vanhentunut → korvaa pelaajadokumentin arvoilla
+    if (pp && sp && pp > sp) { vanhentunut++; polla.forEach((k) => { if (kanon(p[k]) !== kanon(s[k])) { kirj[k] = p[k]; if (selitys) selitys.push({ polku: k, syy: 'vanhentunut', a: tyyppi(p[k]), b: tyyppi(s[k]) }); } }); return; }   // 3. vanhentunut → korvaa pelaajadokumentin arvoilla
     polla.forEach((k) => {   // 2. sisainen voittaa; täydennä puuttuvat
-      if (!onArvo(s[k])) { kirj[k] = p[k]; if (selitys) selitys.push({ polku: k, syy: 'kenttä puuttuu sisainen:sta', pelaaja: tyyppi(p[k]), sisainen: tyyppi(s[k]) }); }
+      if (!onArvo(s[k])) { kirj[k] = p[k]; if (selitys) selitys.push({ polku: k, syy: 'kenttä puuttuu sisainen:sta', a: tyyppi(p[k]), b: tyyppi(s[k]) }); }
       else if (onKartta(s[k]) && onKartta(p[k])) { const r = taydenna(s[k], p[k], k, selitys); if (r.lisatty) kirj[k] = r.tulos; eroaa += r.eroaa; }
       else if (kanon(s[k]) !== kanon(p[k])) eroaa++;
     });
@@ -90,7 +80,7 @@ async function aja(deps) {
     for (const d of snap.docs) {
       const sref = d.ref.collection('sisainen').doc('tiedot'), ss = await sref.get();
       const sel = deps.selita ? [] : null, pl = suunnittele(d.data() || {}, ss.exists ? ss.data() : null, sid, nytISO, sel);
-      if (sel && pl.luokka === 'kopioi') sel.forEach((x) => loki('  [' + sid + '] SELITYS ' + x.polku + ' · ' + x.syy + ' · tyyppi pelaajadokumentissa: ' + x.pelaaja + ' · sisainen: ' + x.sisainen));
+      if (sel && pl.luokka === 'kopioi') sel.forEach((x) => loki(selitysRivi(sid, x, 'pelaajadokumentissa', 'sisainen')));
       r[pl.luokka]++; r.kenttia += Object.keys(pl.kentat).length; r.eroaa += pl.eroaa; r.vanh += pl.vanhentunut;
       if (pl.luokka === 'kopioi') kirj.push({ ref: sref, data: pl.data, mergeFields: pl.mergeFields });
     }
@@ -115,12 +105,12 @@ async function main() {
   admin.initializeApp({ projectId: 'talentmaster-pilot', credential: admin.credential.applicationDefault() });   // gcloud ADC
   const db = admin.firestore();
   console.log('=== Henkilökunnan kentät → sisainen/tiedot · ' + (KIRJOITA ? 'KIRJOITUS (vaatii vahvistuksen)' : 'DRY-RUN (ei kirjoita)') + ' ===');
+  if (KIRJOITA && SELITA) { console.log('--selita on lukeva tila; ei yhdessä --kirjoita:n kanssa.'); return; }
   if (KIRJOITA && !KYLLA) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const vastaus = await new Promise((res) => rl.question('Kirjoita KIRJOITA vahvistukseksi: ', res)); rl.close();
     if (vastaus.trim() !== 'KIRJOITA') { console.log('Peruttu — mitään ei kirjoitettu.'); return; }
   }
-  if (KIRJOITA && SELITA) { console.log('--selita on lukeva tila; ei yhdessä --kirjoita:n kanssa.'); return; }
   const y = await aja({ db, kirjoita: KIRJOITA, seura, selita: SELITA, loki: console.log });
   console.log('YHTEENVETO', JSON.stringify(y));
   if (!KIRJOITA) console.log('DRY-RUN — mitään ei kirjoitettu. Kirjoitus: --kirjoita');

@@ -112,6 +112,25 @@ describe('migraatio scripts/migroi_sisainen_jaksofokus.js (fake-Firestore; tuota
     const julkinen = Object.assign({}, p, { jaksofokus: S.tmJaksofokusJaa(p.jaksofokus).julkinen, jaksofokus_historia: p.jaksofokus_historia.map((r) => S.tmHistoriaJaa(r).julkinen) });
     const y = YP(julkinen, s); expect(y.jaksofokus).toEqual(p.jaksofokus); expect(y.jaksofokus_historia[0]).toEqual(eiNull(HIS)); expect(y.jaksofokus_historia[1]).toEqual(p.jaksofokus_historia[1]);
   });
+  it('NULL-LEHTI kartassa (osa_havainnot + historiarivin d3_snapshot; null molemmissa) → jo siirretty, ei ikuista "kopioi: 1"; oikea puuttuva lehti täydentyy edelleen; toinen ajo = 0', async () => {
+    const P = (x) => ({ jaksofokus: { konsepti_avain: 'y', osa_havainnot: { k: { a: x, b: 2 } } }, jaksofokus_historia: [{ alkoi: '2026-09-01', konsepti_avain: 'x', d3_snapshot: { t: x, u: 1 } }] });
+    const Sis = (x) => ({ seuraId: 's', jaksofokus_sisainen: { osa_havainnot: { k: { a: x, b: 2 } } }, historia_sisainen: { '2026-09-01_x': { d3_snapshot: { t: x, u: 1 } } } });
+    expect(M.suunnittele(P(null), Sis(null), 's', 'T').luokka).toBe('jo_siirretty');
+    expect(M.suunnittele(P(null), { jaksofokus_sisainen: { osa_havainnot: { k: { b: 2 } } }, historia_sisainen: { '2026-09-01_x': { d3_snapshot: { u: 1 } } } }, 's', 'T').luokka).toBe('jo_siirretty');   // null ei täydennä puuttuvaa
+    const t = M.suunnittele(P(5), Sis(null), 's', 'T'); expect(t.luokka).toBe('kopioi'); expect(t.jaksofokus.osa_havainnot).toEqual({ k: { a: 5, b: 2 } }); expect(t.historia['2026-09-01_x'].d3_snapshot).toEqual({ t: 5, u: 1 });
+    const { db } = fakeDb({ 'seurat/s': {}, 'seurat/s/pelaajat/q1': P(null), 'seurat/s/pelaajat/q1/sisainen/tiedot': Sis(null) });
+    expect(await M.aja({ db, kirjoita: true })).toMatchObject({ kopioi: 0, kirjoitettu: 0, jo_siirretty: 1 });
+  });
+  it('--selita (lukeva): seura, kenttä-/lehtipolku, syy ja arvotyyppi (jaksofokus + historiarivi); ei arvoja, ei pelaaja-id:itä, id-näköiset avaimet peitetty; ei kirjoita', async () => {
+    const { db, loki } = fakeDb({ 'seurat/s': {}, 'seurat/s/pelaajat/q1': { jaksofokus: { konsepti_avain: 'y', osa_havainnot: { muu: 1, abcDEF1234567890xyz: { a: 'SALAINEN' } }, oma_jakso: { x: 1 } }, jaksofokus_historia: [{ alkoi: '2026-09-01', konsepti_avain: 'x', arvio_itse: 3 }] },
+      'seurat/s/pelaajat/q1/sisainen/tiedot': { seuraId: 's', jaksofokus_sisainen: { osa_havainnot: { muu: 1 } } } }), rivit = [];
+    await M.aja({ db, selita: true, loki: (r) => rivit.push(r) }); const s = rivit.join('\n');
+    expect(s).toMatch(/\[s\] SELITYS jaksofokus_sisainen\.osa_havainnot\.<id> · lehti puuttuu sisainen:sta · tyyppi pelaajadokumentissa: map · sisainen: puuttuu/);
+    expect(s).toMatch(/\[s\] SELITYS jaksofokus_sisainen\.oma_jakso · kenttä puuttuu sisainen:sta · tyyppi pelaajadokumentissa: map · sisainen: puuttuu/);
+    expect(s).toMatch(/\[s\] SELITYS historia_sisainen\.2026-09-01_x\.arvio_itse · rivi puuttuu sisainen:sta · tyyppi pelaajadokumentissa: number · sisainen: puuttuu/);
+    expect(s).not.toMatch(/SALAINEN|q1|abcDEF/); expect(loki.commits).toBe(0);
+    expect(SRC).toContain("argv.includes('--selita')"); expect(SRC.indexOf('KIRJOITA && SELITA')).toBeLessThan(SRC.indexOf('initializeApp'));
+  });
   it('--seura rajaa; skriptin turvallisuus: dry-run oletuksena, KIRJOITA-vahvistus, ADC, require ei käynnistä ajoa, vain yksi set (merge), ei poistoa/updatea', async () => {
     const { db } = fakeDb(data()); expect((await M.aja({ db, seura: 'kpv' })).pelaajia).toBe(1);
     expect(SRC).toContain("argv.includes('--kirjoita')"); expect(SRC).toContain('Kirjoita KIRJOITA vahvistukseksi'); expect(SRC).toContain('credential.applicationDefault()'); expect(SRC).not.toMatch(/serviceAccount|\.json'\)|admin\.applicationDefault/);
