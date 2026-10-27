@@ -19,8 +19,8 @@ const pelaaja = () => ({ etunimi: 'X', vastuuhenkilo: VH('2026-10-01'), tukitarv
   talentti_ehdotus: { lahde: 'vp', pvm: '2026-09-01', ehdottaja_uid: 'u3', ehdottaja_rooli: 'vp' }, review_viimeisin_pvm: '2026-10-10', review_viimeisin_tyyppi: 'jakso', review_tagit: ['a'], idp_edistyma: 40, idp_lahde: 'vp', idp_viim_review: '2026-10-10', idp_dvi: { x: 1 } });
 
 describe('rekisteri: S2-ryhmä', () => {
-  it('henkilokunta = briiffin 15 kenttää; lippu ja kytkentä POIS oletuksena; D3 on edelleen ainoa kytketty ryhmä; tmSisainenKentat() ennallaan', () => {
-    expect(LIPPU.kentat).toEqual(KENTAT); expect(LIPPU.kirjoitus).toBe(false); expect(LIPPU.kytketty).toBe(false); expect(LIPPU.erillinen).toBe(true);
+  it('henkilokunta = briiffin 15 kenttää; lippu PÄÄLLÄ (lipun käännön PR) ja kytkentä POIS oletuksena; D3 on edelleen ainoa kytketty ryhmä; tmSisainenKentat() ennallaan', () => {
+    expect(LIPPU.kentat).toEqual(KENTAT); expect(LIPPU.kirjoitus).toBe(true); expect(LIPPU.kytketty).toBe(false); expect(LIPPU.erillinen).toBe(true);
     expect(Object.keys(S.RYHMAT).filter((n) => S.RYHMAT[n].kytketty)).toEqual(['d3']); expect(S.tmSisainenKentat()).toEqual(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus', 'd3_vp_pvm']);
     expect(S.tmHenkilokuntaKentat()).toEqual(KENTAT);
   });

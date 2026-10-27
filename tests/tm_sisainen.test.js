@@ -30,7 +30,8 @@ describe('dual-read: tmSisainenYhdista', () => {
     expect(S.tmSisainenYhdista(p, null)).toEqual(p); expect(S.tmSisainenYhdista(p, undefined)).toEqual(p); expect(S.tmSisainenYhdista(p, {})).toEqual(p);
   });
   it('ei-kytketyt ryhmät eivät yhdisty (tuoja sisainen:ssä ei nouse pelaajaolioon vielä)', () => {
-    expect(S.tmSisainenYhdista({ id: 'p' }, { tuoja: 'x@y.fi', vastuuhenkilo: { uid: 'u' } })).toEqual({ id: 'p' });
+    expect(S.tmSisainenYhdista({ id: 'p' }, { tuoja: 'x@y.fi' })).toEqual({ id: 'p' });   // tuoja_meta ei kytketty
+    expect(S.tmSisainenYhdista({ id: 'p' }, { vastuuhenkilo: { uid: 'u' } }, { henkilokuntaKirjoitus: false })).toEqual({ id: 'p' });   // henkilokunta: lippu pois (peruutus) → ei yhdisty
   });
   it('pelaajan d3_itsearvio yhdistyy pisteet[dim].pelaaja:ksi; muut D3-osat sisainen:stä', () => {
     const m = S.tmSisainenYhdista({ id: 'p', d3_itsearvio: { pisteet: { focus: 5 }, pvm: '2026-10-20' } }, { d3_viimeisin: { pisteet: { focus: { valmentaja: 3 } }, lahteet: ['valmentaja'] } });

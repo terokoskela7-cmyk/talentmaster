@@ -49,7 +49,7 @@ const sisaa = (fs) => Object.keys(fs.docs).some((k) => /sisainen/.test(k));
 describe('lib: tmHenkilokuntaKirjoita (pelaajaSet, tyhjä upd, taydenna), Lisaa + Varapolulla, elinkaarihelperi + henkilokunta', () => {
   it('pelaajaSet: pelaaja set-merge (syvä yhdistys säilyy, ei update-korvausta); lippu pois ei sisainen:iä; päällä sisainen mergeFields + delete', async () => {
     const f = mkFs(); f.docs[PEL] = alku();
-    await S.tmHenkilokuntaKirjoita(f.db, SID, PID, { idp_fokus: { c: 3 }, idp_edistyma: 40 }, { pelaajaSet: true }); expect(f.docs[PEL].idp_fokus).toEqual({ a: 1, b: 2, c: 3 }); expect(sisaa(f)).toBe(false);
+    await S.tmHenkilokuntaKirjoita(f.db, SID, PID, { idp_fokus: { c: 3 }, idp_edistyma: 40 }, { pelaajaSet: true, henkilokuntaKirjoitus: false }); expect(f.docs[PEL].idp_fokus).toEqual({ a: 1, b: 2, c: 3 }); expect(sisaa(f)).toBe(false);
     await S.tmHenkilokuntaKirjoita(f.db, SID, PID, { idp_edistyma: 50, vastuuhenkilo: DEL }, { pelaajaSet: true, henkilokuntaKirjoitus: true }); expect(f.docs[SIS].idp_edistyma).toBe(50); expect(f.docs[SIS].idp_fokus).toBeUndefined(); expect(f.docs[PEL].vastuuhenkilo).toBeUndefined(); expect(f.docs[SIS].vastuuhenkilo).toBeUndefined();
   });
   it('tyhjä upd + taydenna: pelaajaa ei kirjoiteta (vain taydenna), ei virhettä', async () => {
