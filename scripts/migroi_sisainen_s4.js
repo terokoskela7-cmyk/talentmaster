@@ -4,17 +4,19 @@
  * Ryhmät (lib/tm_sisainen.js, lippu RYHMAT.s4.kirjoitus): adar_sisainen · arviointi · kypsyys_sisainen (+ vanhempien pituudet) · talentti · signaali · terveys (oma dokumentti).
  * JAETUT ARVOT: signaali → vain talenttisignaalit (SIGNAALI_SISAINEN: xfactor, x-factor, hidden-gem, hidden) kopioidaan; 'phv' ja muut jäävät pelaajalle. havainto_porras_ehdotus.hist → sisainen.havainto_porras_hist (pelaajalle jää {valmis, seuraava} + hist; hist_n lasketaan PR 2:n siivouksessa ennen hist:in poistoa — P7 lukee hist_n ?? hist.length).
  * KOPIOI, EI POISTA: vanhat kentät jäävät pelaajadokumenttiin (dual-write/dual-read -siirtymä); poisto on PR 2:n siivous.
- * IDEMPOTENTTI, samat kolme sääntöä kuin migroi_sisainen_henkilokunta.js: (1) yksikköä ei sisainen:ssä → kopioi; (2) molemmissa → SISAINEN VOITTAA (eroaa++), puuttuvat lehdet täydennetään; (3) pelaajadokumentin yksikön pvm myöhäisempi → VANHENTUNUT, korvataan pelaajadokumentin arvoilla.
+ * IDEMPOTENTTI, samat kolme sääntöä kuin migroi_sisainen_henkilokunta.js: (1) yksikköä ei sisainen:ssä → kopioi; (2) molemmissa → SISAINEN VOITTAA (eroaa++), puuttuvat lehdet täydennetään (pelaajadokumentin null-lehti ei täydennä mitään); (3) pelaajadokumentin yksikön pvm myöhäisempi → VANHENTUNUT, korvataan pelaajadokumentin arvoilla.
  *   Päivämäärälliset yksiköt: adar (havainto_viimeisin_pvm), arviointi (arviointi_kooste_pvm | arviointi_pvm). Muut päivämäärättömiä → eivät vanhene.
  * Kirjoitus: yksi set mergeFields per pelaaja ja dokumentti (tiedot, terveys). TULOSTE: vain lukumäärät (seuroittain) — ei nimiä, ei dokumentti-id:itä, ei sisältöä (loukkaantumis-/terveystieto GDPR art. 9).
  *
  * AJO (Teron kaista; gcloud ADC, EI palveluavainta). EI AJETA ennen kuin Rules v3.70 on deployattu ja PM on kuitannut dry-runin:
  *   Dry-run (OLETUS, ei kirjoita):                    node scripts/migroi_sisainen_s4.js            [--seura=<id>]
+ *   Selitys (LUKEVA; kopioitavat kentät: seura + kenttä/lehtipolku + arvotyyppi, ei arvoja eikä id:itä; terveys-dokumentin rivit etuliitteellä terveys:):  node scripts/migroi_sisainen_s4.js --selita [--seura=<id>]
  *   Kirjoitus (vasta dry-run-tarkistuksen jälkeen):   node scripts/migroi_sisainen_s4.js --kirjoita [--seura=<id>]   (+ kirjoita KIRJOITA vahvistukseksi; --kylla ohittaa kysymyksen)
  */
 'use strict';
 
 const S = require('../lib/tm_sisainen.js');
+const { tyyppi, turvaAvain, rivi: selitysRivi } = require('./migraatio_selitys.js');
 const RK = S.RYHMAT;
 const onArvo = (v) => v !== undefined && v !== null;
 const onKartta = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
@@ -41,34 +43,37 @@ function lahde(p) {
 const paiva = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) ? v.slice(0, 10) : null;
 
 /* Lehtitason täydennys: puuttuvat lehdet kopioidaan, sisainen voittaa ristiriidassa. → { tulos, lisatty, eroaa } */
-function taydenna(vanha, uusi) {
+function taydenna(vanha, uusi, polku, selitys) {
   const tulos = Object.assign({}, vanha); let lisatty = 0, eroaa = 0;
   Object.keys(uusi).forEach((k) => {
-    if (!onArvo(vanha[k])) { tulos[k] = uusi[k]; lisatty++; }
-    else if (onKartta(vanha[k]) && onKartta(uusi[k])) { const r = taydenna(vanha[k], uusi[k]); tulos[k] = r.tulos; lisatty += r.lisatty; eroaa += r.eroaa; }
+    const pk = (polku || '') + '.' + turvaAvain(k);
+    if (!onArvo(uusi[k])) return;   // pelaajadokumentin null-lehti ei ole täydennettävää (muuten null kopioituu joka ajolla uudelleen: kopioi 1 ei koskaan nollaudu)
+    if (!onArvo(vanha[k])) { tulos[k] = uusi[k]; lisatty++; if (selitys) selitys.push({ polku: pk, syy: 'lehti puuttuu sisainen:sta', a: tyyppi(uusi[k]), b: tyyppi(vanha[k]) }); }
+    else if (onKartta(vanha[k]) && onKartta(uusi[k])) { const r = taydenna(vanha[k], uusi[k], pk, selitys); tulos[k] = r.tulos; lisatty += r.lisatty; eroaa += r.eroaa; }
     else if (kanon(vanha[k]) !== kanon(uusi[k])) eroaa++;
   });
   return { tulos, lisatty, eroaa };
 }
 
 /* PURE: mitä tälle pelaajalle kirjoitettaisiin? → { luokka:'ei_a'|'jo_siirretty'|'kopioi', kentat:{kenttä:arvo}, eroaa, vanhentunut, data|null, mergeFields|null } */
-function suunnittele(pelaaja, sisainen, sid, nytISO, terveys) {
-  const p = lahde(pelaaja), r = suunnitteleDok(p, sisainen, YKSIKOT_TIEDOT, 'seuraId', sid, nytISO);
-  r.terveys = suunnitteleDok(p, terveys, YKSIKOT_TERVEYS, 'terveysSeuraId', sid, nytISO);   // sisainen/terveys — oma suunnitelma, sama kolmen säännön logiikka
+/* selitys (valinnainen, --selita): { tiedot: [], terveys: [] } → kopioinnin syyt dokumenteittain */
+function suunnittele(pelaaja, sisainen, sid, nytISO, terveys, selitys) {
+  const p = lahde(pelaaja), r = suunnitteleDok(p, sisainen, YKSIKOT_TIEDOT, 'seuraId', sid, nytISO, selitys && selitys.tiedot);
+  r.terveys = suunnitteleDok(p, terveys, YKSIKOT_TERVEYS, 'terveysSeuraId', sid, nytISO, selitys && selitys.terveys);   // sisainen/terveys — oma suunnitelma, sama kolmen säännön logiikka
   return r;
 }
-function suunnitteleDok(p, sisainen, yksikot, seuraAvain, sid, nytISO) {
+function suunnitteleDok(p, sisainen, yksikot, seuraAvain, sid, nytISO, selitys) {
   const s = sisainen || {}, kirj = {}; let eroaa = 0, vanhentunut = 0, onA = false;
   yksikot.forEach((y) => {
     const polla = y.kentat.filter((k) => onArvo(p[k]));
     if (!polla.length) return; onA = true;
     const sisassa = y.kentat.filter((k) => onArvo(s[k]));
-    if (!sisassa.length) { polla.forEach((k) => { kirj[k] = p[k]; }); return; }   // 1. yksikköä ei sisainen:ssä → kopioi
+    if (!sisassa.length) { polla.forEach((k) => { kirj[k] = p[k]; if (selitys) selitys.push({ polku: k, syy: 'yksikkö puuttuu sisainen:sta', a: tyyppi(p[k]), b: tyyppi(s[k]) }); }); return; }   // 1. yksikköä ei sisainen:ssä → kopioi
     const pp = paiva(y.pvm(p)), sp = paiva(y.pvm(s));
-    if (pp && sp && pp > sp) { vanhentunut++; polla.forEach((k) => { if (kanon(p[k]) !== kanon(s[k])) kirj[k] = p[k]; }); return; }   // 3. vanhentunut → korvaa pelaajadokumentin arvoilla
+    if (pp && sp && pp > sp) { vanhentunut++; polla.forEach((k) => { if (kanon(p[k]) !== kanon(s[k])) { kirj[k] = p[k]; if (selitys) selitys.push({ polku: k, syy: 'vanhentunut', a: tyyppi(p[k]), b: tyyppi(s[k]) }); } }); return; }   // 3. vanhentunut → korvaa pelaajadokumentin arvoilla
     polla.forEach((k) => {   // 2. sisainen voittaa; täydennä puuttuvat
-      if (!onArvo(s[k])) kirj[k] = p[k];
-      else if (onKartta(s[k]) && onKartta(p[k])) { const r = taydenna(s[k], p[k]); if (r.lisatty) kirj[k] = r.tulos; eroaa += r.eroaa; }
+      if (!onArvo(s[k])) { kirj[k] = p[k]; if (selitys) selitys.push({ polku: k, syy: 'kenttä puuttuu sisainen:sta', a: tyyppi(p[k]), b: tyyppi(s[k]) }); }
+      else if (onKartta(s[k]) && onKartta(p[k])) { const r = taydenna(s[k], p[k], k, selitys); if (r.lisatty) kirj[k] = r.tulos; eroaa += r.eroaa; }
       else if (kanon(s[k]) !== kanon(p[k])) eroaa++;
     });
   });
@@ -89,7 +94,9 @@ async function aja(deps) {
     const r = { ei_a: 0, jo_siirretty: 0, kopioi: 0, kenttia: 0, eroaa: 0, vanh: 0, t_kopioi: 0, t_kenttia: 0, t_eroaa: 0 };
     for (const d of snap.docs) {
       const sref = d.ref.collection('sisainen').doc('tiedot'), ss = await sref.get(), tref = d.ref.collection('sisainen').doc('terveys'), ts = await tref.get();
-      const pl = suunnittele(d.data() || {}, ss.exists ? ss.data() : null, sid, nytISO, ts.exists ? ts.data() : null);
+      const sel = deps.selita ? { tiedot: [], terveys: [] } : null, pl = suunnittele(d.data() || {}, ss.exists ? ss.data() : null, sid, nytISO, ts.exists ? ts.data() : null, sel);
+      if (sel && pl.luokka === 'kopioi') sel.tiedot.forEach((x) => loki(selitysRivi(sid, x, 'pelaajadokumentissa', 'sisainen')));
+      if (sel && pl.terveys.luokka === 'kopioi') sel.terveys.forEach((x) => loki(selitysRivi(sid, Object.assign({}, x, { polku: 'terveys:' + x.polku }), 'pelaajadokumentissa', 'sisainen/terveys')));
       r[pl.luokka]++; r.kenttia += Object.keys(pl.kentat).length; r.eroaa += pl.eroaa; r.vanh += pl.vanhentunut;
       if (pl.luokka === 'kopioi') kirj.push({ ref: sref, data: pl.data, mergeFields: pl.mergeFields });
       if (pl.terveys.luokka === 'kopioi') { r.t_kopioi++; r.t_kenttia += Object.keys(pl.terveys.kentat).length; kirj.push({ ref: tref, data: pl.terveys.data, mergeFields: pl.terveys.mergeFields }); }
@@ -111,8 +118,9 @@ async function aja(deps) {
 async function main() {
   const path = require('path'), readline = require('readline');
   let admin; try { admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin')); } catch (e) { admin = require('firebase-admin'); }
-  const argv = process.argv.slice(2), KIRJOITA = argv.includes('--kirjoita'), KYLLA = argv.includes('--kylla');
+  const argv = process.argv.slice(2), KIRJOITA = argv.includes('--kirjoita'), KYLLA = argv.includes('--kylla'), SELITA = argv.includes('--selita');
   const seura = (argv.find((a) => a.indexOf('--seura=') === 0) || '').split('=')[1] || null;
+  if (KIRJOITA && SELITA) { console.log('--selita on lukeva tila; ei yhdessä --kirjoita:n kanssa.'); return; }
   admin.initializeApp({ projectId: 'talentmaster-pilot', credential: admin.credential.applicationDefault() });   // gcloud ADC
   const db = admin.firestore();
   console.log('=== S4-kentät → sisainen/tiedot · ' + (KIRJOITA ? 'KIRJOITUS (vaatii vahvistuksen)' : 'DRY-RUN (ei kirjoita)') + ' ===');
@@ -121,7 +129,7 @@ async function main() {
     const vastaus = await new Promise((res) => rl.question('Kirjoita KIRJOITA vahvistukseksi: ', res)); rl.close();
     if (vastaus.trim() !== 'KIRJOITA') { console.log('Peruttu — mitään ei kirjoitettu.'); return; }
   }
-  const y = await aja({ db, kirjoita: KIRJOITA, seura, loki: console.log });
+  const y = await aja({ db, kirjoita: KIRJOITA, seura, selita: SELITA, loki: console.log });
   console.log('YHTEENVETO', JSON.stringify(y));
   if (!KIRJOITA) console.log('DRY-RUN — mitään ei kirjoitettu. Kirjoitus: --kirjoita');
 }

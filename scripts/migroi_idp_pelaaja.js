@@ -12,22 +12,25 @@
  *
  * AJO (Teron kaista; gcloud ADC, EI palveluavainta). EI AJETA ennen kuin Rules v3.71 on deployattu (on) ja PM on kuitannut dry-runin:
  *   Dry-run (OLETUS, ei kirjoita):                    node scripts/migroi_idp_pelaaja.js            [--seura=<id>]
+ *   Selitys (LUKEVA; kopioitavat kentät: seura + vuosi:kenttä/lehtipolku + arvotyyppi, ei arvoja eikä id:itä; vanhentuneista tavoitteista eroavat lehtipolut):  node scripts/migroi_idp_pelaaja.js --selita [--seura=<id>]
  *   Kirjoitus (vasta dry-run-tarkistuksen jälkeen):   node scripts/migroi_idp_pelaaja.js --kirjoita [--seura=<id>]   (+ kirjoita KIRJOITA vahvistukseksi; --kylla ohittaa kysymyksen)
  */
 'use strict';
 
 const D = require('../lib/tm_idp_pelaaja_dok.js');
+const { tyyppi, turvaAvain, erot, rivi: selitysRivi } = require('./migraatio_selitys.js');
 const onArvo = (v) => v !== undefined && v !== null;
 const onKartta = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const kanon = (x) => JSON.stringify(x, (k, v) => (v && typeof v === 'object' && !Array.isArray(v)) ? Object.keys(v).sort().reduce((o, a) => { o[a] = v[a]; return o; }, {}) : v);
 
 /* Lehtitason täydennys: idp_pelaaja voittaa, puuttuvat lehdet idp_kausi:sta. → { tulos, lisatty, eroaa } */
-function taydenna(vanha, uusi) {
+function taydenna(vanha, uusi, polku, selitys) {
   const tulos = Object.assign({}, vanha); let lisatty = 0, eroaa = 0;
   Object.keys(uusi).forEach((k) => {
-    if (!onArvo(uusi[k])) return;
-    if (!onArvo(vanha[k])) { tulos[k] = uusi[k]; lisatty++; }
-    else if (onKartta(vanha[k]) && onKartta(uusi[k])) { const r = taydenna(vanha[k], uusi[k]); tulos[k] = r.tulos; lisatty += r.lisatty; eroaa += r.eroaa; }
+    const pk = (polku || '') + '.' + turvaAvain(k);
+    if (!onArvo(uusi[k])) return;   // idp_kausi:n null-lehti ei ole täydennettävää
+    if (!onArvo(vanha[k])) { tulos[k] = uusi[k]; lisatty++; if (selitys) selitys.push({ polku: pk, syy: 'lehti puuttuu idp_pelaaja:sta', a: tyyppi(uusi[k]), b: tyyppi(vanha[k]) }); }
+    else if (onKartta(vanha[k]) && onKartta(uusi[k])) { const r = taydenna(vanha[k], uusi[k], pk, selitys); tulos[k] = r.tulos; lisatty += r.lisatty; eroaa += r.eroaa; }
     else if (kanon(vanha[k]) !== kanon(uusi[k])) eroaa++;
   });
   return { tulos, lisatty, eroaa };
@@ -35,19 +38,22 @@ function taydenna(vanha, uusi) {
 
 /* PURE: mitä tälle vuosidokumentille kirjoitettaisiin? kausi = idp_kausi/{vuosi}.data(), pelaaja = idp_pelaaja/{vuosi}.data() | null
    → { luokka:'ei_dataa'|'jo_siirretty'|'kopioi', uusi:bool, vanhentunut:bool, eroaa, data|null, mergeFields|null } */
-function suunnittele(kausi, pelaaja, nytISO) {
+function suunnittele(kausi, pelaaja, nytISO, selitys) {   // selitys (valinnainen, --selita): [] → kopioinnin syyt
   const k = onKartta(kausi) ? kausi : {}, p = onKartta(pelaaja) ? pelaaja : null;
   const onTav = Array.isArray(k.tavoitteet), onSit = onKartta(k.pelaaja_sitoumus);
   if (!onTav && !onSit) return { luokka: 'ei_dataa', uusi: false, vanhentunut: false, eroaa: 0, data: null, mergeFields: null };
   const data = {}, kentat = []; let vanhentunut = false, eroaa = 0;
   if (onTav) {
     const puhdas = D.tmIdpPelaajaTavoitteet(k.tavoitteet);
-    if (!p || !Array.isArray(p.tavoitteet)) { data.tavoitteet = puhdas; kentat.push('tavoitteet'); }
-    else if (kanon(puhdas) !== kanon(p.tavoitteet)) { data.tavoitteet = puhdas; kentat.push('tavoitteet'); vanhentunut = true; }
+    if (!p || !Array.isArray(p.tavoitteet)) { data.tavoitteet = puhdas; kentat.push('tavoitteet'); if (selitys) selitys.push({ polku: 'tavoitteet', syy: p ? 'kenttä puuttuu idp_pelaaja:sta' : 'idp_pelaaja puuttuu', a: tyyppi(puhdas), b: tyyppi(p ? p.tavoitteet : undefined) }); }
+    else if (kanon(puhdas) !== kanon(p.tavoitteet)) {
+      data.tavoitteet = puhdas; kentat.push('tavoitteet'); vanhentunut = true;
+      if (selitys) erot(puhdas, p.tavoitteet, 'tavoitteet').forEach((e) => selitys.push({ polku: e.polku, syy: 'vanhentunut (puhdistettu idp_kausi ≠ idp_pelaaja)', a: e.a, b: e.b }));
+    }
   }
   if (onSit) {
-    if (!p || !onKartta(p.pelaaja_sitoumus)) { data.pelaaja_sitoumus = k.pelaaja_sitoumus; kentat.push('pelaaja_sitoumus'); }
-    else { const r = taydenna(p.pelaaja_sitoumus, k.pelaaja_sitoumus); eroaa += r.eroaa; if (r.lisatty) { data.pelaaja_sitoumus = r.tulos; kentat.push('pelaaja_sitoumus'); } }
+    if (!p || !onKartta(p.pelaaja_sitoumus)) { data.pelaaja_sitoumus = k.pelaaja_sitoumus; kentat.push('pelaaja_sitoumus'); if (selitys) selitys.push({ polku: 'pelaaja_sitoumus', syy: p ? 'kenttä puuttuu idp_pelaaja:sta' : 'idp_pelaaja puuttuu', a: tyyppi(k.pelaaja_sitoumus), b: tyyppi(p ? p.pelaaja_sitoumus : undefined) }); }
+    else { const r = taydenna(p.pelaaja_sitoumus, k.pelaaja_sitoumus, 'pelaaja_sitoumus', selitys); eroaa += r.eroaa; if (r.lisatty) { data.pelaaja_sitoumus = r.tulos; kentat.push('pelaaja_sitoumus'); } }
   }
   if (!kentat.length) return { luokka: 'jo_siirretty', uusi: false, vanhentunut: false, eroaa, data: null, mergeFields: null };
   data.paivitetty = nytISO;
@@ -67,7 +73,8 @@ async function aja(deps) {
       const kausit = await d.ref.collection('idp_kausi').get();
       for (const kd of kausit.docs) {
         const pref = d.ref.collection('idp_pelaaja').doc(kd.id), ps = await pref.get();
-        const pl = suunnittele(kd.data() || {}, ps.exists ? ps.data() : null, nytISO);
+        const sel = deps.selita ? [] : null, pl = suunnittele(kd.data() || {}, ps.exists ? ps.data() : null, nytISO, sel);
+        if (sel && pl.luokka === 'kopioi') sel.forEach((x) => loki(selitysRivi(sid, Object.assign({}, x, { polku: turvaAvain(kd.id) + ':' + x.polku }), 'idp_kausi', 'idp_pelaaja')));
         r.dok++; r[pl.luokka]++; if (pl.uusi) r.uusia++; if (pl.vanhentunut) r.vanh++; r.eroaa += pl.eroaa;
         if (pl.luokka === 'kopioi') kirj.push({ ref: pref, data: pl.data, mergeFields: pl.mergeFields });
       }
@@ -88,8 +95,9 @@ async function aja(deps) {
 async function main() {
   const path = require('path'), readline = require('readline');
   let admin; try { admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin')); } catch (e) { admin = require('firebase-admin'); }
-  const argv = process.argv.slice(2), KIRJOITA = argv.includes('--kirjoita'), KYLLA = argv.includes('--kylla');
+  const argv = process.argv.slice(2), KIRJOITA = argv.includes('--kirjoita'), KYLLA = argv.includes('--kylla'), SELITA = argv.includes('--selita');
   const seura = (argv.find((a) => a.indexOf('--seura=') === 0) || '').split('=')[1] || null;
+  if (KIRJOITA && SELITA) { console.log('--selita on lukeva tila; ei yhdessä --kirjoita:n kanssa.'); return; }
   admin.initializeApp({ projectId: 'talentmaster-pilot', credential: admin.credential.applicationDefault() });   // gcloud ADC
   const db = admin.firestore();
   console.log('=== idp_kausi → idp_pelaaja · ' + (KIRJOITA ? 'KIRJOITUS (vaatii vahvistuksen)' : 'DRY-RUN (ei kirjoita)') + ' ===');
@@ -98,7 +106,7 @@ async function main() {
     const vastaus = await new Promise((res) => rl.question('Kirjoita KIRJOITA vahvistukseksi: ', res)); rl.close();
     if (vastaus.trim() !== 'KIRJOITA') { console.log('Peruttu — mitään ei kirjoitettu.'); return; }
   }
-  const y = await aja({ db, kirjoita: KIRJOITA, seura, loki: console.log });
+  const y = await aja({ db, kirjoita: KIRJOITA, seura, selita: SELITA, loki: console.log });
   console.log('YHTEENVETO', JSON.stringify(y));
   if (!KIRJOITA) console.log('DRY-RUN — mitään ei kirjoitettu. Kirjoitus: --kirjoita');
 }

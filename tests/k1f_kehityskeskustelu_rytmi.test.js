@@ -31,6 +31,7 @@ function ymp(sivu, pelaaja, opts) {
     toast: (t, l) => loki.toast.push([t, l]),
   });
   c.document = Object.assign({}, c.document, { getElementById: E });
+  if (c.window && c.window.TM_SISAINEN) c.window.TM_SISAINEN.RYHMAT.henkilokunta.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_henkilokunta*.test.js
   return { c, f, loki, E };
 }
 const pel = (t) => t.f.D.get(POLKU);

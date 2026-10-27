@@ -208,6 +208,24 @@ describe('migraatio scripts/migroi_sisainen_s4.js (fake-Firestore; tuotantoon ei
     const julkinen = { valmis: false, seuraava: null }; const pel = Object.assign({}, p, { signaali: undefined, havainto_porras_ehdotus: julkinen }); const y = S.tmSisainenYhdista(pel, s, { s4Kirjoitus: true });
     expect(y.signaali).toBe('xfactor'); expect(y.havainto_porras_ehdotus).toEqual({ valmis: false, seuraava: null, hist: [3, 2] }); expect(y.kasvutahti_cm_v).toBe(6);
   });
+  it('NULL-LEHTI kartassa (sama vika kuin henkilokunta: null molemmissa) → jo siirretty, ei ikuista "kopioi: 1"; oikea puuttuva lehti täydentyy edelleen; toinen ajo = 0', async () => {
+    const K = (b) => ({ arviointi_kooste_pvm: '2026-10-02', arviointi_kooste: { a: 1, b } });
+    expect(M.suunnittele(K(null), K(null), 'a', 'T').luokka).toBe('jo_siirretty');
+    expect(M.suunnittele(K(null), { arviointi_kooste_pvm: '2026-10-02', arviointi_kooste: { a: 1 } }, 'a', 'T').luokka).toBe('jo_siirretty');   // null ei täydennä puuttuvaa
+    const t = M.suunnittele(K(2), K(null), 'a', 'T'); expect(t.luokka).toBe('kopioi'); expect(t.kentat.arviointi_kooste).toEqual({ a: 1, b: 2 });
+    const { db } = fakeDb({ 'seurat/k': {}, 'seurat/k/pelaajat/q1': K(null), 'seurat/k/pelaajat/q1/sisainen/tiedot': Object.assign({ seuraId: 'k' }, K(null)) });
+    expect(await M.aja({ db, kirjoita: true })).toMatchObject({ kopioi: 0, kenttia: 0, kirjoitettu: 0, jo_siirretty: 1 });
+  });
+  it('--selita (lukeva): seura, kenttä-/lehtipolku, syy ja arvotyyppi — tiedot ja terveys (etuliite terveys:) erikseen; ei arvoja, ei pelaaja-id:itä, id-näköiset avaimet peitetty; ei kirjoita', async () => {
+    const { db, loki } = fakeDb({ 'seurat/k': {}, 'seurat/k/pelaajat/q1': { arviointi_kooste_pvm: '2026-10-02', arviointi_kooste: { a: 'SALAINEN', abcDEF1234567890xyz: 3 }, loukkaantuminen_tyyppi: 'nilkka' },
+      'seurat/k/pelaajat/q1/sisainen/tiedot': { seuraId: 'k', arviointi_kooste_pvm: '2026-10-02', arviointi_kooste: { a: 'SALAINEN' } } }), rivit = [];
+    await M.aja({ db, selita: true, loki: (r) => rivit.push(r) }); const s = rivit.join('\n');
+    expect(s).toMatch(/\[k\] SELITYS arviointi_kooste\.<id> · lehti puuttuu sisainen:sta · tyyppi pelaajadokumentissa: number · sisainen: puuttuu/);
+    expect(s).toMatch(/\[k\] SELITYS terveys:loukkaantuminen_tyyppi · yksikkö puuttuu sisainen:sta · tyyppi pelaajadokumentissa: string · sisainen\/terveys: puuttuu/);
+    expect(s).not.toMatch(/SALAINEN|nilkka|2026-10-02|q1|abcDEF/); expect(loki.commits).toBe(0);
+    const ilman = []; await M.aja({ db: fakeDb({ 'seurat/k': {}, 'seurat/k/pelaajat/q1': { kasvutahti_cm_v: 4 } }).db, loki: (r) => ilman.push(r) }); expect(ilman.join('\n')).not.toMatch(/SELITYS/);   // ilman lippua ei selitysrivejä
+    expect(SRC).toContain("argv.includes('--selita')"); expect(SRC.indexOf('KIRJOITA && SELITA')).toBeLessThan(SRC.indexOf('initializeApp'));
+  });
   it('skriptin turvallisuus: dry-run oletuksena, KIRJOITA-vahvistus, ADC, require ei käynnistä ajoa, vain yksi set (mergeFields), ei poistoa/updatea', () => {
     expect(SRC).toContain("argv.includes('--kirjoita')"); expect(SRC).toContain('Kirjoita KIRJOITA vahvistukseksi'); expect(SRC).toContain('credential.applicationDefault()'); expect(SRC).not.toMatch(/serviceAccount|\.json'\)|admin\.applicationDefault/);
     expect(SRC).toContain('require.main === module'); expect(SRC).not.toMatch(/\.delete\(|FieldValue|\.update\(/); expect((SRC.match(/b\.set\(/g) || []).length).toBe(1);

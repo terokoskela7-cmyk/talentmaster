@@ -67,7 +67,7 @@ const SALLITTU = [
   ['TalentMaster_Excel_Tuonti.html', "console.log('PDF-parseri", 'C', 'konsoliloki'],
   ['TalentMaster_Harjoitettavuus_Lomake_v4.html', 'pvmSlug', 'C', 'tiedostonimen fallback (kaksi riviä)'],
   ['TalentMaster_Seura.html', "const pvm = new Date().toISOString().slice(0,10);", 'C', 'tiedostonimi (rivi ennen XLSX.writeFile)'],
-  ['TalentMaster_Seura.html', 'syntymaaika.seconds', 'C', 'syntymäaika Timestampista — EI muutosta (selvitys erikseen: vain luku -skripti)'],
+  ['lib/tm_syntymavuosi.js', 'toISOString().slice(0, 10)', 'C', 'syntymäaika Timestampista (UTC-keskiyö → sama päivä); siirretty Seurasta, ei muutosta'],
   ['TalentMaster_VP_v25.html', 'alkoi ? loppuD.toISOString()', 'C', 'UTC-päivälaskenta merkkijonosta alkoi; fallback on jo tmPaivaIso'],
   ['TalentMaster_Master_v16.html', 'alkoi ? loppuD.toISOString()', 'C', 'sama kuin VP'],
   ['lib/tm_arviointi_historia.js', 'graceful', 'C', 'fallback Intl-aikavyöhykkeen puuttuessa (ensisijainen käyttää Europe/Helsinki)'],

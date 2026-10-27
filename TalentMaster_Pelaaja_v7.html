@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1792935694209';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1793116970879';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -1487,6 +1487,7 @@ function rA1Kentta() {
   try {
     if (typeof valitsePaivanHarjoite === 'function' && window.PANKKI) {
       const h = valitsePaivanHarjoite(_pelaaja, window.PANKKI, tanaan, window._p7SeuraPankki || null, { jaksoEnsin: true });   // jakso ensin (konsepti_avain), sitten testit
+      if (h && h.nimi) (window._p7HarjoiteNimi = window._p7HarjoiteNimi || {}).D = h.nimi;
       treeni = K.tmPaivanTreeniHTML(h, Object.assign({ kirjausFn: '_kirjaaHarjoite' }, o));
     }
   } catch (e) { console.warn('[K1 päivän treeni]', e && e.message); }
@@ -3784,6 +3785,7 @@ function rTDone(){
       kesto_min: Math.round((EX||[]).reduce((s,e)=>s+(e.dur||0),0)/60) || null,
       fiilinki:  _vaFiilis || null,   // #60: '_fiilis' oli kirjoitusvirhe → oikea fiilinki-tila-muuttuja _vaFiilis (rivi 2278)
       konteksti: taso===1 ? 'bola_sempre' : 'paivan_ohjelma',
+      harjoite_nimi: (EX||[]).map(e=>e.name).filter(Boolean).join(', '),
     }).catch(e => {
       console.warn('[treeni kirjaus]', e.code || '', e.message);
       _tdoneCalled = false;   // ei tallentunut → seuraava Valmis yrittää uudelleen
@@ -5147,6 +5149,9 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
     luotu: firebase.firestore.Timestamp.fromDate(new Date(pvm)),   // A5: treenipäivä (idempotentti merge, kronologinen feed)
     paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
   };
+  // harjoite_nimi (string ≤ 80): kortilla näytetty harjoite, jotta valmentaja näkee mitä pelaaja teki (Master Viestit). Vain jos tiedossa.
+  const _hNimi = (typeof ekstra?.harjoite_nimi === 'string' && ekstra.harjoite_nimi.trim()) ? ekstra.harjoite_nimi.trim().slice(0, 80) : null;
+  if (_hNimi) kirjausData.harjoite_nimi = _hNimi;
   kirjausData['tehty_' + tyyppi] = true;   // KORJAUS 1: tyyppikohtainen dedup-merkintä (päivädoc = yksi, merge)
 
   try {
@@ -5156,6 +5161,7 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
     // näkee oman rasituksensa, EI ACWR-lukua/kuormarankingia.
     const _sk = 'pelaaja:' + tyyppi;
     const _sessioP = { sk: _sk, lahde: 'pelaaja', tyyppi, konteksti: ekstra?.konteksti || null, kesto_min: ekstra?.kesto_min || null, rpe: ekstra?.rpe || null };
+    if (_hNimi) _sessioP.harjoite_nimi = _hNimi;
     const _skOf = function (s) { return (s && (s.sk || (s.lahde === 'pelaaja' ? 'pelaaja:' + (s.tyyppi || 'x') : s.lahde))) || 'valmentaja'; };
     /* P0 EHEYS (1.10.2026): jos päivän dokumentin luku epäonnistuu, kirjaus KESKEYTETÄÄN. Ennen luku-
        virhe tuotti sessiot=[_sessioP], ja merge:true korvasi valmentajan saman päivän sessiot. Virhe
@@ -5201,6 +5207,21 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
    T = Bola Siempre vakio (pallo joka päivä), +20 XP
    _tallennaKirjaus hoitaa demo-tarkistuksen + getIdToken(true) + batch-kirjoituksen.
 ═════════════════════════════════════════════════════════════════ */
+/* Kirjattavan harjoitteen nimi (kirjauksen harjoite_nimi → valmentajan Viestit). Lasketaan samoista deterministisistä valinnoista kuin kortit
+   (ei renderin sivuvaikutusta: rA1() on hash-lukittu). Kenttä-näkymä asettaa window._p7HarjoiteNimi.D:n. Ei koskaan heitä; tuntematon → null. */
+function _p7KirjattavaNimi(tyyppi) {
+  try {
+    const n = (v) => (typeof v === 'string' && v.trim()) ? v.trim() : null;
+    if (tyyppi === 'D') {
+      const k = n((window._p7HarjoiteNimi || {}).D); if (k) return k;
+      if (typeof valitsePaivanHarjoite === 'function' && _pelaaja && window.PANKKI) { const h = valitsePaivanHarjoite(_pelaaja, window.PANKKI, _paivaIso()); if (h && n(h.nimi)) return n(h.nimi); }
+      const o = (typeof _luoOhjelma === 'function' && _pelaaja && window.PANKKI) ? _luoOhjelma(_pelaaja) : null;
+      return n(o && o.tHarjoite && o.tHarjoite.nimi);
+    }
+    if (tyyppi === 'S') { const o = (typeof _luoOhjelma === 'function' && _pelaaja && window.PANKKI) ? _luoOhjelma(_pelaaja) : null; return n(o && o.sHarjoite && o.sHarjoite.nimi); }
+  } catch (_) { /* nimi on lisätieto — kirjaus ei saa kaatua siihen */ }
+  return null;
+}
 async function _kirjaaHarjoite(tyyppi) {
   const xpMap        = { D: 60, S: 30, T: 20 };
   const kontekstiMap = { D: 'paivan_ohjelma', S: 'kohdennettu', T: 'bola_siempre' };
@@ -5213,7 +5234,7 @@ async function _kirjaaHarjoite(tyyppi) {
     return;
   }
   try {
-    const ok = await _tallennaKirjaus(tyyppi, xpMap[tyyppi], false, { konteksti: kontekstiMap[tyyppi] });
+    const ok = await _tallennaKirjaus(tyyppi, xpMap[tyyppi], false, { konteksti: kontekstiMap[tyyppi], harjoite_nimi: (typeof _p7KirjattavaNimi === 'function') ? _p7KirjattavaNimi(tyyppi) : null });
     if (ok) {
       _harjoiteVahvistus(btnIdMap[tyyppi]);
       // Päivitä streak (kirjaukset-kokoelmasta laskettu) viiveellä, jotta Firestore-write ehtii valmistua.

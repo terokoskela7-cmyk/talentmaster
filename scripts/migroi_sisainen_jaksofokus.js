@@ -13,11 +13,13 @@
  *
  * AJO (Teron kaista; gcloud ADC, EI palveluavainta). EI AJETA ennen kuin Rules v3.68 on deployattu ja PM on kuitannut dry-runin:
  *   Dry-run (OLETUS, ei kirjoita):                    node scripts/migroi_sisainen_jaksofokus.js            [--seura=<id>]
+ *   Selitys (LUKEVA; kopioitavat kentät: seura + kenttä/lehtipolku + arvotyyppi, ei arvoja eikä id:itä; historiarivin avain peitetään jos id-näköinen):  node scripts/migroi_sisainen_jaksofokus.js --selita [--seura=<id>]
  *   Kirjoitus (vasta dry-run-tarkistuksen jälkeen):   node scripts/migroi_sisainen_jaksofokus.js --kirjoita [--seura=<id>]   (+ kirjoita KIRJOITA vahvistukseksi; --kylla ohittaa kysymyksen)
  */
 'use strict';
 
 const S = require('../lib/tm_sisainen.js');
+const { tyyppi, turvaAvain, rivi: selitysRivi } = require('./migraatio_selitys.js');
 const onArvo = (v) => v !== undefined && v !== null;
 const kanon = (x) => JSON.stringify(x, (k, v) => (v && typeof v === 'object' && !Array.isArray(v)) ? Object.keys(v).sort().reduce((o, a) => { o[a] = v[a]; return o; }, {}) : v);
 
@@ -25,18 +27,20 @@ const kanon = (x) => JSON.stringify(x, (k, v) => (v && typeof v === 'object' && 
    → { luokka:'ei_a'|'jo_siirretty'|'ilman_avainta'|'kopioi', jaksofokus:{kentta:arvo} (puuttuvat), historia:{avain:{kentta:arvo}} (puuttuvat A-kentät, rivi kerrallaan), ilmanAvainta:n, eroaa:n (sisainen:ssä eri arvo → ei ylikirjoiteta), data|null } */
 const onKartta = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 /* PR 1b-3: SYVÄ täydennys karttamaisille A-kentille (osa_havainnot, osa_havainnot_vk, d3_snapshot …). Dual-write (lippu päällä) luo sisainen:iin vain UUDET lehdet (osa_havainnot.k.a.<uid>), joten kartta on
-   siellä osittainen; pelkkä "kenttä löytyy → sisainen voittaa" jättäisi vanhemmat lehdet piiloon dual-readissa. Täydennys: puuttuvat lehdet kopioidaan, sisainen voittaa ristiriidassa (eroaa++), ei ylikirjoitusta.
+   siellä osittainen; pelkkä "kenttä löytyy → sisainen voittaa" jättäisi vanhemmat lehdet piiloon dual-readissa. Täydennys: puuttuvat lehdet kopioidaan, sisainen voittaa ristiriidassa (eroaa++), ei ylikirjoitusta. Pelaajadokumentin null-lehti ei täydennä mitään.
    → { tulos (täydennetty kartta), lisatty (lehtiä), eroaa } */
-function taydenna(vanha, uusi) {
+function taydenna(vanha, uusi, polku, selitys) {
   const tulos = Object.assign({}, vanha); let lisatty = 0, eroaa = 0;
   Object.keys(uusi).forEach((k) => {
-    if (!onArvo(vanha[k])) { tulos[k] = uusi[k]; lisatty++; }
-    else if (onKartta(vanha[k]) && onKartta(uusi[k])) { const r = taydenna(vanha[k], uusi[k]); tulos[k] = r.tulos; lisatty += r.lisatty; eroaa += r.eroaa; }
+    const pk = (polku || '') + '.' + turvaAvain(k);
+    if (!onArvo(uusi[k])) return;   // pelaajadokumentin null-lehti ei ole täydennettävää (muuten null kopioituu joka ajolla uudelleen: kopioi 1 ei koskaan nollaudu)
+    if (!onArvo(vanha[k])) { tulos[k] = uusi[k]; lisatty++; if (selitys) selitys.push({ polku: pk, syy: 'lehti puuttuu sisainen:sta', a: tyyppi(uusi[k]), b: tyyppi(vanha[k]) }); }
+    else if (onKartta(vanha[k]) && onKartta(uusi[k])) { const r = taydenna(vanha[k], uusi[k], pk, selitys); tulos[k] = r.tulos; lisatty += r.lisatty; eroaa += r.eroaa; }
     else if (kanon(vanha[k]) !== kanon(uusi[k])) eroaa++;
   });
   return { tulos, lisatty, eroaa };
 }
-function suunnittele(pelaaja, sisainen, sid, nytISO) {
+function suunnittele(pelaaja, sisainen, sid, nytISO, selitys) {   // selitys (valinnainen, --selita): [] → kopioinnin syyt
   const p = pelaaja || {}, s = sisainen || null, sj0 = (s && s.jaksofokus_sisainen && typeof s.jaksofokus_sisainen === 'object') ? s.jaksofokus_sisainen : {}, sh = (s && s.historia_sisainen && typeof s.historia_sisainen === 'object') ? s.historia_sisainen : {};
   const jaa = S.tmJaksofokusJaa(p.jaksofokus), puuttuvaJf = {}, ja = S.tmJaksoAvain(p.jaksofokus); let eroaa = 0, ilmanAvainta = 0, onA = false;
   /* VANHENTUNUT: sisainen.jaksofokus_sisainen on eri jaksolta (jakso_avain ≠ nykyinen; vanha asiakas vaihtoi jakson vain pelaajadokumenttiin) → korvataan koko kenttä nykyisen jakson A-osilla (mergeFields). Dual-read ohittaa sen jo nyt;
@@ -45,9 +49,9 @@ function suunnittele(pelaaja, sisainen, sid, nytISO) {
   if (jaa.sisainen) {
     onA = true;
     Object.keys(jaa.sisainen).forEach((k) => {
-      const uusi = jaa.sisainen[k];
-      if (!onArvo(sj[k])) puuttuvaJf[k] = uusi;
-      else if (onKartta(sj[k]) && onKartta(uusi)) { const r = taydenna(sj[k], uusi); if (r.lisatty) puuttuvaJf[k] = r.tulos; eroaa += r.eroaa; }
+      const uusi = jaa.sisainen[k], pk = 'jaksofokus_sisainen.' + k;
+      if (!onArvo(sj[k])) { puuttuvaJf[k] = uusi; if (selitys) selitys.push({ polku: pk, syy: korvaa ? 'vanhentunut (eri jakso): korvataan' : 'kenttä puuttuu sisainen:sta', a: tyyppi(uusi), b: tyyppi(sj0[k]) }); }
+      else if (onKartta(sj[k]) && onKartta(uusi)) { const r = taydenna(sj[k], uusi, pk, selitys); if (r.lisatty) puuttuvaJf[k] = r.tulos; eroaa += r.eroaa; }
       else if (kanon(sj[k]) !== kanon(uusi)) eroaa++;
     });
   }
@@ -57,9 +61,9 @@ function suunnittele(pelaaja, sisainen, sid, nytISO) {
     if (!j.avain) { ilmanAvainta++; return; }
     const ol = (sh[j.avain] && typeof sh[j.avain] === 'object') ? sh[j.avain] : {}, uusi = {};
     Object.keys(j.sisainen).forEach((k) => {
-      const v = j.sisainen[k];
-      if (!onArvo(ol[k])) uusi[k] = v;
-      else if (onKartta(ol[k]) && onKartta(v)) { const r = taydenna(ol[k], v); if (r.lisatty) uusi[k] = r.tulos; eroaa += r.eroaa; }
+      const v = j.sisainen[k], pk = 'historia_sisainen.' + turvaAvain(j.avain) + '.' + k;
+      if (!onArvo(ol[k])) { uusi[k] = v; if (selitys) selitys.push({ polku: pk, syy: sh[j.avain] ? 'kenttä puuttuu sisainen:n rivistä' : 'rivi puuttuu sisainen:sta', a: tyyppi(v), b: tyyppi(ol[k]) }); }
+      else if (onKartta(ol[k]) && onKartta(v)) { const r = taydenna(ol[k], v, pk, selitys); if (r.lisatty) uusi[k] = r.tulos; eroaa += r.eroaa; }
       else if (kanon(ol[k]) !== kanon(v)) eroaa++;
     });
     if (Object.keys(uusi).length) puuttuvaHis[j.avain] = Object.assign(puuttuvaHis[j.avain] || {}, uusi);
@@ -86,7 +90,8 @@ async function aja(deps) {
     const r = { ei_a: 0, jo_siirretty: 0, ilman_avainta: 0, kopioi: 0, jf: 0, his: 0, ilman: 0, eroaa: 0, vanh: 0 };
     for (const d of snap.docs) {
       const sref = d.ref.collection('sisainen').doc('tiedot'), ss = await sref.get();
-      const pl = suunnittele(d.data() || {}, ss.exists ? ss.data() : null, sid, nytISO);
+      const sel = deps.selita ? [] : null, pl = suunnittele(d.data() || {}, ss.exists ? ss.data() : null, sid, nytISO, sel);
+      if (sel && pl.luokka === 'kopioi') sel.forEach((x) => loki(selitysRivi(sid, x, 'pelaajadokumentissa', 'sisainen')));
       r[pl.luokka]++; r.jf += Object.keys(pl.jaksofokus).length; r.his += Object.keys(pl.historia).length; r.ilman += pl.ilmanAvainta; r.eroaa += pl.eroaa;
       r.vanh += pl.vanhentunut; if (pl.luokka === 'kopioi') kirj.push({ ref: sref, data: pl.data, mergeFields: pl.mergeFields });
     }
@@ -106,8 +111,9 @@ async function aja(deps) {
 async function main() {
   const path = require('path'), readline = require('readline');
   let admin; try { admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin')); } catch (e) { admin = require('firebase-admin'); }
-  const argv = process.argv.slice(2), KIRJOITA = argv.includes('--kirjoita'), KYLLA = argv.includes('--kylla');
+  const argv = process.argv.slice(2), KIRJOITA = argv.includes('--kirjoita'), KYLLA = argv.includes('--kylla'), SELITA = argv.includes('--selita');
   const seura = (argv.find((a) => a.indexOf('--seura=') === 0) || '').split('=')[1] || null;
+  if (KIRJOITA && SELITA) { console.log('--selita on lukeva tila; ei yhdessä --kirjoita:n kanssa.'); return; }
   admin.initializeApp({ projectId: 'talentmaster-pilot', credential: admin.credential.applicationDefault() });   // gcloud ADC
   const db = admin.firestore();
   console.log('=== Jaksofokuksen A-osat → sisainen/tiedot · ' + (KIRJOITA ? 'KIRJOITUS (vaatii vahvistuksen)' : 'DRY-RUN (ei kirjoita)') + ' ===');
@@ -116,7 +122,7 @@ async function main() {
     const vastaus = await new Promise((res) => rl.question('Kirjoita KIRJOITA vahvistukseksi: ', res)); rl.close();
     if (vastaus.trim() !== 'KIRJOITA') { console.log('Peruttu — mitään ei kirjoitettu.'); return; }
   }
-  const y = await aja({ db, kirjoita: KIRJOITA, seura, loki: console.log });
+  const y = await aja({ db, kirjoita: KIRJOITA, seura, selita: SELITA, loki: console.log });
   console.log('YHTEENVETO', JSON.stringify(y));
   if (!KIRJOITA) console.log('DRY-RUN — mitään ei kirjoitettu. Kirjoitus: --kirjoita');
 }

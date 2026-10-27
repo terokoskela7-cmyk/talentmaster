@@ -12,7 +12,8 @@ const S = require('../lib/tm_sisainen.js'), KS = require('../lib/tm_kehityssilmu
 const YP = (p, s) => S.tmSisainenYhdista(p, s, { kirjoitus: true });   // dual-read seuraa lippua (PR 1b-3): luku sisainen:stä vain lippu päällä
 const VO = require('../lib/tm_viikon_osa.js'), KH = require('../lib/tm_kotiharjoitteet.js');
 const LIPPU = S.RYHMAT.jaksofokus_sisainen;
-afterEach(() => { LIPPU.kirjoitus = false; });
+const HK0 = S.RYHMAT.henkilokunta.kirjoitus;   // lippu pois -ajot eristävät jaksofokus-lipun: henkilokunta pois niissä
+afterEach(() => { LIPPU.kirjoitus = false; S.RYHMAT.henkilokunta.kirjoitus = HK0; });
 
 /* ── Muistinvarainen Firestore: oikeat semantiikat (dot-polku update, set merge / mergeFields, batch kaikki-tai-ei-mitään, delete + arrayUnion -sentinelit) ── */
 const DEL = { __fv: 'delete' }, FV = { delete: () => DEL, arrayUnion: (...a) => ({ __fv: 'union', a }) };
@@ -184,6 +185,7 @@ describe('dual-read: leima suojaa vanhan asiakkaan jaksonvaihdolta', () => {
 
 describe.each([['Master', masterAjuri, masterKirjoitukset], ['VP', vpAjuri, vpKirjoitukset]])('RUNTIME %s: oikea sivukoodi — aloitus · havainto · sulku', (nimi, ajuri, kirj) => {
   it('lippu POIS: ei sisainen-dokumenttia lainkaan; pelaajadokumentti identtinen vanhan Masterin (update) tuottaman kanssa', async () => {
+    S.RYHMAT.henkilokunta.kirjoitus = false;
     const f = mkFs(), c = ajuri(f), k = kirj(c); const tulos = await ajaElinkaari(c, k.jakso, k.katselmus, f, 'pois');
     expect(Object.keys(f.docs).some((x) => /sisainen/.test(x))).toBe(false); expect(tulos.p.jaksofokus_historia).toHaveLength(3);
     const vanha = mkFs(); await ajaElinkaari(null, (p, v) => vanhaMaster(vanha, p, v), async (p, plan) => {

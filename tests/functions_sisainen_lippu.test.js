@@ -11,10 +11,10 @@ const S40 = LIB.RYHMAT.s4.kirjoitus;
 afterEach(() => { LIB.RYHMAT.s4.kirjoitus = CF.RYHMAT.s4.kirjoitus = S40; LIB.RYHMAT.henkilokunta.kirjoitus = false; LIB.RYHMAT.jaksofokus_sisainen.kirjoitus = false; CF.RYHMAT.henkilokunta.kirjoitus = false; CF.RYHMAT.jaksofokus_sisainen.kirjoitus = false; });
 
 describe('CF:n lippu = selaimen lippu', () => {
-  it('(a) functions/tm_sisainen.js on tavu tavulta lib/tm_sisainen.js (+ d3-riippuvuus) ja kuuluu jaettu_lib-manifestiin → liput ovat samat; molemmat POIS (s4 päällä erikseen)', () => {
+  it('(a) functions/tm_sisainen.js on tavu tavulta lib/tm_sisainen.js (+ d3-riippuvuus) ja kuuluu jaettu_lib-manifestiin → liput ovat samat; molemmat PÄÄLLÄ oletuksena (jaksofokus_sisainen + henkilokunta; s4 omassa testissään)', () => {
     expect(lue('functions/tm_sisainen.js')).toBe(lue('lib/tm_sisainen.js')); expect(lue('functions/tm_d3_itsearvio.js')).toBe(lue('lib/tm_d3_itsearvio.js'));
     const M = JSON.parse(lue('functions/jaettu_lib.json')); expect(M.tiedostot).toEqual(expect.arrayContaining(['tm_sisainen.js', 'tm_d3_itsearvio.js']));
-    expect(liput(CF)).toEqual(liput(LIB)); expect(liput(LIB)).toEqual({ henkilokunta: false, jaksofokus_sisainen: false }); expect(LUKU.liputPaalla()).toBe(true);   // s4-lippu (oma testinsä) päällä → CF:n yhteinen liputPaalla tosi
+    expect(liput(CF)).toEqual(liput(LIB)); expect(liput(LIB)).toEqual({ henkilokunta: true, jaksofokus_sisainen: true }); expect(LUKU.liputPaalla()).toBe(true);
   });
   it('(b) CF:n tulkinta seuraa selaimen RYHMAT-lippuja kummassakin ryhmässä: kun lib-lippu käännetään (kopio rakennetaan samasta lähteestä), CF näkee saman', () => {
     LIB.RYHMAT.s4.kirjoitus = CF.RYHMAT.s4.kirjoitus = false;   // eristä hk/js-yhdistelmät s4:stä
