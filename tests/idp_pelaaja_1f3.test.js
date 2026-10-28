@@ -26,7 +26,8 @@ function ymp(db) {
 function laskuri(db) { const lue = []; const alku = db.collection; db.collection = (p) => { const r = alku(p); return r; }; return lue; }
 
 describe('P7 _p7LataaTavoite', () => {
-  it('lippu pois: lukee vain idp_kausi (ei idp_pelaaja-kyselyä); raaka tavoite kuten ennen', async () => {
+  it('lippu pois (peruutus): lukee vain idp_kausi (ei idp_pelaaja-kyselyä); raaka tavoite kuten ennen', async () => {
+    D.LIPPU.kirjoitus = false;
     const { db } = fakeDb({ [PK + '/idp_kausi/' + VUOSI]: { tavoitteet: [T()], pelaaja_sitoumus: { s: 'kausi' } }, [PK + '/idp_pelaaja/' + VUOSI]: { tavoitteet: [T({ pelaajan_tavoite: 'EI' })] } });
     const luetut = []; const alku = db.collection; db.collection = (p) => { const r = alku(p); const cd = r.doc; r.doc = (id) => { const d = cd(id); const g = d.get; d.get = () => { luetut.push(p + '/' + id); return g(); }; return d; }; return r; };
     const { c, win } = ymp(db); await c.lataa();
@@ -56,7 +57,8 @@ describe('P7 _p7LataaTavoite', () => {
 });
 
 describe('P7 _tallennaSitoumus', () => {
-  it('lippu pois: vain idp_kausi (kuten ennen), ei idp_pelaaja:a', async () => {
+  it('lippu pois (peruutus): vain idp_kausi (kuten ennen), ei idp_pelaaja:a', async () => {
+    D.LIPPU.kirjoitus = false;
     const { db, D: docs } = fakeDb({ [PK]: {} }); const { c } = ymp(db); await c.sit();
     expect(docs.get(PK + '/idp_kausi/' + VUOSI).pelaaja_sitoumus.rekisteri).toBe('a'); expect([...docs.keys()].some((k) => /idp_pelaaja/.test(k))).toBe(false);
   });
@@ -75,8 +77,8 @@ describe('P7 _tallennaSitoumus', () => {
 
 describe('kytkentä', () => {
   it('P7 lataa dok-libin ennen käyttöä; SW allowlist + cache-bumppi; Vanhempi ei kosketa', () => {
-    const h = SRC; expect(h.indexOf('tm_idp_pelaaja_dok.js?v=1')).toBeGreaterThan(0); expect(h).toMatch(/tm_idp_pelaaja_dok\.js\?v=1"><\/script>[^\n]*\n<script src="lib\/tm_idp_pelaaja\.js/);
-    const sw = lue('sw_pelaaja.js'); expect(sw).toContain("/lib/tm_idp_pelaaja_dok.js"); expect(sw).toContain("tm-pelaaja-v157");
+    const h = SRC; expect(h).toMatch(/tm_idp_pelaaja_dok\.js\?v=\d+"/); expect(h).toMatch(/tm_idp_pelaaja_dok\.js\?v=\d+"><\/script>[^\n]*\n<script src="lib\/tm_idp_pelaaja\.js/);
+    const sw = lue('sw_pelaaja.js'); expect(sw).toContain("/lib/tm_idp_pelaaja_dok.js"); expect(sw).toContain("tm-pelaaja-v158");
     expect(lue('TalentMaster_Vanhempi_v2.html')).not.toContain('idp_pelaaja');
   });
 });
