@@ -20,6 +20,7 @@ const CM = require('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv;
 const koodissa = (osio, a) => (osio === 'tm_lang' ? a.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L)
   : osio.indexOf('lib.') === 0 ? LIB[a] : osio === 'master_kartta' ? MA[a] : osio === 'vp_kartta' ? VP[a] : undefined);
 
+const KORJ19 = JSON.parse(readFileSync(new URL('../docs/i18n/sv_kaannoserae_91_palautus.json', import.meta.url), 'utf8'))._pm_era19_tarkistus.korjaukset;   // sv-aukot k15: PM korjasi 3 erän 19 riviä 28.10.2026
 describe('sv-erä 19 — osavienti (24 riviä)', () => {
   it('lista: 7 kirjastoriviä + 17 Masterin riviä, kaikki palautuksessa sv täytettynä', () => {
     expect(OSA.LIB_AVAIMET.length).toBe(7); expect(OSA.MASTER_AVAIMET.length).toBe(17);
@@ -35,7 +36,8 @@ describe('sv-erä 19 — osavienti (24 riviä)', () => {
     const muut = [];
     for (const [o, v] of Object.entries(P.osiot)) for (const [a, r] of Object.entries(v.rivit)) {
       if (osa.has(o + ' :: ' + a)) continue; const k = koodissa(o, a); if (k === undefined) continue;
-      if (o === 'vp_kartta' && (k === r.sv || k === S67(r.sv))) continue;   // vietiin 15.10.2026 scripts/i18n_vie_sv_era53_19.cjs:llä (VP-rivit)
+      if (o === 'vp_kartta' && (k === r.sv || k === S67(r.sv))) continue;
+      if (/^lib\.tm_(vp_koti|vp_navi|seuran_pulssi|vp_tilanne|vp_tilanne_harva)$/.test(o) && (k === r.sv || k === KORJ19[a])) continue;   // sv-aukot k15 (+ PM:n 3 korjausta erän 91 palautuksessa) (28.10.2026): VP Kodin rivit vietiin scripts/i18n_vie_sv_era19_vp_koti.cjs:llä (merkki merkiltä)   // vietiin 15.10.2026 scripts/i18n_vie_sv_era53_19.cjs:llä (VP-rivit)
       const e3 = E3.osiot[o] && E3.osiot[o].rivit[a];
       if (!(e3 && S67(e3.sv) === k && S67(r.sv) === k)) muut.push(o + ' :: ' + a);
     }
