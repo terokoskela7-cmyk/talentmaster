@@ -114,19 +114,76 @@ describe('kytkennät P7:ssä ja Vanhemmassa', () => {
     const i = P7.indexOf('function _p7K1T('), f = P7.slice(i, P7.indexOf('\n', i));
     vm.runInContext("const _TMAP = {}; const T = (k, m) => (typeof t === 'function' ? t(k.indexOf('.') >= 0 ? k : (_TMAP[k] || ('pelaaja.' + k)), m) : k);\n" + f, sb);
     const h = vm.runInContext("tmKaariRenderPelaaja({ hh_historia: [{ pvm: '2026-01-01', lin30m: 5.2 }, { pvm: '2026-06-01', lin30m: 5.0 }] }, { ika: 14, t: _p7K1T })", sb);
-    expect(h).toContain('§SV§kka_kehityit'); expect(h).toContain('30 m nopeutui');   // ei sv:tä → FI-oletus (ei raakaa avainta)
-    expect(vm.runInContext("_p7K1T('kka_v_lin30m')", sb)).toBe('kka_v_lin30m');
+    const sv30 = vm.runInContext('TM_LIB_I18N.sv.kka_v_lin30m', sb);   // erä 90 viety → PM:n sv
+    expect(h).toContain('§SV§kka_kehityit'); expect(sv30).toBeTruthy(); expect(h).toContain(sv30); expect(h).not.toContain('30 m nopeutui');
+    expect(vm.runInContext("_p7K1T('kka_v_lin30m')", sb)).toBe(sv30);
     // ilm_kertaa: sv on jo kartassa → P7:n lo.t-kääre löytää sen (ennen tm_lang-t → avain → FI '{n} kertaa')
     expect(vm.runInContext("TM_ILMOITUS_LISTA.tmIlmoitusRyhmaHTML({ id: 'g', nimi: 'X', jasenet: [{ n: { id: 'a' } }, { n: { id: 'b' } }] }, { esc: (s) => s, t: function (k) { var l = tmLibT(k); return l !== undefined ? l : k; }, teksti: () => '', ikoni: () => '', kuittaaRyhmaFn: 'f', tapFn: 'f' })", sb)).toContain(vm.runInContext("tmLibT('ilm_kertaa')", sb).replace('{n}', '2'));
   });
 });
 
-describe('erä 90: odotuslista = erän JSON (sv tyhjä, Code ei kirjoita ruotsia)', () => {
-  const E = JSON.parse(lue('docs/i18n/sv_kaannoserae_90_gemini.json')), O = require('./helpers/sv_era90_odottaa.cjs');
-  it('jokainen erän rivi on odotuslistalla ja päinvastoin; sv tyhjä', () => {
-    const rivit = Object.values(E.osiot).flatMap((o) => Object.entries(o.rivit));
-    expect(rivit.map(([k]) => k).sort()).toEqual([...O].sort());
-    expect(rivit.filter(([, r]) => r.sv !== '')).toEqual([]);
-    expect(E._rivit_yhteensa).toBe(O.length);
+describe('erä 90 viety: kytketyt libit renderöivät PM:n sv:n', () => {
+  it('jokainen erän rivi on jaetussa libikartassa (sv ei tyhjä) ja kehityskaari näyttää sen _p7K1T:n kautta', () => {
+    const P = JSON.parse(lue('docs/i18n/sv_kaannoserae_90_palautus.json')).osiot, SV = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv;
+    const rivit = Object.values(P).flatMap((o) => Object.entries(o.rivit)); expect(rivit).toHaveLength(110);
+    for (const [k, r] of rivit) expect(SV[k], k).toBe(r.sv);
+    const h = K.tmKaariRenderPelaaja({}, { t: (k) => SV[k] || K.FI[k] }); expect(h).toContain(SV.kka_tyhja); expect(h).not.toContain(K.FI.kka_tyhja);
+  });
+});
+
+describe('kohta 8 (PM 28.10.): taidon nimi taksonomian nimi_sv:stä, tuntematon sellaisenaan', () => {
+  const TN = require('../lib/tm_taito_nimi.js'), TX = require('../lib/tm_arviointi_taksonomia.js').ARVIOINTI_TAKSONOMIA;
+  it('nimiparit = taksonomia täsmälleen (generoitu, ei ajautumista)', () => {
+    const odotettu = {}; for (const x of TX) odotettu[x.nimi_fi] = x.nimi_sv;
+    expect(TN.SV).toEqual(odotettu);
+  });
+  it('sv: tunnettu → nimi_sv; tuntematon (valmentajan oma) → sellaisenaan; fi → ennallaan', () => {
+    const x = TX.find((i) => i.nimi_fi !== i.nimi_sv);
+    expect(TN.tmTaitoNimi(x.nimi_fi, 'sv')).toBe(x.nimi_sv); expect(TN.tmTaitoNimi(' ' + x.nimi_fi + ' ', 'sv')).toBe(x.nimi_sv);
+    expect(TN.tmTaitoNimi('Oma tavoite', 'sv')).toBe('Oma tavoite'); expect(TN.tmTaitoNimi(x.nimi_fi, 'fi')).toBe(x.nimi_fi); expect(TN.tmTaitoNimi(null, 'sv')).toBe(null);
+  });
+  it('tm_idp_pelaaja: opts.taitoNimi kääntää otsikon; ilman ennallaan', () => {
+    const t = { fokus: { nimi: 'Viimeistely' }, perustelu: {} };
+    expect(IP.tmPelaajaKonsepti(t, {}).mika).toContain('Viimeistely');
+    expect(IP.tmPelaajaKonsepti(t, { taitoNimi: (n) => TN.tmTaitoNimi(n, 'sv') }).mika).toContain(TN.SV.Viimeistely);
+  });
+  it('P7: näyttöpaikat kääntävät, TALLENNETTAVA fokus_nimi ei (Firestoreen ei ruotsia)', () => {
+    expect(P7).toContain('<script src="lib/tm_taito_nimi.js?v=1"></script>'); expect(lue('sw_pelaaja.js')).toContain("'/lib/tm_taito_nimi.js'");
+    for (const s of ["idpPelaajaKaari(t, { t: _p7K1T, taitoNimi: _p7TaitoNimi })", "idpPelaajaKonsepti(t, { t: _p7K1T, taitoNimi: _p7TaitoNimi })", 'var pikaFokus = _p7TaitoNimi(', 'kausitavoite: _p7TaitoNimi(', 'esc(_p7TaitoNimi(sit.fokus_nimi))']) expect(P7, s).toContain(s);
+    const i = P7.indexOf('function _p7FokusNimi()'), f = P7.slice(i, P7.indexOf('\n}', i));
+    expect(f).not.toMatch(/_p7TaitoNimi|_p7KonseptiNimi/); expect(P7).toContain('fokus_nimi: _p7FokusNimi(),');
+  });
+});
+
+describe('kohta 9 (PM 28.10.): konseptin nimi kirjaston sv:stä avaimella Tänään-, sitoumus- ja Minä-näkymissä', () => {
+  const TK = require('../lib/tm_tanaan_kentta.js'), VK = require('../lib/tm_viikkokatsaus.js');
+  const p = { jaksofokus: { konsepti_avain: 'y_h4', konsepti_nimi: 'HARHAUTTAMINEN', alkoi: '2026-10-19', kesto_vk: 4 } };
+  it('tmTanaanTila: ctx.konseptiNimi → käännetty; puuttuu / tyhjä / heittää → tallennettu', () => {
+    expect(TK.tmTanaanTila(p, { tanaan: '2026-10-28' }).nimi).toBe('HARHAUTTAMINEN');
+    expect(TK.tmTanaanTila(p, { tanaan: '2026-10-28', konseptiNimi: (a, n) => (a === 'y_h4' ? '§SV§' + a : n) }).nimi).toBe('§SV§y_h4');
+    expect(TK.tmTanaanTila(p, { tanaan: '2026-10-28', konseptiNimi: () => '' }).nimi).toBe('HARHAUTTAMINEN');
+    expect(TK.tmTanaanTila(p, { tanaan: '2026-10-28', konseptiNimi: () => { throw new Error('x'); } }).nimi).toBe('HARHAUTTAMINEN');
+  });
+  it('Minä (tmMinaTavoiteRivit) ja jakson päätös (tmVkPaatos) välittävät konseptiNimen', () => {
+    const r = TK.tmMinaTavoiteRivit(p, { tanaan: '2026-10-28', konseptiNimi: (a) => '§SV§' + a }, { t: (k) => (TK.FI[k] || k) });
+    expect(r.nyt).toContain('§SV§y_h4'); expect(r.nytHTML).toContain('§SV§y_h4');
+    const loppu = { jaksofokus: null, jaksofokus_historia: [{ konsepti_avain: 'y_h4', konsepti_nimi: 'HARHAUTTAMINEN', lause: '' }] };
+    expect(VK.tmVkPaatos(loppu, { tanaan: '2026-12-01', konseptiNimi: (a) => '§SV§' + a }).nimi).toBe('§SV§y_h4');
+    expect(VK.tmVkPaatos(loppu, { tanaan: '2026-12-01' }).nimi).toBe('HARHAUTTAMINEN');
+  });
+  it('P7 _p7KonseptiNimi: sv-tilassa TM_TT_SV:n y_h4.nimi; seuran oma avain / fi → tallennettu', () => {
+    const sb = { console: { log() {}, warn() {}, error() {} } }; sb.window = sb; vm.createContext(sb);
+    vm.runInContext(lue('lib/tm_teknistaktiset_sv.js'), sb);
+    const pala = (n) => { const i = P7.indexOf('function ' + n + '('); let d = 0, j = P7.indexOf('{', i); for (; j < P7.length; j++) { if (P7[j] === '{') d++; else if (P7[j] === '}' && --d === 0) break; } return P7.slice(i, j + 1); };
+    vm.runInContext("var KIELI = 'sv'; function _p7Kieli() { return KIELI; }\n" + pala('_p7TtSv') + '\n' + pala('_p7KonseptiNimi'), sb);
+    const sv = vm.runInContext("TM_TT_SV['y_h4.nimi']", sb); expect(sv).toBeTruthy();
+    expect(vm.runInContext("_p7KonseptiNimi('y_h4', 'HARHAUTTAMINEN')", sb)).toBe(sv);
+    expect(vm.runInContext("_p7KonseptiNimi('Y-H4', 'HARHAUTTAMINEN')", sb)).toBe(sv);
+    expect(vm.runInContext("_p7KonseptiNimi('seuran_oma', 'Oma konsepti')", sb)).toBe('Oma konsepti');
+    expect(vm.runInContext("_p7KonseptiNimi(null, 'Oma konsepti')", sb)).toBe('Oma konsepti');
+    vm.runInContext("KIELI = 'fi'", sb); expect(vm.runInContext("_p7KonseptiNimi('y_h4', 'HARHAUTTAMINEN')", sb)).toBe('HARHAUTTAMINEN');
+  });
+  it('P7-kytkennät: Tänään (tila + päätös), Minä, sitoumus', () => {
+    for (const s of ['K.tmTanaanTila(_pelaaja, { tanaan, konseptiNimi: _p7KonseptiNimi })', 'K4.tmVkPaatos(_pelaaja, { tanaan, konseptiNimi: _p7KonseptiNimi })', 'konseptiNimi: _p7KonseptiNimi, tanaan: _paivaIso()', '_p7KonseptiNimi(d.jaksofokus.konsepti_avain, d.jaksofokus.konsepti_nimi)']) expect(P7, s).toContain(s);
   });
 });

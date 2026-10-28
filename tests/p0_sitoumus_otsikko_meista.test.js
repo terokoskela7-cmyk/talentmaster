@@ -27,7 +27,7 @@ function sitoumus({ fokus, sit = {}, vanhentunut = false, alkoi = null } = {}) {
     _p7SitoumusRekisteri: () => ({ q1: 'K1', q2: 'K2', q3: 'K3' }), _p7Vanhentunut: () => vanhentunut,
     _p7SitoumusPvmFi: (x) => (x ? '1.10.2026' : ''), _p7JaksoAlkoi: () => alkoi, _thEsc: esc,
   };
-  vm.createContext(sb); vm.runInContext(pura('function rMinaSitoumus()') + '\nthis.f = rMinaSitoumus;', sb);
+  vm.createContext(sb); vm.runInContext(['function _p7Kieli(', 'function _p7TtSv(', 'function _p7KonseptiNimi(', 'function _p7TaitoNimi('].map(pura).join('\n') + '\n' + pura('function rMinaSitoumus()') + '\nthis.f = rMinaSitoumus;', sb);   // sv-aukot P7: näyttönimen apurit
   return sb.f();
 }
 

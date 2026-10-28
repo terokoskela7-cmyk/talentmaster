@@ -22,7 +22,7 @@ describe('sv-erä 77 — vienti', () => {
   });
   it('koodin sv = palautus merkki merkiltä; odottavien lista on tyhjä', () => {
     for (const o of Object.keys(OSIOT)) for (const [k, r] of Object.entries(P[o].rivit)) expect(SV[k], k).toBe(r.sv);
-    const rivi = KATTAVUUS.match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].trim()).not.toMatch(/\b77\b/);   // sv-aukot P7: erä 90 odottaa (ei erää 77)
+    const rivi = KATTAVUUS.match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].trim()).toBe('');
   });
   it('idempotentti: uusintakuiva-ajo ei lisää mitään eikä löydä virheitä', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.ohitettu).toHaveLength(3); });
 });
