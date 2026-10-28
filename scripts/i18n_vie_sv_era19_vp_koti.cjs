@@ -11,11 +11,14 @@ const { sopii, lataaSv, q } = require('./i18n_vie_sv_era53_19.cjs');
 const ROOT = path.join(__dirname, '..');
 const LAHTEET = [['docs/i18n/sv_kaannoserae_19_palautus.json', ['lib.tm_vp_koti', 'lib.tm_vp_navi', 'lib.tm_seuran_pulssi', 'lib.tm_vp_tilanne', 'lib.tm_vp_tilanne_harva']], ['docs/i18n/sv_kaannoserae_54_palautus.json', ['master_kartta']]];
 const LIBIT = ['lib/tm_vp_koti.js', 'lib/tm_vp_koti_palsta.js', 'lib/tm_vp_navi.js'];
+/* PM tarkisti 121 riviä 28.10.2026: 3 korjausta (docs/i18n/sv_kaannoserae_91_palautus.json _pm_era19_tarkistus.korjaukset) korvasivat arvon tässä lohkossa (scripts/i18n_vie_sv_era91.cjs) → korjattu arvo hyväksytään koodissa. */
+const KORJAUKSET_TIEDOSTO = 'docs/i18n/sv_kaannoserae_91_palautus.json';
 
 function vie(opts) {
   opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [], uudet = [];
   const FI = {}; for (const l of LIBIT) Object.assign(FI, require(path.join(juuri, l)).FI);
   let sLib = lue('lib/tm_lib_i18n.js'); const ol = lataaSv(sLib, 'TM_LIB_I18N'), nahty = new Set();
+  let KORJ = {}; try { KORJ = (JSON.parse(lue(KORJAUKSET_TIEDOSTO))._pm_era19_tarkistus || {}).korjaukset || {}; } catch (e) { KORJ = {}; }
   for (const [tiedosto, osiot] of LAHTEET) {
     const P = JSON.parse(lue(tiedosto)).osiot;
     for (const o of osiot) {
@@ -27,7 +30,7 @@ function vie(opts) {
         if (typeof r.sv !== 'string' || !r.sv.trim()) continue;
         const syy = sopii(r.fi, r.sv); if (syy) { virheet.push(k + ': ' + syy); continue; }
         nahty.add(k);
-        if (typeof ol[k] === 'string') { if (ol[k] === r.sv) ohitettu.push(k); else virheet.push(k + ': jo koodissa eri sv:llä'); continue; }
+        if (typeof ol[k] === 'string') { if (ol[k] === r.sv || (KORJ[k] != null && ol[k] === KORJ[k])) ohitettu.push(k); else virheet.push(k + ': jo koodissa eri sv:llä'); continue; }
         uudet.push([k, r.sv]);
       }
     }
@@ -43,7 +46,7 @@ function vie(opts) {
   if (opts.kirjoita && uudet.length) fs.writeFileSync(path.join(juuri, 'lib/tm_lib_i18n.js'), sLib);
   return { virheet, lisatty: uudet.length, ohitettu, kirjoitettu: !!(opts.kirjoita && uudet.length), avaimet: uudet.map((x) => x[0]).concat(ohitettu) };
 }
-module.exports = { vie, LAHTEET };
+module.exports = { vie, LAHTEET, KORJAUKSET_TIEDOSTO };
 if (require.main === module) {
   const t = vie({ kirjoita: !process.argv.includes('--kuiva') });
   if (t.virheet.length) { console.error('VIENTI KAATUI, mitään ei kirjoitettu:\n- ' + t.virheet.join('\n- ')); process.exit(1); }

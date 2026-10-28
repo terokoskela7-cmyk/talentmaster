@@ -11,17 +11,23 @@ const SV = require('../lib/tm_lib_i18n.js').TM_LIB_I18N.sv;
 const TAKS = require('../lib/tm_arviointi_taksonomia.js').ARVIOINTI_TAKSONOMIA;
 const FYYS = require('../lib/tm_fyysteemat.js').TM_FYYSTEEMAT;
 const E91 = JSON.parse(lue('docs/i18n/sv_kaannoserae_91_gemini.json'));
-const ODOTTAA = require('./helpers/sv_era91_odottaa.cjs');
+const P91 = JSON.parse(lue('docs/i18n/sv_kaannoserae_91_palautus.json')), KORJ = P91._pm_era19_tarkistus.korjaukset;
 const KTP = lue('TalentMaster_Kehitystyopoyta.html'), VP = lue('TalentMaster_VP_v25.html');
 function pura(src, alku) { const i = src.indexOf(alku); if (i < 0) throw new Error('ei löydy: ' + alku); let d = 0, j = src.indexOf('{', i); for (; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}' && --d === 0) break; } return src.slice(i, j + 1); }
 
-describe('erä 91: sv tyhjä, odotuslista = erän avaimet', () => {
+describe('erä 91: PM:n palautus viety (17 riviä + 3 erän 19 korjausta)', () => {
   const avaimet = Object.values(E91.osiot).flatMap((o) => Object.keys(o.rivit));
-  it('17 riviä, kaikki sv tyhjiä (PM täyttää), odotuslista täsmää', () => {
+  it('lähetetyssä erässä 17 riviä sv tyhjänä; palautuksessa samat avaimet ja sama fi', () => {
     expect(avaimet).toHaveLength(17);
     expect(Object.values(E91.osiot).flatMap((o) => Object.values(o.rivit)).filter((r) => r.sv !== '')).toEqual([]);
-    expect([...ODOTTAA].sort()).toEqual([...avaimet].sort());
-    expect(avaimet.filter((k) => typeof SV[k] === 'string')).toEqual([]);
+    const pa = Object.values(P91.osiot).flatMap((o) => Object.keys(o.rivit)); expect(pa.sort()).toEqual([...avaimet].sort());
+    for (const [o, x] of Object.entries(P91.osiot)) for (const [k, r] of Object.entries(x.rivit)) expect(r.fi, k).toBe(E91.osiot[o].rivit[k].fi);
+  });
+  it('koodin sv = palautus merkki merkiltä; korjaukset korvasivat erän 19 arvon; vienti idempotentti', () => {
+    for (const x of Object.values(P91.osiot)) for (const [k, r] of Object.entries(x.rivit)) expect(SV[k], k).toBe(r.sv);
+    expect(Object.keys(KORJ)).toHaveLength(3); for (const [k, sv] of Object.entries(KORJ)) expect(SV[k], k).toBe(sv);
+    const t = require('../scripts/i18n_vie_sv_era91.cjs').vie({}); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.korjattu).toEqual([]); expect(t.ohitettu).toHaveLength(20);
+    const src = lue('lib/tm_lib_i18n.js'); for (const k of Object.keys(KORJ)) expect(src.split("'" + k + "':").length - 1, 'yksi rivi: ' + k).toBe(1);
   });
   it('VP Kodin libien FI-kartat: avain = fi-teksti ja jokainen on lähteessä t()-, k:- tai taulukkoarvona', () => {
     for (const l of ['tm_vp_koti', 'tm_vp_koti_palsta', 'tm_vp_navi']) {
@@ -36,7 +42,7 @@ describe('k15: Geminin erän 19 sv viety (VP Koti + navi), johtolause ilman suom
   it('vienti on tehty ja idempotentti: 121 riviä merkki merkiltä palautuksesta, ei uusia', () => {
     const t = VIE.vie({}); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.ohitettu).toHaveLength(121);
     const P = {}; for (const [f, os] of VIE.LAHTEET) for (const o of os) Object.assign(P, Object.fromEntries(Object.entries(JSON.parse(lue(f)).osiot[o].rivit).filter(([k]) => !(k in P))));
-    for (const k of t.ohitettu) expect(SV[k], k).toBe(P[k].sv);
+    for (const k of t.ohitettu) expect(SV[k], k).toBe(KORJ[k] != null ? KORJ[k] : P[k].sv);   // PM korjasi 3 riviä (erä 91 palautus)
   });
   it('fi ennallaan ("15:stä"), sv-tilassa johtolause ei sisällä suomen elatiivia', () => {
     const KK = require('../lib/tm_vp_koti.js');
