@@ -113,5 +113,21 @@ describe('scripts/migroi_idp_pelaaja.js', () => {
     docs.get('seurat/sjk/pelaajat/a/idp_kausi/2026').tavoitteet.push(T({ luotu: 'B', fokus: { nimi: 'Uusi' } }));   // idp_pelaaja vanhenee
     expect((await M.aja({ db, kirjoita: false })).vanhentunut).toBe(1);
   });
+  it('NULL-LEHTI sitoumuksessa (idp_kausi null, idp_pelaaja puuttuu tai null) ei kopioidu: jo siirretty (vartija samalle vialle kuin henkilokunta/s4/jaksofokus)', () => {
+    const t = D.tmIdpPelaajaTavoitteet([T()]);
+    expect(M.suunnittele({ tavoitteet: [T()], pelaaja_sitoumus: SIT }, { tavoitteet: t, pelaaja_sitoumus: { rekisteri: 'a', sitoumus_pvm: '2026-10-01' } }, 'N').luokka).toBe('jo_siirretty');
+    expect(M.suunnittele({ tavoitteet: [T()], pelaaja_sitoumus: SIT }, { tavoitteet: t, pelaaja_sitoumus: SIT }, 'N').luokka).toBe('jo_siirretty');
+  });
+  it('--selita (lukeva): seura, vuosi:kenttä/lehtipolku, syy ja arvotyyppi; vanhentuneista tavoitteista eroavat lehdet; ei arvoja eikä pelaaja-id:itä; ei kirjoita', async () => {
+    const puhdas = D.tmIdpPelaajaTavoitteet([T()]), muutettu = JSON.parse(JSON.stringify(puhdas)); muutettu[0].status = 'vaihdettu';
+    const { db, loki } = fakeDb({ 'seurat/sjk': {}, 'seurat/sjk/pelaajat/a': { etunimi: 'Aatu' }, 'seurat/sjk/pelaajat/a/idp_kausi/2026': { tavoitteet: [T()], pelaaja_sitoumus: SIT }, 'seurat/sjk/pelaajat/a/idp_pelaaja/2026': { tavoitteet: muutettu, pelaaja_sitoumus: { rekisteri: 'a' } },
+      'seurat/sjk/pelaajat/a/idp_kausi/2025': { tavoitteet: [T()] } }), rivit = [];
+    await M.aja({ db, selita: true, loki: (r) => rivit.push(r) }); const s = rivit.join('\n');
+    expect(s).toMatch(/\[sjk\] SELITYS 2026:tavoitteet\[0\]\.status · vanhentunut \(puhdistettu idp_kausi ≠ idp_pelaaja\) · tyyppi idp_kausi: string · idp_pelaaja: string/);
+    expect(s).toMatch(/\[sjk\] SELITYS 2026:pelaaja_sitoumus\.sitoumus_pvm · lehti puuttuu idp_pelaaja:sta · tyyppi idp_kausi: string · idp_pelaaja: puuttuu/); expect(s).not.toMatch(/vahvistettu_pvm/);   // null-lehti ei selity eikä kopioidu
+    expect(s).toMatch(/\[sjk\] SELITYS 2025:tavoitteet · idp_pelaaja puuttuu · tyyppi idp_kausi: taulukko · idp_pelaaja: puuttuu/);
+    expect(s).not.toMatch(/Aatu|Kiihdytys|aktiivinen|vaihdettu|2026-10-01|\/a\b/); expect(loki.commits).toBe(0);
+    const S2 = lue('scripts/migroi_idp_pelaaja.js'); expect(S2).toContain("argv.includes('--selita')"); expect(S2.indexOf('KIRJOITA && SELITA')).toBeLessThan(S2.indexOf('initializeApp'));
+  });
   it('skripti vaatii suoran ajon (ei require tuotannossa); lib-polku', () => { const s = lue('scripts/migroi_idp_pelaaja.js'); expect(s).toContain("require('../lib/tm_idp_pelaaja_dok.js')"); expect(s).toContain('ei require/import'); });
 });

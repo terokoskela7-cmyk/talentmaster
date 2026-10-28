@@ -19,8 +19,8 @@ const pelaaja = () => ({ etunimi: 'X', vastuuhenkilo: VH('2026-10-01'), tukitarv
   talentti_ehdotus: { lahde: 'vp', pvm: '2026-09-01', ehdottaja_uid: 'u3', ehdottaja_rooli: 'vp' }, review_viimeisin_pvm: '2026-10-10', review_viimeisin_tyyppi: 'jakso', review_tagit: ['a'], idp_edistyma: 40, idp_lahde: 'vp', idp_viim_review: '2026-10-10', idp_dvi: { x: 1 } });
 
 describe('rekisteri: S2-ryhmä', () => {
-  it('henkilokunta = briiffin 15 kenttää; lippu ja kytkentä POIS oletuksena; D3 on edelleen ainoa kytketty ryhmä; tmSisainenKentat() ennallaan', () => {
-    expect(LIPPU.kentat).toEqual(KENTAT); expect(LIPPU.kirjoitus).toBe(false); expect(LIPPU.kytketty).toBe(false); expect(LIPPU.erillinen).toBe(true);
+  it('henkilokunta = briiffin 15 kenttää; lippu PÄÄLLÄ (lipun käännön PR) ja kytkentä POIS oletuksena; D3 on edelleen ainoa kytketty ryhmä; tmSisainenKentat() ennallaan', () => {
+    expect(LIPPU.kentat).toEqual(KENTAT); expect(LIPPU.kirjoitus).toBe(true); expect(LIPPU.kytketty).toBe(false); expect(LIPPU.erillinen).toBe(true);
     expect(Object.keys(S.RYHMAT).filter((n) => S.RYHMAT[n].kytketty)).toEqual(['d3']); expect(S.tmSisainenKentat()).toEqual(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus', 'd3_vp_pvm']);
     expect(S.tmHenkilokuntaKentat()).toEqual(KENTAT);
   });
@@ -106,6 +106,21 @@ describe('migraatio scripts/migroi_sisainen_henkilokunta.js (fake-Firestore; tuo
     const { db, D } = fakeDb(data()); await M.aja({ db, kirjoita: true }); const p = D.get('seurat/a/pelaajat/p1'), s = D.get('seurat/a/pelaajat/p1/sisainen/tiedot');
     const julkinen = Object.assign({}, p); KENTAT.forEach((k) => { delete julkinen[k]; }); const y = S.tmSisainenYhdista(julkinen, s, { henkilokuntaKirjoitus: true }); KENTAT.forEach((k) => expect(y[k], k).toEqual(p[k]));
     expect(M.suunnittele({ vastuuhenkilo: null, idp_edistyma: null }, null, 'a', 'T').luokka).toBe('ei_a'); expect((await M.aja({ db: fakeDb(data()).db, seura: 'b' })).pelaajia).toBe(1);
+  });
+  it('NULL-LEHTI kartassa (tuotanto kpv: idp_lahde.pvm = null molemmissa) → jo siirretty, ei ikuista "kopioi: 1"; oikea puuttuva lehti täydentyy edelleen', async () => {
+    const IL = (pvm) => ({ tyyppi: 'jakso', pvm });
+    expect(M.suunnittele({ idp_edistyma: 40, idp_lahde: IL(null) }, { idp_edistyma: 40, idp_lahde: IL(null) }, 'a', 'T').luokka).toBe('jo_siirretty');
+    expect(M.suunnittele({ idp_edistyma: 40, idp_lahde: IL(null) }, { idp_edistyma: 40, idp_lahde: { tyyppi: 'jakso' } }, 'a', 'T').luokka).toBe('jo_siirretty');   // null ei täydennä puuttuvaa
+    const t = M.suunnittele({ idp_edistyma: 40, idp_lahde: IL('2026-10-01') }, { idp_edistyma: 40, idp_lahde: IL(null) }, 'a', 'T'); expect(t.luokka).toBe('kopioi'); expect(t.kentat.idp_lahde).toEqual(IL('2026-10-01'));
+    const { db } = fakeDb({ 'seurat/k': {}, 'seurat/k/pelaajat/q1': { idp_edistyma: 40, idp_lahde: IL(null) }, 'seurat/k/pelaajat/q1/sisainen/tiedot': { seuraId: 'k', idp_edistyma: 40, idp_lahde: IL(null) } });
+    const y = await M.aja({ db, kirjoita: true }); expect(y).toMatchObject({ kopioi: 0, kenttia: 0, kirjoitettu: 0, jo_siirretty: 1 });
+  });
+  it('--selita (lukeva): tulostaa seuran, kenttä-/lehtipolun ja arvotyypin — ei arvoja, ei pelaaja-id:itä, id-näköiset map-avaimet peitetty; ei kirjoita', async () => {
+    const { db, loki } = fakeDb({ 'seurat/k': {}, 'seurat/k/pelaajat/q1': { tukitarve: { alue: 'SALAINEN', merkitty_pvm: '2026-10-02', abcDEF1234567890xyz: 'x' } }, 'seurat/k/pelaajat/q1/sisainen/tiedot': { tukitarve: { alue: 'SALAINEN' } } }), rivit = [];
+    await M.aja({ db, selita: true, loki: (r) => rivit.push(r) }); const s = rivit.join('\n');
+    expect(s).toMatch(/\[k\] SELITYS tukitarve\.merkitty_pvm · lehti puuttuu sisainen:sta · tyyppi pelaajadokumentissa: string · sisainen: puuttuu/); expect(s).toMatch(/tukitarve\.<id>/);
+    expect(s).not.toMatch(/SALAINEN|2026-10-02|q1|abcDEF/); expect(loki.commits).toBe(0);
+    expect([null, {}, [], { toDate: () => 0 }, new (class FieldValueX {})(), 'x', 1].map(M.tyyppi)).toEqual(['null', 'tyhjä map', 'tyhjä taulukko', 'Timestamp', 'kenttäoperaatio(FieldValueX)', 'string', 'number']);
   });
   it('skriptin turvallisuus: dry-run oletuksena, KIRJOITA-vahvistus, ADC, require ei käynnistä ajoa, vain yksi set (mergeFields), ei poistoa/updatea', () => {
     expect(SRC).toContain("argv.includes('--kirjoita')"); expect(SRC).toContain('Kirjoita KIRJOITA vahvistukseksi'); expect(SRC).toContain('credential.applicationDefault()'); expect(SRC).not.toMatch(/serviceAccount|\.json'\)|admin\.applicationDefault/);

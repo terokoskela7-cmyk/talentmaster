@@ -34,9 +34,9 @@ describe('tmJaksofokusPolutJaa (pure): A-polut → sisäkkäinen sisainen-olio, 
 
 describe('tmJaksofokusKirjoita: lippu, batch, varapolku', () => {
   const polut = { 'jaksofokus.osa_havainnot.k.a.u1.arvo': 2, 'jaksofokus.osa_arviot.k.a': 2 };
-  it('REKISTERI: lippu on oletuksena POIS; ryhmä ei ole "kytketty" (luku/yhdistys ennallaan)', () => { expect(S.RYHMAT.jaksofokus_sisainen.kirjoitus).toBe(false); expect(S.RYHMAT.jaksofokus_sisainen.kytketty).toBe(false); });
-  it('lippu POIS (oletus): vain pelaajadokumentin update, ei batchia eikä sisainen-kirjoitusta (vanha selain = uusi lippu pois)', async () => {
-    const m = mkDb(); const r = await S.tmJaksofokusKirjoita(m.db, 's', 'p1', polut, {});
+  it('REKISTERI: lippu on oletuksena PÄÄLLÄ (kytketty); ryhmä ei ole "kytketty" (luku/yhdistys ennallaan)', () => { expect(S.RYHMAT.jaksofokus_sisainen.kirjoitus).toBe(true); expect(S.RYHMAT.jaksofokus_sisainen.kytketty).toBe(false); });
+  it('lippu POIS (deps.kirjoitus=false; peruutus): vain pelaajadokumentin update, ei batchia eikä sisainen-kirjoitusta', async () => {
+    const m = mkDb(); const r = await S.tmJaksofokusKirjoita(m.db, 's', 'p1', polut, { kirjoitus: false });
     expect(r).toEqual({ ok: true, sisainen: false, sisainenOhitettu: false }); expect(m.ops).toEqual([{ t: 'update', path: PEL, u: polut }]); expect(m.commits()).toBe(0);
   });
   it('lippu PÄÄLLÄ: YKSI batch — pelaajan osapäivitys (dual-write, kaikki polut) + sisainen set-merge { seuraId, paivitetty, jaksofokus_sisainen }', async () => {
@@ -65,8 +65,8 @@ describe('tmKtTallennaOsaArvio (VP + Master + KT yhteinen ydin) → sisainen', (
     const d = { db: m.db, sid: 's', auth: () => ({ uid: 'u1', getIdToken: async () => 't', getIdTokenResult: async () => ({ claims: { rooli: 'valmentaja' } }) }), KS, rooli: 'valmentaja', uid: 'u1', nyt: () => new Date(2026, 9, 19), eiToastia: true, poista: DEL, kumoaFn: (f) => { kumoa = f; }, sisainenKirjoitus: kirjoitus };
     return { p, d, m, kumoa: () => kumoa };
   }
-  it('lippu pois (ei asetettu): kirjoitus ennallaan — yksi update pelaajaan, ei sisainen-dokumenttia', async () => {
-    const a = mk(undefined); expect(await KT.tmKtTallennaOsaArvio(a.d, a.p, 'k', 'a', 2, 'Hyvä')).toBe(true);
+  it('lippu pois (kirjoitus=false; peruutus): kirjoitus ennallaan — yksi update pelaajaan, ei sisainen-dokumenttia', async () => {
+    const a = mk(false); expect(await KT.tmKtTallennaOsaArvio(a.d, a.p, 'k', 'a', 2, 'Hyvä')).toBe(true);
     expect(a.m.ops).toHaveLength(1); expect(a.m.ops[0].t).toBe('update'); expect(a.m.ops[0].path).toBe(PEL); expect(a.m.commits()).toBe(0);
   });
   it('lippu päällä: havainto + viikkohavainto (+ lause) kirjoitetaan sisainen.jaksofokus_sisainen alle; osa_arviot EI mene sisainen:iin; pelaajadokumentti saa edelleen kaiken (dual)', async () => {
@@ -100,11 +100,11 @@ describe('VP:n osapäivitys (R6.1c: linkitetyt / tavoite_tarkenteet / onnistumis
   it('VP _vpJfKirjoita käyttää tmJaksofokusKirjoita:a (varalla vanha update); Master/VP/KT lataavat tm_sisainen.js ENNEN tm_kehitystyopoyta.js:ää; versiot ylös', () => {
     const vp = lue('TalentMaster_VP_v25.html'); expect(vp).toMatch(/window\.TM_SISAINEN\.tmJaksofokusKirjoita\(db, _seuraId, pid, upd, \{\}\)/);
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) {
-      const h = lue(f); expect(h.indexOf('lib/tm_sisainen.js?v=11'), f).toBeGreaterThan(-1); expect(h.indexOf('lib/tm_sisainen.js'), f).toBeLessThan(h.indexOf('lib/tm_kehitystyopoyta.js?v=40'));
+      const h = lue(f); expect(h, f).toMatch(/lib\/tm_sisainen\.js\?v=(?:1[1-9]|[2-9]\d)\b/); expect(h.indexOf('lib/tm_sisainen.js'), f).toBeLessThan(h.indexOf('lib/tm_kehitystyopoyta.js?v=40'));
     }
   });
-  it('lippu on koodissa POIS (ei kytketty tässä PR:ssä) ja Pelaaja/Vanhempi eivät lataa tm_sisainen.js:ää', () => {
-    expect(lue('lib/tm_sisainen.js')).toMatch(/jaksofokus_sisainen: \{ kytketty: false, kirjoitus: false,/);
+  it('lippu on koodissa PÄÄLLÄ (lipun käännön PR) ja Pelaaja/Vanhempi eivät lataa tm_sisainen.js:ää', () => {
+    expect(lue('lib/tm_sisainen.js')).toMatch(/jaksofokus_sisainen: \{ kytketty: false, kirjoitus: true,/);
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f)).not.toMatch(/<script[^>]+src="lib\/(tm_sisainen|tm_kehitystyopoyta)\.js/));
   });
 });

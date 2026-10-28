@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const require = createRequire(import.meta.url);
+require('../lib/tm_sisainen.js').RYHMAT.jaksofokus_sisainen.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_jaksofokus_kirjoitus.test.js
 const KT = require('../lib/tm_kehitystyopoyta.js');
 const KS = require('../lib/tm_kehityssilmukka.js');
 const AJ = require('../lib/tm_aloita_jakso.js');

@@ -167,6 +167,7 @@ describe('Master render-kielineutraali-gate (Erä 3 DoD-ydin)', () => {
     const isAllowedRegion = (ln) =>
       (ln >= dLo && ln <= dHi) || (ln >= kLo && ln <= kHi) || (ln >= sLo && ln <= sHi);
 
+    const KOODIARVOT = new Set(['muu']);
     const leaks = [];
     for (let idx = lo - 1; idx < hi - 1; idx++) {
       const ln = idx + 1;
@@ -179,6 +180,7 @@ describe('Master render-kielineutraali-gate (Erä 3 DoD-ydin)', () => {
         const ts = m[1].replace(/\\'/g, "'").trim();
         if (!ts || !resolvesSv(ts)) continue;
         if (DIRECT.has(ts) || DIRECT.has(dec(ts)) || PROD.test(ts) || ts.includes('(demo')) continue;
+        if (KOODIARVOT.has(ts)) continue;   // koodin enum-arvo (ikavaihe 'muu', harjoitetyyppi 'muu', tilanne 'muu'), ei näyttöä; näyttö kulkee lib/tm_kirjaus_tyypit.js:n kautta
         const pre = line.slice(0, m.index);
         if (ENUM_FIELD.test(pre) || CMP.test(pre)) continue;
         const pm = pre.match(/(\w+)\s*:\s*$/); // PROP-routed

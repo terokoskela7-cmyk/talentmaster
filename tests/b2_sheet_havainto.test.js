@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+require('../lib/tm_sisainen.js').RYHMAT.jaksofokus_sisainen.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_jaksofokus_kirjoitus.test.js
 const SH = require('../lib/tm_sheet.js'), HV = require('../lib/tm_kt_havainto.js'), KT = require('../lib/tm_kehitystyopoyta.js'), KS = require('../lib/tm_kehityssilmukka.js');
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const OSA = { k: 'a', koodi: 'k1', nimi: 'Katse ylös', havainnot: [{ uid: 'u1', arvo: 2, pvm: '2026-10-01', rooli: 'valmentaja', lause: 'Hyvä' }] };

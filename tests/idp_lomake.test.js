@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import { readFileSync } from 'fs';
 const require = createRequire(import.meta.url);
+require('../lib/tm_sisainen.js').RYHMAT.henkilokunta.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_henkilokunta*.test.js
 const L = require('../lib/tm_idp_lomake.js'), I = require('../lib/tm_idp.js'), TAKS = require('../lib/tm_arviointi_taksonomia.js');
 const NYT = new Date('2026-10-19T06:00:00.000Z');
 const T = (o) => ({ status: 'ehdotettu', fokus: { alue: 'acceleration', dim: 'D1', nimi: 'Kiihdytys' }, mittari: { testId: 'sprint10', yksikko: 's', suunta: 'pienempi' }, lahto: { arvo: 2.1, pvm: '2026-06-05' }, tavoitearvo: 1.9, kuvaus: '', pelaajan_tavoite: '', luotu: '2026-10-01T10:00:00.000Z', arviot: [], ...(o || {}) });
