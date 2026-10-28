@@ -42,7 +42,8 @@ const pelaajaOnTallessa = (f) => f.docs[PEL] && f.docs[PEL].adar_pvm === '2026-1
 describe('Pikakortti: sisainen omana kirjoituksenaan pelaajan jälkeen (ei heitä)', () => {
   const koodi = viipale(PIKA, 'function _phS4Valmista(', 'async function _phPaivitaPikakentat(');
   const aja = (fs) => { const c = vm.createContext({ console, Promise, Object, window: { TM_SISAINEN: S }, _PH_DB: fs.db }); c.window.TM_SISAINEN = S; vm.runInContext(koodi, c); return c; };
-  it('lippu pois: pelaajalle kentät sellaisenaan, sisainen-kirjoitusta ei tehdä', async () => {
+  it('lippu pois (peruutus): pelaajalle kentät sellaisenaan, sisainen-kirjoitusta ei tehdä', async () => {
+    S.RYHMAT.s4.kirjoitus = false;
     const f = mkFs(); const c = aja(f); const v = c._phS4Valmista(kentat());
     expect(v.upd).toEqual(kentat()); expect(v.lisa).toBeNull();
     const r = await c._phS4Sisainen(SID, PID, v); expect(r.sisainen).toBe(false); expect(sisaa(f)).toBe(false);
