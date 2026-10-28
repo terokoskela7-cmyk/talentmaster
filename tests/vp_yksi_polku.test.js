@@ -45,7 +45,7 @@ function ymp({ pelaaja = {}, kaada = false, rooli = 'vp', teemat } = {}) {
   sb._vpJaksoVaihto = (pp, jf) => L.KS.tmAsetaJaksofokus(pp, jf, { nytISO: NYT.toISOString(), lahde: 'vp' });
   sb._vpJfKirjoita = async (pid, upd, viesti, paivita) => { try { await db.collection('seurat').doc('kpv').update(upd); if (paivita) paivita(); } catch (e) { sb.toast('virhe', 'error'); } };
   vm.createContext(sb);
-  const nimet = ['function _vpJaksoKorttiHTML(', 'function _vpPolunTilaHTML(', 'function _vpYdinvahvuusRiviHTML(', 'function _vpTanaanYlaHTML(', 'function _vpJaksoReRender(', 'window._vpAloitaJaksoAvaa = async function', 'window._vpAloitaJaksoSulje = function', 'window._vpAloitaJaksoTallenna = async function'];
+  const nimet = ['function _vpTaksLang(', 'function _taksVal(', 'function _vpTaitoNimiNaytto(', 'function _vpKonseptiNimiNaytto(', 'function _vpJaksoKorttiHTML(', 'function _vpPolunTilaHTML(', 'function _vpYdinvahvuusRiviHTML(', 'function _vpTanaanYlaHTML(', 'function _vpJaksoReRender(', 'window._vpAloitaJaksoAvaa = async function', 'window._vpAloitaJaksoSulje = function', 'window._vpAloitaJaksoTallenna = async function'];
   vm.runInContext(nimet.map(pura).join(';\n') + ';', sb);
   return { sb, p, kirj, log };
 }

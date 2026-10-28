@@ -22,7 +22,7 @@
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_istunto.js?v=1"></script>
 <script src="lib/tm_lang.js?v=50"></script>
-<script src="lib/tm_lib_i18n.js?v=37"></script>
+<script src="lib/tm_lib_i18n.js?v=40"></script>
 <script src="lib/tm_i18n_common.js?v=17"></script>
 <script src="lib/tm_master_i18n.js?v=39"></script>
 <script src="lib/tm_phv_tila.js?v=2"></script>
@@ -88,7 +88,7 @@
 <script src="lib/tm_tekija_nimi.js?v=1"></script>   <!-- K1: klipin lähettäjän nimi (#1096-sääntö: ei sähköpostia) -->
 <script src="lib/tm_kt_klippi.js?v=1"></script>   <!-- K1: klipin lähetys sheetinä (Polku ⋯ Lisää klippi + viikkohavainnon VEO-linkki) -->
 <script src="lib/tm_historia_lause.js?v=2"></script>   <!-- 0b-jatko: suljetun jakson lause (myös sisäinen) + sulkupäivä Historiaan -->
-<script src="lib/tm_kt_polku.js?v=15"></script>
+<script src="lib/tm_kt_polku.js?v=16"></script>
 <script src="lib/tm_idp_lomake.js?v=5"></script>   <!-- K3b: kausitavoite sheetinä (sama lomake ja logiikka kuin Masterin IDP-kortissa) -->
 <script src="lib/tm_idp_pelaaja_dok.js?v=3"></script>   <!-- Vaihe 1 · PR 1f-2: idp_pelaaja-dual-write (lippu pois oletuksena) -->
 <script src="lib/tm_tasovari.js?v=2"></script>
@@ -99,7 +99,7 @@
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_naytto_lohkot.js?v=3"></script>   <!-- K2: Näytön mittauslohkot (sama lib kuin Masterissa) -->
 <script src="lib/tm-methodology.js?v=3"></script><script src="lib/tm-profile.js?v=3"></script><!-- K4a2: laskeKetjuProfiili (kehon valmiuden heikoin alue) -->
-<script src="lib/tm_todistekortit_fi.js?v=8"></script><script src="lib/tm_fyysinen_profiili.js?v=1"></script><script src="lib/tm_todistekortit.js?v=8"></script><script src="lib/tm_todistekortit_html.js?v=6"></script><script src="lib/tm_d3_kortti.js?v=2"></script><script src="lib/tm_pelaajaraportti.js?v=1"></script>   <!-- K4a: Profiilin todistekortit (D102) -->
+<script src="lib/tm_todistekortit_fi.js?v=8"></script><script src="lib/tm_fyysinen_profiili.js?v=1"></script><script src="lib/tm_todistekortit.js?v=8"></script><script src="lib/tm_todistekortit_html.js?v=6"></script><script src="lib/tm_d3_kortti.js?v=2"></script><script src="lib/tm_pelaajaraportti.js?v=2"></script>   <!-- K4a: Profiilin todistekortit (D102) -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- K4c: kausiavain (Tämä kausi -suodatin): tmKausiNyt + tmKausiAlku, sama lähde kuin VP/Admin -->
 <script src="lib/tm_mittaukset_fi.js?v=1"></script><script src="lib/tm_mittaukset.js?v=1"></script><script src="lib/tm_mittaukset_html.js?v=1"></script><script src="lib/tm_mittaukset_sheet.js?v=1"></script>   <!-- K4c: Kaikki mittaukset -sheet (D102 jatko) -->
 <script src="lib/tm_kt_sivu.js?v=10"></script><script src="lib/tm_kt_taulu.js?v=3"></script>
@@ -225,8 +225,23 @@ if (!window.TM_JOUKKUE && typeof tmPelaajanJoukkueet === 'function') window.TM_J
 const SN = window.TM_SANASTO, _kieli = function () { try { return (typeof tmNykyinenKieli === 'function' && tmNykyinenKieli()) || 'fi'; } catch (e) { return 'fi'; } };
 const TT = SN.tmSanastoT(function (k) { const v = masterT(k); return (v === k && KS.FI[k] != null) ? KS.FI[k] : v; }, { kieli: _kieli, fi: Object.assign({}, K.FI, (window.TM_TANAAN_KENTTA || {}).FI, (window.TM_TANAAN_SIGNAALI || {}).FI, window.TM_KT_HAVAINTO.FI, window.TM_SHEET.FI, (window.TM_KT_ARVIOINTI || {}).FI, (window.TM_KT_ALUE || {}).FI, (window.TM_KT_TOIMINTAKORTTI || {}).FI, (window.TM_KASVUPYRAHDYS || {}).FI, (window.TM_KT_POLKU || {}).FI, (window.TM_MEDIAVIESTI || {}).FI, (window.TM_IDP_LOMAKE || {}).FI, (window.TM_TODISTEKORTIT || {}).FI, (window.TM_D3_KORTTI || {}).FI, (window.TM_PELAAJARAPORTTI || {}).FI, (window.TM_KT_KESKUSTELU || {}).FI) });
 function T(avain) { return TT(avain); }
+/* sv-aukot k10/k13 (PM 28.10.): tallennetut fi-nimet näyttökielelle — VAIN näytössä, data pysyy suomena.
+   Taidon nimi (kausitavoite, tukiosa): taksonomian nimi_fi → nimi_sv. Konsepti: y_hN tai y_pN → sanaston sn_-avain (sv tm_lib_i18n), fyysinen → TM_FYYSTEEMAT nimi_sv. Tuntematon → tallennettu nimi. */
+function _ktTaitoNimi(n) {
+  if (!n || _kieli() !== 'sv') return n;
+  const X = (typeof ARVIOINTI_TAKSONOMIA !== 'undefined' && Array.isArray(ARVIOINTI_TAKSONOMIA)) ? ARVIOINTI_TAKSONOMIA : [], s = String(n).trim();
+  for (let i = 0; i < X.length; i++) if (X[i] && X[i].nimi_fi === s && X[i].nimi_sv) return X[i].nimi_sv;
+  return n;
+}
+function _ktKonseptiNimi(avain, nimi, domeeni) {
+  const fi = SN.tmSanastoKonseptiNimi(avain, nimi); if (_kieli() === 'fi') return fi;
+  const k = 'sn_' + String(avain || '').toLowerCase();
+  if (/^sn_y_[hp]\d$/.test(k)) { const v = TT(k); if (v && v !== k) return v; }
+  if (avain && _kieli() === 'sv' && (!domeeni || domeeni === 'fyysinen')) { const L = (window.TM_FYYSTEEMAT_LIB && window.TM_FYYSTEEMAT_LIB.TM_FYYSTEEMAT) || []; for (let i = 0; i < L.length; i++) if (L[i] && L[i].avain === avain && L[i].nimi_sv) return L[i].nimi_sv; }
+  return _ktTaitoNimi(fi);
+}
 function _naytto(p) {   // näyttökopio: harjoiteltavan asian nimi D248:n mukaan (tallennettu nimi ei muutu)
-  const jf = p && p.jaksofokus; if (!jf || !jf.konsepti_avain) return p; const n = SN.tmSanastoKonseptiNimi(jf.konsepti_avain, jf.konsepti_nimi);
+  const jf = p && p.jaksofokus; if (!jf || !jf.konsepti_avain) return p; const n = _ktKonseptiNimi(jf.konsepti_avain, jf.konsepti_nimi, jf.domeeni);
   return n === jf.konsepti_nimi ? p : Object.assign({}, p, { jaksofokus: Object.assign({}, jf, { konsepti_nimi: n }) });
 }
 function toast(msg, kumoa) {   // kumoa: { teksti, nappi, fn } → "Tallennettu · Kumoa" (5 s, D100); fn() palauttaa Promise<boolean>
@@ -403,7 +418,7 @@ window._ktHkK3Paalle = function () { /* hylkäyksessä tarjous on aina päällä
 let _kesInst = null;
 function _keskusteluSheet() {
   return _kesInst || (_kesInst = window.TM_KT_KESKUSTELU_SHEET.tmKtKeskusteluSheet({ db: _db, sid: _seuraId, doc: document, t: TT, esc: _e, rooli: _rooli, superAdmin: _superAdmin, sheet: _sheet, toast: function (m) { toast(m); }, nayta: function () { _nayta(); },
-    pelaaja: _pelaaja, nimi: _nimi, nimiFn: function (a, n) { return SN.tmSanastoKonseptiNimi(a, n); }, nyt: function () { return new Date(); }, paivaIso: tmPaivaIso, verkossa: function () { return navigator.onLine !== false; }, auth: function () { return _auth.currentUser; }, FV: firebase.firestore.FieldValue,
+    pelaaja: _pelaaja, nimi: _nimi, nimiFn: function (a, n) { return _ktKonseptiNimi(a, n); }, nyt: function () { return new Date(); }, paivaIso: tmPaivaIso, verkossa: function () { return navigator.onLine !== false; }, auth: function () { return _auth.currentUser; }, FV: firebase.firestore.FieldValue,
     avaaKausi: function (pid) { return _voiKirjoittaa(_pelaaja(pid)) ? _kausiSheet().avaa(pid) : false; },
     paivitaHistoria: function (pid, pvm, data) { const x = _pk[pid]; if (x && x.reviewit && x.reviewit.tila === 'ok') x.reviewit.docs[pvm] = Object.assign({}, x.reviewit.docs[pvm] || {}, data); },   // Historian rivi heti (ei latausta)
     virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); } }));
@@ -565,7 +580,7 @@ function _polkuHTML(p0, tila) {
   const p = _naytto(p0), x = _pk[p.id] || { kausi: { tila: 'lataa' }, klipit: { tila: 'lataa', dokit: [] }, viikko: { tila: 'lataa', docs: [] }, reviewit: { tila: 'lataa', docs: {} } };
   _vkKooste(p, tila);   // käynnistää jakson viikkokatsausten haun (Pelaajan ääni + sunnuntain tila); sama välimuisti kuin Tänään
   const vc = _vk[p.id], ika = _ika(p), vkDocs = vc && vc.docs && p.jaksofokus && vc.alkoi === window.TM_VIIKKOKATSAUS.tmVkJaksoAlkoi(p.jaksofokus) ? vc.docs : null;
-  return window.TM_KT_POLKU.tmKtPolkuHTML(p, { esc: _e, t: TT, tila: tila, kaanon: _kaanon, nimi: _nimi(p), nyt: new Date(), tanaan: tmPaivaIso(new Date()), voiKirjoittaa: _voiKirjoittaa(p), alueMahdollinen: _voiKirjoittaa(p) && _alueMahdollinen(p), kausi: x.kausi, klipit: x.klipit, viikko: x.viikko, reviewit: x.reviewit, vk: { docs: vkDocs }, joukkueDocs: _joukkueDocs, ikavaihe: window.TM_KEHITYSTYOPOYTA.tmKtIkavaihe(ika) === 'Leikkijä' ? 'leikkija' : '', historiaNimiFn: SN.tmSanastoKonseptiNimi, osaFn: '_ktHavaintoLisaa', toimiFn: '_ktToimi', uudelleenFn: '_ktPolkuUudelleen', uudet: _ktUudetKlipit });
+  return window.TM_KT_POLKU.tmKtPolkuHTML(p, { esc: _e, t: TT, tila: tila, kaanon: _kaanon, nimi: _nimi(p), nyt: new Date(), tanaan: tmPaivaIso(new Date()), voiKirjoittaa: _voiKirjoittaa(p), alueMahdollinen: _voiKirjoittaa(p) && _alueMahdollinen(p), kausi: x.kausi, klipit: x.klipit, viikko: x.viikko, reviewit: x.reviewit, vk: { docs: vkDocs }, joukkueDocs: _joukkueDocs, ikavaihe: window.TM_KEHITYSTYOPOYTA.tmKtIkavaihe(ika) === 'Leikkijä' ? 'leikkija' : '', historiaNimiFn: _ktKonseptiNimi, taitoNimiFn: _ktTaitoNimi, osaFn: '_ktHavaintoLisaa', toimiFn: '_ktToimi', uudelleenFn: '_ktPolkuUudelleen', uudet: _ktUudetKlipit });
 }
 /* K4c · PROFIILI: todistekortit + "Näytä kaikki mittaukset" (koko ruudun sheet, lib/tm_mittaukset*.js). K2:n vanhaa raakalistaa (tm_naytto_lohkot) ei enää näytetä täällä — se säilyy Masterissa; testitapahtumia ei haeta. */
 function _nayttoHTML(p) { return window.TM_MITTAUKSET_HTML.tmMittauksetKehysHTML(_profiiliKortit(p), { t: TT, esc: _e, pid: p.id }); }
@@ -634,7 +649,7 @@ function _prCtx(p0) {
   if (rae && rae.q) { chips.push(rae.q + ' ' + TT('pr_chip_synt')); if (rae.underdog) chips.push(TT('pr_chip_underdog')); }
   if (johto && p.signaali === 'xfactor') chips.push('X-Factor');   // talent-signaali vain johdolle (PM: Scouting vain johto)
   const jf = p.jaksofokus || null, vk = tila && tila.rivitila && tila.rivitila.vk ? tila.rivitila.vk : null, testPvm = p.hh_pvm || p.tki_pvm || null;
-  return { esc: _e, t: TT, pid: p.id, nimi: _nimi(p), ika: isp.ika, ikavaihe: K.tmKtIkavaihe(isp.ika), phv: (typeof tmPhvKoodi === 'function' && tmPhvKoodi(p)) || '', chips: chips, testPvm: testPvm, testVanha: !!(testPvm && typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(testPvm)), muistutusKk: (typeof tmMuistutusKk === 'function') ? tmMuistutusKk() : '',
+  return { esc: _e, t: TT, pid: p.id, nimi: _nimi(p), ika: isp.ika, ikavaihe: TT(K.tmKtIkavaihe(isp.ika)), taitoNimiFn: _ktTaitoNimi, phv: (typeof tmPhvKoodi === 'function' && tmPhvKoodi(p)) || '', chips: chips, testPvm: testPvm, testVanha: !!(testPvm && typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(testPvm)), muistutusKk: (typeof tmMuistutusKk === 'function') ? tmMuistutusKk() : '',
     pvmFn: function (iso) { return (typeof tmPvmFi === 'function' && tmPvmFi(iso)) || iso; }, voiKirjoittaa: voi, johto: johto, paatos: paatos, review: review, kausi: _pr.kausi,
     jakso: jf && jf.konsepti_nimi ? { nimi: jf.konsepti_nimi, domeeni: jf.domeeni || '', vk: vk ? vk.n : null, vkYht: vk ? vk.yht : null } : null, tavoitteet: _pr.tav,
     d3HTML: window.TM_D3_KORTTI.tmD3KorttiHTML(window.TM_D3_KORTTI.tmD3KorttiMalli(p0, { nimi: p0.etunimi || _nimi(p0), t: TT }), { esc: _e, t: TT, pid: p0.id, voiKirjoittaa: voi }), _p: p };

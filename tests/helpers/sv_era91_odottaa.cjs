@@ -1,0 +1,2 @@
+// Erä 91 (sv-aukot VP + KTP kohdat 10–15, PM 28.10.2026): lib-avaimet joiden sv odottaa PM:ää. = docs/i18n/sv_kaannoserae_91_gemini.json; sv saapui → vienti tyhjentää.
+module.exports = ["turnaus", "testi", "jaksopalaveri", "palaveri", "mentorointi", "leiri", "seuranta", "kalibraatiopaja", "tapahtuma", "Bio-banding", "+ Kirjaa mentorointi", "ktp_kausi_syksy", "ktp_kausi_kevat", "ktp_dom_teknis_taktinen", "ktp_dom_fyysinen", "ktp_dom_psyykkinen", "ktp_dom_sosiaalinen"];
