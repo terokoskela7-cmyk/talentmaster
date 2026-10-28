@@ -52,14 +52,14 @@ describe('lib/tm_kotiharjoitteet (pure)', () => {
 
 function pura(t) { const i = PE.indexOf(t); expect(i, t).toBeGreaterThan(-1); let d = 0; for (let k = PE.indexOf('{', i); k < PE.length; k++) { if (PE[k] === '{') d++; else if (PE[k] === '}' && !--d) return PE.slice(i, k + 1); } throw new Error('sulkeet'); }
 describe('Pelaaja_v7 + SW', () => {
-  const ymp = (pelaaja) => { const c = { _pelaaja: pelaaja, _thEsc: esc, window: {}, Object, Array }; c.window = c; c.window.TM_KOTIHARJOITTEET = K; vm.createContext(c); vm.runInContext(pura('function rMinaKotiharjoitteet(') + ';', c); return c; };
+  const ymp = (pelaaja) => { const c = { _pelaaja: pelaaja, _thEsc: esc, _p7K1T: (k) => k, _hT: (x) => x, window: {}, Object, Array }; c.window = c; c.window.TM_KOTIHARJOITTEET = K; vm.createContext(c); vm.runInContext(pura('function rMinaKotiharjoitteet(') + ';', c); return c; };
   it('rMinaKotiharjoitteet: Topiaksen (KPV U13) jakson kotiharjoitteet renderöityvät seuran nimellä; ei jaksoa/tukiosaa → tyhjä (osio piiloon); joukkue-rivi ei näy', () => {
     const c = ymp({ id: 'm93GBdOaGCUuenMiCL0I', joukkue: 'KPV U13', jaksofokus: JF([H(1), H(2, { kaytto: 'joukkue', liike: 'Joukkuerata' })]) }), h = c.rMinaKotiharjoitteet();
     expect(h).toContain('Liike 1'); expect(h).not.toContain('Joukkuerata'); expect(h).toMatch(/tm-kh-lahde[^>]*>KPV</); expect(h).not.toContain('SJK');
     expect(ymp({ id: 'a', jaksofokus: undefined }).rMinaKotiharjoitteet()).toBe(''); expect(ymp(null).rMinaKotiharjoitteet()).toBe('');
   });
   it('lähde: g_koti-osio rMina():ssa (tyhjä body piilottaa), lib ladataan ?v=1; Vanhempi_v2 ei lataa; Pelaaja_v7 ei lue ohjelmat/harjoitepankki-kokoelmia; ei SJK-kovakoodausta', () => {
-    expect(PE).toContain('lib/tm_kotiharjoitteet.js?v=1'); expect(PE).toMatch(/id: 'g_koti'[^]*?body: rMinaKotiharjoitteet\(\)/); expect(lue('TalentMaster_Vanhempi_v2.html')).not.toMatch(/tm_kotiharjoitteet|TM_KOTIHARJOITTEET/);
+    expect(PE).toContain('lib/tm_kotiharjoitteet.js?v=2'); expect(PE).toMatch(/id: 'g_koti'[^]*?body: rMinaKotiharjoitteet\(\)/); expect(lue('TalentMaster_Vanhempi_v2.html')).not.toMatch(/tm_kotiharjoitteet|TM_KOTIHARJOITTEET/);
     expect(PE).not.toMatch(/collection\('ohjelmat'\)/); expect(PE).not.toMatch(/collection\('harjoitepankki'\)(?!\.where\('tila', '==', 'hyvaksytty'\)\.where\('kaytto', '==', 'koti'\))/);   // K1: pankin luku vain Rules v3.42:n vaatimilla kahdella ehdolla (hyväksytty + koti) expect(lue('lib/tm_kotiharjoitteet.js')).not.toMatch(/SJK|KPV/i.test('') ? /x^/ : /'SJK'|"SJK"/);
     const koodi = lue('lib/tm_kotiharjoitteet.js').replace(/\/\*[\s\S]*?\*\//g, ''); expect(koodi).not.toMatch(/firebase|firestore|collection\(|fetch\(/i);
   });
