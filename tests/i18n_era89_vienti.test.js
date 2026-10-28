@@ -26,7 +26,8 @@ describe('sv-erä 89 — vienti', () => {
     const pf = path.join(kopio, 'docs/i18n/sv_kaannoserae_89_palautus.json'), j = JSON.parse(fs.readFileSync(pf, 'utf8')); j.osiot['lib.tm_pelaajaraportti'].rivit.pr_pdf.sv = ''; fs.writeFileSync(pf, JSON.stringify(j));
     const t = V.vie({ juuri: kopio, kirjoita: true }); expect(t.virheet.join('|')).toContain('pr_pdf: sv tyhjä'); expect(t.kirjoitettu).toBe(false);
   });
-  it('erä 89 ei ole enää odottavien listalla (LIB_SV_ODOTTAA tyhjä; ODOTTAVAT_ERAT ei sisällä 89)', () => {
-    expect(teksti('tests/i18n_sv_era_lib.test.js')).toMatch(/const LIB_SV_ODOTTAA = \[\]/); const rivi = teksti('tools/i18n/sv_kattavuus.mjs').match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].split(',').map((x) => x.trim())).not.toContain('89');
+  it('erä 89 ei ole enää odottavien listalla (LIB_SV_ODOTTAA ilman erän 89 d3k_/pr_-avaimia; ODOTTAVAT_ERAT ei sisällä 89)', () => {
+    // sv-aukot P7 (28.10.2026): lista ei ole enää tyhjä (erä 90 odottaa) → tarkistetaan että erän 89 avaimet eivät ole siinä
+    expect(teksti('tests/i18n_sv_era_lib.test.js')).toMatch(/const LIB_SV_ODOTTAA = require\('\.\/helpers\/sv_era90_odottaa\.cjs'\)/); expect(require('./helpers/sv_era90_odottaa.cjs').filter((k) => /^(d3k_|pr_)/.test(k))).toEqual([]); const rivi = teksti('tools/i18n/sv_kattavuus.mjs').match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].split(',').map((x) => x.trim())).not.toContain('89');
   });
 });
