@@ -53,6 +53,18 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4b · Polku:
       await kuva(p, 'polku_390_tumma_normaali'); expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 120000);
+  it('B4 JAKSON SITOUMUS 1280 vaalea (D248: fi-tekstit sanaston läpi): lohko Pelaajan äänen alussa (kysymys + vastaus, tyhjä q3 pois), tilarivi vahvistettu; ei vahvista-nappia; 3 uusinta ennallaan', async () => {
+    await kaynnistaSelain(); try {
+      const alkoi = PELAAJAT_P.find((x) => x.id === 'p2').jaksofokus.alkoi;
+      const dokit = { ...DOKIT, 'seurat/demo/pelaajat/p2/idp_kausi/2026': { tavoitteet: [TAVOITE], pelaaja_sitoumus: { itsearvio: { q1: 'Pallon suojaaminen', q2: 'Treeni oli kivaa', q3: '' }, jakso_alkoi: alkoi, sitoumus_pvm: '2026-10-16T15:00:00.000Z', vahvistettu_pvm: '2026-10-16T16:00:00.000Z', vahvistettu_jakso_alkoi: alkoi } } };
+      const { sk, p, virheet } = await avaa({ leveys: 1280, teema: 'light', dokit })(selain); await valmis(p); await p.waitForSelector('[data-kt-sitoumus-lohko]', { timeout: 10000 });
+      const s = await p.locator('[data-kt-sitoumus-lohko]').innerText();
+      expect(s).toContain('Jakson pelaajan lupaus'); expect(s).toContain('Mikä tuntuu nyt vaikealta?'); expect(s).toContain('”Pallon suojaaminen”'); expect(s).not.toContain('Mitä sinä haluat?'); expect(s).toContain('Antoi lupauksen 16.10. · vahvistettu 16.10.');   // D248-sanasto (tm_sanasto.js) korvaa sitoumus/sitoutui fi-tilassa
+      expect(s).not.toMatch(/sitoumu|sitoutu/i);
+      expect(await p.locator('[data-kt-sitoumus-lohko] button').count()).toBe(0); expect(await p.locator('[data-kt-aani-lahde]').count()).toBe(3);
+      await kuva(p, 'polku_1280_vaalea_sitoumus'); expect(SUODATA(virheet)).toEqual([]); await sk.close();
+    } finally { await selain.close(); }
+  }, 120000);
   it('EI PELAAJAN ÄÄNTÄ (0 lähdettä): lohkoa ei piirretä lainkaan; ei jaksoa → viikko + historia silti', async () => {
     await kaynnistaSelain(); try {
       const dokit = { ...DOKIT }; for (const k of ['seurat/demo/pelaajat/p2/idp_kausi/2026', 'seurat/demo/viestit/v1', 'seurat/demo/pelaajat/p2/viikkokatsaukset/2026-10-11']) delete dokit[k];
@@ -86,7 +98,9 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4b · Polku:
   it('ROOLI VP + SV: sama näkymä; ruotsin kieliasetuksella ei raakoja avaimia', async () => {
     await kaynnistaSelain(); try {
       const a = await avaa({ rooli: 'vp' })(selain); await valmis(a.p); expect(await a.p.locator('[data-kt-historia]').count()).toBe(1); await a.sk.close();
-      const { sk, p, virheet } = await avaa({ dokit: { ...DOKIT, 'seurat/demo': { nimi: 'Demo FC', kieli: 'sv' } } })(selain); await valmis(p);
+      const alkoi = PELAAJAT_P.find((x) => x.id === 'p2').jaksofokus.alkoi, sitSv = { itsearvio: { q1: 'Pallon suojaaminen' }, jakso_alkoi: alkoi, sitoumus_pvm: '2026-10-16T15:00:00.000Z' };   // B4: sv = PM:n tekstit sellaisenaan
+      const { sk, p, virheet } = await avaa({ dokit: { ...DOKIT, 'seurat/demo': { nimi: 'Demo FC', kieli: 'sv' }, 'seurat/demo/pelaajat/p2/idp_kausi/2026': { tavoitteet: [TAVOITE], pelaaja_sitoumus: sitSv } } })(selain); await valmis(p);
+      await p.waitForSelector('[data-kt-sitoumus-lohko]', { timeout: 10000 }); const sv = await p.locator('[data-kt-sitoumus-lohko]').innerText(); expect(sv).toContain('Periodens åtagande'); expect(sv).toContain('Vad känns svårt nu?'); expect(sv).toContain('Åtog sig 16.10. · väntar på din bekräftelse');
       expect(await p.locator('[data-kt-polku]').innerText()).not.toMatch(/\bktp_|\bkt_[a-z]/); expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 120000);
