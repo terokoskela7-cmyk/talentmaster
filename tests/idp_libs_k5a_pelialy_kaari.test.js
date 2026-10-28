@@ -103,7 +103,7 @@ describe('render-kytkentä (tmKaariRenderFull/Pelaaja + VP/Pelaaja-triggerit)', 
   });
   it('Pelaaja-trigger: adar-only + ika', () => {
     expect(PELAAJA).toContain('|| p.adar_viimeisin;   // K5a');
-    expect(PELAAJA).toContain('tmKaariRenderPelaaja(p, { ika: _ika })');
+    expect(PELAAJA).toContain('tmKaariRenderPelaaja(p, { ika: _ika, t: _p7K1T })');
   });
 });
 
