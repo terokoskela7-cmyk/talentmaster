@@ -874,7 +874,10 @@ async function tarkistaSeurabudjetti(db, seuraId, oletusUsd, kieli, nyt) {
   const oma = seura.exists ? Number(seura.data().budjettiUsd) : NaN;
   const raja = isFinite(oma) && oma > 0 ? oma : oletusUsd;
   const kaytetty = laskuri.exists ? Number(laskuri.data().usd) || 0 : 0;
-  if (kaytetty >= raja) throw virhe('resource-exhausted', BUDJETTI_VIESTI[kieli === 'sv' ? 'sv' : 'fi']);
+  if (kaytetty >= raja) {
+    // Valmentaja näkee tämän viestin (Tero 30.10.): details.syy erottaa sen päiväkiintiöstä clientissa.
+    throw Object.assign(virhe('resource-exhausted', BUDJETTI_VIESTI[kieli === 'sv' ? 'sv' : 'fi']), { tmTiedot: { syy: 'seurabudjetti' } });
+  }
   return raja;
 }
 
@@ -917,7 +920,7 @@ function kasittelija(admin, functions, riip) {
   function httpsVirhe(e) {
     if (e instanceof functions.https.HttpsError) return e;
     const koodi = e.tmKoodi || 'internal';
-    return new functions.https.HttpsError(koodi, koodi === 'internal' ? 'Sisäinen virhe' : e.message);
+    return new functions.https.HttpsError(koodi, koodi === 'internal' ? 'Sisäinen virhe' : e.message, e.tmTiedot);
   }
 
   return async function (data, context) {

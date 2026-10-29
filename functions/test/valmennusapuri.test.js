@@ -993,7 +993,8 @@ test('K1e budjetti: 100 % → resource-exhausted ennen mallikutsua (fi/sv), päi
   const db = budjettiDb(1);
   const { h, kutsut } = teeK1(db, { env: BUDJETTI_ENV });
   await assert.rejects(h(kysymys('kysymys'), ctx('v1')),
-    (e) => e.code === 'resource-exhausted' && e.message === 'Seuran kuukauden apurikiintiö on käytetty. Ota yhteyttä TalentMasteriin.');
+    (e) => e.code === 'resource-exhausted' && e.message === 'Seuran kuukauden apurikiintiö on käytetty. Ota yhteyttä TalentMasteriin.'
+      && e.details && e.details.syy === 'seurabudjetti');
   await assert.rejects(h(Object.assign(kysymys('fråga'), { kieli: 'sv' }), ctx('v1')),
     (e) => e.code === 'resource-exhausted' && e.message === 'Föreningens månadskvot för assistenten är använd. Kontakta TalentMaster.');
   assert.strictEqual(kutsut.length, 0);
@@ -1061,4 +1062,10 @@ test('K1 käsittelijä: ei-mahdu → vain ydin mallille, perusmalli vaikka REITI
   assert.strictEqual(l.osioSyy, 'ei-mahdu');
   assert.strictEqual(l.malliTaso, 'perus');
   assert.deepStrictEqual(l.osiot, ydin.map((o) => o.id));
+});
+test('K1e päiväkiintiö pysyy erillään: resource-exhausted ilman seurabudjetti-merkintää', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const { h } = teeK1(db, { env: { VALMENNUSAPURI_PAIVAKIINTIO: '1' } });
+  await h(kysymys('kysymys'), ctx('v1'));
+  await assert.rejects(h(kysymys('kysymys'), ctx('v1')), (e) => e.code === 'resource-exhausted' && !(e.details && e.details.syy));
 });
