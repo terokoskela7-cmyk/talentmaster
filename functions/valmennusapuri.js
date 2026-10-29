@@ -84,7 +84,31 @@ function asetukset(env) {
     hpPolku: e.VALMENNUSAPURI_HP_POLKU || 'valmennusapuri/hp_johtaja/',
     paivaKiintio: Number(e.VALMENNUSAPURI_PAIVAKIINTIO || 40),
     aihejako: e.VALMENNUSAPURI_AIHEJAKO !== '0',             // '0' = koko tietopohja jokaiseen kutsuun (paluu vanhaan)
+    // ── K1 kustannus (29.10.2026): kaikki liput oletuksena pois ──
+    osiohaku: e.VALMENNUSAPURI_OSIOHAKU === '1',              // K1b: ydin + kysymykseen osuvat osiot (korvaa aihejaon)
+    osioBudjetti: {                                           // merkkiä, ydin mukaan lukien
+      valmennusapuri: Number(e.VALMENNUSAPURI_OSIOBUDJETTI_VA || 60000),
+      hp: Number(e.VALMENNUSAPURI_OSIOBUDJETTI_HP || 120000),   // Tero 29.10.: 90 k → 120 k (HP:n ydin ~77 k)
+    },
+    vmYdin: e.VALMENNUSAPURI_VM_YDIN === '1',                // K1c: välimuisti vain [ohjeistus + ydin] -lohkolle (vaatii OSIOHAKU=1)
+    vmTtl: e.VALMENNUSAPURI_VM_TTL === '1h' ? '1h' : '5m',   // K1c: Bedrock tukee 1 h:ta Sonnet 4.6:lle ja Haiku 4.5:lle (PR:n lähteet)
+    kevytMalli: e.VALMENNUSAPURI_KEVYT_MALLI || '',          // K1d: esim. eu.anthropic.claude-haiku-4-5-20251001-v1:0
+    reititys: e.VALMENNUSAPURI_REITITYS === '1',              // K1d: VA + osiohaun osumat → kevyt malli
+    hinnat: {                                                 // K1a: $/M tokenia
+      perus: _hinnat(e, '', { syote: 3, tuotos: 15, vmKirj: 3.75, vmLuku: 0.30, vmKirj1h: 6 }),
+      kevyt: _hinnat(e, 'KEVYT_', { syote: 1, tuotos: 5, vmKirj: 1.25, vmLuku: 0.10, vmKirj1h: 2 }),
+    },
+    seurabudjetti: e.VALMENNUSAPURI_SEURABUDJETTI === '1',    // K1e: kuukausilaskuri + pysäytys 100 %:ssa
+    seurabudjettiUsd: Number(e.VALMENNUSAPURI_SEURABUDJETTI_USD || 30),
   };
+}
+function _hinnat(e, etu, oletus) {
+  const p = function (nimi, o) {
+    const raaka = e['VALMENNUSAPURI_HINTA_' + etu + nimi], v = Number(raaka);
+    return raaka !== undefined && raaka !== '' && isFinite(v) && v >= 0 ? v : o;
+  };
+  return { syote: p('SYOTE', oletus.syote), tuotos: p('TUOTOS', oletus.tuotos), vmKirj: p('VM_KIRJ', oletus.vmKirj),
+    vmLuku: p('VM_LUKU', oletus.vmLuku), vmKirj1h: p('VM_KIRJ_1H', oletus.vmKirj1h) };
 }
 
 // ── Virheet ─────────────────────────────────────────────────────────────────
@@ -193,18 +217,9 @@ function rakennaSystem(ohjeistus, tiedostot, aihe) {
 // ── Aihejako: vain kysymyksen aihepiiri tietopohjasta (säästää tokeneita) ──────
 // Tiedostot tunnistetaan numeroetuliitteestä (VA: 30_…, HP: opas_30_…). Tuntematon numero → aina mukaan.
 // Epävarmassa tapauksessa (ei osumaa, useita aiheita, kausi/arviointi) mukaan tulee koko tietopohja.
-const AIHE_YDIN = ['00', '01'];
-const AIHE_PAKETIT = {
-  fysiikka: ['30', '40', '41', '42', '50'],
-  tekniikka: ['10', '11', '12', '13', '14', '50'],
-  joukkue: ['10', '11', '12', '13', '14', '20', '21', '30', '50'],   // joukkueteemat linkittyvät yksilön konsepteihin → ei fysiikkatiedostoja
-};
-const AIHE_SANAT = {
-  fysiikka: /voima|fysiikka|fyysi|testi|nopeus|sprint|hyppy|kestävyys|liikkuvuus|kartoitus|harjoitettavuus|\b30 ?m\b|\b5 ?rm\b|kuorma|painot|lisäpaino|kuminauha|ennätys|tavoitetaso|\bmas\b|kasvupyrähd|\bphv\b|kasvumittaus|nordic|copenhagen|ponnist|ketteryys|portti|matriisi|lihaskunto/i,
-  tekniikka: /tekniik|konseptipeli|konsepti|yksilöharjoit|syöttö|vastaanot|harhaut|kuljetus|1v1|\b(?:Y|J)-[HPSE]\d/i,
-  joukkue: /taktiik|prässi|pressi|avaus|erikoistilan|kulmapotk|vapaapotk|pelitapa|pelimalli|puolustaminen|hyökkääminen|siirtymäpeli|joukkueteema|pelaamisen malli/i,
-};
-const AIHE_KAIKKI = /kausisuunn|vuosisuunn|\bkausi|periodis|kehityskeskust|arviointi|\bIDP\b|yleiskuva|kokonaisuus/i;
+// Aihesanat ovat valmennusapuri_osiot.js:ssä (sama lähde aihejaolle ja K1b-osiohaulle).
+const OSIOT = require('./valmennusapuri_osiot.js');
+const { AIHE_YDIN, AIHE_PAKETIT, AIHE_SANAT, AIHE_KAIKKI } = OSIOT;
 
 /** Puhdas: kysymysten (käyttäjän viestit) aihepiiri → 'fysiikka' | 'tekniikka' | 'joukkue' | 'kaikki'. */
 function tunnistaAihe(viestit) {
@@ -665,6 +680,29 @@ function tarkistaBedrockEU(a) {
   }
 }
 
+/**
+ * K1d: kevyt malli vain, kun REITITYS=1, KEVYT_MALLI asetettu, rooli VA ja osiohaku valitsi osioita (syy 'osiot').
+ * Palauttaa asetukset kevyellä mallilla tai null (= perusmalli). Bedrockilla EU-vartija heti: ei-EU-ID → failed-precondition.
+ */
+function valitseMalli(a, rooli, valinta) {
+  if (!a.reititys || !a.kevytMalli || rooli !== 'valmennusapuri' || !valinta || valinta.syy !== 'osiot') return null;   // ei-mahdu → perusmalli
+  const k = Object.assign({}, a, { malli: a.kevytMalli });
+  if (k.provider === 'bedrock') tarkistaBedrockEU(k);
+  return k;
+}
+
+/** K1c: VM_TTL=1h → jokainen cache_control saa ttl:n (sama TTL kaikille: 1 h -merkinnät eivät saa tulla 5 min -merkintöjen jälkeen). */
+function asetaTtl(system, ttl) {
+  if (ttl !== '1h' || !Array.isArray(system)) return system;
+  return system.map(function (l) { return l && l.cache_control ? Object.assign({}, l, { cache_control: OSIOT.valimuisti('1h') }) : l; });
+}
+
+function tiedostojaValinnassa(valinta) {
+  const s = new Set();
+  valinta.ydin.concat(valinta.valitut).forEach(function (o) { s.add(o.tiedosto); });
+  return s.size;
+}
+
 /** Rakentaa allekirjoitetun InvokeModel-pyynnön. Puhdas (avaimet ja aika annetaan). */
 function bedrockPyynto(a, runko, avaimet, nyt) {
   tarkistaBedrockEU(a);
@@ -762,7 +800,8 @@ async function haeTietopohja(admin, a, polku) {
   const sisallot = await Promise.all(tp.map(async function (f) {
     return { nimi: f.name.slice((polku + 'tietopohja/').length), sisalto: (await f.download())[0].toString('utf8') };
   }));
-  const arvo = { system: rakennaSystem(ohjeistus, sisallot), ohjeistus: ohjeistus, sisallot: sisallot, versio: ohjeVersio(ohjeistus), tiedostoja: sisallot.length };
+  const arvo = { system: rakennaSystem(ohjeistus, sisallot), ohjeistus: ohjeistus, sisallot: sisallot, versio: ohjeVersio(ohjeistus), tiedostoja: sisallot.length,
+    osiot: OSIOT.pilkoOsiot(sisallot) };   // K1b: pilkotaan kerran latauksessa (välimuistissa tietopohjan kanssa)
   _tpCache[polku] = { aika: Date.now(), arvo: arvo };
   return arvo;
 }
@@ -815,6 +854,45 @@ async function kuluKiintio(db, uid, kiintio) {
     if (kaytetty >= kiintio) throw virhe('resource-exhausted', 'Päivän kysymyskiintiö (' + kiintio + ') on täynnä');
     tx.set(ref, { uid: uid, maara: kaytetty + 1, paivitetty: new Date().toISOString() }, { merge: true });
     return kaytetty + 1;
+  });
+}
+
+// ── K1e Seurabudjetti: valmennusapuri_budjetti/{seuraId}_{YYYY-MM} ────────────
+// Ei client-pääsyä (Rulesissa ei match-blokkia → deny; tests/rules/valmennusapuri_budjetti.rules.test.js).
+const BUDJETTI_VIESTI = {
+  fi: 'Seuran kuukauden apurikiintiö on käytetty. Ota yhteyttä TalentMasteriin.',
+  sv: 'Föreningens månadskvot för assistenten är använd. Kontakta TalentMaster.',
+};
+function budjettiAvain(seuraId, nyt) { return seuraId + '_' + OSIOT.kuukausiAvain(nyt); }
+
+/** Ennen mallikutsua: raja seuradokista (budjettiUsd) tai oletus. 100 % → resource-exhausted. Palauttaa rajan. */
+async function tarkistaSeurabudjetti(db, seuraId, oletusUsd, kieli, nyt) {
+  const [seura, laskuri] = await Promise.all([
+    db.collection('valmennusapuri_seurat').doc(seuraId).get(),
+    db.collection('valmennusapuri_budjetti').doc(budjettiAvain(seuraId, nyt)).get(),
+  ]);
+  const oma = seura.exists ? Number(seura.data().budjettiUsd) : NaN;
+  const raja = isFinite(oma) && oma > 0 ? oma : oletusUsd;
+  const kaytetty = laskuri.exists ? Number(laskuri.data().usd) || 0 : 0;
+  if (kaytetty >= raja) throw virhe('resource-exhausted', BUDJETTI_VIESTI[kieli === 'sv' ? 'sv' : 'fi']);
+  return raja;
+}
+
+/** Kutsun jälkeen transaktiolla. 80 %:n raja → console.warn + varoitettu80 (kerran kuussa: uusi kuukausi = uusi dokumentti). */
+async function kirjaaSeurabudjetti(db, seuraId, usd, raja, nyt) {
+  const ref = db.collection('valmennusapuri_budjetti').doc(budjettiAvain(seuraId, nyt));
+  return db.runTransaction(async function (tx) {
+    const snap = await tx.get(ref);
+    const d = snap.exists ? snap.data() : {};
+    const uusi = Math.round(((Number(d.usd) || 0) + (usd || 0)) * 1e6) / 1e6;
+    const paivitys = { seuraId: seuraId, usd: uusi, kysymyksia: (Number(d.kysymyksia) || 0) + 1, paivitetty: (nyt || new Date()).toISOString() };
+    const varoita = !d.varoitettu80 && uusi >= 0.8 * raja;
+    if (varoita) {
+      paivitys.varoitettu80 = true;
+      console.warn('[valmennusapuri] seurabudjetti 80 %: ' + seuraId + ' ' + uusi.toFixed(2) + ' / ' + raja + ' $');
+    }
+    tx.set(ref, paivitys, { merge: true });
+    return { usd: uusi, varoitettu: varoita };
   });
 }
 
@@ -888,12 +966,15 @@ function kasittelija(admin, functions, riip) {
       if (roolitKayttajalle(onSA, pilotti).indexOf(rooli) < 0) {
         throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän rooliin.');
       }
-      if (!onSA) await kuluKiintio(db, uid, a.paivaKiintio);
-
-      const alku = Date.now();
       // SA voi testata seuran datalla: data.seuraId (vain SA; muilla aina oma pilottiseura).
       const saSeura = onSA && typeof (data && data.seuraId) === 'string' && /^[a-z0-9_-]{1,40}$/.test(data.seuraId) ? data.seuraId : null;
       const seuraId = (pilotti && pilotti.seuraId) || saSeura;
+      // K1e: seuran kuukausibudjetti ennen päiväkiintiötä (täysi budjetti ei kuluta valmentajan päiväkiintiötä). SA ei kuluta.
+      const budjettiSeura = a.seurabudjetti && !onSA && seuraId ? seuraId : null;
+      const budjettiRaja = budjettiSeura ? await tarkistaSeurabudjetti(db, budjettiSeura, a.seurabudjettiUsd, kysely.kieli) : null;
+      if (!onSA) await kuluKiintio(db, uid, a.paivaKiintio);
+
+      const alku = Date.now();
       const kontekstiPilotti = pilotti || (saSeura ? { seuraId: saSeura, tehtava: 'valmentaja' } : null);
       const seuraTiedot = await _seura(db, seuraId);
       const kuviot = nimiKuviot(seuraTiedot.nimet);
@@ -924,18 +1005,54 @@ function kasittelija(admin, functions, riip) {
         ? viestit.slice(0, -1).concat([{ role: 'user', content: konteksti + '\n\n' + viimeinen.content }])
         : viestit;
       const tp = await _hae(admin, a, rooli === 'hp' ? a.hpPolku : a.polku);
-      const aihe = a.aihejako ? tunnistaAihe(viestit) : 'kaikki';
-      const rajattu = aihe !== 'kaikki' && tp.ohjeistus && Array.isArray(tp.sisallot)
-        ? suodataAihe(tp.sisallot, aihe, rooli === 'hp') : null;
-      const perusSystem = rajattu ? rakennaSystem(tp.ohjeistus, rajattu, aihe) : tp.system;
+      const voiRajata = tp.ohjeistus && Array.isArray(tp.sisallot);
+      // K1b osiohaku (lippu) korvaa aihejaon; ilman lippua aihejako kuten ennen.
+      const valinta = a.osiohaku && voiRajata
+        ? OSIOT.valitseOsiot(tp.osiot || OSIOT.pilkoOsiot(tp.sisallot), viestit, a.osioBudjetti[rooli] || a.osioBudjetti.valmennusapuri, rooli)
+        : null;
+      const aihe = valinta ? (valinta.kaikki ? 'kaikki' : 'osiot') : (a.aihejako ? tunnistaAihe(viestit) : 'kaikki');
+      const rajattu = !valinta && aihe !== 'kaikki' && voiRajata ? suodataAihe(tp.sisallot, aihe, rooli === 'hp') : null;
+      const vmYdin = !!(valinta && a.vmYdin && !valinta.kaikki);   // K1c: vain ydin välimuistiin
+      const perusSystem = valinta ? OSIOT.rakennaSystemOsiot(tp.ohjeistus, valinta, { vmYdin: a.vmYdin, ttl: a.vmTtl })
+        : rajattu ? rakennaSystem(tp.ohjeistus, rajattu, aihe) : tp.system;
       let seuranLinja = null;
       try {
         seuranLinja = seuraId ? await _haeSeuranLinja(admin, a, seuraId) : null;
       } catch (e) {
         console.warn('[valmennusapuri] seuran linjaa ei luettu (' + seuraId + '):', e && e.message);
       }
-      const jarjestelma = seuranLinja && Array.isArray(perusSystem) ? perusSystem.concat([seuranLinja.lohko]) : perusSystem;
-      const malli = await _kutsu(admin, a, jarjestelma, mallille);
+      let linjaLohko = seuranLinja && seuranLinja.lohko;
+      if (linjaLohko && vmYdin) linjaLohko = { type: 'text', text: linjaLohko.text };   // K1c: seuran linja ilman cache_controlia
+      const jarjestelma = asetaTtl(linjaLohko && Array.isArray(perusSystem) ? perusSystem.concat([linjaLohko]) : perusSystem, a.vmTtl);
+
+      // K1d: VA + osiohaku löysi osumat → kevyt malli. HP aina perusmalli. EU-vartija ennen kutsua (ei niellä varalle).
+      const aKevyt = valitseMalli(a, rooli, valinta);
+      let malliTaso = aKevyt ? 'kevyt' : 'perus';
+      let malli;
+      let varamalli = false;
+      if (aKevyt) {
+        try {
+          malli = await _kutsu(admin, aKevyt, jarjestelma, mallille);
+        } catch (e) {
+          console.warn('[valmennusapuri] kevyt malli epäonnistui, uusi yritys perusmallilla:', e && e.message);
+          malliTaso = 'perus';
+          varamalli = true;
+          malli = await _kutsu(admin, a, jarjestelma, mallille);
+        }
+      } else {
+        malli = await _kutsu(admin, a, jarjestelma, mallille);
+      }
+      const hinnat = Object.assign({}, a.hinnat[malliTaso]);
+      if (a.vmTtl === '1h') hinnat.vmKirj = hinnat.vmKirj1h;
+      const hintaArvioUsd = OSIOT.hintaArvio(malli.tokenit, hinnat);
+      if (budjettiSeura) {
+        try {
+          await kirjaaSeurabudjetti(db, budjettiSeura, hintaArvioUsd, budjettiRaja);
+        } catch (e) {
+          // Vastaus on jo maksettu: ei kaadeta käyttäjän kysymystä, mutta virhe näkyy lokissa.
+          console.error('[valmennusapuri] seurabudjettia ei kirjattu (' + budjettiSeura + '):', e && e.message);
+        }
+      }
       const kayttajan = viestit.filter(function (v) { return v.role === 'user'; }).map(function (v) { return v.content; });
       const suodatettu = suodataKoodit(malli.teksti, kayttajan);
       if (suodatettu.poistettu.length) {
@@ -954,10 +1071,18 @@ function kasittelija(admin, functions, riip) {
         syottosuoja: suojaYht,
         ohjeVersio: tp.versio,
         aihe: aihe,
-        tietopohjaTiedostoja: rajattu ? rajattu.length : (tp.tiedostoja || null),
+        tietopohjaTiedostoja: valinta && !valinta.kaikki ? tiedostojaValinnassa(valinta) : rajattu ? rajattu.length : (tp.tiedostoja || null),
         seuranLinja: seuranLinja ? seuranLinja.tiedostoja : 0,
+        // K1a: osiot (null = koko tietopohja tai osiohaku pois), osiohaun syy, mallitaso ja hinta-arvio
+        osiot: valinta && !valinta.kaikki ? valinta.ydin.concat(valinta.valitut).map(function (o) { return o.id; }) : null,
+        osioSyy: valinta ? valinta.syy : null,
+        tietopohjaMerkit: valinta ? valinta.merkit : null,
+        malliTaso: malliTaso,
+        varamalli: varamalli,
+        hintaArvioUsd: hintaArvioUsd,
+        vmTtl: a.vmTtl,
         provider: a.provider,
-        malli: a.malli,
+        malli: malliTaso === 'kevyt' ? aKevyt.malli : a.malli,
         alue: a.provider === 'anthropic' ? null : a.alue,
         tokenit: malli.tokenit,
         stopReason: malli.syy,
@@ -1006,6 +1131,12 @@ module.exports = {
   asetukset,
   allekirjoitaSigV4,
   tarkistaBedrockEU,
+  valitseMalli,
+  asetaTtl,
+  tarkistaSeurabudjetti,
+  kirjaaSeurabudjetti,
+  budjettiAvain,
+  BUDJETTI_VIESTI,
   bedrockPyynto,
   kutsuMallia,
 };

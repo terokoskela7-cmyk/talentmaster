@@ -707,3 +707,358 @@ test('pikavalintojen pohjat osuvat oikeaan aiheeseen (kustannus + laatu)', () =>
   };
   Object.keys(alut).forEach((a) => assert.strictEqual(va.tunnistaAihe(u(a)), alut[a], a));
 });
+
+// ── K1 kustannus (CODE_BRIEF_K1_APURI_KUSTANNUS 29.10.2026) ──────────────────
+// Synteettinen tietopohja: oikea tietopohja on yksityinen eikä kuulu julkiseen repoon.
+const O = require('../valmennusapuri_osiot');
+const TAYTE = (n) => ('täytettä ' + 'x'.repeat(40) + '\n').repeat(n);
+const VA_TIEDOSTOT = [
+  { nimi: '00_jarjestelma.md', sisalto: '# Järjestelmä\n\n## Periaate\nYdinteksti.\n' },
+  { nimi: '01_koodisto.md', sisalto: '# Koodisto\n\n## Y-H1 Haltuunotto\nEnsimmäinen kosketus.\n\n## Y-H2 Syöttäminen\nSyöttö.\n' },
+  { nimi: '10_yksilokonseptit.md', sisalto: '# Yksilö\n\n## Y-H1: Haltuunotto\nEnsimmäinen kosketus vie suuntaan.\n' },
+  { nimi: '11_silta.md', sisalto: 'Otsikoton tiedosto: silta pelipaikkavaiheeseen.\n' },
+  { nimi: '20_joukkueteemat.md', sisalto: '# Joukkue\n\n## Prässi\nJoukkueprässi avauksessa.\n\n## Prässi\nToinen samanniminen osio.\n' },
+  { nimi: '40_liikehallintamatriisi.md', sisalto: '## Kuorma ja voima\nLisäpaino.\n' + TAYTE(200) },
+];
+const HP_TIEDOSTOT = [
+  { nimi: '00_aani.md', sisalto: '# Ääni\n\n## Sävy\nRauhallinen.\n' },
+  { nimi: '20_termit_sv.md', sisalto: '# Termit\n\n## Termit\n\n| fi | sv |\n| --- | --- |\n| kasvupyrähdys (PHV) | tillväxtspurt (PHV) |\n' },
+  { nimi: 'opas_42_tavoitetasot.md', sisalto: '# Tavoitetasot\n\n## Kasvupyrähdys ja kuorma\nKevennä kuormaa.\n\n## Pojat\nTaulukko.\n' },
+];
+const u1 = (t) => [{ role: 'user', content: t }];
+
+test('K1b pilkoOsiot: otsikoton tiedosto = yksi osio, id:t uniikit, merkit summautuvat, teksti säilyy', () => {
+  const osiot = O.pilkoOsiot(VA_TIEDOSTOT);
+  const silta = osiot.filter((o) => o.tiedosto === '11_silta.md');
+  assert.strictEqual(silta.length, 1);
+  assert.strictEqual(silta[0].id, '11_silta#alku');
+  assert.strictEqual(new Set(osiot.map((o) => o.id)).size, osiot.length);
+  assert.ok(osiot.some((o) => o.id === '20_joukkueteemat#prassi-2'), 'samanniminen otsikko saa juoksevan numeron');
+  VA_TIEDOSTOT.forEach((t) => {
+    const omat = osiot.filter((o) => o.tiedosto === t.nimi);
+    assert.strictEqual(omat.map((o) => o.teksti).join(''), t.sisalto, t.nimi);
+    assert.strictEqual(omat.reduce((s, o) => s + o.merkit, 0), t.sisalto.length);
+  });
+});
+test('K1b pilkoOsiot: iso ##-osio pilkotaan ###-otsikoista, pieni ei', () => {
+  const iso = '## Iso\nalku\n### A\n' + TAYTE(80) + '### B\n' + TAYTE(80);
+  const pieni = '## Pieni\n### A\nx\n### B\ny\n';
+  const a = O.pilkoOsiot([{ nimi: '30_iso.md', sisalto: iso }, { nimi: '31_pieni.md', sisalto: pieni }]);
+  assert.deepStrictEqual(a.filter((o) => o.tiedosto === '30_iso.md').map((o) => o.otsikko), ['Iso', 'A', 'B']);
+  assert.strictEqual(a.filter((o) => o.tiedosto === '31_pieni.md').length, 1);
+  assert.strictEqual(a.filter((o) => o.tiedosto === '30_iso.md').map((o) => o.teksti).join(''), iso);
+});
+test('K1b valitseOsiot: ydin aina mukana, osuva osio valitaan, budjetti ei ylity', () => {
+  const osiot = O.pilkoOsiot(VA_TIEDOSTOT);
+  const v = O.valitseOsiot(osiot, u1('U10: pelaajat ottavat pallon huonosti vastaan, haltuunotto on hidas'), 2000, 'valmennusapuri');
+  assert.strictEqual(v.kaikki, false);
+  assert.strictEqual(v.syy, 'osiot');
+  assert.deepStrictEqual([...new Set(v.ydin.map((o) => o.tiedosto))], ['00_jarjestelma.md', '01_koodisto.md']);
+  assert.ok(v.valitut.some((o) => o.id === '10_yksilokonseptit#y-h1-haltuunotto'));
+  assert.ok(!v.valitut.some((o) => o.tiedosto === '40_liikehallintamatriisi.md'));
+  assert.ok(v.merkit <= 2000);
+  assert.strictEqual(v.merkit, v.ydin.concat(v.valitut).reduce((s, o) => s + o.merkit, 0));
+});
+test('K1b valitseOsiot: jos mikään osuva osio ei mahdu → vain ydin + huomautus, ei koko tietopohjaa', () => {
+  const osiot = O.pilkoOsiot(VA_TIEDOSTOT);
+  const ydin = osiot.filter((o) => /^0[01]_/.test(o.tiedosto)).reduce((s, o) => s + o.merkit, 0);
+  const v = O.valitseOsiot(osiot, u1('Voima ja kuorma: lisäpaino U15'), ydin + 50, 'valmennusapuri');
+  assert.strictEqual(v.kaikki, false);
+  assert.strictEqual(v.syy, 'ei-mahdu');
+  assert.deepStrictEqual(v.valitut, []);
+  assert.strictEqual(v.merkit, ydin);
+  const s = O.rakennaSystemOsiot('OHJE', v, { vmYdin: true });
+  assert.strictEqual(s.length, 1, 'vain ydinlohko');
+  assert.ok(s[0].text.includes('<huomautus>'));
+  assert.ok(!s[0].text.includes('Lisäpaino'));
+  const ilman = O.rakennaSystemOsiot('OHJE', v, {});
+  assert.ok(ilman[1].text.includes('<huomautus>') && !ilman[1].text.includes('Lisäpaino'));
+});
+test('K1b valitseOsiot: AIHE_KAIKKI ja ei osumia → koko tietopohja', () => {
+  const osiot = O.pilkoOsiot(VA_TIEDOSTOT);
+  const kausi = O.valitseOsiot(osiot, u1('Tee kausisuunnitelma U12:lle'), 60000, 'valmennusapuri');
+  assert.strictEqual(kausi.kaikki, true);
+  assert.strictEqual(kausi.syy, 'aihe-kaikki');
+  assert.strictEqual(kausi.ydin.length + kausi.valitut.length, osiot.length);
+  const ei = O.valitseOsiot(osiot, u1('Mikä on paras kahvila?'), 60000, 'valmennusapuri');
+  assert.strictEqual(ei.kaikki, true);
+  assert.strictEqual(ei.syy, 'ei-osumia');
+});
+test('K1b valitseOsiot: kaksi edellistä käyttäjän viestiä mukana, vanhemmat eivät', () => {
+  const osiot = O.pilkoOsiot(VA_TIEDOSTOT);
+  const viestit = [
+    { role: 'user', content: 'joukkueprässi' }, { role: 'assistant', content: 'a' },
+    { role: 'user', content: 'haltuunotto' }, { role: 'assistant', content: 'b' },
+    { role: 'user', content: 'entä tämä' }, { role: 'assistant', content: 'c' },
+    { role: 'user', content: 'ja vielä' },
+  ];
+  const v = O.valitseOsiot(osiot, viestit, 60000, 'valmennusapuri');
+  assert.ok(v.valitut.some((o) => o.id === '10_yksilokonseptit#y-h1-haltuunotto'));
+  assert.ok(!v.valitut.some((o) => o.tiedosto === '20_joukkueteemat.md'), 'neljänneksi viimeinen käyttäjän viesti ei vaikuta');
+});
+test('K1b valitseOsiot: ruotsinkielinen kysymys löytää osion sv-sanaston kautta (HP)', () => {
+  const osiot = O.pilkoOsiot(HP_TIEDOSTOT);
+  const v = O.valitseOsiot(osiot, u1('Hur hanterar vi tillväxtspurt i P14?'), 90000, 'hp');
+  assert.strictEqual(v.kaikki, false);
+  assert.ok(v.valitut.some((o) => o.id === 'opas_42_tavoitetasot#kasvupyrahdys-ja-kuorma'));
+  assert.ok(v.ydin.some((o) => o.tiedosto === '20_termit_sv.md'), 'HP:n sv-termit ovat ytimessä');
+});
+test('K1c rakennaSystemOsiot: vmYdin → cache_control vain ensimmäisessä lohkossa; koko tietopohja → vanha rakenne', () => {
+  const osiot = O.pilkoOsiot(VA_TIEDOSTOT);
+  const v = O.valitseOsiot(osiot, u1('haltuunotto U10'), 60000, 'valmennusapuri');
+  const s = O.rakennaSystemOsiot('OHJE', v, { vmYdin: true });
+  assert.strictEqual(s.length, 2);
+  assert.deepStrictEqual(s[0].cache_control, { type: 'ephemeral' });
+  assert.ok(s[0].text.startsWith('OHJE') && s[0].text.includes('<huomautus>') && s[0].text.includes('01_koodisto.md'));
+  assert.strictEqual(s[1].cache_control, undefined);
+  assert.ok(s[1].text.includes('10_yksilokonseptit.md'));
+  const ilman = O.rakennaSystemOsiot('OHJE', v, {});
+  assert.strictEqual(ilman[0].cache_control, undefined);
+  assert.ok(ilman[1].cache_control);
+  const kaikki = O.valitseOsiot(osiot, u1('kausisuunnitelma'), 60000, 'valmennusapuri');
+  const k = O.rakennaSystemOsiot('OHJE', kaikki, { vmYdin: true, ttl: '1h' });
+  assert.deepStrictEqual(k.map((l) => !!l.cache_control), [false, true]);
+  assert.deepStrictEqual(k[1].cache_control, { type: 'ephemeral', ttl: '1h' });
+  assert.ok(!k[1].text.includes('<huomautus>'));
+});
+test('K1a hintaArvio: tokenit × hinnasto ($/M)', () => {
+  const h = { syote: 3, tuotos: 15, vmKirj: 3.75, vmLuku: 0.3 };
+  assert.strictEqual(O.hintaArvio({ syote: 10000, tuotos: 1000, valimuistiKirjoitettu: 20000, valimuistiLuettu: 100000 }, h),
+    0.03 + 0.015 + 0.075 + 0.03);
+  assert.strictEqual(O.hintaArvio(null, h), 0);
+});
+test('K1 asetukset: kaikki uudet liput oletuksena pois', () => {
+  const a = va.asetukset({});
+  assert.strictEqual(a.osiohaku, false);
+  assert.strictEqual(a.vmYdin, false);
+  assert.strictEqual(a.vmTtl, '5m');
+  assert.strictEqual(a.kevytMalli, '');
+  assert.strictEqual(a.reititys, false);
+  assert.strictEqual(a.seurabudjetti, false);
+  assert.strictEqual(a.seurabudjettiUsd, 30);
+  assert.deepStrictEqual(a.osioBudjetti, { valmennusapuri: 60000, hp: 120000 });
+  assert.deepStrictEqual(a.hinnat.perus, { syote: 3, tuotos: 15, vmKirj: 3.75, vmLuku: 0.3, vmKirj1h: 6 });
+  assert.strictEqual(va.asetukset({ VALMENNUSAPURI_HINTA_KEVYT_SYOTE: '0.8' }).hinnat.kevyt.syote, 0.8);
+  assert.strictEqual(va.asetukset({ VALMENNUSAPURI_HINTA_SYOTE: 'abc' }).hinnat.perus.syote, 3);
+});
+
+// Käsittelijä K1-lipuilla: oikea rakennettu tietopohja (ohjeistus + sisällöt + osiot), tokenit säädettävissä.
+const KEVYT = 'eu.anthropic.claude-haiku-4-5-20251001-v1:0';
+function teeK1(db, o) {
+  const opt = o || {};
+  const kutsut = [];
+  const tpVa = { system: va.rakennaSystem('OHJE', VA_TIEDOSTOT), ohjeistus: 'OHJE', sisallot: VA_TIEDOSTOT, versio: '0.19',
+    tiedostoja: VA_TIEDOSTOT.length, osiot: O.pilkoOsiot(VA_TIEDOSTOT) };
+  const tpHp = { system: va.rakennaSystem('HP-OHJE', HP_TIEDOSTOT), ohjeistus: 'HP-OHJE', sisallot: HP_TIEDOSTOT, versio: '0.25',
+    tiedostoja: HP_TIEDOSTOT.length, osiot: O.pilkoOsiot(HP_TIEDOSTOT) };
+  const h = va.kasittelija({ firestore: () => db }, functions, {
+    env: Object.assign({ VALMENNUSAPURI_PAIVAKIINTIO: '50' }, opt.env || {}),
+    haeTietopohja: async (_a, _as, polku) => (/hp_johtaja/.test(polku) ? tpHp : tpVa),
+    haeSeuranTiedot: async () => ({ nimet: [], seura: null }),
+    haeSeuranLinja: async (_a, _as, seuraId) => (opt.linja ? va.rakennaSeuranLinja(seuraId, [{ nimi: 'linja.md', sisalto: 'Seuran linja.' }]) : null),
+    kutsuMallia: async (_a, asetus, system, viestit) => {
+      kutsut.push({ asetus, system, viestit });
+      if (opt.kevytKaatuu && asetus.malli === KEVYT) throw Object.assign(new Error('kevyt alhaalla'), { tmKoodi: 'unavailable' });
+      return { teksti: 'Vastaus', syy: 'end_turn', tokenit: opt.tokenit || { syote: 1000, tuotos: 100, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 } };
+    },
+  });
+  return { h, kutsut };
+}
+const lokit = (db) => Object.keys(db.data).filter((k) => k.indexOf('valmennusapuri_loki/') === 0).map((k) => db.data[k]);
+const OSIO_ENV = { VALMENNUSAPURI_OSIOHAKU: '1', VALMENNUSAPURI_VM_YDIN: '1' };
+
+test('K1 käsittelijä, liput pois: system ennallaan, lokiin malliTaso perus + hintaArvioUsd', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const { h, kutsut } = teeK1(db, { tokenit: { syote: 10000, tuotos: 1000, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 } });
+  await h(kysymys('haltuunotto U10'), ctx('v1'));
+  assert.deepStrictEqual(kutsut[0].system, va.rakennaSystem('OHJE', VA_TIEDOSTOT), 'ei aihetta → koko tietopohja kuten ennen');
+  const l = lokit(db)[0];
+  assert.strictEqual(l.aihe, 'kaikki');
+  assert.strictEqual(l.malliTaso, 'perus');
+  assert.strictEqual(l.osiot, null);
+  assert.strictEqual(l.osioSyy, null);
+  assert.strictEqual(l.hintaArvioUsd, 0.045);
+  assert.strictEqual(Object.keys(db.data).some((k) => k.indexOf('valmennusapuri_budjetti/') === 0), false);
+});
+test('K1 käsittelijä, OSIOHAKU + VM_YDIN: cache_control vain ytimessä, seuran linja ilman, lokiin osiot', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const { h, kutsut } = teeK1(db, { env: OSIO_ENV, linja: true });
+  await h(kysymys('U10: haltuunotto on hidas'), ctx('v1'));
+  const s = kutsut[0].system;
+  assert.deepStrictEqual(s.map((l) => !!l.cache_control), [true, false, false]);
+  assert.ok(s[0].text.startsWith('OHJE'));
+  assert.ok(s[2].text.startsWith('<seuran_linja'));
+  const l = lokit(db)[0];
+  assert.strictEqual(l.osioSyy, 'osiot');
+  assert.ok(l.osiot.includes('10_yksilokonseptit#y-h1-haltuunotto'));
+  assert.ok(l.osiot.includes('00_jarjestelma#periaate'), 'ydin lokissa');
+  assert.strictEqual(l.aihe, 'osiot');
+  assert.ok(l.tietopohjaMerkit > 0);
+});
+test('K1 käsittelijä, OSIOHAKU ilman VM_YDIN: seuran linja pitää välimuistinsa (rakenne kuten ennen)', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const { h, kutsut } = teeK1(db, { env: { VALMENNUSAPURI_OSIOHAKU: '1' }, linja: true });
+  await h(kysymys('U10: haltuunotto on hidas'), ctx('v1'));
+  assert.deepStrictEqual(kutsut[0].system.map((l) => !!l.cache_control), [false, true, true]);
+});
+test('K1c VM_TTL=1h: jokainen cache_control saa ttl 1h (myös vanha rakenne ja seuran linja)', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const { h, kutsut } = teeK1(db, { env: { VALMENNUSAPURI_VM_TTL: '1h', VALMENNUSAPURI_AIHEJAKO: '0' }, linja: true });
+  await h(kysymys('kysymys'), ctx('v1'));
+  const cc = kutsut[0].system.filter((l) => l.cache_control).map((l) => l.cache_control);
+  assert.strictEqual(cc.length, 2);
+  cc.forEach((c) => assert.deepStrictEqual(c, { type: 'ephemeral', ttl: '1h' }));
+  assert.strictEqual(lokit(db)[0].vmTtl, '1h');
+});
+
+const REITITYS_ENV = Object.assign({ VALMENNUSAPURI_REITITYS: '1', VALMENNUSAPURI_KEVYT_MALLI: KEVYT }, OSIO_ENV);
+test('K1d reititys: VA + osumat → kevyt malli, kevyen hinnat lokissa', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const { h, kutsut } = teeK1(db, { env: REITITYS_ENV, tokenit: { syote: 10000, tuotos: 1000, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 } });
+  await h(kysymys('U10: haltuunotto on hidas'), ctx('v1'));
+  assert.strictEqual(kutsut.length, 1);
+  assert.strictEqual(kutsut[0].asetus.malli, KEVYT);
+  const l = lokit(db)[0];
+  assert.strictEqual(l.malliTaso, 'kevyt');
+  assert.strictEqual(l.malli, KEVYT);
+  assert.strictEqual(l.hintaArvioUsd, 0.015);
+});
+test('K1d reititys: VA + kaikki → perusmalli; HP → perusmalli aina', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv', roolit: ['hp'] } });
+  const { h, kutsut } = teeK1(db, { env: REITITYS_ENV });
+  await h(kysymys('Tee kausisuunnitelma U12:lle'), ctx('v1'));
+  await h(Object.assign(kysymys('Hur hanterar vi tillväxtspurt i P14?'), { rooli: 'hp' }), ctx('v1'));
+  assert.deepStrictEqual(kutsut.map((k) => k.asetus.malli), ['eu.anthropic.claude-sonnet-4-6', 'eu.anthropic.claude-sonnet-4-6']);
+  assert.deepStrictEqual(lokit(db).map((l) => l.malliTaso), ['perus', 'perus']);
+  assert.strictEqual(lokit(db)[1].osioSyy, 'osiot', 'HP:n osiohaku löysi osumat, silti perusmalli');
+});
+test('K1d reititys: kevyen mallin ei-EU-ID → estetty ennen kutsua (ei varamallia)', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const env = Object.assign({}, REITITYS_ENV, { VALMENNUSAPURI_KEVYT_MALLI: 'us.anthropic.claude-haiku-4-5-20251001-v1:0' });
+  const { h, kutsut } = teeK1(db, { env });
+  await assert.rejects(h(kysymys('U10: haltuunotto on hidas'), ctx('v1')), (e) => e.code === 'failed-precondition');
+  assert.strictEqual(kutsut.length, 0);
+  assert.throws(() => va.valitseMalli(va.asetukset(Object.assign({}, env)), 'valmennusapuri', { kaikki: false, syy: 'osiot' }),
+    (e) => e.tmKoodi === 'failed-precondition');
+});
+test('K1d reititys: kevyen mallin virhe → yksi uusi yritys perusmallilla, lokiin varamalli', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const { h, kutsut } = teeK1(db, { env: REITITYS_ENV, kevytKaatuu: true });
+  const r = await h(kysymys('U10: haltuunotto on hidas'), ctx('v1'));
+  assert.strictEqual(r.vastaus, 'Vastaus');
+  assert.deepStrictEqual(kutsut.map((k) => k.asetus.malli), [KEVYT, 'eu.anthropic.claude-sonnet-4-6']);
+  const l = lokit(db)[0];
+  assert.strictEqual(l.malliTaso, 'perus');
+  assert.strictEqual(l.varamalli, true);
+});
+
+// K1e: 1 kysymys = 10 000 syötettä + 1 000 tuotosta perusmallilla = 0,045 $. Raja 1 $ (seuradokista).
+const BUDJETTI_ENV = { VALMENNUSAPURI_SEURABUDJETTI: '1' };
+const KK = O.kuukausiAvain();
+const TOK = { syote: 10000, tuotos: 1000, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 };
+function budjettiDb(usd, lisat) {
+  return muistiDb(Object.assign({
+    'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' },
+    'valmennusapuri_seurat/kpv': { budjettiUsd: 1 },
+    ['valmennusapuri_budjetti/kpv_' + KK]: { usd: usd, kysymyksia: 5 },
+  }, lisat || {}));
+}
+async function varoitukset(fn) {
+  const alkup = console.warn, ulos = [];
+  console.warn = (...a) => ulos.push(a.join(' '));
+  try { await fn(); } finally { console.warn = alkup; }
+  return ulos.filter((x) => /seurabudjetti 80 %/.test(x));
+}
+test('K1e budjetti: 79 % → kutsu, laskuri kasvaa transaktiolla, ei varoitusta', async () => {
+  const db = budjettiDb(0.7);
+  const { h, kutsut } = teeK1(db, { env: BUDJETTI_ENV, tokenit: TOK });
+  const w = await varoitukset(() => h(kysymys('kysymys'), ctx('v1')));
+  assert.strictEqual(kutsut.length, 1);
+  const d = db.data['valmennusapuri_budjetti/kpv_' + KK];
+  assert.strictEqual(d.usd, 0.745);
+  assert.strictEqual(d.kysymyksia, 6);
+  assert.strictEqual(d.varoitettu80, undefined);
+  assert.strictEqual(w.length, 0);
+});
+test('K1e budjetti: 80 % ylittyy → varoitus kerran kuussa', async () => {
+  const db = budjettiDb(0.77);
+  const { h } = teeK1(db, { env: BUDJETTI_ENV, tokenit: TOK });
+  const w1 = await varoitukset(() => h(kysymys('kysymys'), ctx('v1')));
+  const w2 = await varoitukset(() => h(kysymys('kysymys'), ctx('v1')));
+  assert.strictEqual(w1.length, 1);
+  assert.strictEqual(w2.length, 0);
+  assert.strictEqual(db.data['valmennusapuri_budjetti/kpv_' + KK].varoitettu80, true);
+});
+test('K1e budjetti: 100 % → resource-exhausted ennen mallikutsua (fi/sv), päiväkiintiö ei kulu', async () => {
+  const db = budjettiDb(1);
+  const { h, kutsut } = teeK1(db, { env: BUDJETTI_ENV });
+  await assert.rejects(h(kysymys('kysymys'), ctx('v1')),
+    (e) => e.code === 'resource-exhausted' && e.message === 'Seuran kuukauden apurikiintiö on käytetty. Ota yhteyttä TalentMasteriin.');
+  await assert.rejects(h(Object.assign(kysymys('fråga'), { kieli: 'sv' }), ctx('v1')),
+    (e) => e.code === 'resource-exhausted' && e.message === 'Föreningens månadskvot för assistenten är använd. Kontakta TalentMaster.');
+  assert.strictEqual(kutsut.length, 0);
+  assert.strictEqual(Object.keys(db.data).some((k) => k.indexOf('valmennusapuri_kaytto/') === 0), false);
+});
+test('K1e budjetti: oletusraja envistä, kun seuralla ei omaa', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' }, ['valmennusapuri_budjetti/kpv_' + KK]: { usd: 2 } });
+  const { h } = teeK1(db, { env: Object.assign({ VALMENNUSAPURI_SEURABUDJETTI_USD: '2' }, BUDJETTI_ENV) });
+  await assert.rejects(h(kysymys('kysymys'), ctx('v1')), (e) => e.code === 'resource-exhausted');
+  const { h: h30, kutsut } = teeK1(db, { env: BUDJETTI_ENV });
+  await h30(kysymys('kysymys'), ctx('v1'));
+  assert.strictEqual(kutsut.length, 1, 'oletus 30 $');
+});
+test('K1e budjetti: SA ohittaa (ei tarkistusta, ei laskuria) myös seuran datalla', async () => {
+  const db = budjettiDb(5);
+  const { h, kutsut } = teeK1(db, { env: BUDJETTI_ENV });
+  await h(Object.assign(kysymys('kysymys'), { seuraId: 'kpv' }), ctx(SA));
+  assert.strictEqual(kutsut.length, 1);
+  assert.strictEqual(db.data['valmennusapuri_budjetti/kpv_' + KK].usd, 5);
+});
+test('K1e budjetti: lippu pois → ei tarkistusta eikä laskuria', async () => {
+  const db = budjettiDb(5);
+  const { h, kutsut } = teeK1(db, {});
+  await h(kysymys('kysymys'), ctx('v1'));
+  assert.strictEqual(kutsut.length, 1);
+  assert.strictEqual(db.data['valmennusapuri_budjetti/kpv_' + KK].kysymyksia, 5);
+});
+test('K1e budjettiAvain: Suomen kuukausi (UTC-ilta 31.10. = marraskuu Helsingissä)', () => {
+  assert.strictEqual(va.budjettiAvain('kpv', new Date('2026-10-31T22:30:00Z')), 'kpv_2026-11');
+  assert.strictEqual(va.budjettiAvain('kpv', new Date('2026-10-31T20:30:00Z')), 'kpv_2026-10');
+});
+test('K1a apuri_kooste: koosta laskee mediaanit ja $; select-kentissä ei kysymystä, vastausta eikä kontekstia', async () => {
+  const k = await import('../tools/apuri_kooste.mjs');
+  ['kysymys', 'vastaus', 'konteksti', 'uid'].forEach((x) => assert.ok(!k.KENTAT.includes(x), x));
+  const tulos = k.koosta([
+    { rooli: 'valmennusapuri', seuraId: 'kpv', hintaArvioUsd: 0.05, kestoMs: 4000, osioSyy: 'osiot', malliTaso: 'kevyt',
+      tokenit: { syote: 10000, tuotos: 500, valimuistiLuettu: 10000, valimuistiKirjoitettu: 0 } },
+    { rooli: 'valmennusapuri', seuraId: 'kpv', kestoMs: 6000, aihe: 'kaikki', palaute: { arvio: 'hyva' },
+      tokenit: { syote: 20000, tuotos: 1000, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 } },
+    { rooli: 'hp', seuraId: 'fcl', hintaArvioUsd: 0.2, stopReason: 'max_tokens', tokenit: { syote: 30000 } },
+  ], va.asetukset({}).hinnat);
+  assert.strictEqual(tulos.kysymyksia, 3);
+  assert.strictEqual(tulos.hintaArvioitu, 1);
+  const v = tulos.roolit.valmennusapuri;
+  assert.strictEqual(v.syoteTokenitMediaani, 20000);
+  assert.strictEqual(v.usdPerKysymysKa, 0.0625);   // (0,05 + 0,075) / 2; jälkimmäinen arvioitu: 20 000×3 + 1 000×15 = 0,075 $
+  assert.strictEqual(v.kestoSMediaani, 5);
+  assert.strictEqual(v.valimuistiOsuus, 0.25);
+  assert.deepStrictEqual(v.osiohaunSyyt, { osiot: 1, 'aihe:kaikki': 1 });
+  assert.deepStrictEqual(v.malliTasot, { kevyt: 1, perus: 1 });
+  assert.deepStrictEqual(v.palaute, { hyva: 1, huono: 0 });
+  assert.strictEqual(tulos.roolit.hp.katkenneita, 1);
+  assert.deepStrictEqual(tulos.seurat, [{ seura: 'fcl', kysymyksia: 1, usd: 0.2 }, { seura: 'kpv', kysymyksia: 2, usd: 0.13 }]);
+});
+test('K1 käsittelijä: ei-mahdu → vain ydin mallille, perusmalli vaikka REITITYS=1, lokiin ytimen osiot', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const ydin = O.pilkoOsiot(VA_TIEDOSTOT).filter((o) => /^0[01]_/.test(o.tiedosto));
+  const env = Object.assign({ VALMENNUSAPURI_OSIOBUDJETTI_VA: String(ydin.reduce((s, o) => s + o.merkit, 0) + 50) }, REITITYS_ENV);
+  const { h, kutsut } = teeK1(db, { env });
+  await h(kysymys('Voima ja kuorma: lisäpaino U15'), ctx('v1'));
+  assert.strictEqual(kutsut[0].asetus.malli, 'eu.anthropic.claude-sonnet-4-6');
+  assert.strictEqual(kutsut[0].system.length, 1);
+  assert.ok(!kutsut[0].system[0].text.includes('Lisäpaino'));
+  const l = lokit(db)[0];
+  assert.strictEqual(l.osioSyy, 'ei-mahdu');
+  assert.strictEqual(l.malliTaso, 'perus');
+  assert.deepStrictEqual(l.osiot, ydin.map((o) => o.id));
+});
