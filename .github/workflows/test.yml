@@ -57,14 +57,19 @@ jobs:
       - name: Chrome-testit (kentta_k0)
         env:
           TM_CHROME_TESTS: '1'
-        run: TM_CHROME_PATH="$(which google-chrome)" npx vitest run tests/kentta_k0.test.js tests/sv_lapiajo.test.js tests/k35_2b_modaalit.test.js tests/k35_6a_taytto_selain.test.js tests/k35_6f_selain.test.js tests/v_koti_a_selain.test.js tests/master_mobiili_asettelu.test.js tests/k35_6d_selain.test.js tests/k35_6e_selain.test.js tests/k35_6b_selain.test.js tests/k35_6d2_selain.test.js tests/k35_10_lataus_selain.test.js tests/k35_7b_tilaus_selain.test.js tests/klippi_sv_selain.test.js tests/v_koti_sv_selain.test.js
+        run: TM_CHROME_PATH="$(which google-chrome)" npx vitest run tests/kentta_k0.test.js tests/sv_lapiajo.test.js tests/sv_kielivartija_selain.test.js tests/k35_2b_modaalit.test.js tests/k35_6a_taytto_selain.test.js tests/k35_6f_selain.test.js tests/v_koti_a_selain.test.js tests/master_mobiili_asettelu.test.js tests/k35_6d_selain.test.js tests/k35_6e_selain.test.js tests/k35_6b_selain.test.js tests/k35_6d2_selain.test.js tests/k35_10_lataus_selain.test.js tests/k35_7b_tilaus_selain.test.js tests/klippi_sv_selain.test.js tests/v_koti_sv_selain.test.js
 
-  # sv-läpiajo (docs/CODE_BRIEF_I18N_SV_LAPIAJO.md): mittaa, paljonko suomea käyttäjä näkee sv-tilassa. VAIHE 1: vain raportti — EI kaada buildia (continue-on-error);
-  # baselinen (tools/i18n/sv_lapiajo_baseline.json) ulkopuolinen UUSI suomenkielinen teksti listataan lokiin. Kun baseline on siivottu → lisää --kaada (KARTOITUS §9 kohta 3b).
+  # sv-läpiajo (docs/CODE_BRIEF_I18N_SV_LAPIAJO.md): mittaa, paljonko suomea käyttäjä näkee sv-tilassa.
+  # QG-1 · kielivartija: uusi käyttöliittymän suomi sv-tilassa (ui-luokka) KAATAA; data? raportoidaan. Kaksi rinnakkaista osaa (≤ 5 min):
+  # demo = sovellusten oma demo-data · fixtuuri = synteettinen QG FC -seura oikeilla sivuilla (tools/i18n/sv_fixtuuri.mjs, ei verkkoa).
+  # Baseline saa vain pienentyä: vartija omana workflowna (sv-baseline.yml, lukee PR-kuvauksen [baseline]-merkinnän).
   sv-lapiajo:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        osa: [demo, fixtuuri]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -72,17 +77,18 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: sv-läpiajo (raportti)
+      - name: sv-läpiajo (${{ matrix.osa }})
         run: |
           export TM_CHROME_PATH="$(which google-chrome)"
-          node tools/i18n/sv_lapiajo.mjs --tarkista --ulos=sv_lapiajo_ci.json | tee sv_lapiajo_ci.log
+          set -o pipefail
+          node tools/i18n/sv_lapiajo.mjs --osa=${{ matrix.osa }} --tarkista --kaada --ulos=sv_lapiajo_${{ matrix.osa }}.json | tee sv_lapiajo_${{ matrix.osa }}.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: sv-lapiajo
+          name: sv-lapiajo-${{ matrix.osa }}
           path: |
-            sv_lapiajo_ci.json
-            sv_lapiajo_ci.log
+            sv_lapiajo_${{ matrix.osa }}.json
+            sv_lapiajo_${{ matrix.osa }}.log
 
   # #60 — ESLint no-undef -portti (defektiluokan vartija, esim. 'sp is not defined' -luokka).
   # VAIHE 2: ESTÄVÄ — 5 residuaalilöydöstä triagattu+korjattu (0 jäljellä) → uudet undefined-viittaukset kaatavat buildin.

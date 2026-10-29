@@ -1,0 +1,26 @@
+# QG-1 · sv-baselinen vartija: tools/i18n/sv_lapiajo_baseline.json saa vain pienentyä.
+# Lisäys vaatii PR-kuvaukseen merkinnän [baseline] (PM:n hyväksymä kertalisäys). Ajetaan myös kun PR-kuvausta muokataan (edited).
+# PR-kuvaus luetaan ympäristömuuttujasta (ei suoraan run-skriptiin → ei komentoinjektiota).
+name: sv-baseline
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  sv-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Baseline saa vain pienentyä
+        env:
+          PR_RUNKO: ${{ github.event.pull_request.body }}
+          PERUSTA: origin/${{ github.base_ref }}
+        run: node tools/i18n/sv_baseline_vartija.mjs --perusta="$PERUSTA"

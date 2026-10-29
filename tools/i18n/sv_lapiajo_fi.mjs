@@ -22,3 +22,9 @@ export function onkoSuomea(teksti) {
   const pisteet = vahva * 2 + paate;
   return { fi: pisteet >= 2 && pisteet > sv * 2 - 1, pisteet, sv };
 }
+
+/* QG-1: tekstin osat muuttujallisille teksteille — pilkotaan luvuista ja erottimista (· — – | : ”“"() ! ?).
+   "Tällä kaudella: 3 omatoimista" → ["Tällä kaudella", "omatoimista"]. Vain osat, joissa ≥ 4 kirjainta. */
+export function tekstinOsat(teksti) {
+  return String(teksti).split(/\s*(?:\d+(?:[.,:/]\d+)*\.?|[·—–|”“"()!?]|:\s|\.\s|\.$)\s*/).map((x) => x.replace(/\s+/g, ' ').trim().replace(/^[\s,;.\-+]+|[\s,;\-+]+$/g, '')).filter((x) => (x.match(/[a-zåäö]/gi) || []).length >= 4);
+}
