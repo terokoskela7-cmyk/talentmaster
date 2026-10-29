@@ -2215,7 +2215,13 @@ function _p7Kieli() { return (typeof tmNykyinenKieli === 'function') ? tmNykyine
 
 /* sv-aukot P7 (PM 28.10.2026): kohta 8 — tallennettu taidon nimi (fi) → taksonomian nimi_sv, tuntematon sellaisenaan;
    kohta 9 — konseptin nimi kirjaston sv:stä avaimella (TM_TT_SV '<avain>.nimi'), seuran oma / tuntematon avain → tallennettu nimi. */
-function _p7TaitoNimi(n) { return (n && window.TM_TAITO_NIMI) ? window.TM_TAITO_NIMI.tmTaitoNimi(n, _p7Kieli()) : n; }
+function _p7TaitoNimi(n) {
+  var r = (n && window.TM_TAITO_NIMI) ? window.TM_TAITO_NIMI.tmTaitoNimi(n, _p7Kieli()) : n;
+  /* erä 92: tavoitteen fokus.nimi voi olla konseptin nimi (Haltuunotto) ilman avainta → avain kaanonista (TM_TT_YOUTH) → _p7KonseptiNimi avaimella (#1159) */
+  if (r === n && n && _p7Kieli() === 'sv') { var Y = (typeof TM_TT_YOUTH !== 'undefined' && Array.isArray(TM_TT_YOUTH)) ? TM_TT_YOUTH : [], s = String(n).trim().toLowerCase();
+    for (var i = 0; i < Y.length; i++) if (Y[i] && /^y_[hp]\d$/.test(Y[i].avain || '') && String(Y[i].nimi || '').toLowerCase() === s) return _p7KonseptiNimi(Y[i].avain, n); }
+  return r;
+}
 /* P7 viimeiset sv (PM 29.10.): konseptin nimi SAMASTA lähteestä kuin Kehitystyöpöytä/Polku (_ktKonseptiNimi): y_hN / y_pN → sanaston sn_-avain
    jaetusta libikartasta (tm_lib_i18n) → muuten kirjaston TM_TT_SV '<avain>.nimi' → muuten tallennettu nimi. Vain näyttö; fi-tila ennallaan. */
 function _p7KonseptiNimi(avain, nimi) {

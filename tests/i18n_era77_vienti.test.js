@@ -20,9 +20,9 @@ describe('sv-erä 77 — vienti', () => {
     }
     expect(n).toBe(3);
   });
-  it('koodin sv = palautus merkki merkiltä; odottavien lista on tyhjä', () => {
+  it('koodin sv = palautus merkki merkiltä; erä 77 ei ole odottavien listalla', () => {
     for (const o of Object.keys(OSIOT)) for (const [k, r] of Object.entries(P[o].rivit)) expect(SV[k], k).toBe(r.sv);
-    const rivi = KATTAVUUS.match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].trim()).toBe('');
+    const rivi = KATTAVUUS.match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].split(',').map((x) => x.trim())).not.toContain('77');   // erä 92: muut erät saavat odottaa
   });
   it('idempotentti: uusintakuiva-ajo ei lisää mitään eikä löydä virheitä', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.ohitettu).toHaveLength(3); });
 });

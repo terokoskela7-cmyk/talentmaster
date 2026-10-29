@@ -2262,7 +2262,7 @@ const DEMO = {
   ],
   pelaajat: {
     teemu: {
-      name:'Teemu Salo', num:'#7', pos:'KH', flei:68, fleiDelta:'+8 vs. syksy',
+      name:'Teemu Salo', num:'#7', pos:'KH', flei:68, fleiDelta:{ n:'+8', k:'{n} vs. syksy' },   /* erä 92: muuttujallinen avain */
       adar:42, xfactor:11, testit:'7/8', fiilinki:'3.8 vakaa', ottelut:18, loukk:1,
       narrative:[
         { kk:'MARRAS', txt:'Ensimmäinen X-Factor-havainto: luki 2v1-tilanteen rohkeasti.', tag:'x' },
@@ -8801,7 +8801,7 @@ function _renderPinfoTilastot(p) {
   if (!el) return;
   const _ott = _otteluLahde(p);   // SAUMA B — ei suoraa p.ottelut-lukua
   const stats = [
-    { lbl:masterT('Kehon valmius'), val:p.flei, delta:p.fleiDelta, color: tmTasoCss(p.flei, { asteikko: 'valmius' }) },
+    { lbl:masterT('Kehon valmius'), val:p.flei, delta:(p.fleiDelta && typeof p.fleiDelta === 'object') ? masterT(p.fleiDelta.k).replace('{n}', p.fleiDelta.n) : p.fleiDelta, color: tmTasoCss(p.flei, { asteikko: 'valmius' }) },
     { lbl:masterT('Peliälyhavaintoja'), val:p.adar, delta:p.xfactor+' X-Factor', color:'var(--ink)' },
     { lbl:masterT('Testit'), val:p.testit, delta:masterT('suoritettu'), color:'var(--ink)' },
     { lbl:masterT('Fiilinki'), val:p.fiilinki.split(' ')[0], delta:p.fiilinki.split(' ').slice(1).join(' '), color:'var(--ink)' },
@@ -9664,7 +9664,7 @@ function _protokollaLyhenne(p) {
   return p;
 }
 /* YKSI tyyppirekisteri (D186): nimi + merkki rekisteristä (lib/tm_kalenteri_tyypit.js); värit tokeneista merkin mukaan (D169, ei hex-arvoja). Nimi = masterT(nimiAvain), fallback = rekisterin nimi. */
-function _calTyyppiNimi(ty) { var s = masterT(ty.nimiAvain); return (s && s !== ty.nimiAvain) ? s : ty.nimi; }
+function _calTyyppiNimi(ty) { var s = masterT(ty.nimiAvain); return (s && s !== ty.nimiAvain) ? s : masterT(ty.nimi); }   // erä 92: nimiAvaimella ei sv:tä → tyypin fi-nimi reititetään (sv kartassa)
 function _calEvtTyyli(t, src) {
   var TY = window.TM_KALENTERI_TYYPIT;
   if (src === 'testi') { var ts = TY.tmKalMerkkiTyyli('test'); return { vari: ts.vari, katkoviiva: false, teksti: _protokollaLyhenne(t.protokolla) }; }
@@ -9989,7 +9989,7 @@ function _calKuukausiNayta() {   // K35-11b: kuukausinäkymä (lib/tm_kalenteri_
   const testit = (_testitapahtumat || []).filter(_calSuodataJoukkue).map(t => ({ id: t.id, tyyppi: 'testitapahtuma', koko_paiva: true, nimi: _protokollaLyhenne(t.protokolla), pvm: t.pvm }));
   const m = K.tmKuukausiMalli({ tapahtumat: (_kalenteriTapahtumat || []).filter(_calSuodataJoukkue).concat(testit), vuosi: _calKk.vuosi, kk: _calKk.kk, tanaan: tmPaivaIso(n), nyt: Date.now() }); _calVarmistaIkkuna(m.viikot[0].maanantai);
   el.innerHTML = K.tmKuukausiHTML(m, { t: masterT, on: { tapahtuma: id => "calEventClick('" + String(id).replace(/'/g, '') + "')", paiva: pvm => "_calKkPaiva('" + pvm + "')" } });
-  const l = document.getElementById('calWkLabel'); if (l) l.textContent = masterT(K.tmKuukausiNimi(_calKk.kk)) + ' ' + _calKk.vuosi; const s = document.getElementById('calWkSub'); if (s) s.textContent = '';
+  const l = document.getElementById('calWkLabel'); if (l) l.textContent = (typeof tmPvmFmt === 'function') ? tmPvmFmt(new Date(_calKk.vuosi, _calKk.kk, 1), { month: 'long', year: 'numeric' }, (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi') : masterT(K.tmKuukausiNimi(_calKk.kk)) + ' ' + _calKk.vuosi;   // erä 92: Intl kielen mukaan const s = document.getElementById('calWkSub'); if (s) s.textContent = '';
 }
 window._calKkPaiva = function (pvm) { const t = new Date(), ma = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; }, p = new Date(pvm + 'T12:00:00'); _calWkOffset = Math.round((ma(p) - ma(t)) / 6048e5); setCalMode('week'); };
 
