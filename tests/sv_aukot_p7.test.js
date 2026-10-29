@@ -171,12 +171,14 @@ describe('kohta 9 (PM 28.10.): konseptin nimi kirjaston sv:stä avaimella Tänä
     expect(VK.tmVkPaatos(loppu, { tanaan: '2026-12-01', konseptiNimi: (a) => '§SV§' + a }).nimi).toBe('§SV§y_h4');
     expect(VK.tmVkPaatos(loppu, { tanaan: '2026-12-01' }).nimi).toBe('HARHAUTTAMINEN');
   });
-  it('P7 _p7KonseptiNimi: sv-tilassa TM_TT_SV:n y_h4.nimi; seuran oma avain / fi → tallennettu', () => {
+  it('P7 _p7KonseptiNimi (29.10.): sv-tilassa SAMA lähde kuin Kehitystyöpöytä (sn_y_h4, tm_lib_i18n); seuran oma avain / fi → tallennettu', () => {
     const sb = { console: { log() {}, warn() {}, error() {} } }; sb.window = sb; vm.createContext(sb);
-    vm.runInContext(lue('lib/tm_teknistaktiset_sv.js'), sb);
+    vm.runInContext(lue('lib/tm_teknistaktiset_sv.js'), sb); vm.runInContext(lue('lib/tm_lib_i18n.js'), sb);
     const pala = (n) => { const i = P7.indexOf('function ' + n + '('); let d = 0, j = P7.indexOf('{', i); for (; j < P7.length; j++) { if (P7[j] === '{') d++; else if (P7[j] === '}' && --d === 0) break; } return P7.slice(i, j + 1); };
     vm.runInContext("var KIELI = 'sv'; function _p7Kieli() { return KIELI; }\n" + pala('_p7TtSv') + '\n' + pala('_p7KonseptiNimi'), sb);
-    const sv = vm.runInContext("TM_TT_SV['y_h4.nimi']", sb); expect(sv).toBeTruthy();
+    const sv = vm.runInContext("tmLibT('sn_y_h4', 'sv')", sb); expect(sv).toBeTruthy(); expect(sv).not.toBe(vm.runInContext("TM_TT_SV['y_h4.nimi']", sb));   // KTP:n nimi, ei kirjaston pitkä nimi
+    expect(lue('TalentMaster_Kehitystyopoyta.html')).toMatch(/const k = 'sn_' \+ String\(avain \|\| ''\)\.toLowerCase\(\);\s*if \(\/\^sn_y_\[hp\]\\d\$\/\.test\(k\)\) \{ const v = TT\(k\)/);   // KTP:n lähde ennallaan
+    expect(vm.runInContext("_p7KonseptiNimi('y_x9_ei', 'Muu')", sb)).toBe('Muu');
     expect(vm.runInContext("_p7KonseptiNimi('y_h4', 'HARHAUTTAMINEN')", sb)).toBe(sv);
     expect(vm.runInContext("_p7KonseptiNimi('Y-H4', 'HARHAUTTAMINEN')", sb)).toBe(sv);
     expect(vm.runInContext("_p7KonseptiNimi('seuran_oma', 'Oma konsepti')", sb)).toBe('Oma konsepti');
@@ -185,5 +187,52 @@ describe('kohta 9 (PM 28.10.): konseptin nimi kirjaston sv:stä avaimella Tänä
   });
   it('P7-kytkennät: Tänään (tila + päätös), Minä, sitoumus', () => {
     for (const s of ['K.tmTanaanTila(_pelaaja, { tanaan, konseptiNimi: _p7KonseptiNimi })', 'K4.tmVkPaatos(_pelaaja, { tanaan, konseptiNimi: _p7KonseptiNimi })', 'konseptiNimi: _p7KonseptiNimi, tanaan: _paivaIso()', '_p7KonseptiNimi(d.jaksofokus.konsepti_avain, d.jaksofokus.konsepti_nimi)']) expect(P7, s).toContain(s);
+  });
+});
+
+describe('P7 viimeiset sv (PM 29.10.): ydinasiat, vahvuus ja tukiosa samoilla hauilla kuin Kehitystyöpöytä', () => {
+  const pala = (n) => { const i = P7.indexOf('function ' + n + '('); expect(i, n).toBeGreaterThan(-1); let d = 0, j = P7.indexOf('{', i); for (; j < P7.length; j++) { if (P7[j] === '{') d++; else if (P7[j] === '}' && --d === 0) break; } return P7.slice(i, j + 1); };
+  const hiekka = (kieli) => {
+    const sb = { console: { log() {}, warn() {}, error() {} } }; sb.window = sb; vm.createContext(sb);
+    ['lib/tm_teknistaktiset.js', 'lib/tm_teknistaktiset_sv.js', 'lib/tm_tt_sv_valinta.js', 'lib/tm_konsepti_resolve.js', 'lib/tm_lib_i18n.js', 'lib/tm_kielletyt.js', 'lib/tm_viikon_osa.js', 'lib/tm_tanaan_kentta.js', 'lib/tm_taito_nimi.js', 'lib/tm_tukitavoitteet.js', 'lib/tm_kotiharjoitteet.js', 'lib/tm_taman_tueksi.js'].forEach((f) => vm.runInContext(lue(f), sb));
+    vm.runInContext("var KIELI = '" + kieli + "'; function _p7Kieli() { return KIELI; }\n" + ['_p7TaitoNimi', '_p7TtSv', '_p7KonseptiNimi', '_p7KaanonNaytto', '_p7KaanonFn'].map(pala).join('\n'), sb);
+    return sb;
+  };
+  const jf = { konsepti_avain: 'y_h4', konsepti_nimi: 'HARHAUTTAMINEN', alkoi: '2026-10-19', kesto_vk: 4 };
+  it('ydinasiat A–C: sv-tilassa = Kehitystyöpöydän _kaanon (tmTtSv(kieli).konsepti(tmKonseptiKaanon)) — ei fi-tekstiä; koodit samat', () => {
+    const sb = hiekka('sv'); sb.JF = jf;
+    const p7 = vm.runInContext('TM_TANAAN_KENTTA.tmTanaanOsat(JF, { kaanon: _p7KaanonFn() })', sb);
+    const ktp = vm.runInContext("TM_TANAAN_KENTTA.tmTanaanOsat(JF, { kaanon: function (a) { return tmTtSv('sv').konsepti(tmKonseptiKaanon(a)); } })", sb);
+    const fi = vm.runInContext('TM_TANAAN_KENTTA.tmTanaanOsat(JF, { kaanon: tmKonseptiKaanon })', sb);
+    expect(p7.length).toBe(3); expect(p7).toEqual(ktp);
+    p7.forEach((o, i) => { expect(o.koodi).toBe(fi[i].koodi); expect(o.teksti).not.toBe(fi[i].teksti); expect(o.teksti).toBe(vm.runInContext("TM_TT_SV['y_h4.kpi." + o.koodi + ".teksti']", sb)); });
+    expect(lue('TalentMaster_Kehitystyopoyta.html')).toContain("const _kaanon = function (avain) { return (typeof tmKonseptiKaanon === 'function') ? (tmTtSv(typeof tmNykyinenKieli === 'function' ? tmNykyinenKieli() : 'fi').konsepti(tmKonseptiKaanon(avain))) : null; };");
+  });
+  it('fi-tila ennallaan: osat = raaka kaanon', () => {
+    const sb = hiekka('fi'); sb.JF = jf;
+    expect(vm.runInContext('TM_TANAAN_KENTTA.tmTanaanOsat(JF, { kaanon: _p7KaanonFn() })', sb)).toEqual(vm.runInContext('TM_TANAAN_KENTTA.tmTanaanOsat(JF, { kaanon: tmKonseptiKaanon })', sb));
+  });
+  it('Minä: "Nyt harjoittelet" + "Tällä viikolla harjoittelet: …" sv-kaanonista', () => {
+    const sb = hiekka('sv'); sb.P = { jaksofokus: jf };
+    const r = vm.runInContext("TM_TANAAN_KENTTA.tmMinaTavoiteRivit(P, { tanaan: '2026-10-28', konseptiNimi: _p7KonseptiNimi, kaanon: _p7KaanonFn() }, { t: function (k) { var l = tmLibT(k); return l !== undefined ? l : k; } })", sb);
+    expect(r.nytHTML).toContain(vm.runInContext("tmLibT('sn_y_h4', 'sv')", sb));
+    expect(r.nytHTML).toContain(vm.runInContext("TM_TT_SV['y_h4.kpi.a.teksti']", sb).split(':')[0]);
+    expect(r.nytHTML).not.toContain(vm.runInContext("tmKonseptiKaanon('y_h4').kpi[0].teksti", sb).split(':')[0]);
+  });
+  it('Tämän tueksi: otsikko ja perustelun nimet nimiFn:llä (iso/pieni alkukirjain), tuntematon nimi ja ilman nimiFn:ää ennallaan', () => {
+    const TN = require('../lib/tm_taito_nimi.js'), f = (n) => TN.tmTaitoNimi(n, 'sv'), sv = TN.SV['Lyhyt syöttö'], svN = TN.SV.Nopeus;
+    const rv = (per) => [{ kuvaus: 'Lyhyt syöttö', perustelu: per, harjoitteet: [] }];
+    const tK = (k) => (k === 'k1_tukee_vahvuuttasi' ? '[{vahvuus}|{kuvaus}]' : k);
+    const h = teksti(TT.tmTamanTueksiHTML(rv('Tukee vahvuuttasi (Nopeus): lyhyt syöttö.'), { t: tK, nimiFn: f }));
+    expect(h).toContain(sv); expect(h).toContain('[' + svN + '|' + sv.charAt(0).toLowerCase() + sv.slice(1) + ']'); expect(h).not.toContain('Lyhyt syöttö');
+    expect(teksti(TT.tmTamanTueksiHTML(rv('Tukee vahvuuttasi (Pallon kuljettaminen): lyhyt syöttö.'), { t: tK, nimiFn: f }))).toContain('[Pallon kuljettaminen|');   // valmentajan oma teksti → sellaisenaan
+    expect(teksti(TT.tmTamanTueksiHTML(rv('Tukee vahvuuttasi (Nopeus): lyhyt syöttö.'), { t: tK }))).toContain('[Nopeus|lyhyt syöttö]');
+    expect(teksti(TT.tmTamanTueksiHTML(rv(null), { t: tK, nimiFn: () => { throw new Error('x'); } }))).toContain('Lyhyt syöttö');
+  });
+  it('P7-kytkennät: Tänään (osat, viikon fokus, vahvuus, Tämän tueksi) + Minä; tallennusolio käyttää yhä raakaa kaanonia', () => {
+    for (const s of ["K.tmTanaanOsat(jf, { kaanon: _p7KaanonFn() })", "K.tmTanaanOsat(jf, { kaanon: _p7KaanonFn(), max: 26 })", 'if (x.vahvuus) x.vahvuus = _p7TaitoNimi(x.vahvuus);', 'TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), Object.assign({ nimiFn: _p7TaitoNimi }, o))', "kaanon: _p7KaanonFn() }, { esc: esc, t: _p7K1T })"]) expect(P7, s).toContain(s);
+    expect(P7).toMatch(/K4\.tmVkTallennusolio\(_pelaaja, V\.valinnat, V\.lause, \{ tanaan: V\.pvm, kaanon: \(typeof tmKonseptiKaanon === 'function'\) \? tmKonseptiKaanon : null \}\)/);
+    expect(P7).toContain('<script src="lib/tm_tt_sv_valinta.js?v=1"></script>'); expect(lue('sw_pelaaja.js')).toContain("'/lib/tm_tt_sv_valinta.js'");
+    expect(P7.indexOf('lib/tm_tt_sv_valinta.js')).toBeGreaterThan(P7.indexOf('lib/tm_teknistaktiset_sv.js'));
   });
 });

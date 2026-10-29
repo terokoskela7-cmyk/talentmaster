@@ -550,7 +550,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_kielletyt.js?v=1"></script>   <!-- K1: sanavartija pelaajan tukitavoite-/osatekstille (pieni; ei henkilökunnan päätöslibiä) -->
 <script src="lib/tm_tukitavoitteet.js?v=5"></script>   <!-- K1: tmTukitavoitteet (vanha tukiosa-fallback) -->
 <script src="lib/tm_joukkuejakso.js?v=7"></script>   <!-- K1: tmJoukkuejaksoViikko (pelaajan snapshotista) -->
-<script src="lib/tm_taman_tueksi.js?v=3"></script>   <!-- K1: Tämän tueksi + Joukkueen jakso -->
+<script src="lib/tm_taman_tueksi.js?v=4"></script>   <!-- K1: Tämän tueksi + Joukkueen jakso -->
 <script src="lib/tm_kentta_spec.js?v=4"></script>   <!-- C: Kenttä-spec pelaajadokumentista (sama adapteri kuin henkilökunnalla, rooli pelaaja) — ennen tm_tanaan_kentta -->
 <script src="lib/tm_tanaan_kentta.js?v=9"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) · C: tmKenttaPelaajalle -->
 <script src="lib/tm_mediaviesti.js?v=9"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet (pelaajan klippi-ketju) -->
@@ -582,6 +582,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_fyysinen.js?v=4"></script>   <!-- PR 4 (K14): kohdevalinta fyysisestä = sama määritelmä kuin VP (H-H-tasot, §28) -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- Konseptikortin SISÄLLÖN sv (TM_TT_SV); en-lähdettä ei ole → en-tilassa sisältö jää suomeksi, chrome kääntyy -->
+<script src="lib/tm_tt_sv_valinta.js?v=1"></script>   <!-- P7 viimeiset sv: sama kielivalinta kuin Kehitystyöpöydällä (tmTtSv) — VAIN näyttöön (ydinasiat) -->
 <script src="lib/tm_piirros.js?v=2"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_kaavio_render.js?v=4"></script>    <!-- Kaavio erä D1: §3-specin SVG-renderöijä (kielitietoinen, ei ulkoisia origineja) -->
 <script src="lib/tm_kaavio_konsepti.js?v=1"></script>  <!-- Kaavio erä C: spec↔konsepti-sidos (KPI-teksti kaanonista) -->
@@ -1482,8 +1483,9 @@ function rA1Kentta() {
   _p7LataaSeuranPankki();
   const tanaan = _paivaIso(), o = { esc: _thEsc, t: _p7K1T, sisaltoT: (typeof _hT === 'function') ? _hT : null };   // sisaltoT: TM-kotiharjoitteen nimi/ohje (HARJOITE_I18N)
   const x = K.tmTanaanTila(_pelaaja, { tanaan, konseptiNimi: _p7KonseptiNimi }), jakso = x.tila === 'jakso' || x.tila === 'sunnuntai', jf = _pelaaja.jaksofokus;
-  x.osat = jakso ? K.tmTanaanOsat(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }) : [];
-  x.viikonOsa = (jakso && window.TM_VIIKON_OSA) ? window.TM_VIIKON_OSA.tmViikonOsaPelaajalle(jf, K.tmTanaanOsat(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, max: 26 }), tanaan) : null;   // K1b/4: sama sääntö kuin valmentajalla (lib/tm_viikon_osa.js)
+  if (x.vahvuus) x.vahvuus = _p7TaitoNimi(x.vahvuus);   // P7 viimeiset sv: "vahvuutesi: …" — tallennettu fi-nimi → taksonomian nimi_sv (tuntematon/valmentajan oma teksti sellaisenaan); vain näyttö
+  x.osat = jakso ? K.tmTanaanOsat(jf, { kaanon: _p7KaanonFn() }) : [];   // P7 viimeiset sv: ydinasiat samasta sv-kaanonista kuin Kehitystyöpöytä
+  x.viikonOsa = (jakso && window.TM_VIIKON_OSA) ? window.TM_VIIKON_OSA.tmViikonOsaPelaajalle(jf, K.tmTanaanOsat(jf, { kaanon: _p7KaanonFn(), max: 26 }), tanaan) : null;   // K1b/4: sama sääntö kuin valmentajalla (lib/tm_viikon_osa.js)
   let treeni = '';
   try {
     if (typeof valitsePaivanHarjoite === 'function' && window.PANKKI) {
@@ -1505,7 +1507,7 @@ function rA1Kentta() {
   ${_p7K3SitoumusHTML(tanaan)}
   ${_p7KpHTML('ala')}
   ${K.tmTanaanKenttaHTML(x, Object.assign({ kentta: kentta, kenttaSpec: kenttaSpec, ilmanKenttaa: !kenttaSpec }, o))}
-  ${jakso ? TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), o) : ''}
+  ${jakso ? TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), Object.assign({ nimiFn: _p7TaitoNimi }, o)) : ''}
   ${jakso ? TU.tmJoukkueenJaksoRiviHTML(jf && jf.joukkuejakso_viite, tanaan, o) : ''}
   ${treeni}
   ${K.tmKuittausHTML(Object.assign({ leikkija: _stage === '1_leikkija' }, o))}
@@ -2214,7 +2216,21 @@ function _p7Kieli() { return (typeof tmNykyinenKieli === 'function') ? tmNykyine
 /* sv-aukot P7 (PM 28.10.2026): kohta 8 — tallennettu taidon nimi (fi) → taksonomian nimi_sv, tuntematon sellaisenaan;
    kohta 9 — konseptin nimi kirjaston sv:stä avaimella (TM_TT_SV '<avain>.nimi'), seuran oma / tuntematon avain → tallennettu nimi. */
 function _p7TaitoNimi(n) { return (n && window.TM_TAITO_NIMI) ? window.TM_TAITO_NIMI.tmTaitoNimi(n, _p7Kieli()) : n; }
-function _p7KonseptiNimi(avain, nimi) { var sv = avain ? _p7TtSv(String(avain).toLowerCase().replace(/-/g, '_'), 'nimi') : null; return sv || nimi; }
+/* P7 viimeiset sv (PM 29.10.): konseptin nimi SAMASTA lähteestä kuin Kehitystyöpöytä/Polku (_ktKonseptiNimi): y_hN / y_pN → sanaston sn_-avain
+   jaetusta libikartasta (tm_lib_i18n) → muuten kirjaston TM_TT_SV '<avain>.nimi' → muuten tallennettu nimi. Vain näyttö; fi-tila ennallaan. */
+function _p7KonseptiNimi(avain, nimi) {
+  var a = avain ? String(avain).toLowerCase().replace(/-/g, '_') : '';
+  if (a && _p7Kieli() === 'sv' && /^y_[hp]\d$/.test(a) && typeof window.tmLibT === 'function') { var s = window.tmLibT('sn_' + a, 'sv'); if (typeof s === 'string' && s) return s; }
+  var sv = a ? _p7TtSv(a, 'nimi') : null; return sv || nimi;
+}
+/* P7 viimeiset sv: kaanon NÄYTTÖÖN pelaajan kielellä — sama haku kuin Kehitystyöpöydän _kaanon (tmTtSv(kieli).konsepti(tmKonseptiKaanon(avain))): ydinasiat
+   kpi.<koodi>.teksti TM_TT_SV:stä, koodit ennallaan. VAIN näyttöpoluille (osat, viikon fokus) — tallennusolio (tmVkTallennusolio) käyttää edelleen raakaa kaanonia. */
+function _p7KaanonNaytto(avain) {
+  if (typeof tmKonseptiKaanon !== 'function') return null;
+  var k = tmKonseptiKaanon(avain);
+  return (k && typeof window.tmTtSv === 'function') ? window.tmTtSv(_p7Kieli()).konsepti(k) : k;
+}
+function _p7KaanonFn() { return (typeof tmKonseptiKaanon === 'function') ? _p7KaanonNaytto : null; }
 /* Sidecar-haku: '<avain>.<kenttä>' → sv | null. Vain sv-tilassa; puuttuva avain → null (fi jää). */
 function _p7TtSv(avain, kentta) {
   if (_p7Kieli() !== 'sv') return null;
@@ -3627,7 +3643,7 @@ function rMina() {
   var fiilisAction = !iaDone;
   var streak = (typeof _haeStreak === 'function') ? _haeStreak() : 0;
 
-  var _mt = (window.TM_TANAAN_KENTTA && _pelaaja) ? window.TM_TANAAN_KENTTA.tmMinaTavoiteRivit(_pelaaja, { kausitavoite: _p7TaitoNimi((_p7Tavoite && _p7Tavoite.fokus && _p7Tavoite.fokus.nimi) || (_pelaaja.idp_fokus && _pelaaja.idp_fokus.nimi) || null), konseptiNimi: _p7KonseptiNimi, tanaan: _paivaIso(), kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }, { esc: esc, t: _p7K1T }) : { kauden: null, nyt: null, nytHTML: '' };   // K1d: kaksi lohkoa — Kauden tavoite · Nyt harjoittelet (ei sekoiteta tavoitetta ja jakson aihetta)
+  var _mt = (window.TM_TANAAN_KENTTA && _pelaaja) ? window.TM_TANAAN_KENTTA.tmMinaTavoiteRivit(_pelaaja, { kausitavoite: _p7TaitoNimi((_p7Tavoite && _p7Tavoite.fokus && _p7Tavoite.fokus.nimi) || (_pelaaja.idp_fokus && _pelaaja.idp_fokus.nimi) || null), konseptiNimi: _p7KonseptiNimi, tanaan: _paivaIso(), kaanon: _p7KaanonFn() }, { esc: esc, t: _p7K1T }) : { kauden: null, nyt: null, nytHTML: '' };   // K1d: kaksi lohkoa — Kauden tavoite · Nyt harjoittelet (ei sekoiteta tavoitetta ja jakson aihetta)
   var groups = ''
     + _minaGrp({ id: 'g_matka', ic: '🎯', ey: T('sinun_matka'), ti: esc(_mt.kauden || T('kausitavoite_tulossa')),
         sub: _mt.nyt ? esc(_mt.nyt) : '', def: true, action: matkaAction,
