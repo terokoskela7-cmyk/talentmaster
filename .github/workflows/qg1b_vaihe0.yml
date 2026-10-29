@@ -1,0 +1,42 @@
+# QG-1b vaihe 0 (kertakäyttöinen, EI mergetä): ajaa ne 37 selaintestitiedostoa, joita CI ei nyt aja missään vaiheessa,
+# samassa ympäristössä kuin test.yml:n chrome-tests (ubuntu-latest, Node 20, google-chrome, TM_CHROME_TESTS=1).
+# Jokainen tiedosto ajetaan erikseen → per-tiedosto tulos, kesto ja kaatumisen syy. Laukeaa vain tämän haaran pushista.
+name: QG-1b vaihe 0
+on:
+  push:
+    branches: [qg-1b-vaihe0]
+jobs:
+  selaintestit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: 37 tiedostoa yksitellen
+        env:
+          TM_CHROME_TESTS: '1'
+        run: |
+          export TM_CHROME_PATH="$(which google-chrome)"
+          mkdir -p tulos
+          echo "tiedosto|exit|sekuntia|testit" > tulos/yhteenveto.txt
+          for f in $(cat .github/qg1b_lista.txt); do
+            n=$(basename "$f" .test.js); a=$(date +%s)
+            timeout 600 npx vitest run "$f" --reporter=json --outputFile="tulos/$n.json" > "tulos/$n.log" 2>&1; e=$?
+            s=$(( $(date +%s) - a ))
+            t=$(node -e "try{const j=require('./tulos/$n.json');console.log(j.numPassedTests+' ok / '+j.numFailedTests+' fail / '+j.numPendingTests+' skip')}catch(e){console.log('ei json')}")
+            echo "$f|$e|$s|$t" | tee -a tulos/yhteenveto.txt
+          done
+          echo '--- yhteenveto'; cat tulos/yhteenveto.txt
+      - name: Kaatuneiden syyt
+        if: always()
+        run: |
+          for j in tulos/*.json; do node -e "const j=require('./$j');for(const t of j.testResults)for(const a of t.assertionResults)if(a.status==='failed')console.log('$j','|',a.fullName,'|',(a.failureMessages[0]||'').split('\n').slice(0,3).join(' ¶ ').slice(0,400))" || true; done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qg1b-vaihe0
+          path: tulos/
