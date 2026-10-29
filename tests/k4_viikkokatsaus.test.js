@@ -246,7 +246,7 @@ describe('Jakson päätös — lause historiariville (Master + VP)', () => {
       expect(fn).toMatch(/S\.k4 \? window\.TM_VIIKKOKATSAUS\.tmVkLauseValmentaja\(S\.lause\)/); expect(fn.indexOf('tmVkLauseValmentaja')).toBeLessThan(fn.indexOf('tmSuljeJakso'));
       expect(fn).toMatch(/tmLauseSuunnitelma\(_lause\.teksti, S\.nayta,/); expect(fn).toMatch(/lisakentat: _ls\.historia/);   // 0b: kytkin pois → lause vain reviewit.lause_sisainen expect(fn).toMatch(/if \(!_lause\.ok\) \{ if \(typeof toast === 'function'\) toast\([^\n]*return; \}/);
       expect(src).toContain('maxlength="\' + K4.MAX_LAUSE + \'"'); expect(src).toContain(setLause); expect(src).toContain(modalId); expect(src).toContain('liput.kentta !== true) return;');
-      for (const s of ['tm_kielletyt.js?v=1', 'tm_taman_tueksi.js?v=3', 'tm_viikkokatsaus.js?v=4']) expect(src, s).toContain('<script src="lib/' + s + '"></script>');
+      for (const s of ['tm_kielletyt.js?v=1', 'tm_taman_tueksi.js?v=4', 'tm_viikkokatsaus.js?v=4']) expect(src, s).toContain('<script src="lib/' + s + '"></script>');
       expect(src).not.toMatch(/viikkokatsaukset'\)\.(doc\([^)]*\)\.)?(set|add|update)\(/);   // henkilökunta ei kirjoita viikkokatsauksia (Rules v3.44)
     });
     it(f + ': henkilökunnan osio hakee jakson katsaukset YHDELLÄ kyselyllä where jakso_alkoi == jakson alku, vain lipulla', () => {
