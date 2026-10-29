@@ -27,6 +27,6 @@ describe('sv-erä 89 — vienti', () => {
     const t = V.vie({ juuri: kopio, kirjoita: true }); expect(t.virheet.join('|')).toContain('pr_pdf: sv tyhjä'); expect(t.kirjoitettu).toBe(false);
   });
   it('erä 89 ei ole enää odottavien listalla (LIB_SV_ODOTTAA tyhjä; ODOTTAVAT_ERAT ei sisällä 89)', () => {
-    const odL = (teksti('tests/i18n_sv_era_lib.test.js').match(/const LIB_SV_ODOTTAA = \[([^\]]*)\]/) || [])[1]; expect(odL).toBeDefined(); expect(Object.values(JSON.parse(teksti('docs/i18n/sv_kaannoserae_89_palautus.json')).osiot).flatMap((o) => Object.keys(o.rivit)).filter((k) => odL.includes("'" + k + "'"))).toEqual([]);   // erä 92: lista saa sisältää MUIDEN erien odottavia avaimia const rivi = teksti('tools/i18n/sv_kattavuus.mjs').match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].split(',').map((x) => x.trim())).not.toContain('89');
+    expect(teksti('tests/i18n_sv_era_lib.test.js')).toMatch(/const LIB_SV_ODOTTAA = \[\]/); const rivi = teksti('tools/i18n/sv_kattavuus.mjs').match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].split(',').map((x) => x.trim())).not.toContain('89');
   });
 });
