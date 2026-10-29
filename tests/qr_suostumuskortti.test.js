@@ -136,9 +136,9 @@ describe('Seura · QR-linkki ja kortit (ajettu)', () => {
   it('_tk määritelty kerran (#706 + #707) ja tm_lang-versio sama kaikilla sivuilla', () => {
     expect((SEURA.match(/^function _tk\(/gm) || []).length).toBe(1);
     const fs = require_('fs');
-    const versiot = new Set(fs.readdirSync(ROOT).filter((f) => f.endsWith('.html'))
-      .flatMap((f) => [...lue(f).matchAll(/lib\/tm_lang\.js\?v=(\d+)/g)].map((m) => m[1])));
-    expect([...versiot]).toHaveLength(1);
+    // QG-2: tm_lang.js:n ?v = sama sisällön tiiviste kaikilla sivuilla deployssa; repossa ei käsinumeroa.
+    const kasin = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html')).filter((f) => /lib\/tm_lang\.js\?v=/.test(lue(f)));
+    expect(kasin).toEqual([]);
   });
   it('nimi: "Tulosta kortit" (ei "Tulosta PIN-kortit")', () => {
     expect(SEURA).toContain('🖨️ Tulosta kortit');

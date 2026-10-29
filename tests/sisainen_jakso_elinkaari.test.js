@@ -263,11 +263,11 @@ describe('P7: pelaajan Tänään-kortti näyttää saman kuin ennen (snapshot) �
 const SNAPSHOT_HASH = '83713add46d61b3c7292cf0fcc1ae086cf40bbe406f1b118c3580017b6ffb1ed';   // Tänään-kortin renderöinnin sormenjälki; muutos = pelaajan näkymä muuttui (tarkista tarkoituksellisuus)
 
 describe('kytkentä ja versiot', () => {
-  it('Master, VP ja KT-libit kulkevat tmJaksofokusElinkaariKirjoita:n kautta; tm_sisainen.js?v=5 ennen tm_kehitystyopoyta.js:ää; Pelaaja/Vanhempi eivät lataa lib:iä', () => {
+  it('Master, VP ja KT-libit kulkevat tmJaksofokusElinkaariKirjoita:n kautta; tm_sisainen.js ennen tm_kehitystyopoyta.js:ää; Pelaaja/Vanhempi eivät lataa lib:iä', () => {
     expect(lue('TalentMaster_Master_v16.html')).toMatch(/window\.TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(_db, _seuraId, pid \|\| p\.id, upd,/);
     expect(lue('TalentMaster_VP_v25.html')).toMatch(/TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, pid, upd,/); expect(lue('TalentMaster_VP_v25.html')).toMatch(/S\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, p\.id, upd,/);
     ['tm_kt_arviointi', 'tm_kt_hylkaa', 'tm_kt_jakso'].forEach((f) => expect(lue('lib/' + f + '.js'), f).toMatch(/tmJaksofokusElinkaariKirjoita/));
-    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toMatch(/lib\/tm_sisainen\.js\?v=(?:1[1-9]|[2-9]\d)\b/);
+    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toMatch(/lib\/tm_sisainen\.js/);
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f)).not.toMatch(/<script[^>]+src="lib\/(tm_sisainen|tm_kehitystyopoyta)\.js/));
   });
 });

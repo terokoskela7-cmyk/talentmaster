@@ -187,7 +187,7 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
     [PE, VH].forEach((h) => {
       expect(h).toMatch(/--chalk:rgba\(242,239,230,\.55\); --chalk2:rgba\(242,239,230,\.28\)/);
       expect(h).toMatch(/:root\[data-theme="light"\] \{ --chalk:rgba\(28,28,26,\.45\); --chalk2:rgba\(28,28,26,\.2\); --amber-dim:rgba\(224,160,64,\.2\); \}/);
-      expect(h).toContain('<script src="lib/tm_kentta.js?v=7"></script>');
+      expect(h).toContain('<script src="lib/tm_kentta.js"></script>');
     });
     expect(PE).toMatch(/--amber-dim: rgba\(224,160,64,\.16\)/); expect(VH).toMatch(/--amber-dim:rgba\(224,160,64,\.16\)/);
   });
@@ -242,7 +242,7 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
   it('SW: lib + fontti allowlistissa molemmissa apeissa, cachet nostettu (pelaaja v74, vanhempi v50)', () => {
     const sp = lue('sw_pelaaja.js'), sv = lue('sw_vanhempi.js');
     [sp, sv].forEach((s) => { expect(s).toContain("'/lib/tm_kentta.js'"); expect(s).toContain("'/assets/fonts/archivo-latin-wdth-normal.woff2'"); });
-    expect(sp).toMatch(/const CACHE = 'tm-pelaaja-v(7[4-9]|[89]\d|\d{3,})'/); expect(sv).toMatch(/const CACHE = 'tm-vanhempi-v(5[1-9]|[6-9]\d|\d{3,})'/);   // pelaaja vähintään v74 (K0); B 3/3 nosti v75
+    expect(sp).toMatch(/const CACHE = 'tm-pelaaja-dev'/); expect(sv).toMatch(/const CACHE = 'tm-vanhempi-dev'/);   // pelaaja vähintään v74 (K0); B 3/3 nosti v75
   });
   it('kirjasto ei lataa mitään verkosta eikä Firebasea; ei Google Fonts', () => {
     const koodi = LIB.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');   // ilman kommentteja

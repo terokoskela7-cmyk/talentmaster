@@ -40,7 +40,7 @@ describe('lib/tm_vp_i18n.js — string-avainkartta + vpT', () => {
 
 describe('VP_v25 infra kytketty', () => {
   it('lataa tm_lang ?v=9 (ei stale ?v=1) + tm_vp_i18n', () => {
-    expect(VP).toMatch(/lib\/tm_lang\.js\?v=([9]|\d\d)/);
+    expect(VP).toMatch(/lib\/tm_lang\.js/);
     expect(VP).toContain('lib/tm_vp_i18n.js');
     expect(VP).not.toContain('lib/tm_lang.js?v=1"');
   });

@@ -80,7 +80,7 @@ describe('tm_aani: litterointi poissa, tallennus ennallaan', () => {
   });
   it('lataajat nostettu ?v=3', () => {
     for (const s of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html']) {
-      expect(lue(s), s).toContain('lib/tm_aani.js?v=3');
+      expect(lue(s), s).toContain('lib/tm_aani.js');
     }
   });
 });

@@ -88,7 +88,6 @@ describe('K4 — koskemattomuus (§7.22 · K5a-ADAR · ei kiellettyä väriä)',
     expect(h).not.toContain('#C94040');
   });
   it('Pelaaja_v7 lataa lib ?v≥4 (K4 vaatii lataus; v5 = PR F alustakoodit)', () => {
-    const m = PELAAJA.match(/lib\/tm_kehityskaari\.js\?v=(\d+)/);
-    expect(m).toBeTruthy(); expect(Number(m[1])).toBeGreaterThanOrEqual(4);
+    expect(PELAAJA).toContain('<script src="lib/tm_kehityskaari.js"></script>');   // QG-2: ?v = sisällön tiiviste deployssa
   });
 });

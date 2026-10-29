@@ -91,8 +91,8 @@ describe('V1 wiring — dynaaminen JS reititetty vpT():llä + staattiset KPI-lab
     expect(VP).toContain("vpT('viimeisin testi')");
     expect(VP).toContain("vpT('testitapahtumaa')");
   });
-  it('cache-bust tm_vp_i18n.js?v=5 (V1.1)', () => {
-    expect(VP).toMatch(/tm_vp_i18n\.js\?v=([5-9]|\d\d)/);
+  it('cache-bust tm_vp_i18n.js (V1.1)', () => {
+    expect(VP).toMatch(/tm_vp_i18n\.js/);
   });
 });
 

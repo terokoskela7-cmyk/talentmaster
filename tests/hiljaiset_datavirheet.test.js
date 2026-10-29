@@ -165,7 +165,7 @@ describe('b) ADAR_Pikakortti · havainto + havainto_viimeisin_pvm batchina, adar
     expect(s).not.toContain('.add(');
   });
   it('PWA: sw_adar CACHE nostettu (HTML muuttui)', () => {
-    expect(lue('sw_adar.js')).toMatch(/const CACHE = 'tm-adar-v([7-9]|\d\d+)'/);
+    expect(lue('sw_adar.js')).toMatch(/const CACHE = 'tm-adar-dev'/);
   });
 });
 

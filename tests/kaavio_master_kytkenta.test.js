@@ -29,7 +29,7 @@ const LIBIT = ['tm_kaavio_render.js', 'tm_kaavio_policy.js', 'tm_kaavio_validate
 
 describe('A — yksi lähde, ei kopiota', () => {
   for (const lib of LIBIT) {
-    it(`Master lataa lib/${lib}`, () => expect(M).toMatch(new RegExp('src="lib/' + lib.replace('.', '\\.') + '\\?v=\\d+"')));
+    it(`Master lataa lib/${lib}`, () => expect(M).toMatch(new RegExp('src="lib/' + lib.replace('.', '\\.') + '"')));
   }
   it('UI-lib ladataan VASTA host-adapterin jälkeen (adapteri luetaan latausaikana)', () => {
     const a = M.indexOf('window.TM_KAAVIO_HOST = {');

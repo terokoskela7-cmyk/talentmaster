@@ -77,7 +77,7 @@ describe('palvelimen kutsukohdat', () => {
 
 describe('Seura-sivu', () => {
   it('lataa kirjaston ja tarkistaa rekisteröinnissä, lähetyksessä ja muokkauksessa', () => {
-    expect(SEURA).toContain('<script src="lib/tm_paikkamerkki.js?v=1"></script>');
+    expect(SEURA).toContain('<script src="lib/tm_paikkamerkki.js"></script>');
     expect(SEURA).toContain("if (tmOnPaikkamerkkiOsoite(hEmail)) { naytaModalVirhe('rekisteriVirhe', PAIKKAMERKKI_SYY + '.'); return; }");
     expect(SEURA).toContain("if (tmOnPaikkamerkkiOsoite(hEmail)) { naytaToast(PAIKKAMERKKI_SYY + '.', 'virhe'); return; }");
     expect(SEURA).toContain('if (hEmail && tmOnPaikkamerkkiOsoite(hEmail)) {');

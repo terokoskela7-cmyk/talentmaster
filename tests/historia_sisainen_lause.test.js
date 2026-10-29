@@ -56,7 +56,7 @@ describe('sisäinen lause EI pelaaja- eikä perhe-apissa', () => {
     expect(lue('lib/tm_viikkokatsaus.js')).not.toMatch(/lause_sisainen|reviewit/);
   });
   it('henkilökunnan sovellukset lataavat libin; sulkupäivä ja lause samassa komponentissa (Polku, Master, VP)', () => {
-    for (const f of ['TalentMaster_Kehitystyopoyta.html', 'TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html']) expect(lue(f), f).toMatch(/<script src="lib\/tm_historia_lause\.js\?v=\d+"><\/script>/);
+    for (const f of ['TalentMaster_Kehitystyopoyta.html', 'TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html']) expect(lue(f), f).toMatch(/<script src="lib\/tm_historia_lause\.js"><\/script>/);
     expect(lue('TalentMaster_Master_v16.html')).toContain('tmHlSlot'); expect(lue('TalentMaster_VP_v25.html')).toContain('tmHlSlot'); expect(lue('TalentMaster_Master_v16.html')).toContain('tmHlKorttiLisa'); expect(lue('TalentMaster_VP_v25.html')).toContain('tmHlKorttiLisa');
   });
 });

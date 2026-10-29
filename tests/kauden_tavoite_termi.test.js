@@ -139,7 +139,7 @@ describe('(5) uudet fi-avaimet ovat kaytossa lahteissa', () => {
   });
 
   it('kirjastoversiot nostettu (selaimen valimuisti)', () => {
-    expect(Number((VP.match(/tm_vp_i18n\.js\?v=(\d+)/) || [])[1])).toBeGreaterThanOrEqual(84);
-    expect(Number((MASTER.match(/tm_master_i18n\.js\?v=(\d+)/) || [])[1])).toBeGreaterThanOrEqual(27);
+    // QG-2: ?v = sisällön tiiviste deployssa → riittää, että kartat ladataan.
+    expect(VP).toContain('<script src="lib/tm_vp_i18n.js"></script>'); expect(MASTER).toContain('<script src="lib/tm_master_i18n.js"></script>');
   });
 });

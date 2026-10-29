@@ -122,10 +122,10 @@ describe('Osa B — seura.kieli (reitti 1): pelaajadokin kieli → tmKieliInitSe
 
 describe('cache-bust', () => {
   it('harjoitelogiikka ?v>=12 · tm_lang ?v>=5 (Pelaaja+Vanhempi) · SW v19/v9', () => {
-    expect(PEL).toMatch(/harjoitelogiikka_v4\.js\?v=(1[2-9]|[2-9]\d)/);
-    expect(PEL).toMatch(/lib\/tm_lang\.js\?v=([5-9]|\d\d)/);
-    expect(VAN).toMatch(/lib\/tm_lang\.js\?v=([5-9]|\d\d)/);
-    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/tm-pelaaja-v(19|[2-9]\d)/);
-    expect(readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8')).toMatch(/tm-vanhempi-v(9|\d\d)/);
+    expect(PEL).toMatch(/harjoitelogiikka_v4\.js/);
+    expect(PEL).toMatch(/lib\/tm_lang\.js/);
+    expect(VAN).toMatch(/lib\/tm_lang\.js/);
+    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toContain("const CACHE = 'tm-pelaaja-dev';");
+    expect(readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8')).toContain("const CACHE = 'tm-vanhempi-dev';");
   });
 });

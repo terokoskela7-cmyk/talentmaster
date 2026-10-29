@@ -138,7 +138,7 @@ describe('VARTIJA — joukkuemittareissa ei ryhmittelyä p.joukkue-kentän mukaa
   it('VP ja Master johtavat jäsenyyden jaetusta funktiosta; Master suodattaa latauksen jäsenyyden mukaan', () => {
     expect(VP).toContain('tmPelaajanJoukkueet(p, docs)'); expect(MA).toContain('function _mPJ(p) { return tmPelaajanJoukkueet(');
     expect(MA).toMatch(/docs = docs\.filter\(d => _mPJ\(d\.data\(\)\)\.indexOf\(_kanonJ\.id\) >= 0\)/);
-    expect(VP).toMatch(/<script src="lib\/tm_joukkue\.js\?v=\d+"><\/script>/); expect(MA).toMatch(/<script src="lib\/tm_joukkue\.js\?v=\d+"><\/script>/);
+    expect(VP).toMatch(/<script src="lib\/tm_joukkue\.js"><\/script>/); expect(MA).toMatch(/<script src="lib\/tm_joukkue\.js"><\/script>/);
   });
   it('kooste ja joukkoaloitus: jäsenyys tmPelaajanJoukkueet:stä, ei omaa nimivertailua', () => {
     const K = lue('lib/tm_seuran_kooste.js'), A = lue('lib/tm_joukkoaloitus.js');
@@ -196,7 +196,7 @@ describe('Excel_Tuonti — Tarkista joukkuejäsenyydet (kuiva-ajo → korjaus; S
   });
   it('Excel_Tuonti: nappi vain SA:lle, lataa libin ja ajaa kuiva-ajon ENNEN kirjoitusta', () => {
     const X = lue('TalentMaster_Excel_Tuonti.html');
-    expect(X).toMatch(/<script src="lib\/tm_joukkuejasenyys_tarkistus\.js\?v=\d+"><\/script>/); expect(X).toContain("jbtn.id = 'sa-jasenyys'");
+    expect(X).toMatch(/<script src="lib\/tm_joukkuejasenyys_tarkistus\.js"><\/script>/); expect(X).toContain("jbtn.id = 'sa-jasenyys'");
     const a = X.indexOf('async function _adminTarkistaJasenyydet'); const f = X.slice(a, X.indexOf('async function _adminTakaisinlaskeKooste', a));
     expect(f).toMatch(/if \(!superAdmin\)/); expect(f.indexOf('tmJasenyysTarkista')).toBeLessThan(f.indexOf('tmJasenyysKorjaa')); expect(f).toContain("'Korjaa epäselvät (vain nimen joukkue)'");
   });

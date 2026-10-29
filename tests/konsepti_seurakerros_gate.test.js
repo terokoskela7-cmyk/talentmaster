@@ -30,8 +30,8 @@ const MASTER = readFileSync(join(ROOT, 'TalentMaster_Master_v16.html'), 'utf8');
 describe('A — resolvoija on kytketty molempiin appeihin', () => {
   for (const [nimi, src] of [['VP_v25', VP], ['Master_v16', MASTER]]) {
     it(`${nimi} lataa lib/tm_konsepti_resolve.js kaanonin JÄLKEEN`, () => {
-      const kaanon = src.indexOf('lib/tm_teknistaktiset.js?v=');
-      const kerros = src.indexOf('lib/tm_konsepti_resolve.js?v=');
+      const kaanon = src.indexOf('lib/tm_teknistaktiset.js"');
+      const kerros = src.indexOf('lib/tm_konsepti_resolve.js"');
       expect(kaanon).toBeGreaterThan(0);
       expect(kerros).toBeGreaterThan(kaanon);   // järjestys: resolvoija lukee kaanonin globaaleista
     });

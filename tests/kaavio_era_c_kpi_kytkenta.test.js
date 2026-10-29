@@ -214,9 +214,8 @@ describe('C — KERROSTODISTE: seuran muokkaus vuotaa kaavioon ilman kaavion kos
 
 describe('D — kytkentä VP_v25:een', () => {
   it('sidoslib ladataan ja validaattorin ?v nostettu (sisältö muuttui)', () => {
-    expect(VP).toMatch(/lib\/tm_kaavio_konsepti\.js\?v=\d+/);
-    const m = VP.match(/lib\/tm_kaavio_validate\.js\?v=(\d+)/);
-    expect(Number(m[1])).toBeGreaterThanOrEqual(2);
+    expect(VP).toMatch(/lib\/tm_kaavio_konsepti\.js/);
+    expect(VP).toContain('<script src="lib/tm_kaavio_validate.js"></script>');   // QG-2: ?v = sisällön tiiviste deployssa
   });
   it('kortti ja editori lukevat _kaavioOtsikko():n, EIVÄT spec.nimeä', () => {
     const i = UI.indexOf('function _kaavioKorttiHTML('), j = UI.indexOf('function _kaavioNappiHTML(');

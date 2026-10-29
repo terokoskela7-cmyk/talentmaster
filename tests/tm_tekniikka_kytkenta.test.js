@@ -129,7 +129,7 @@ describe('VP_v25 on kytketty libiin (lähdevartijat)', () => {
     expect(tki).toContain('tmTekniikkaJoukkueLuokka'); expect(tki).not.toMatch(/tki_viimeisin|< ?40|d2_taso/);
   });
   it('huomion, poikkeamalistan ja joukkuekortin status käyttävät samaa libiä; vanha D2-tekniikka suodatetaan pois', () => {
-    expect(VP).toContain('<script src="lib/tm_tekniikka.js?v='); expect(VP.indexOf('lib/tm_tekniikka.js')).toBeLessThan(VP.indexOf('lib/tm_vp_tilanne.js'));
+    expect(VP).toContain('<script src="lib/tm_tekniikka.js"'); expect(VP.indexOf('lib/tm_tekniikka.js')).toBeLessThan(VP.indexOf('lib/tm_vp_tilanne.js'));
     expect((VP.match(/tmTekniikkaJoukkueLuokka\(/g) || []).length).toBeGreaterThanOrEqual(3);                      // TP-ehdotus + poikkeamalista + joukkuekortin status
     expect((VP.match(/w\.osaAlue !== 'tekniikka'|x\.osaAlue === 'tekniikka'/g) || []).length).toBeGreaterThanOrEqual(2);
     expect(VP).not.toContain('_vpTekniikkaYhteenveto');   // D171: tekniikka kehityskohteena ei ole Kodissa (vain Tilanne)

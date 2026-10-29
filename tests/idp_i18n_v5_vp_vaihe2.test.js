@@ -53,7 +53,7 @@ describe('V2 wiring: staattinen chrome data-i18n + dynaaminen render vpT', () =>
     expect(VP).toContain('vpT(k.nimi)');    // Kehityskortti label render-siteillä
     expect(VP).toContain('vpT(_TAL_LAJINIMI[kk] || kk)');   // laji-nimi commonista
   });
-  it('cache-bust tm_vp_i18n.js?v=8', () => {
-    expect(VP).toMatch(/tm_vp_i18n\.js\?v=([89]|\d\d)/);
+  it('cache-bust tm_vp_i18n.js', () => {
+    expect(VP).toMatch(/tm_vp_i18n\.js/);
   });
 });

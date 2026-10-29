@@ -17,6 +17,6 @@ describe('tmKenttaLippu', () => {
     expect(L.tmLiput({ kentta: 'x' }, { liput: { kentta: true } }).kentta).toBe(true);
   });
   it('lähdetaso: Master ja VP lataavat tm_liput.js ja lukevat liput/julkiset-dokumentin; ei muita luku-/kirjoituspolkuja liput-dokumenttiin', () => {
-    for (const nimi of ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html']) { const s = readFileSync(new URL('../' + nimi, import.meta.url), 'utf8'); expect(s, nimi).toContain('<script src="lib/tm_liput.js?v=1"></script>'); expect(s, nimi).toContain("collection('liput').doc('julkiset').get()"); expect((s.match(/collection\('liput'\)/g) || []).length, nimi).toBe(1); }
+    for (const nimi of ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html']) { const s = readFileSync(new URL('../' + nimi, import.meta.url), 'utf8'); expect(s, nimi).toContain('<script src="lib/tm_liput.js"></script>'); expect(s, nimi).toContain("collection('liput').doc('julkiset').get()"); expect((s.match(/collection\('liput'\)/g) || []).length, nimi).toBe(1); }
   });
 });

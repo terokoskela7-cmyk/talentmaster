@@ -95,7 +95,7 @@ describe('D167 · esimerkkiseura (FC Demo) erillisenä tilana', () => {
 describe('VP-kytkentä (lippu pois = vanha Koti ennallaan)', () => {
   it('Käynnistys vain omalle seuralle (ei demossa); Rytmi muulloin ja demossa; kaikki lib/tm_vp_koti.js:n kautta', () => {
     const l = VP.slice(VP.indexOf('function _renderKotiPulssi'), VP.indexOf('/* ═══ S2c PR 1: Tilanne = kausi')); expect(l).toContain("const kaynn = vaihe === 'kaynnistys' && !demo"); expect(l).toContain('KK.tmKotiKaynnistysHTML(KK.tmKotiKaynnistysMalli(m, env), op) : KK.tmKotiRytmiHTML(KK.tmKotiRytmiMalli(m, env), op)'); expect(l).not.toContain('tmPulssiHTML');
-    expect(VP).toContain('<script src="lib/tm_vp_koti.js?v='); expect(VP.indexOf('lib/tm_vp_koti.js')).toBeGreaterThan(VP.indexOf('lib/tm_seuran_pulssi.js')); expect(VP).toContain('window.TM_SEURAN_PULSSI');
+    expect(VP).toContain('<script src="lib/tm_vp_koti.js"'); expect(VP.indexOf('lib/tm_vp_koti.js')).toBeGreaterThan(VP.indexOf('lib/tm_seuran_pulssi.js')); expect(VP).toContain('window.TM_SEURAN_PULSSI');
   });
   it('toiminnot käyttävät olemassa olevia polkuja: testit → avaaUusiTestiModaali, viesti → _vpViestiAvaa, joukkue → avaaJoukkueSyvanakyma, päivitys → _vpPulssiPaivita; ei uusia Firestore-kirjoituksia', () => {
     const l = VP.slice(VP.indexOf('function _renderKotiPulssi'), VP.indexOf('/* ═══ S2c PR 1: Tilanne = kausi')); ['testit: \'avaaUusiTestiModaali\'', "viesti: '_vpViestiAvaa'", "joukkue: 'avaaJoukkueSyvanakyma'", "paivita: '_vpPulssiPaivita'"].forEach((x) => expect(l, x).toContain(x));

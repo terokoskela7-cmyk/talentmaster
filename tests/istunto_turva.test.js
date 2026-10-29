@@ -62,7 +62,7 @@ describe('Lähdetarkistukset: väärä rooli ei kutsu automaattisesti signOut():
     }
   });
   it('skripti ladataan ja nappi "Kirjaudu ulos" kutsuu sivun omaa uloskirjautumista; eslint tuntee TM_ISTUNTO', () => {
-    for (const nimi of ['Seura', 'Admin', 'Master', 'VP', 'Valmennusapuri', 'Excel_Tuonti']) expect(SIVUT[nimi], nimi).toMatch(/<script src="lib\/tm_istunto\.js\?v=1"><\/script>/);
+    for (const nimi of ['Seura', 'Admin', 'Master', 'VP', 'Valmennusapuri', 'Excel_Tuonti']) expect(SIVUT[nimi], nimi).toMatch(/<script src="lib\/tm_istunto\.js"><\/script>/);
     expect(lue('eslint.config.js')).toContain("TM_ISTUNTO: 'readonly'");
   });
 });
