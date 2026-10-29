@@ -121,7 +121,6 @@ describe('B2 · glossaaripoikkeamat siivottu', () => {
   });
 
   it('kartat ladataan versioidulla URLilla (uudet avaimet stale-klienteille)', () => {
-    expect(VP.match(/lib\/tm_vp_i18n\.js\?v=(\d+)/)[1]).toBeDefined();
-    expect(Number(VP.match(/lib\/tm_vp_i18n\.js\?v=(\d+)/)[1])).toBeGreaterThanOrEqual(79);
+    expect(VP).toContain('<script src="lib/tm_vp_i18n.js"></script>');   // QG-2: ?v = sisällön tiiviste deployssa
   });
 });

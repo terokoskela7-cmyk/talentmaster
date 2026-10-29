@@ -134,7 +134,7 @@ describe('adapterit (Master + VP): ohut kytkentä, samat kutsut; Master-rivikatt
   const MA = lue('TalentMaster_Master_v16.html'), VP = lue('TalentMaster_VP_v25.html');
   it('molemmat: skripti ladataan, ryhmä purkautuu _mvKentat:ssa, kohde + lahde lähetykseen, ryhmäfunktio sheetille, otsikko ryhmän nimellä', () => {
     for (const src of [MA, VP]) {
-      expect(src).toContain('lib/tm_klippi_ryhma.js?v=1'); expect(src).toContain("if (S.kohde === 'ryhma') return window.TM_KLIPPI_RYHMA.tmKrVastaanottajat(S, _mvKrCtx());"); expect(src).toContain("lahde: 'linkki', kohde: S.kohde === 'ryhma'");
+      expect(src).toContain('lib/tm_klippi_ryhma.js'); expect(src).toContain("if (S.kohde === 'ryhma') return window.TM_KLIPPI_RYHMA.tmKrVastaanottajat(S, _mvKrCtx());"); expect(src).toContain("lahde: 'linkki', kohde: S.kohde === 'ryhma'");
       expect(src).toContain("ryhmaFn: '_mvRyhma'"); expect(src).toContain('window._mvRyhma = function'); expect(src).toContain('e.rivi.ryhma ? e.rivi.ryhma.nimi'); expect(src).toContain('_mvKrAlusta(S);'); expect(src).toContain("'mv_lahetetty_ryhma'");
     }
   });

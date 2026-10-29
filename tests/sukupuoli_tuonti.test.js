@@ -36,7 +36,7 @@ describe('Seura.ajaExcelTuonti kirjoittaa sukupuolen (M/N), puuttuva → ei kent
     const by = Object.fromEntries(e.set.filter((d) => d.etunimi).map((d) => [d.etunimi, d])); expect(by.Poika.sukupuoli).toBe('M'); expect(by.Tytto.sukupuoli).toBe('N'); expect('sukupuoli' in by.Tuntematon).toBe(false); expect('sukupuoli' in by.Puuttuu).toBe(false);
   });
   it('Excel-parsinta: sarake Sukupuoli luetaan etsiSarake-haulla ja muunnetaan tmSukupuoliMN:llä; skripti ladataan', () => {
-    const src = lue('TalentMaster_Seura.html'); expect(src).toContain("const iSukup    = etsiSarake('Sukupuoli', 'sukupuoli');"); expect(src).toContain('sukupuoli:     iSukup >= 0 ? TM_SUKUPUOLI.tmSukupuoliMN(r[iSukup]) : null,'); expect(src).toContain('<script src="lib/tm_sukupuoli.js?v=1"></script>');
+    const src = lue('TalentMaster_Seura.html'); expect(src).toContain("const iSukup    = etsiSarake('Sukupuoli', 'sukupuoli');"); expect(src).toContain('sukupuoli:     iSukup >= 0 ? TM_SUKUPUOLI.tmSukupuoliMN(r[iSukup]) : null,'); expect(src).toContain('<script src="lib/tm_sukupuoli.js"></script>');
   });
 });
 
@@ -45,7 +45,7 @@ describe('Excel_Tuonti (historiapohja): sukupuoli testituloksesta pelaajadokumen
     const src = lue('TalentMaster_Excel_Tuonti.html'), i = src.indexOf('const _spR = TM_SUKUPUOLI.tmSukupuoliMN(p.sukupuoli)'); expect(i).toBeGreaterThan(0);
     const rivi = src.slice(i, src.indexOf('\n', i)); expect(rivi).toContain("if (_spR && !TM_SUKUPUOLI.tmSukupuoliMN(p._firestoreData && p._firestoreData.sukupuoli)) profiiliUpdate.sukupuoli = _spR;");
     expect(src.indexOf('batch.set(pelaajaRef, profiiliUpdate, { merge: true })')).toBeGreaterThan(i); expect(src.indexOf('if (p._loytyyFirestoresta === true) {')).toBeLessThan(i);   // vain kun PalloID löytyi
-    expect(src).toContain('<script src="lib/tm_sukupuoli.js?v=1"></script>');
+    expect(src).toContain('<script src="lib/tm_sukupuoli.js"></script>');
   });
   it('päättelylogiikka (sama kuin rivillä): ei kirjoiteta jos dokissa jo on; kirjoitetaan jos puuttuu', () => {
     const paivita = (rivi, fd) => { const u = {}; const sp = S.tmSukupuoliMN(rivi); if (sp && !S.tmSukupuoliMN(fd && fd.sukupuoli)) u.sukupuoli = sp; return u; };

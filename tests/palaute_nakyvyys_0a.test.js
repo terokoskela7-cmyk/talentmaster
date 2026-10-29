@@ -53,8 +53,8 @@ describe('lähdekoodivartija: pelaajan ja huoltajan pinnoilla ei rajoja, vyöhyk
     expect(PEL).not.toMatch(/TM_ADAR_RUBRIIKKI\.alyTaso\(|TM_KORTTI_RUBRIIKIT\.(fysTaso|psyTaso)\(|a_b_mitattu|_fcRengasSVG|F\.rengas/);
   });
   it('Pelaaja + Vanhempi lataavat jaetun merkkisäännön; SW:t cachettaavat sen; Vanhempi lataa sanavartijan', () => {
-    for (const s of [PEL, V2]) expect(s).toMatch(/<script src="lib\/tm_merkki_nakyma\.js\?v=\d+"><\/script>/);
-    expect(V2).toMatch(/<script src="lib\/tm_kielletyt\.js\?v=\d+"><\/script>/);
+    for (const s of [PEL, V2]) expect(s).toMatch(/<script src="lib\/tm_merkki_nakyma\.js"><\/script>/);
+    expect(V2).toMatch(/<script src="lib\/tm_kielletyt\.js"><\/script>/);
     expect(lue('sw_pelaaja.js')).toContain('/lib/tm_merkki_nakyma.js'); expect(lue('sw_vanhempi.js')).toContain('/lib/tm_merkki_nakyma.js'); expect(lue('sw_vanhempi.js')).toContain('/lib/tm_kielletyt.js');
   });
   it('Uudet tekstit ovat tm_lang.js:ssä (fi + en + sv Geminiltä, erä 69 viety) eikä odotuslistalla', () => {

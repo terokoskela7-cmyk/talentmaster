@@ -283,10 +283,8 @@ describe('(9) K2 · fail-closed — vanha lib ei saa palauttaa ylikirjoitusta', 
     });
 
   it('kolmen appin tm_idp.js-versio on nostettu (VP/Master ≥7, Pelaaja ≥3)', () => {
-    const v = (src) => Number((/lib\/tm_idp\.js\?v=(\d+)/.exec(src) || [])[1]);
-    expect(v(VP)).toBeGreaterThanOrEqual(7);
-    expect(v(MASTER)).toBeGreaterThanOrEqual(7);
-    expect(v(PELAAJA)).toBeGreaterThanOrEqual(3);
+    // QG-2: ?v = sisällön tiiviste deployssa → riittää, että lib ladataan.
+    for (const s of [VP, MASTER, PELAAJA]) expect(s).toContain('<script src="lib/tm_idp.js"></script>');
   });
 });
 

@@ -370,9 +370,7 @@ describe('(A3) Vuodenvaihde — vanha tavoite merkitaan vaihdetuksi myos toisess
   });
 
   it('kirjastoversiot nostettu (VP 9 · Master 9 · Pelaaja 5)', () => {
-    const v = (src) => Number((src.match(/lib\/tm_idp\.js\?v=(\d+)/) || [])[1] || 0);
-    expect(v(VP)).toBeGreaterThanOrEqual(9);
-    expect(v(MASTER)).toBeGreaterThanOrEqual(9);
-    expect(v(PELAAJA)).toBeGreaterThanOrEqual(5);
+    // QG-2: ?v = sisällön tiiviste deployssa → riittää, että lib ladataan.
+    for (const s of [VP, MASTER, PELAAJA]) expect(s).toContain('<script src="lib/tm_idp.js"></script>');
   });
 });

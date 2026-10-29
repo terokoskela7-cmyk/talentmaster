@@ -80,11 +80,8 @@ describe('Vanhempi_v2 — kielivalitsin FI/SV/EN + cache-bust', () => {
   });
   // Vähimmäisarvo eksaktin pinnin sijaan (ks. sama perustelu Pelaaja-sviitissä).
   it('tm_lang ?v ≥ 2 + SW-cache ≥ v7', () => {
-    const v = V.match(/lib\/tm_lang\.js\?v=(\d+)/);
-    expect(v).toBeTruthy();
-    expect(Number(v[1])).toBeGreaterThanOrEqual(2);
-    const c = readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8').match(/const CACHE = 'tm-vanhempi-v(\d+|\d{3,})'/);
-    expect(c).toBeTruthy();
-    expect(Number(c[1])).toBeGreaterThanOrEqual(7);
+    // QG-2: ?v ja cachenimi lasketaan deployssa sisällöstä (scripts/versiotiiviste.js).
+    expect(V).toContain('<script src="lib/tm_lang.js"></script>');
+    expect(readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8')).toContain("const CACHE = 'tm-vanhempi-dev';");
   });
 });

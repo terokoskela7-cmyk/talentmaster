@@ -55,7 +55,7 @@ describe('vartija: ei omia viikkokaavoja sovelluksissa eikä libeissä', () => {
     expect([/\bstartOfYear\b/, /getDay\(\)\s*\+\s*1\)\s*\/\s*7/].every((k) => k.test(vanha))).toBe(true);
   });
   it('Master, VP ja Pelaaja lataavat tm_viikko.js ennen käyttöä', () => {
-    ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Pelaaja_v7.html'].forEach((f) => { const s = readFileSync(join(juuri, f), 'utf8'); expect(s, f).toContain('<script src="lib/tm_viikko.js?v=1">'); expect(s.indexOf('lib/tm_viikko.js'), f).toBeLessThan(s.indexOf('<script>', s.indexOf('lib/tm_viikko.js'))); });
+    ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Pelaaja_v7.html'].forEach((f) => { const s = readFileSync(join(juuri, f), 'utf8'); expect(s, f).toContain('<script src="lib/tm_viikko.js">'); expect(s.indexOf('lib/tm_viikko.js'), f).toBeLessThan(s.indexOf('<script>', s.indexOf('lib/tm_viikko.js'))); });
   });
   it('Masterin otsikko ja kalenteri kutsuvat samaa funktiota', () => {
     const m = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8'); expect((m.match(/TM_VIIKKO\.tmIsoViikkoNro/g) || []).length).toBeGreaterThanOrEqual(2);
@@ -84,13 +84,13 @@ describe('vartija: sivut lataavat tm_viikko.js:n ennen viikkoa käyttäviä kirj
     expect(viat).toEqual([]); expect(kayttajia).toBeGreaterThanOrEqual(9);   // Admin, Excel_Tuonti, Master, Pelaaja, Seura, Solo_Koti, Testaus_v9, Testituonti_Master, VP
   });
   it('mutaatiotodistus: sivu ilman tm_viikko.js:ää tai sen jälkeen jää kiinni', () => {
-    expect(rikkomukset('<script src="lib/tm_eerikkila_normit.js?v=1"></script>')).toContain('ei lataa');
-    expect(rikkomukset('<script src="lib/tm_eerikkila_normit.js?v=1"></script><script src="lib/tm_viikko.js?v=1"></script>')).toContain('vasta riippuvan');
-    expect(rikkomukset('<script src="lib/tm_viikko.js?v=1"></script><script src="lib/tm_eerikkila_normit.js?v=1"></script>')).toBeNull();
+    expect(rikkomukset('<script src="lib/tm_eerikkila_normit.js"></script>')).toContain('ei lataa');
+    expect(rikkomukset('<script src="lib/tm_eerikkila_normit.js"></script><script src="lib/tm_viikko.js"></script>')).toContain('vasta riippuvan');
+    expect(rikkomukset('<script src="lib/tm_viikko.js"></script><script src="lib/tm_eerikkila_normit.js"></script>')).toBeNull();
     expect(rikkomukset('<script src="lib/tm_pvm.js"></script>')).toBeNull();
   });
   it('SW:n piirissä oleva sivu (Pelaaja_v7): tm_viikko.js allowlistissa ja välimuistiversio nostettu', () => {
-    const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toContain("/lib/tm_viikko.js"); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(9\d|\d{3}|\d{3,})'/);
+    const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toContain("/lib/tm_viikko.js"); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-dev'/);
   });
 });
 

@@ -1491,15 +1491,12 @@ describe('(12) kenttä täyttää näytön, kumpikin asento on käyttötila', ()
     const lib = readFileSync(join(juuri, 'lib', 'tm_pelihavainto.js'), 'utf8');
     const onPystytuki = lib.includes('_phPysty');
     expect(onPystytuki, 'libin pysty-tuki katosi — päivitä myös tämä vartija').toBe(true);
-    const m = SIVU.match(/lib\/tm_pelihavainto\.js\?v=(\d+)/);
-    expect(m, 'sivu ei lataa libiä versioidulla URL:lla').toBeTruthy();
-    expect(Number(m[1]), 'lib muuttui mutta ?v ei noussut').toBeGreaterThanOrEqual(2);
+    // QG-2: ?v = sisällön tiiviste deployssa → lib muuttuu = URL muuttuu automaattisesti.
+    expect(SIVU, 'sivu ei lataa libiä').toContain('<script src="lib/tm_pelihavainto.js"></script>');
     /* P0: sivu kutsuu phMuotoileUhka-funktiota. Vanha lib (v3) + uusi sivu = TypeError renderöinnissä. */
     expect(lib.includes('function phMuotoileUhka'), 'phMuotoileUhka katosi libistä — päivitä myös tämä vartija').toBe(true);
-    expect(Number(m[1]), 'phMuotoileUhka vaatii ?v>=4').toBeGreaterThanOrEqual(4);
     /* Tilastonäkymä kutsuu phKarttaPisteet-funktiota: vanha lib (v4) + uusi sivu = TypeError. */
     expect(lib.includes('function phKarttaPisteet'), 'phKarttaPisteet katosi libistä — päivitä vartija').toBe(true);
-    expect(Number(m[1]), 'phKarttaPisteet vaatii ?v>=5').toBeGreaterThanOrEqual(5);
   });
 
   it('turva-alueet huomioidaan (lovi ja kotipalkki eivät syö kenttää)', () => {

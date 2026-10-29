@@ -109,7 +109,7 @@ describe('kirjoittajat päivittävät ennatykset samassa batchissa (§26)', () =
   });
   it('Testituonti_Master: ennatykset samassa batchissa testituloksen kanssa (tapahtuman alusta)', async () => {
     const T = lue('TalentMaster_Testituonti_Master.html');
-    expect(T).toMatch(/<script src="lib\/tm_ennatykset\.js\?v=\d+"><\/script>/);
+    expect(T).toMatch(/<script src="lib\/tm_ennatykset\.js"><\/script>/);
     const m = mockDb({ [PEL]: Object.assign({}, TOPIAS, { ennatykset: { lin30m: { paras: 5.9, pvm: '2026-09-01', alusta: 'keinonurmi_3g' } } }) });
     const ctx = { TM_ENNATYKSET: E, TM_TESTIPAIVA: require('../lib/tm_testipaiva.js'), firebase: { firestore: { FieldValue: { arrayUnion: (...x) => ({ __au: x }) } } }, Date };
     vm.createContext(ctx); vm.runInContext(pura(T, 'async function ttTallennaPelaaja(') + '\nthis.f = ttTallennaPelaaja;', ctx);
@@ -133,7 +133,7 @@ describe('kirjoittajat päivittävät ennatykset samassa batchissa (§26)', () =
     const maarittelijat = tiedostot.filter((f) => /function paivitaEnnatykset\s*\(|ENNATYS_META\s*=/.test(lue(f)));
     expect(maarittelijat).toEqual(['lib/tm_ennatykset.js']);
     for (const f of ['TalentMaster_Testaus_v9.html', 'TalentMaster_Excel_Tuonti.html', 'TalentMaster_Testituonti_Master.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html']) {
-      expect(lue(f), f).toMatch(/<script src="lib\/tm_ennatykset\.js\?v=\d+"><\/script>/);
+      expect(lue(f), f).toMatch(/<script src="lib\/tm_ennatykset\.js"><\/script>/);
     }
     // VP/Master: lib ladataan ENNEN Pikakirjausta (TM_ENNATYKSET globaali avaa()-hetkellä)
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html']) {

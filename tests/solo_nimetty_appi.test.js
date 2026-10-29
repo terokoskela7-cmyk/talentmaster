@@ -33,15 +33,15 @@ describe('Solo-sivut · nimetty appi', () => {
       expect(iInit).toBeGreaterThan(0);
       expect(iAc).toBeGreaterThan(iInit);
       expect(iAc).toBeLessThan(K.indexOf('app.auth()'));
-      expect(S).toContain('lib/tm_appcheck.js?v=2');
+      expect(S).toContain('lib/tm_appcheck.js');
     });
   }
   it('Player_Home: Sentry ladataan (app:solo) ennen Firebasea, funktiot nimetystä appista', () => {
     const S = lue('TalentMaster_Player_Home.html');
     const iS = S.indexOf("window.TM_SENTRY={app:'solo'}");
     expect(iS).toBeGreaterThan(0);
-    expect(S.indexOf('tm_sentry.js?v=3')).toBeGreaterThan(iS);
-    expect(S.indexOf('firebase-app-compat.js')).toBeGreaterThan(S.indexOf('tm_sentry.js?v=3'));
+    expect(S.indexOf('src="tm_sentry.js"')).toBeGreaterThan(iS);
+    expect(S.indexOf('firebase-app-compat.js')).toBeGreaterThan(S.indexOf('src="tm_sentry.js"'));
     expect(riisu(S)).toContain("window._soloApp.functions('europe-west1').httpsCallable('soloLapsiKirjaudu')");
     expect(riisu(S)).toContain("window._soloApp.functions('europe-west1').httpsCallable('soloLupapyyntoEmail')");
   });

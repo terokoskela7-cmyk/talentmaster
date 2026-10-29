@@ -31,7 +31,7 @@ describe('yhtenäinen kytkin lib/tm_nakyvyys_kytkin.js', () => {
     expect(NK.tmLauseSuunnitelma('  ', true, c)).toEqual({ historia: undefined, reviewit: undefined });
   });
   it('kytkin on kaikissa kirjoituspaikoissa: katselmuslause (Master+VP+Kehitystyöpöytä), Pikakortti, TKI-palaute; oletus pois', () => {
-    for (const f of ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Kehitystyopoyta.html', 'TalentMaster_ADAR_Pikakortti.html']) expect(lue(f), f).toMatch(/<script src="lib\/tm_nakyvyys_kytkin\.js\?v=\d+"><\/script>/);
+    for (const f of ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Kehitystyopoyta.html', 'TalentMaster_ADAR_Pikakortti.html']) expect(lue(f), f).toMatch(/<script src="lib\/tm_nakyvyys_kytkin\.js"><\/script>/);
     const M = lue('TalentMaster_Master_v16.html'); expect(M).toContain("toggleFn: '_palauteNakAseta'"); expect(M).toContain('window._palauteNayta = false;'); expect(M).not.toMatch(/name="palauteNak"/);
     expect(M).toContain("tmNakyvyysPaalla(window._palauteNayta) ? 'pelaaja' : 'vain_valmentaja'");
     expect(M).toMatch(/tki: \(nakyvyys === 'pelaaja'\) \? null/);   // TKI-lukua ei pelaajan luettavaan palautedokumenttiin

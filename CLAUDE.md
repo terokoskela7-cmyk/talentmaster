@@ -57,7 +57,7 @@ Filosofia: *"Pelaaja ensin, hallinto vahvistaa"* — rakentuu lapsen kehitystarp
 | Auth | Firebase Auth + Custom Claims + **Google Sign-In** | SA kirjautuu Googlella |
 | Cloud Functions | Node.js **europe-west1** | Aina tämä region |
 | Storage | Firebase Storage, europe-west1 | ADAR Vision -kuvat |
-| Hosting | GitHub Pages + Fastly CDN | ~10 min cache, käytä `?v=N` |
+| Hosting | GitHub Pages + Fastly CDN | ~10 min cache; `?v` = sisällön tiiviste deployssa (QG-2, §27.4) |
 | Sähköposti | Nodemailer Cloud Functionissa | Firebase Extension incompatible eur3 |
 
 ### Firebase-config (Blaze plan)
@@ -427,7 +427,8 @@ jousitusindeksi → kimmovoima-indeksi · D4 → peliäly.
 1. **Suunnittele ennen koodausta** — "tehdään ensin suunnitelma"
 2. **Inkrementaalinen** — testaa jokaisen muutoksen jälkeen, myös super-adminilla
 3. **Tiedostojen jakelu:** outputs → GitHub
-4. **CDN-cache** ~10 min → `?v=N`, tarkista `raw.githubusercontent.com`
+4. **CDN-cache** ~10 min → `?v` hoituu deployssa, tarkista `raw.githubusercontent.com`
+   - **VERSIOT LASKETAAN DEPLOYSSA (QG-2, 2.11.2026): ÄLÄ kirjoita `?v=N`:ää äläkä nosta SW-cachenimeä käsin.** Repossa `<script src="lib/x.js">` ilman `?v`:tä ja SW:ssä `const CACHE = 'tm-<appi>-dev'`. `deploy-pages.yml` ja `deploy-hosting.yml` ajavat ennen julkaisua `node scripts/versiotiiviste.js --kirjoita`: jokainen paikallinen skriptilataus saa `?v=<sha256 8 merkkiä>` sisällöstä ja SW-cachenimi lasketaan SW:stä + kuorisivusta + manifestista. Skriptin virhe kaataa deployn. Vartija `tests/versiotiiviste.test.js` (repo + julkaisu + Pages = Hosting), selaintesti `tests/sw_paivitys_selain.test.js`. Tuotannon tarkistus: `node scripts/versiotiiviste.js --tulosta` vs. live-sivun `?v`. Uusi `sw_*.js` → lisää `SW`-tauluun skriptissä. Alla olevat "nosta cache-versio" -ohjeet ovat historiaa.
    - **SW EI SAA CACHETTAA MUIDEN APPIEN SIVUJA — ALLOWLIST-PERIAATE (korjattu 2026-06-11).**
      Pelaaja/Vanhempi-SW:t jakavat scopen `/talentmaster/`. Aiempi Cache First -strategia cachetti
      KAIKKI scopen fetchit → VP/Master/Excel-sivut jäätyivät SW-cacheen (`?v=` ei auttanut, SW vastaa ennen verkkoa).

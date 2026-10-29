@@ -43,7 +43,7 @@ describe('henkilöstön näyttökohdat käyttävät koko listaa', () => {
     ['TalentMaster_VP_v25.html'], ['TalentMaster_Seura.html'], ['TalentMaster_Admin.html'],   // UTJ_v1 arkistoitu 2026-10
   ])('%s lataa lib/tm_joukkue.js (?v) ja kutsuu tmHenkiloJoukkueTeksti', (f) => {
     const s = lue(f);
-    expect(s).toMatch(/<script src="lib\/tm_joukkue\.js\?v=\d+"><\/script>/);
+    expect(s).toMatch(/<script src="lib\/tm_joukkue\.js"><\/script>/);
     expect(s).toMatch(/tmHenkiloJoukkueTeksti\(/);
   });
   it('VP: Valmentajatiimin kortti, profiilikortti, paneelin otsikko ja roster näyttävät joukkueTeksti-kentän', () => {

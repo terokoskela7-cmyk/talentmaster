@@ -130,7 +130,7 @@ describe('lähdekontrakti — tallentavat kohdat eivät käytä UTC-päivää', 
   });
   it('SW:t: ADAR allowlistaa tm_pvm.js ja CACHE nostettu; Vanhempi sama', () => {
     expect(lue('sw_adar.js')).toContain("'/lib/tm_pvm.js'");
-    expect(lue('sw_adar.js')).toMatch(/const CACHE = 'tm-adar-v([5-9]|\d\d+)'/);
-    expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-v(3[8-9]|[4-9]\d|\d{3,})'/);
+    expect(lue('sw_adar.js')).toMatch(/const CACHE = 'tm-adar-dev'/);
+    expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-dev'/);
   });
 });

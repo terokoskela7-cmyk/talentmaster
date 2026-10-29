@@ -149,7 +149,7 @@ describe('D — ei ulkoisia origineja eikä SDK:ta (offline/PWA, ei App Check -k
   });
   it('apit lataavat libin paikallisesti (suhteellinen polku)', () => {
     for (const [nimi, src] of APIT) {
-      expect(src, nimi).toContain('<script src="lib/tm_piirros.js?v=');
+      expect(src, nimi).toContain('<script src="lib/tm_piirros.js"');
     }
   });
 });

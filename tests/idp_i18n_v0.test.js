@@ -67,7 +67,7 @@ describe('lib/tm_lang.js — §5 väri-fix + tmKieliInitSeura-prioriteetti', () 
 describe('i18n V0 — putkitus kytketty 6 tiedostoon + 404-korjaus', () => {
   const apit = ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Seura.html', 'TalentMaster_Rekisterointi_Suostumus.html'];
   it('kaikki 6 lataavat versioidun lib/tm_lang.js (?v=N)', () => {
-    apit.forEach((f) => expect(root(f)).toMatch(/<script src="lib\/tm_lang\.js\?v=\d+">/));
+    apit.forEach((f) => expect(root(f)).toMatch(/<script src="lib\/tm_lang\.js">/));
   });
   it('Rekisterointi EI enää lataa rikkinäistä root-URLia (/talentmaster/tm_lang.js 404)', () => {
     expect(root('TalentMaster_Rekisterointi_Suostumus.html')).not.toContain('https://terokoskela7-cmyk.github.io/talentmaster/tm_lang.js');
@@ -90,8 +90,8 @@ describe('i18n V0 — keskitetty kieli-init seurat/{id}.kieli:stä', () => {
 describe('i18n V0 — SW-cache + allowlist + re-export + migraatioskripti', () => {
   it('SW cachet bumpattu + tm_lang allowlistissa (offline)', () => {
     const p = root('sw_pelaaja.js'), v = root('sw_vanhempi.js');
-    expect(p).toMatch(/const CACHE = 'tm-pelaaja-v(1[2-9]|[2-9]\d|\d{3,})'/);   // ≥v12 (löysä: kestää V1-A→v13 ym. bumpit)
-    expect(v).toMatch(/const CACHE = 'tm-vanhempi-v([6-9]|[1-9]\d|\d{3,})'/);   // ≥v6 (löysä: kestää V1-B→v7 ym. bumpit)
+    expect(p).toMatch(/const CACHE = 'tm-pelaaja-dev'/);   // ≥v12 (löysä: kestää V1-A→v13 ym. bumpit)
+    expect(v).toMatch(/const CACHE = 'tm-vanhempi-dev'/);   // ≥v6 (löysä: kestää V1-B→v7 ym. bumpit)
     // Polkumuoto vaihtui alipolkuriippumattomaksi (hosting-kannettavuus): allowlist matchaa polun
     // LOPPUUN, joten sama SW toimii Pages-alipolussa JA juuressa. Väite säilyy (tm_lang on
     // offline-cachessa) ja VAHVISTUU: alipolkuetuliite ei saa palata, muuten juuritarjoilu hajoaa.

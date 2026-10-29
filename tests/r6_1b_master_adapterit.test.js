@@ -58,7 +58,7 @@ describe('adapterit kutsuvat libiä — ei rinnakkaista päättelyä', () => {
   });
   it('kaikki 6 kirjoittavat _mKirjoitaJaksofokus:lla (update + arrayUnion; 6. = V4b-2 Hylkää valinta); Master lataa tm_kehityssilmukka.js', () => {
     expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(6);
-    expect(pura('async function _mKirjoitaJaksofokus(')).toMatch(/\.update\(upd\)/); expect(MASTER).toContain('lib/tm_kehityssilmukka.js?v=4');
+    expect(pura('async function _mKirjoitaJaksofokus(')).toMatch(/\.update\(upd\)/); expect(MASTER).toContain('lib/tm_kehityssilmukka.js');
     expect(MASTER.indexOf('tm_jaksokooste.js')).toBeLessThan(MASTER.indexOf('tm_kehityssilmukka.js'));
   });
 });
