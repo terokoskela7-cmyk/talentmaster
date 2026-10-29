@@ -44,9 +44,15 @@ jobs:
 
   # Oikean Chrome-selaimen testit (headless). EI vaadittava tarkistus (branch protection ei listaa tätä): selaintesti on ympäristöriippuvainen eikä saa pitää
   # vaadittavaa unit-tests-porttia punaisena (#824). Näkyy PR:ssä omana tarkistuksenaan; punainen = tutkittava, mutta ei estä mergeä.
-  chrome-tests:
+  # QG-1b: KAIKKI selaintestit (.github/chrome_testit.txt, vartija tests/chrome_testit_ci_vartija.test.js) neljänä rinnakkaisena osana → seinäkello alle 5 min.
+  # Ennen QG-1b:tä ajettiin vain 15 käsin listattua tiedostoa; 37 ei ajettu missään.
+  chrome-osat:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        osa: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,10 +60,19 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Chrome-testit (kentta_k0)
+      - name: Chrome-testit (osa ${{ matrix.osa }}/4)
         env:
           TM_CHROME_TESTS: '1'
-        run: TM_CHROME_PATH="$(which google-chrome)" npx vitest run tests/kentta_k0.test.js tests/sv_lapiajo.test.js tests/k35_2b_modaalit.test.js tests/k35_6a_taytto_selain.test.js tests/k35_6f_selain.test.js tests/v_koti_a_selain.test.js tests/master_mobiili_asettelu.test.js tests/k35_6d_selain.test.js tests/k35_6e_selain.test.js tests/k35_6b_selain.test.js tests/k35_6d2_selain.test.js tests/k35_10_lataus_selain.test.js tests/k35_7b_tilaus_selain.test.js tests/klippi_sv_selain.test.js tests/v_koti_sv_selain.test.js
+        run: TM_CHROME_PATH="$(which google-chrome)" npx vitest run $(cat .github/chrome_testit.txt) --shard=${{ matrix.osa }}/4
+
+  # Yksi tarkistus nimellä chrome-tests (sama nimi kuin ennen) — vihreä vain kun kaikki neljä osaa ovat vihreitä.
+  chrome-tests:
+    runs-on: ubuntu-latest
+    needs: chrome-osat
+    if: always()
+    steps:
+      - name: Kaikki osat vihreinä
+        run: test "${{ needs.chrome-osat.result }}" = success
 
   # sv-läpiajo (docs/CODE_BRIEF_I18N_SV_LAPIAJO.md): mittaa, paljonko suomea käyttäjä näkee sv-tilassa. VAIHE 1: vain raportti — EI kaada buildia (continue-on-error);
   # baselinen (tools/i18n/sv_lapiajo_baseline.json) ulkopuolinen UUSI suomenkielinen teksti listataan lokiin. Kun baseline on siivottu → lisää --kaada (KARTOITUS §9 kohta 3b).

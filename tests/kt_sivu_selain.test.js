@@ -3,11 +3,18 @@
 import { describe, it, expect } from 'vitest';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
-import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT } from './helpers/kt_sivu.mjs';
+import { kaynnista, selainKaynnista, kirjoitukset, SISAINEN, CHROME, JUURI, PELAAJAT } from './helpers/kt_sivu.mjs';
 const KUVAT = join(JUURI, 'docs', 'ui-kuvat', 'b7-kehitystyopoyta');
 const SUODATA = (v) => v.filter((e) => !/sentry|integrity|Failed to load resource|net::ERR/i.test(e));
 const odota = (p) => p.waitForSelector('.kt-nimi', { timeout: 15000 });
 const hash = (p) => p.evaluate(() => location.hash);
+const P2 = 'seurat/demo/pelaajat/p2';
+/* B2: yksi havainto = yksi batch (pelaajadokki + sisainen/tiedot, #1144–#1147); palauttaa n:nnen batchin pelaajaopin päivityksen ja tarkistaa sisäisen opin */
+const batchPelaaja = async (p, n) => {
+  const b = await p.evaluate((i) => window.__batch[i], n); expect(b.map((o) => o.path).sort()).toEqual([P2, P2 + '/sisainen/tiedot']);
+  const sis = b.filter((o) => SISAINEN.test(o.path))[0]; expect(sis.set).toMatchObject({ seuraId: 'demo' }); expect(Object.keys(sis.set)).toEqual(expect.arrayContaining(['seuraId', 'paivitetty', 'jaksofokus_sisainen']));
+  return b.filter((o) => o.path === P2)[0].update;
+};
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitystyöpöytä-sivu', () => {
   let selain; const avaa = async () => { selain = await selainKaynnista(); };
   it('LIPPU PÄÄLLÄ 1280: V-KOTI-kuori (Pelaajat aktiivinen), murupolku, otsikkorivi, ‹ › kulkee joukkueen sisällä, Tänään renderöityy', async () => {
@@ -68,9 +75,10 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       for (const rooli of ['valmentaja', 'vp']) {
         const { sk, p } = await kaynnista(selain, { rooli, hash: '#pelaaja/p2/tanaan' }); await odota(p);
         expect(await p.locator('.kt-sig [data-kt-havainto-inline] [data-kt-havainto-arvo]').allInnerTexts()).toEqual(['Ei vielä', 'Ohjatusti', 'Itsenäisesti']);   // ei "Merkitse havainto" -väliaskelta
-        await p.locator('.kt-sig [data-kt-havainto-arvo="2"]').click(); await p.waitForFunction(() => window.__kirj.length > 0, null, { timeout: 8000 });
-        const k = await p.evaluate(() => window.__kirj); expect(k).toHaveLength(1); expect(k[0].path).toBe('seurat/demo/pelaajat/p2');
-        const P = 'jaksofokus.osa_havainnot.y_h1.a.u1.', u = k[0].update; expect(u[P + 'arvo']).toBe(2); expect(u[P + 'rooli']).toBe(rooli); expect(u[P + 'pvm']).toBe('2026-10-19'); expect(Object.keys(u).some((x) => /\.lause$/.test(x))).toBe(false);   // B2b: vain arvo, pvm, rooli
+        await p.locator('.kt-sig [data-kt-havainto-arvo="2"]').click(); await p.waitForFunction(() => (window.__batch || []).length > 0, null, { timeout: 8000 });
+        // sisainen/tiedot dual-write samassa batchissa (#1144–#1147): yksi napautus = yksi commit, ei suoria kirjoituksia
+        expect(await p.evaluate(() => window.__kirj)).toEqual([]); expect(await p.evaluate(() => window.__batch.length)).toBe(1);
+        const P = 'jaksofokus.osa_havainnot.y_h1.a.u1.', u = await batchPelaaja(p, 0); expect(u[P + 'arvo']).toBe(2); expect(u[P + 'rooli']).toBe(rooli); expect(u[P + 'pvm']).toBe('2026-10-19'); expect(Object.keys(u).some((x) => /\.lause$/.test(x))).toBe(false);   // B2b: vain arvo, pvm, rooli
         expect(await hash(p)).toBe('#pelaaja/p2/tanaan'); expect(await p.locator('[data-kt-valilehti][aria-selected="true"]').innerText()).toBe('Tänään');
         expect(await p.locator('#toast-wrap .toast-item').innerText()).toMatch(/^Tallennettu\s*·\s*Kumoa$/); expect(await p.locator('[data-kt-kumoa]').count()).toBe(1);
         await sk.close();
@@ -81,14 +89,15 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, { hash: '#pelaaja/p2/tanaan' }); await odota(p);
       await p.locator('.kt-sig [data-kt-havainto-arvo="3"]').click(); await p.waitForSelector('[data-kt-kumoa]');
-      await p.locator('[data-kt-kumoa]').click(); await p.waitForFunction(() => window.__kirj.length === 2, null, { timeout: 8000 });
-      const u = await p.evaluate(() => window.__kirj[1].update); expect(u['jaksofokus.osa_havainnot.y_h1.a.u1']).toBe('DEL'); expect(u['jaksofokus.osa_arviot.y_h1']).toBe('DEL');   // ei aiempaa → kentät poistetaan
+      await p.locator('[data-kt-kumoa]').click(); await p.waitForFunction(() => (window.__batch || []).length === 2, null, { timeout: 8000 });
+      expect(await p.evaluate(() => window.__kirj)).toEqual([]);   // kumoa = toinen batch (pelaaja + sisainen/tiedot, #1144–#1147)
+      const u = await batchPelaaja(p, 1); expect(u['jaksofokus.osa_havainnot.y_h1.a.u1']).toBe('DEL'); expect(u['jaksofokus.osa_arviot.y_h1']).toBe('DEL');   // ei aiempaa → kentät poistetaan
       await p.waitForFunction(() => /Kumottu/.test(document.querySelector('#toast-wrap').innerText), null, { timeout: 5000 });
       expect(await p.locator('.kt-sig [data-kt-havainto-arvo="3"].q').count()).toBe(1);   // paikallinen tila palasi: valinta ei enää korostettu
       await sk.close();
       const r2 = await kaynnista(selain, { hash: '#pelaaja/p2/tanaan' }); await odota(r2.p); await r2.p.locator('.kt-sig [data-kt-havainto-arvo="1"]').click(); await r2.p.waitForSelector('[data-kt-kumoa]');
       await r2.p.waitForFunction(() => !document.querySelector('[data-kt-kumoa]'), null, { timeout: 7000 });   // 5 s → toast pois, Kumoa ei enää tarjolla
-      expect(await r2.p.evaluate(() => window.__kirj.length)).toBe(1); await r2.sk.close();
+      expect(await r2.p.evaluate(() => window.__batch.length)).toBe(1); expect(await r2.p.evaluate(() => window.__kirj)).toEqual([]); await r2.sk.close();   // ei kumousta → vain tallennuksen batch
     } finally { await selain.close(); }
   }, 120000);
   it('B2 · KUMOA palauttaa EDELLISEN arvon: valmentajan aiempi rivi säilyy kun VP kirjoittaa ja kumoaa (VP ei korvaa valmentajaa)', async () => {
@@ -96,9 +105,10 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       const pel = JSON.parse(JSON.stringify(PELAAJAT)); pel[1].jaksofokus.osa_havainnot = { y_h1: { a: { valm9: { arvo: 2, pvm: '2026-09-25', rooli: 'valmentaja' } } } }; pel[1].jaksofokus.osa_arviot = { y_h1: { a: 2 } };
       const { sk, p } = await kaynnista(selain, { rooli: 'vp', hash: '#pelaaja/p2/tanaan', pelaajat: pel }); await odota(p);
       await p.locator('.kt-sig [data-kt-havainto-arvo="3"]').click(); await p.waitForSelector('[data-kt-kumoa]');
-      const k1 = await p.evaluate(() => window.__kirj[0].update); expect(k1['jaksofokus.osa_arviot.y_h1']).toBeUndefined();   // VP ei kirjoita voimassa olevaa arvoa valmentajan päälle
-      await p.locator('[data-kt-kumoa]').click(); await p.waitForFunction(() => window.__kirj.length === 2, null, { timeout: 8000 });
-      const k2 = await p.evaluate(() => window.__kirj[1].update); expect(k2['jaksofokus.osa_havainnot.y_h1.a.u1']).toBe('DEL'); expect(Object.keys(k2).filter((k) => !/osa_havainnot_vk/.test(k))).toEqual(['jaksofokus.osa_havainnot.y_h1.a.u1']); expect(Object.keys(k2).filter((k) => /osa_havainnot_vk/.test(k))).toEqual(['jaksofokus.osa_havainnot_vk.y_h1.a.2026-W43.u1']);   // B2c: viikkohistoria palautuu (ei aiempaa → poisto) await sk.close();
+      const k1 = await batchPelaaja(p, 0); expect(k1['jaksofokus.osa_arviot.y_h1']).toBeUndefined();   // pelaajaop batchista (#1144–#1147)   // VP ei kirjoita voimassa olevaa arvoa valmentajan päälle
+      await p.locator('[data-kt-kumoa]').click(); await p.waitForFunction(() => (window.__batch || []).length === 2, null, { timeout: 8000 });
+      expect(await p.evaluate(() => window.__kirj)).toEqual([]); const k2 = await batchPelaaja(p, 1); expect(k2['jaksofokus.osa_havainnot.y_h1.a.u1']).toBe('DEL'); expect(Object.keys(k2).filter((k) => !/osa_havainnot_vk/.test(k))).toEqual(['jaksofokus.osa_havainnot.y_h1.a.u1']); expect(Object.keys(k2).filter((k) => /osa_havainnot_vk/.test(k))).toEqual(['jaksofokus.osa_havainnot_vk.y_h1.a.2026-W43.u1']);   // B2c: viikkohistoria palautuu (ei aiempaa → poisto)
+      await sk.close();
     } finally { await selain.close(); }
   }, 60000);
   it('B2 · "+ Lause tai klippi" → lyhyt alasheet: valinta + lause tallentuu samaan omaan riviin; KIELLETYT-sana ja yli 140 merkkiä estetään; valinta pakollinen', async () => {
@@ -108,8 +118,9 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
       expect(await p.locator('.ts-lyhyt').count()).toBe(1); await p.locator('[data-kt-havainto-sheet-tallenna]').click(); expect(await p.locator('[data-kt-havainto-virhe]').innerText()).toBe('Valitse ensin, näkyikö osa.');
       await p.locator('input[name="ktHavArvo"][value="2"]').check(); await p.locator('#ktHavLause').fill('Tämä on heikkous'); await p.locator('[data-kt-havainto-sheet-tallenna]').click(); expect(await p.locator('[data-kt-havainto-virhe]').innerText()).toMatch(/heikkou/);
       await p.locator('#ktHavLause').fill('Katsoi hyvin ylös ennen vastaanottoa'); await p.locator('[data-kt-havainto-sheet-tallenna]').click();
-      await p.waitForFunction(() => window.__kirj.length === 1, null, { timeout: 8000 }); expect(await p.locator('[data-ts-sheet]').count()).toBe(0);
-      { const u = await p.evaluate(() => window.__kirj[0].update); expect(u['jaksofokus.osa_havainnot.y_h1.a.u1.arvo']).toBe(2); expect(u['jaksofokus.osa_havainnot.y_h1.a.u1.lause']).toBe('Katsoi hyvin ylös ennen vastaanottoa'); } await sk.close();
+      await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 }); expect(await p.locator('[data-ts-sheet]').count()).toBe(0);
+      expect(await p.evaluate(() => window.__kirj)).toEqual([]);   // tallennus = yksi batch (pelaaja + sisainen/tiedot, #1144–#1147)
+      { const u = await batchPelaaja(p, 0); expect(u['jaksofokus.osa_havainnot.y_h1.a.u1.arvo']).toBe(2); expect(u['jaksofokus.osa_havainnot.y_h1.a.u1.lause']).toBe('Katsoi hyvin ylös ennen vastaanottoa'); } await sk.close();
     } finally { await selain.close(); }
   }, 60000);
   it('B2 · D100: sulkeminen (‹ Sulje, Esc, tausta) SÄILYTTÄÄ luonnoksen; "Luonnos säilytetty" avaajan vieressä; Hylkää luonnos / Tallenna tyhjentää; yksi sheet kerrallaan', async () => {
@@ -122,7 +133,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitys
         await p.waitForFunction(() => !document.querySelector('[data-ts-sheet]')); expect(await p.locator('.ts-luonnos-merkki').innerText(), tapa).toBe('Luonnos säilytetty');
         await avaaSheet(); expect(await p.locator('#ktHavLause').inputValue(), tapa).toBe('Luonnoksen teksti'); expect(await p.locator('input[name="ktHavArvo"][value="3"]').isChecked(), tapa).toBe(true); expect(await p.locator('[data-ts-luonnos]').innerText()).toBe('Luonnos säilytetty');
       }
-      expect(await p.evaluate(() => window.__kirj.length)).toBe(0);   // mitään ei kirjoitettu sulkemalla
+      expect(await kirjoitukset(p)).toEqual([]);   // mitään ei kirjoitettu sulkemalla (myös batchit)
       await p.locator('[data-ts-hylkaa]').click(); await p.waitForFunction(() => !document.querySelector('[data-ts-sheet]')); expect(await p.locator('.ts-luonnos-merkki').count()).toBe(0);
       await avaaSheet(); expect(await p.locator('#ktHavLause').inputValue()).toBe(''); expect(await p.locator('[data-ts-luonnos]').count()).toBe(0);
       await p.keyboard.press('Escape'); await p.waitForFunction(() => !document.querySelector('[data-ts-sheet]')); expect(await p.locator('.ts-luonnos-merkki').count()).toBe(0);   // koskematon sheet ei jätä luonnosta
