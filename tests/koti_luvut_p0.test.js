@@ -7,6 +7,13 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (sama hetki kuin NYT; §28-ikkuna lasketaan kuluvasta vuodesta). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-09T12:00:00Z');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);

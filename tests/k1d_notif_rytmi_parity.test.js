@@ -3,6 +3,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (sama hetki kuin NYT; ikäkaista lasketaan kuluvasta vuodesta). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-21T12:00:00');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
 const N = require('../lib/tm_eerikkila_normit.js'), RN = require('../functions/rytmi_notif.js'), S = require('../lib/tm_tanaan_signaali.js');
 globalThis.normiIka = N.normiIka;

@@ -6,6 +6,13 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (PV (tuore päivä) ja tasopalkkien tuoreusraja lasketaan samasta kellosta). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-15T09:00:00');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const VP = lue('TalentMaster_VP_v25.html');

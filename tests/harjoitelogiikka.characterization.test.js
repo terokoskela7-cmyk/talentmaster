@@ -15,6 +15,13 @@
  *     {ac}). harjoitelogiikka_v4.js:1105-1113. Spec-fikstuuri {ac:0.2} EI laukaise overridea.
  */
 import { createRequire } from 'module';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (ikä- ja tuoreuslaskut eivät saa muuttua vuodenvaihteessa). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-15T09:00:00');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
 const lib = require('../harjoitelogiikka_v4.js');
 

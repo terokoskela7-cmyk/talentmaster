@@ -11,6 +11,13 @@ import { dirname, join } from 'path';
 import { tmpdir } from 'os';
 import { spawn } from 'child_process';
 import vm from 'vm';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (sama hetki kuin NYT; sivukoodi vm:ssä lukee Datea suoraan). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-11-12T10:00:00Z');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (f) => readFileSync(join(juuri, f), 'utf8');
