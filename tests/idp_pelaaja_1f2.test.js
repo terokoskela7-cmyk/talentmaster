@@ -6,6 +6,13 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { vi, beforeEach, afterAll } from 'vitest';
+// Kiinteä kello (sama hetki kuin NYT; kausi = kuluva vuosi). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-19T06:00:00.000Z');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const D = require('../lib/tm_idp_pelaaja_dok.js'), I = require('../lib/tm_idp.js'), L = require('../lib/tm_idp_lomake.js'), M = require('../scripts/migroi_idp_pelaaja.js');
