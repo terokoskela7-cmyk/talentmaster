@@ -85,12 +85,9 @@ describe('Pelaaja_v7 — kielivalitsin FI/SV/EN (ei DE) + ydinpinta + cache-bust
   // eksakti pinni — muuten jokainen sääntöjenmukainen bumppi punertaisi portin (moninumeroiset
   // versiot mukaan: ?v=10 ei saa pudota [2-9]-luokasta).
   it('tm_lang ?v ≥ 2 (uudet avaimet) + SW-cache ≥ v13', () => {
-    const v = PEL.match(/lib\/tm_lang\.js\?v=(\d+)/);
-    expect(v).toBeTruthy();
-    expect(Number(v[1])).toBeGreaterThanOrEqual(2);
-    const c = readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8').match(/const CACHE = 'tm-pelaaja-v(\d+|\d{3,})'/);
-    expect(c).toBeTruthy();
-    expect(Number(c[1])).toBeGreaterThanOrEqual(13);
+    // QG-2: ?v ja cachenimi lasketaan deployssa sisällöstä (scripts/versiotiiviste.js).
+    expect(PEL).toContain('<script src="lib/tm_lang.js"></script>');
+    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toContain("const CACHE = 'tm-pelaaja-dev';");
   });
   it('§7.1: konsolidointi ei tuo nested template literaleja (T-delegaatio on yksi rivi)', () => {
     expect(PEL).toContain("const T = (k, m) => (typeof t === 'function'");

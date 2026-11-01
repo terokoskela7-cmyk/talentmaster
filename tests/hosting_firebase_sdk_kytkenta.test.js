@@ -121,7 +121,7 @@ describe('Firebase-SDK:n kytkentä tarjoiltavissa appeissa', () => {
     expect(s, 'Firestoren offline-jono').toContain('enablePersistence');
     expect(s, 'SW-rekisterointi').toContain("navigator.serviceWorker.register('sw_adar.js");
     const sw = lue('sw_adar.js');
-    expect(sw, 'versioitu cache').toMatch(/const CACHE = 'tm-adar-v\d+'/);
+    expect(sw, 'versioitu cache').toMatch(/const CACHE = 'tm-adar-dev'/);
     expect(sw, 'uusi deploy syrjayttaa vanhan').toContain('skipWaiting');
     expect(sw).toContain('clients.claim');
     // Allowlist-periaate (§27.4): SW ei saa cachettaa muiden appien sivuja.

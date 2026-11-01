@@ -70,9 +70,9 @@ describe('Master _mIdpTallennaDok + VP _vpTallennaIdpDok (OIKEA sivukoodi)', () 
 
 describe('sitoumus: vahvistuksen kirjoitus + lukijat (lähdekoodikytkennät + lib)', () => {
   it('Master, VP ja Kehitystyöpöytä vahvistavat tmIdpSitoumusKirjoita:lla (idp_kausi + idp_pelaaja) ja lukevat tmIdpPelaajaLueSitoumus:lla', () => {
-    ['TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html'].forEach((f) => { const s = lue(f); expect(s, f).toMatch(/tmIdpSitoumusKirjoita\(_db, _seuraId, pid, vuosi, _sitV/); expect(s, f).toMatch(/tmIdpPelaajaLueSitoumus\(_db, _seuraId, pid, vuosi/); expect(s, f).toMatch(/lib\/tm_idp_pelaaja_dok\.js\?v=\d+\b/); });
-    const vp = lue('TalentMaster_VP_v25.html'); expect(vp).toMatch(/tmIdpSitoumusKirjoita\(db, _seuraId, p\.id, vuosi, p\._idpSitoumus/); expect(vp).toMatch(/tmIdpPelaajaLueSitoumus\(db, _seuraId, p\.id, vuosi, sdata/); expect(vp).toMatch(/lib\/tm_idp_pelaaja_dok\.js\?v=\d+\b/);
-    const se = lue('TalentMaster_Seura.html'); expect(se).toMatch(/tmIdpPelaajaLueSitoumus\(db, sid, p\.id, String\(vuosi\)/); expect(se).toMatch(/lib\/tm_idp_pelaaja_dok\.js\?v=\d+\b/);
+    ['TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html'].forEach((f) => { const s = lue(f); expect(s, f).toMatch(/tmIdpSitoumusKirjoita\(_db, _seuraId, pid, vuosi, _sitV/); expect(s, f).toMatch(/tmIdpPelaajaLueSitoumus\(_db, _seuraId, pid, vuosi/); expect(s, f).toMatch(/lib\/tm_idp_pelaaja_dok\.js/); });
+    const vp = lue('TalentMaster_VP_v25.html'); expect(vp).toMatch(/tmIdpSitoumusKirjoita\(db, _seuraId, p\.id, vuosi, p\._idpSitoumus/); expect(vp).toMatch(/tmIdpPelaajaLueSitoumus\(db, _seuraId, p\.id, vuosi, sdata/); expect(vp).toMatch(/lib\/tm_idp_pelaaja_dok\.js/);
+    const se = lue('TalentMaster_Seura.html'); expect(se).toMatch(/tmIdpPelaajaLueSitoumus\(db, sid, p\.id, String\(vuosi\)/); expect(se).toMatch(/lib\/tm_idp_pelaaja_dok\.js/);
   });
   it('tmIdpPelaajaLueSitoumus: lippu pois → idp_kausi ilman lisäkyselyä; päällä → idp_pelaaja voittaa; luku-virhe → idp_kausi; ei lukuja kumpaankaan → null', async () => {
     const { db } = fakeDb({ [IDPP]: { pelaaja_sitoumus: { s: 'pelaaja' } } }); let luettu = 0; const get0 = db.collection; 

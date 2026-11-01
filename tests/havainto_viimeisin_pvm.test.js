@@ -90,7 +90,7 @@ describe('havainto_viimeisin_pvm kirjoitus (ADAR-pikakortti, KPV U13 -testipelaa
   });
   it('lähde: molemmat kirjoituspolut (online _phTallenna + offline-synkka) kulkevat tämän funktion kautta; sw_adar-cache nostettu; ei suoraa havRef.set(data) -kirjoitusta', () => {
     expect((ADAR.match(/_phKirjoitaHavaintoJaPikakentat\(/g) || []).length).toBeGreaterThanOrEqual(3);   // määrittely + 2 kutsua
-    expect(readFileSync(join(juuri, 'sw_adar.js'), 'utf8')).toMatch(/const CACHE = 'tm-adar-v\d+'/);
+    expect(readFileSync(join(juuri, 'sw_adar.js'), 'utf8')).toMatch(/const CACHE = 'tm-adar-dev'/);
     expect(pura('function _phS4Valmista(') + '\n' + pura('function _phS4Sisainen(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(')).not.toMatch(/havRef\.set\(/);
     expect(pura('function _phS4Valmista(') + '\n' + pura('function _phS4Sisainen(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(')).toMatch(/_PH_DB\.batch\(\)[\s\S]*batch\.set\(havRef, data\)[\s\S]*havainto_viimeisin_pvm/);
   });

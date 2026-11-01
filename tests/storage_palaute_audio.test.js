@@ -136,7 +136,7 @@ describe('Ääripalaute-audio · Storage peilaa Firestorea', () => {
   });
 
   it('KOODI: VP käyttää jaettua nauhoitinydintä, ei omaa toteutusta', () => {
-    expect(VP, 'VP ei lataa tm_aania').toMatch(/<script src="lib\/tm_aani\.js\?v=\d+"><\/script>/);
+    expect(VP, 'VP ei lataa tm_aania').toMatch(/<script src="lib\/tm_aani\.js"><\/script>/);
     expect(VP, 'VP ei luo nauhoitinta libistä').toContain('tmAani.luo(');
   });
 });

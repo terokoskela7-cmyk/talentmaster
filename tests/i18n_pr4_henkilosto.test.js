@@ -77,7 +77,7 @@ describe('ADAR-pikakortti — tekstit libissä (lib/tm_adar_tekstit.js)', () => 
   it('ADAR SW: uudet tiedostot allowlistissa ja cache nostettu', () => {
     const sw = lue('sw_adar.js');
     ['tm_lang', 'tm_i18n_common', 'tm_lib_i18n', 'tm_henkilosto_i18n', 'tm_adar_tekstit'].forEach((n) => expect(sw, n).toContain(n));
-    expect(sw).toMatch(/tm-adar-v1[3-9]|tm-adar-v[2-9]\d/);
+    expect(sw).toContain("const CACHE = 'tm-adar-dev';");   // QG-2: deploy laskee nimen
   });
 });
 

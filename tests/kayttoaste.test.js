@@ -87,7 +87,7 @@ function poimiFunktio(src, nimi) {   // function-lause rungon sulkuun asti
 describe('Admin — Pilotin tila: Käyttöaste (osio libissä, kuoressa vain liima)', () => {
   const A = lue('TalentMaster_Admin.html');
   it('skriptit ladataan; kehys lisätään suppilon jälkeen; lataus renderin lopussa; liima kutsuu paivitaSeuranKooste europe-west1:stä', () => {
-    for (const f of ['tm_seuran_kooste.js', 'tm_joukkuejakso.js', 'tm_kayttoaste.js']) expect(A).toMatch(new RegExp('<script src="lib/' + f.replace('.', '\\.') + '\\?v=\\d+"></script>'));
+    for (const f of ['tm_seuran_kooste.js', 'tm_joukkuejakso.js', 'tm_kayttoaste.js']) expect(A).toMatch(new RegExp('<script src="lib/' + f.replace('.', '\\.') + '"></script>'));
     expect(A).toContain('window.TM_KAYTTOASTE.tmKayttoasteKehysHTML()'); expect(A).toMatch(/if \(el\) el\.innerHTML = html;\s*window\.kayttoasteLataa\(\);/);
     expect(A).toContain("httpsCallable('paivitaSeuranKooste')"); expect(A).toContain("firebase.app().functions('europe-west1')"); expect(A).toContain('window.kayttoastePaivitaKaikki');
   });
@@ -123,7 +123,7 @@ describe('VP_v25 — Koti: Sovelluksen käyttö', () => {
   const V = lue('TalentMaster_VP_v25.html');
   it('kortti lisätään Kotiin (lipusta riippumatta) ja ladataan renderin jälkeen; skriptit ladataan', () => {
     expect(V).toContain('<div id="vpKayttoasteKortti"'); expect(V).toMatch(/el\.innerHTML = h;\s*vpKayttoasteLataa\(\);/);
-    expect(V).toMatch(/<script src="lib\/tm_kayttoaste\.js\?v=\d+"><\/script>/); expect(V).toMatch(/<script src="lib\/tm_seuran_kooste\.js\?v=\d+"><\/script>/);
+    expect(V).toMatch(/<script src="lib\/tm_kayttoaste\.js"><\/script>/); expect(V).toMatch(/<script src="lib\/tm_seuran_kooste\.js"><\/script>/);
   });
   it('vpKayttoasteLataa: oman seuran kooste → taulukko; lukuvirhe (ei oikeutta) → kortti piiloon, ei virhettä', async () => {
     const f = poimiFunktio(V, 'vpKayttoasteLataa');

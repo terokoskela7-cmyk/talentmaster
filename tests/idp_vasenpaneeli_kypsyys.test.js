@@ -89,7 +89,7 @@ describe('B — vasemman paneelin kytkentä (rakenteellinen vartija)', () => {
   });
 
   it('tm_kypsyys.js ?v bumpattu (kutsutaan nyt oikeasti näkyviin)', () => {
-    expect(HTML).toContain('lib/tm_kypsyys.js?v=3');
+    expect(HTML).toContain('lib/tm_kypsyys.js');
   });
 
   it('--surface2-alias määritelty molemmissa teemoissa (komponentin neutraalit segmentit vaalealla)', () => {

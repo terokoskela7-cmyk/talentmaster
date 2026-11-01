@@ -10,5 +10,5 @@ describe('tm_kielletyt', () => {
     expect(String(KV.KIELLETYT)).toBe(m[1]);
     for (const s of ['heikkous', 'Heikkoudet', 'rajoite', 'rajoittaa', 'kriittinen', 'kriittisesti', 'hyvä peli', '', null, undefined]) expect(KV.tmJaksoTekstiKelpaa(s), String(s)).toEqual(JM.tmJaksoTekstiKelpaa(s));
   });
-  it('Pelaaja_v7 lataa vain tm_kielletyt.js, ei tm_jakso_malli.js:ää', () => { const h = readFileSync(new URL('../TalentMaster_Pelaaja_v7.html', import.meta.url), 'utf8'); expect(h).toContain('lib/tm_kielletyt.js?v=1'); expect(h).not.toMatch(/tm_jakso_malli|TM_JAKSO_MALLI/); });
+  it('Pelaaja_v7 lataa vain tm_kielletyt.js, ei tm_jakso_malli.js:ää', () => { const h = readFileSync(new URL('../TalentMaster_Pelaaja_v7.html', import.meta.url), 'utf8'); expect(h).toContain('lib/tm_kielletyt.js'); expect(h).not.toMatch(/tm_jakso_malli|TM_JAKSO_MALLI/); });
 });

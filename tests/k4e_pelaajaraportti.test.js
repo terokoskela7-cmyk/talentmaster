@@ -111,7 +111,7 @@ describe('K4e A · sivun glue (lähdevartijat)', () => {
     expect(S).toContain('window._prKirjaaKeskustelu = function (pid) { window._prSulje(); return window._ktKesAvaa(pid); };'); expect(pura(S, 'function _prCtx')).toContain('tmTanaanSignaali'); expect(pura(S, 'window._tallennaD3 = async function')).toContain('if (_pr.pid === pid) _prPiirra();');
   });
   it('lib-versiot: tm_pelaajaraportti.js ladataan, kt_sivu ?v=10 (Master + VP + sivu)', () => {
-    expect(S).toMatch(/lib\/tm_pelaajaraportti\.js\?v=\d+/); ['TalentMaster_Kehitystyopoyta.html', 'TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html'].forEach((f) => expect(lue(f), f).toContain('lib/tm_kt_sivu.js?v=10'));
+    expect(S).toMatch(/lib\/tm_pelaajaraportti\.js/); ['TalentMaster_Kehitystyopoyta.html', 'TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html'].forEach((f) => expect(lue(f), f).toContain('lib/tm_kt_sivu.js'));
   });
 });
 

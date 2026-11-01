@@ -172,6 +172,6 @@ describe('(6) P7: hist_n + pelaajan kortin snapshot', () => {
 describe('(7) functions-kopio ja ?v-bumpit', () => {
   it('functions/tm_sisainen.js on tavu tavulta lib/tm_sisainen.js (uudet apurit CF:n puolella samat); sivut lataavat uuden ?v', () => {
     expect(lue('functions/tm_sisainen.js')).toBe(lue('lib/tm_sisainen.js'));
-    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toMatch(/lib\/tm_sisainen\.js\?v=(?:1[1-9]|[2-9]\d)\b/);
+    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toMatch(/lib\/tm_sisainen\.js/);
   });
 });

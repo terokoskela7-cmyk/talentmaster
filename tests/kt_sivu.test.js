@@ -84,7 +84,7 @@ describe('B7 · Service Worker -allowlist (§27.4): Pelaaja/Vanhempi-SW eivät c
   for (const sw of ['sw_pelaaja.js', 'sw_vanhempi.js']) {
     it(sw + ': onOmaHtml / onAllowlist → false uudelle sivulle ja tm_kt_sivu.js:lle (tuore verkosta)', () => {
       const ctx = { self: { addEventListener() {}, skipWaiting() {}, clients: { claim() {} } }, caches: {}, console, URL, location: { origin: 'https://x.test' } }; vm.createContext(ctx); vm.runInContext(lue(sw) + '\nthis.__o=typeof onOmaHtml==="function"?onOmaHtml:null;this.__a=typeof onAllowlist==="function"?onAllowlist:null;', ctx);
-      const sivu = 'https://x.test/talentmaster/TalentMaster_Kehitystyopoyta.html#pelaaja/p1/tanaan', lib = 'https://x.test/talentmaster/lib/tm_kt_sivu.js?v=1';
+      const sivu = 'https://x.test/talentmaster/TalentMaster_Kehitystyopoyta.html#pelaaja/p1/tanaan', lib = 'https://x.test/talentmaster/lib/tm_kt_sivu.js';
       if (ctx.__o) expect(ctx.__o(sivu), 'onOmaHtml').toBe(false); if (ctx.__a) { expect(ctx.__a(sivu), 'onAllowlist sivu').toBe(false); expect(ctx.__a(lib), 'onAllowlist lib').toBe(false); }
       expect(ctx.__o || ctx.__a, 'SW:n allowlist-funktiot löytyvät (testi ei ole tyhjä)').toBeTruthy();
     });
@@ -131,7 +131,7 @@ describe('B7 · Master ja VP linkittävät uuteen sivuun lipun kehitystyopoyta_v
   it('VP: kehitystyopoyta_v2 luetaan liput-objektista ennen kentta-ehtoa (jotta uusi sivu avautuu myös ilman V4-lippua)', () => {
     const f = pura(VP, 'async function _ktKaynnista()'); expect(f.indexOf('_ktSivuLippu')).toBeLessThan(f.indexOf('liput.kentta !== true'));
   });
-  it('molemmat lataavat lib/tm_kt_sivu.js ?v:llä', () => { for (const s of [MASTER, VP]) expect(s).toMatch(/<script src="lib\/tm_kt_sivu\.js\?v=\d+"><\/script>/); });
+  it('molemmat lataavat lib/tm_kt_sivu.js ?v:llä', () => { for (const s of [MASTER, VP]) expect(s).toMatch(/<script src="lib\/tm_kt_sivu\.js"><\/script>/); });
 });
 describe('B7 · tekstit: fi-oletukset, en + sv-erätiedosto (Code ei kirjoita ruotsia)', () => {
   const ERA = JSON.parse(lue('docs/i18n/sv_kaannoserae_43_gemini.json')), RIVIT = ERA.osiot['lib.tm_kt_sivu'].rivit;
