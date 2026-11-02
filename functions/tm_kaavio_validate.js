@@ -45,6 +45,8 @@ function validate(s, ctx) {
     if (!["oma", "vastustaja"].includes(p.joukkue)) E.push(`${p.id}: joukkue ei sallittu (${p.joukkue})`);
     if (!ROOLIT.includes(p.rooli)) E.push(`${p.id}: rooli ei sallittu (${p.rooli})`);
     if (!inB(p.x) || !inB(p.y)) E.push(`${p.id}: koordinaatti rajan ulkona (${p.x},${p.y})`);
+    // K2b: valinnainen jokeri-merkintä (alue-kuvan rengas). Puuttuu = ei jokeri → aiemmin validit specit pysyvät valideina.
+    if (p.jokeri != null && typeof p.jokeri !== "boolean") E.push(`${p.id}: jokeri ei ole boolean (${p.jokeri})`);
   });
   // pelaajamäärä ≤ pelimuoto
   const [co, cv, ck] = capOf(s.pelimuoto);

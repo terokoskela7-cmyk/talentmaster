@@ -1101,6 +1101,7 @@ function kasittelija(admin, functions, riip) {
         kaavio: kaavio.tila,                 // 'ok' | 'hylatty' | null (ei lohkoa / lippu pois / HP)
         kaavioVirheet: kaavio.virheet,       // max 10
         kaavioMerkit: kaavio.merkit,
+        kaavioNormalisoitu: kaavio.normalisoitu,   // K2b: mallin korjatut lipsahdukset, esim. ['rooli:A2'] (max 10)
         kestoMs: Date.now() - alku,
         aika: new Date().toISOString(),
         palaute: null,

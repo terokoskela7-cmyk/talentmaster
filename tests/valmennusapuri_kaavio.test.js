@@ -2,7 +2,7 @@
  * K2 (CODE_BRIEF_K2_APURI_KAAVIO 2.11.2026): valmennusapurin kaavio — selain/lib-puoli.
  *   A) PELIMUOTO "AvB+K" (jokeri): validaattori + editorin katto, vanhat specit ennallaan
  *   B) SIIRTO apurisivu → Master (lib/tm_kaavio_apuri.js): kertaluku, vanheneminen, sama luonnosmuoto kuin "Luo ja muokkaa"
- *   C) RAJAUS pienalueelle: vain nakyma "alue", alue + pelaajat + selitteet mahtuvat
+ *   C) RAJAUS: deprekoitu K2b:ssä (null); pienalueen kuva = renderöijän drawAlue (tests/kaavio_alue_render_selain.test.js)
  *   D) MASTER-VASTAANOTTO: oikeus, seura, validointi, SAMA editori (ei uutta kirjoituspolkua → ei Rules-muutosta)
  *   E) KYTKENNÄT: Master + apurisivu lataavat jaetut libit, functions/-kopiot tavu tavulta samat
  */
@@ -89,26 +89,17 @@ describe('B) siirto apurisivulta Masteriin', () => {
   });
 });
 
-describe('C) pienalueen rajaus', () => {
-  const r = { PX: R.kaavioPX, PY: R.kaavioPY, VW: R.KAAVIO_VW, VH: R.KAAVIO_VH };
-  it('vain nakyma "alue" + vyohyke rajataan; muut koko kenttä', () => {
+describe('C) pienalueen rajaus (K2b: deprekoitu, kuvan tekee drawAlue)', () => {
+  it('rajaus() palauttaa aina null (vanha ajuri toimii, ei zoomausta)', () => {
+    const r = { PX: R.kaavioPX, PY: R.kaavioPY, VW: R.KAAVIO_VW, VH: R.KAAVIO_VH };
+    expect(AP.rajaus(SPEC, r)).toBe(null);
     expect(AP.rajaus({ ...SPEC, nakyma: 'puolisko' }, r)).toBe(null);
-    expect(AP.rajaus({ ...SPEC, vyohyke: undefined }, r)).toBe(null);
   });
-  it('alue, pelaajat ja selite mahtuvat rajaukseen; vähintään 150 yksikköä; kentän sisällä', () => {
-    const b = AP.rajaus(SPEC, r);
-    expect(b.w).toBeGreaterThanOrEqual(150); expect(b.h).toBeGreaterThanOrEqual(150);
-    expect(b.x).toBeGreaterThanOrEqual(0); expect(b.y).toBeGreaterThanOrEqual(0);
-    expect(b.x + b.w).toBeLessThanOrEqual(r.VW); expect(b.y + b.h).toBeLessThanOrEqual(r.VH);
-    const z = SPEC.vyohyke;
-    expect(b.x).toBeLessThanOrEqual(r.PX(z.x)); expect(b.x + b.w).toBeGreaterThanOrEqual(r.PX(z.x + z.w));
-    SPEC.pelaajat.forEach((p) => { expect(r.PX(p.x)).toBeGreaterThan(b.x); expect(r.PY(p.y)).toBeLessThan(b.y + b.h); });
-    expect(b.viewBox).toBe(b.x + ' ' + b.y + ' ' + b.w + ' ' + b.h);
-    expect(b.w).toBeLessThan(r.VW * 0.75);   // oikeasti zoomaa (15×15 m ei jää postimerkiksi)
-  });
-  it('reunalla oleva alue pysyy kentän sisällä', () => {
-    const b = AP.rajaus({ ...SPEC, vyohyke: { x: 0, y: 0, w: 20, h: 14 }, pelaajat: [pel('A', 'oma', 2, 2)], selitteet: [] }, r);
-    expect(b.x).toBe(0); expect(b.y).toBe(0);
+  it('apurisivu ei enää kutsu rajausta eikä muuta viewBoxia; editori piirtää täyskentän', () => {
+    const h = lue('TalentMaster_Valmennusapuri.html');
+    expect(h).not.toMatch(/\.rajaus\(/);
+    expect(h).not.toMatch(/setAttribute\('viewBox'/);
+    expect(lue('lib/tm_kaavio_ui.js')).toMatch(/drawSpec\(_kaavioTila\.muokkaus\.spec, _kaavioLang\(\), \{ taysikentta: true \}\)/);
   });
 });
 

@@ -1,6 +1,6 @@
 /* K2 · Valmennusapurin kaavio OIKEASSA selaimessa (Playwright + järjestelmän Chrome). TalentMaster_Valmennusapuri.html file://-osoitteesta,
    Firebase-SDK korvataan stubilla (page.route), callable vastaa muistista — ei verkkoa. Ei Firestorea: apurisivu ei kirjoita mitään, tallennus on Masterissa.
-   Tarkistaa: kaavio piirtyy jaetulla renderöijällä vastauksen alle (mobiili 390), pienalue rajataan, painike vain oikeudella, sv-teksti, siirto Masteriin. */
+   Tarkistaa: kaavio piirtyy jaetulla renderöijällä vastauksen alle (mobiili 390), pienalue omana alue-kuvana (K2b), painike vain oikeudella, sv-teksti, siirto Masteriin. */
 import { describe, it, expect } from 'vitest';
 import { join } from 'path';
 import { CHROME, JUURI, selainKaynnista } from './helpers/kt_sivu.mjs';
@@ -42,13 +42,21 @@ async function avaa(selain, cfg, o) {
 const SUODATA = (v) => v.filter((e) => !/Failed to load resource|net::ERR|version\.json/i.test(e));
 
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K2 · apurin kaavio selaimessa', () => {
-  it('valmentaja (fi, 390): kaavio piirtyy vastauksen alle, pienalue rajattu, painike siirtää Masteriin', async () => {
+  it('valmentaja (fi, 390): kaavio piirtyy vastauksen alle, pienalue alue-kuvana, painike siirtää Masteriin', async () => {
     const selain = await selainKaynnista(); try {
       const { sk, p, virheet } = await avaa(selain, { claims: { rooli: 'valmentaja', seuraId: 'demo' }, kaavio: SPEC });
       const svg = p.locator('.va-viesti.apuri .va-kaavio svg');
       expect(await svg.count()).toBe(1);
       expect(await p.locator('.va-viesti.apuri .va-kaavio svg circle').count()).toBeGreaterThan(5);
       expect(await svg.getAttribute('viewBox')).not.toBe('0 0 300 450');
+      // K2b: alue-kuva (drawAlue), ei zoomattua täyskenttää; värit sivun --al-tokeneista
+      expect(await svg.getAttribute('class')).toBe('pitch alue');
+      expect(await svg.getAttribute('viewBox')).toMatch(/^0 0 300 \d/);
+      const kuva = await svg.evaluate((s) => ({ tekstit: [...s.querySelectorAll('text')].map((t) => t.textContent),
+        oma: getComputedStyle(s.querySelector('g > circle[r="9.5"]')).fill }));
+      expect(kuva.tekstit).toContain('Hyökkäys');
+      expect(kuva.tekstit.some((t) => / m · hyökkäyssuunta ↑$/.test(t))).toBe(true);
+      expect(kuva.oma).toBe('rgb(22, 119, 93)');   // --al-oma vaalea #16775D (apurisivu data-theme="light")
       expect(await svg.getAttribute('aria-label')).toBe('Konseptipelin kaavio');
       const leveys = await p.locator('.va-kaavio').evaluate((e) => e.getBoundingClientRect().width);
       expect(leveys).toBeLessThanOrEqual(390);

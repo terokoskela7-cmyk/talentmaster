@@ -29,7 +29,7 @@ const VASTAUS = 'Konseptipeli: 2v2+1 alueella 15×15 m.\n\n' + lohko();
 // ── Poiminta ──────────────────────────────────────────────────────────────────
 test('K2 poiminta: ei lohkoa → teksti ennallaan, tila null', () => {
   const r = K.kasitteleKaavio('Pelkkä teksti.', { paalla: true });
-  assert.deepStrictEqual(r, { teksti: 'Pelkkä teksti.', kaavio: null, tila: null, virheet: [], merkit: null });
+  assert.deepStrictEqual(r, { teksti: 'Pelkkä teksti.', kaavio: null, tila: null, virheet: [], merkit: null, normalisoitu: [] });
 });
 test('K2 poiminta: yksi lohko → ok, spec palautuu, lohko pois tekstistä', () => {
   const r = K.kasitteleKaavio(VASTAUS, { paalla: true });
@@ -92,6 +92,52 @@ test('K2 validaattori: KPI tarkistetaan kaanonia vasten (y_h8 KPI:t a–c → d 
   assert.match(r.virheet.join(' '), /kpi "d" ei ole konseptin y_h8 KPI-listalla/);
   assert.strictEqual(K.kasitteleKaavio(lohko(Object.assign({}, SPEC, { avain: 'Y-H8', kpi: 'c' })), { paalla: true }).tila, 'ok');
 });
+// ── K2b: jokeri-kenttä ja mallin lipsahdusten normalisointi ─────────────────────────
+const V = require('../tm_kaavio_validate.js');
+const kopio = () => JSON.parse(JSON.stringify(SPEC));
+const rooliksi = (rooli, id) => { const s = kopio(); s.pelaajat.find((p) => p.id === (id || 'A')).rooli = rooli; return s; };
+test('K2b validaattori: jokeri:"x" → E, jokeri:true / false → OK, puuttuu → OK', () => {
+  const s = kopio(); s.avain = 'y_h5';
+  assert.deepStrictEqual(V.validoiKaavio(s).E, []);
+  s.pelaajat[2].jokeri = true; assert.deepStrictEqual(V.validoiKaavio(s).E, []);
+  s.pelaajat[2].jokeri = false; assert.deepStrictEqual(V.validoiKaavio(s).E, []);
+  s.pelaajat[2].jokeri = 'x'; assert.deepStrictEqual(V.validoiKaavio(s).E, ['J: jokeri ei ole boolean (x)']);
+});
+test('K2b normalisointi: syottaja → syöttäjä ja SYÖTTÄJÄ → syöttäjä → validi; loki rooli:A', () => {
+  ['syottaja', 'SYÖTTÄJÄ', ' Syöttäjä ', 'SYOTTAJA'].forEach((rooli) => {
+    const r = K.kasitteleKaavio(lohko(rooliksi(rooli)), { paalla: true });
+    assert.strictEqual(r.tila, 'ok', rooli + ': ' + r.virheet.join(' · '));
+    assert.strictEqual(r.kaavio.pelaajat[0].rooli, 'syöttäjä');
+    assert.deepStrictEqual(r.normalisoitu, ['rooli:A']);
+  });
+  const ok = K.kasitteleKaavio(VASTAUS, { paalla: true });
+  assert.deepStrictEqual(ok.normalisoitu, []);           // kanoninen rooli ei ole korjaus
+});
+test('K2b normalisointi: tuntematon rooli (vartija) → validaattori hylkää kuten ennenkin', () => {
+  const r = K.kasitteleKaavio(lohko(rooliksi('vartija')), { paalla: true });
+  assert.strictEqual(r.tila, 'hylatty');
+  assert.deepStrictEqual(r.virheet, ['A: rooli ei sallittu (vartija)']);
+  assert.deepStrictEqual(r.normalisoitu, []);
+});
+test('K2b normalisointi: jokeri "true" / 1 → true; muu ei-boolean → kenttä pois (ei hylkäystä); max 10 lokiriviä', () => {
+  const s = kopio();
+  s.pelaajat[2].jokeri = 'true'; s.pelaajat[1].jokeri = 1; s.pelaajat[3].jokeri = 'kyllä'; s.pelaajat[4].jokeri = false;
+  const r = K.kasitteleKaavio(lohko(s), { paalla: true });
+  assert.strictEqual(r.tila, 'ok', r.virheet.join(' · '));
+  assert.strictEqual(r.kaavio.pelaajat[2].jokeri, true);
+  assert.strictEqual(r.kaavio.pelaajat[1].jokeri, true);
+  assert.ok(!('jokeri' in r.kaavio.pelaajat[3]));
+  assert.strictEqual(r.kaavio.pelaajat[4].jokeri, false);
+  assert.deepStrictEqual(r.normalisoitu, ['jokeri:B', 'jokeri:J', 'jokeri:V1']);
+  const iso = { pelaajat: Array.from({ length: 14 }, (_, i) => ({ id: 'P' + i, rooli: 'TUKI' })) };
+  assert.strictEqual(K.normalisoiPelaajat(iso).length, 10);
+});
+test('K2b normalisointi ei koske lippu pois -polkuun (ei poimintaa)', () => {
+  const r = K.kasitteleKaavio(lohko(rooliksi('syottaja')), { paalla: false });
+  assert.deepStrictEqual(r.normalisoitu, []);
+  assert.strictEqual(r.kaavio, null);
+});
+
 test('K2 KPI e–g: e kelpaa konseptille jolla se on (y_h1 a–e), hylätään konseptilla jolla ei ole (y_h8 a–c); h aina hylätään', () => {
   const r = K.kasitteleKaavio(lohko(Object.assign({}, SPEC, { avain: 'Y-H1', kpi: 'e' })), { paalla: true });
   assert.strictEqual(r.tila, 'ok', r.virheet.join('; '));
@@ -133,7 +179,7 @@ test('K2 koodit: selite joka suodattuu tyhjäksi → validaattori hylkää (ei t
 // ── Lippu pois ────────────────────────────────────────────────────────────────
 test('K2 lippu pois → ei poimintaa, mutta raaka lohko poistetaan tekstistä', () => {
   const r = K.kasitteleKaavio(VASTAUS, { paalla: false });
-  assert.deepStrictEqual(r, { teksti: 'Konseptipeli: 2v2+1 alueella 15×15 m.', kaavio: null, tila: null, virheet: [], merkit: null });
+  assert.deepStrictEqual(r, { teksti: 'Konseptipeli: 2v2+1 alueella 15×15 m.', kaavio: null, tila: null, virheet: [], merkit: null, normalisoitu: [] });
 });
 
 // ── Käsittelijä (muisti-Firestore) ────────────────────────────────────────────
@@ -168,6 +214,7 @@ test('K2 käsittelijä: lippu päällä + VA → kaavio vastauksessa, lokissa ok
   const l = loki();
   assert.strictEqual(l.kaavio, 'ok');
   assert.deepStrictEqual(l.kaavioVirheet, []);
+  assert.deepStrictEqual(l.kaavioNormalisoitu, []);
   assert.ok(l.kaavioMerkit > 100);
   assert.ok(!/<kaavio>/.test(l.vastaus));
 });
