@@ -62,7 +62,7 @@ describe('lib: tmVastuuhenkilo / tmVastuuhenkiloAsetus', () => {
     const koodi = lue('lib/tm_vastuuhenkilo.js').replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
     expect(koodi).not.toMatch(/firebase|fetch\(|collection\(|https?:\/\//i);
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f), f).not.toMatch(/tm_vastuuhenkilo|TM_VASTUUHENKILO|vastuuhenkilo/));
-    expect(VP).toContain('lib/tm_vastuuhenkilo.js?v=1'); expect(MA).toContain('lib/tm_vastuuhenkilo.js?v=1');
+    expect(VP).toContain('lib/tm_vastuuhenkilo.js'); expect(MA).toContain('lib/tm_vastuuhenkilo.js');
   });
 });
 

@@ -610,9 +610,7 @@ describe('(10) Tallennettu ehdotus latautuu luonnokseksi + sanktioidut kaannokse
   });
 
   it('kirjastoversiot nostettu (vanha valimuisti ei palauta luonnoslogiikkaa)', () => {
-    const v = (src) => Number((src.match(/lib\/tm_idp\.js\?v=(\d+)/) || [])[1] || 0);
-    expect(v(VP)).toBeGreaterThanOrEqual(8);
-    expect(v(readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8'))).toBeGreaterThanOrEqual(8);
-    expect(v(readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8'))).toBeGreaterThanOrEqual(4);
+    // QG-2: ?v = sisällön tiiviste deployssa → riittää, että lib ladataan.
+    for (const s of [VP, readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8'), readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8')]) expect(s).toContain('<script src="lib/tm_idp.js"></script>');
   });
 });

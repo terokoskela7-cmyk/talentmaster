@@ -11,6 +11,13 @@ import { dirname, join } from 'path';
 import { tmpdir } from 'os';
 import { spawn } from 'child_process';
 import vm from 'vm';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (sama hetki kuin NYT; sivukoodi vm:ssä lukee Datea suoraan). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-11-12T10:00:00Z');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (f) => readFileSync(join(juuri, f), 'utf8');
@@ -240,7 +247,7 @@ describe('Kytkennät (lähdetarkistukset) — lippu pois → ennallaan', () => {
   });
   it('skriptit + ?v: molemmat lataavat uudet libit; tokenit (D10) sivun CSS:ssä; Archivo-fontti omalta palvelimelta', () => {
     for (const [n, s] of [['Master', MASTER], ['VP', VP]]) {
-      for (const l of ['tm_kentta.js', 'tm_tanaan_kentta.js', 'tm_hash_reititin.js', 'tm_kehitystyopoyta.js', 'tm_reitin_valinta.js']) expect(s, n + ' ' + l).toMatch(new RegExp('<script src="lib/' + l.replace('.', '\\.') + '\\?v=\\d+"></script>'));
+      for (const l of ['tm_kentta.js', 'tm_tanaan_kentta.js', 'tm_hash_reititin.js', 'tm_kehitystyopoyta.js', 'tm_reitin_valinta.js']) expect(s, n + ' ' + l).toMatch(new RegExp('<script src="lib/' + l.replace('.', '\\.') + '"></script>'));
       expect(s).toContain('.kt-shell { --chalk:'); expect(s).toContain(':root[data-theme="light"] .kt-shell'); expect(s).not.toMatch(/fonts\.googleapis[^"']*Archivo/);
     }
     expect(MASTER.indexOf('lib/tm_kehitystyopoyta.js')).toBeLessThan(MASTER.indexOf('window._ktLippu = false;')); expect(lue('assets/fonts/README.md')).toMatch(/Archivo/i);

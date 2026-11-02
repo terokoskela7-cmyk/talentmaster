@@ -280,7 +280,7 @@ describe('(5) valmentajan sovellus käyttää samaa komponenttia', () => {
 
 describe('(6) molemmat sovellukset lataavat saman kirjaston', () => {
   it.each([['VP', VP], ['Master', MASTER]])('%s lataa lib/tm_havaintohistoria.js', (_n, s) => {
-    expect(s).toMatch(/lib\/tm_havaintohistoria\.js\?v=\d+/);
+    expect(s).toMatch(/lib\/tm_havaintohistoria\.js/);
   });
 
   it('kummallakaan ei ole omaa rivirenderöijää', () => {

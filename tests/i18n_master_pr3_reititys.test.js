@@ -140,8 +140,8 @@ describe('Master — curriculum: sv vain näyttöpolulla, kirjoituspolut kieline
     expect(HTML.slice(a, a + 500)).toMatch(/_seura_kentat\.indexOf\('nimi'\) >= 0/);
   });
   it('sidecar + valinta-lib ladataan ennen pääskriptiä', () => {
-    expect(HTML).toMatch(/<script src="lib\/tm_teknistaktiset_sv\.js\?v=\d+"><\/script>/);
-    expect(HTML).toMatch(/<script src="lib\/tm_tt_sv_valinta\.js\?v=\d+"><\/script>/);
+    expect(HTML).toMatch(/<script src="lib\/tm_teknistaktiset_sv\.js"><\/script>/);
+    expect(HTML).toMatch(/<script src="lib\/tm_tt_sv_valinta\.js"><\/script>/);
   });
 });
 

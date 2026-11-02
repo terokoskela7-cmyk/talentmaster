@@ -53,9 +53,9 @@ describe('Gemini-ruotsinnokset (sellaisenaan)', () => {
   });
   it('tm_lang-versio on yksi kaikilla sivuilla', () => {
     const fs = require_('fs');
-    const v = new Set(fs.readdirSync(ROOT).filter((f) => f.endsWith('.html')).flatMap((f) => [...lue(f).matchAll(/lib\/tm_lang\.js\?v=(\d+)/g)].map((m) => m[1])));
-    expect([...v]).toHaveLength(1);
-    expect(Number([...v][0])).toBeGreaterThanOrEqual(21);   // ≥21 (sv-ruotsinnokset); myöhemmät nostot sallittu
+    // QG-2: deploy antaa tm_lang.js:lle saman sisällön tiivisteen kaikilla sivuilla; repossa ei käsinumeroita.
+    const kasin = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html')).filter((f) => /lib\/tm_lang\.js\?v=/.test(lue(f)));
+    expect(kasin).toEqual([]);
   });
 });
 

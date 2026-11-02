@@ -90,7 +90,7 @@ describe('Selainkytkentä: callable, ei suoraa kalenterilukua', () => {
     expect(pura(VA, 'async function _vanhMerkitseLasna(')).toContain("rooli: 'huoltaja'"); expect(pura(VA, 'async function _vanhMerkitseLasna(')).not.toContain("rooli: 'vanhempi'");
   });
   it('SW: cache-versiot nostettu ja tm_kalenteri_ilmoitus ?v=3 molemmissa', () => {
-    expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-v(8[6-9]|9\d|\d{3,})'/); expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-v(5[7-9]|[6-9]\d|\d{3,})'/);
-    expect(PE).toMatch(/tm_kalenteri_ilmoitus\.js\?v=\d+/); expect(VA).toMatch(/tm_kalenteri_ilmoitus\.js\?v=\d+/);
+    expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-dev'/); expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-dev'/);
+    expect(PE).toMatch(/tm_kalenteri_ilmoitus\.js/); expect(VA).toMatch(/tm_kalenteri_ilmoitus\.js/);
   });
 });

@@ -67,14 +67,14 @@ describe('Mondo valittavissa kaikissa kolmessa työkalussa — valikot libistä,
     expect(h).toMatch(/^<option value="">— Valitse alusta —<\/option><option value="mondo_yleisurheilualusta">Mondo \/ yleisurheilualusta<\/option>/);
     expect(T).not.toMatch(/<option value="keinonurmi_3g">/);
     expect(T).not.toMatch(/mondo_yleisurheilualusta:\s*'Mondo/);
-    expect(T).toMatch(/<script src="lib\/tm_alusta\.js\?v=\d+"><\/script>/);
+    expect(T).toMatch(/<script src="lib\/tm_alusta\.js"><\/script>/);
   });
   it('Excel_Tuonti: #pv-alusta täytetään libistä; vanha vapaatekstilista poistettu', () => {
     const X = lue('TalentMaster_Excel_Tuonti.html');
     const h = taytto(X, 'pv-alusta', '(function _taytaPvAlusta()');
     expect(h).toContain('<option value="mondo_yleisurheilualusta">Mondo / yleisurheilualusta</option>');
     expect(X).not.toContain('<option>Tekonurmi</option>');
-    expect(X).toMatch(/<script src="lib\/tm_alusta\.js\?v=\d+"><\/script>/);
+    expect(X).toMatch(/<script src="lib\/tm_alusta\.js"><\/script>/);
   });
   it('Pikakirjaus: valikko tmAlustaOptiot:lla (Mondo mukana); vanha kovakoodattu lista poistettu', () => {
     const P = lue('lib/tm_pikakirjaus.js');

@@ -6,6 +6,13 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { vi, beforeEach, afterAll } from 'vitest';
+// Kiinteä kello (sama hetki kuin NYT; kausi = kuluva vuosi). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-19T06:00:00.000Z');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const D = require('../lib/tm_idp_pelaaja_dok.js'), I = require('../lib/tm_idp.js'), L = require('../lib/tm_idp_lomake.js'), M = require('../scripts/migroi_idp_pelaaja.js');
@@ -70,9 +77,9 @@ describe('Master _mIdpTallennaDok + VP _vpTallennaIdpDok (OIKEA sivukoodi)', () 
 
 describe('sitoumus: vahvistuksen kirjoitus + lukijat (lähdekoodikytkennät + lib)', () => {
   it('Master, VP ja Kehitystyöpöytä vahvistavat tmIdpSitoumusKirjoita:lla (idp_kausi + idp_pelaaja) ja lukevat tmIdpPelaajaLueSitoumus:lla', () => {
-    ['TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html'].forEach((f) => { const s = lue(f); expect(s, f).toMatch(/tmIdpSitoumusKirjoita\(_db, _seuraId, pid, vuosi, _sitV/); expect(s, f).toMatch(/tmIdpPelaajaLueSitoumus\(_db, _seuraId, pid, vuosi/); expect(s, f).toMatch(/lib\/tm_idp_pelaaja_dok\.js\?v=\d+\b/); });
-    const vp = lue('TalentMaster_VP_v25.html'); expect(vp).toMatch(/tmIdpSitoumusKirjoita\(db, _seuraId, p\.id, vuosi, p\._idpSitoumus/); expect(vp).toMatch(/tmIdpPelaajaLueSitoumus\(db, _seuraId, p\.id, vuosi, sdata/); expect(vp).toMatch(/lib\/tm_idp_pelaaja_dok\.js\?v=\d+\b/);
-    const se = lue('TalentMaster_Seura.html'); expect(se).toMatch(/tmIdpPelaajaLueSitoumus\(db, sid, p\.id, String\(vuosi\)/); expect(se).toMatch(/lib\/tm_idp_pelaaja_dok\.js\?v=\d+\b/);
+    ['TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html'].forEach((f) => { const s = lue(f); expect(s, f).toMatch(/tmIdpSitoumusKirjoita\(_db, _seuraId, pid, vuosi, _sitV/); expect(s, f).toMatch(/tmIdpPelaajaLueSitoumus\(_db, _seuraId, pid, vuosi/); expect(s, f).toMatch(/lib\/tm_idp_pelaaja_dok\.js/); });
+    const vp = lue('TalentMaster_VP_v25.html'); expect(vp).toMatch(/tmIdpSitoumusKirjoita\(db, _seuraId, p\.id, vuosi, p\._idpSitoumus/); expect(vp).toMatch(/tmIdpPelaajaLueSitoumus\(db, _seuraId, p\.id, vuosi, sdata/); expect(vp).toMatch(/lib\/tm_idp_pelaaja_dok\.js/);
+    const se = lue('TalentMaster_Seura.html'); expect(se).toMatch(/tmIdpPelaajaLueSitoumus\(db, sid, p\.id, String\(vuosi\)/); expect(se).toMatch(/lib\/tm_idp_pelaaja_dok\.js/);
   });
   it('tmIdpPelaajaLueSitoumus: lippu pois → idp_kausi ilman lisäkyselyä; päällä → idp_pelaaja voittaa; luku-virhe → idp_kausi; ei lukuja kumpaankaan → null', async () => {
     const { db } = fakeDb({ [IDPP]: { pelaaja_sitoumus: { s: 'pelaaja' } } }); let luettu = 0; const get0 = db.collection; 

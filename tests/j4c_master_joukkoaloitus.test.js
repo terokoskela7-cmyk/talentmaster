@@ -8,6 +8,13 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (fixturen kovakoodatut päivät (ydinvahvuus 1.10.) eivät vanhene oikean ajan mukana). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-15T09:00:00');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
 const MA = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_Master_v16.html'), 'utf8');
 const L = { AJ: require('../lib/tm_aloita_jakso.js'), TT: require('../lib/tm_tukitavoitteet.js'), JM: require('../lib/tm_jakso_malli.js'), KS: require('../lib/tm_kehityssilmukka.js'), VH: require('../lib/tm_vastuuhenkilo.js'), VL: require('../lib/tm_valmennuslinja.js'),
@@ -85,7 +92,7 @@ describe.each([['valmentaja'], ['vp']])('KPV U13 · %s', (rooli) => {
   it('LIPPU-LUKU: synkroninen virhe (collection heittää) ja IKUISESTI roikkuva liput/julkiset-luku (4 s yläraja, väärä kello) eivät kaada eivätkä jumita — fallback vanhaan lippuun', async () => {
     const e = rakenna({ rooli }); const alku = e.c._db.collection; e.c._db.collection = (n) => { const r = alku(n); if (n !== 'seurat') return r; return { doc: (d) => { const x = r.doc(d); if (d !== 'kpv') return x; return Object.assign({}, x, { collection: (c) => { if (c === 'liput') throw new Error('sync-virhe'); return x.collection(c); } }); } }; };
     await e.rendaa(); expect(e.osio()).toContain('Topias');
-    vi.useFakeTimers(); try {
+    vi.useFakeTimers(); vi.setSystemTime(KELLO); try {
       const r = rakenna({ rooli }); const kaikki = r.c._db.collection; r.c._db.collection = (n) => { const x = kaikki(n); if (n !== 'seurat') return x; return { doc: (d) => { const y = x.doc(d); if (d !== 'kpv') return y; return Object.assign({}, y, { collection: (c) => (c === 'liput' ? { doc: () => ({ get: () => new Promise(() => {}) }) } : y.collection(c)) }); } }; };
       const ajo = r.rendaa(); await vi.advanceTimersByTimeAsync(4001); await ajo; expect(r.osio()).toContain('Topias');
     } finally { vi.useRealTimers(); }
@@ -153,7 +160,7 @@ describe.each([['valmentaja'], ['vp']])('KPV U13 · %s', (rooli) => {
 
 describe('lähdetaso', () => {
   it('skripti ladataan ?v=1; kontti Kausi-näkymässä; kirjoitus vain _mAjKirjoitaJakso:n kautta (ei suoria update-kutsuja joukkoaloitus-lohkossa); ei hex-värejä', () => {
-    expect(MA).toMatch(/<script src="lib\/tm_joukkoaloitus\.js\?v=\d+"/); expect(MA).toContain('id="seasonPelaajienJaksot"');
+    expect(MA).toMatch(/<script src="lib\/tm_joukkoaloitus\.js"/); expect(MA).toContain('id="seasonPelaajienJaksot"');
     const lohko = MA.slice(MA.indexOf('/* ═══ J4 C — JOUKKOALOITUS'), MA.indexOf('/* ═══ J2 — JOUKKUEJAKSO'));
     expect(lohko).not.toMatch(/\.update\(|\.set\(|\.add\(|\.delete\(|writeBatch|batch\(/); expect(lohko).toContain('_mAjKirjoitaJakso('); expect(lohko).toContain('PERÄKKÄIN'); expect(lohko).not.toMatch(/#[0-9a-fA-F]{3,6}\b/);
     expect(pura('async function _mAjKirjoitaJakso(')).toContain("collection('pelaajat').doc(p.id).update(");

@@ -57,7 +57,7 @@ describe('tmKirjausAlarivi', () => {
 describe('kytkentä', () => {
   const M = teksti('TalentMaster_Master_v16.html');
   it('Master lataa libin ja käyttää sitä Inboxissa ja Pulssissa; vanhat paikalliset tyypit-kartat poissa', () => {
-    expect(M).toMatch(/lib\/tm_kirjaus_tyypit\.js\?v=\d+/);
+    expect(M).toMatch(/lib\/tm_kirjaus_tyypit\.js/);
     expect(M).toContain('tmKirjausOtsikko(e,_ktO)');
     expect(M).toContain('tmKirjausAlarivi(e,_ktO)');
     expect(M).toContain('tmKirjausRivi(e,{t:masterT})');

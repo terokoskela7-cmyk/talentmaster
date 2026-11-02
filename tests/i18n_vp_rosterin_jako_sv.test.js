@@ -83,8 +83,6 @@ describe('VP rosterin jako · vahvistuslause', () => {
   });
 
   it('kartan cache-bustin on noussut (stale-klientit eivät saa uusia avaimia)', () => {
-    const m = HTML.match(/lib\/tm_vp_i18n\.js\?v=(\d+)/);
-    expect(m).not.toBeNull();
-    expect(Number(m[1])).toBeGreaterThanOrEqual(78);
+    expect(HTML).toContain('<script src="lib/tm_vp_i18n.js"></script>');   // QG-2: ?v = sisällön tiiviste deployssa
   });
 });
