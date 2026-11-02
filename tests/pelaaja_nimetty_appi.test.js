@@ -43,7 +43,7 @@ describe('Pelaaja_v7 · nimetty appi', () => {
     expect((KOODI.match(/initializeApp\(/g) || []).length, 'vain yksi (nimetty) alustus').toBe(1);
   });
   it('tm_appcheck ladataan versiolla, joka tukee nimettyä appia', () => {
-    expect(SIVU).toContain('lib/tm_appcheck.js?v=2');
+    expect(SIVU).toContain('lib/tm_appcheck.js');
   });
   it('funktiot (pelaajaKirjaudu, kuittaaKaavioYmmarretty) nimetystä appista', () => {
     expect(KOODI).toContain("window._fbApp.functions('europe-west1').httpsCallable('pelaajaKirjaudu')");

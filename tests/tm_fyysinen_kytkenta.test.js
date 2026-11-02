@@ -100,13 +100,13 @@ describe('Tilanne: huomio, "Ei fyysistä dataa" ja "Kypsyys mittaamatta" (aina n
 
 describe('VP_v25 ja Master on kytketty libiin (lähdevartijat)', () => {
   it('VP: huomion, ehdotuksen, poikkeamalistan ja joukkuekortin status käyttävät tmFyysinenJoukkueLuokka:a; Kärkipelaajat poissa; vanha alle_normin suodatetaan', () => {
-    expect(VP).toContain('<script src="lib/tm_fyysinen.js?v='); expect(VP.indexOf('lib/tm_joukkuesaanto.js')).toBeLessThan(VP.indexOf('lib/tm_tekniikka.js')); expect(VP.indexOf('lib/tm_fyysinen.js')).toBeLessThan(VP.indexOf('lib/tm_vp_tilanne.js'));
+    expect(VP).toContain('<script src="lib/tm_fyysinen.js"'); expect(VP.indexOf('lib/tm_joukkuesaanto.js')).toBeLessThan(VP.indexOf('lib/tm_tekniikka.js')); expect(VP.indexOf('lib/tm_fyysinen.js')).toBeLessThan(VP.indexOf('lib/tm_vp_tilanne.js'));
     expect((VP.match(/tmFyysinenJoukkueLuokka\(/g) || []).length).toBeGreaterThanOrEqual(3);
     expect(VP).not.toContain("Talenttiydin alle normin"); expect(VP).not.toContain('talent-ID-huoli');
     const tp = VP.slice(VP.indexOf("id: 'hh_taso_alhainen'"), VP.indexOf("id: 'suunta_lasku'")); expect(tp).not.toMatch(/hh_taso\b(?!_alhainen)|< ?2\.5|Eerikkilä/);
   });
   it('Master: D2 komposiittiin ei Eerikkilän tekniikkatestejä (d2KomposiittiTaso), D1/D2-kortti käyttää tm_fyysinen/tm_tekniikka-luokitusta', () => {
-    expect(MA).toContain('lib/tm_fyysinen.js?v='); expect(MA).toContain('lib/tm_tekniikka.js?v='); expect(MA).toContain('lib/tm_nakyma_ryhmat.js?v='); expect(MA).toContain("tmRyhmat(dim, P"); expect(MA).toContain('tmNakymaYhteenveto(P');   // YKSI TOTUUS: kortti/ponnahdus libistä (tm_nakyma_ryhmat → tm_fyysinen/tm_tekniikka)
+    expect(MA).toContain('lib/tm_fyysinen.js"'); expect(MA).toContain('lib/tm_tekniikka.js"'); expect(MA).toContain('lib/tm_nakyma_ryhmat.js"'); expect(MA).toContain("tmRyhmat(dim, P"); expect(MA).toContain('tmNakymaYhteenveto(P');   // YKSI TOTUUS: kortti/ponnahdus libistä (tm_nakyma_ryhmat → tm_fyysinen/tm_tekniikka)
     const NR = readFileSync(new URL('../lib/tm_nakyma_ryhmat.js', import.meta.url), 'utf8'); expect(NR).toContain('tmFyysinenPelaaja(') ; expect(NR).toContain('tmTekniikkaMittari(') ; expect(NR).toContain('tmFyysinenJoukkueLuokka(') ; expect(NR).toContain('tmTekniikkaJoukkueLuokka(');
     expect((MA.match(/d2KomposiittiTaso\(/g) || []).length).toBe(0); expect(MA).toContain('tmTuoreTasoFn('); expect(MA).toContain('tmTaso3(');   // Master ei laske tasoa itse: komposiitti (d2KomposiittiTaso) vain libissä, tuoreilla dimensioilla
     expect(MA).not.toMatch(/const d2j = \(typeof laskeD2Joustava/);

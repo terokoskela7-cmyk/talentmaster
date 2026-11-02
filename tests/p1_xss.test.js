@@ -28,8 +28,8 @@ describe('lib/tm_esc.js', () => {
     expect(tmEsc(42)).toBe('42');
   });
   it('ladataan Adminiin ja Seuraan', () => {
-    expect(ADMIN).toContain('<script src="lib/tm_esc.js?v=1"></script>');
-    expect(lue('TalentMaster_Seura.html')).toContain('<script src="lib/tm_esc.js?v=1"></script>');
+    expect(ADMIN).toContain('<script src="lib/tm_esc.js"></script>');
+    expect(lue('TalentMaster_Seura.html')).toContain('<script src="lib/tm_esc.js"></script>');
   });
 });
 

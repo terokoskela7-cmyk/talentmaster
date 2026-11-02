@@ -47,7 +47,7 @@ describe('pelaaja-/vanhempi-/rekisteröinti-/Solo-app EI lataa tm_sisainen.js:ä
   for (const f of ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Rekisterointi_Suostumus.html', 'TalentMaster_Solo_Koti.html', 'TalentMaster_Solo_Profiili.html', 'TalentMaster_Solo_Lupa.html', 'TalentMaster_Player_Home.html', 'sw_pelaaja.js', 'sw_vanhempi.js'])
     it(f, () => { expect(lue(f)).not.toMatch(/lib\/tm_sisainen\.js|TM_SISAINEN/); });
   it('Pelaaja_v7 lataa tm_d3_itsearvio.js ja SW-allowlist + cache-nosto sisältävät sen', () => {
-    expect(P7).toMatch(/<script src="lib\/tm_d3_itsearvio\.js\?v=\d+"><\/script>/); const sw = lue('sw_pelaaja.js'); expect(sw).toContain('/lib/tm_d3_itsearvio.js'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v15[2-9]|const CACHE = 'tm-pelaaja-v1[6-9]\d/);
+    expect(P7).toMatch(/<script src="lib\/tm_d3_itsearvio\.js"><\/script>/); const sw = lue('sw_pelaaja.js'); expect(sw).toContain('/lib/tm_d3_itsearvio.js'); expect(sw).toContain("const CACHE = 'tm-pelaaja-dev';");
   });
 });
 
@@ -55,7 +55,7 @@ describe('staff-sivut: libit ladataan oikeassa järjestyksessä (d3 ennen sisain
   for (const [nimi, src] of [['Master', MA], ['VP', VP], ['Kehitystyöpöytä', KT]])
     it(nimi, () => {
       const a = src.indexOf('lib/tm_d3_itsearvio.js'), b = src.indexOf('lib/tm_sisainen.js'); expect(a).toBeGreaterThan(-1); expect(b).toBeGreaterThan(a);
-      expect(src).toMatch(/lib\/tm_d3_itsearvio\.js\?v=\d+/); expect(src).toMatch(/lib\/tm_sisainen\.js\?v=\d+/); expect(src).toContain('tmSisainenLataaJaYhdista');
+      expect(src).toMatch(/lib\/tm_d3_itsearvio\.js/); expect(src).toMatch(/lib\/tm_sisainen\.js/); expect(src).toContain('tmSisainenLataaJaYhdista');
     });
 });
 

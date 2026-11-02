@@ -33,4 +33,12 @@ describe.skipIf(!AJA)('läpiajo fixtuurisivulla (selain)', () => {
     expect(rivit.find((x) => x.teksti === 'Hae pelaajaa').tyyppi).toBe('placeholder'); expect(rivit.find((x) => x.teksti === 'Avaa valmentajan asetukset').tyyppi).toBe('title');
     for (const ei of ['Välkommen tillbaka', 'Spara ändringar', 'Aleksi Mäkinen', 'TalentMaster™', 'Tämä teksti on piilotettu']) expect(tekstit, ei).not.toContain(ei);
   }, 60000);   // oma aikaraja: Chromiumin käynnistys + sivun lataus ylittää vitestin oletus 5 s CI:ssä
+  it('sisäinen onclick siirtyy toiselle sivulle → kohdesivun tekstejä ei kerätä (CI:n "Signaalin syy" -vale-löydös)', () => {
+    const ulos = join(mkdtempSync(join(tmpdir(), 'svlp-')), 'tulos.json');
+    const r = spawnSync('node', ['tools/i18n/sv_lapiajo.mjs', '--fixtuuri=tests/fixtures/sv_lapiajo_navigoi.html', '--ulos=' + ulos], { cwd: juuri, encoding: 'utf8', timeout: 90000 });
+    expect(r.status, r.stderr).toBe(0);
+    const tekstit = JSON.parse(readFileSync(ulos, 'utf8')).nakymat['fixtuuri/sivu'].fi.map((x) => x.teksti);
+    expect(tekstit).toContain('Tallenna muutokset');                          // lähtösivun fi löytyy yhä
+    expect(tekstit).not.toContain('Toisen sivun kääntämätön otsikko');      // kohdesivun ei
+  }, 60000);
 });

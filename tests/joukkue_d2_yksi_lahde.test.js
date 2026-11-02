@@ -6,6 +6,13 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (PV (tuore päivä) ja tasopalkkien tuoreusraja lasketaan samasta kellosta). Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-15T09:00:00');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const VP = lue('TalentMaster_VP_v25.html');
@@ -96,5 +103,5 @@ describe('vartija: VP_v25 ei laske joukkuetason D2:ta TKI/20:stä — se tulee l
     expect(osumat.filter(([, r]) => !/laskeD2Joustava/.test(r))).toEqual([]);
   });
   it('joukkuetason reduce-keskiarvo ei summaa tki_viimeisin / 20 (aiempi laskeJoukkueD2-kuvio)', () => { expect(VP).not.toMatch(/reduce\([^)]*tki_viimeisin\s*\/\s*20/); });
-  it('Rules-/kirjastoriippuvuus: tm_mittarit.js ladataan VP:ssä ENNEN tm_eerikkila_normit.js:n käyttöä ja ?v nostettu', () => { expect(VP).toMatch(/<script src="lib\/tm_mittarit\.js\?v=(\d+)"/); expect(+/tm_mittarit\.js\?v=(\d+)/.exec(VP)[1]).toBeGreaterThanOrEqual(6); });
+  it('Rules-/kirjastoriippuvuus: tm_mittarit.js ladataan VP:ssä ENNEN tm_eerikkila_normit.js:n käyttöä ja ?v nostettu', () => { expect(VP).toContain('<script src="lib/tm_mittarit.js"></script>'); /* QG-2: ?v = sisällön tiiviste deployssa */ });
 });

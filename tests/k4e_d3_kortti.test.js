@@ -99,7 +99,7 @@ describe('K4e · HTML, sijoitus ja rajaukset', () => {
   });
   it('§7.22: pelaaja-, vanhempi-, ADAR- ja Seura-sivut eivät lataa korttia; lib ei kirjoita Firestoreen', () => {
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_ADAR_Pikakortti.html'].forEach((f) => expect(lue(f), f).not.toContain('tm_d3_kortti'));
-    expect(lue('lib/tm_d3_kortti.js')).not.toMatch(/\.collection\(|\.set\(|\.update\(|firebase/); expect(lue('TalentMaster_Kehitystyopoyta.html')).toMatch(/lib\/tm_d3_kortti\.js\?v=\d+/);
+    expect(lue('lib/tm_d3_kortti.js')).not.toMatch(/\.collection\(|\.set\(|\.update\(|firebase/); expect(lue('TalentMaster_Kehitystyopoyta.html')).toMatch(/lib\/tm_d3_kortti\.js/);
   });
   it('sivu: _avaaD3Arvio ei ole enää silta Masteriin; toimi d3_arvio kutsuu sitä; tallennus dual-write (tmSisainenKirjoita) vain kirjoitusoikeudella', () => {
     const S2 = lue('TalentMaster_Kehitystyopoyta.html');

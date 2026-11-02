@@ -127,7 +127,7 @@ describe('kytkentä kirjautumissivuilla', () => {
     ['TalentMaster_VP_v25.html', 'tmYritaUudelleenVerkkokatkossa(() => auth.signInWithEmailAndPassword(email, pass))', "tmRaportoiVerkkokatko('vpKirjautuminen')"],
   ])('%s: lib ladattu, uudelleenyritys ja raportointi kytketty', (f, kutsu, raportti) => {
     const s = lue(f);
-    expect(s).toContain('<script src="lib/tm_verkko.js?v=1"></script>');
+    expect(s).toContain('<script src="lib/tm_verkko.js"></script>');
     expect(s).toContain(kutsu); expect(s).toContain(raportti);
   });
   it('Pelaaja- ja Vanhempi-SW: lib allowlistissa (offline-PWA ei kaadu ReferenceErroriin)', () => {
