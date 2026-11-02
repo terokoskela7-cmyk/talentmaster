@@ -80,6 +80,8 @@ function keruu() {
     for (const [attr, tyyppi] of [['placeholder', 'placeholder'], ['title', 'title'], ['aria-label', 'aria'], ['alt', 'alt']]) { const v = el.getAttribute && el.getAttribute(attr); if (v && v.trim()) ulos.push({ t: v.replace(/\s+/g, ' ').trim(), tyyppi, polku: polku(el) }); }
     if (el.tagName === 'INPUT' && /^(button|submit)$/.test(el.type) && el.value) ulos.push({ t: el.value, tyyppi: 'value', polku: polku(el) });
   }
+  const sivu = decodeURIComponent(location.pathname.split('/').pop());   // navigointi toiselle sivulle kesken keruun → rivit hylätään (ks. suoritaAskel)
+  ulos.forEach((r) => { r.sivu = sivu; });
   return ulos;
 }
 
@@ -148,8 +150,16 @@ async function suoritaAskel(selain, cfg, as, nimi, virheet) {
     // avattavat ryhmät: <details> auki + näkymän sisäiset välilehti-/avaustoiminnot (ei kirjoittavia)
     await p.evaluate((sel) => { document.querySelectorAll('details').forEach((d) => { d.open = true; }); if (sel) document.querySelectorAll(sel).forEach((g) => g.classList.add('open')); }, as.avaa || null);
     const sisaiset = await p.evaluate(({ vaar, nav, paa }) => { const v = new RegExp(vaar, 'i'), n = new RegExp(nav), pn = new RegExp(paa); return [...new Set([...document.querySelectorAll('[onclick]')].filter((e) => e.checkVisibility && e.checkVisibility() && (e.innerText || '').trim().length <= 32).map((e) => e.getAttribute('onclick')).filter((o) => o && n.test(o) && !v.test(o) && !pn.test(o)))].slice(0, 14); }, { vaar: VAARALLISET.source, nav: ALAN_NAVIT.source, paa: PAANAVI.source });
-    const kaikki = await p.evaluate(keruu);
-    for (const js of sisaiset) { try { await p.evaluate(js); await p.waitForTimeout(250); const lisaa = await p.evaluate(keruu); kaikki.push(...lisaa); } catch (e) { /* ohita */ } }
+    // Vain testattavan sivun tekstit: sisäinen onclick voi siirtyä toiselle sivulle (esim. Kehitystyöpöytä → Master). Ennen tätä keruu luki
+    // puoliksi latautuneen kohdesivun (kirjautuminen kesken, i18n ajamatta) → ajoitusriippuvainen vale-löydös CI:ssä ("Signaalin syy").
+    const oma = decodeURIComponent(cfg.tiedosto.split('/').pop()), omat = (rivit) => rivit.filter((r) => r.sivu === oma).map(({ sivu, ...r }) => r);
+    let poistui = false;
+    p.on('framenavigated', (f) => { if (f === p.mainFrame() && decodeURIComponent(new URL(f.url()).pathname.split('/').pop()) !== oma) poistui = true; });
+    const kaikki = omat(await p.evaluate(keruu));
+    for (const js of sisaiset) {
+      if (poistui) break;   // sivu vaihtui → loput napautukset koskisivat toista sivua
+      try { await p.evaluate(js); await p.waitForTimeout(250); kaikki.push(...omat(await p.evaluate(keruu))); } catch (e) { /* ohita */ }
+    }
     return kaikki;
   } finally { await ctx.close(); }
 }
