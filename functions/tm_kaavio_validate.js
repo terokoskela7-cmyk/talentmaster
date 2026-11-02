@@ -9,7 +9,7 @@
    mutta ei virhe (migraatio hoitaa sen kirjoitushetkellä).
 
    ERÄ C — KPI-PORTTI KAHDESSA TASOSSA, jotta puhtaus säilyy:
-     a) SYNTAKTINEN (aina): spec.kpi on yksi kirjain a–d, enum, ei käänny.
+     a) SYNTAKTINEN (aina): spec.kpi on yksi kirjain a–g, enum, ei käänny.
      b) SEMANTTINEN (vain jos kutsuja antaa ctx.kpiKoodit): kuuluuko koodi TÄMÄN konseptin
         KPI-listaan. Jäsenyys vaatii kaanon ⊕ seura -resolvoinnin, jota tämä lib ei saa tehdä
         (se tuntisi Firestoren ja seurakerroksen) → kutsuja resolvoi ja syöttää koodit DATANA.
@@ -32,8 +32,8 @@ function validate(s, ctx) {
   // enum-invariantti: avain ei käännetty
   if (s.avain && !/^[a-z0-9_]+$/.test(s.avain)) E.push(`avain ei ole kanoninen (käännetty?): ${s.avain}`);
   // (a) spec.kpi — VALINNAINEN: kaavio voi olla konseptin yleiskuva ilman KPI:tä. Jos annettu,
-  // se on yksi kirjain a–d (konseptimallin KPI-koodit). Laajenna /^[a-z]$/ jos malli ylittää d:n.
-  if (s.kpi != null && s.kpi !== '' && !/^[a-d]$/.test(s.kpi)) E.push(`kpi ei kelpaa (odotettu a–d): ${s.kpi}`);
+  // se on yksi kirjain a–g (kaanonin KPI-koodit; esim. y_h2/y_p1 a–g). Jäsenyys tarkistetaan (b):ssä ctx.kpiKoodit-listalla.
+  if (s.kpi != null && s.kpi !== '' && !/^[a-g]$/.test(s.kpi)) E.push(`kpi ei kelpaa (odotettu a–g): ${s.kpi}`);
   // (b) jäsenyys — vain kun kutsuja on resolvoinut konseptin. Tyhjä lista + asetettu kpi = E:
   // konseptilla ei ole KPI:itä, joten mihinkään ei voi tagata.
   if (ctx && Array.isArray(ctx.kpiKoodit) && s.kpi != null && s.kpi !== '' && ctx.kpiKoodit.indexOf(s.kpi) < 0)

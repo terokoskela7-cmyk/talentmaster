@@ -49,6 +49,21 @@ describe('A) pelimuoto AvB+K', () => {
 
 function muisti() { const d = {}; return { d, getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
 
+describe('A2) KPI a–g (kaanonissa e–g)', () => {
+  const K = require('../lib/tm_kaavio_konsepti.js'), TT = require('../lib/tm_teknistaktiset.js');
+  const koodit = (a) => K.kaavioKpiKoodit(TT.TM_TT_YOUTH.find((k) => k.avain === a));
+  it('e kelpaa konseptille jolla se on (y_h1), hylätään konseptilla jolla ei ole (y_h8)', () => {
+    expect(koodit('y_h1')).toContain('e'); expect(koodit('y_h8')).not.toContain('e');
+    expect(V.validoiKaavio({ ...SPEC, avain: 'y_h1', kpi: 'e' }, { kpiKoodit: koodit('y_h1') }).E).toEqual([]);
+    const E = V.validoiKaavio({ ...SPEC, avain: 'y_h8', kpi: 'e' }, { kpiKoodit: koodit('y_h8') }).E.join(' ');
+    expect(E).toMatch(/kpi "e" ei ole konseptin y_h8 KPI-listalla/); expect(E).not.toMatch(/kpi ei kelpaa/);
+  });
+  it('g kelpaa y_p1:lle (a–g); h hylätään aina syntaksissa', () => {
+    expect(V.validoiKaavio({ ...SPEC, avain: 'y_p1', kpi: 'g' }, { kpiKoodit: koodit('y_p1') }).E).toEqual([]);
+    expect(V.validoiKaavio({ ...SPEC, kpi: 'h' }).E.join(' ')).toMatch(/kpi ei kelpaa \(odotettu a–g\): h/);
+  });
+});
+
 describe('B) siirto apurisivulta Masteriin', () => {
   it('kirjoita → lue kerran (avain poistuu), sisältö säilyy', () => {
     const s = muisti();

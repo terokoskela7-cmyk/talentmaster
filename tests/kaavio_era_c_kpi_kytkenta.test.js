@@ -53,7 +53,7 @@ describe('A — validaattorin kpi-portti on kaksitasoinen', () => {
   });
   it('syntaktinen portti: a–d kelpaa, muu ei', () => {
     for (const k of ['a', 'b', 'c', 'd']) expect(V.validoiKaavio(spec({ kpi: k })).E, k).toEqual([]);
-    for (const k of ['e', 'A', '1', 'ab']) expect(V.validoiKaavio(spec({ kpi: k })).E.join(' '), k).toMatch(/kpi ei kelpaa/);
+    for (const k of ['h', 'A', '1', 'ab']) expect(V.validoiKaavio(spec({ kpi: k })).E.join(' '), k).toMatch(/kpi ei kelpaa/);
   });
   it('semanttinen portti vain kun ctx annetaan (jäsenyys konseptin listalla)', () => {
     expect(V.validoiKaavio(spec({ kpi: 'c' }), { kpiKoodit: ['a', 'b'] }).E.join(' ')).toMatch(/ei ole konseptin y_h0 KPI-listalla/);

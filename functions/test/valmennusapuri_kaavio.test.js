@@ -92,6 +92,17 @@ test('K2 validaattori: KPI tarkistetaan kaanonia vasten (y_h8 KPI:t a–c → d 
   assert.match(r.virheet.join(' '), /kpi "d" ei ole konseptin y_h8 KPI-listalla/);
   assert.strictEqual(K.kasitteleKaavio(lohko(Object.assign({}, SPEC, { avain: 'Y-H8', kpi: 'c' })), { paalla: true }).tila, 'ok');
 });
+test('K2 KPI e–g: e kelpaa konseptille jolla se on (y_h1 a–e), hylätään konseptilla jolla ei ole (y_h8 a–c); h aina hylätään', () => {
+  const r = K.kasitteleKaavio(lohko(Object.assign({}, SPEC, { avain: 'Y-H1', kpi: 'e' })), { paalla: true });
+  assert.strictEqual(r.tila, 'ok', r.virheet.join('; '));
+  assert.strictEqual(r.kaavio.kpi, 'e');
+  const r2 = K.kasitteleKaavio(lohko(Object.assign({}, SPEC, { avain: 'Y-H8', kpi: 'e' })), { paalla: true });
+  assert.strictEqual(r2.tila, 'hylatty');
+  assert.match(r2.virheet.join(' '), /kpi "e" ei ole konseptin y_h8 KPI-listalla/);
+  assert.doesNotMatch(r2.virheet.join(' '), /kpi ei kelpaa/);   // syntaksi kelpaa, vain jäsenyys hylkää
+  const r3 = K.kasitteleKaavio(lohko(Object.assign({}, SPEC, { avain: 'Y-P1', kpi: 'h' })), { paalla: true });
+  assert.match(r3.virheet.join(' '), /kpi ei kelpaa \(odotettu a–g\): h/);
+});
 test('K2 pelimuoto: 2v2+1 + jokeri omana → ok; 2v2 + jokeri → hylätty; tuntematon muoto → hylätty', () => {
   assert.strictEqual(K.kasitteleKaavio(lohko(), { paalla: true }).tila, 'ok');
   const r = K.kasitteleKaavio(lohko(Object.assign({}, SPEC, { pelimuoto: '2v2' })), { paalla: true });
