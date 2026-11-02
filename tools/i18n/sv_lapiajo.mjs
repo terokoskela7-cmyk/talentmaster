@@ -11,7 +11,7 @@
          node tools/i18n/sv_lapiajo.mjs --tarkista            → vertaa baselineen (tools/i18n/sv_lapiajo_baseline.json); uudet fi-tekstit → raportti
          node tools/i18n/sv_lapiajo.mjs --tarkista --kaada    → exit 1, jos baselinen ulkopuolella on ui-luokan suomea (data? raportoidaan, ei kaada) — CI
          node tools/i18n/sv_lapiajo.mjs --paivita-baseline    → kirjoittaa baselinen nykytuloksesta (vain koko ajosta; baseline saa vain pienentyä, lisäys = [baseline] PR:ssä)
-         --osa=demo|fixtuuri (CI ajaa osat rinnakkain, ≤ 5 min) · --sovellus=<nimi> (toistettava) · --askel=<nimi> (toistettava) · --juuri=<hakemisto> (sivut + lähde toisesta puusta; hyväksyntätestit)
+         --osa=demo|demo-1|demo-2|fixtuuri (CI ajaa demo-1, demo-2 ja fixtuurin rinnakkain, ≤ 5 min) · --sovellus=<nimi> (toistettava) · --askel=<nimi> (toistettava) · --juuri=<hakemisto> (sivut + lähde toisesta puusta; hyväksyntätestit)
    Selain: env TM_CHROME_PATH (suoritettava) tai Playwrightin oma Chromium (`npx playwright-core install chromium`). */
 import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs';
@@ -56,6 +56,15 @@ export const SOVELLUKSET = {
     askeleet: [...['tanaan', 'polku', 'profiili'].map((n) => ({ nimi: n, kysely: '#pelaaja/qp1/' + n, js: '0' })), { nimi: 'pelaajaraportti', kysely: '?avaa=raportti#pelaaja/qp1/profiili', js: '0' }, { nimi: 'utan_atagande/polku', kysely: '#pelaaja/qp2/polku', js: '0' }] },
 };
 export const FX_SOVELLUKSET = Object.keys(SOVELLUKSET).filter((k) => k.startsWith('fx_'));
+/* QG-1b: demo-osa kahtia CI:ssä (4 min 6 s → raja 4 min 30 s). Jako mitatuista ajoista (paikallisesti, s): pelaaja 47 · vanhempi 56 · seura 19 = 122
+   | master 46 · vp 47 · adar 11 · pelihavainto 18 = 122. Uusi demo-sovellus → lisää kevyempään osaan (vartija tests/sv_kielivartija.test.js). */
+export const DEMO_OSAT = { 'demo-1': ['pelaaja', 'vanhempi', 'seura'], 'demo-2': ['master', 'vp', 'adar', 'pelihavainto'] };
+export const OSAT_SALLITUT = ['demo', 'demo-1', 'demo-2', 'fixtuuri'];
+export function osanSovellukset(osa) {
+  if (osa === 'fixtuuri') return FX_SOVELLUKSET;
+  if (DEMO_OSAT[osa]) return DEMO_OSAT[osa];
+  return Object.keys(SOVELLUKSET).filter((k) => !k.startsWith('fx_'));   // demo = kaikki demo-sovellukset (paikallinen ajo)
+}
 // --fixtuuri=<polku>: skannaa yksittäinen HTML-sivu (testeille); ei demo-sisäänkäyntiä
 if (process.argv.some((a) => a.startsWith('--fixtuuri='))) { const f = process.argv.find((a) => a.startsWith('--fixtuuri=')).slice(11); for (const k of Object.keys(SOVELLUKSET)) delete SOVELLUKSET[k]; SOVELLUKSET.fixtuuri = { tiedosto: f, kysely: '', entry: '0', askeleet: [{ nimi: 'sivu', js: '0' }] }; }
 const VAARALLISET = /(logout|kirjauduUlos|delete|poista|tallenna|laheta|lahetä|save|submit|send|reset|kirjaudu)/i;
@@ -169,7 +178,7 @@ async function main() {
   const selain = await chromium.launch({ headless: true, executablePath: exe });
   const fiKorpus = lataaKorpus(), idx = lahdeindeksi();
   const osa = argArvo('--osa');
-  const valitut = process.argv.filter((a) => a.startsWith('--sovellus=')).map((a) => a.slice(11)).concat(osa ? Object.keys(SOVELLUKSET).filter((k) => (osa === 'fixtuuri') === k.startsWith('fx_')) : []);
+  const valitut = process.argv.filter((a) => a.startsWith('--sovellus=')).map((a) => a.slice(11)).concat(osa ? osanSovellukset(osa) : []);
   const askelRaja = process.argv.filter((a) => a.startsWith('--askel=')).map((a) => a.slice(8));
   // Askeleet ovat toisistaan riippumattomia (jokainen tuoreessa kontekstissa) → ajetaan RINNAKKAIN (SV_RINNAKKAIN, oletus 6; CI-runnerissa 2 ydintä).
   // Tulokset kootaan alkuperäiseen järjestykseen (taulukkoindeksi) → tuloste ja JSON identtiset sarja-ajon kanssa. Syy: sarja-ajo ylitti CI:n 10 min (≥2 toistoa × ~3,6 s × ~64 askelta).
@@ -211,7 +220,7 @@ async function main() {
 }
 
 const KOKO_AJO = !process.argv.some((a) => /^--(sovellus|askel|fixtuuri|osa)=/.test(a));
-if (argArvo('--osa') && !['demo', 'fixtuuri'].includes(argArvo('--osa'))) { console.error('--osa=demo|fixtuuri'); process.exit(2); }
+if (argArvo('--osa') && !OSAT_SALLITUT.includes(argArvo('--osa'))) { console.error('--osa=' + OSAT_SALLITUT.join('|')); process.exit(2); }
 if (arg('--paivita-baseline') && !KOKO_AJO) { console.error('--paivita-baseline vain koko ajosta (ei --sovellus/--askel)'); process.exit(2); }
 const { nakymat, virheet } = await main();
 const yhteenveto = {}; let kaikkiFi = 0, ui = 0; const uniikit = new Map();
