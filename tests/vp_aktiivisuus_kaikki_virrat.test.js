@@ -13,6 +13,13 @@
  * laskentaa, ei merkkijonoja.
  */
 import { describe, it, expect } from 'vitest';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (QG-1b): fixtuurin "n päivää sitten" -päivät pysyvät kuluvassa kaudessa (vuodenvaihteessa ne osuivat edelliseen kauteen). Vain Date.
+const KELLO = new Date('2026-10-15T09:00:00');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 import vm from 'node:vm';
 import { readFileSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
