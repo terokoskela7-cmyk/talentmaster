@@ -171,7 +171,7 @@ describe.each([['master', 'Master_v16'], ['vp', 'VP_v25']])('%s · jakson aloitu
 describe('sovellusten lähdetaso', () => {
   it('molemmat lataavat uudet libit ja nostetut ?v-versiot; lippu luetaan seura-dokumentista; arviointikehys vain tmKehys():llä (ei arviointikehys/seura)', () => {
     for (const [nimi, SRC] of [['Master', MA], ['VP', VP]]) {
-      expect(SRC, nimi).toMatch(/<script src="lib\/tm_aloita_jakso\.js\?v=\d+"/); expect(SRC, nimi).toMatch(/<script src="lib\/tm_koti_oletus\.js\?v=\d+"/); expect(SRC, nimi).toMatch(/<script src="lib\/tm_tukitavoitteet\.js\?v=\d+"/); expect(SRC, nimi).toMatch(/<script src="lib\/tm_jakso_malli\.js\?v=\d+"/); expect(SRC, nimi).toMatch(/<script src="lib\/tm_idp\.js\?v=\d+"/);
+      expect(SRC, nimi).toMatch(/<script src="lib\/tm_aloita_jakso\.js"/); expect(SRC, nimi).toMatch(/<script src="lib\/tm_koti_oletus\.js"/); expect(SRC, nimi).toMatch(/<script src="lib\/tm_tukitavoitteet\.js"/); expect(SRC, nimi).toMatch(/<script src="lib\/tm_jakso_malli\.js"/); expect(SRC, nimi).toMatch(/<script src="lib\/tm_idp\.js"/);
       expect(SRC, nimi).toContain('tmKehys(avain || \'palloliitto\')'); expect(SRC, nimi).toContain('Promise.all(['); expect(SRC, nimi).toMatch(/liput\.kentta === true/);
       expect(SRC, nimi).not.toMatch(/collection\('arviointikehys'\)/);
     }

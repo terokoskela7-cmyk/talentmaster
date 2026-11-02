@@ -180,17 +180,17 @@ describe('vienti: kartat sisältävät Gemini-erän rivit sellaisinaan', () => {
 describe('kytkentä: script-tagi + SW-allowlist + cache-bumpit (§27.4)', () => {
   it('tm_lib_i18n.js ladataan VP:ssä, Masterissa, Pelaajassa ja Vanhemmassa — tm_lang.js:n JÄLKEEN', () => {
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) {
-      const s = lue(f); const a = s.indexOf('lib/tm_lang.js?v='), b = s.indexOf('<script src="lib/tm_lib_i18n.js?v=');
+      const s = lue(f); const a = s.indexOf('lib/tm_lang.js"'), b = s.indexOf('<script src="lib/tm_lib_i18n.js"');
       expect(a, f).toBeGreaterThan(0); expect(b, f).toBeGreaterThan(a);
     }
   });
   it('SW:t (Pelaaja, Vanhempi) cachettavat tm_lib_i18n.js:n; cache-versio nostettu', () => {
     expect(lue('sw_pelaaja.js')).toContain("'/lib/tm_lib_i18n.js'"); expect(lue('sw_vanhempi.js')).toContain("'/lib/tm_lib_i18n.js'");
-    expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-v(8[2-9]|9\d|\d{3}|\d{3,})'/); expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-v(5[3-9]|[6-9]\d|\d{3}|\d{3,})'/);
+    expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-dev'/); expect(lue('sw_vanhempi.js')).toMatch(/const CACHE = 'tm-vanhempi-dev'/);
   });
   it('tm_lang.js:n ?v on sama ja ≥ 33 kaikissa sovelluksissa (jokainen tm_lang-muutos bumppaa kaikki — muuten stale-klientit näkevät raakoja avaimia)', () => {
-    const vs = new Set(); for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Seura.html', 'TalentMaster_Rekisterointi_Suostumus.html', 'TalentMaster_Pelihavainto_Kentta.html']) { const m = /lib\/tm_lang\.js\?v=(\d+)/.exec(lue(f)); expect(m, f).toBeTruthy(); vs.add(+m[1]); }
-    expect([...vs].length).toBe(1); expect([...vs][0]).toBeGreaterThanOrEqual(33);
+    const vs = new Set(); for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Seura.html', 'TalentMaster_Rekisterointi_Suostumus.html', 'TalentMaster_Pelihavainto_Kentta.html']) { expect(lue(f), f).toContain('<script src="lib/tm_lang.js"></script>'); vs.add(f); }
+    expect(vs.size).toBe(7);   // QG-2: deploy antaa saman sisällön tiivisteen kaikille (tests/versiotiiviste.test.js)
   });
   it('vpT / masterT / _p7K1T / _vKpT katsovat kirjastokartan ENSIN', () => {
     expect(lue('lib/tm_vp_i18n.js')).toMatch(/function vpT\(fi\) \{[^}]*tmLibT\(fi\)/); expect(lue('lib/tm_master_i18n.js')).toMatch(/function masterT\(fi\) \{[^}]*tmLibT\(fi\)/);

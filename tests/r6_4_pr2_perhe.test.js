@@ -186,8 +186,8 @@ describe('Pelaaja_v7 · Valmentajalta klippi (vm: sivun oikea koodi)', () => {
   it('LUKUVIRHE → kortti puuttuu (ei rikkinäistä ruutua), ei heitä', async () => { const e = pelaajaYmp({ docs: docs(), lukuVirhe: 'permission-denied' }); await e.f.ladataan(true); expect(e.els.p7KpKortti.innerHTML).toBe(''); });
   it('"valmentaja lukenut" näkyy kun vastaus on luettu (seuraava luku)', async () => { const e = pelaajaYmp({ docs: [klippi(), vastaus({ luettu: true })] }); await e.f.ladataan(true); expect(e.els.p7KpKortti.innerHTML).toContain('Vastasit'); expect(e.els.p7KpKortti.innerHTML).toContain('valmentaja lukenut'); });
   it('Tänään-sijoitus: kortti renderöidään rA1Kentta():ssa; libit ladataan ennen sivun koodia; SW allowlist + cache-versio', () => {
-    expect(PE).toContain("${_p7KpHTML('yla')}"); expect(PE).toContain("${_p7KpHTML('ala')}"); expect(PE.indexOf('lib/tm_mediaviesti.js?v=9')).toBeGreaterThan(0); expect(PE.indexOf('lib/tm_klippi_perhe.js?v=4')).toBeGreaterThan(0);
-    const sw = lue('sw_pelaaja.js'); expect(sw).toContain("/lib/tm_klippi_perhe.js"); expect(sw).toContain("/lib/tm_mediaviesti.js"); expect(sw).toMatch(/CACHE = 'tm-pelaaja-v(8[1-9]|9\d|\d{3,})/);
+    expect(PE).toContain("${_p7KpHTML('yla')}"); expect(PE).toContain("${_p7KpHTML('ala')}"); expect(PE.indexOf('lib/tm_mediaviesti.js')).toBeGreaterThan(0); expect(PE.indexOf('lib/tm_klippi_perhe.js')).toBeGreaterThan(0);
+    const sw = lue('sw_pelaaja.js'); expect(sw).toContain("/lib/tm_klippi_perhe.js"); expect(sw).toContain("/lib/tm_mediaviesti.js"); expect(sw).toContain("const CACHE = 'tm-pelaaja-dev';");
   });
 });
 
@@ -233,7 +233,7 @@ describe('Vanhempi_v2 · Katsokaa yhdessä (vm: sivun oikea koodi)', () => {
   });
   it('lapsi vaihtuu → tila nollataan; sijoitus rKoti():ssa; libit + SW allowlist + cache', async () => {
     const e = vanhempiYmp({ docs: PERHE() }); await e.f.ladataan(true); e.f.valitse('kp_valinta_leikkija_1'); e.sb.window._lapsi = { id: 'toinen', seuraId: 's', etunimi: 'Ella' }; await e.f.ladataan(false); expect(e.sb.window._vKp.valinta).toBe(''); expect(e.log.kyselyt.length).toBe(4);
-    expect(VA).toContain('${_vKpHTML()}'); expect(VA).toContain('lib/tm_klippi_perhe.js?v=4'); const sw = lue('sw_vanhempi.js'); expect(sw).toContain('/lib/tm_klippi_perhe.js'); expect(sw).toContain('/lib/tm_mediaviesti.js'); expect(sw).toMatch(/CACHE = 'tm-vanhempi-v(5[2-9]|[6-9]\d|\d{3,})/);
+    expect(VA).toContain('${_vKpHTML()}'); expect(VA).toContain('lib/tm_klippi_perhe.js'); const sw = lue('sw_vanhempi.js'); expect(sw).toContain('/lib/tm_klippi_perhe.js'); expect(sw).toContain('/lib/tm_mediaviesti.js'); expect(sw).toContain("const CACHE = 'tm-vanhempi-dev';");
   });
 });
 
@@ -263,7 +263,7 @@ describe('Rules v3.51 + versiot', () => {
     expect(r).toContain("pelaajaData(seuraId, resource.data.get('pelaajaId', '')).get('suostumusTila', '') == 'annettu');   // v3.51");
   });
   it('lib-versiot: tm_mediaviesti v2 kaikissa neljässä sovelluksessa (Master, VP, Pelaaja, Vanhempi); tm_klippi_perhe v1 Pelaajassa + Vanhemmassa', () => {
-    for (const s of [MA, VP, PE, VA]) expect(s).toContain('lib/tm_mediaviesti.js?v=9'); for (const s of [PE, VA]) expect(s).toContain('lib/tm_klippi_perhe.js?v=4');
+    for (const s of [MA, VP, PE, VA]) expect(s).toContain('lib/tm_mediaviesti.js'); for (const s of [PE, VA]) expect(s).toContain('lib/tm_klippi_perhe.js');
     for (const s of [MA, VP]) expect(s).not.toContain('tm_klippi_perhe');   // henkilökunta ei lataa pelaajan/perheen libiä
   });
 });

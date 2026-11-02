@@ -164,9 +164,7 @@ describe('E — kytkentä VP_v25:een', () => {
     expect(VP).toContain('window.avaaKonseptikirjasto = avaaKonseptikirjasto;');
   });
   it('resolvoija ladataan päivitetyllä versiolla (lib muuttui → cache-bust)', () => {
-    const m = VP.match(/lib\/tm_konsepti_resolve\.js\?v=(\d+)/);
-    expect(m).toBeTruthy();
-    expect(Number(m[1])).toBeGreaterThanOrEqual(2);
+    expect(VP).toContain('<script src="lib/tm_konsepti_resolve.js"></script>');   // QG-2: ?v = sisällön tiiviste deployssa
   });
   it('lomake lukee RAAKAA resolvointia, ei sv-kerrosta (§32: suomi tallennetaan)', () => {
     const i = VP.indexOf('function _kkAvaa('), j = VP.indexOf('function _kkKenttaHTML(');

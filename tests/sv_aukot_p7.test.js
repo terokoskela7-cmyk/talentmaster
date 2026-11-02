@@ -148,7 +148,7 @@ describe('kohta 8 (PM 28.10.): taidon nimi taksonomian nimi_sv:stä, tuntematon 
     expect(IP.tmPelaajaKonsepti(t, { taitoNimi: (n) => TN.tmTaitoNimi(n, 'sv') }).mika).toContain(TN.SV.Viimeistely);
   });
   it('P7: näyttöpaikat kääntävät, TALLENNETTAVA fokus_nimi ei (Firestoreen ei ruotsia)', () => {
-    expect(P7).toContain('<script src="lib/tm_taito_nimi.js?v=1"></script>'); expect(lue('sw_pelaaja.js')).toContain("'/lib/tm_taito_nimi.js'");
+    expect(P7).toContain('<script src="lib/tm_taito_nimi.js"></script>'); expect(lue('sw_pelaaja.js')).toContain("'/lib/tm_taito_nimi.js'");
     for (const s of ["idpPelaajaKaari(t, { t: _p7K1T, taitoNimi: _p7TaitoNimi })", "idpPelaajaKonsepti(t, { t: _p7K1T, taitoNimi: _p7TaitoNimi })", 'var pikaFokus = _p7TaitoNimi(', 'kausitavoite: _p7TaitoNimi(', 'esc(_p7TaitoNimi(sit.fokus_nimi))']) expect(P7, s).toContain(s);
     const i = P7.indexOf('function _p7FokusNimi()'), f = P7.slice(i, P7.indexOf('\n}', i));
     expect(f).not.toMatch(/_p7TaitoNimi|_p7KonseptiNimi/); expect(P7).toContain('fokus_nimi: _p7FokusNimi(),');
@@ -232,7 +232,7 @@ describe('P7 viimeiset sv (PM 29.10.): ydinasiat, vahvuus ja tukiosa samoilla ha
   it('P7-kytkennät: Tänään (osat, viikon fokus, vahvuus, Tämän tueksi) + Minä; tallennusolio käyttää yhä raakaa kaanonia', () => {
     for (const s of ["K.tmTanaanOsat(jf, { kaanon: _p7KaanonFn() })", "K.tmTanaanOsat(jf, { kaanon: _p7KaanonFn(), max: 26 })", 'if (x.vahvuus) x.vahvuus = _p7TaitoNimi(x.vahvuus);', 'TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), Object.assign({ nimiFn: _p7TaitoNimi }, o))', "kaanon: _p7KaanonFn() }, { esc: esc, t: _p7K1T })"]) expect(P7, s).toContain(s);
     expect(P7).toMatch(/K4\.tmVkTallennusolio\(_pelaaja, V\.valinnat, V\.lause, \{ tanaan: V\.pvm, kaanon: \(typeof tmKonseptiKaanon === 'function'\) \? tmKonseptiKaanon : null \}\)/);
-    expect(P7).toContain('<script src="lib/tm_tt_sv_valinta.js?v=1"></script>'); expect(lue('sw_pelaaja.js')).toContain("'/lib/tm_tt_sv_valinta.js'");
+    expect(P7).toContain('<script src="lib/tm_tt_sv_valinta.js"></script>'); expect(lue('sw_pelaaja.js')).toContain("'/lib/tm_tt_sv_valinta.js'");
     expect(P7.indexOf('lib/tm_tt_sv_valinta.js')).toBeGreaterThan(P7.indexOf('lib/tm_teknistaktiset_sv.js'));
   });
 });

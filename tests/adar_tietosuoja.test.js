@@ -78,7 +78,7 @@ describe('(1) kuvatoiminto on poistettu clientistä', () => {
     /* Väljä alaraja: versio saa nousta myöhemmissä PR:issä (2B nosti v3:een), mutta se ei saa
        palata kuvallista HTML:ää palvelleeseen v1:een. */
     const sw = lue('sw_adar.js');
-    expect(sw).toMatch(/const CACHE = 'tm-adar-v([2-9]|\d\d+)'/);
+    expect(sw).toMatch(/const CACHE = 'tm-adar-dev'/);
     expect(sw).not.toContain("'tm-adar-v1'");
   });
 });

@@ -77,8 +77,8 @@ describe('P7 _tallennaSitoumus', () => {
 
 describe('kytkentä', () => {
   it('P7 lataa dok-libin ennen käyttöä; SW allowlist + cache-bumppi; Vanhempi ei kosketa', () => {
-    const h = SRC; expect(h).toMatch(/tm_idp_pelaaja_dok\.js\?v=\d+"/); expect(h).toMatch(/tm_idp_pelaaja_dok\.js\?v=\d+"><\/script>[^\n]*\n<script src="lib\/tm_idp_pelaaja\.js/);
-    const sw = lue('sw_pelaaja.js'); expect(sw).toContain("/lib/tm_idp_pelaaja_dok.js"); expect(sw).toContain("tm-pelaaja-v158");
+    const h = SRC; expect(h).toMatch(/tm_idp_pelaaja_dok\.js"/); expect(h).toMatch(/tm_idp_pelaaja_dok\.js"><\/script>[^\n]*\n<script src="lib\/tm_idp_pelaaja\.js/);
+    const sw = lue('sw_pelaaja.js'); expect(sw).toContain("/lib/tm_idp_pelaaja_dok.js"); expect(sw).toContain("const CACHE = 'tm-pelaaja-dev';");
     expect(lue('TalentMaster_Vanhempi_v2.html')).not.toContain('idp_pelaaja');
   });
 });

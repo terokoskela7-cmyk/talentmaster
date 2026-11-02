@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>TalentMaster™ — Valmennusapuri</title>
 <script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1793267185057';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1793630548919';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <link rel="stylesheet" href="colors_and_type.css">
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
-<script src="lib/tm_appcheck.js?v=2"></script>
-<script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
+<script src="lib/tm_appcheck.js"></script>
+<script src="lib/tm_istunto.js"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <style>
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -608,7 +608,8 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
   function virheViesti(e) {
     var koodi = (e && e.code) || '';
     if (koodi.indexOf('unauthenticated') >= 0) return t('vUnauth');
-    if (koodi.indexOf('resource-exhausted') >= 0) return t('vKiintio');
+    // Seuran kuukausibudjetti (K1e): palvelimen fi/sv-viesti sellaisenaan; muuten päiväkiintiö.
+    if (koodi.indexOf('resource-exhausted') >= 0) return (e.details && e.details.syy === 'seurabudjetti' && e.message) ? e.message : t('vKiintio');
     if (koodi.indexOf('unavailable') >= 0 || koodi.indexOf('deadline-exceeded') >= 0 || koodi.indexOf('internal') >= 0) return t('vYhteys');
     return t('vYleinen') + ((e && e.message) || koodi);
   }

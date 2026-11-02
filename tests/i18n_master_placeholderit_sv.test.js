@@ -91,8 +91,7 @@ describe('Master sv · pyyhkäisyn johdotus', () => {
   });
 
   it('kartan cache-bustin on noustava kun avaimia lisätään (stale-klientit)', () => {
-    const m = HTML.match(/lib\/tm_master_i18n\.js\?v=(\d+)/);
-    expect(m, 'i18n-kartta ladataan versioidulla URLilla').not.toBeNull();
-    expect(Number(m[1])).toBeGreaterThanOrEqual(23);
+    // QG-2: ?v = sisällön tiiviste deployssa → uusi sisältö saa aina uuden URL:n (tests/versiotiiviste.test.js).
+    expect(HTML, 'i18n-kartta ladataan').toContain('<script src="lib/tm_master_i18n.js"></script>');
   });
 });

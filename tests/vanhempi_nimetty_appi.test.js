@@ -26,7 +26,7 @@ describe('Vanhempi_v2 · nimetty appi, ei anonyymiä', () => {
     expect(i).toBeGreaterThan(0);
     expect(a).toBeGreaterThan(i);
     expect(a).toBeLessThan(KOODI.indexOf('_vApp.auth()'));
-    expect(SIVU).toContain('lib/tm_appcheck.js?v=2');
+    expect(SIVU).toContain('lib/tm_appcheck.js');
   });
   it('huoltajan funktio (haeLapsiHuoltajalle) nimetystä appista', () => {
     expect(KOODI).toContain("window._fbApp.functions('europe-west1').httpsCallable('haeLapsiHuoltajalle')");
