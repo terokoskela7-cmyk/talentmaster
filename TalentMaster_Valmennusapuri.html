@@ -12,7 +12,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_appcheck.js"></script>
-<script src="lib/tm_istunto.js"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
+<script src="lib/tm_istunto.js"></script>
+<script src="lib/tm_kaavio_render.js"></script>   <!-- K2: konseptipelin kaavio — SAMA renderöijä kuin taktiikkataulussa (drawSpec) -->
+<script src="lib/tm_kaavio_policy.js"></script>   <!-- K2: kaavioVoiLuoda = "Avaa taktiikkataulussa" -napin portti (peili firestore.rulesista) -->
+<script src="lib/tm_kaavio_apuri.js"></script>    <!-- K2: siirto Masterin taktiikkatauluun + pienalueen rajaus -->   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <style>
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -85,6 +88,26 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
 .va-kommentti { display: flex; gap: 6px; width: 100%; margin-top: 6px; }
 .va-kommentti input { flex: 1; padding: 8px; border: 1px solid var(--border3); border-radius: var(--tm-radius-sm); font-size: 14px; background: var(--bg2); }
 .va-miettii { color: var(--ink3); font-size: 14px; font-style: italic; }
+
+/* K2 KAAVIO. Renderöijän tokenit TÄSMÄLLEEN kuten Master_v16/VP_v25 (.tm-kaavio, sama kuva kaikissa apeissa). */
+.tm-kaavio {
+  --accent: #28B090;  --pitch: #161615;  --line: rgba(242,239,230,.34);
+  --cone: rgba(40,176,144,.20);  --halo: rgba(40,176,144,.26);  --fade: #4D7A6C;
+  --bone: #F2EFE6;  --carbon: #1C1C1A;  --slate: #585751;  --red: #D06A5A;
+  --teal-brd: rgba(40,176,144,.55);
+  --ink: #F2EFE6;  --ink3: #8B887F;  --bg: #111110;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+}
+.tm-kaavio svg { display: block; width: 100%; height: auto; }
+:root[data-theme="light"] .tm-kaavio {
+  --accent: #1A7A5E;  --pitch: #EAE6DA;  --line: rgba(28,28,26,.38);
+  --cone: rgba(26,122,94,.20);  --halo: rgba(26,122,94,.24);  --fade: #8FB3A6;
+  --teal-brd: rgba(26,122,94,.5);
+  --ink: #1C1C1A;  --ink3: #7A776E;  --bg: #F2EFE6;
+}
+.va-kaavio { width: 100%; max-width: 420px; margin-top: 8px; background: var(--pitch); border: 1px solid var(--border2); border-radius: var(--tm-radius-md); padding: 6px; }
+.va-kaavio-nappi { width: auto; margin: 8px 0 0; padding: 10px 14px; font-size: 14px; }
 
 .va-alaosa { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--border2); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
 .va-syotto { display: flex; gap: 8px; align-items: flex-end; }
@@ -200,6 +223,7 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
       ],
       miettii: 'Apuri miettii… vastaus kestää yleensä 30–60 sekuntia.',
       hyva: '👍 Hyödyllinen', huono: '👎 Ei hyödyllinen', kiitos: 'Kiitos palautteesta!',
+      avaaTaulussa: 'Avaa taktiikkataulussa', kaavioKuvaus: 'Konseptipelin kaavio',
       kommenttiPh: 'Mikä meni pieleen? (vapaaehtoinen)', lahetaKommentti: 'Lähetä',
       kiintio: 'Tänään käytetty {k}/{m}', katkesi: 'Vastaus katkesi pituusrajaan. Pyydä apuria jatkamaan.',
       vUnauth: 'Istunto vanheni. Kirjaudu uudelleen.', vKiintio: 'Päivän kysymyskiintiö on täynnä. Jatka huomenna.',
@@ -233,6 +257,7 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
       ],
       miettii: 'Assistenten funderar… svaret tar oftast 30–60 sekunder.',
       hyva: '👍 Användbart', huono: '👎 Inte användbart', kiitos: 'Tack för din feedback!',
+      avaaTaulussa: 'Öppna i taktiktavlan',   // brief K2 (Tero); kaavioKuvaus odottaa Gemini-erää → fi-varalla
       kommenttiPh: 'Vad blev fel? (frivilligt)', lahetaKommentti: 'Skicka',
       kiintio: 'Använt i dag {k}/{m}', katkesi: 'Svaret avbröts vid längdgränsen. Be assistenten fortsätta.',
       vUnauth: 'Sessionen har gått ut. Logga in igen.', vKiintio: 'Dagens frågekvot är full. Fortsätt i morgon.',
@@ -548,6 +573,7 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
     if (v.role === 'user') kupla.textContent = v.content;
     else kupla.innerHTML = markdown(v.content);   // markdown() escapettaa kaiken ensin
     wrap.appendChild(kupla);
+    if (v.role === 'assistant' && v.kaavio) { var kv = kaavioElementti(v.kaavio); if (kv) wrap.appendChild(kv); }
     if (v.role === 'assistant' && v.katkesi) {
       var huom = document.createElement('div');
       huom.className = 'va-palaute';
@@ -556,6 +582,47 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
     }
     if (v.role === 'assistant' && v.lokiId) wrap.appendChild(palauteElementti(v));
     return wrap;
+  }
+
+  // ── K2: konseptipelin kaavio (palvelin palauttaa vain validaattorin läpäisseen specin) ──
+  var kaavioOikeus = { sa: false, rooli: null, seuraId: null };
+  function kaavioSeura() {
+    if (kaavioOikeus.sa) { try { return new URLSearchParams(location.search).get('seura') || null; } catch (e) { return null; } }
+    return kaavioOikeus.seuraId;
+  }
+  function voiAvataTaulussa() {
+    var seura = kaavioSeura();
+    return !!seura && typeof kaavioVoiLuoda === 'function' &&
+      kaavioVoiLuoda({ rooli: kaavioOikeus.rooli, seuraId: seura, superAdmin: kaavioOikeus.sa, anon: false });
+  }
+  function kaavioElementti(spec) {
+    var R = window.TM_KAAVIO_RENDER;
+    if (!R || typeof R.drawSpec !== 'function') return null;
+    var svg;
+    try { svg = R.drawSpec(spec, kieli); } catch (e) { console.warn('[valmennusapuri] kaavio', e); return null; }   // väärää kuvaa ei näytetä: virhe → vain teksti
+    var raj = window.TM_KAAVIO_APURI ? window.TM_KAAVIO_APURI.rajaus(spec, { PX: R.kaavioPX, PY: R.kaavioPY, VW: R.KAAVIO_VW, VH: R.KAAVIO_VH }) : null;
+    if (raj) svg.setAttribute('viewBox', raj.viewBox);
+    svg.setAttribute('aria-label', t('kaavioKuvaus'));
+    var laatikko = document.createElement('div');
+    laatikko.className = 'tm-kaavio va-kaavio';
+    laatikko.appendChild(svg);
+    var osa = document.createElement('div');
+    osa.appendChild(laatikko);
+    if (voiAvataTaulussa()) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'va-nappi toissijainen va-kaavio-nappi';
+      b.textContent = t('avaaTaulussa');
+      b.addEventListener('click', function () { avaaTaulussa(spec); });
+      osa.appendChild(b);
+    }
+    return osa;
+  }
+  function avaaTaulussa(spec) {
+    var seura = kaavioSeura(), ok = false;
+    try { ok = window.TM_KAAVIO_APURI.kirjoita(localStorage, spec, seura); } catch (e) { ok = false; }
+    if (!ok) { naytaVirhe(t('vYleinen') + 'localStorage'); return; }
+    window.open('TalentMaster_Master_v16.html?apuriKaavio=1', '_blank');
   }
 
   function palauteElementti(v) {
@@ -626,7 +693,7 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
     try { var sp = new URLSearchParams(location.search).get('seura'); if (sp) pyynto.seuraId = sp; } catch (e) { /* ei URL-tukea */ }
     apuriCF(pyynto).then(function (res) {
       var d = res.data || {};
-      historia.push({ role: 'assistant', content: d.vastaus || '', lokiId: d.lokiId, katkesi: !!d.katkesi });
+      historia.push({ role: 'assistant', content: d.vastaus || '', lokiId: d.lokiId, katkesi: !!d.katkesi, kaavio: d.kaavio || null });
       if (kiintio.m) kiintio.k++;
     }).catch(function (e) {
       console.warn('[valmennusapuri]', e);
@@ -722,12 +789,15 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
   auth.onAuthStateChanged(function (kayttaja) {
     if (!kayttaja) { historia = []; nayta('vaKirjaudu'); return; }
     nayta('vaLadataan');
-    kayttaja.getIdToken(true).then(function () {
+    kayttaja.getIdTokenResult(true).then(function (tok) {
+      var c = (tok && tok.claims) || {};
+      kaavioOikeus = { sa: false, rooli: c.rooli || null, seuraId: c.seuraId || null };   // K2: napin portti (Rules ratkaisee lopullisesti)
       return apuriCF({ toiminto: 'tila' });
     }).then(function (res) {
       var d = res.data || {};
       kiintio = { m: d.paivaKiintio || null, k: d.kaytetty || 0 };
       roolit = Array.isArray(d.roolit) && d.roolit.length ? d.roolit : ['valmennusapuri'];
+      kaavioOikeus.sa = d.sa === true;
       var toivottu = 'valmennusapuri';
       try { toivottu = localStorage.getItem('tm_va_rooli') || 'valmennusapuri'; } catch (e) { /* ei storagea */ }
       nayta('vaApuri');
