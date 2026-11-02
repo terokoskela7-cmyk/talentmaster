@@ -2165,6 +2165,7 @@ async function renderPelaajat(alue) {
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a,b) => (a.sukunimi || '').localeCompare(b.sukunimi || ''));
 
+    await _seuraYhdistaTerveys(pelaajat);   // PR 2a: käytettävyys sisainen/terveys:stä (SA/VP/UTJ)
     // Tallennetaan kaikki pelaajat suodatinta varten
     window._pelaajatKaikki = pelaajat;
     window._aktiiviSuodatin = 'kaikki';
@@ -2380,11 +2381,20 @@ function _renderKaytettavyys(p) {
   </button>`;
 }
 
+/* PR 2a (vaihe 1 PR 2, terveys): TERVEYS_VAIN_SISAINEN — käytettävyys luetaan ja kirjoitetaan vain sisainen/terveys-dokumentissa (siivousskripti tarkistaa tämän merkin tuotannosta).
+   Lataus (lista ja muokkausikkuna) yhdistää terveys-dokumentin pelaajaan; latausvirhe näytetään eikä nielaista. */
+const TERVEYS_VAIN_SISAINEN = true;
+async function _seuraYhdistaTerveys(lista) {
+  if (!kaytettavyysNakyy() || !window.TM_SISAINEN || !lista.length) return;
+  const T = window.TM_SISAINEN, r = await T.tmSisainenLataaTerveys(db, tila.seuraId, T.tmTerveysLukuOpts(tila.rooli, lista));
+  if (r.virhe) naytaToast(tmHT('Lataus epäonnistui:') + ' ' + r.virhe, 'virhe');
+  lista.forEach((p, i) => { lista[i] = T.tmSisainenYhdista(p, null, { terveys: r.mapa[p.id] }); });
+}
 async function avaaKaytettavyysModal(pelaajaId) {
   if (!kaytettavyysNakyy()) return;
-  const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
-  const p = { id: pelaajaId, ...snap.data() };
-  const k = p.kaytettavyys || 'aktiivinen';
+  let p = (window._pelaajatKaikki || []).find(x => x.id === pelaajaId);
+  if (!p) { const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get(); const l = [{ id: pelaajaId, ...snap.data() }]; await _seuraYhdistaTerveys(l); p = l[0]; }
+  const k = p.kaytettavyys || null;   // asettamaton → mitään tilaa ei valita valmiiksi (ei oletusta "aktiivinen")
 
   // Poista vanha modaali
   document.getElementById('kaytettavyysModaali')?.remove();
@@ -2416,7 +2426,7 @@ async function avaaKaytettavyysModal(pelaajaId) {
           </label>`).join('')}
       </div>
 
-      <div id="km_loukka_kentat" style="${k==='aktiivinen'||k==='tauko'?'display:none':''}">
+      <div id="km_loukka_kentat" style="${k==='loukkaantunut'||k==='kuntoutuksessa'?'':'display:none'}">
         <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${tmHT('Loukkaantuminen')}</div>
         <select id="km_tyyppi" style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);
           border-radius:8px;color:#E8EEF8;font-size:14px;padding:10px 12px;margin-bottom:10px">
@@ -2448,7 +2458,7 @@ async function avaaKaytettavyysModal(pelaajaId) {
         <button onclick="document.getElementById('kaytettavyysModaali').remove()"
           style="background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;
           color:#8A9BB5;padding:9px 18px;font-size:13px;cursor:pointer">${tmHT('Peruuta')}</button>
-        <button onclick="tallennakKaytettavyys('${pelaajaId}')"
+        <button id="km_tallenna" onclick="tallennakKaytettavyys('${pelaajaId}')" ${k ? '' : 'disabled'}
           style="background:var(--blue);border:none;border-radius:8px;color:#fff;
           padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer">${tmHT('Tallenna')}</button>
       </div>
@@ -2458,6 +2468,7 @@ async function avaaKaytettavyysModal(pelaajaId) {
   // Radio-napit näyttävät/piilottavat loukkaantumiskentät
   m.querySelectorAll('input[name=km_tila]').forEach(r => {
     r.addEventListener('change', () => {
+      const tb = document.getElementById('km_tallenna'); if (tb) tb.disabled = false;
       const kentat = document.getElementById('km_loukka_kentat');
       kentat.style.display = (r.value==='loukkaantunut'||r.value==='kuntoutuksessa') ? '' : 'none';
       // Päivitä napin taustaväri
@@ -2481,16 +2492,14 @@ async function avaaKaytettavyysModal(pelaajaId) {
 
 async function tallennakKaytettavyys(pelaajaId) {
   if (!kaytettavyysNakyy()) return;
-  const tila_val = document.querySelector('input[name=km_tila]:checked')?.value || 'aktiivinen';
+  const tila_val = document.querySelector('input[name=km_tila]:checked')?.value;
+  if (!tila_val) return;   // Tallenna on pois käytöstä kunnes tila valitaan
   const tyyppi   = document.getElementById('km_tyyppi')?.value || '';
   const alue     = document.getElementById('km_alue')?.value || '';
   const pvm      = document.getElementById('km_pvm')?.value || '';
   const paluu    = document.getElementById('km_paluu')?.value || '';
 
-  const data = {
-    kaytettavyys: tila_val,
-    muokattu: firebase.firestore.FieldValue.serverTimestamp(),
-  };
+  const data = { kaytettavyys: tila_val };
   if (tila_val !== 'aktiivinen') {
     if (tyyppi) data.loukkaantuminen_tyyppi = tyyppi;
     if (alue)   data.loukkaantuminen_alue   = alue;
@@ -2505,16 +2514,12 @@ async function tallennakKaytettavyys(pelaajaId) {
   }
 
   try {
-    /* PR 1e-3b (S4): kaytettavyys + loukkaantuminen_* + paluu_arvio (GDPR art. 9) → lisäksi sisainen/terveys samaan batchiin (lippu pois → yksi update() kuten ennen);
-       permission-denied (Rules v3.70 ei käytössä) → vanha kenttä ilman sisainen:iä. `muokattu` jää vain pelaajalle. */
-    if (window.TM_SISAINEN) await window.TM_SISAINEN.tmTerveysKirjoita(db, tila.seuraId, pelaajaId, data, {});
-    else await db.collection('seurat').doc(tila.seuraId)
-      .collection('pelaajat').doc(pelaajaId)
-      .update(data);
+    if (!window.TM_SISAINEN) throw new Error('TM_SISAINEN puuttuu');
+    await window.TM_SISAINEN.tmTerveysKirjoita(db, tila.seuraId, pelaajaId, data, {});   // PR 2a: vain sisainen/terveys (ei pelaajadokumenttia)
     document.getElementById('kaytettavyysModaali')?.remove();
     // Paikallinen data synkkaan (kuten joukkuesiirrossa) → lista päivittyy, suodatin ja haku säilyvät.
     const p = (window._pelaajatKaikki || []).find(x => x.id === pelaajaId);
-    if (p) { Object.keys(data).forEach(k => { if (k === 'muokattu') return; if (tila_val === 'aktiivinen' && k !== 'kaytettavyys') delete p[k]; else p[k] = data[k]; }); suodataPelaajat(window._aktiiviSuodatin || 'kaikki'); }
+    if (p) { Object.keys(data).forEach(k => { if (tila_val === 'aktiivinen' && k !== 'kaytettavyys') delete p[k]; else p[k] = data[k]; }); suodataPelaajat(window._aktiiviSuodatin || 'kaikki'); }
     naytaToast('Käytettävyys tallennettu', 'ok');
   } catch(e) {
     naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe');

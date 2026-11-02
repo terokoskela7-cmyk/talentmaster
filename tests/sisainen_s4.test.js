@@ -112,12 +112,28 @@ describe('TERVEYS-dokumentti sisainen/terveys (PR #1137): kirjoitusapuri, rajaus
     const o = S.tmTerveysOsa('s', upd(), { s4Kirjoitus: true, nytISO: 'T' }); expect(o.data).toEqual({ terveysSeuraId: 's', paivitetty: 'T', kaytettavyys: 'rajoitettu', loukkaantuminen_tyyppi: 'nilkka', loukkaantuminen_pvm: '2026-10-20', paluu_arvio: '2026-11-15' });
     expect(o.mergeFields).toEqual(['terveysSeuraId', 'paivitetty', 'kaytettavyys', 'loukkaantuminen_tyyppi', 'loukkaantuminen_pvm', 'paluu_arvio']); expect(o.data).not.toHaveProperty('seuraId'); expect(S.tmTerveysPolku('s', 'p1')).toBe(TERV_PATH);
   });
-  it('tmTerveysKirjoita: lippu pois → vain pelaajan update; päällä → YKSI batch (pelaaja + sisainen/terveys); permission-denied → varapolku ilman terveys-dokumenttia; varapolku:false heittää', async () => {
-    const f = mkDb(); expect(await S.tmTerveysKirjoita(f.db, 's', 'p1', upd(), {})).toEqual({ ok: true, sisainen: false, sisainenOhitettu: false }); expect(f.D.has(TERV_PATH)).toBe(false); expect(f.D.get(PEL).loukkaantuminen_tyyppi).toBe('nilkka');
-    const g = mkDb(); expect(await S.tmTerveysKirjoita(g.db, 's', 'p1', upd(), { s4Kirjoitus: true, nytISO: 'T' })).toEqual({ ok: true, sisainen: true, sisainenOhitettu: false }); expect(g.loki.commits).toBe(1);
-    expect(g.D.get(TERV_PATH)).toMatchObject({ terveysSeuraId: 's', paivitetty: 'T', kaytettavyys: 'rajoitettu', paluu_arvio: '2026-11-15' }); expect(g.D.get(TERV_PATH)).not.toHaveProperty('talenttiTaso'); expect(g.D.has(SIS)).toBe(false); expect(g.D.get(PEL).loukkaantuminen_tyyppi).toBe('nilkka');   // dual-write: vanha kenttä jää
-    const h = mkDb(true), r = await S.tmTerveysKirjoita(h.db, 's', 'p1', upd(), { s4Kirjoitus: true }); expect(r).toEqual({ ok: true, sisainen: false, sisainenOhitettu: true }); expect(h.D.get(PEL).loukkaantuminen_tyyppi).toBe('nilkka'); expect(h.D.has(TERV_PATH)).toBe(false);
-    await expect(S.tmTerveysKirjoita(mkDb(true).db, 's', 'p1', upd(), { s4Kirjoitus: true, varapolku: false })).rejects.toThrow(/permissions/);
+  it('tmTerveysKirjoita (PR 2a, TERVEYS_VAIN_SISAINEN): VAIN sisainen/terveys lipusta riippumatta; pelaajadokumenttia ei kosketa; ei permission-denied-varapolkua; muu avain → virhe', async () => {
+    expect(S.TERVEYS_VAIN_SISAINEN).toBe(true); expect(CF.TERVEYS_VAIN_SISAINEN).toBe(true);
+    const terv = () => ({ kaytettavyys: 'rajoitettu', loukkaantuminen_tyyppi: 'nilkka', loukkaantuminen_pvm: '2026-10-20', paluu_arvio: '2026-11-15' });
+    for (const s4Kirjoitus of [undefined, false, true]) {
+      const f = mkDb(); expect(await S.tmTerveysKirjoita(f.db, 's', 'p1', terv(), { s4Kirjoitus, nytISO: 'T' })).toEqual({ ok: true, sisainen: true });
+      expect(f.D.get(TERV_PATH)).toEqual({ terveysSeuraId: 's', paivitetty: 'T', kaytettavyys: 'rajoitettu', loukkaantuminen_tyyppi: 'nilkka', loukkaantuminen_pvm: '2026-10-20', paluu_arvio: '2026-11-15' });
+      expect(f.D.get(PEL)).toEqual({ etunimi: 'X' }); expect(f.D.has(SIS)).toBe(false);   // pelaajadokumentti ennallaan, ei tiedot:iin
+    }
+    await expect(S.tmTerveysKirjoita(mkDb().db, 's', 'p1', upd(), {})).rejects.toThrow(/vain terveysavaimet sallittu \(talenttiTaso, kasvutahti_cm_v\)/);
+    await expect(S.tmTerveysKirjoita(mkDb().db, 's', 'p1', { kaytettavyys: 'x', muokattu: 1 }, {})).rejects.toThrow(/muokattu/);
+    const e = new Error('Missing or insufficient permissions'); e.code = 'permission-denied'; let pelaajaanKirjoitettu = false;
+    const ref = (polku) => ({ collection: (n) => ({ doc: (id) => ref(polku + '/' + n + '/' + id) }), update: async () => { pelaajaanKirjoitettu = true; }, set: async () => { if (/\/sisainen\/terveys$/.test(polku)) throw e; pelaajaanKirjoitettu = true; } });
+    const hylkaava = { collection: (n) => ({ doc: (id) => ref(n + '/' + id) }), batch: () => { throw new Error('ei batchia'); } };
+    await expect(S.tmTerveysKirjoita(hylkaava, 's', 'p1', terv(), {})).rejects.toThrow(/permissions/); expect(pelaajaanKirjoitettu).toBe(false);   // ei varapolkua vanhaan kenttään
+    expect(await S.tmTerveysKirjoita(mkDb().db, 's', 'p1', {}, {})).toEqual({ ok: true, sisainen: false });
+  });
+  it('dual-read (PR 2a): olemassa oleva terveys-dokumentti on määräävä kaikille terveysavaimille — puuttuva avain ei vuoda vanhasta kentästä; dokumentin puuttuessa vanha kenttä varalla', () => {
+    const p = { id: 'p1', kaytettavyys: 'loukkaantunut', loukkaantuminen_alue: 'Polvi', paluu_arvio: '2026-11-01', etunimi: 'X' };
+    const y = S.tmSisainenYhdista(p, null, { s4Kirjoitus: true, terveys: { kaytettavyys: 'aktiivinen', terveysSeuraId: 's' } });
+    expect(y.kaytettavyys).toBe('aktiivinen'); expect(y).not.toHaveProperty('loukkaantuminen_alue'); expect(y).not.toHaveProperty('paluu_arvio'); expect(y.etunimi).toBe('X');
+    expect(S.tmSisainenYhdista(p, null, { s4Kirjoitus: true }).loukkaantuminen_alue).toBe('Polvi');   // ei terveys-dokumenttia → vanha kenttä (ennen siivousta)
+    expect(p.loukkaantuminen_alue).toBe('Polvi');   // syöte ennallaan
   });
   it('tmTerveysLuvunTapa: koko seura (SA, vp, utj, fysioterapeutti, talenttivalmentaja), pelaajakohtaisesti (valmentaja), ei lainkaan (seurasihteeri, testivastaava, talenttivalmentaja, pelaaja, huoltaja, tuntematon)', () => {
     ['super_admin', 'vp', 'urheilutoimenjohtaja', 'fysioterapeutti', 'talenttivalmentaja'].forEach((r) => expect(S.tmTerveysLuvunTapa(r), r).toBe('seura')); expect(S.tmTerveysLuvunTapa('valmentaja')).toBe('pelaajat');
