@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdirSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createRequire } from 'module';
-import { kaynnista, selainKaynnista, CHROME, JUURI } from './helpers/kt_sivu.mjs';
+import { kaynnista, selainKaynnista, kirjoitukset, CHROME, JUURI } from './helpers/kt_sivu.mjs';
 const require = createRequire(import.meta.url);
 const SN = require('../lib/tm_sanasto.js');
 const KUVAT = join(JUURI, 'docs', 'ui-kuvat', 'b2b-jakso-sheet');
@@ -15,7 +15,7 @@ const KIELLETYT = (t) => SN.tmSanastoKielletyt(t);
 
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2b · jakso sheetinä', () => {
   let selain; const avaa = async () => { selain = await selainKaynnista(); };
-  it('Aloita jakso avautuu PITKÄNÄ sheetinä (ei vanhaa modaalia); validointivirhe → toast, sheet auki, ei kirjoitusta; onnistunut tallennus = YKSI update, sheet kiinni, Tänään näyttää D248-nimen', async () => {
+  it('Aloita jakso avautuu PITKÄNÄ sheetinä (ei vanhaa modaalia); validointivirhe → toast, sheet auki, ei kirjoitusta; onnistunut tallennus = YKSI batch (pelaaja + sisainen), sheet kiinni, Tänään näyttää D248-nimen', async () => {
     await avaa(); try {
       const { p, virheet } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p1/tanaan' }); await odota(p);
       await aloita(p).click(); await p.waitForSelector('#_ajTaito');
@@ -27,13 +27,18 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2b · jakso 
       expect(KIELLETYT(await teksti(p))).toEqual([]);   // konsepti/cue/katselmus/signaali/sitoumus ei näy
       await p.locator('#_ajYv').fill('');   // pakollinen kenttä tyhjä
       await p.locator('[data-aj-tallenna]').click(); await p.waitForTimeout(500);
-      expect(await p.evaluate(() => window.__kirj)).toEqual([]); expect(await p.locator('#_ajTaito').count()).toBe(1);
+      expect(await kirjoitukset(p)).toEqual([]); expect(await p.locator('#_ajTaito').count()).toBe(1);
       expect(await p.locator('#toast-wrap').innerText()).toMatch(/Jaksoa ei voi aloittaa/);
       await p.locator('#_ajYv').fill('Hyvä 1. kosketus'); await p.locator('#_ajTaito').selectOption('y_h1');
-      await p.locator('[data-aj-tallenna]').click(); await p.waitForFunction(() => window.__kirj.length === 1, null, { timeout: 8000 });
-      const k = await p.evaluate(() => window.__kirj); expect(k).toHaveLength(1); expect(k[0].path).toBe('seurat/demo/pelaajat/p1');
+      await p.locator('[data-aj-tallenna]').click(); await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 });
+      // sisainen/tiedot dual-write samassa batchissa (#1144–#1147): yksi tallennus = yksi commit, ei suoria kirjoituksia
+      expect(await p.evaluate(() => window.__kirj)).toEqual([]); const b = await p.evaluate(() => window.__batch[0]); expect(b).toHaveLength(2);
+      const k = b.filter((o) => o.path === 'seurat/demo/pelaajat/p1'); expect(k).toHaveLength(1);
       expect(Object.keys(k[0].update).sort()).toEqual(['jaksofokus', 'ydinvahvuus']);
       expect(k[0].update.jaksofokus).toMatchObject({ konsepti_avain: 'y_h1', lahde: 'valmentaja', kesto_vk: 6 }); expect(k[0].update.ydinvahvuus.kuvaus).toBe('Hyvä 1. kosketus');
+      const sis = b.filter((o) => o.path === 'seurat/demo/pelaajat/p1/sisainen/tiedot'); expect(sis).toHaveLength(1);
+      expect(Object.keys(sis[0].set).sort()).toEqual(['jaksofokus_sisainen', 'paivitetty', 'seuraId']); expect(sis[0].set.seuraId).toBe('demo');
+      expect(sis[0].opts).toEqual({ mergeFields: ['seuraId', 'paivitetty', 'jaksofokus_sisainen'] });
       await p.waitForSelector('#_ajTaito', { state: 'detached', timeout: 5000 });   // sheet sulkeutui
       expect(await p.locator('#toast-wrap').innerText()).toMatch(/Jakso aloitettu/);
       expect(await p.locator('.kt-sig, .kt-tanaan, #ktJuuri').first().innerText()).toMatch(/1\. kosketus/);   // D248-nimi myös Tänään-välilehdellä
@@ -45,7 +50,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2b · jakso 
       const { p } = await kaynnista(selain, { rooli: 'vp', hash: '#pelaaja/p1/tanaan' }); await odota(p);
       await aloita(p).click(); await p.waitForSelector('#_ajYv'); await p.locator('#_ajYv').fill('Keskeneräinen ajatus');
       await p.getByRole('button', { name: /Sulje/ }).first().click(); await p.waitForTimeout(400);
-      expect(await p.locator('#_ajYv').count()).toBe(0); expect(await p.evaluate(() => window.__kirj)).toEqual([]);
+      expect(await p.locator('#_ajYv').count()).toBe(0); expect(await kirjoitukset(p)).toEqual([]);
       await aloita(p).click(); await p.waitForSelector('#_ajYv'); expect(await p.locator('#_ajYv').inputValue()).toBe('Keskeneräinen ajatus');
     } finally { await selain.close(); }
   }, 60000);

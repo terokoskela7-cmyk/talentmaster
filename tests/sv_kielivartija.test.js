@@ -39,13 +39,34 @@ describe('QG-1 · muuttujalliset tekstit tunnistetaan osina', () => {
 describe('QG-1 · CI kaataa uudesta suomesta', () => {
   const t = lue('.github/workflows/test.yml');
   const sv = t.slice(t.indexOf('  sv-lapiajo:'), t.indexOf('\n  lint:'));
-  it('sv-lapiajo: --tarkista --kaada, ei continue-on-erroria, kaksi rinnakkaista osaa, pipefail (tee ei peitä exit-koodia)', () => {
+  it('sv-lapiajo: --tarkista --kaada, ei continue-on-erroria, kolme rinnakkaista osaa (demo kahtia, QG-1b), pipefail (tee ei peitä exit-koodia)', () => {
     expect(sv).toContain('--tarkista --kaada');
     expect(sv).not.toMatch(/continue-on-error/);
-    expect(sv).toMatch(/osa: \[demo, fixtuuri\]/);
+    expect(sv).toMatch(/osa: \[demo-1, demo-2, fixtuuri\]/);
     expect(sv).toContain('--osa=${{ matrix.osa }}');
     expect(sv).toContain('set -o pipefail');
     expect(sv).toContain('timeout-minutes: 10');
+  });
+  it('pakollisten tarkistusten nimet säilyvät: "sv-lapiajo (demo)" = yhteenveto, joka vaatii molemmat demo-osat; "sv-lapiajo (fixtuuri)" = matriisin osa', () => {
+    const y = t.slice(t.indexOf('  sv-lapiajo-demo:'), t.indexOf('\n  # #60'));
+    expect(y).toContain('name: sv-lapiajo (demo)');
+    expect(y).toContain('needs: sv-lapiajo');
+    expect(y).toContain('if: always()');
+    expect(y).toContain('"sv-lapiajo (demo-1)"');
+    expect(y).toContain('"sv-lapiajo (demo-2)"');
+    expect(y).toContain('test "$tulos" = "success success"');
+    expect(sv.slice(0, sv.indexOf('  sv-lapiajo-demo:'))).not.toMatch(/^    name: sv-lapiajo/m);   // matriisijobilla ei omaa nimeä → GitHub nimeää osat "sv-lapiajo (<osa>)"
+  });
+  it('demo-osat kattavat jokaisen demo-sovelluksen täsmälleen kerran (uusi demo-sovellus ei jää ajamatta)', () => {
+    const l = lue('tools/i18n/sv_lapiajo.mjs');
+    const sovellukset = l.slice(l.indexOf('export const SOVELLUKSET = {'), l.indexOf('export const FX_SOVELLUKSET'));
+    const demo = [...sovellukset.matchAll(/^  ([a-z_]+): \{/gm)].map((m) => m[1]).filter((k) => !k.startsWith('fx_'));
+    const osat = JSON.parse(l.match(/export const DEMO_OSAT = (\{[^\n]*\});/)[1].replace(/'/g, '"'));
+    const jaettu = [].concat(...Object.values(osat));
+    expect(demo.length).toBeGreaterThanOrEqual(7);
+    expect([...jaettu].sort()).toEqual([...demo].sort());
+    expect(new Set(jaettu).size).toBe(jaettu.length);
+    expect(Object.keys(osat)).toEqual(['demo-1', 'demo-2']);
   });
   it('baseline-vartija: oma workflow, ajetaan myös kun PR-kuvausta muokataan; kuvaus ympäristömuuttujana (ei injektiota)', () => {
     const b = lue('.github/workflows/sv-baseline.yml');
@@ -54,8 +75,9 @@ describe('QG-1 · CI kaataa uudesta suomesta', () => {
     expect(b).not.toMatch(/run:.*github\.event\.pull_request\.body/);
     expect(b).toContain('node tools/i18n/sv_baseline_vartija.mjs');
   });
-  it('hyväksyntätestit ajetaan chrome-tests-vaiheessa', () => {
-    expect(t).toContain('tests/sv_kielivartija_selain.test.js');
+  it('hyväksyntätestit ajetaan chrome-tests-vaiheessa (QG-1b: lista .github/chrome_testit.txt)', () => {
+    expect(t).toContain('$(cat .github/chrome_testit.txt)');
+    expect(lue('.github/chrome_testit.txt').split('\n')).toContain('tests/sv_kielivartija_selain.test.js');
   });
 });
 

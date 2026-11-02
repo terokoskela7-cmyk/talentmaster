@@ -253,8 +253,8 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
 describe('Chrome-testi ei ole vaadittavassa unit-tests-portissa (CI-vakaus)', () => {
   const WF = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github/workflows/test.yml'), 'utf8');
   it('unit-tests-job asettaa TM_CHROME_TESTS=0 (selaintesti ohitetaan) ja oma chrome-tests-job ajaa sen arvolla 1; testi ei käytä synkronista exec-kutsua (esti event loopin) eikä odota Chromen exitiä', () => {
-    const unit = WF.slice(WF.indexOf('  unit-tests:'), WF.indexOf('  functions-tests:')), chrome = WF.slice(WF.indexOf('  chrome-tests:'), WF.indexOf('  # #60'));
-    expect(unit).toMatch(/- run: npm test\s+env:\s+TM_CHROME_TESTS: '0'/); expect(chrome).toMatch(/TM_CHROME_TESTS: '1'/); expect(chrome).toContain('npx vitest run tests/kentta_k0.test.js'); expect(chrome).toContain('timeout-minutes');
+    const unit = WF.slice(WF.indexOf('  unit-tests:'), WF.indexOf('  functions-tests:')), chrome = WF.slice(WF.indexOf('  chrome-osat:'), WF.indexOf('  # #60'));   // QG-1b: chrome-osat (4 osaa) + yhteenveto chrome-tests
+    expect(unit).toMatch(/- run: npm test\s+env:\s+TM_CHROME_TESTS: '0'/); expect(chrome).toMatch(/TM_CHROME_TESTS: '1'/); expect(chrome).toContain('$(cat .github/chrome_testit.txt)'); expect(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'chrome_testit.txt'), 'utf8')).toContain('tests/kentta_k0.test.js'); expect(chrome).toContain('timeout-minutes');
     const t = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'kentta_k0.test.js'), 'utf8'); expect(t).not.toContain('exec' + 'FileSync'); expect(t).toContain("lapsi.kill('SIG" + "KILL')"); expect(t).toContain("process.env.TM_CHROME_TESTS !== '0'");
   });
 });

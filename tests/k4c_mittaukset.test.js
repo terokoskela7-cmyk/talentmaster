@@ -1,6 +1,13 @@
 /* K4c · Kaikki mittaukset (lib/tm_mittaukset.js + tm_mittaukset_html.js, PURE): sama data ja säännöt kuin K4a:n kortit; historia, käyrä (ylös = parempi), kehitysnopeus (alle 2 kk → ei arvioida), kausi-suodatin,
    Peli (ikätason ulottuvuudet, lukitut, arvioijasarakkeet + ristiinarvion lukko), Psyykkinen arvio (ei pelaajan omaa), Kehon valmius (selkokieli), tyhjät tilat, SJK/Sibbo-testistöt, kielletyt sanat. */
 import { describe, it, expect } from 'vitest';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (QG-1b, #1162:n jatko): ikä, kausi ja vuosi lasketaan samasta kellosta → testi ei vanhene. Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-19T12:00:00')   // = tiedoston NYT;
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 import { createRequire } from 'module';
 import { TOPIAS, SJK, VAHAN, VANHA, TOPIAS_PITKA, SIBBO, TYHJA } from './helpers/k4c_fixturet.mjs';
 const require = createRequire(import.meta.url);

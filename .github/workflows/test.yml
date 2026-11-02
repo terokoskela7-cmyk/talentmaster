@@ -42,11 +42,16 @@ jobs:
         working-directory: functions
         run: npm test
 
-  # Oikean Chrome-selaimen testit (headless). EI vaadittava tarkistus (branch protection ei listaa tätä): selaintesti on ympäristöriippuvainen eikä saa pitää
-  # vaadittavaa unit-tests-porttia punaisena (#824). Näkyy PR:ssä omana tarkistuksenaan; punainen = tutkittava, mutta ei estä mergeä.
-  chrome-tests:
+  # Oikean Chrome-selaimen testit (headless). PAKOLLINEN tarkistus (main-suojaus 2.11.2026): chrome-tests.
+  # QG-1b: KAIKKI selaintestit (.github/chrome_testit.txt, vartija tests/chrome_testit_ci_vartija.test.js) neljänä rinnakkaisena osana → seinäkello alle 5 min.
+  # Ennen QG-1b:tä ajettiin vain 15–17 käsin listattua tiedostoa; loput eivät ajautuneet missään.
+  chrome-osat:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        osa: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,14 +59,25 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Chrome-testit (kentta_k0)
+      - name: Chrome-testit (osa ${{ matrix.osa }}/4)
         env:
           TM_CHROME_TESTS: '1'
-        run: TM_CHROME_PATH="$(which google-chrome)" npx vitest run tests/kentta_k0.test.js tests/sv_lapiajo.test.js tests/sv_kielivartija_selain.test.js tests/k35_2b_modaalit.test.js tests/k35_6a_taytto_selain.test.js tests/k35_6f_selain.test.js tests/v_koti_a_selain.test.js tests/master_mobiili_asettelu.test.js tests/k35_6d_selain.test.js tests/k35_6e_selain.test.js tests/k35_6b_selain.test.js tests/k35_6d2_selain.test.js tests/k35_10_lataus_selain.test.js tests/k35_7b_tilaus_selain.test.js tests/klippi_sv_selain.test.js tests/v_koti_sv_selain.test.js tests/sw_paivitys_selain.test.js
+        run: TM_CHROME_PATH="$(which google-chrome)" npx vitest run $(cat .github/chrome_testit.txt) --shard=${{ matrix.osa }}/4
+
+  # Yksi tarkistus nimellä chrome-tests (pakollisen tarkistuksen nimi ei muutu) — vihreä vain kun kaikki neljä osaa ovat vihreitä.
+  chrome-tests:
+    runs-on: ubuntu-latest
+    needs: chrome-osat
+    if: always()
+    steps:
+      - name: Kaikki osat vihreinä
+        run: test "${{ needs.chrome-osat.result }}" = success
 
   # sv-läpiajo (docs/CODE_BRIEF_I18N_SV_LAPIAJO.md): mittaa, paljonko suomea käyttäjä näkee sv-tilassa.
-  # QG-1 · kielivartija: uusi käyttöliittymän suomi sv-tilassa (ui-luokka) KAATAA; data? raportoidaan. Kaksi rinnakkaista osaa (≤ 5 min):
-  # demo = sovellusten oma demo-data · fixtuuri = synteettinen QG FC -seura oikeilla sivuilla (tools/i18n/sv_fixtuuri.mjs, ei verkkoa).
+  # QG-1 · kielivartija: uusi käyttöliittymän suomi sv-tilassa (ui-luokka) KAATAA; data? raportoidaan. Kolme rinnakkaista osaa (≤ 5 min):
+  # demo-1 + demo-2 = sovellusten oma demo-data (QG-1b: demo jaettu kahtia, CI:ssä 4 min 6 s → raja 4 min 30 s; jako tools/i18n/sv_lapiajo.mjs DEMO_OSAT)
+  # fixtuuri = synteettinen QG FC -seura oikeilla sivuilla (tools/i18n/sv_fixtuuri.mjs, ei verkkoa).
+  # Pakollisten tarkistusten nimet säilyvät: sv-lapiajo (demo) = yhteenveto demo-osista, sv-lapiajo (fixtuuri) = matriisin osa.
   # Baseline saa vain pienentyä: vartija omana workflowna (sv-baseline.yml, lukee PR-kuvauksen [baseline]-merkinnän).
   sv-lapiajo:
     runs-on: ubuntu-latest
@@ -69,7 +85,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        osa: [demo, fixtuuri]
+        osa: [demo-1, demo-2, fixtuuri]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -89,6 +105,25 @@ jobs:
           path: |
             sv_lapiajo_${{ matrix.osa }}.json
             sv_lapiajo_${{ matrix.osa }}.log
+
+  # Pakollinen tarkistus "sv-lapiajo (demo)": vihreä vain kun MOLEMMAT demo-osat ovat vihreitä. Matriisin kokonaistulos sisältää
+  # myös fixtuurin, joten demo-osien tulos luetaan Actionsin API:sta (vain demo-1/demo-2), ei needs.result:sta.
+  sv-lapiajo-demo:
+    name: sv-lapiajo (demo)
+    runs-on: ubuntu-latest
+    needs: sv-lapiajo
+    if: always()
+    permissions:
+      actions: read
+    steps:
+      - name: demo-1 ja demo-2 vihreinä
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tulos=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs?per_page=100" \
+            --jq '[.jobs[] | select(.name == "sv-lapiajo (demo-1)" or .name == "sv-lapiajo (demo-2)") | .conclusion] | join(" ")')
+          echo "demo-osat: $tulos"
+          test "$tulos" = "success success"
 
   # #60 — ESLint no-undef -portti (defektiluokan vartija, esim. 'sp is not defined' -luokka).
   # VAIHE 2: ESTÄVÄ — 5 residuaalilöydöstä triagattu+korjattu (0 jäljellä) → uudet undefined-viittaukset kaatavat buildin.

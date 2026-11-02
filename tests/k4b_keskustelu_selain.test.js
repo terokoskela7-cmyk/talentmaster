@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
-import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT } from './helpers/kt_sivu.mjs';
+import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT, SISAINEN } from './helpers/kt_sivu.mjs';
 const KUVAT = join(JUURI, 'docs', 'ui-kuvat', 'k4b');
 const SUODATA = (v) => v.filter((e) => !/sentry|integrity|Failed to load resource|net::ERR/i.test(e));
 const odota = (p) => p.waitForSelector('[data-kt-polku]', { timeout: 15000 });
@@ -37,8 +37,11 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4b · Kehity
         await p.locator('[data-kes-tallenna]').click({ force: true }); expect(await p.locator('#toast-wrap').innerText()).toContain('Kirjoita sovitut asiat');   // aria-disabled-nappi on silti painettavissa → selkeä ohje expect((await BATCH(p)).length).toBe(0);
         await p.locator('#kesSovitut').fill('Sovittiin ylimääräinen ensiaskelharjoitus tiistaisin. Seuraavaksi puhutaan vanhempien kanssa.'); await p.locator('[data-kes-kausi-valinta="pidetaan"]').click();
         await p.locator('[data-kes-tallenna]').click(); await p.waitForSelector('[data-ts-sheet^="keskustelu_"]', { state: 'detached', timeout: 5000 });
-        const b = await BATCH(p); expect(b).toHaveLength(1); expect(b[0]).toHaveLength(2);
-        const rev = b[0].find((o) => /\/reviewit\/2026-10-19$/.test(o.path)), pel = b[0].find((o) => o.path === 'seurat/demo/pelaajat/p2');
+        const b = await BATCH(p); expect(b).toHaveLength(1); expect(b[0]).toHaveLength(3);   // sisainen/tiedot dual-write samassa batchissa (#1144–#1147)
+        expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0);
+        const rev = b[0].find((o) => /\/reviewit\/2026-10-19$/.test(o.path)), pel = b[0].find((o) => o.path === 'seurat/demo/pelaajat/p2'), st = b[0].find((o) => SISAINEN.test(o.path));
+        expect(st.path).toBe('seurat/demo/pelaajat/p2/sisainen/tiedot'); expect(Object.keys(st.set).sort()).toEqual(['paivitetty', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi', 'seuraId']); expect([...st.opts.mergeFields].sort()).toEqual(['paivitetty', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi', 'seuraId']);
+        expect(st.set).toMatchObject({ review_viimeisin_pvm: '2026-10-19', review_viimeisin_tyyppi: 'kehityskeskustelu' }); expect(JSON.stringify(pel.set)).not.toContain('Sovittiin');   // sovitut vain reviewit-dokkiin
         expect(rev.opts).toEqual({ merge: true });
         expect(Object.keys(rev.set).sort()).toEqual(['kk_kausitavoite', 'kk_tallennettu', 'kk_tekija_rooli', 'kk_tekija_uid', 'pvm', 'sovitut_sisainen', 'tyyppi']);   // eri kentät kuin jakson yhteenvedolla (lause_sisainen/kevyt) → merge ei ylikirjoita
         expect(rev.set).toMatchObject({ tyyppi: 'kehityskeskustelu', kk_tekija_uid: 'u1', kk_tekija_rooli: rooli, kk_kausitavoite: 'pidetaan', sovitut_sisainen: { teksti: 'Sovittiin ylimääräinen ensiaskelharjoitus tiistaisin. Seuraavaksi puhutaan vanhempien kanssa.', lahde: rooli === 'vp' ? 'vp' : 'valmentaja', uid: 'u1' } });

@@ -49,6 +49,17 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B4a · Polku'
       await p.locator('.kt-pk-valikko summary').click(); await kuva(p, 'polku_390_tumma_normaali'); expect(SUODATA(virheet)).toEqual([]); await sk.close();
     } finally { await selain.close(); }
   }, 120000);
+  /* QG-1b: 390 px kaatui vain CI:ssä — Linuxin varafontti (DejaVu Sans) on leveämpi kuin Macin, ja otsikkorivin "Kirjaa kehityskeskustelu" työntyi
+     ruudun yli (rivi ei rivittynyt). Leveä fontti pakotettuna sama vika näkyy joka koneella; sv-teksti ja käyttäjän isompi fontti ovat sama riski puhelimessa. */
+  it('390 LEVEÄLLÄ FONTILLA (Verdana/DejaVu): otsikkorivi rivittyy, ei vaakavieritystä — normaali ja ei jaksoa', async () => {
+    await kaynnistaSelain(); try {
+      for (const hash of ['#pelaaja/p2/polku', '#pelaaja/p3/polku']) {
+        const { sk, p } = await avaa({ leveys: 390, korkeus: 844, teema: 'dark', hash })(selain);
+        await p.addStyleTag({ content: '*{font-family:Verdana,"DejaVu Sans",sans-serif !important}' }); await odota(p); await p.waitForTimeout(300);
+        expect(await eiVaakavieritysta(p)).toBe(true); await sk.close();
+      }
+    } finally { await selain.close(); }
+  }, 120000);
   it('EI JAKSOA (390 tumma + 1280 vaalea): yksi kortti "Aloita jakso", ei tyhjiä lohkoja; kausi näkyy edelleen', async () => {
     await kaynnistaSelain(); try {
       for (const [leveys, teema, nimi] of [[390, 'dark', 'polku_390_tumma_ei_jaksoa'], [1280, 'light', 'polku_1280_vaalea_ei_jaksoa']]) {

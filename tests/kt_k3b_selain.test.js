@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
-import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT } from './helpers/kt_sivu.mjs';
+import { kaynnista, selainKaynnista, kirjoitukset, SISAINEN, CHROME, JUURI, PELAAJAT } from './helpers/kt_sivu.mjs';
 const KUVAT = join(JUURI, 'docs', 'ui-kuvat', 'k3b');
 const SUODATA = (v) => v.filter((e) => !/sentry|integrity|Failed to load resource|net::ERR/i.test(e));
 const odota = (p) => p.waitForSelector('[data-kt-polku]', { timeout: 15000 });
@@ -11,7 +11,7 @@ const kuva = async (p, nimi) => { if (!process.env.TM_KUVAT) return; await p.wai
 const P = (id, o) => PELAAJAT.map((p) => p.id === id ? { ...p, suostumusTila: 'annettu', ...o } : p);
 const masterKorvaus = (p) => p.route(/TalentMaster_Master_v16\.html/, (r) => r.fulfill({ contentType: 'text/html', body: '<html><body>master-tynkä</body></html>' }));
 const masterissa = (p) => /TalentMaster_Master_v16\.html/.test(p.url());
-const KAUSI = 'seurat/demo/pelaajat/p2/idp_kausi/2026';
+const KAUSI = 'seurat/demo/pelaajat/p2/idp_kausi/2026', IDP_PELAAJA = 'seurat/demo/pelaajat/p2/idp_pelaaja/2026', SIS = 'seurat/demo/pelaajat/p2/sisainen/tiedot';
 const MITATTU = { status: 'aktiivinen', luotu: '2026-08-20T10:00:00.000Z', fokus: { alue: 'acceleration', dim: 'D1', nimi: 'Kiihdytys', lahde: 'mitattu' }, pelaajan_tavoite: 'Haluan päästä nopeammin liikkeelle', mittari: { testId: 'sprint10', yksikko: 's', suunta: 'pienempi' }, lahto: { arvo: 2.1, pvm: '2026-06-05' }, tavoitearvo: 1.9, kuvaus: 'Ensiaskel pelissä', aikaraami: { kausi: 'syksy 2026', kesto_vk: 6 }, arviot: [] };
 const HAVAITTU = { status: 'aktiivinen', luotu: '2026-08-20T10:00:00.000Z', fokus: { alue: 'balance', dim: 'D1', nimi: 'Tasapaino', lahde: 'havaittu' }, pelaajan_tavoite: '', mittari: { testId: 'balance', yksikko: 'taso', suunta: 'suurempi' }, lahto: { arvo: 2, pvm: null }, tavoitearvo: 3, aikaraami: { kausi: 'syksy 2026', kesto_vk: 6 }, arviot: [] };
 const KIRJ = (p) => p.evaluate(() => window.__kirj);
@@ -37,9 +37,17 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K3b · kausit
         await p.locator('#_mktTavAani').fill('Haluan pysyä pystyssä kamppailussa'); await p.locator('#_mktTavKuvaus').fill('Kamppailu keskikentällä');
         await kuva(p, 'asetus_fokus_390_tumma');
         await p.locator('[data-kv-tallenna]').click(); await p.waitForSelector('[data-kv-sheet]', { state: 'detached', timeout: 5000 });
-        const kirj = await KIRJ(p); const kausi = kirj.filter((k) => k.path === KAUSI)[0], pk = kirj.filter((k) => k.path === 'seurat/demo/pelaajat/p2')[0];
+        // pikakentät + sisainen/tiedot samassa batchissa; idp_pelaaja = pelaajalle näkyvä kopio (#1144–#1147)
+        const kirj = await kirjoitukset(p); expect(kirj.map((k) => k.path).sort()).toEqual([KAUSI, IDP_PELAAJA, 'seurat/demo/pelaajat/p2', SIS].sort());   // ei ylimääräisiä kirjoituksia
+        const kausi = kirj.filter((k) => k.path === KAUSI)[0], ip = kirj.filter((k) => k.path === IDP_PELAAJA)[0];
         expect(kausi.set.tavoitteet).toHaveLength(1); expect(kausi.set.tavoitteet[0]).toMatchObject({ status: 'aktiivinen', omistaja: 'yhdessa', pelaajan_tavoite: 'Haluan pysyä pystyssä kamppailussa', kuvaus: 'Kamppailu keskikentällä', fokus: { alue: 'balance' }, mittari: { yksikko: 'taso' } });
-        expect(pk.set).toMatchObject({ idp_tila: 'aktiivinen', idp_fokus: { alue: 'balance' } });
+        expect(ip.set.tavoitteet).toHaveLength(1); expect(ip.set.tavoitteet[0]).toMatchObject({ status: 'aktiivinen', pelaajan_tavoite: 'Haluan pysyä pystyssä kamppailussa', kuvaus: 'Kamppailu keskikentällä', fokus: { nimi: 'Tasapaino' } });
+        expect(ip.set.tavoitteet[0].perustelu).toEqual({ pelilause: 'Näkyy pelissä: tasapaino kontaktissa.' }); expect(ip.set.tavoitteet[0].mittari).toBeUndefined();   // ei kypsyysvaroitusta eikä mittaria pelaajan kopioon
+        const b = await p.evaluate(() => window.__batch); expect(b).toHaveLength(1);   // yksi commit
+        const pk = b[0].filter((k) => k.path === 'seurat/demo/pelaajat/p2')[0], sis = b[0].filter((k) => SISAINEN.test(k.path));
+        expect(pk.set).toMatchObject({ idp_tila: 'aktiivinen', idp_fokus: { alue: 'balance' } }); expect(pk.opts).toEqual({ merge: true });
+        expect(sis).toHaveLength(1); expect(sis[0].path).toBe(SIS); expect(Object.keys(sis[0].set).sort()).toEqual(['idp_edistyma', 'idp_lahde', 'idp_viim_review', 'paivitetty', 'seuraId']);
+        expect(sis[0].opts).toEqual({ mergeFields: ['seuraId', 'paivitetty', 'idp_edistyma', 'idp_lahde', 'idp_viim_review'] });
         expect(await p.locator('#toast-wrap').innerText()).toMatch(/Kauden tavoite aktivoitu ✓/);
         expect(await p.locator('[data-kt-kausi="ok"]').count()).toBe(1); expect(await p.locator('[data-kt-kausi="ok"]').innerText()).toContain('Tasapaino');   // heti, ei latausta
         expect(await p.locator('[data-kt-kausi="ok"]').innerText()).toContain('Pelaajan omin sanoin: ”Haluan pysyä pystyssä kamppailussa”');

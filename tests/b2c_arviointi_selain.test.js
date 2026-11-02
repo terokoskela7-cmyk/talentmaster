@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { createRequire } from 'module';
-import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT } from './helpers/kt_sivu.mjs';
+import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT, SISAINEN } from './helpers/kt_sivu.mjs';
 const require = createRequire(import.meta.url), SN = require('../lib/tm_sanasto.js');
 const KUVAT = join(JUURI, 'docs', 'ui-kuvat', 'b2c-arviointi');
 const odota = (p) => p.waitForSelector('.kt-nimi', { timeout: 15000 });
@@ -41,11 +41,14 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · Jakson
       await vastaa(p, 'nakyi', 'itsenaisesti'); await vastaa(p, 'treeni', 'usein'); await vastaa(p, 'mukana', 'hyvin'); await p.locator('#kvkLause').fill('Katsoi ylös ennen vastaanottoa.');
       await p.locator('#kvkNayta').check();   // 0b: oletus pois → "Näytä myös pelaajalle" päälle (lause historiariville)
       await p.locator('[data-kvk-tallenna]').click({ force: true }); await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 });
-      const b = await p.evaluate(() => window.__batch[0]); expect(b).toHaveLength(2);
-      const upd = b.find((o) => o.update), set = b.find((o) => o.set);
-      expect(upd.path).toBe('seurat/demo/pelaajat/p2'); expect(Object.keys(upd.update).sort()).toEqual(['jaksofokus', 'jaksofokus_historia', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi']);
+      const b = await p.evaluate(() => window.__batch[0]); expect(b).toHaveLength(3);   // sisainen/tiedot dual-write samassa batchissa (#1144–#1147)
+      expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0);
+      const upd = b.find((o) => o.path === 'seurat/demo/pelaajat/p2'), set = b.find((o) => /\/reviewit\//.test(o.path)), sis = b.find((o) => SISAINEN.test(o.path));
+      expect(upd.update).toBeDefined(); expect(Object.keys(upd.update).sort()).toEqual(['jaksofokus', 'jaksofokus_historia', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi']);
       const rivi = upd.update.jaksofokus_historia.__arrayUnion[0]; expect(rivi).toMatchObject({ konsepti_avain: 'y_h1', sulkutapa: 'suljettu', lause: 'Katsoi ylös ennen vastaanottoa.' }); expect(rivi.havainnot_vk).toEqual(VK);
-      expect(set.path).toMatch(/^seurat\/demo\/pelaajat\/p2\/reviewit\/\d{4}-\d{2}-\d{2}$/); expect(set.set.kevyt).toEqual({ nakyi: 'itsenaisesti', treeni: 'usein', mukana: 'hyvin' });
+      expect(set.path).toMatch(/^seurat\/demo\/pelaajat\/p2\/reviewit\/\d{4}-\d{2}-\d{2}$/); expect(set.set.kevyt).toEqual({ nakyi: 'itsenaisesti', treeni: 'usein', mukana: 'hyvin' }); expect(set.opts).toEqual({ merge: true });
+      expect(sis.path).toBe('seurat/demo/pelaajat/p2/sisainen/tiedot'); expect(Object.keys(sis.set).sort()).toEqual(['historia_sisainen', 'jaksofokus_sisainen', 'paivitetty', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi', 'seuraId']);
+      const mf = sis.opts.mergeFields; expect(mf).toEqual(expect.arrayContaining(['seuraId', 'paivitetty', 'jaksofokus_sisainen', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi'])); expect(mf.filter((k) => /^historia_sisainen\.\S+_y_h1$/.test(k))).toHaveLength(1); expect(mf).not.toContain('historia_sisainen');   // vain tämän jakson rivi, ei koko karttaa
       await p.waitForSelector('[data-kvk-kysymys]', { state: 'detached', timeout: 5000 }); expect(await p.locator('#toast-wrap').innerText()).toMatch(/Jakso suljettu/);
       expect(await p.locator('.kt-ot [data-kt-rivitila]').getAttribute('data-kt-rivitila')).not.toBe('kaynnissa');   // jakso ei enää käynnissä
       await sk.close();
@@ -58,7 +61,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · Jakson
       expect(await p.locator('#kvkNayta').isChecked()).toBe(false);
       await vastaa(p, 'nakyi', 'itsenaisesti'); await vastaa(p, 'treeni', 'usein'); await vastaa(p, 'mukana', 'hyvin'); await p.locator('#kvkLause').fill('Katsoi ylös ennen vastaanottoa.');
       await p.locator('[data-kvk-tallenna]').click({ force: true }); await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 });
-      const b = await p.evaluate(() => window.__batch[0]); const upd = b.find((o) => o.update), set = b.find((o) => o.set);
+      const b = await p.evaluate(() => window.__batch[0]); expect(b).toHaveLength(3);   // sisainen/tiedot dual-write samassa batchissa (#1144–#1147)
+      const upd = b.find((o) => o.path === 'seurat/demo/pelaajat/p2'), set = b.find((o) => /\/reviewit\//.test(o.path)); expect(b.filter((o) => SISAINEN.test(o.path))).toHaveLength(1);
       const rivi = upd.update.jaksofokus_historia.__arrayUnion[0]; expect('lause' in rivi).toBe(false); expect(JSON.stringify(upd.update)).not.toContain('Katsoi ylös');
       expect(set.set.lause_sisainen).toMatchObject({ teksti: 'Katsoi ylös ennen vastaanottoa.', lahde: 'valmentaja' });
       await sk.close();

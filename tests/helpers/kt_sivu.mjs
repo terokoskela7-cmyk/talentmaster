@@ -66,3 +66,7 @@ export async function kaynnista(selain, opts) {
   return { sk, p, virheet, dokit };
 }
 export const selainKaynnista = async () => { const { chromium } = require('playwright-core'); return chromium.launch({ executablePath: CHROME, args: ['--no-sandbox', '--allow-file-access-from-files', '--hide-scrollbars'] }); };
+/* QG-1b: kaikki stubin kirjoitukset yhtenä listana ({path, set|update|add, opts?}) — suorat (__kirj) ja batchit (__batch) peräkkäin.
+   Sisäisen dokin dual-write (sisainen/tiedot, liput #1144–#1147) kulkee samassa batchissa kuin pelaajadokki → testit suodattavat polulla, eivät oleta yhtä kirjoitusta. */
+export const SISAINEN = /\/sisainen\/tiedot$/;
+export const kirjoitukset = (p) => p.evaluate(() => [].concat(window.__kirj || [], ...(window.__batch || [])));
