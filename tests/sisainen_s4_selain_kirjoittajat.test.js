@@ -116,12 +116,15 @@ describe('Testaus_v9 kasvumittaus: kypsyyskentät samaan batchiin', () => {
 });
 
 describe('Seura: terveys, talentti-muokkaus, Excel-luonti', () => {
-  it('käytettävyys: lippu päällä terveys-dokumentti (ei tiedot:iin), delete poistaa; pois = yksi update()', async () => {
-    const data = { kaytettavyys: 'loukkaantunut', loukkaantuminen_alue: 'polvi', muokattu: { __ts: 1 } };
-    S.RYHMAT.s4.kirjoitus = true; const f = mkFs(); f.docs[PEL] = { loukkaantuminen_alue: 'x' };
-    await S.tmTerveysKirjoita(f.db, SID, PID, data, {}); expect(f.docs[TERV]).toMatchObject({ kaytettavyys: 'loukkaantunut', loukkaantuminen_alue: 'polvi', terveysSeuraId: SID }); expect(f.docs[TERV].muokattu).toBeUndefined(); expect(f.docs[SIS]).toBeUndefined();
-    await S.tmTerveysKirjoita(f.db, SID, PID, { kaytettavyys: 'aktiivinen', loukkaantuminen_alue: DEL }, {}); expect(f.docs[TERV].loukkaantuminen_alue).toBeUndefined(); expect(f.docs[PEL].loukkaantuminen_alue).toBeUndefined();
-    S.RYHMAT.s4.kirjoitus = false; const g = mkFs(); g.docs[PEL] = {}; await S.tmTerveysKirjoita(g.db, SID, PID, data, {}); expect(sisaa(g)).toBe(false); expect(g.docs[PEL].kaytettavyys).toBe('loukkaantunut');
+  it('käytettävyys (PR 2a): vain terveys-dokumentti lipusta riippumatta, delete poistaa sieltä; pelaajadokumenttia ei kosketa', async () => {
+    const data = { kaytettavyys: 'loukkaantunut', loukkaantuminen_alue: 'polvi' };
+    for (const lippu of [true, false]) {
+      S.RYHMAT.s4.kirjoitus = lippu; const f = mkFs(); f.docs[PEL] = { loukkaantuminen_alue: 'x' };
+      await S.tmTerveysKirjoita(f.db, SID, PID, data, {}); expect(f.docs[TERV]).toMatchObject({ kaytettavyys: 'loukkaantunut', loukkaantuminen_alue: 'polvi', terveysSeuraId: SID }); expect(f.docs[SIS]).toBeUndefined();
+      await S.tmTerveysKirjoita(f.db, SID, PID, { kaytettavyys: 'aktiivinen', loukkaantuminen_alue: DEL }, {}); expect(f.docs[TERV].loukkaantuminen_alue).toBeUndefined();
+      expect(f.docs[PEL]).toEqual({ loukkaantuminen_alue: 'x' });   // vanha kenttä jää siivousskriptille
+    }
+    S.RYHMAT.s4.kirjoitus = true;
   });
   it('talentti-muokkaus: tmS4Kirjoita update-polulla; permission-denied → vanha kenttä', async () => {
     const p = { nimi: 'X', talenttiOhjelma: true, talenttiTaso: 'perus', talenttiAlku: { __ts: 1 } };
@@ -135,6 +138,6 @@ describe('Seura: terveys, talentti-muokkaus, Excel-luonti', () => {
     const g = mkFs(); g.docs[PEL] = {}; await S.tmS4Sisainen(g.db, SID, PID, u, {}); expect(g.docs[SIS]).toMatchObject({ talenttiOhjelma: true, talenttiAktivoi: 'u1' });
   });
   it('lähdekoodi kytketty (lib ladattu, kolme kirjoituspaikkaa)', () => {
-    expect(SEURA).toMatch(/lib\/tm_sisainen\.js/); expect(SEURA).toMatch(/tmTerveysKirjoita\(db, tila\.seuraId, pelaajaId, data/); expect(SEURA).toMatch(/tmS4Kirjoita\(db, tila\.seuraId, pelaajaId, paivitys/); expect(SEURA).toMatch(/tmS4Sisainen\(db, tila\.seuraId, pelaajaId, \{ talenttiOhjelma/);
+    expect(SEURA).toMatch(/lib\/tm_sisainen\.js/); expect(SEURA).toMatch(/tmTerveysKirjoita\(db, tila\.seuraId, pelaajaId, data/); expect(SEURA).toContain('const TERVEYS_VAIN_SISAINEN = true;'); expect(SEURA).toMatch(/tmS4Kirjoita\(db, tila\.seuraId, pelaajaId, paivitys/); expect(SEURA).toMatch(/tmS4Sisainen\(db, tila\.seuraId, pelaajaId, \{ talenttiOhjelma/);
   });
 });
