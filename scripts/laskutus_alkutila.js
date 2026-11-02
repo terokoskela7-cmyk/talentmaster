@@ -66,7 +66,7 @@ async function aja({ db, lista, kirjoita, kylla, loki = console.log, kysy, tanaa
   return Object.assign(p, { kirjoitettu: true });
 }
 
-function tanaanHelsinki() { const o = {}; new Intl.DateTimeFormat('fi-FI', { timeZone: 'Europe/Helsinki', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).forEach((x) => { o[x.type] = x.value; }); return o.year + '-' + o.month + '-' + o.day; }
+function tanaanHelsinki() { return L.tmLaskutusPaiva(new Date()); }   // sama Helsingin päivä kuin Adminissa ja palvelimella
 
 async function main() {
   const argv = process.argv.slice(2), i = argv.indexOf('--lista'), polku = i >= 0 ? argv[i + 1] : OLETUSLISTA;
@@ -75,5 +75,5 @@ async function main() {
   const kysy = (q) => new Promise((r) => { const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout }); rl.question(q, (v) => { rl.close(); r(v); }); });
   await aja({ db: admin.firestore(), lista, kirjoita: argv.includes('--kirjoita'), kylla: argv.includes('--kylla'), kysy, tanaan: tanaanHelsinki() });
 }
-module.exports = { suunnittele, aja, UID, OLETUSLISTA };
+module.exports = { suunnittele, aja, tanaanHelsinki, UID, OLETUSLISTA };
 if (require.main === module) main().catch((e) => { console.error('VIRHE:', e.message); process.exit(1); });
