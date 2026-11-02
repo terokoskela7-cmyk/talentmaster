@@ -1869,9 +1869,7 @@ function pelaajaRivi(p) {
     + '<td>' + syntVuosi + '</td>'
     + palloIdSolu
     + '<td><span class="badge ' + tilaLuokka + '">' + tilaIkoni + ' ' + tilaTeksti + '</span></td>'
-    + '<td>' + (p.kaytettavyys
-        ? '<span class="badge ' + (p.kaytettavyys === 'aktiivinen' ? 'ok' : 'odottaa') + '">' + p.kaytettavyys + '</span>'
-        : '—') + '</td>'
+    + (kaytettavyysNakyy() ? '<td>' + _renderKaytettavyys(p) + '</td>' : '')
     + '<td><button class="toimNappi" onclick="naytaPelaajaTiedot(\'' + p.id + '\')">' + tmHT('Tiedot') + '</button></td>'
     + '</tr>';
 }
@@ -2256,7 +2254,7 @@ async function renderPelaajat(alue) {
       <table>
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="pelValitseKaikki" onchange="_pelValitseKaikki(this.checked)" title="Valitse kaikki näkyvät"></th>
-          <th>${tmHT('Nimi')}</th><th>${tmHT('Joukkue')}</th><th>Synt.</th><th>PalloID</th><th>${tmHT('Tila')}</th><th>Käytettävyys</th><th>${tmHT('Toiminnot')}</th>
+          <th>${tmHT('Nimi')}</th><th>${tmHT('Joukkue')}</th><th>Synt.</th><th>PalloID</th><th>${tmHT('Tila')}</th>${kaytettavyysNakyy() ? '<th>Käytettävyys</th>' : ''}<th>${tmHT('Toiminnot')}</th>
         </tr></thead>
         <tbody>
           ${pelaajat.map(p => {
@@ -2310,7 +2308,7 @@ async function renderPelaajat(alue) {
                 <td>${syntVuosi}</td>
                 ${palloIdSolu}
                 <td><span class="badge ${tilaLuokka}">${tilaIkoni} ${tilaTeksti}</span></td>
-                <td>${_renderKaytettavyys(p)}</td>
+                ${kaytettavyysNakyy() ? '<td>' + _renderKaytettavyys(p) + '</td>' : ''}
                 <td>
                   <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">${tmHT('Tiedot')}</button>
                   ${p.huoltajaEmail
@@ -2351,8 +2349,18 @@ const KAYTETTAVYYS_ALUEET = [
   'Nilkka','Polvi','Reisi','Lonkka','Selkä','Olkapää','Ranne','Sääri','Pohje','Muu'
 ];
 
+/* B1 (2.11.2026): käytettävyys on terveystietoa (Rules v3.70 sisainen/terveys). Seura-sivulla sen näkevät ja muokkaavat SA, VP ja UTJ;
+   seurasihteeri ei näe saraketta eikä avaa muokkausta. (Valmentaja ja fysioterapeutti eivät käytä Seura-sivua.) */
+const KAYTETTAVYYS_ROOLIT = ['superadmin', 'super_admin', 'vp', 'urheilutoimenjohtaja'];
+function kaytettavyysNakyy() { return KAYTETTAVYYS_ROOLIT.indexOf(tila.rooli) >= 0; }
+
 function _renderKaytettavyys(p) {
-  const k = p.kaytettavyys || 'aktiivinen';
+  /* Asettamaton → "—" (ei oleteta aktiiviseksi), mutta yhtä lailla klikattava. */
+  if (!p.kaytettavyys) {
+    return '<button type="button" class="kaytNappi" onclick="avaaKaytettavyysModal(\'' + p.id + '\')" title="Aseta käytettävyys"'
+      + ' style="background:none;border:1px dashed var(--border);border-radius:8px;color:var(--ink3);font-size:11px;padding:2px 10px;cursor:pointer">—</button>';
+  }
+  const k = p.kaytettavyys;
   const cfg = {
     aktiivinen:    {bg:'rgba(29,158,117,.12)',  c:'#0F6E56', ikoni:'✓', teksti:'Aktiivinen'},
     loukkaantunut: {bg:'rgba(224,82,82,.12)',   c:'#A32D2D', ikoni:'⚠', teksti:'Loukkaantunut'},
@@ -2365,16 +2373,18 @@ function _renderKaytettavyys(p) {
   const paluuInfo = p.paluu_arvio
     ? `<div style="font-size:9px;color:#888;margin-top:1px">${tmHT('Paluu:')} ${p.paluu_arvio}</div>` : '';
 
-  return `<div onclick="avaaKaytettavyysModal('${p.id}')" style="cursor:pointer;display:inline-flex;flex-direction:column">
+  return `<button type="button" class="kaytNappi" onclick="avaaKaytettavyysModal('${p.id}')" title="Muokkaa käytettävyyttä"
+    style="background:none;border:none;padding:0;cursor:pointer;display:inline-flex;flex-direction:column;align-items:flex-start;text-align:left">
     <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:8px;
       background:${cfg.bg};color:${cfg.c};white-space:nowrap">
       ${cfg.ikoni} ${cfg.teksti}${loukkaInfo}
     </span>
     ${paluuInfo}
-  </div>`;
+  </button>`;
 }
 
 async function avaaKaytettavyysModal(pelaajaId) {
+  if (!kaytettavyysNakyy()) return;
   const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
   const p = { id: pelaajaId, ...snap.data() };
   const k = p.kaytettavyys || 'aktiivinen';
@@ -2473,6 +2483,7 @@ async function avaaKaytettavyysModal(pelaajaId) {
 }
 
 async function tallennakKaytettavyys(pelaajaId) {
+  if (!kaytettavyysNakyy()) return;
   const tila_val = document.querySelector('input[name=km_tila]:checked')?.value || 'aktiivinen';
   const tyyppi   = document.getElementById('km_tyyppi')?.value || '';
   const alue     = document.getElementById('km_alue')?.value || '';
@@ -2504,12 +2515,20 @@ async function tallennakKaytettavyys(pelaajaId) {
       .collection('pelaajat').doc(pelaajaId)
       .update(data);
     document.getElementById('kaytettavyysModaali')?.remove();
-    // Päivitä pelaajalistat
-    const alueEl = document.getElementById('pelaajaListaAlue');
-    if (alueEl) renderPelaajat(document.querySelector('.nakyma.active') || document.body);
-    console.log('[Käytettävyys] Tallennettu:', tila_val);
+    // Paikallinen data synkkaan (kuten joukkuesiirrossa) → lista päivittyy, suodatin ja haku säilyvät.
+    const p = (window._pelaajatKaikki || []).find(x => x.id === pelaajaId);
+    if (p) {
+      p.kaytettavyys = tila_val;
+      ['loukkaantuminen_tyyppi', 'loukkaantuminen_alue', 'loukkaantuminen_pvm', 'paluu_arvio'].forEach(k => {
+        if (tila_val === 'aktiivinen') delete p[k];
+      });
+      if (tila_val !== 'aktiivinen') Object.assign(p, tyyppi ? { loukkaantuminen_tyyppi: tyyppi } : {}, alue ? { loukkaantuminen_alue: alue } : {},
+        pvm ? { loukkaantuminen_pvm: pvm } : {}, paluu ? { paluu_arvio: paluu } : {});
+      suodataPelaajat(window._aktiiviSuodatin || 'kaikki');
+    }
+    naytaToast('Käytettävyys tallennettu', 'ok');
   } catch(e) {
-    alert((tmHT('Tallennus epäonnistui:') + ' ') + e.message);
+    naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe');
   }
 }
 
