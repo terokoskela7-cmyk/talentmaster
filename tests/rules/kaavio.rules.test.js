@@ -188,6 +188,26 @@ describe('kaaviot · LUONTI — create-portti (luonti-UI)', () => {
   it('luonti versiolla != 0 ESTETÄÄN (versiolukko alkaa nollasta)', async () => {
     await assertFails(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_luonti_v5'), uusi('luonnos', 5)));
   });
+
+  /* K2: valmennusapurin "Avaa taktiikkataulussa". EI uutta sääntöä: muokkaus (lib/tm_kaavio_apuri.js) kulkee SAMAN
+     _kaavioTallenna-create-haaran läpi. Payload rakennetaan kuten se: _kaavioKohdistusKentat + status/yksityinen/versio/luonut/luotu. */
+  const apuriPayload = (luoja) => {
+    const AP = require('../../lib/tm_kaavio_apuri.js');
+    const m = AP.muokkaus({ avain: 'y_h5', suunta: 'ylos', pelimuoto: '2v2+1', nakyma: 'alue', vyohyke: { x: 39, y: 43, w: 22, h: 14 },
+      pelaajat: [{ id: 'A', joukkue: 'oma', rooli: 'tuki', x: 45, y: 54 }, { id: 'J', joukkue: 'oma', rooli: 'tuki', x: 50, y: 56 }] }, SEURA_A, JOUKKUE_A1);
+    const r = m.review;
+    return { spec: m.spec, review: { nakyvyys: r.nakyvyys, joukkueId: r.joukkueId, valmentajaId: r.valmentajaId, pelaajaIds: r.pelaajaIds,
+      status: 'luonnos', yksityinen: r.yksityinen === true, versio: 0, luonut: luoja, luotu: serverTimestamp() } };
+  };
+  it('K2: apurin kaavio (2v2+1, luonnos, yksityinen) — valmentaja ja VP luovat nykyisillä säännöillä', async () => {
+    await assertSucceeds(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_apuri_valm'), apuriPayload(VALM_A1)));
+    await assertSucceeds(setDoc(kd(vp(SEURA_A), 'k_apuri_vp'), apuriPayload(VP_A)));
+  });
+  it('K2: EI-VACUOUS — sama apurin payload: toisen seuran valmentaja, seurasihteeri ja anon EIVÄT luo', async () => {
+    await assertFails(setDoc(kd(valm(VALM_A1, SEURA_B), 'k_apuri_vieras'), apuriPayload(VALM_A1)));
+    await assertFails(setDoc(kd(siht(), 'k_apuri_siht'), apuriPayload(SIHTEERI)));
+    await assertFails(setDoc(kd(anon(), 'k_apuri_anon'), apuriPayload(ANON)));
+  });
 });
 
 describe('kaaviot · KIRJOITUS — anon-pelaaja ei kirjoita (erä D2)', () => {

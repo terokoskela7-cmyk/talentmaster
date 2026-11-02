@@ -100,6 +100,8 @@ function asetukset(env) {
     },
     seurabudjetti: e.VALMENNUSAPURI_SEURABUDJETTI === '1',    // K1e: kuukausilaskuri + pysäytys 100 %:ssa
     seurabudjettiUsd: Number(e.VALMENNUSAPURI_SEURABUDJETTI_USD || 30),
+    // K2 (2.11.2026): konseptipelin kaavio vastauksen mukana. Oletus pois; päälle vasta laatutestin jälkeen.
+    kaavio: e.VALMENNUSAPURI_KAAVIO === '1',
   };
 }
 function _hinnat(e, etu, oletus) {
@@ -219,6 +221,7 @@ function rakennaSystem(ohjeistus, tiedostot, aihe) {
 // Epävarmassa tapauksessa (ei osumaa, useita aiheita, kausi/arviointi) mukaan tulee koko tietopohja.
 // Aihesanat ovat valmennusapuri_osiot.js:ssä (sama lähde aihejaolle ja K1b-osiohaulle).
 const OSIOT = require('./valmennusapuri_osiot.js');
+const KAAVIO = require('./valmennusapuri_kaavio.js');
 const { AIHE_YDIN, AIHE_PAKETIT, AIHE_SANAT, AIHE_KAIKKI } = OSIOT;
 
 /** Puhdas: kysymysten (käyttäjän viestit) aihepiiri → 'fysiikka' | 'tekniikka' | 'joukkue' | 'kaikki'. */
@@ -943,7 +946,7 @@ function kasittelija(admin, functions, riip) {
 
       if (toiminto === 'tila') {
         return { oikeus: true, paivaKiintio: onSA ? null : a.paivaKiintio, kaytetty: onSA ? 0 : await lueKaytetty(db, uid),
-          roolit: roolitKayttajalle(onSA, pilotti) };
+          roolit: roolitKayttajalle(onSA, pilotti), sa: onSA };   // sa: apurisivu näyttää SA:lle "Avaa taktiikkataulussa" (?seura=)
       }
 
       if (toiminto === 'palaute') {
@@ -1057,7 +1060,12 @@ function kasittelija(admin, functions, riip) {
         }
       }
       const kayttajan = viestit.filter(function (v) { return v.role === 'user'; }).map(function (v) { return v.content; });
-      const suodatettu = suodataKoodit(malli.teksti, kayttajan);
+      // K2: <kaavio>-lohko pois tekstistä AINA ennen koodisuodatinta (JSON:n "Y-H5" ei saa sotkea tekstiä eikä specia).
+      // Poiminta ja validointi vain lipulla ja VA-roolilla; HP ei tässä vaiheessa.
+      const kaavio = KAAVIO.kasitteleKaavio(malli.teksti, { paalla: a.kaavio && rooli === 'valmennusapuri',
+        suodata: function (t) { return suodataKoodit(t, kayttajan).teksti; } });
+      if (kaavio.tila === 'hylatty') console.warn('[valmennusapuri] kaavio hylätty:', kaavio.virheet.join(' · '));
+      const suodatettu = suodataKoodit(kaavio.teksti, kayttajan);
       if (suodatettu.poistettu.length) {
         console.warn('[valmennusapuri] koodit poistettu vastauksesta:', suodatettu.poistettu.join(', '));
       }
@@ -1090,12 +1098,18 @@ function kasittelija(admin, functions, riip) {
         tokenit: malli.tokenit,
         stopReason: malli.syy,
         poistetutKoodit: suodatettu.poistettu,
+        kaavio: kaavio.tila,                 // 'ok' | 'hylatty' | null (ei lohkoa / lippu pois / HP)
+        kaavioVirheet: kaavio.virheet,       // max 10
+        kaavioMerkit: kaavio.merkit,
+        kaavioNormalisoitu: kaavio.normalisoitu,   // K2b: mallin korjatut lipsahdukset, esim. ['rooli:A2'] (max 10)
         kestoMs: Date.now() - alku,
         aika: new Date().toISOString(),
         palaute: null,
       });
 
-      return { vastaus: suodatettu.teksti, lokiId: loki.id, ohjeVersio: tp.versio, rooli: rooli, katkesi: malli.syy === 'max_tokens' };
+      const ulos = { vastaus: suodatettu.teksti, lokiId: loki.id, ohjeVersio: tp.versio, rooli: rooli, katkesi: malli.syy === 'max_tokens' };
+      if (kaavio.tila === 'ok') ulos.kaavio = kaavio.kaavio;   // vain validi spec; muuten pelkkä teksti
+      return ulos;
     } catch (e) {
       if (!(e instanceof functions.https.HttpsError) && !e.tmKoodi) console.error('[valmennusapuri]', e);
       throw httpsVirhe(e);

@@ -193,7 +193,7 @@ test('kasittelija: tila palauttaa kiintiön', async () => {
   const { h } = teeKasittelija(db);
   await h(kysymys(), ctx('v1'));
   const t = await h({ toiminto: 'tila' }, ctx('v1'));
-  assert.deepStrictEqual(t, { oikeus: true, paivaKiintio: 2, kaytetty: 1, roolit: ['valmennusapuri'] });
+  assert.deepStrictEqual(t, { oikeus: true, paivaKiintio: 2, kaytetty: 1, roolit: ['valmennusapuri'], sa: false });
 });
 test('kasittelija: palaute vain omaan vastaukseen', async () => {
   const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true }, 'valmennusapuri_pilotti/v2': { aktiivinen: true } });
