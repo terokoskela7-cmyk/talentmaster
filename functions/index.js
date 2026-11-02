@@ -14,7 +14,7 @@ const admin     = require('firebase-admin');
 const https     = require('https');
 const crypto    = require('crypto');
 const { kayttajaRooliSallittu, kayttajaRooliClaimeista, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
-const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
+const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI, ALIKOKOELMAT: GDPR_ALIKOKOELMAT } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const { rakennaPaivitys } = require('./testipvm_korjaus');   // korjaaJoukkueenTestipvm: *_pvm + *_pvm_arvio poisto
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
@@ -2104,12 +2104,8 @@ exports.viePelaajanDataGDPR = functions
       _meta: { standardi: 'GDPR Art. 20 (koneluettava)', luotu: new Date().toISOString(),
         seuraId, pelaajaId, palloID: manifesti.palloID, viejaUid: context.auth.uid, lukumaarat: manifesti.lukumaarat },
       pelaaja: Object.assign({ _id: manifesti.paaDoc.id }, manifesti.paaDoc.data),
-      havainnot: dataMap(manifesti.alikokoelmat.havainnot),
-      kirjaukset: dataMap(manifesti.alikokoelmat.kirjaukset),
-      testitulokset: dataMap(manifesti.alikokoelmat.testitulokset),
-      biologinen_ika: dataMap(manifesti.alikokoelmat.biologinen_ika),
-      pelidata: dataMap(manifesti.alikokoelmat.pelidata),
-      kehut: dataMap(manifesti.alikokoelmat.kehut),
+      // Pelaajadokumentin alikokoelmat SUORAAN locatorin listasta (PR 2a: + sisainen = tiedot + terveys) → uusi alikokoelma ei voi jäädä viennistä pois, kun se lisätään listaan.
+      ...Object.fromEntries(GDPR_ALIKOKOELMAT.map((n) => [n, dataMap(manifesti.alikokoelmat[n])])),
       lasnaolo: dataMap(manifesti.ristiviitteet.lasnaolo),
       testitapahtuma_tulokset: dataMap(manifesti.ristiviitteet.testitapahtuma_tulokset),
       palloID_viitteet: dataMap(manifesti.ristiviitteet.palloID_viitteet),
