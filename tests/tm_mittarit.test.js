@@ -32,7 +32,7 @@ describe('Hidden Gem siirretty VP:stä: sama tulos kuin vanha koodi', () => {
   it('VP ei enää määrittele niitä itse, lataa kirjaston', () => {
     const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
     expect(VP).not.toMatch(/function laskeHiddenGem\(|function laskeD2Taso\(|const HIDDEN_GEM_FLEI/);
-    expect(VP).toMatch(/<script src="lib\/tm_mittarit\.js\?v=\d+"><\/script>/);
+    expect(VP).toMatch(/<script src="lib\/tm_mittarit\.js"><\/script>/);
   });
 });
 

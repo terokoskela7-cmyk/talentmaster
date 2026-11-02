@@ -122,7 +122,7 @@ describe('Rules v3.71 (tekstitarkistus; toiminta: tests/rules/firestore.rules.te
   });
   it('lib on kytketty henkilökunnan (1f-2) ja pelaajan (1f-3) sivuihin, ei Vanhempaan; lippu PÄÄLLÄ oletuksena (lähde)', () => {
     expect(lue('TalentMaster_Vanhempi_v2.html')).not.toContain('tm_idp_pelaaja_dok');
-    ['Pelaaja_v7', 'Master_v16', 'VP_v25', 'Kehitystyopoyta', 'Seura'].forEach((s) => expect(lue('TalentMaster_' + s + '.html')).toMatch(/lib\/tm_idp_pelaaja_dok\.js\?v=\d+\b/));
+    ['Pelaaja_v7', 'Master_v16', 'VP_v25', 'Kehitystyopoyta', 'Seura'].forEach((s) => expect(lue('TalentMaster_' + s + '.html')).toMatch(/lib\/tm_idp_pelaaja_dok\.js/));
     expect(lue('lib/tm_idp_pelaaja_dok.js')).toMatch(/var LIPPU = \{ kirjoitus: true \}/);
   });
 });

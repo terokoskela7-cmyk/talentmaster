@@ -2,7 +2,7 @@
  * VP_v25 yksi polku (D4, 6.10.2026; design docs/design/idp-v2/01): Tänään (vain luku) · Polku (muokkaus) · Mittaus · Arviointi.
  * Funktiot puretaan lähteestä ja ajetaan vm:ssä oikeilla libeillä. Fixture: KPV U13 -testipelaaja Topias (m93GBdOaGCUuenMiCL0I); roolit VP ja valmentaja.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
@@ -22,6 +22,9 @@ function pura(tunniste) {
 }
 const PID = 'm93GBdOaGCUuenMiCL0I';
 const NYT = new Date('2026-10-15T09:00:00');
+// Kiinteä kello: fixturen päivämäärät (teema päättyy 31.10.) eivät saa vanhentua oikean ajan mukana. Vain Date — setTimeout pysyy aitona.
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(NYT); });
+afterEach(() => { vi.useRealTimers(); });
 const JF = () => ({ konsepti_avain: 'y_h2', konsepti_nimi: 'Saattaen vaihtaminen', alkoi: '2026-10-01T09:00:00.000Z', kesto_vk: 6, lahde: 'valmentaja', asetti: { rooli: 'vp', pvm: '2026-10-01' }, tukiosa: { alue: 'kestävyys', perustelu: 'Jaksaa pelata', harjoitteet: [{ id: 'o1#1', liike: 'Narulla hyppely', lahde: 'seura', jarjestys: 1 }] } });
 
 function ymp({ pelaaja = {}, kaada = false, rooli = 'vp', teemat } = {}) {

@@ -47,7 +47,7 @@ describe('lib/tm_valmennuslinja (pure)', () => {
   });
   it('lähde: lib ei lue Firestorea; Pelaaja_v7 ja Vanhempi_v2 eivät lataa libiä (henkilökunnan tieto)', () => {
     const koodi = lue('lib/tm_valmennuslinja.js').replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n'); expect(koodi).not.toMatch(/firebase|firestore|collection\(|fetch\(|https?:\/\//i);
-    ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f), f).not.toMatch(/tm_valmennuslinja|TM_VALMENNUSLINJA/)); expect(VP).toContain('lib/tm_valmennuslinja.js?v=1'); expect(MA).toContain('lib/tm_valmennuslinja.js?v=1');
+    ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f), f).not.toMatch(/tm_valmennuslinja|TM_VALMENNUSLINJA/)); expect(VP).toContain('lib/tm_valmennuslinja.js'); expect(MA).toContain('lib/tm_valmennuslinja.js');
   });
 });
 

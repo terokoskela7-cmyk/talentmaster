@@ -33,7 +33,7 @@ describe('henkilökunnan näkymät lataavat Sentryn', () => {
     const s = lue(tiedosto);
     const iApp = s.indexOf(`window.TM_SENTRY={app:'${app}'}`);
     const iBundle = s.indexOf(BUNDLE);
-    const iSkripti = s.indexOf('tm_sentry.js?v=3');
+    const iSkripti = s.indexOf('src="tm_sentry.js"');
     const iFirebase = s.indexOf('firebase-app-compat.js');
     expect(iApp, 'TM_SENTRY.app puuttuu').toBeGreaterThan(-1);
     expect(iBundle, 'bundle puuttuu').toBeGreaterThan(iApp);

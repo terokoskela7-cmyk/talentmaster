@@ -85,8 +85,8 @@ describe('Pelaaja_v7 kytkenta — linkki + modaali + alertit reititetty', () => 
 
 describe('cache-bust', () => {
   it('tm_lang ?v>=6 (Pelaaja+Vanhempi) · SW tm-pelaaja >=v21', () => {
-    expect(PEL).toMatch(/lib\/tm_lang\.js\?v=([6-9]|\d\d)/);
-    expect(readFileSync(join(__dir, '..', 'TalentMaster_Vanhempi_v2.html'), 'utf8')).toMatch(/lib\/tm_lang\.js\?v=([6-9]|\d\d)/);
-    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/tm-pelaaja-v(2[1-9]|[3-9]\d)/);
+    expect(PEL).toMatch(/lib\/tm_lang\.js/);
+    expect(readFileSync(join(__dir, '..', 'TalentMaster_Vanhempi_v2.html'), 'utf8')).toMatch(/lib\/tm_lang\.js/);
+    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toContain("const CACHE = 'tm-pelaaja-dev';");
   });
 });

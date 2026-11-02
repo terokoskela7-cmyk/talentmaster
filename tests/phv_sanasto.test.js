@@ -172,7 +172,7 @@ describe('kirjoittajat kirjoittavat VAIN kanonisia koodeja (tuontimuunnos ajetaa
     expect(s).toContain("var PHV_OPTS = ['PRE', 'PH', 'POST'];");
     expect(s).not.toMatch(/opts:\s*\['AN'/);
     expect(s).toContain("const _phvK = tmPhvTuontiKoodi(p.tulokset.phv_tila).koodi; if (_phvK) profiiliPaivitys['phv_tila'] = _phvK;");
-    expect(s).toMatch(/<script src="lib\/tm_phv_tila\.js\?v=\d+"/);
+    expect(s).toMatch(/<script src="lib\/tm_phv_tila\.js"/);
   });
 
   it('Testaus_v9 EI kopioi pelaajadokin phv_tila:a tulosdokkiin eikä tapahtuman pelaajadataan (kierto katkaistu)', () => {
@@ -248,15 +248,14 @@ describe('lataajat: jokainen PHV-lukijalibin lataaja lataa myös lib/tm_phv_tila
       const s = lue(f);
       if (!LUKIJALIBIT.some((l) => s.includes('src="' + l))) continue;
       n++;
-      expect(s, f).toMatch(/<script src="lib\/tm_phv_tila\.js\?v=\d+"/);
+      expect(s, f).toMatch(/<script src="lib\/tm_phv_tila\.js"/);
     }
     expect(n).toBeGreaterThanOrEqual(8);
   });
   it('Pelaaja-SW: tm_phv_tila.js allowlistissa + cache nostettu (≥ v59)', () => {
     const sw = lue('sw_pelaaja.js');
     // Vähimmäisarvo, ei eksakti pinni: myöhemmät PR:t nostavat cachea (§27.4) — eksakti pinni punertaisi joka bumpissa.
-    const m = sw.match(/const CACHE = 'tm-pelaaja-v(\d+|\d{3,})'/);
-    expect(m).toBeTruthy(); expect(Number(m[1])).toBeGreaterThanOrEqual(59);
+    expect(sw).toContain("const CACHE = 'tm-pelaaja-dev';");   // QG-2: deploy laskee cachenimen sisällöstä
     expect(sw).toContain("/lib/tm_phv_tila.js");
   });
 });

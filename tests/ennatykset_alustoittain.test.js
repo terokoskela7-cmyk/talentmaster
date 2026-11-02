@@ -130,7 +130,7 @@ describe('Näyttö: Pelaaja + Vanhempi (oikea koodi, oikea lib)', () => {
   });
   it('Pelaaja ja Vanhempi lataavat tm_alusta + tm_ennatykset (SW-allowlistit mukana)', () => {
     for (const f of ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) {
-      expect(lue(f), f).toMatch(/lib\/tm_ennatykset\.js\?v=\d+/); expect(lue(f), f).toMatch(/lib\/tm_alusta\.js\?v=\d+/);
+      expect(lue(f), f).toMatch(/lib\/tm_ennatykset\.js/); expect(lue(f), f).toMatch(/lib\/tm_alusta\.js/);
     }
     for (const f of ['sw_pelaaja.js', 'sw_vanhempi.js']) { expect(lue(f), f).toContain("/lib/tm_ennatykset.js"); expect(lue(f), f).toContain("/lib/tm_alusta.js"); }
   });

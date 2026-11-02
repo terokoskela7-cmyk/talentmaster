@@ -247,9 +247,8 @@ describe('Vanhempi_v2 · vartijat (lähde)', () => {
   });
   it('valintarivi piirretään kaikkiin näkymiin paitsi loginiin; tm_lang ?v=17 + SW-cachet bumpattu', () => {
     expect(HTML).toContain("const valitsin = (_sc!=='login' && typeof _lapsiValitsinHTML==='function') ? _lapsiValitsinHTML() : '';");
-    expect(HTML).toMatch(/lib\/tm_lang\.js\?v=(1[7-9]|[2-9]\d)/);   // ≥17 (lapsenvaihdin); myöhemmät nostot sallittu
-    const sw = readFileSync(join(ROOT, 'sw_vanhempi.js'), 'utf8').match(/const CACHE = 'tm-vanhempi-v(\d+|\d{3,})';/);
-    expect(Number(sw && sw[1])).toBeGreaterThanOrEqual(24);   // v24 = lapsenvaihdin; myöhemmät nostot sallittu
-    expect(readFileSync(join(ROOT, 'TalentMaster_Pelaaja_v7.html'), 'utf8')).toMatch(/lib\/tm_lang\.js\?v=(1[7-9]|[2-9]\d)/);
+    expect(HTML).toMatch(/lib\/tm_lang\.js/);   // ≥17 (lapsenvaihdin); myöhemmät nostot sallittu
+    expect(readFileSync(join(ROOT, 'sw_vanhempi.js'), 'utf8')).toContain("const CACHE = 'tm-vanhempi-dev';");   // QG-2: deploy laskee cachenimen
+    expect(readFileSync(join(ROOT, 'TalentMaster_Pelaaja_v7.html'), 'utf8')).toMatch(/lib\/tm_lang\.js/);
   });
 });

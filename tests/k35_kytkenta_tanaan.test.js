@@ -78,7 +78,7 @@ describe('"Treenattiinko?"-kortti (D103: arvo + lähde)', () => {
 describe('kuoret: vain tapahtumat libille, skriptit ladattu ennen kehitystyöpöytää', () => {
   for (const [nimi, f] of [['VP', 'TalentMaster_VP_v25.html'], ['Master', 'TalentMaster_Master_v16.html']]) {
     it(nimi, () => {
-      const s = lue(f), i1 = s.indexOf('lib/tm_kalenteri_tyypit.js?v='), i2 = s.indexOf('lib/tm_kalenteri_kyselyt.js?v='), i3 = s.indexOf('lib/tm_kehitystyopoyta.js?v='), i0 = s.indexOf('lib/tm_ryhmat.js?v=');
+      const s = lue(f), i1 = s.indexOf('lib/tm_kalenteri_tyypit.js"'), i2 = s.indexOf('lib/tm_kalenteri_kyselyt.js"'), i3 = s.indexOf('lib/tm_kehitystyopoyta.js"'), i0 = s.indexOf('lib/tm_ryhmat.js"');
       expect(i0).toBeGreaterThan(0); expect(i1).toBeGreaterThan(i0); expect(i2).toBeGreaterThan(i1); expect(i3).toBeGreaterThan(i2);
       expect(s).toMatch(/kalenteri: \(typeof _(ktKalenteri|kalenteriTapahtumat)/);
       expect(s).not.toMatch(/tmOnTauko\(|tmSeuraavaTapahtuma\(/);   // logiikka libissä, ei kuoressa
