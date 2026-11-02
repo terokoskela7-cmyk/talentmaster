@@ -1,9 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.72
+// TalentMaster™ — firestore.rules v3.73
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.72 → v3.73 (Vaihe 1 · PR 2b, terveys; KIRISTÄÄ — siivous ajettu 3.11.2026 (poista 0, 823/823), PR 2a (#1169) kirjoittaa terveyden vain sisainen/terveys:iin):
+//   · seurat/{sid}/pelaajat/{pid}: create hylkää terveysavaimet (kaytettavyys, loukkaantuminen_tyyppi/_alue/_pvm, paluu_arvio) KAIKILTA, myös SA:lta; update hylkää niiden lisäyksen ja muutoksen (addedKeys/changedKeys) — POISTO sallitaan (FieldValue.delete). Siivous = Admin SDK.
+//   · sisainen/terveys: FYSIIKKAVALMENTAJA ei enää kirjoita (v3.70:ssa pääsi onOmanJoukkueenValmentaja-polulla, vaikka ei lue). B6: fysioterapeutti kirjoittaa sisainen/terveys:iin ennallaan, pelaajadokumenttiin ei terveyspoikkeusta.
 //
 // Muutokset v3.71 → v3.72 (Laskutus L1a, PM 2.11.2026: ADDITIIVINEN — uudet kokoelmat + joukkueen laskutuskentät vain SA:lle; ei kiristä nykyisiä kirjoituksia):
 //   · seurat/{sid}/joukkueet/{jid}: `laskutustila` ('aktiivinen'|'passiivinen'; puuttuva = passiivinen), `laskutustila_muutettu {pvm, uid}` ja `laskutus_aktivoitu {pvm, uid}`
@@ -795,9 +799,9 @@ service cloud.firestore {
       return onOmaSeura(seuraId) && onJohtoRooli() && avaimet.hasOnly(['tuojaUid', 'seuraId', 'paivitetty']) && avaimet.hasAny(['tuojaUid']);
     }
     /* v3.70 (PR #1137): terveys-dokumentti. Terveys-avaimet EIVÄT kuulu sisainen/tiedot:iin (avaimet kuten yllä). Lukijat: SA | vp, urheilutoimenjohtaja, fysioterapeutti | pelaajan joukkueen valmentaja (rooli 'valmentaja'). */
-    function sisainenEiTerveysta(avaimet) {
-      return !avaimet.hasAny(['kaytettavyys', 'loukkaantuminen_tyyppi', 'loukkaantuminen_alue', 'loukkaantuminen_pvm', 'paluu_arvio']);
-    }
+    function terveysAvaimet() { return ['kaytettavyys', 'loukkaantuminen_tyyppi', 'loukkaantuminen_alue', 'loukkaantuminen_pvm', 'paluu_arvio']; }
+    function sisainenEiTerveysta(avaimet) { return !avaimet.hasAny(terveysAvaimet()); }
+    function pelaajaTerveysEiMuutu() { return !request.resource.data.diff(resource.data).addedKeys().hasAny(terveysAvaimet()) && !request.resource.data.diff(resource.data).changedKeys().hasAny(terveysAvaimet()); }   // v3.73: poisto (removedKeys) sallittu
     function sisainenTerveysLukija(seuraId, pelaajaId) {
       return onSuperAdmin()
           || (onKirjautunut() && onOmaSeura(seuraId)
@@ -806,7 +810,7 @@ service cloud.firestore {
     }
     function sisainenTerveysKirjoittaja(seuraId, pelaajaId, avaimet) {
       return avaimet.hasOnly(['kaytettavyys', 'loukkaantuminen_tyyppi', 'loukkaantuminen_alue', 'loukkaantuminen_pvm', 'paluu_arvio', 'terveysSeuraId', 'paivitetty'])
-          && (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId) || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'));   // PM 25.10.: fysioterapeutti kirjoittaa terveyden (ei joukkuerajausta, kuten jaksofokus-osissa)
+          && (onSuperAdmin() || (onOmanJoukkueenValmentaja(seuraId, pelaajaId) && request.auth.token.rooli != 'fysiikkavalmentaja') || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'));   // v3.73: ei fysiikkavalmentajaa (ei lue terveyttä). PM 25.10.: fysioterapeutti kirjoittaa terveyden (ei joukkuerajausta, kuten jaksofokus-osissa)
     }
     function sisainenVastuuKelpaa(seuraId, pelaajaId, avaimet) {
       return !avaimet.hasAny(['vastuuhenkilo'])
@@ -1490,8 +1494,8 @@ service cloud.firestore {
         // v3.30 (PR 4): PIN asetetaan VAIN palvelimella (asetaPelaajanPin / luoPinitSeuralle / vahvistaSuostumus),
         // jotta hajautus (_pelaajaPin) ja selväkielinen kopio pysyvät samana. Koskee myös SA:n selainkirjoituksia.
         allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && pinEiAsetetaClientista()
-                      && suostumusEiAsetetaClientista() && kayttoasteEiAsetetaClientista();
-        allow update: if pinEiMuutuClientista() && suostumusEiMuutuClientista() && kayttoasteEiMuutuClientista() && (
+                      && suostumusEiAsetetaClientista() && kayttoasteEiAsetetaClientista() && sisainenEiTerveysta(request.resource.data.keys());   // v3.73: terveys vain sisainen/terveys:iin
+        allow update: if pinEiMuutuClientista() && suostumusEiMuutuClientista() && kayttoasteEiMuutuClientista() && pelaajaTerveysEiMuutu() && (   // v3.73: terveysavaimia ei lisätä/muuteta (poisto sallittu), koskee myös SA:ta
                          onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)   // permissio-joukkulukko: ADAR-pikakentät ym. vain oman joukkueen pelaajaan (johto ohittaa)
                       || onTestivastaava(seuraId)   // testituonnin profiili-pikakentät (hh_taso/hh_viimeisin/mas_kmh)
                       || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
