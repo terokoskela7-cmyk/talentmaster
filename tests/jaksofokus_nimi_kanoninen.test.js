@@ -161,7 +161,8 @@ describe('D — SWEEP: jokainen konsepti_nimi-kirjoitus luokiteltu', () => {
     /konsepti_nimi: k\.nimi, konsepti_koodi: k\.koodi \|\| null, domeeni: domeeni/, // jaksofokus-lib (fi-only)
     /konsepti_nimi: (found|kons|k) \? /,        // render-polku (_vpJfTavoiteLista ym.) — ei persistoida
     /konsepti_nimi: (found|kons|l|e)\.(nimi|konsepti_nimi)/,   // ehdotus-/render-objektit
-    /_vpKonseptiNimiNaytto\(\{ konsepti_avain: (it|item)\.avain, konsepti_nimi: \1\.nimi \}\)/
+    /_vpKonseptiNimiNaytto\(\{ konsepti_avain: (it|item)\.avain, konsepti_nimi: \1\.nimi \}\)/,
+    /_vpKonseptiNimiNaytto\(\{ konsepti_avain: avain, konsepti_nimi: nimi, domeeni: domeeni \}\)/,   // erä 92: _vpKonseptiNimiAvaimella — näyttöpolku, ei persistoida
     // NAYTTO-polku ("Nyt harjoitellaan" taitolista + poikkeamahuomautus): rakentaa tilapaisen
     // objektin pelkastaan nimiresolverille — ei persistoida, ei kirjoiteta jaksofokukseen.
   ];

@@ -231,6 +231,9 @@ function _ktTaitoNimi(n) {
   if (!n || _kieli() !== 'sv') return n;
   const X = (typeof ARVIOINTI_TAKSONOMIA !== 'undefined' && Array.isArray(ARVIOINTI_TAKSONOMIA)) ? ARVIOINTI_TAKSONOMIA : [], s = String(n).trim();
   for (let i = 0; i < X.length; i++) if (X[i] && X[i].nimi_fi === s && X[i].nimi_sv) return X[i].nimi_sv;
+  /* erä 92: kauden tavoitteen nimi voi olla konseptin nimi (Haltuunotto) ilman avainta → avain kaanonista (TM_TT_YOUTH) ja nimi sn_-avaimella kuten _ktKonseptiNimi (#1159) */
+  const Y = (typeof TM_TT_YOUTH !== 'undefined' && Array.isArray(TM_TT_YOUTH)) ? TM_TT_YOUTH : [], sl = s.toLowerCase();
+  for (let i = 0; i < Y.length; i++) if (Y[i] && /^y_[hp]\d$/.test(Y[i].avain || '') && String(Y[i].nimi || '').toLowerCase() === sl) { const v = TT('sn_' + Y[i].avain); if (v && v !== 'sn_' + Y[i].avain && v !== SN.FI['sn_' + Y[i].avain]) return v; }
   return n;
 }
 function _ktKonseptiNimi(avain, nimi, domeeni) {
@@ -727,8 +730,8 @@ function _masterNaytto() { window.location.href = KS.MASTER + '#pelaaja/' + enco
 window._mSelInfo = function (k) { const t = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET[k]) ? masterT(TM_SELITTEET[k]) : ''; if (t) toast(t); };
 function _kehys(p) {
   const AJ = window.TM_ALOITA_JAKSO, tila0 = AJ.tmJaksoTila(p, { nyt: new Date() }), tila = tila0.tila === 'ei_jaksoa' ? Object.assign({}, tila0, { valikko: (tila0.valikko || []).filter(function (m) { return m.avain !== 'anna_valita'; }) }) : tila0, j = K.tmKtJarjestys(_naapurit(), p.id), ika = _ika(p), phv = (typeof tmPhvKoodi === 'function') ? tmPhvKoodi(p) : null;
-  return K.tmKtKehysHTML({ pid: p.id, nimi: _nimi(p), joukkue: p.joukkue || '', ikavaihe: K.tmKtIkavaihe(ika), phv: (phv && phv !== 'tuntematon') ? (SN.tmSanastoPhv(phv) || String(phv)) : '', phvSelite: 'PHV', tila: tila,
-    edellinen: j.edellinen, seuraava: j.seuraava, jarj: { n: j.n, yht: j.yht }, valilehti: _S.valilehti, silmin: _S.silmin, tanaanHTML: _tanaanHTML(p, tila), polkuHTML: _S.valilehti === 'polku' ? _polkuHTML(p, tila) : '', nayttoHTML: _S.valilehti === 'profiili' ? _nayttoHTML(p) : '', ladattu: { polku: _S.valilehti === 'polku', naytto: _S.valilehti === 'profiili' } },
+  return K.tmKtKehysHTML({ pid: p.id, nimi: _nimi(p), joukkue: p.joukkue || '', ikavaihe: K.tmKtIkavaihe(ika), phv: (phv && phv !== 'tuntematon') ? (SN.tmSanastoPhv(phv) || String(phv)) : '', phvKoodi: (phv && phv !== 'tuntematon') ? String(phv) : '', phvSelite: 'PHV', tila: tila,
+    edellinen: j.edellinen, seuraava: j.seuraava, jarj: { n: j.n, yht: j.yht }, valilehti: _S.valilehti, silmin: _S.silmin, tanaanHTML: _tanaanHTML(p, tila), polkuHTML: _S.valilehti === 'polku' ? _polkuHTML(p, tila) : '', nayttoHTML: _S.valilehti === 'profiili' ? _nayttoHTML(_kieli() === 'fi' ? p : _naytto(p)) : '', ladattu: { polku: _S.valilehti === 'polku', naytto: _S.valilehti === 'profiili' } },
     { v2: true, valikkoSyyt: { anna_valita: 'kt_valikko_syy_kuvaus' }, esc: _e, t: TT, edellinenFn: '_ktEdellinen', seuraavaFn: '_ktSeuraava', valilehtiFn: '_ktValilehti', toimiFn: '_ktToimi', silminFn: '_ktSilmin', suljeFn: '_ktLista', profiili: true });
 }
 function _aseta(html) {
