@@ -608,7 +608,8 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
   function virheViesti(e) {
     var koodi = (e && e.code) || '';
     if (koodi.indexOf('unauthenticated') >= 0) return t('vUnauth');
-    if (koodi.indexOf('resource-exhausted') >= 0) return t('vKiintio');
+    // Seuran kuukausibudjetti (K1e): palvelimen fi/sv-viesti sellaisenaan; muuten päiväkiintiö.
+    if (koodi.indexOf('resource-exhausted') >= 0) return (e.details && e.details.syy === 'seurabudjetti' && e.message) ? e.message : t('vKiintio');
     if (koodi.indexOf('unavailable') >= 0 || koodi.indexOf('deadline-exceeded') >= 0 || koodi.indexOf('internal') >= 0) return t('vYhteys');
     return t('vYleinen') + ((e && e.message) || koodi);
   }
