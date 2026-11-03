@@ -276,7 +276,7 @@ async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
 /* Huoltajakutsu (functions/huoltajakutsu.js): sähköpostiin OMA 7 pv:n kutsulinkki (kutsu → tuore 1 h:n salasanalinkki avattaessa). Kutsun luonnin virhe → varalinkki suoraan (1 h, kuten ennen). */
 const huoltajakutsu = require('./huoltajakutsu');
 async function seuranKieli(seuraId) { try { const d = await db.collection('seurat').doc(seuraId).get(); return d.exists ? (d.get('kieli') || null) : null; } catch (e) { return null; } }
-const _kutsuDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, haeOrLuoHuoltajaAuth, lahetaSahkoposti, pohja: pohjaHuoltajakutsu, base: TM_BASE_URL,
+const _kutsuDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, FieldValue: admin.firestore.FieldValue, haeOrLuoHuoltajaAuth, lahetaSahkoposti, pohja: pohjaHuoltajakutsu, base: TM_BASE_URL,
   jatkoUrl: `${TM_BASE_URL}/TalentMaster_Vanhempi_v2.html`, seuranKieli });
 async function huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmail, jatkoUrl) {
   try { return { linkki: huoltajakutsu.kutsuUrl(TM_BASE_URL, await huoltajakutsu.luoKutsu(_kutsuDeps(), { seuraId, pelaajaId })), kutsu: true }; }
@@ -407,9 +407,13 @@ exports.lahetaMuistutukset = functions
     const nyt = Date.now();
     const lahetettavat = [];
     const ohitettu = [];
+    /* L1c (PM 3.11.): kutsumuistutus kuten kutsut — yksittäinen pelaaja → esto (failed-precondition), massalähetys → ohitetaan + ohitettuPassiivinen. */
+    const esto = laskutusEsto.luoEsto(db); let ohitettuPassiivinen = 0;
+    if (pelaajaId && docs.length) await laskutusEsto.vaadiPelaajaSallittu(Object.assign(_estoDeps(), { esto }), { funktio: 'lahetaMuistutukset', seuraId, pelaajaId, pelaaja: docs[0].data() || {} });
     for (const d of docs) {
       const p = d.data();
       const etunimi = p.etunimi || '';
+      if (await esto.pelaajaEstetty(seuraId, p)) { ohitettuPassiivinen++; ohitettu.push({ pelaajaId: d.id, etunimi, syy: laskutusEsto.SYY }); continue; }
       const hEmail = String(p.huoltajaEmail || '').trim();   // server-side luettu = vain korjattu osoite
       if (!hEmail) { ohitettu.push({ pelaajaId: d.id, etunimi, syy: 'ei_emailia' }); continue; }
       const mPvm = p.muistutus_pvm;
@@ -424,8 +428,9 @@ exports.lahetaMuistutukset = functions
     if (dry) {
       return { ok: true, kuivaAjo: true, lahetetty: lahetettavat.length,
         lahetettavat: lahetettavat.map(x => ({ pelaajaId: x.pelaajaId, etunimi: x.etunimi })),
-        ohitettu, yhteensa: docs.length };
+        ohitettu, ohitettuPassiivinen, yhteensa: docs.length };
     }
+    if (ohitettuPassiivinen) await laskutusEsto.kirjaaEsto(db, admin.firestore.FieldValue, { funktio: 'lahetaMuistutukset', seuraId, ohitettuPassiivinen });
 
     let lahetetty = 0;
     for (const x of lahetettavat) {
@@ -452,7 +457,7 @@ exports.lahetaMuistutukset = functions
         ohitettu.push({ pelaajaId: x.pelaajaId, etunimi: x.etunimi, syy: 'lahetys_epaonnistui' });
       }
     }
-    return { ok: true, kuivaAjo: false, lahetetty, ohitettu, yhteensa: docs.length };
+    return { ok: true, kuivaAjo: false, lahetetty, ohitettu, ohitettuPassiivinen, yhteensa: docs.length };
   });
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaHuoltajaKutsu

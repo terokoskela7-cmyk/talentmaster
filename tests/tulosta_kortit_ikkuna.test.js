@@ -51,7 +51,7 @@ function ymp({ pelaajat, vastaus = 'jatka', estetty = false, palvelin }) {
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
     + 'var KORTTI_ERA = ' + SEURA.match(/const KORTTI_ERA = (\d+);/)[1] + ';\n'
     + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {',
-      'function _laskutusEsto(e) {', 'function _pinVirheTeksti(e) {', 'function _tunnusKohde() {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {', 'function _suostumusLinkki(pelaajaId, kutsuId) {',
+      'function _laskutusEsto(e) {', 'function _lkPelaaja(p) {', 'function _pinVirheTeksti(e) {', 'function _tunnusKohde() {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {', 'function _suostumusLinkki(pelaajaId, kutsuId) {',
       'function _pinKortitHtml(kortit) {', 'function _korttiIkkuna(w, otsikko, teksti, napit) {', 'function _korttiVahvistus(w, otsikko, teksti) {',
       'async function tulostaKortit() {'].map(pura).join('\n') + '\nthis.tulosta = tulostaKortit;', ctx);
   return { ctx, loki, w };

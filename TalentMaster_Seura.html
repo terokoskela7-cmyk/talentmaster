@@ -31,7 +31,7 @@
 <script src="lib/tm_lang.js"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js"></script>
 <script src="lib/tm_henkilosto_i18n.js"></script>   <!-- sv-läpiajo PR 4: tmHT — teksti-avainreititin (Seurahallinta pysyy suomeksi 1.10. päätöksellä; sv-kartta tyhjä) -->
-<script src="lib/tm_joukkue.js"></script>
+<script src="lib/tm_joukkue.js"></script><script src="lib/tm_laskutus_esto.js"></script>   <!-- L1c: harmaa tila (seurat.laskutus_sopimus + joukkueen laskutustila) -->
 <script src="lib/tm_syntymavuosi.js"></script>   <!-- Muokkaa pelaajatietoja: syntymävuosi (ei keksittyä 1.1.) -->
 <script src="lib/tm_seura_tuonti.js"></script>   <!-- Seura-tuonnin ja kutsun pure-säännöt: olemassa oleva pelaaja, monta sähköpostia, PalloID merkkijonona, kutsuikkunan joukkue -->
 <script src="lib/tm_paikkamerkki.js"></script>
@@ -307,7 +307,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   padding:4px 10px; font-size:11px; font-weight:600; color:var(--ink3);
   cursor:pointer; font-family:'DM Sans',sans-serif; transition:all .15s;
 }
-.toimNappi:hover { color:var(--ink); border-color:var(--bord2); }
+.toimNappi:hover { color:var(--ink); border-color:var(--bord2); } button[data-lk-estetty], button[data-lk-estetty]:hover { opacity:.45; cursor:not-allowed; }
 .toimNappi.sininen { border-color:rgba(42,93,176,.3); color:var(--blue); }
 .toimNappi.sininen:hover { background:rgba(42,93,176,.1); }
 .toimNappi.vaara { border-color:rgba(217,96,96,.3); color:var(--red); }
@@ -1473,7 +1473,7 @@ async function _tmKirjaaTuoja(seuraId, pelaajaId) {
 // AKTIIVISEN SEURAN ASETTAMINEN
 // ─────────────────────────────────────────────────────────────────
 async function asetaAktiivinenSeura(seuraId) {
-  tila.seuraId = seuraId;
+  tila.seuraId = seuraId; tila.laskutusSopimus = false;
 
 
   // Haetaan seuran tiedot
@@ -1482,7 +1482,7 @@ async function asetaAktiivinenSeura(seuraId) {
     const data = seuraSnap.data();
     tila.seuraNimi    = data.nimi    || seuraId;
     tila.seuraPaketti = data.paketti || 'Perustaso';
-    tila.seuraKieli   = data.kieli || null;   // A3: peritään uudelle pelaajalle (anon PIN ei voi lukea seuradokia)
+    tila.seuraKieli   = data.kieli || null; tila.laskutusSopimus = data.laskutus_sopimus === true;   // L1c: harmaa tila · A3: peritään uudelle pelaajalle (anon PIN ei voi lukea seuradokia)
     /* Päätös 1.10.2026: seurahallinta on suomeksi toistaiseksi → EI tmKieliInitSeura(data.kieli) (vaihtaisi koko sivun
        kielen, myös localStorage-valinnasta). Seuran kieli (tila.seuraKieli) säilyy: uusi pelaaja perii sen (A3) ja
        perheille menevä sisältö (tulostettavat kortit) tehdään sillä — _tkKieli. */
@@ -1694,7 +1694,7 @@ function renderYhteenveto() {
                         onclick="avaaJoukkueMuokkaus(this.dataset.jid,this.dataset.jnimi,this.dataset.jikaryhma,this.dataset.jvuosi)">
                         ${tmHT('✏️ Muokkaa')}
                       </button>
-                      <button class="toimNappi sininen" onclick="avaaRekisteriModalJoukkueella('${j.id}','${j.nimi || j.id}')">
+                      <button class="toimNappi sininen"${_lkAttr(_lkJoukkue(j))} onclick="avaaRekisteriModalJoukkueella('${j.id}','${j.nimi || j.id}')">
                         ${tmHT('✉️ Kutsu pelaaja')}
                       </button>
                     </div>
@@ -2313,7 +2313,7 @@ async function renderPelaajat(alue) {
                 <td>
                   <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">${tmHT('Tiedot')}</button>
                   ${p.huoltajaEmail
-                    ? `<button class="toimNappi" style="background:rgba(0,212,170,.12);color:#00D4AA;margin-left:4px"
+                    ? `<button class="toimNappi" style="background:rgba(0,212,170,.12);color:#00D4AA;margin-left:4px"${_lkAttr(_lkPelaaja(p))}
                         onclick="lahetaPelaajaLinkki('${p.id}','${tila.seuraId}','${p.etunimi||''}','${p.sukunimi||''}','${p.huoltajaEmail||''}','${p.joukkue||''}')">
                         ${tmHT('📨 Linkki')}
                       </button>`
@@ -2965,7 +2965,7 @@ function renderJoukkueet() {
                   <td style="font-family:monospace;font-size:12px;color:var(--ink3);">${j.id}</td>
                   <td>
                     <div style="display:flex;gap:6px;">
-                      <button class="toimNappi sininen"
+                      <button class="toimNappi sininen"${_lkAttr(_lkJoukkue(j))}
                         onclick="avaaRekisteriModalJoukkueella('${j.id}','${(j.nimi||j.id).replace(/'/g,"\\'")}')">
                         ${tmHT('✉️ Kutsu')}
                       </button>
@@ -4853,7 +4853,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
               padding:6px 14px;border-radius:8px;display:inline-block;min-width:80px;text-align:center;">
               ${esc(_suostumusAnnettu(p) ? (p.pin || '—') : '—')}
             </div>
-            ${(!_suostumusAnnettu(p) && p.pin) ? '<div style="font-size:10px;color:var(--amber);margin-top:4px;max-width:180px;">' + tmHT('Suostumus puuttuu – PIN ei ole käytössä.') + '</div>' : ''}
+            ${(!_suostumusAnnettu(p) && p.pin) ? '<div style="font-size:10px;color:var(--amber);margin-top:4px;max-width:180px;">' + tmHT('Suostumus puuttuu – PIN ei ole käytössä.') + '</div>' : ''}${_lkPelaaja(p) ? '<div class="lk-teksti" style="font-size:12.5px;color:var(--amber);margin-top:4px;max-width:220px;">' + _laskutusEsto(true) + '</div>' : ''}
           </div>
           <div style="flex:1;min-width:180px;">
             <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">${tmHT('Huoltajan sähköposti')}</div>
@@ -4865,7 +4865,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
           <button class="lisaaNappi" style="background:rgba(0,212,170,.2);border:1px solid rgba(0,212,170,.4);
             color:#00D4AA;font-size:12px;padding:6px 14px;"
-            onclick="uusiPelaajaPIN('${pelaajaId}')">
+            onclick="uusiPelaajaPIN('${pelaajaId}')"${_lkAttr(_lkPelaaja(p))}>
             ${tmHT('🔑 Uusi PIN')}
           </button>
           <input id="pin-syote-${pelaajaId}" type="text" maxlength="6" pattern="[0-9]{6}"
@@ -4879,7 +4879,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
         <button class="lisaaNappi" style="margin-top:10px;width:100%;
           background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);
           color:#00D4AA;font-weight:700;"
-          onclick="lahetaPelaajaLinkki(_pkd.pelaajaId, _pkd.seuraId, _pkd.etunimi, _pkd.sukunimi, _pkd.huoltajaEmail, _pkd.joukkue)">
+          onclick="lahetaPelaajaLinkki(_pkd.pelaajaId, _pkd.seuraId, _pkd.etunimi, _pkd.sukunimi, _pkd.huoltajaEmail, _pkd.joukkue)"${_lkAttr(_lkPelaaja(p))}>
           ${tmHT('📨 Lähetä pelaajasivu-linkki huoltajalle uudelleen')}
         </button>` : `
         <div style="margin-top:8px;font-size:11px;color:var(--amber);">
@@ -6094,7 +6094,7 @@ function _suostumusPvm(p) {
   return null;
 }
 const PIN_SUOSTUMUS_PUUTTUU = 'Huoltajan suostumus puuttuu – PIN luodaan suostumuksen jälkeen.';
-/* Laskutus L1c: palvelimen esto (sopimusseuran passiivinen joukkue, details.syy 'joukkue_passiivinen') → sama teksti kuin harmaassa tilassa, ei raakaa virhettä. true → pelkkä teksti. */ function _laskutusEsto(e) { return (e === true || (e && e.details && e.details.syy === 'joukkue_passiivinen')) ? tmHT('Ei käytössä – sovi käyttöönotosta TalentMasterin kanssa') : ''; }
+/* Laskutus L1c: palvelimen esto (sopimusseuran passiivinen joukkue, details.syy 'joukkue_passiivinen') → sama teksti kuin harmaassa tilassa, ei raakaa virhettä. true → pelkkä teksti. */ function _laskutusEsto(e) { return (e === true || (e && e.details && e.details.syy === 'joukkue_passiivinen')) ? tmHT('Ei käytössä – sovi käyttöönotosta TalentMasterin kanssa') : ''; } function _lkPelaaja(p) { return !!(window.TM_LASKUTUS_ESTO && window.TM_LASKUTUS_ESTO.tmLaskutusPelaajaEstetty({ laskutus_sopimus: tila.laskutusSopimus }, p, tila.joukkueet)); } function _lkJoukkue(j) { return !!(window.TM_LASKUTUS_ESTO && window.TM_LASKUTUS_ESTO.tmLaskutusJoukkueEstetty({ laskutus_sopimus: tila.laskutusSopimus }, j)); } function _lkAttr(estetty) { return estetty ? ' disabled data-lk-estetty="1" title="' + _laskutusEsto(true) + '" aria-label="' + _laskutusEsto(true) + '"' : ''; }
 function _pinVirheTeksti(e) {
   const koodi = String((e && e.code) || '').replace(/^functions\//, ''); if (_laskutusEsto(e)) return _laskutusEsto(e);
   if (koodi === 'failed-precondition' && e && e.details && e.details.syy === 'suostumus_puuttuu') return PIN_SUOSTUMUS_PUUTTUU;
@@ -6160,8 +6160,7 @@ async function luoPuuttuvatPinit() {
       _tunnusTila('');
       const n = esi.data.luotaisiin || 0;
       const eiSuost = esi.data.ohitettuSuostumus || 0;
-      const suostTeksti = eiSuost ? eiSuost + ' pelaajalta puuttuu huoltajan suostumus – PIN luodaan suostumuksen jälkeen.' : '';
-      const estoTeksti = esi.data.ohitettuPassiivinen ? esi.data.ohitettuPassiivinen + ': ' + _laskutusEsto(true) : '';   // L1c: sopimusseuran passiiviset joukkueet
+      const suostTeksti = eiSuost ? eiSuost + ' pelaajalta puuttuu huoltajan suostumus – PIN luodaan suostumuksen jälkeen.' : '', estoTeksti = esi.data.ohitettuPassiivinen ? esi.data.ohitettuPassiivinen + ': ' + _laskutusEsto(true) : '';   // L1c: sopimusseuran passiiviset
       if (!n) { naytaToast((eiSuost || estoTeksti) ? 'Ei luotavia PIN-koodeja (' + k.kuvaus + '). ' + [suostTeksti, estoTeksti].filter(Boolean).join(' ') : 'Kaikilla pelaajilla (' + k.kuvaus + ') on jo PIN.', 'info'); return; }
       if (!confirm((tmHT('Luodaanko uusi 6-numeroinen PIN') + ' ') + n + ' pelaajalle (' + k.kuvaus + ')?\nPelaajat, joilla on jo PIN, eivät muutu.'
         + (eiSuost ? '\n' + suostTeksti : '') + (estoTeksti ? '\n' + estoTeksti : ''))) return;
@@ -6220,7 +6219,7 @@ function _pinKortitHtml(kortit) {
     + '<div class="r"><img src="' + k.qr + '" alt="QR"><div class="t sk">'
     + esc(tp('seura.suostumuskortti_teksti', tmHT('Näytä tämä vanhemmallesi. Kun huoltaja antaa luvan (2 min), hän saa tunnuksesi sähköpostiin.')))
     + '</div></div><div class="o">' + esc(tp('seura.suostumuskortti_ala', tmHT('Huoltajan lupa · TalentMaster'))) + '</div></div>';
-  const kortti = (k) => (k.tyyppi === 'suostumus' ? suostumuskortti(k) : pelaajakortti(k));
+  const kortti = (k) => (k.tyyppi === 'suostumus' ? suostumuskortti(k) : k.tyyppi === 'estetty' ? '<div class="k"><div class="n">' + esc(k.nimi) + '</div><div class="j">' + esc(k.joukkue) + '</div><div class="o">' + esc(tp('seura.kortti_ei_kaytossa', tmHT('Ei käytössä – sovi käyttöönotosta TalentMasterin kanssa'))) + '</div></div>' : pelaajakortti(k));   // L1c: estetty → ei PIN:iä eikä pelaajalinkkiä
   let sivut = '';
   for (let i = 0; i < kortit.length; i += 8) sivut += '<div class="s">' + kortit.slice(i, i + 8).map(kortti).join('') + '</div>';
   return '<!doctype html><html lang="' + esc(kieli) + '"><head><meta charset="utf-8"><title>' + esc(tp('seura.kortit_otsikko', 'Kortit')) + '</title><style>'
@@ -6300,7 +6299,7 @@ async function tulostaKortit() {
     }
     _korttiIkkuna(w, _tk('seura.kortit_qr', 'Luodaan QR-koodeja…'));
     await _lataaQrKirjasto();
-    const kortit = pelaajat.map((p) => ({ tyyppi: 'pelaaja', nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(),
+    const kortit = pelaajat.map((p) => (_lkPelaaja(p) ? { tyyppi: 'estetty', nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(), joukkue: p.joukkueNimi || p.joukkue || '' } : { tyyppi: 'pelaaja', nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(),
       joukkue: p.joukkueNimi || p.joukkue || '', palloId: _pinPalloId(p), pin: p.pin, qr: _qrDataUrl(_pelaajaLinkki(p)) }))
       .concat(suostumus.filter((p) => kutsut[p.id]).map((p) => ({ tyyppi: 'suostumus', etunimi: p.etunimi || '',
         joukkue: p.joukkueNimi || p.joukkue || '', qr: _qrDataUrl(_suostumusLinkki(p.id, kutsut[p.id])) })));

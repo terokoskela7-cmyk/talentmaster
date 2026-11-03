@@ -1,5 +1,5 @@
 /* Laskutus L1c (.briefit/CODE_BRIEF_LASKUTUS_L1C.md §4): palvelimen joukkue_passiivinen-esto näkyy Seurassa samalla tekstillä (ei raakaa virhettä).
-   Harmaa tila (nappi pois käytöstä ennen kutsua) odottaa PM:n kuittausta sopimusseuratiedon välittämisestä clientille (briiffi §4). */
+   Harmaa tila (PM 3.11.): lib/tm_laskutus_esto.js — seurat/{sid}.laskutus_sopimus === true + joukkueen laskutustila; Seura ja Master vain kytkevät. */
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import vm from 'vm';
@@ -76,5 +76,78 @@ describe('Seura: palvelimen laskutusesto → sama teksti', () => {
     expect(SEURA).toContain("(estoRivi || tmHT('⚠️ Linkki luotu, sähköposti ei lähtenyt'))");
     expect(SEURA).toContain('${_laskutusEsto(mailErr) || mailErr.message}');
     expect((SEURA.match(/syy === 'joukkue_passiivinen'/g) || []).length).toBe(1);   // yksi tulkintapaikka
+  });
+});
+
+describe('Harmaa tila (PM 3.11.): lib/tm_laskutus_esto.js', async () => {
+  const { createRequire } = await import('module');
+  const req = createRequire(import.meta.url);
+  const E = req('../lib/tm_laskutus_esto.js');
+  const JD = [{ id: 'akt', nimi: 'A', laskutustila: 'aktiivinen' }, { id: 'pas', nimi: 'P', laskutustila: 'passiivinen' }, { id: 'puu', nimi: 'U' }, { id: 'demo', nimi: 'D', demo: true }];
+  const S = { laskutus_sopimus: true };
+  it('sama sääntö kuin palvelimella: vain sopimusseura; puuttuva tila = passiivinen; demo ja yksikin aktiivinen sallii; ei joukkuetta → esto', () => {
+    expect(E.tmLaskutusPelaajaEstetty(S, { joukkueet: ['pas'] }, JD)).toBe(true);
+    expect(E.tmLaskutusPelaajaEstetty(S, { joukkueet: ['puu'] }, JD)).toBe(true);
+    expect(E.tmLaskutusPelaajaEstetty(S, { joukkueet: ['pas', 'akt'] }, JD)).toBe(false);
+    expect(E.tmLaskutusPelaajaEstetty(S, { joukkueet: ['demo'] }, JD)).toBe(false);
+    expect(E.tmLaskutusPelaajaEstetty(S, {}, JD)).toBe(true);
+    expect(E.tmLaskutusPelaajaEstetty(S, { joukkue: 'A' }, JD)).toBe(false);   // legacy-nimi §7.18
+    [{}, { laskutus_sopimus: false }, { laskutus_sopimus: 'true' }, null].forEach((x) => {
+      expect(E.tmLaskutusPelaajaEstetty(x, { joukkueet: ['pas'] }, JD)).toBe(false);
+      expect(E.tmLaskutusJoukkueEstetty(x, JD[1])).toBe(false);
+    });
+    expect(E.tmLaskutusJoukkueEstetty(S, JD[0])).toBe(false); expect(E.tmLaskutusJoukkueEstetty(S, JD[1])).toBe(true);
+    expect(E.tmLaskutusJoukkueEstetty(S, JD[2])).toBe(true); expect(E.tmLaskutusJoukkueEstetty(S, JD[3])).toBe(false);
+    expect(E.TEKSTI).toBe(FI); expect(E.tmLaskutusEstoVirhe(ESTO)).toBe(true); expect(E.tmLaskutusEstoVirhe(new Error('x'))).toBe(false);
+  });
+
+  function seuraCtx(sopimus) {
+    const ctx = { window: { TM_LASKUTUS_ESTO: E }, tila: { laskutusSopimus: sopimus, joukkueet: JD, seuraKieli: 'fi' }, tmHT: (x) => x, String, Object, Array,
+      _tkKieli: (avain, kieli, fi) => fi };
+    vm.createContext(ctx);
+    vm.runInContext(['function _laskutusEsto(e) {', 'function _lkPelaaja(p) {', 'function _lkJoukkue(j) {', 'function _lkAttr(estetty) {', 'function _pinKortitHtml(kortit) {'].map(pura).join('\n')
+      + '\nthis.lkP = _lkPelaaja; this.lkJ = _lkJoukkue; this.attr = _lkAttr; this.kortit = _pinKortitHtml;', ctx);
+    return ctx;
+  }
+  it('Seura: kytkentä ajettuna — harmaa vain sopimusseurassa, napissa disabled + teksti', () => {
+    const c = seuraCtx(true);
+    expect(c.lkP({ joukkueet: ['pas'] })).toBe(true); expect(c.lkP({ joukkueet: ['akt'] })).toBe(false);
+    expect(c.lkJ(JD[1])).toBe(true); expect(c.lkJ(JD[0])).toBe(false);
+    expect(c.attr(true)).toContain('disabled'); expect(c.attr(true)).toContain(FI); expect(c.attr(true)).not.toMatch(/\bclass=/);
+    expect(c.attr(false)).toBe('');
+    const p = seuraCtx(false); expect(p.lkP({ joukkueet: ['pas'] })).toBe(false); expect(p.lkJ(JD[1])).toBe(false);
+  });
+  it('Seura: estetyn pelaajan tulostettava kortti ilman PIN:iä ja QR:ää (pelaajalinkki), teksti näkyy', () => {
+    const html = seuraCtx(true).kortit([{ tyyppi: 'estetty', nimi: 'Testi Pelaaja', joukkue: 'P' }, { tyyppi: 'pelaaja', nimi: 'Toppari Testi', joukkue: 'A', pin: '135792', qr: 'data:qr', palloId: '1' }]);
+    const [estetty, normaali] = html.split('<div class="k">').slice(1);
+    expect(estetty).toContain('Testi Pelaaja'); expect(estetty).toContain(FI); expect(estetty).not.toMatch(/PIN|<img/);
+    expect(normaali).toContain('135792');
+  });
+  it('Seura: kytkennät lähteessä (lib, sopimustieto, napit, kortit) ja rivikatto 7100', () => {
+    expect(SEURA).toContain('<script src="lib/tm_laskutus_esto.js"></script>');
+    expect(SEURA).toMatch(/tila\.laskutusSopimus = data\.laskutus_sopimus === true/);
+    expect(SEURA).toMatch(/tila\.seuraId = seuraId; tila\.laskutusSopimus = false;/);   // seuranvaihto ei peri edellistä
+    expect((SEURA.match(/\$\{_lkAttr\(_lkJoukkue\(j\)\)\}/g) || []).length).toBe(2);
+    expect((SEURA.match(/_lkAttr\(_lkPelaaja\(p\)\)/g) || []).length).toBe(3);
+    expect(SEURA).toMatch(/const kortit = pelaajat\.map\(\(p\) => \(_lkPelaaja\(p\) \? \{ tyyppi: 'estetty'/);
+    expect(SEURA.split('\n').length - 1).toBeLessThanOrEqual(7100);
+  });
+  it('Master: Joukkueen jakso -kortti harmaana (disabled, ei avaaFn-kutsua) + teksti; kytkentä lähteessä', () => {
+    const J = req('../lib/tm_joukkuejakso.js');
+    const k = J.tmJoukkuejaksoKortti({ nimi: 'P' }, {});
+    const harmaa = J.tmJoukkuejaksoKorttiHTML(k, { avaaFn: '_mJjAvaa', estoTeksti: FI });
+    expect(harmaa).toContain('disabled'); expect(harmaa).toContain(FI); expect(harmaa).not.toContain('_mJjAvaa()');
+    expect(J.tmJoukkuejaksoKorttiHTML(k, { avaaFn: '_mJjAvaa' })).toContain('_mJjAvaa()');
+    const M = fs.readFileSync('TalentMaster_Master_v16.html', 'utf8');
+    expect(M).toContain('<script src="lib/tm_laskutus_esto.js"></script>');
+    expect(M).toMatch(/\(window\._mJjSopimus = window\._mJjSopimus \|\| \{\}\)\[_seuraId\] = !!\(seura && seura\.laskutus_sopimus === true\)/);
+    expect(M).toMatch(/estoTeksti: window\.TM_LASKUTUS_ESTO && window\.TM_LASKUTUS_ESTO\.tmLaskutusJoukkueEstetty\(/);
+  });
+  it('Huoltajakutsu-sivu: uuden linkin pyynnön esto → ei_kaytossa-teksti; tm_lang fi/sv/en (sv = PM:n teksti)', async () => {
+    const H = fs.readFileSync('TalentMaster_Huoltajakutsu.html', 'utf8');
+    expect(H).toMatch(/e\.details\.syy === 'joukkue_passiivinen'\) nayta\('', T\('ei_kaytossa'\)\)/);
+    const L = fs.readFileSync('lib/tm_lang.js', 'utf8');
+    expect(L).toContain("ei_kaytossa: '" + FI + "'"); expect(L).toContain("ei_kaytossa: '" + SV + "'"); expect(L).toContain("kortti_ei_kaytossa: '" + SV + "'");
+    expect((L.match(/ei_kaytossa: /g) || []).length).toBe(6);
   });
 });

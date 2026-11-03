@@ -283,6 +283,75 @@ describe('vahvistaSuostumus (index.js)', () => {
   });
 });
 
+describe('PM 3.11.: lahetaMuistutukset, pyydaUusiHuoltajakutsu, luoSuostumusKortit', () => {
+  beforeEach(() => { tyhjenna(); lahetetyt.length = 0; });
+  const muistuta = (o) => fft.wrap(fns.lahetaMuistutukset)(Object.assign({ seuraId: 's1' }, o), vp);
+
+  test('lahetaMuistutukset: massalähetys ohittaa estetyt (ohitettuPassiivinen), muut lähtevät; yksi audit-rivi ilman nimiä', async () => {
+    seura({ sopimus: true }); pelaaja('p1', ['pas'], { suostumusTila: 'odottaa' }); pelaaja('p2', ['akt'], { suostumusTila: 'odottaa' }); pelaaja('p3', [], { suostumusTila: 'odottaa' });
+    const k = await muistuta({ kuivaAjo: true });
+    assert.strictEqual(k.ohitettuPassiivinen, 2); assert.strictEqual(k.lahetetty, 1); assert.strictEqual(estoAuditit().length, 0, 'kuiva-ajo ei kirjaa');
+    assert.deepStrictEqual(k.ohitettu.filter((x) => x.syy === 'joukkue_passiivinen').map((x) => x.pelaajaId).sort(), ['p1', 'p3']);
+    const r = await muistuta({});
+    assert.strictEqual(r.ohitettuPassiivinen, 2); assert.strictEqual(r.lahetetty, 1); assert.strictEqual(lahetetyt.length, 1);
+    assert.strictEqual(DOCS['seurat/s1/pelaajat/p1'].muistutus_kpl, undefined);
+    const a = estoAuditit(); assert.strictEqual(a.length, 1);
+    assert.deepStrictEqual({ funktio: a[0].funktio, seuraId: a[0].seuraId, ohitettuPassiivinen: a[0].ohitettuPassiivinen }, { funktio: 'lahetaMuistutukset', seuraId: 's1', ohitettuPassiivinen: 2 });
+    assert.ok(!NIMET.test(JSON.stringify(a)));
+  });
+  test('lahetaMuistutukset: yksittäinen estetty pelaaja → failed-precondition + syy, ei sähköpostia', async () => {
+    seura({ sopimus: true }); pelaaja('p1', ['pas'], { suostumusTila: 'odottaa' });
+    await assert.rejects(muistuta({ pelaajaId: 'p1' }), (e) => e.code === 'failed-precondition' && e.details.syy === 'joukkue_passiivinen');
+    assert.strictEqual(lahetetyt.length, 0); assert.strictEqual(estoAuditit()[0].funktio, 'lahetaMuistutukset');
+  });
+  test('lahetaMuistutukset: pilottiseura → kaikki lähtevät kuten ennen, ohitettuPassiivinen 0', async () => {
+    seura({ sopimus: undefined }); pelaaja('p1', ['pas'], { suostumusTila: 'odottaa' }); pelaaja('p2', ['akt'], { suostumusTila: 'odottaa' });
+    const r = await muistuta({});
+    assert.strictEqual(r.ohitettuPassiivinen, 0); assert.strictEqual(r.lahetetty, 2); assert.strictEqual(estoAuditit().length, 0);
+  });
+
+  const H = require('../huoltajakutsu');
+  function kutsu(pid) { const t = H.uusiToken(); DOCS['huoltajakutsut/' + H.hash(t)] = { seuraId: 's1', pelaajaId: pid, vanhenee: 0 }; return t; }
+  const uusiDeps = () => ({ db, FieldValue, HttpsError, auth: { getUserByEmail: async () => { throw new Error('ei'); } }, lahetaSahkoposti: async (m) => { lahetetyt.push(m); },
+    pohja: () => '<p>x</p>', base: 'https://talentmasterid.com', haeOrLuoHuoltajaAuth: async () => ({ uid: 'h' }) });
+  test('pyydaUusiHuoltajakutsu: sopimusseuran passiivinen → failed-precondition + syy, ei uutta kutsua eikä sähköpostia', async () => {
+    seura({ sopimus: true }); pelaaja('p1', ['pas']);
+    const ennen = Object.keys(DOCS).filter((k) => k.startsWith('huoltajakutsut/')).length;
+    await assert.rejects(H.luoPyydaUusi(uusiDeps())({ token: kutsu('p1') }), (e) => e.code === 'failed-precondition' && e.details.syy === 'joukkue_passiivinen');
+    assert.strictEqual(lahetetyt.length, 0);
+    assert.strictEqual(Object.keys(DOCS).filter((k) => k.startsWith('huoltajakutsut/')).length, ennen + 1, 'vain testin oma kutsu');
+    assert.strictEqual(DOCS['huoltajakutsu_rajat/' + H.hash('s1/p1')], undefined);
+    const a = estoAuditit(); assert.strictEqual(a.length, 1); assert.strictEqual(a[0].funktio, 'pyydaUusiHuoltajakutsu'); assert.strictEqual(a[0].pelaajaId, 'p1');
+  });
+  test('pyydaUusiHuoltajakutsu: aktiivinen tai pilotti → uusi linkki lähtee', async () => {
+    seura({ sopimus: true }); pelaaja('p2', ['akt']);
+    assert.strictEqual((await H.luoPyydaUusi(uusiDeps())({ token: kutsu('p2') })).tila, 'lahetetty');
+    tyhjenna(); seura({ sopimus: false }); pelaaja('p1', ['pas']);
+    assert.strictEqual((await H.luoPyydaUusi(uusiDeps())({ token: kutsu('p1') })).tila, 'lahetetty');
+    assert.strictEqual(estoAuditit().length, 0);
+  });
+
+  const SK = require('../suostumuskortit');
+  const kortit = (ids) => SK.luoKasittelija(pinDeps())({ seuraId: 's1', pelaajaIds: ids }, ctx);
+  test('luoSuostumusKortit: sallitaan; estetyn suostumuksen antaneen kortti merkitään estetyksi (ei PIN:iä/linkkiä), suostumuskortti tehdään silti', async () => {
+    seura({ sopimus: true });
+    pelaaja('p1', ['pas']); pelaaja('p2', ['akt']); pelaaja('p3', ['pas'], { suostumusTila: 'odottaa' });
+    const r = await kortit(['p1', 'p2', 'p3']);
+    const t = Object.fromEntries(r.kortit.map((k) => [k.pelaajaId, k]));
+    assert.deepStrictEqual(t.p1, { pelaajaId: 'p1', tyyppi: 'pelaajakortti', estetty: true });
+    assert.deepStrictEqual(t.p2, { pelaajaId: 'p2', tyyppi: 'pelaajakortti' });
+    assert.strictEqual(t.p3.tyyppi, 'suostumuskortti'); assert.ok(t.p3.kutsuId, 'suostumus on aina sallittu');
+    const a = estoAuditit(); assert.strictEqual(a.length, 1);
+    assert.deepStrictEqual({ funktio: a[0].funktio, estettyja: a[0].estettyja }, { funktio: 'luoSuostumusKortit', estettyja: 1 });
+    assert.ok(!NIMET.test(JSON.stringify(a)));
+  });
+  test('luoSuostumusKortit: pilottiseura → ei estetty-merkintää', async () => {
+    seura({ sopimus: undefined }); pelaaja('p1', ['pas']);
+    const r = await kortit(['p1']);
+    assert.deepStrictEqual(r.kortit[0], { pelaajaId: 'p1', tyyppi: 'pelaajakortti' }); assert.strictEqual(estoAuditit().length, 0);
+  });
+});
+
 describe('lähdevartijat', () => {
   const idx = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
   test('jokainen briiffin funktio käyttää laskutus_esto.js:ää (ei omaa joukkuetulkintaa)', () => {
