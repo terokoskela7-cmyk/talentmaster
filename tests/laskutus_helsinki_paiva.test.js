@@ -93,7 +93,7 @@ describe('varapolku ja ajoympäristö', () => {
     expect(erot).toEqual([]); expect(odotettu.length).toBeGreaterThan(35000);
     expect(L.tmLaskutusPaiva(YO_1_12)).toBe('2026-12-01'); expect(L.tmLaskutusKk(YO_1_12)).toBe('2026-12');   // varapolulla
     expect(L.tmLaskutusPaiva(new Date('2026-07-31T21:30:00Z'))).toBe('2026-08-01');   // kesäaika +3
-  });
+  }, 30000);   // ~35 000 Intl-kutsua: paikallisesti ~1,5 s, CI:n rinnakkaisajossa ylitti oletusrajan 5 s (#1172)
   it('sama tulos ajoympäristön vyöhykkeestä riippumatta (TZ=UTC kuten Cloud Functions, Helsinki, New York)', () => {
     const koodi = "const L=require(" + JSON.stringify(require.resolve('../lib/tm_laskutus.js')) + ");const a=new Date('2026-11-30T21:30:00Z'),b=new Date('2026-11-30T23:30:00Z');"
       + "process.stdout.write([L.tmLaskutusPaiva(a),L.tmLaskutusPaiva(b),L.tmLaskutusKk(a),L.tmLaskutusKk(b)].join(','))";
