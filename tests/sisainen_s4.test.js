@@ -276,13 +276,21 @@ describe('Rules v3.70 (tekstitarkistus; toiminta: tests/rules/sisainen.rules.tes
     expect(R).toMatch(/function sisainenTuojaKelpaa[\s\S]{0,200}onOmaSeura\(seuraId\) && onJohtoRooli\(\) && avaimet\.hasOnly\(\['tuojaUid', 'seuraId', 'paivitetty'\]\)/);
   });
   it('TERVEYS: Rulesin terveys-avainlistat (kirjoittaja hasOnly + sisainenEiTerveysta) = rekisterin terveys-ryhmä; lukijat vain SA/vp/utj/fysio/valmentaja; seurasihteeri/testivastaava eivät; indeksi terveysSeuraId', () => {
-    const avaimet = (nimi) => [...R.match(new RegExp('function ' + nimi + '[\\s\\S]*?\\n    }'))[0].matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]);
-    const kirj = avaimet('sisainenTerveysKirjoittaja').filter((a) => a !== 'terveysSeuraId' && a !== 'paivitetty' && a !== 'fysioterapeutti'), ei = avaimet('sisainenEiTerveysta');
-    expect(kirj.slice().sort()).toEqual(S.RYHMAT.terveys.kentat.slice().sort()); expect(ei.slice().sort()).toEqual(S.RYHMAT.terveys.kentat.slice().sort());
+    // v3.73: avainten lähde = terveysAvaimet() (yksirivinen); kirjoittajan hasOnly-lista luetaan vain hasOnly([...])-argumentista, ei rooli-merkkijonoista.
+    const lista = (s) => [...s.matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]);
+    const tv = lista(R.match(/function terveysAvaimet\(\) \{ return \[([^\]]*)\]; \}/)[1]);
+    expect(tv.slice().sort()).toEqual(S.RYHMAT.terveys.kentat.slice().sort());
+    expect(R).toContain('function sisainenEiTerveysta(avaimet) { return !avaimet.hasAny(terveysAvaimet()); }');
+    const kirjF = R.match(/function sisainenTerveysKirjoittaja[\s\S]*?\n    }/)[0];
+    const kirj = lista(kirjF.match(/avaimet\.hasOnly\(\[([^\]]*)\]\)/)[1]).filter((a) => a !== 'terveysSeuraId' && a !== 'paivitetty');
+    expect(kirj.slice().sort()).toEqual(tv.slice().sort());
+    // v3.73: fysiikkavalmentaja poissuljettu kirjoittajista (onOmanJoukkueenValmentaja-polku rajattu); fysioterapeutti ainoa lisärooli.
+    expect(kirjF).toContain("(onOmanJoukkueenValmentaja(seuraId, pelaajaId) && request.auth.token.rooli != 'fysiikkavalmentaja')");
+    expect(kirjF.replace(/\/\/.*$/gm, '').replace("request.auth.token.rooli != 'fysiikkavalmentaja'", '')).not.toContain('fysiikkavalmentaja');   // koodi ilman kommentteja: ei muuta fysiikkavalmentaja-polkua
     expect(S.RYHMAT.terveys.seuraAvain).toBe('terveysSeuraId'); expect(R).toContain("request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja', 'fysioterapeutti', 'talenttivalmentaja']");
     const lukija = R.match(/function sisainenTerveysLukija[\s\S]*?\n    }/)[0]; expect(lukija).not.toMatch(/seurasihteeri|testivastaava|onJohtoRooli|onOmanSeuranValmentaja|fysiikkavalmentaja/); expect(R.match(/function sisainenTerveysKirjoittaja[\s\S]*?\n    }/)[0]).toContain("request.auth.token.rooli == 'fysioterapeutti'");
     expect(R).toMatch(/allow read:\s+if \(dokId != 'terveys' && \(onSuperAdmin\(\)/); expect(R).toContain("(dokId == 'terveys' && sisainenTerveysLukija(seuraId, pelaajaId))");
-    expect((R.match(/sisainenEiTerveysta\(/g) || []).length).toBe(3);   // määritys + tiedot create + tiedot update
+    expect((R.match(/sisainenEiTerveysta\(/g) || []).length).toBe(4);   // määritys + tiedot create + tiedot update + pelaajadokumentin create (v3.73)
     const cg = R.match(/match \/\{path=\*\*\}\/sisainen\/\{dokId\}[\s\S]*?\n    }/)[0]; expect(cg).toContain("resource.data.get('terveysSeuraId', '')"); expect(cg).not.toMatch(/dokId\s*[!=]=/);   // list-kyselyssä dokId ei ole rajattu → ehdot kentistä
     const idx = JSON.parse(lue('firestore.indexes.json')).fieldOverrides.find((o) => o.collectionGroup === 'sisainen' && o.fieldPath === 'terveysSeuraId'); expect(idx).toBeDefined(); expect(idx.indexes.some((i) => i.queryScope === 'COLLECTION_GROUP' && i.order === 'ASCENDING')).toBe(true);
     expect(R).toContain('TERVEYS-DOKUMENTTI (PM 25.10., PR #1137)');
