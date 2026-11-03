@@ -1,9 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.73
+// TalentMaster™ — firestore.rules v3.74
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.73 → v3.74 (Laskutus L1c, PM 3.11.2026: KIRISTÄÄ vain sopimusseurassa (laskutus_asetukset/{sid}.laskutettava === true); pilottiseurat ennallaan; SA ennallaan):
+//   · seurat/{sid}/joukkueet/{jid}: johto ja valmentaja muuttavat jaksofokus/jaksofokus_historia VAIN, jos joukkue on aktiivinen (laskutustila; puuttuva = passiivinen) tai demo. Johdon luonti jaksolla vain demo-joukkueelle.
+//   · seurat/{sid}: `laskutus_sopimus` (bool, UI:n harmaan tilan peili; kirjoittaa scripts/laskutus_alkutila.js) — create/update VAIN SA; johto ei aseta, muuta eikä poista. Muut seuradokumentin kirjoitukset ennallaan.
 //
 // Muutokset v3.72 → v3.73 (Vaihe 1 · PR 2b, terveys; KIRISTÄÄ — siivous ajettu 3.11.2026 (poista 0, 823/823), PR 2a (#1169) kirjoittaa terveyden vain sisainen/terveys:iin):
 //   · seurat/{sid}/pelaajat/{pid}: create hylkää terveysavaimet (kaytettavyys, loukkaantuminen_tyyppi/_alue/_pvm, paluu_arvio) KAIKILTA, myös SA:lta; update hylkää niiden lisäyksen ja muutoksen (addedKeys/changedKeys) — POISTO sallitaan (FieldValue.delete). Siivous = Admin SDK.
@@ -1012,6 +1016,10 @@ service cloud.firestore {
     function eiLaskutusMuutosta() { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(laskutusAvaimet()); }
     function laskutusArvotKelpaa() { let d = request.resource.data; return (!('laskutustila' in d) || d.laskutustila in ['aktiivinen', 'passiivinen']) && (!('laskutustila_muutettu' in d) || d.laskutustila_muutettu is map)
         && (!('laskutus_aktivoitu' in d) || d.laskutus_aktivoitu is map) && (!('laskutus_vastuuvalmentaja_ok' in d) || d.laskutus_vastuuvalmentaja_ok is bool); }
+    /* v3.74 (L1c): sopimusseura = laskutus_asetukset/{sid}.laskutettava (sama kuin functions/laskutus_esto.js). Joukkueen jakso vain aktiivisessa tai demo-joukkueessa; pilottiseura ennallaan. */
+    function onSopimusseura(sid) { return exists(/databases/$(database)/documents/laskutus_asetukset/$(sid)) && get(/databases/$(database)/documents/laskutus_asetukset/$(sid)).data.get('laskutettava', false) == true; }
+    function jaksoSallittu(sid) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['jaksofokus', 'jaksofokus_historia']) || resource.data.get('laskutustila', 'passiivinen') == 'aktiivinen' || resource.data.get('demo', false) == true || !onSopimusseura(sid); }
+    function jaksoLuontiSallittu(sid) { return !request.resource.data.keys().hasAny(['jaksofokus', 'jaksofokus_historia']) || request.resource.data.get('demo', false) == true || !onSopimusseura(sid); }
     function laskutusAktivoituEiMuutu() { return !('laskutus_aktivoitu' in resource.data) || ('laskutus_aktivoitu' in request.resource.data && request.resource.data.laskutus_aktivoitu == resource.data.laskutus_aktivoitu); }
     function tyyppiKelpaa() {
       return !('tyyppi' in request.resource.data) || request.resource.data.tyyppi in ['kilpa', 'harraste'];
@@ -1195,23 +1203,19 @@ service cloud.firestore {
     // ──────────────────────────────────────────────────────────────────────
     match /seurat/{seuraId} {
       allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
-      allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+      // v3.74 (L1c): laskutus_sopimus (UI:n harmaan tilan peili laskutus_asetuksista) vain SA, bool; johto kirjoittaa muut kentät kuten ennen.
+      allow create: if (onSuperAdmin() && request.resource.data.get('laskutus_sopimus', false) is bool) || (onOmaSeura(seuraId) && onJohtoRooli() && !('laskutus_sopimus' in request.resource.data));
+      allow update: if (onSuperAdmin() && request.resource.data.get('laskutus_sopimus', false) is bool) || (onOmaSeura(seuraId) && onJohtoRooli() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['laskutus_sopimus']));
+      allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
 
       // ── SALAISET (v3.62) — server-only: ulkoisten palveluiden avaimet. EI mikään selain (SA, johto, valmentaja, pelaaja, huoltaja) lue eikä kirjoita; vain Admin SDK. ──
       match /salaiset/{dokId} {
         allow read, write: if false;
       }
 
-      // ── KAAVIOT (v3.6) — seurakohtaiset teknis-taktiset kaaviot + review-silmukka ──
-      // Kaksikerros: kanoninen /kaaviot/{avain} (master) + tämä seurataso (omat + override).
-      // Sama spec.avain seuratasolla VOITTAA kanonisen (näyttölogiikka, ei sääntö).
-      //
-      // ⚠ PELAAJAN KOHDISTUSTA EI PAKOTETA. Pelaaja lukee hyväksytyn kaavion onKirjautunut()-haaralla
-      //   (v3.28: vain palvelintoken, ei anonyymiä); sääntö EI tarkista joukkuetta/pelaajaIds:ää.
-      //   Palvelin pakottaa pelaajalle VAIN status=='hyvaksytty'. review.nakyvyys /
-      //   joukkueId / pelaajaIds ovat UI-TASOINEN suodatin (lib/tm_kaavio_policy.js
-      //   kaavioKohdistuu) — ÄLÄ lue tätä sääntöä lupaukseksi kohdistuksen pakottamisesta.
-      //   Kuittaus (review.ymmarretty) kirjoitetaan siksi Cloud Functionilla, ei clientistä.
+      // ── KAAVIOT (v3.6) — seurakohtaiset kaaviot + review-silmukka. Kanoninen /kaaviot/{avain} + tämä seurataso; sama spec.avain seuratasolla VOITTAA (näyttölogiikka).
+      // ⚠ PELAAJAN KOHDISTUSTA EI PAKOTETA: pelaaja lukee hyväksytyn kaavion onKirjautunut()-haaralla (v3.28: vain palvelintoken); sääntö EI tarkista joukkuetta/pelaajaIds:ää, palvelin pakottaa VAIN
+      //   status=='hyvaksytty'. review.nakyvyys/joukkueId/pelaajaIds = UI-suodatin (lib/tm_kaavio_policy.js kaavioKohdistuu). Kuittaus (review.ymmarretty) siksi Cloud Functionilla, ei clientistä.
       match /kaaviot/{kaavioId} {
         // Kovennus (B2): hyväksytyn luku vaatii EKSPLISIITTISESTI kirjautumisen. Aiemmin
         // kirjautumaton estyi vain siksi että onSuperAdmin() kaatui eval-virheeseen — se on
@@ -2008,19 +2012,16 @@ service cloud.firestore {
       match /joukkueet/{joukkueId} {
         allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
         // v3.37: write jaettu. create/delete = SA | johto (valmentaja EI luo joukkuedokumenttia); update = SA | johto | valmentaja VAIN jaksokentät (joukkueen jakso).
-        allow create: if ((onSuperAdmin() && laskutusArvotKelpaa()) || (onOmaSeura(seuraId) && onJohtoRooli() && eiLaskutusAvaimia())) && profiiliKelpaa() && tyyppiKelpaa() && pelimuodotKelpaa();   // v3.46: valmentajaprofiili-enum · v3.56: tyyppi-enum · v3.64: pelimuodot · v3.72: laskutuskentät vain SA
+        allow create: if ((onSuperAdmin() && laskutusArvotKelpaa()) || (onOmaSeura(seuraId) && onJohtoRooli() && eiLaskutusAvaimia() && jaksoLuontiSallittu(seuraId))) && profiiliKelpaa() && tyyppiKelpaa() && pelimuodotKelpaa();   // v3.46 profiili · v3.56 tyyppi · v3.64 pelimuodot · v3.72 laskutus vain SA · v3.74 jakso
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
-        allow update: if (((onSuperAdmin() && laskutusArvotKelpaa() && laskutusAktivoituEiMuutu()) || (onOmaSeura(seuraId) && onJohtoRooli() && eiLaskutusMuutosta())) && profiiliKelpaa() && tyyppiKelpaa() && pelimuodotKelpaa())
+        allow update: if (((onSuperAdmin() && laskutusArvotKelpaa() && laskutusAktivoituEiMuutu()) || (onOmaSeura(seuraId) && onJohtoRooli() && eiLaskutusMuutosta() && jaksoSallittu(seuraId))) && profiiliKelpaa() && tyyppiKelpaa() && pelimuodotKelpaa())
                       || (onOmanSeuranValmentaja(seuraId)
                           && (request.auth.token.rooli == 'talenttivalmentaja'
                               || valmentajanJoukkueet(seuraId).hasAny([joukkueId]))
                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jaksofokus', 'jaksofokus_historia', 'pelimuodot'])   // v3.64: + pelimuodot (D107)
-                          && pelimuodotKelpaa());
+                          && pelimuodotKelpaa() && jaksoSallittu(seuraId));   // v3.74: jakso vain aktiivisessa (sopimusseura)
 
-        // ── kalenteri/{kalenteriId} (v2.7) ────────────────────────────────
-        // Testaus_v8._tallennaTapahtuma kirjoittaa tänne pikaviittauksen
-        // luodusta testitapahtumasta (tyyppi:'testi', ref, pvm, nimi…).
-        // Sallittu valmentaja-rooleille kaikkien seuran sisällä.
+        // ── kalenteri/{kalenteriId} (v2.7): Testaus_v8._tallennaTapahtuma kirjoittaa pikaviittauksen testitapahtumasta (tyyppi:'testi', ref, pvm, nimi…); valmentajaroolit koko seura.
         match /kalenteri/{kalenteriId} {
           allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
           allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
@@ -2028,10 +2029,7 @@ service cloud.firestore {
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
 
-        // ── harjoitusprioriteetti/{id} (v3.0) ─────────────────────────────
-        // Master_v16: valmentaja asettaa joukkueen harjoitusprioriteetin
-        // testidatasta (doc 'aktiivinen'). Koko seura lukee (Tänään-fokus +
-        // mahdollinen Pelaaja-näkymä). Firestore ei periydy → oma blokki.
+        // ── harjoitusprioriteetti/{id} (v3.0): Master_v16 asettaa joukkueen prioriteetin testidatasta (doc 'aktiivinen'); koko seura lukee (Tänään-fokus). Ei periydy → oma blokki.
         match /harjoitusprioriteetti/{prioriteettiId} {
           allow read:   if onSuperAdmin() || onOmaSeura(seuraId) || onPelaajanSeura(seuraId);
           allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
