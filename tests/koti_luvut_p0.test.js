@@ -68,7 +68,7 @@ describe('3 · suostumus eriteltynä', () => {
     Array.from({ length: 3 }, (_, i) => pel('o' + i, { suostumusTila: 'odottaa' })),
     [pel('a1', { suostumusTila: 'annettu' }), pel('a2', { suostumus: { annettu: true } })]);
   it('tuotu · kutsuttu · odottaa · annettu · ilman · ei kutsuttu', () => {
-    expect(L.suostumus(P)).toEqual({ tuotu: 13, kutsuttu: 5, odottaa: 3, annettu: 2, ilman: 11, eiKutsuttu: 8, konversio: 40 });
+    expect(L.suostumus(P)).toEqual({ tuotu: 13, kutsuttu: 5, odottaa: 3, annettu: 2, ilman: 11, eiKutsuttu: 8, konversio: 40, peruttu: 0 });   // B9: peruttu oma luku
   });
   it('puuttuva tila = tuotu (EI "odottaa"): vanha laskuri tuplasi kutsutut', () => {
     expect(L.suostumus([pel(1), pel(2)])).toMatchObject({ odottaa: 0, kutsuttu: 0, ilman: 2, konversio: null });
