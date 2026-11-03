@@ -2553,3 +2553,15 @@ exports.paivitaSeuranKooste = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true, timeoutSeconds: 300, memory: '512MB' })   // S1.1: + käyttöasteen lähdekyselyt (2/pelaaja + kalenteri)
   .https.onCall(seuranKooste.paivitaKasittelija(_koosteDeps));
+
+/* ═══ Laskutus L1b (.briefit/CODE_BRIEF_LASKUTUS_L1.md §3; kaista Tero) ═══
+   laskutusKuukausi: kuun 1. päivä klo 6.00 Europe/Helsinki → EDELLISEN kuukauden snapshot laskutus/{YYYY-MM}/seurat/{sid} (create(), ei ylikirjoitusta).
+   Laskenta = jaettu tm_laskutus.js (sama kuin Adminin "Tilanne nyt"). Yhden seuran virhe ei kaada muita (loki + audit). Myöhässä ajo → myohassa: true.
+   Rules v3.72: client ei kirjoita laskutus/-kokoelmaan, luku vain SA. Myöhästynyt ajo: Cloud Scheduler → "Force run" (laskee edellisen kuun ajohetken tilasta). */
+const laskutusKuukausi = require('./laskutus_kuukausi');
+exports.laskutusKuukausi = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .pubsub.schedule('0 6 1 * *')
+  .timeZone('Europe/Helsinki')
+  .onRun(laskutusKuukausi.ajastettuKasittelija({ db, FieldValue: admin.firestore.FieldValue }));
