@@ -276,7 +276,7 @@ async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
 /* Huoltajakutsu (functions/huoltajakutsu.js): sähköpostiin OMA 7 pv:n kutsulinkki (kutsu → tuore 1 h:n salasanalinkki avattaessa). Kutsun luonnin virhe → varalinkki suoraan (1 h, kuten ennen). */
 const huoltajakutsu = require('./huoltajakutsu');
 async function seuranKieli(seuraId) { try { const d = await db.collection('seurat').doc(seuraId).get(); return d.exists ? (d.get('kieli') || null) : null; } catch (e) { return null; } }
-const _kutsuDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, haeOrLuoHuoltajaAuth, lahetaSahkoposti, pohja: pohjaHuoltajakutsu, base: TM_BASE_URL,
+const _kutsuDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, FieldValue: admin.firestore.FieldValue, haeOrLuoHuoltajaAuth, lahetaSahkoposti, pohja: pohjaHuoltajakutsu, base: TM_BASE_URL,
   jatkoUrl: `${TM_BASE_URL}/TalentMaster_Vanhempi_v2.html`, seuranKieli });
 async function huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmail, jatkoUrl) {
   try { return { linkki: huoltajakutsu.kutsuUrl(TM_BASE_URL, await huoltajakutsu.luoKutsu(_kutsuDeps(), { seuraId, pelaajaId })), kutsu: true }; }
@@ -290,7 +290,9 @@ const { otsikkoPuhdas, rakennaKutsuLinkki, onYksiOsoite } = require('./sahkopost
 const { muodostaPalauteNotif } = require('./palaute_notif');
 const { huomisenRajat } = require('./helsinki_paiva');
 const kalenteriPelaajalle = require('./tm_kalenteri_pelaajalle');   // B4: ilmoitusjoukko = sama sääntö kuin pelaajan kalenteri
-const { muistutusPaatos, muutosPaatos, kirjoitaNotif } = require('./kalenteri_notif');   // V2 P0.4: kiinteät dokumenttitunnisteet + tapahtuma_alkaa
+const { muistutusPaatos, muutosPaatos, kirjoitaNotif } = require('./kalenteri_notif');
+const laskutusEsto = require('./laskutus_esto');   // L1c: sopimusseuran passiivinen joukkue → ei kutsuja / PIN:iä / pelaajalinkkiä
+const _estoDeps = () => ({ db, FieldValue: admin.firestore.FieldValue, HttpsError: functions.https.HttpsError });   // V2 P0.4: kiinteät dokumenttitunnisteet + tapahtuma_alkaa
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaRekisteriKutsu
 // ─────────────────────────────────────────────────────────────────────────────
@@ -331,6 +333,8 @@ exports.lahetaRekisteriKutsu = functions
     // Sisarusbugi: audit-riville AINA pelaajaId (datasta tai linkin pelaajaId-parametrista).
     let pelaajaIdKutsu = data.pelaajaId ? String(data.pelaajaId) : null;
     if (!pelaajaIdKutsu) { try { pelaajaIdKutsu = new URL(String(linkki)).searchParams.get('pelaajaId'); } catch (e) { pelaajaIdKutsu = null; } }
+    /* L1c: pelaaja ilman dokumenttia (uusi kutsu) tulkitaan kutsun joukkueen mukaan; ei joukkuetta → esto sopimusseurassa. */
+    await laskutusEsto.vaadiPelaajaDocSallittu(_estoDeps(), { funktio: 'lahetaRekisteriKutsu', seuraId, pelaajaId: pelaajaIdKutsu, varapelaaja: { joukkue: joukkue || null } });
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     try {
       await lahetaSahkoposti({
@@ -403,9 +407,13 @@ exports.lahetaMuistutukset = functions
     const nyt = Date.now();
     const lahetettavat = [];
     const ohitettu = [];
+    /* L1c (PM 3.11.): kutsumuistutus kuten kutsut — yksittäinen pelaaja → esto (failed-precondition), massalähetys → ohitetaan + ohitettuPassiivinen. */
+    const esto = laskutusEsto.luoEsto(db); let ohitettuPassiivinen = 0;
+    if (pelaajaId && docs.length) await laskutusEsto.vaadiPelaajaSallittu(Object.assign(_estoDeps(), { esto }), { funktio: 'lahetaMuistutukset', seuraId, pelaajaId, pelaaja: docs[0].data() || {} });
     for (const d of docs) {
       const p = d.data();
       const etunimi = p.etunimi || '';
+      if (await esto.pelaajaEstetty(seuraId, p)) { ohitettuPassiivinen++; ohitettu.push({ pelaajaId: d.id, etunimi, syy: laskutusEsto.SYY }); continue; }
       const hEmail = String(p.huoltajaEmail || '').trim();   // server-side luettu = vain korjattu osoite
       if (!hEmail) { ohitettu.push({ pelaajaId: d.id, etunimi, syy: 'ei_emailia' }); continue; }
       const mPvm = p.muistutus_pvm;
@@ -420,8 +428,9 @@ exports.lahetaMuistutukset = functions
     if (dry) {
       return { ok: true, kuivaAjo: true, lahetetty: lahetettavat.length,
         lahetettavat: lahetettavat.map(x => ({ pelaajaId: x.pelaajaId, etunimi: x.etunimi })),
-        ohitettu, yhteensa: docs.length };
+        ohitettu, ohitettuPassiivinen, yhteensa: docs.length };
     }
+    if (ohitettuPassiivinen) await laskutusEsto.kirjaaEsto(db, admin.firestore.FieldValue, { funktio: 'lahetaMuistutukset', seuraId, ohitettuPassiivinen });
 
     let lahetetty = 0;
     for (const x of lahetettavat) {
@@ -448,7 +457,7 @@ exports.lahetaMuistutukset = functions
         ohitettu.push({ pelaajaId: x.pelaajaId, etunimi: x.etunimi, syy: 'lahetys_epaonnistui' });
       }
     }
-    return { ok: true, kuivaAjo: false, lahetetty, ohitettu, yhteensa: docs.length };
+    return { ok: true, kuivaAjo: false, lahetetty, ohitettu, ohitettuPassiivinen, yhteensa: docs.length };
   });
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaHuoltajaKutsu
@@ -469,6 +478,7 @@ exports.lahetaHuoltajaKutsu = functions
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
     }
     estaPaikkamerkkiOsoite(huoltajaEmail);   // ei kutsudokumenttia esimerkkiosoitteelle
+    await laskutusEsto.vaadiPelaajaDocSallittu(_estoDeps(), { funktio: 'lahetaHuoltajaKutsu', seuraId, pelaajaId });   // L1c
     const suostumusLinkki =
       `${TM_BASE_URL}/` +
       `TalentMaster_Rekisterointi_Suostumus.html` +
@@ -1041,6 +1051,7 @@ exports.lahetaPelaajaSivuLinkki = functions
       throw new functions.https.HttpsError('failed-precondition',
         'Sähköposti ei vastaa pelaajan tallennettua huoltajasähköpostia. Tallenna huoltajan sähköposti ensin.');
     }
+    await laskutusEsto.vaadiPelaajaSallittu(_estoDeps(), { funktio: 'lahetaPelaajaSivuLinkki', seuraId, pelaajaId, pelaaja: pelSnap.data() || {} });   // L1c
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
     const seuraNimi   = await haeSeuraNimi(seuraId);   // palvelimelta, ei selaimen `seura`-arvoa
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
@@ -1287,7 +1298,15 @@ exports.vahvistaSuostumus = functions
     // PR 4: 6-numeroinen PIN samalla apufunktiolla kuin asetaPelaajanPin (hajautus + selväkielinen samassa
     // erässä, lukitukset nollataan). Yksilöllisyyttä seuran sisällä ei enää tarvita (kirjautumisessa aina
     // PalloID tai linkki mukana).
+    /* L1c: sopimusseuran passiivinen joukkue → suostumus on jo tallennettu, mutta uutta PIN:iä ei luoda (olemassa oleva säilyy).
+       Huoltajan viesti ja Vanhempi-linkki lähtevät normaalisti; pelaajalinkkiä tämä funktio ei lähetä. Tarkistuksen virhe → ei PIN:iä (varovainen). */
+    let laskutusEstetty = false;
     if (!pin) {
+      try { laskutusEstetty = await laskutusEsto.luoEsto(db).pelaajaEstetty(seuraId, snap.data() || {}); }
+      catch (e) { laskutusEstetty = true; console.warn('[vahvistaSuostumus] laskutusesto-tarkistus epäonnistui → ei PIN:iä:', e.message); }
+      if (laskutusEstetty) await laskutusEsto.kirjaaEsto(db, admin.firestore.FieldValue, { funktio: 'vahvistaSuostumus', seuraId, pelaajaId, ohitettu: ['pin'] });
+    }
+    if (!pin && !laskutusEstetty) {
       try {
         const uusi = pelaajapin.generoiPin();
         const b = db.batch();

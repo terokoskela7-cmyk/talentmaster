@@ -7,11 +7,11 @@ const S = require('../scripts/laskutus_alkutila.js');
 const LISTA = JSON.parse(readFileSync('scripts/laskutus_alkutila_sibbo.json', 'utf8'));
 const SIBBO = ['p8', 'p9', 'p10', 'p12', 'p13', 't10', 't12', '2014_bl', '2014_rod'].map((x) => ({ id: 'sibbovargarna_' + x, nimi: x.toUpperCase() }));
 
-function mockDb(joukkueet) {
+function mockDb(joukkueet, seura) {
   const kirj = [];
   const b = { set: (ref, d, o) => kirj.push({ op: 'set', p: ref.p, d, o }), update: (ref, d) => kirj.push({ op: 'update', p: ref.p, d }), commit: async () => { kirj.push({ op: 'commit' }); } };
   return { kirj, batch: () => b,
-    collection: (c) => ({ doc: (id) => ({ p: c + '/' + id, collection: (c2) => ({ get: async () => ({ docs: joukkueet.map((j) => ({ id: j.id, data: () => j })) }), doc: (jid) => ({ p: c + '/' + id + '/' + c2 + '/' + jid }) }) }) }) };
+    collection: (c) => ({ doc: (id) => ({ p: c + '/' + id, get: async () => ({ exists: !!seura, data: () => seura }), collection: (c2) => ({ get: async () => ({ docs: joukkueet.map((j) => ({ id: j.id, data: () => j })) }), doc: (jid) => ({ p: c + '/' + id + '/' + c2 + '/' + jid }) }) }) }) };
 }
 
 describe('suunnitelma', () => {
@@ -48,7 +48,15 @@ describe('ajo', () => {
     const { r, db } = await ajo({ kirjoita: true, kysy: async () => 'KIRJOITA' });
     expect(r.kirjoitettu).toBe(true); expect(db.kirj[0]).toMatchObject({ op: 'set', p: 'laskutus_asetukset/sibbovargarna', o: { merge: true } });
     expect(db.kirj.filter((x) => x.op === 'update')).toHaveLength(SIBBO.length); expect(db.kirj.at(-1)).toEqual({ op: 'commit' });
-    expect(db.kirj.every((x) => !x.p || /^laskutus_asetukset\/|^seurat\/sibbovargarna\/joukkueet\//.test(x.p))).toBe(true);
+    expect(db.kirj.every((x) => !x.p || /^laskutus_asetukset\/|^seurat\/sibbovargarna(\/joukkueet\/|$)/.test(x.p))).toBe(true);
+  });
+  it('L1c: peili seurat/{sid}.laskutus_sopimus samassa erässä (merge, vain tämä kenttä); kuiva-ajo näyttää muutoksen', async () => {
+    const { db } = await ajo({ kirjoita: true, kylla: true });
+    expect(db.kirj.filter((x) => x.p === 'seurat/sibbovargarna')).toEqual([{ op: 'set', p: 'seurat/sibbovargarna', d: { laskutus_sopimus: true }, o: { merge: true } }]);
+    expect(db.kirj.filter((x) => x.op === 'commit')).toHaveLength(1);
+    const k = await ajo({}); expect(k.loki.join('\n')).toContain('laskutus_sopimus: (puuttuu) → true'); expect(k.db.kirj).toEqual([]);
+    const pilotti = S.suunnittele(Object.assign({}, LISTA, { asetukset: Object.assign({}, LISTA.asetukset, { laskutettava: false }) }), SIBBO, 'x');
+    expect(pilotti.laskutus_sopimus).toBe(false);
   });
   it('virheellinen lista → heittää, ei kirjoituksia', async () => {
     const db = mockDb(SIBBO); await expect(S.aja({ db, lista: Object.assign({}, LISTA, { aktiiviset: ['x'] }), loki: () => {}, kirjoita: true, kylla: true, tanaan: 'x' })).rejects.toThrow(/mitään ei kirjoitettu/); expect(db.kirj).toEqual([]);

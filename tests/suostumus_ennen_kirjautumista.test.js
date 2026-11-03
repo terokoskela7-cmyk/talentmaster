@@ -116,7 +116,7 @@ describe('vahvistaSuostumus luo PIN:n (best-effort) ja säilyttää olemassa ole
     expect(tallennus).toBeGreaterThan(-1);
     expect(pinLuonti).toBeGreaterThan(tallennus);
     expect(runko).toMatch(/let pin = \(snap\.get\('pin'\) && \/\^\(\\d\{4\}\|\\d\{6\}\)\$\/\.test/);   // olemassa oleva säilyy
-    expect(runko.slice(pinLuonti - 300, pinLuonti)).toContain('if (!pin) {');
+    expect(runko.slice(pinLuonti - 300, pinLuonti)).toMatch(/if \(!pin( && !laskutusEstetty)?\) \{/);   // L1c: + sopimusseuran passiivinen joukkue → ei uutta PIN:iä
     expect(runko.slice(pinLuonti, pinLuonti + 400)).toMatch(/catch \(e\) \{\s*pin = null;/);
   });
 });
@@ -157,7 +157,7 @@ describe('Seura · tunnustyökalut ilman suostumusta (ajettu)', () => {
     };
     ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
     vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
-      + ['function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
+      + ['function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
         'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {'].map(pura).join('\n')
       + '\nthis.luo = luoPuuttuvatPinit; this.laheta = lahetaTunnuksetHuoltajille; this.virhe = _pinVirheTeksti;', ctx);
     return { ctx, loki };

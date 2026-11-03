@@ -6,6 +6,7 @@
    · laskutus_aktivoitu asetetaan VAIN, jos sitä ei vielä ole (ensimmäinen aktivointi, PM 2.11. päätös 5) — olemassa olevaa ei muuteta.
    · laskutus_vastuuvalmentaja_ok: true listan joukkueille (SA:n ohitus, briiffi "2014 Blå"). Käyttäjien rooleja EI muuteta.
    · laskutus_asetukset/{sid}: listan asetukset (laskutettava, sopimus_alkaen, laskentaperuste…), validoidaan tmLaskutusAsetukset:lla.
+   · seurat/{sid}.laskutus_sopimus (L1c, PM 3.11.): peili asetuksen laskutettava-arvosta samassa erässä — UI:n harmaa tila (selain ei lue laskutus_asetuksia). Rules v3.74: vain SA/palvelin kirjoittaa.
    · Tuntematon joukkue-id listassa → keskeytys (ei osittaista kirjoitusta). Demo-joukkueet ohitetaan. Ei pelaajadataa.
    Tunnistus: gcloud ADC (gcloud auth application-default login), EI palvelutiliavainta.
    Käyttö: node scripts/laskutus_alkutila.js [--lista scripts/laskutus_alkutila_sibbo.json] [--kirjoita] [--kylla]
@@ -43,7 +44,7 @@ function suunnittele(lista, joukkueet, tanaan) {
     if (ok.has(d.id) && d.laskutus_vastuuvalmentaja_ok !== true) u.laskutus_vastuuvalmentaja_ok = true;
     (Object.keys(u).length ? muutokset : ennallaan).push({ id: d.id, nimi: d.nimi || d.id, nykyinen: d.laskutustila || '(puuttuu = passiivinen)', tila, u });
   });
-  return { virheet: [], seuraId: lista.seuraId, asetukset: lista.asetukset, muutokset, ennallaan,
+  return { virheet: [], seuraId: lista.seuraId, asetukset: lista.asetukset, laskutus_sopimus: lista.asetukset.laskutettava === true, muutokset, ennallaan,
     yhteenveto: { aktiivisia: akt.size, passiivisia: docs.length - akt.size, muutoksia: muutokset.length, ohitettu_demo: joukkueet.length - docs.length } };
 }
 
@@ -53,6 +54,8 @@ async function aja({ db, lista, kirjoita, kylla, loki = console.log, kysy, tanaa
   const p = suunnittele(lista, snap.docs.map((d) => Object.assign({ id: d.id }, d.data())), tanaan);
   if (p.virheet.length) { p.virheet.forEach((x) => loki('VIRHE: ' + x)); throw new Error('Lista hylätty (' + p.virheet.length + ' virhettä) — mitään ei kirjoitettu'); }
   loki('Seura ' + p.seuraId + ': laskutus_asetukset ← ' + JSON.stringify(p.asetukset));
+  const sSnap = await sRef.get(), nykySopimus = sSnap.exists ? (sSnap.data() || {}).laskutus_sopimus : undefined;
+  loki('  seurat/' + p.seuraId + '.laskutus_sopimus: ' + (nykySopimus === undefined ? '(puuttuu)' : nykySopimus) + ' → ' + p.laskutus_sopimus);
   p.muutokset.forEach((m) => loki('  ' + m.id + ' (' + m.nimi + '): ' + m.nykyinen + ' → ' + m.tila + '  ' + JSON.stringify(m.u)));
   p.ennallaan.forEach((m) => loki('  ' + m.id + ' (' + m.nimi + '): ennallaan ' + m.tila));
   loki('Yhteensä: ' + p.yhteenveto.aktiivisia + ' aktiivista, ' + p.yhteenveto.passiivisia + ' passiivista, ' + p.yhteenveto.muutoksia + ' joukkuemuutosta, demo ohitettu ' + p.yhteenveto.ohitettu_demo + '.');
@@ -60,9 +63,10 @@ async function aja({ db, lista, kirjoita, kylla, loki = console.log, kysy, tanaa
   if (!kylla) { const v = await kysy('Kirjoitetaanko? Vahvista kirjoittamalla KIRJOITA: '); if (String(v).trim() !== 'KIRJOITA') { loki('Peruttu: ei kirjoitettu.'); return Object.assign(p, { kirjoitettu: false }); } }
   const b = db.batch();
   b.set(db.collection('laskutus_asetukset').doc(p.seuraId), p.asetukset, { merge: true });
+  b.set(sRef, { laskutus_sopimus: p.laskutus_sopimus }, { merge: true });   // L1c: peili samassa erässä
   p.muutokset.forEach((m) => b.update(sRef.collection('joukkueet').doc(m.id), m.u));
   await b.commit();
-  loki('✓ Kirjoitettu: asetukset + ' + p.muutokset.length + ' joukkuetta.');
+  loki('✓ Kirjoitettu: asetukset + laskutus_sopimus + ' + p.muutokset.length + ' joukkuetta.');
   return Object.assign(p, { kirjoitettu: true });
 }
 
