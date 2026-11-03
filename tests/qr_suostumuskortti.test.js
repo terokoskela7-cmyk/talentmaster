@@ -107,7 +107,7 @@ function seuraYmp(pelaajat, palvelin) {
   ctx.open = ctx.window.open;
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
-    + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _pinVirheTeksti(e) {',
+    + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _pinVirheTeksti(e) {',
       'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
       'function _suostumusLinkki(pelaajaId, kutsuId) {', 'function _pinKortitHtml(kortit) {', 'async function tulostaKortit() {'].map(pura).join('\n')
     + '\nthis.linkki = _suostumusLinkki; this.html = _pinKortitHtml; this.tulosta = tulostaKortit;', ctx);
@@ -158,6 +158,7 @@ function vahvista(alku) {
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' }, Timestamp: { fromDate: (d) => d } } },
     auth: { generatePasswordResetLink: async () => 'r' }, haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
     TM_BASE_URL: 'https://tm', sisainenLuku: require_('../functions/sisainen_luku.js'), tmSisainen: require_('../functions/tm_sisainen.js'), suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
+    IKA: require_('../functions/tm_pelaaja_ika.js'),   // 8–9 v -esto
     pelaajapin: require_('../functions/pelaajapin.js'), laskutusEsto: require_('../functions/laskutus_esto.js'),   // L1c: oikea moduuli, pilottiseura (ei laskutus_asetuksia)
   };
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);

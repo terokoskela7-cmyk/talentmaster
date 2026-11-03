@@ -27,17 +27,17 @@ const VP = { auth: { uid: 'vp-kpv', token: { seuraId: 'kpv', rooli: 'vp', fireba
 
 function data() {
   return {
-    'seurat/kpv/pelaajat/ok': { etunimi: 'Topias', tunniste: '12345678', pin: '482915', joukkueet: ['kpv_u13'], suostumusTila: 'annettu' },
-    'seurat/kpv/pelaajat/ei': { etunimi: 'Testi', tunniste: '87654321', pin: '135790', joukkueet: ['kpv_u13'], suostumusTila: 'odottaa' },
-    'seurat/kpv/pelaajat/pilotti': { etunimi: 'Tuotu', tunniste: '11112222', joukkueet: ['kpv_u13'], suostumusTila: 'pilotti' },
-    'seurat/kpv/pelaajat/uusi': { etunimi: 'Uusi', tunniste: '33334444', joukkueet: ['kpv_u13'], suostumus: { annettu: 'TS' } },
+    'seurat/kpv/pelaajat/ok': { etunimi: 'Topias', tunniste: '12345678', pin: '482915', joukkueet: ['kpv_u13'], syntymaVuosi: 2013, suostumusTila: 'annettu' },
+    'seurat/kpv/pelaajat/ei': { etunimi: 'Testi', tunniste: '87654321', pin: '135790', joukkueet: ['kpv_u13'], syntymaVuosi: 2013, suostumusTila: 'odottaa' },
+    'seurat/kpv/pelaajat/pilotti': { etunimi: 'Tuotu', tunniste: '11112222', joukkueet: ['kpv_u13'], syntymaVuosi: 2013, suostumusTila: 'pilotti' },
+    'seurat/kpv/pelaajat/uusi': { etunimi: 'Uusi', tunniste: '33334444', joukkueet: ['kpv_u13'], syntymaVuosi: 2013, suostumus: { annettu: 'TS' } },
   };
 }
 function ymp(alku) {
   const f = fakeDb(alku || data());
   const audit = [];
   const deps = { db: f.db, HttpsError, FieldValue, tarkistaOikeus: async (uid) => ({ sallittu: uid === 'vp-kpv' }), audit: async (t, x) => audit.push([t, x]) };
-  const kirjaudu = K.luoKasittelija({ db: f.db, auth: { createCustomToken: async (uid) => 'TOKEN:' + uid }, HttpsError, FieldValue, nyt: () => 1_000_000,
+  const kirjaudu = K.luoKasittelija({ db: f.db, auth: { createCustomToken: async (uid) => 'TOKEN:' + uid }, HttpsError, FieldValue, nyt: () => Date.UTC(2026, 10, 3),
     audit: async (t, x) => audit.push([t, x]) });
   return { f, audit, kirjaudu, aseta: P.luoAsetaPelaajanPin(deps), luo: P.luoLuoPinitSeuralle(deps) };
 }
@@ -157,7 +157,7 @@ describe('Seura · tunnustyökalut ilman suostumusta (ajettu)', () => {
     };
     ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
     vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
-      + ['function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
+      + ['function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
         'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {'].map(pura).join('\n')
       + '\nthis.luo = luoPuuttuvatPinit; this.laheta = lahetaTunnuksetHuoltajille; this.virhe = _pinVirheTeksti;', ctx);
     return { ctx, loki };

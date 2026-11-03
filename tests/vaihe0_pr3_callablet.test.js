@@ -120,7 +120,7 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
     const loki = { reset: 0, luotu: 0, sposti: 0 };
     const fn = ajaCf('lahetaPelaajaSivuLinkki', {
       db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({
-        get: async () => { const d = { huoltajaEmail: tallennettu, pin: '482915', tunniste: '12345678' }; return { exists: true, get: (k) => d[k], data: () => d }; },
+        get: async () => { const d = { huoltajaEmail: tallennettu, pin: '482915', tunniste: '12345678', syntymaVuosi: 2013 }; return { exists: true, get: (k) => d[k], data: () => d }; },
         update: () => Promise.resolve(),
       }) }) }) }) },
       admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
@@ -130,6 +130,7 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
       haeOrLuoHuoltajaAuth: async () => { loki.luotu++; },
       lahetaSahkoposti: async (m) => { loki.sposti++; loki.viesti = m; },
       pohjaPelaajaSivu: (o) => JSON.stringify(o),
+      pelaajapin: require_('../functions/pelaajapin.js'),   // 8–9 v -esto (ikaTilaNyt)
       pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
       TM_BASE_URL: 'https://tm',
     });
@@ -198,7 +199,7 @@ describe('muut callablet: henkilökuntatarkistus lähteessä', () => {
 describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
   function aja({ tallennettu = 'huoltaja@tm-testi.fi', pin = '4821', sposti = 'ok', kutsuTila = false } = {}) {
     const loki = { sposti: [], reset: 0 };
-    const DATA = { huoltajaEmail: tallennettu, pin, etunimi: 'Aa', sukunimi: 'Bb', suostumusTila: 'odottaa' };
+    const DATA = { huoltajaEmail: tallennettu, pin, etunimi: 'Aa', sukunimi: 'Bb', syntymaVuosi: 2013, suostumusTila: 'odottaa' };
     const snap = { exists: true, empty: true, docs: [], get: (k) => DATA[k], data: () => DATA };
     // Yleistynkä: mikä tahansa ketju (collection/doc/where/limit/batch…) → sama tynkä; päätteet palauttavat lupauksen.
     const tynka = new Proxy(function () {}, {
@@ -219,6 +220,7 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
       lahetaSahkoposti: async (m) => { if (sposti !== 'ok') throw new Error('sendgrid'); loki.sposti.push(m); },
       pohjaSuostumusLinkki: (o) => JSON.stringify(o),
       TM_BASE_URL: 'https://tm', Date, Math, JSON, Number, isNaN, parseInt, parseFloat,
+      pelaajapin: require_('../functions/pelaajapin.js'),
       sisainenLuku: require_('../functions/sisainen_luku.js'), tmSisainen: require_('../functions/tm_sisainen.js'), suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
     });
     const data = { seuraId: 'fcl', pelaajaId: 'p1', hEmail: 'Huoltaja@tm-testi.fi', suostumusTeksti: 'x', antaja: 'A', kutsuId: null,

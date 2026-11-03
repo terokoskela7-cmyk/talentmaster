@@ -18,6 +18,7 @@
 const P = require('./pelaajapin');
 const K = require('./pelaajakirjautuminen');
 const { suostumusAnnettu } = require('./suostumus');
+const IKA = require('./tm_pelaaja_ika');   // 8–9 v -esto (vaihe 0 §7.6)
 const laskutusEsto = require('./laskutus_esto');   // L1c (PM 3.11.): kortit sallitaan, mutta estetyn pelaajan kortille ei PIN:iä eikä pelaajalinkkiä
 
 const AVOIMET_KUTSUTILAT = ['odottaa', 'lahetetty', 'luotu'];   // sama kuin vahvistaSuostumus
@@ -38,7 +39,8 @@ function luoKasittelija(deps) {
 
     const seura = db.collection('seurat').doc(seuraId);
     const TS = FieldValue.serverTimestamp();
-    let luotu = 0, uudelleen = 0, estettyja = 0;
+    let luotu = 0, uudelleen = 0, estettyja = 0, ikaEstettyja = 0;
+    const vuosi = P.vuosiNyt(deps);
     const esto = deps.esto || laskutusEsto.luoEsto(db);
     /* Yksi pelaaja: luku → tyyppi → (avoin kutsu uudelleen | uusi kutsu). Pelaajat ovat toisistaan riippumattomia
        → ajetaan RINNAKKAIN erissä (RINNAKKAIN kpl kerrallaan). Ennen sarjassa: 33 pelaajan joukkue = ~33 × 3–4
@@ -48,7 +50,11 @@ function luoKasittelija(deps) {
       if (!ps.exists) return { pelaajaId: pid, tyyppi: 'ei_loydy' };
       const pd = ps.data() || {};
       if (!P.saaPelaajalle(oikeus, pd)) return { pelaajaId: pid, tyyppi: 'ei_oikeutta' };
-      if (suostumusAnnettu(pd)) return (await esto.pelaajaEstetty(seuraId, pd)) ? (estettyja++, { pelaajaId: pid, tyyppi: 'pelaajakortti', estetty: true }) : { pelaajaId: pid, tyyppi: 'pelaajakortti' };   // estetty → ei PIN:iä eikä pelaajalinkkiä kortille
+      if (suostumusAnnettu(pd)) {
+        const ikaTila = IKA.tmPelaajaAppTila(pd, vuosi);   // 8–9 v: alle 10 / vuosi puuttuu → nimikortti ilman PIN:iä ja pelaajalinkkiä
+        if (ikaTila !== 'ok') { ikaEstettyja++; return { pelaajaId: pid, tyyppi: 'pelaajakortti', estetty: true, syy: ikaTila }; }
+        return (await esto.pelaajaEstetty(seuraId, pd)) ? (estettyja++, { pelaajaId: pid, tyyppi: 'pelaajakortti', estetty: true }) : { pelaajaId: pid, tyyppi: 'pelaajakortti' };
+      }   // estetty → ei PIN:iä eikä pelaajalinkkiä kortille
       if (!String(pd.huoltajaEmail || '').trim()) return { pelaajaId: pid, tyyppi: 'ei_emailia' };
       // Avoin kutsu uudelleen (ei composite-indeksiä: pelaajaId-ehto + tila suodatetaan tässä).
       const ks = await seura.collection('kutsut').where('pelaajaId', '==', pid).get();
@@ -69,7 +75,7 @@ function luoKasittelija(deps) {
       tulos.push(...await Promise.all(yksilot.slice(i, i + RINNAKKAIN).map(kasittele)));
     }
     if (estettyja) await laskutusEsto.kirjaaEsto(db, FieldValue, { funktio: 'luoSuostumusKortit', seuraId, ohitettu: ['pin', 'pelaajalinkki'], estettyja });
-    await audit('suostumuskortit_luotu', { seuraId, pelaajia: tulos.length, kutsuja_luotu: luotu, kutsuja_uudelleen: uudelleen,
+    await audit('suostumuskortit_luotu', { seuraId, pelaajia: tulos.length, kutsuja_luotu: luotu, kutsuja_uudelleen: uudelleen, ika_estettyja: ikaEstettyja,
       tekija_uid: context.auth.uid, severity: 'info' });
     return { ok: true, kortit: tulos, luotu, uudelleen };
   };
