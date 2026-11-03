@@ -86,12 +86,11 @@ describe('Vanhempi_v2, Pelaaja_v7 ja SW', () => {
     const v = IKA.tmHelsinkiVuosi(), piilo = (L_) => !!(IKA && IKA.pelaajaAppEstettyIka(L_));
     expect(piilo({ syntymaVuosi: v - 9 })).toBe(true); expect(piilo({ syntymaVuosi: v - 10 })).toBe(false); expect(piilo({})).toBe(false);
   });
-  it('Pelaaja_v7: syy ika_alle_10 → oma teksti (fi + en; sv odottaa Geminiä, erä 93)', () => {
+  it('Pelaaja_v7: syy ika_alle_10 → oma teksti (fi + en + sv; sv-erä 93, PM)', () => {
     expect(PEL).toContain("e.details.syy === 'ika_alle_10') { _pinVirhe(T('ika_alle_10')); return; }");
     const T = require('../lib/tm_lang.js').TM_LANG;
     expect(T.fi.pelaaja.ika_alle_10).toMatch(/10 vuoden/); expect(T.en.pelaaja.ika_alle_10).toMatch(/age 10/);
-    expect(T.sv.pelaaja.ika_alle_10).toBeUndefined();
-    expect(require('./tm_lang_sv_odotuslista.cjs')).toContain('pelaaja.ika_alle_10');
+    expect(T.sv.pelaaja.ika_alle_10).toMatch(/10 års ålder/);
   });
 });
 
