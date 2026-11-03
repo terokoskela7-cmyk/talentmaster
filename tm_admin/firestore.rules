@@ -1,9 +1,12 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.74
+// TalentMaster™ — firestore.rules v3.75
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.74 → v3.75 (PM 3.11.2026, KIRISTÄÄ: yksikään client-polku ei kirjoita kenttää): seurat/{sid}/joukkueet/{jid}.`demo` (bool) mukaan laskutusAvaimet():iin → create/update/poisto VAIN SA.
+//   Johto ei aseta luonnissa eikä muuta/poista päivityksessä; valmentajan haara oli jo hasOnly(jakso/pelimuodot). Peruste: demo-joukkue ohittaa laskennan (L1a) ja passiivisen eston (L1c).
 //
 // Muutokset v3.73 → v3.74 (Laskutus L1c, PM 3.11.2026: KIRISTÄÄ vain sopimusseurassa (laskutus_asetukset/{sid}.laskutettava === true); pilottiseurat ennallaan; SA ennallaan):
 //   · seurat/{sid}/joukkueet/{jid}: johto ja valmentaja muuttavat jaksofokus/jaksofokus_historia VAIN, jos joukkue on aktiivinen (laskutustila; puuttuva = passiivinen) tai demo. Johdon luonti jaksolla vain demo-joukkueelle.
@@ -1010,12 +1013,12 @@ service cloud.firestore {
       return !('valmentajaprofiili' in request.resource.data) || request.resource.data.valmentajaprofiili in ['ammatti', 'oto'];
     }
     /* v3.56 (S2, D70): joukkueen tyyppi — 'kilpa' | 'harraste'; puuttuva sallittu (= 'kilpa'). */
-    /* v3.72 (Laskutus L1a): joukkueen laskutuskentät vain SA. */
-    function laskutusAvaimet() { return ['laskutustila', 'laskutustila_muutettu', 'laskutus_aktivoitu', 'laskutus_vastuuvalmentaja_ok']; }
+    /* v3.72 (Laskutus L1a): joukkueen laskutuskentät vain SA. v3.75: + demo (demo-joukkue ohittaa laskennan ja L1c-eston → vain SA). */
+    function laskutusAvaimet() { return ['laskutustila', 'laskutustila_muutettu', 'laskutus_aktivoitu', 'laskutus_vastuuvalmentaja_ok', 'demo']; }
     function eiLaskutusAvaimia() { return !request.resource.data.keys().hasAny(laskutusAvaimet()); }
     function eiLaskutusMuutosta() { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(laskutusAvaimet()); }
     function laskutusArvotKelpaa() { let d = request.resource.data; return (!('laskutustila' in d) || d.laskutustila in ['aktiivinen', 'passiivinen']) && (!('laskutustila_muutettu' in d) || d.laskutustila_muutettu is map)
-        && (!('laskutus_aktivoitu' in d) || d.laskutus_aktivoitu is map) && (!('laskutus_vastuuvalmentaja_ok' in d) || d.laskutus_vastuuvalmentaja_ok is bool); }
+        && (!('laskutus_aktivoitu' in d) || d.laskutus_aktivoitu is map) && (!('laskutus_vastuuvalmentaja_ok' in d) || d.laskutus_vastuuvalmentaja_ok is bool) && (!('demo' in d) || d.demo is bool); }
     /* v3.74 (L1c): sopimusseura = laskutus_asetukset/{sid}.laskutettava (sama kuin functions/laskutus_esto.js). Joukkueen jakso vain aktiivisessa tai demo-joukkueessa; pilottiseura ennallaan. */
     function onSopimusseura(sid) { return exists(/databases/$(database)/documents/laskutus_asetukset/$(sid)) && get(/databases/$(database)/documents/laskutus_asetukset/$(sid)).data.get('laskutettava', false) == true; }
     function jaksoSallittu(sid) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['jaksofokus', 'jaksofokus_historia']) || resource.data.get('laskutustila', 'passiivinen') == 'aktiivinen' || resource.data.get('demo', false) == true || !onSopimusseura(sid); }

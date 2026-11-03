@@ -114,7 +114,7 @@ describe('tmIdpPelaajaValitse (dual-read seuraa lippua)', () => {
 describe('Rules v3.71 (tekstitarkistus; toiminta: tests/rules/firestore.rules.test.js)', () => {
   const R = lue('tm_admin/firestore.rules'), blokki = (nimi) => { const i = R.indexOf('match /' + nimi + '/{vuosi}'); return R.slice(i, R.indexOf('\n        }\n', i)); };
   it('versio + idp_pelaaja-blokki: huoltaja ja pelaaja lukevat, pelaaja kirjoittaa vain sitoumuksen', () => {
-    expect(R).toMatch(/firestore\.rules v3\.(71|72|73|74)/);
+    expect(R).toMatch(/firestore\.rules v3\.(71|72|73|74|75)/);
     const b = blokki('idp_pelaaja'); expect(b).toMatch(/onPelaajaItse\(seuraId, pelaajaId\)\s*\|\|\s*onLapsenHuoltaja\(seuraId, pelaajaId\)/); expect(b).toMatch(/hasOnly\(\['pelaaja_sitoumus', 'paivitetty'\]\)/); expect(b).toMatch(/allow delete: if onSuperAdmin\(\)/);
   });
   it('idp_kausi EI kavennettu tässä PR:ssä (pelaaja lukee ja kirjoittaa sitoumuksensa edelleen; siivous lipun jälkeen)', () => {
