@@ -23,7 +23,7 @@ const { rakennaSendGridPayload } = require('./sahkoposti_payload');   // SendGri
 const huoltajaemail = require('./huoltajaemail');   // Rules v3.33: huoltajaEmail vain palvelimella
 const suostumuskortit = require('./suostumuskortit');   // PR B: QR-suostumuskortit   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
 const suostumusTarkistus = require('./suostumus_tarkistus');
-const { suostumusAnnettu, suostumusTilaKutsunJalkeen } = require('./suostumus');   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
+const { suostumusAnnettu, suostumusTilaKutsunJalkeen } = require('./suostumus'); const suostumusPeruminen = require('./suostumus_peruminen');   // B9   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
 const tmSisainen = require('./tm_sisainen');   // PR 1e-2: S4-kirjoitusapurit (tmS4Lisaa) — jaettu kopio, sama lippu kuin selaimessa
 const sisainenLuku = require('./sisainen_luku');   // PR 1c-2: dual-read sisainen/tiedot (jaettu lippu)
@@ -1269,7 +1269,7 @@ exports.vahvistaSuostumus = functions
     // suostumukset — array kaikista hyväksytyistä suostumuksista + täysi suostumus-objekti
     // (sama rakenne kuin uusi-rekisteröinti-haaran .set(), §14: raakadata talteen).
     if (Array.isArray(suostumukset)) paivitys.suostumukset = suostumukset.filter((x) => SUOSTUMUS_AVAIMET.includes(x));
-    paivitys.suostumus = {
+    paivitys.suostumus = {   // B9: korvaa koko olion → suostumus.peruttu poistuu; edelliset annettu/peruttu audit-riville (kirjaaHistoria alla)
       ...(kutsuTyyppi === 'qr_kortti' ? { lahde: 'qr_kortti' } : {}),
       annettu:     TS,
       antaja:      antajaNimi,
@@ -1292,7 +1292,7 @@ exports.vahvistaSuostumus = functions
       const kirjBatch = db.batch();
       kirjBatch.update(pelRef, paivitys);
       tmSisainen.tmS4Lisaa(kirjBatch, db, seuraId, pelaajaId, paivitys, {});
-      await kirjBatch.commit();
+      await kirjBatch.commit(); await suostumusPeruminen.kirjaaHistoria(db, admin.firestore.FieldValue, seuraId, pelaajaId, snap.data());
     } catch (e) {
       throw new functions.https.HttpsError('internal',
         `Suostumuksen tallennus epäonnistui: ${e.message}`);
@@ -2459,6 +2459,8 @@ exports.asetaPelaajanPin = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })
   .https.onCall(pelaajapin.luoAsetaPelaajanPin(pinDeps));
+exports.peruSuostumus = functions.region('europe-west1').runWith({ enforceAppCheck: true, secrets: ['SENDGRID_API_KEY'] })   // B9 (GDPR art. 7(3)): functions/suostumus_peruminen.js
+  .https.onCall(suostumusPeruminen.luoKasittelija(Object.assign({ auth, lahetaSahkoposti }, pinDeps)));
 /* PR B (1.10.2026) — QR-suostumuskortit: kutsu luodaan palvelimella (functions/suostumuskortit.js). */
 exports.luoSuostumusKortit = functions
   .region('europe-west1')

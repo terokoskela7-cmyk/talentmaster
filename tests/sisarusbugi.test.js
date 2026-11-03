@@ -67,7 +67,7 @@ function seura(SEURA_LAHDE, lisat) {
   if (S.indexOf('function _rekDuplikaatti(') >= 0) osat.push('function _rekDuplikaatti(');
   if (S.indexOf('async function _tmKirjaaTuoja(') >= 0) osat.push('async function _tmKirjaaTuoja(');   // PR 1e-1 (negatiivikontrollin vanhalla sivulla ei ole)
   // Suostumuksen uusiminen (2.10.2026): vahvistus, kun pelaajalla on jo annettu suostumus
-  ['function _suostumusAnnettu(', 'function _suostumusPvm(', 'function _tkKieli(', 'function _tk('].forEach((o) => { if (S.indexOf(o) >= 0) osat.push(o); });
+  ['function _suostumusPeruttu(', 'function _peruttuPvm(', 'function _suostumusAnnettu(', 'function _suostumusPvm(', 'function _tkKieli(', 'function _tk('].forEach((o) => { if (S.indexOf(o) >= 0) osat.push(o); });
   vm.runInContext(osat.map((o) => pura(S, o)).join('\n')
     + '\nthis.uusi=avaaRekisteriModal; this.vanha=avaaRekisteriModalPelaajalle; this.laheta=lahetaRekisteriSahkoposti;', ctx);
   const tayta = (etu, suku, email) => { E('rek_etunimi').value = etu; E('rek_sukunimi').value = suku; E('rek_hEmail').value = email; E('rek_joukkue').value = 'kpv_u13'; };
@@ -219,7 +219,7 @@ function vahvista(pelaaja) {
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' }, Timestamp: { fromDate: (d) => ({ toDate: () => d, iso: d.toISOString() }) } } },
     auth: { generatePasswordResetLink: async () => 'https://reset' },
     haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
-    TM_BASE_URL: 'https://tm', sisainenLuku: require_(join(ROOT, 'functions', 'sisainen_luku.js')), tmSisainen: require_(join(ROOT, 'functions', 'tm_sisainen.js')), suostumusTarkistus: T, suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')), laskutusEsto: require_(join(ROOT, 'functions', 'laskutus_esto.js')),   // L1c: pilottiseura
+    TM_BASE_URL: 'https://tm', sisainenLuku: require_(join(ROOT, 'functions', 'sisainen_luku.js')), tmSisainen: require_(join(ROOT, 'functions', 'tm_sisainen.js')), suostumusTarkistus: T, suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, suostumusPeruminen: require_(join(ROOT, 'functions', 'suostumus_peruminen.js')), pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')), laskutusEsto: require_(join(ROOT, 'functions', 'laskutus_esto.js')),   // L1c: pilottiseura
   };
   ctx.tmJoukkueJasenyysIdlla = ctx.tmJoukkueJasenyysIdlla || require_(join(ROOT, 'lib', 'tm_joukkue.js')).tmJoukkueJasenyysIdlla;
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);

@@ -44,7 +44,7 @@ async function rakennaSyote(deps, tilaus, nytMs) {
     const p = pSnap.data() || {};
     if (pelaajaPoissa(p)) return null;   // pelaaja poistettu / arkistoitu / ei aktiivinen → syöte sulkeutuu
     if (tilaus.rooli === 'huoltaja') {
-      if (p.suostumusTila !== 'annettu') return null;   // suostumus peruttu → syöte sulkeutuu
+      if (!require('./suostumus').suostumusAnnettu(p)) return null;   // suostumus peruttu (B9: kanoninen ehto) → syöte sulkeutuu
       if (!tilaus.huoltajaEmailHash || typeof p.huoltajaEmail !== 'string' || emailHash(p.huoltajaEmail) !== tilaus.huoltajaEmailHash) return null;   // huoltajan sähköposti vaihtunut → entinen huoltaja menettää syötteen
     }
     const pelaaja = Object.assign({ id: tilaus.pelaajaId }, p);

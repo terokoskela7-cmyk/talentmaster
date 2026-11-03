@@ -11338,7 +11338,7 @@ function _mvPaivitaTila(S) {   // rekisteri + suostumuslippu valituista vastaano
   const C = _mvC(), vs = _mvKentat(S), ikat = vs.map(function (p) { return C.ika(p); }).filter(function (x) { return x != null; });
   const vanha = S.rekisteri, M = window.TM_MEDIAVIESTI; S.rekisteri = M.tmMvRekisteri(ikat.length ? Math.min.apply(null, ikat) : null);
   if (S.kysymysAvain && vanha && vanha !== S.rekisteri) { const i = M.tmMvPohjat(S.klippityyppi, vanha).map(function (x) { return x.avain; }).indexOf(S.kysymysAvain); S.kysymysAvain = i >= 0 ? M.tmMvPohjat(S.klippityyppi, S.rekisteri)[i].avain : null; }   // vastaanottajien vaihto muuttaa rekisterin → valittu pohja säilyy (sama järjestysnumero)
-  S.suostumusPuuttuu = vs.some(function (p) { return p.suostumusTila !== 'annettu'; });
+  S.suostumusPuuttuu = vs.some(function (p) { return !(p.suostumusTila !== 'peruttu' && !(p.suostumus && p.suostumus.peruttu) && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu))); });   // B9: kanoninen (peruttu voittaa)
 }
 function _mvRender() {
   const S = window._mvTila, M = window.TM_MEDIAVIESTI; if (!S || !M) return; const C = _mvC();
@@ -13251,7 +13251,7 @@ function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
 
   // 3) Datapolku-CTA-rivi — kattavuusvajeet (< 100%) → toimenpide (kattavuusVajeet §75). Näytä vain vajeet.
   const kAdar = pelaajat.filter(function (p) { return (p.adar_havaintoja || 0) >= 1; }).length;
-  const kSuost = pelaajat.filter(function (p) { return p.suostumusTila === 'annettu'; }).length;
+  const kSuost = pelaajat.filter(function (p) { return (p.suostumusTila !== 'peruttu' && !(p.suostumus && p.suostumus.peruttu) && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu))); }).length;   // B9: kanoninen
   const kPhv = pelaajat.filter(function (p) { return tmPhvKoodi(p); }).length;
   const vajeet = (typeof kattavuusVajeet === 'function') ? kattavuusVajeet({ pelihavainto: kAdar, suostumus: kSuost, phv: kPhv }, n) : [];
   if (vajeet.length) {
@@ -21129,7 +21129,7 @@ function _rapKattavuus(P) {
     P.some(function (p) { return p.tki_viimeisin != null || p.hh_taso != null || p.d1_taso != null; }),
     P.some(function (p) { return p.adar_havaintoja > 0 || p.d3_viimeisin; }),
     P.some(function (p) { return tmPhvKoodi(p); }),
-    P.some(function (p) { return p.suostumusTila === 'annettu'; })
+    P.some(function (p) { return (p.suostumusTila !== 'peruttu' && !(p.suostumus && p.suostumus.peruttu) && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu))); })   // B9: kanoninen
   ];
   return virrat.filter(Boolean).length / virrat.length;
 }

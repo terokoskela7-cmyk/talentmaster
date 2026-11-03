@@ -67,6 +67,7 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_appcheck.js') !== -1) return true;   // V2 App Check — site key + aktivointi
   if (url.indexOf('/lib/tm_verkko.js') !== -1) return true;   // verkkokatkon käsittely kirjautumisessa
   if (url.indexOf('/lib/tm_pvm.js') !== -1) return true;
+  if (url.indexOf('/lib/tm_suostumus.js') !== -1) return true;   // B9: suostumuksen kanoninen ehto (peruttu voittaa)
   if (url.indexOf('/lib/tm_pelaaja_ika.js') !== -1) return true;   // 8–9 v -esto: pelaajan kirjautumiskortti piiloon alle 10-vuotiaalta   // tmPaivaIso: kirjaukset/{pvm} paikallisena (offline-avaus ei saa kaatua ReferenceErroriin)
   if (url.indexOf('/lib/tm_mediaviesti.js') !== -1) return true;   // R6.4 PR 2: klippiketjun linkki + tyyppinimet
   if (url.indexOf('/lib/tm_lib_i18n.js') !== -1) return true;   // sv-käännöserä: kirjastojen sv-kartta (päätös A)

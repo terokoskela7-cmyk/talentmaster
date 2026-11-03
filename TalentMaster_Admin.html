@@ -1102,7 +1102,7 @@ async function renderAudit(alue) {
 /* P1 (1.10.2026): kaikki käyttäjäperäiset arvot innerHTML-templaatteihin esc():n kautta. onclickiin EI arvoja
    (data-*-attribuutti + käsittelijä) — esc ei suojaa JS-merkkijonoa attribuutin sisällä. Seura-ID:t ovat
    [a-z0-9_-] (validoitu luonnissa) ja jäävät sallituiksi poikkeuksiksi onclick-kutsuissa. */
-function esc(v) { return (typeof window !== 'undefined' && window.tmEsc) ? window.tmEsc(v) : _auditEsc(v); }
+function esc(v) { return (typeof window !== 'undefined' && window.tmEsc) ? window.tmEsc(v) : _auditEsc(v); } function _sPeruttu(p) { return !!p && (p.suostumusTila === 'peruttu' || !!(p.suostumus && p.suostumus.peruttu)); } function _sAnnettu(p) { return !!p && !_sPeruttu(p) && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); }   // B9: kanoninen ehto = lib/tm_suostumus.js (peruttu voittaa)
 function _auditEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
 }
@@ -1409,7 +1409,7 @@ async function renderTilastot(alue) {
           db.collection('seurat').doc(seura.id).collection('kutsut').get(),
         ]);
         const pd = plSnap.docs.map(d => d.data());
-        const annettu = pd.filter(p => p.suostumusTila === 'annettu' || !!p.suostumus?.annettu).length;
+        const annettu = pd.filter(_sAnnettu).length;
         const pilotti = pd.filter(p => p.suostumusTila === 'pilotti').length;
         const odottaa = pd.filter(p => p.suostumusTila === 'odottaa').length;
         const pct = pd.length > 0 ? Math.round(annettu / pd.length * 100) : 0;
@@ -1517,7 +1517,7 @@ async function renderPilotinTila(alue) {
         // A. Suppilo (suostumusTila)
         const pilotti = pd.filter(p => p.suostumusTila === 'pilotti').length;
         const odottaa = pd.filter(p => p.suostumusTila === 'odottaa').length;
-        const annettu = pd.filter(p => p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)).length;
+        const annettu = pd.filter(_sAnnettu).length;
         const konv = (odottaa + annettu) > 0 ? Math.round(annettu / (odottaa + annettu) * 100) : 0;
         // B. Datakypsyys (pikakentät §26)
         const testattu   = pd.filter(p => p.hh_viimeisin || p.tki_viimeisin != null || p.d1_taso != null).length;
@@ -2527,8 +2527,8 @@ async function lataaPelaajat() {
               <td>${esc(p.joukkue||'—')}</td>
               <td style="font-size:12px;color:var(--ink3)">${esc(p.huoltajaEmail||'—')}</td>
               <td>
-                <span class="badge ${p.suostumusTila==='annettu' ? 'aktiivinen' : 'ei'}">
-                  ${p.suostumusTila==='annettu' ? '✓ OK' : '⏳ Puuttuu'}
+                <span class="badge ${_sAnnettu(p) ? 'aktiivinen' : 'ei'}">
+                  ${_sAnnettu(p) ? '✓ OK' : _sPeruttu(p) ? '⊘ Peruttu' : '⏳ Puuttuu'}
                 </span>
               </td>
               <td style="font-size:11px;color:var(--ink3)">${esc(p.lahde||'—')}</td>
@@ -2613,7 +2613,7 @@ async function lataaPelaajatJoukkue(joukkue) {
           <td style="font-family:monospace;font-size:12px;color:var(--ink3)">${esc(p.palloID||p.tunniste||'—')}</td>
           <td>${esc(p.joukkue||'—')}</td>
           <td style="font-size:12px;color:var(--ink3)">${esc(p.huoltajaEmail||'—')}</td>
-          <td><span class="badge ${p.suostumusTila==='annettu'?'aktiivinen':'ei'}">${p.suostumusTila==='annettu'?'✓ OK':'⏳ Puuttuu'}</span></td>
+          <td><span class="badge ${_sAnnettu(p)?'aktiivinen':'ei'}">${_sAnnettu(p)?'✓ OK':_sPeruttu(p)?'⊘ Peruttu':'⏳ Puuttuu'}</span></td>
         </tr>`).join('')}</tbody>
       </table>
       <div style="padding:12px 20px;font-size:12px;color:var(--ink3)">${pelaajat.length} pelaajaa joukkueessa ${esc(joukkue)}</div>`;
@@ -2643,7 +2643,7 @@ async function lataaJoukkueetAdmin() {
       if (j) {
         if (!pelaajatMap[j]) pelaajatMap[j] = { pelaajia: 0, suostumus: 0 };
         pelaajatMap[j].pelaajia++;
-        if (p.suostumusTila === 'annettu') pelaajatMap[j].suostumus++;
+        if (_sAnnettu(p)) pelaajatMap[j].suostumus++;
       }
     });
 

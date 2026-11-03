@@ -33,7 +33,8 @@ describe('Gemini-erä 2 — vienti', () => {
     const ERA55 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_55_gemini.json'), 'utf8')).osiot.tm_lang.rivit));   // erän 55 avaimet (suostumus vaihe 1, staattinen markup) kuuluvat erään 55
     const ERA56 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_56_gemini.json'), 'utf8')).osiot.tm_lang.rivit));   // erän 56 avaimet (tietosuojaikkuna, Sibbo-viimeistely) kuuluvat erään 56
     const ERA69 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_69_gemini.json'), 'utf8')).osiot.tm_lang.rivit));   // erän 69 avaimet (palaute-näkyvyys 0a: merkkinäkymä)
-    const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').filter((p) => !ERA54.has(p) && !ERA55.has(p) && !ERA56.has(p) && !ERA69.has(p)).concat(Object.keys(ERA3).filter((p) => ERA3[p].sv)).map((p) => 'tm_lang::' + p);
+    const ERA94 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_94_gemini.json'), 'utf8')).osiot.tm_lang.rivit));   // erän 94 avaimet (B9): sv odottaa PM:ää
+    const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').filter((p) => !ERA54.has(p) && !ERA55.has(p) && !ERA56.has(p) && !ERA69.has(p) && !ERA94.has(p)).concat(Object.keys(ERA3).filter((p) => ERA3[p].sv)).map((p) => 'tm_lang::' + p);
     const tmLangTyhjat = tyhjat.filter(([o]) => o === 'tm_lang').map(([o, a]) => o + '::' + a).sort();
     expect(tmLangTyhjat).toEqual(ODOTTAA.slice().sort());
   });

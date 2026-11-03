@@ -12,7 +12,7 @@
    · Pelaaja lasketaan KERRAN: pääjoukkueessa, jos se on aktiivinen; muuten ensimmäisessä aktiivisessa joukkueessaan.
      Pääjoukkue = näyttönimen (joukkue/joukkueNimi) joukkue, jos se on jäsenyyksissä (tmPelaajanJoukkueet, §7.18); muuten jäsenyyksien järjestys.
    · Ikä = laskentakuukauden vuosi − syntymaVuosi (varalla syntymaaika:n vuosi). Ikä < maksuton_alle_ika (10) → 0 €. Ikä puuttuu → maksullinen + merkintä.
-   · Suostumus = functions/suostumus.js suostumusAnnettu (kanoninen): suostumusTila === 'annettu' || suostumus.annettu.
+   · Suostumus = lib/tm_suostumus.js tmSuostumusAnnettu (kanoninen, B9): ei peruttu JA (suostumusTila === 'annettu' || suostumus.annettu). Peruttu putoaa kuun lopun tilan snapshotista.
    · Laskentaperuste 'suostumus' (vain suostumukselliset) | 'lista' (koko lista). Välimalli: lista_alkaen_kk_aktivoinnista = n (vain peruste 'lista'):
      joukkueen kuukaudet 1..n aktivoinnista (laskutus_aktivoitu.pvm, ensimmäinen aktivointi; aktivointikuukausi = 1) lasketaan 'suostumus'-säännöllä, sen jälkeen 'lista'.
    · Joukkueen summa = min(maksulliset × hinta, katto). Seuran summa = seuralisenssi + joukkueiden summat. alv kenttänä (0 %).
@@ -80,8 +80,8 @@
     return { ok: true, asetukset: a, virhe: null };
   }
 
-  /* functions/suostumus.js suostumusAnnettu — sama ehto (pariteettitesti). */
-  function tmLaskutusSuostumus(p) { var x = p || {}; return x.suostumusTila === 'annettu' || !!(x.suostumus && x.suostumus.annettu); }
+  /* lib/tm_suostumus.js tmSuostumusAnnettu — sama ehto, peruttu voittaa (B9; pariteettitesti tests/suostumus_peruminen.test.js). */
+  function tmLaskutusSuostumus(p) { var x = p || {}; return x.suostumusTila !== 'peruttu' && !(x.suostumus && x.suostumus.peruttu) && (x.suostumusTila === 'annettu' || !!(x.suostumus && x.suostumus.annettu)); }
   /* Ei mukana: demo, arkistoitu, poistettu, aktiivinen:false (functions/seuran_kooste.js pelaajaPoissa + tila-kenttä). */
   function tmLaskutusPoissa(p) { var x = p || {}; return x.isDemoUser === true || x.poistettu === true || x.arkistoitu === true || x.aktiivinen === false || x.tila === 'arkistoitu' || x.tila === 'poistettu'; }
   /* Ikä laskentavuonna (kalenterivuoden aikana täytettävä) tai null. */

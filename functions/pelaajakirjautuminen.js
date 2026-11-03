@@ -21,7 +21,7 @@
    Puhtaat osat (normalisointi, lukitus, hajautus) testataan tests/pelaajakirjautuminen.test.js.
 ════════════════════════════════════════════════════════════════════════ */
 'use strict';
-const { suostumusAnnettu, SUOSTUMUS_PUUTTUU } = require('./suostumus');
+const { suostumusAnnettu, suostumusPeruttu, SUOSTUMUS_PUUTTUU, SUOSTUMUS_PERUTTU } = require('./suostumus');
 const IKA = require('./tm_pelaaja_ika');   // 8–9 v -esto (vaihe 0 §7.6, PM päätös 8)
 const crypto = require('crypto');
 
@@ -113,6 +113,7 @@ function pelaajaUid(seuraId, pelaajaId) { return 'pel_' + seuraId + '_' + pelaaj
    Tarkistus VASTA yksiselitteisen ja oikean PIN:n jälkeen → väärä PIN / tuntematon tunnus saa yhä saman
    virheen (VIRHE_TUNNISTUS), eikä suostumustila paljastu ilman oikeaa PIN:iä. */
 const VIRHE_SUOSTUMUS = 'Huoltajasi ei ole vielä antanut lupaa. Pyydä vanhempaasi skannaamaan kortin QR-koodi.';
+const VIRHE_PERUTTU = 'Huoltajasi on perunut luvan TalentMasterin käyttöön. Voit kysyä asiasta huoltajaltasi.';   // B9, PM päätös 7: lempeä, ei syyllistä
 const VIRHE_IKA = 'Pelaajan sovellus on käytössä 10 vuoden iästä alkaen. Huoltajasi seuraa harjoittelua Vanhemman sivulla.';
 
 /* PR 4 · Lukitusavaimet (kokoelma _kirjautumisyritykset). Tunnistekohtaiset: PalloID-reitti 't_' + tunnus,
@@ -221,6 +222,8 @@ function luoKirjautuja(deps, malli) {
     if (deps.FieldValue) await ipRef.set({ virheet: deps.FieldValue.increment(-1) }, { merge: true }).catch(() => {});
     // PIN oli oikein (laskurit nollattu yllä), mutta seuran pelaajalla ei ole huoltajan suostumusta → ei tokenia.
     if (o.suostumusOk === false) {
+      /* B9: peruttu suostumus → oma syy. Peruminen poistaa selväkielisen PIN:n mutta jättää tiivisteen, jotta lapsi näkee tämän tekstin eikä "väärä PIN" (päätös 7). */
+      if (o.suostumusPeruttu) { await audit('pelaaja_kirjautuminen_estetty_peruttu', Object.assign({ severity: 'info' }, o.auditTiedot || {})); throw new HttpsError('failed-precondition', VIRHE_PERUTTU, { syy: SUOSTUMUS_PERUTTU }); }
       await audit('pelaaja_kirjautuminen_estetty_suostumus', Object.assign({ severity: 'info' }, o.auditTiedot || {}));
       throw new HttpsError('failed-precondition', VIRHE_SUOSTUMUS, { syy: SUOSTUMUS_PUUTTUU });
     }
@@ -297,7 +300,7 @@ function luoLinkkiKirjautuja(deps) {
         uid: pelaajaUid(seuraId, pelaajaId),
         claims: pelaajaClaims(seuraId, pelaajaId),
         auditTiedot: { seuraId: seuraId, pelaajaId: pelaajaId, reitti: 'linkki' },
-        suostumusOk: suostumusAnnettu(data),
+        suostumusOk: suostumusAnnettu(data), suostumusPeruttu: suostumusPeruttu(data),
         ikaData: { syntymaVuosi: data.syntymaVuosi, syntymaaika: data.syntymaaika },
         viimeisinKirjautuminen: data.viimeisinKirjautuminen,
         palaute: { seuraId: seuraId, pelaajaId: pelaajaId, palloId: pelaajanPalloId(data) },
@@ -340,7 +343,7 @@ function luoPalloIdKirjautuja(deps) {
             uid: pelaajaUid(seura.id, d.id),
             claims: pelaajaClaims(seura.id, d.id),
             auditTiedot: { seuraId: seura.id, pelaajaId: d.id },
-            suostumusOk: suostumusAnnettu(data),
+            suostumusOk: suostumusAnnettu(data), suostumusPeruttu: suostumusPeruttu(data),
             ikaData: { syntymaVuosi: data.syntymaVuosi, syntymaaika: data.syntymaaika },
             viimeisinKirjautuminen: data.viimeisinKirjautuminen,
             palaute: { seuraId: seura.id, pelaajaId: d.id, palloId: pelaajanPalloId(data) },
@@ -398,5 +401,5 @@ module.exports = {
   hajautaPin, tarkistaPin, pelaajaUid, pelaajaClaims, luoKasittelija, normalisoiDocId, pelaajanPalloId,
   pelaajaLukitusAvain, linkkiLukitusAvain, palloIdLukitusAvain,
   luoKirjautuja, kirjaaKirjautuminen, helsinginPaiva, luoSoloKasittelija, normalisoiSoloKoodi, soloUid, soloClaims,
-  LUKITUS_YRITYKSET, LUKITUS_MS, IP_KATTO, VIRHE_TUNNISTUS, VIRHE_LUKITTU, VIRHE_SUOSTUMUS,
+  LUKITUS_YRITYKSET, LUKITUS_MS, IP_KATTO, VIRHE_TUNNISTUS, VIRHE_LUKITTU, VIRHE_SUOSTUMUS, VIRHE_PERUTTU,
 };
