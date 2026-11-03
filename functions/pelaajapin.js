@@ -22,6 +22,21 @@ const laskutusEsto = require('./laskutus_esto');   // L1c: sopimusseuran passiiv
 /* Suostumus ennen PIN:iä (1.10.2026): PIN luodaan vain pelaajalle, jolla on huoltajan suostumus.
    Ilman suostumusta PIN syntyy vahvistaSuostumuksessa (best-effort) heti suostumuksen jälkeen. */
 const VIRHE_PIN_SUOSTUMUS = 'Huoltajan suostumus puuttuu – PIN luodaan suostumuksen jälkeen.';
+/* 8–9 v -esto (vaihe 0 §7.6, PM päätös 8): ikä ≤ 9 → ei PIN:iä eikä pelaajalinkkiä. Syntymävuosi puuttuu → myöntäminen fail-closed. */
+const IKA = require('./tm_pelaaja_ika');
+const VIRHE_IKA_ALLE = 'Alle 10-vuotiaalle ei luoda PIN:iä eikä pelaajalinkkiä – huoltaja seuraa Vanhemman sivulla.';
+const VIRHE_IKA_PUUTTUU = 'Syntymävuosi puuttuu – lisää se ennen PIN:iä tai pelaajalinkkiä.';
+function vuosiNyt(deps) { return (deps && deps.vuosi) || IKA.tmHelsinkiVuosi(); }
+/* index.js-kytkennät (kuoren kasvukatto 2600): tila tänä vuonna + audit-rivi ilman nimiä. */
+function ikaTilaNyt(pd) { return IKA.tmPelaajaAppTila(pd || {}, vuosiNyt()); }
+function kirjaaIkaEsto(db, FieldValue, toiminto, kentat) { return db.collection('audit').add(Object.assign({ toiminto, severity: 'info' }, kentat, { aikaleima: FieldValue.serverTimestamp() })).catch(() => {}); }
+/* Myöntämisen ikätarkistus: null = sallittu, muuten HttpsError (failed-precondition + details.syy). */
+function ikaVirhe(HttpsError, pd, vuosi) {
+  const t = IKA.tmPelaajaAppTila(pd, vuosi);
+  if (t === IKA.SYY_ALLE) return new HttpsError('failed-precondition', VIRHE_IKA_ALLE, { syy: IKA.SYY_ALLE });
+  if (t === IKA.SYY_PUUTTUU) return new HttpsError('failed-precondition', VIRHE_IKA_PUUTTUU, { syy: IKA.SYY_PUUTTUU });
+  return null;
+}
 
 const VALMENTAJAROOLIT = ['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja'];
 const ERAKOKO = 400;   // Firestore-erän raja 500 → varaa tilaa
@@ -117,6 +132,8 @@ function luoAsetaPelaajanPin(deps) {
     if (!saaPelaajalle(oikeus, pd)) throw new HttpsError('permission-denied', 'Valmentaja voi asettaa PIN:n vain oman joukkueensa pelaajalle.');
     await laskutusEsto.vaadiPelaajaSallittu(deps, { funktio: 'asetaPelaajanPin', seuraId, pelaajaId, pelaaja: pd });
     if (!suostumusAnnettu(pd)) throw new HttpsError('failed-precondition', VIRHE_PIN_SUOSTUMUS, { syy: SUOSTUMUS_PUUTTUU });
+    const iv = ikaVirhe(HttpsError, pd, vuosiNyt(deps));
+    if (iv) { await audit('pin_estetty_ika', { seuraId, pelaajaId, syy: IKA.tmPelaajaAppTila(pd, vuosiNyt(deps)), tekija_uid: context.auth.uid, severity: 'info' }); throw iv; }
     const TS = FieldValue.serverTimestamp();
     const batch = db.batch();
     lisaaPinKirjoitukset(db, batch, { seuraId, pelaajaId, data: pd, pin, lahde: 'asetaPelaajanPin', TS });
@@ -158,17 +175,21 @@ function luoLuoPinitSeuralle(deps) {
       (await col.get()).docs.forEach((d) => docs.set(d.id, d));
     }
     const kohteet = [];
-    let ohitettu = 0, ohitettuSuostumus = 0, oliJo = 0, ohitettuPassiivinen = 0;
+    let ohitettu = 0, ohitettuSuostumus = 0, oliJo = 0, ohitettuPassiivinen = 0, ohitettuIka = 0, ohitettuIkaPuuttuu = 0;
+    const vuosi = vuosiNyt(deps);
     const esto = deps.esto || laskutusEsto.luoEsto(db);   // L1c: asetukset + joukkueet luetaan kerran per ajo
     for (const d of docs.values()) {
       const pd = d.data() || {};
       if (!saaPelaajalle(oikeus, pd)) { ohitettu++; continue; }   // valmentaja: nimikentän kautta löytynyt vieras
       if (!suostumusAnnettu(pd)) { ohitettu++; ohitettuSuostumus++; continue; }   // ei PIN:iä ilman suostumusta
+      const ikaTila = IKA.tmPelaajaAppTila(pd, vuosi);   // 8–9 v: alle 10 → ohitettuIka, vuosi puuttuu → ohitettuIkaPuuttuu (fail-closed)
+      if (ikaTila === IKA.SYY_ALLE) { ohitettu++; ohitettuIka++; continue; }
+      if (ikaTila === IKA.SYY_PUUTTUU) { ohitettu++; ohitettuIkaPuuttuu++; continue; }
       if (vainPuuttuvat && pd.pin != null && String(pd.pin).trim() !== '') { ohitettu++; oliJo++; continue; }
       if (await esto.pelaajaEstetty(seuraId, pd)) { ohitettu++; ohitettuPassiivinen++; continue; }   // sopimusseura: ei aktiivista joukkuetta
       kohteet.push({ id: d.id, pd });
     }
-    if (kuivaAjo) return { ok: true, kuivaAjo: true, luotaisiin: kohteet.length, ohitettu, ohitettuSuostumus, oliJo, ohitettuPassiivinen, yhteensa: docs.size };
+    if (kuivaAjo) return { ok: true, kuivaAjo: true, luotaisiin: kohteet.length, ohitettu, ohitettuSuostumus, oliJo, ohitettuPassiivinen, ohitettuIka, ohitettuIkaPuuttuu, yhteensa: docs.size };
     if (ohitettuPassiivinen) await laskutusEsto.kirjaaEsto(db, FieldValue, { funktio: 'luoPinitSeuralle', seuraId, joukkueId: joukkue || null, ohitettuPassiivinen });
     const TS = FieldValue.serverTimestamp();
     let batch = db.batch(), opit = 0, eria = 0, luotu = 0;
@@ -179,12 +200,13 @@ function luoLuoPinitSeuralle(deps) {
       luotu++;
     }
     if (opit) { await batch.commit(); eria++; }
-    await audit('pinit_luotu', { seuraId, joukkue: joukkue || null, luotu, ohitettu, ohitettuSuostumus, oliJo, ohitettuPassiivinen, vainPuuttuvat, tekija_uid: context.auth.uid, severity: 'info' });
-    return { ok: true, luotu, ohitettu, ohitettuSuostumus, oliJo, ohitettuPassiivinen, yhteensa: docs.size, eria };
+    await audit('pinit_luotu', { seuraId, joukkue: joukkue || null, luotu, ohitettu, ohitettuSuostumus, oliJo, ohitettuPassiivinen, ohitettuIka, ohitettuIkaPuuttuu, vainPuuttuvat, tekija_uid: context.auth.uid, severity: 'info' });
+    return { ok: true, luotu, ohitettu, ohitettuSuostumus, oliJo, ohitettuPassiivinen, ohitettuIka, ohitettuIkaPuuttuu, yhteensa: docs.size, eria };
   };
 }
 
 module.exports = {
   onTriviaaliPin, generoiPin, normalisoiUusiPin, lukitusAvaimet, lisaaPinKirjoitukset,
   pinOikeus, saaPelaajalle, luoAsetaPelaajanPin, luoLuoPinitSeuralle, VALMENTAJAROOLIT, ERAKOKO, VIRHE_PIN_SUOSTUMUS,
+  VIRHE_IKA_ALLE, VIRHE_IKA_PUUTTUU, ikaVirhe, vuosiNyt, ikaTilaNyt, kirjaaIkaEsto, IKA,
 };

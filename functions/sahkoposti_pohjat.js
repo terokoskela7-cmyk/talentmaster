@@ -70,7 +70,8 @@ function pohjaPelaajaSivu({
 }) {
   /* PR 4: tunnukset (PalloID + PIN) samaan viestiin, jotta huoltaja voi jakaa ne lapselle heti
      (sama malli kuin suostumussähköpostissa #687). Linkillä avattuna pelaaja syöttää pelkän PIN:n. */
-  const tunnusOsio = pin ? `
+  /* 8–9 v -esto: pelaajaLinkki null (alle 10-vuotias) → vain Vanhemman sivu, ei pelaajan painiketta eikä tunnusosiota. */
+  const tunnusOsio = !pelaajaLinkki ? '' : pin ? `
     <div style="margin:20px 0;padding:16px;border:1px solid #28B090;border-radius:10px;text-align:center;">
       <div style="font-size:13px;color:#555;margin-bottom:8px;">Pelaajan tunnukset</div>
       ${palloId ? `<div style="font-size:14px;color:#333;margin-bottom:4px;">PalloID <strong style="letter-spacing:2px;">${esc(palloId)}</strong></div>` : ''}
@@ -122,12 +123,12 @@ function pohjaPelaajaSivu({
         font-size:16px;display:inline-block;width:280px;">
         👨‍👩‍👦 Vanhemman sivu →
       </a>
-      <a href="${esc(pelaajaLinkki)}"
+      ${pelaajaLinkki ? `<a href="${esc(pelaajaLinkki)}"
         style="background:#1A2235;color:#28B090;padding:14px 36px;
         border:1px solid #28B090;border-radius:8px;text-decoration:none;
         font-weight:bold;font-size:15px;display:inline-block;width:280px;">
         ⚽ Pelaajan oma sivu →
-      </a>
+      </a>` : ''}
     </div>
     ${tunnusOsio}
     <p style="font-size:13px;color:#555;line-height:1.6;margin:20px 0 0;">

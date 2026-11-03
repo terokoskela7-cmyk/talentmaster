@@ -22,6 +22,7 @@
 ════════════════════════════════════════════════════════════════════════ */
 'use strict';
 const { suostumusAnnettu, SUOSTUMUS_PUUTTUU } = require('./suostumus');
+const IKA = require('./tm_pelaaja_ika');   // 8–9 v -esto (vaihe 0 §7.6, PM päätös 8)
 const crypto = require('crypto');
 
 const LUKITUS_YRITYKSET = 5;
@@ -112,6 +113,7 @@ function pelaajaUid(seuraId, pelaajaId) { return 'pel_' + seuraId + '_' + pelaaj
    Tarkistus VASTA yksiselitteisen ja oikean PIN:n jälkeen → väärä PIN / tuntematon tunnus saa yhä saman
    virheen (VIRHE_TUNNISTUS), eikä suostumustila paljastu ilman oikeaa PIN:iä. */
 const VIRHE_SUOSTUMUS = 'Huoltajasi ei ole vielä antanut lupaa. Pyydä vanhempaasi skannaamaan kortin QR-koodi.';
+const VIRHE_IKA = 'Pelaajan sovellus on käytössä 10 vuoden iästä alkaen. Huoltajasi seuraa harjoittelua Vanhemman sivulla.';
 
 /* PR 4 · Lukitusavaimet (kokoelma _kirjautumisyritykset). Tunnistekohtaiset: PalloID-reitti 't_' + tunnus,
    linkkireitti 'tp_' + seuraId/pelaajaId. PELAAJAKOHTAINEN 'p_' + seuraId/pelaajaId on yhteinen molemmille
@@ -222,6 +224,14 @@ function luoKirjautuja(deps, malli) {
       await audit('pelaaja_kirjautuminen_estetty_suostumus', Object.assign({ severity: 'info' }, o.auditTiedot || {}));
       throw new HttpsError('failed-precondition', VIRHE_SUOSTUMUS, { syy: SUOSTUMUS_PUUTTUU });
     }
+    /* 8–9 v -esto (PM päätös 8): sama kohta kuin suostumus (oikean PIN:n jälkeen → ei paljasta arvaajalle). Ikä ≤ 9 → ei tokenia.
+       Syntymävuosi puuttuu → kirjautuminen sallitaan + audit-varoitus (näkyy SA:lle; laskutusraportissa ika_puuttuu). Solo-reitillä ei ikaData:a. */
+    const ikaTila = o.ikaData ? IKA.tmPelaajaAppTila(o.ikaData, IKA.tmHelsinkiVuosi(nyt)) : 'ok';
+    if (ikaTila === IKA.SYY_ALLE) {
+      await audit('pelaaja_kirjautuminen_estetty_ika', Object.assign({ severity: 'info', syy: IKA.SYY_ALLE }, o.auditTiedot || {}));
+      throw new HttpsError('failed-precondition', VIRHE_IKA, { syy: IKA.SYY_ALLE });
+    }
+    if (ikaTila === IKA.SYY_PUUTTUU) await audit('pelaaja_kirjautuminen_ika_puuttuu', Object.assign({ severity: 'warn', syy: IKA.SYY_PUUTTUU }, o.auditTiedot || {}));
     const token = await auth.createCustomToken(o.uid, o.claims);
     await kirjaaKirjautuminen(db, o, nyt);   // S1.1: vain onnistuneella kirjautumisella (suostumus + PIN ok), kerran päivässä
     await audit(malli.auditEtuliite, Object.assign({ severity: 'info' }, o.auditTiedot || {}));
@@ -288,6 +298,7 @@ function luoLinkkiKirjautuja(deps) {
         claims: pelaajaClaims(seuraId, pelaajaId),
         auditTiedot: { seuraId: seuraId, pelaajaId: pelaajaId, reitti: 'linkki' },
         suostumusOk: suostumusAnnettu(data),
+        ikaData: { syntymaVuosi: data.syntymaVuosi, syntymaaika: data.syntymaaika },
         viimeisinKirjautuminen: data.viimeisinKirjautuminen,
         palaute: { seuraId: seuraId, pelaajaId: pelaajaId, palloId: pelaajanPalloId(data) },
       }];
@@ -330,6 +341,7 @@ function luoPalloIdKirjautuja(deps) {
             claims: pelaajaClaims(seura.id, d.id),
             auditTiedot: { seuraId: seura.id, pelaajaId: d.id },
             suostumusOk: suostumusAnnettu(data),
+            ikaData: { syntymaVuosi: data.syntymaVuosi, syntymaaika: data.syntymaaika },
             viimeisinKirjautuminen: data.viimeisinKirjautuminen,
             palaute: { seuraId: seura.id, pelaajaId: d.id, palloId: pelaajanPalloId(data) },
           });

@@ -1052,12 +1052,15 @@ exports.lahetaPelaajaSivuLinkki = functions
         'Sähköposti ei vastaa pelaajan tallennettua huoltajasähköpostia. Tallenna huoltajan sähköposti ensin.');
     }
     await laskutusEsto.vaadiPelaajaSallittu(_estoDeps(), { funktio: 'lahetaPelaajaSivuLinkki', seuraId, pelaajaId, pelaaja: pelSnap.data() || {} });   // L1c
+    /* 8–9 v -esto (vaihe 0 §7.6): alle 10 → vain Vanhemman sivu (ei pelaajalinkkiä eikä PIN:iä); syntymävuosi puuttuu → fail-closed. */
+    const ikaTila = pelaajapin.ikaTilaNyt(pelSnap.data()), vainVanhempi = ikaTila === 'ika_alle_10';
+    if (ikaTila === 'ika_puuttuu') { await pelaajapin.kirjaaIkaEsto(db, admin.firestore.FieldValue, 'pelaajalinkki_estetty_ika', { syy: ikaTila, seuraId, pelaajaId }); throw pelaajapin.ikaVirhe(functions.https.HttpsError, pelSnap.data(), pelaajapin.vuosiNyt()); }
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
     const seuraNimi   = await haeSeuraNimi(seuraId);   // palvelimelta, ei selaimen `seura`-arvoa
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     const baseUrl = TM_BASE_URL;
     // PR 4: henkilökohtainen linkki ?p=&seura= (Pelaaja_v7 → pelkkä PIN-näppäimistö), ei nimiä URL:iin.
-    const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v7.html` +
+    const pelaajaLinkki = vainVanhempi ? null : `${baseUrl}/TalentMaster_Pelaaja_v7.html` +
       `?p=${encodeURIComponent(pelaajaId)}&seura=${encodeURIComponent(seuraId)}`;
     const pd = pelSnap.data() || {};
     // Suostumus ennen kirjautumista (1.10.2026): ilman suostumusta PIN ei toimi → ei sähköpostiin.
@@ -1083,18 +1086,19 @@ exports.lahetaPelaajaSivuLinkki = functions
         fromName: seuraNimi,
         html: pohjaPelaajaSivu({
           seuraNimi, pelaajaNimi, joukkueNimi,
-          salasanaLinkki, salasanaKutsu, vanhempiLinkki, pelaajaLinkki, hEmail, palloId: palloIdNyt, pin: pinNyt,
+          salasanaLinkki, salasanaKutsu, vanhempiLinkki, pelaajaLinkki, hEmail, palloId: palloIdNyt, pin: vainVanhempi ? null : pinNyt,
         }),
       });
       await db.collection('seurat').doc(seuraId)
         .collection('pelaajat').doc(pelaajaId)
-        .update({
+        .update(vainVanhempi ? { salasanaLinkLahetetty: salasanaLinkki ? admin.firestore.FieldValue.serverTimestamp() : null } : {
           pelaajaLinkki,
           pelaajaLinkLahetetty: admin.firestore.FieldValue.serverTimestamp(),
           salasanaLinkLahetetty: salasanaLinkki
             ? admin.firestore.FieldValue.serverTimestamp() : null,
         }).catch(() => {});
-      return { ok: true, linkki: pelaajaLinkki, salasanaLinkkiLahetetty: !!salasanaLinkki };
+      if (vainVanhempi) await pelaajapin.kirjaaIkaEsto(db, admin.firestore.FieldValue, 'pelaajalinkki_estetty_ika', { syy: ikaTila, seuraId, pelaajaId, vanhempiLahetetty: true });
+      return { ok: true, linkki: pelaajaLinkki, salasanaLinkkiLahetetty: !!salasanaLinkki, vainVanhempi, syy: vainVanhempi ? ikaTila : null };
     } catch (e) {
       console.error('lahetaPelaajaSivuLinkki virhe:', e.message);
       throw new functions.https.HttpsError('internal', `Lähetys epäonnistui: ${e.message}`);
@@ -1300,8 +1304,11 @@ exports.vahvistaSuostumus = functions
     // PalloID tai linkki mukana).
     /* L1c: sopimusseuran passiivinen joukkue → suostumus on jo tallennettu, mutta uutta PIN:iä ei luoda (olemassa oleva säilyy).
        Huoltajan viesti ja Vanhempi-linkki lähtevät normaalisti; pelaajalinkkiä tämä funktio ei lähetä. Tarkistuksen virhe → ei PIN:iä (varovainen). */
-    let laskutusEstetty = false;
-    if (!pin) {
+    /* 8–9 v -esto (PM päätös 8): alle 10 tai vuosi puuttuu (lomake täyttää yleensä) → ei uutta PIN:iä eikä PIN:iä viestiin; Vanhempi-linkki lähtee. */
+    const ikaTila = pelaajapin.ikaTilaNyt(Object.assign({}, snap.data(), paivitys)), ikaEstetty = ikaTila !== 'ok';
+    if (ikaEstetty) { pin = null; await pelaajapin.kirjaaIkaEsto(db, admin.firestore.FieldValue, 'suostumus_pin_estetty_ika', { syy: ikaTila, seuraId, pelaajaId }); }
+    let laskutusEstetty = ikaEstetty;   // sama "ei uutta PIN:iä" -haara; laskutusta ei tarkisteta turhaan
+    if (!pin && !ikaEstetty) {
       try { laskutusEstetty = await laskutusEsto.luoEsto(db).pelaajaEstetty(seuraId, snap.data() || {}); }
       catch (e) { laskutusEstetty = true; console.warn('[vahvistaSuostumus] laskutusesto-tarkistus epäonnistui → ei PIN:iä:', e.message); }
       if (laskutusEstetty) await laskutusEsto.kirjaaEsto(db, admin.firestore.FieldValue, { funktio: 'vahvistaSuostumus', seuraId, pelaajaId, ohitettu: ['pin'] });
