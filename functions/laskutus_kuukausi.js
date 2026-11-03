@@ -9,6 +9,8 @@
  *   Ajo muuna päivänä kuin seuraavan kuun 1. päivänä → myohassa: true (tila on ajohetken, ei kuun viimeisen päivän).
  * · Seurat: sopimusseura (asetukset laskutettava) tai seura, jolla on vähintään yksi aktiivinen joukkue.
  * · create(), ei ylikirjoitusta: uusi ajo samalle kuulle → ohitetaan hallitusti + audit. Yhden seuran virhe ei kaada muita (loki + audit).
+ * · SA-varapolku (vaihe 0 §9): callable laskutusKuukausiVarapolku({ kk }) — vain SA, vain päättynyt kuukausi; sama laskenta, myohassa: true,
+ *   tapa 'varapolku' + ajaja_uid. Käytetään, jos ajastettu ajo epäonnistui; olemassa olevaa snapshotia ei korvata (create-esto).
  * Rules v3.72: laskutus/{kk}/seurat/{sid} — client ei kirjoita, luku vain SA. Tämä kirjoittaa Admin SDK:lla.
  */
 const L = require('./tm_laskutus');
@@ -38,7 +40,8 @@ async function _audit(deps, rivi) {
  * Yhden seuran snapshot. → { sid, tila: 'luotu'|'on_jo'|'ei_laskutettava', yhteensa_snt? }. Heittää lukuvirheestä / virheellisistä asetuksista.
  * oletusAsetukset = laskutus_asetukset/oletus -dokumentin data tai null (luetaan kerran ajoa kohden).
  */
-async function laskeSeura(deps, sid, kk, oletusAsetukset, nytMs) {
+async function laskeSeura(deps, sid, kk, oletusAsetukset, nytMs, ajo) {
+  const a = ajo || { tapa: 'ajastettu' };
   const S = deps.db.collection('seurat').doc(sid);
   const [asSnap, jSnap] = await Promise.all([deps.db.collection('laskutus_asetukset').doc(sid).get(), S.collection('joukkueet').get()]);
   const as = L.tmLaskutusAsetukset(oletusAsetukset, asSnap.exists ? asSnap.data() : null);
@@ -54,41 +57,43 @@ async function laskeSeura(deps, sid, kk, oletusAsetukset, nytMs) {
     laskentahetki: kuunViimeinenPaiva(kk),          // laskun peruste: kuukauden viimeisen päivän tilanne
     tila_hetkelta: 'ajohetki',                       // luvut = ajohetken data (ei historiallista palautusta)
     ajettu_pvm: ajettuPvm, ajettu: deps.FieldValue.serverTimestamp(),
-    myohassa: ajettuPvm !== ajopaiva(kk),
-    lahde: LAHDE, versio: VERSIO,
-  });
+    myohassa: a.tapa === 'varapolku' || ajettuPvm !== ajopaiva(kk),
+    tapa: a.tapa, lahde: LAHDE, versio: VERSIO,
+  }, a.uid ? { ajaja_uid: a.uid } : {});
   try { await deps.db.collection('laskutus').doc(kk).collection('seurat').doc(sid).create(doc); }
   catch (e) {
     if (!_onJoOlemassa(e)) throw e;
-    await _audit(deps, { toiminto: 'laskutus_snapshot_on_jo', severity: 'warn', kk, seuraId: sid });
+    await _audit(deps, Object.assign({ toiminto: 'laskutus_snapshot_on_jo', severity: 'warn', kk, seuraId: sid, tapa: a.tapa }, a.uid ? { uid: a.uid } : {}));
     return { sid, tila: 'on_jo' };
   }
   return { sid, tila: 'luotu', yhteensa_snt: doc.yhteensa_snt, myohassa: doc.myohassa };
 }
 
-/** Kaikki seurat yhdelle kuukaudelle. opts: { kk (oletus edellinen kuukausi), nytMs }. → { kk, luotu:[], on_jo:[], ohitettu:[], virheet:[] } */
+/** Kaikki seurat yhdelle kuukaudelle. opts: { kk (oletus edellinen kuukausi), nytMs, tapa: 'ajastettu'|'varapolku', uid }. → { kk, luotu:[], on_jo:[], ohitettu:[], virheet:[] } */
 async function laskeKaikki(deps, opts) {
   const o = opts || {}, loki = deps.loki || console;
   const nytMs = o.nytMs != null ? o.nytMs : (deps.nyt ? deps.nyt() : Date.now());
   const kk = o.kk || edellinenKk(nytMs);
   if (L.tmLaskutusKkIndeksi(kk) === null) throw new Error("laskutusKuukausi: kk ei ole muotoa 'YYYY-MM': " + kk);
+  const ajo = { tapa: o.tapa || 'ajastettu', uid: o.uid || null };
   const r = { kk, luotu: [], on_jo: [], ohitettu: [], virheet: [] };
   const [seurat, oletus] = await Promise.all([deps.db.collection('seurat').get(), deps.db.collection('laskutus_asetukset').doc('oletus').get()]);
   const oletusData = oletus.exists ? oletus.data() : null;
   for (const s of seurat.docs) {
     try {
-      const t = await laskeSeura(deps, s.id, kk, oletusData, nytMs);
+      const t = await laskeSeura(deps, s.id, kk, oletusData, nytMs, ajo);
       if (t.tila === 'luotu') r.luotu.push(t); else if (t.tila === 'on_jo') r.on_jo.push(s.id); else r.ohitettu.push(s.id);
     } catch (e) {
       r.virheet.push({ sid: s.id, viesti: String(e && e.message || e) });
       loki.error('[laskutusKuukausi] ' + kk + ' seura ' + s.id + ': ' + (e && e.stack || e));
-      await _audit(deps, { toiminto: 'laskutus_snapshot_virhe', severity: 'alert', kk, seuraId: s.id, viesti: String(e && e.message || e).slice(0, 300) });
+      await _audit(deps, Object.assign({ toiminto: 'laskutus_snapshot_virhe', severity: 'alert', kk, seuraId: s.id, tapa: ajo.tapa, viesti: String(e && e.message || e).slice(0, 300) }, ajo.uid ? { uid: ajo.uid } : {}));
     }
   }
   const yht = r.luotu.reduce((x, t) => x + (t.yhteensa_snt || 0), 0);
-  loki.log('[laskutusKuukausi] ' + kk + ': ' + r.luotu.length + ' luotu, ' + r.on_jo.length + ' oli jo, ' + r.ohitettu.length + ' ei laskutettava, ' + r.virheet.length + ' virhettä, yhteensä ' + yht + ' snt');
-  await _audit(deps, { toiminto: 'laskutus_kuukausi_ajo', severity: r.virheet.length ? 'alert' : 'info', kk, luotu: r.luotu.length, on_jo: r.on_jo.length, virheita: r.virheet.length,
-    yhteensa_snt: yht, myohassa: r.luotu.some((t) => t.myohassa) });
+  loki.log('[laskutusKuukausi] ' + ajo.tapa + ' ' + kk + ': ' + r.luotu.length + ' luotu, ' + r.on_jo.length + ' oli jo, ' + r.ohitettu.length + ' ei laskutettava, ' + r.virheet.length + ' virhettä, yhteensä ' + yht + ' snt');
+  await _audit(deps, Object.assign({ toiminto: 'laskutus_kuukausi_ajo', severity: r.virheet.length ? 'alert' : 'info', kk, tapa: ajo.tapa, luotu: r.luotu.length, on_jo: r.on_jo.length, virheita: r.virheet.length,
+    yhteensa_snt: yht, myohassa: r.luotu.some((t) => t.myohassa) }, ajo.uid ? { uid: ajo.uid } : {}));
+  r.yhteensa_snt = yht;
   return r;
 }
 
@@ -97,4 +102,25 @@ function ajastettuKasittelija(deps) {
   return async () => { await laskeKaikki(deps, {}); return null; };
 }
 
-module.exports = { edellinenKk, kuunViimeinenPaiva, ajopaiva, laskeSeura, laskeKaikki, ajastettuKasittelija, LAHDE };
+/**
+ * SA-varapolku: callable laskutusKuukausiVarapolku({ kk? }) → { kk, luotu, on_jo, ohitettu, virheet, yhteensa_snt }. Vain SA (admins/{uid}), App Check index.js:ssä.
+ * kk oletus = edellinen kuukausi; vain päättynyt kuukausi (ei kuluvaa eikä tulevaa). Palauttaa vain lukumääriä + seura-id:t (ei pelaajadataa).
+ */
+function varapolkuKasittelija(deps) {
+  const E = deps.HttpsError;
+  return async (data, context) => {
+    if (!context || !context.auth) throw new E('unauthenticated', 'Kirjaudu ensin.');
+    if (!(await deps.onSuperAdminUid(context.auth.uid))) throw new E('permission-denied', 'Vain Super Admin.');
+    const nytMs = deps.nyt ? deps.nyt() : Date.now();
+    const kk = (data && data.kk) || edellinenKk(nytMs);
+    const ki = L.tmLaskutusKkIndeksi(kk);
+    if (ki === null) throw new E('invalid-argument', "kk: muoto 'YYYY-MM'.");
+    if (ki >= L.tmLaskutusKkIndeksi(L.tmLaskutusKk(new Date(nytMs)))) throw new E('failed-precondition', 'Kuukausi ' + kk + ' ei ole vielä päättynyt (Suomen aikaa).');
+    let r;
+    try { r = await laskeKaikki(deps, { kk, nytMs, tapa: 'varapolku', uid: context.auth.uid }); }
+    catch (e) { (deps.loki || console).error('[laskutusKuukausiVarapolku] ' + kk + ': ' + (e && e.stack || e)); throw new E('internal', 'Laskutusajo epäonnistui.'); }
+    return { kk, luotu: r.luotu.length, on_jo: r.on_jo, ohitettu: r.ohitettu.length, virheet: r.virheet, yhteensa_snt: r.yhteensa_snt };
+  };
+}
+
+module.exports = { varapolkuKasittelija, edellinenKk, kuunViimeinenPaiva, ajopaiva, laskeSeura, laskeKaikki, ajastettuKasittelija, LAHDE };

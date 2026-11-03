@@ -1,5 +1,5 @@
 /* Laskutus L1a — Admin "Laskutus" -näkymä (lib/tm_laskutus_admin.js) + Admin-kytkentä. Ajotesti mock-db:llä ja DOM-tyngällä. */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createRequire } from 'module';
 import { readFileSync } from 'fs';
 import vm from 'vm';
@@ -71,13 +71,46 @@ describe('näkymä (ajo)', () => {
   });
 });
 
+describe('SA-varapolku (L1b)', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  const kello = (iso) => vi.useFakeTimers({ toFake: ['Date'] }).setSystemTime(new Date(iso));
+  it('kuluva kuukausi (Suomen aikaa) → ei kutsua: 30.11. klo 23.30 marraskuu on kesken', async () => {
+    kello('2026-11-30T21:30:00Z'); let kutsuttu = 0, vahvistettu = 0; const toastit = [];
+    const e = env(mockDb(DATA()), { vahvista: () => { vahvistettu++; return true; }, toast: (t, ty) => toastit.push([t, ty]), kutsu: () => async () => { kutsuttu++; } });
+    const v = A.tmLaskutusAdmin(e); v.render();
+    expect(await v.varapolku()).toBe(null); expect(kutsuttu).toBe(0); expect(vahvistettu).toBe(0); expect(toastit[0]).toEqual(['Kuukausi 2026-11 ei ole vielä päättynyt', 'virhe']);
+  });
+  it('kutsuu laskutusKuukausiVarapolku valitulla kuukaudella vahvistuksen jälkeen, näyttää tuloksen ja lataa tallennetut', async () => {
+    kello('2026-11-30T23:30:00Z');   // 1.12. klo 1.30 Suomen aikaa
+    const kutsut = [], toastit = []; let token = 0;
+    const e = env(mockDb(DATA()), { tuoreToken: async () => { token++; }, toast: (t, ty) => toastit.push([t, ty]),
+      kutsu: (n) => async (d) => { kutsut.push([n, d]); return { data: { kk: d.kk, luotu: 2, on_jo: ['kpv'], ohitettu: 3, virheet: [], yhteensa_snt: 13400 } }; } });
+    const v = A.tmLaskutusAdmin(e); v.render();
+    expect(e.alue().innerHTML).toContain('laskutusVarapolku()');
+    const r = await v.varapolku();
+    expect(kutsut).toEqual([['laskutusKuukausiVarapolku', { kk: '2026-11' }]]); expect(token).toBe(1); expect(r.luotu).toBe(2);
+    expect(toastit[0][0]).toContain('luotu 2'); expect(toastit[0][0]).toContain('oli jo 1'); expect(toastit[0][0]).toContain('134,00 €'); expect(toastit[0][1]).toBe('ok');
+  });
+  it('peruutus ei kutsu; virhe näytetään toastina; seuran virheet listataan', async () => {
+    kello('2026-12-03T08:00:00Z');
+    let kutsuttu = 0; const toastit = [];
+    let e = env(mockDb(DATA()), { vahvista: () => false, kutsu: () => async () => { kutsuttu++; } }); let v = A.tmLaskutusAdmin(e); v.render();
+    expect(await v.varapolku()).toBe(null); expect(kutsuttu).toBe(0);
+    e = env(mockDb(DATA()), { toast: (t, ty) => toastit.push([t, ty]), kutsu: () => async () => { throw new Error('Vain Super Admin.'); } }); v = A.tmLaskutusAdmin(e); v.render();
+    expect(await v.varapolku()).toBe(null); expect(toastit.pop()).toEqual(['Varapolku epäonnistui: Vain Super Admin.', 'virhe']);
+    e = env(mockDb(DATA()), { toast: (t, ty) => toastit.push([t, ty]), kutsu: () => async () => ({ data: { luotu: 1, on_jo: [], virheet: [{ sid: 'rikki', viesti: 'x' }], yhteensa_snt: 0 } }) }); v = A.tmLaskutusAdmin(e); v.render();
+    await v.varapolku(); expect(toastit.pop()).toEqual([expect.stringContaining('virheitä 1 (rikki)'), 'virhe']);
+  });
+});
+
 describe('Admin-kytkentä', () => {
   const H = readFileSync('TalentMaster_Admin.html', 'utf8');
   it('skriptit, valikko, case ja globaalit', () => {
     expect(H).toContain('<script src="lib/tm_laskutus.js"></script><script src="lib/tm_laskutus_admin.js"></script>');
     expect(H).toContain("vaihdaNakyma('laskutus',this)"); expect(H).toContain("case 'laskutus':   _lask().render();");
-    for (const f of ['laskutusTilanneNyt', 'laskutusTallennetut', 'laskutusVaihdaTila', 'laskutusCsv']) expect(H).toContain('window.' + f + ' =');
+    for (const f of ['laskutusTilanneNyt', 'laskutusTallennetut', 'laskutusVaihdaTila', 'laskutusCsv', 'laskutusVarapolku']) expect(H).toContain('window.' + f + ' =');
     expect(H.indexOf('lib/tm_joukkue.js')).toBeLessThan(H.indexOf('lib/tm_laskutus.js'));
+    expect(H).toContain('kutsu: (n) => functions.httpsCallable(n)'); expect(H).toMatch(/const functions = firebase\.app\(\)\.functions\('europe-west1'\)/);
   });
   it('selaimessa (vm): libit latautuvat window-globaaleiksi ilman module-objektia', () => {
     const w = {}; const ctx = vm.createContext({ window: w, Intl, Date, Object, Array, String, Number, Math, JSON, Promise, Error });

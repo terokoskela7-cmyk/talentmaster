@@ -2557,7 +2557,7 @@ exports.paivitaSeuranKooste = functions
 /* ═══ Laskutus L1b (.briefit/CODE_BRIEF_LASKUTUS_L1.md §3; kaista Tero) ═══
    laskutusKuukausi: kuun 1. päivä klo 6.00 Europe/Helsinki → EDELLISEN kuukauden snapshot laskutus/{YYYY-MM}/seurat/{sid} (create(), ei ylikirjoitusta).
    Laskenta = jaettu tm_laskutus.js (sama kuin Adminin "Tilanne nyt"). Yhden seuran virhe ei kaada muita (loki + audit). Myöhässä ajo → myohassa: true.
-   Rules v3.72: client ei kirjoita laskutus/-kokoelmaan, luku vain SA. Myöhästynyt ajo: Cloud Scheduler → "Force run" (laskee edellisen kuun ajohetken tilasta). */
+   Rules v3.72: client ei kirjoita laskutus/-kokoelmaan, luku vain SA. Myöhästynyt ajo: SA-varapolku alla (Admin "Laskutus") tai Cloud Scheduler "Force run". */
 const laskutusKuukausi = require('./laskutus_kuukausi');
 exports.laskutusKuukausi = functions
   .region('europe-west1')
@@ -2565,3 +2565,8 @@ exports.laskutusKuukausi = functions
   .pubsub.schedule('0 6 1 * *')
   .timeZone('Europe/Helsinki')
   .onRun(laskutusKuukausi.ajastettuKasittelija({ db, FieldValue: admin.firestore.FieldValue }));
+/* SA-varapolku (vaihe 0 §9): Admin "Laskutus" → "Luo snapshot". Vain SA, vain päättynyt kuukausi, myohassa: true, ei korvaa olemassa olevaa. */
+exports.laskutusKuukausiVarapolku = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true, timeoutSeconds: 540, memory: '512MB' })
+  .https.onCall(laskutusKuukausi.varapolkuKasittelija({ db, FieldValue: admin.firestore.FieldValue, HttpsError: functions.https.HttpsError, onSuperAdminUid }));

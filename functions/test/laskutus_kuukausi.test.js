@@ -202,3 +202,59 @@ test('moduuli ei käytä set()/update()-kirjoitusta snapshotille eikä UTC-päiv
   assert.doesNotMatch(src, /\.set\(|\.update\(/);
   assert.doesNotMatch(src, /toISOString/);
 });
+
+/* ── SA-varapolku: callable laskutusKuukausiVarapolku ── */
+class HttpsError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
+const vpDeps = (db, nytMs, saUidit) => Object.assign(deps(db, nytMs), { HttpsError, onSuperAdminUid: async (uid) => (saUidit || ['sa']).indexOf(uid) >= 0 });
+const ctx = (uid) => ({ auth: { uid, token: {} } });
+
+test('varapolku: kirjautumaton → unauthenticated; ei-SA (VP, valmentaja) → permission-denied; ei kirjoituksia', async () => {
+  const db = luoDb(sopimusSeura('sibbo')); const f = K.varapolkuKasittelija(vpDeps(db, HKI_3_12_1000));
+  await assert.rejects(f({}, {}), { code: 'unauthenticated' });
+  await assert.rejects(f({}, ctx('vp-uid')), { code: 'permission-denied' });
+  await assert.rejects(f({ kk: '2026-11' }, ctx('valmentaja-uid')), { code: 'permission-denied' });
+  assert.strictEqual(db.STORE.has('laskutus/2026-11/seurat/sibbo'), false);
+});
+
+test('varapolku: vain päättynyt kuukausi Suomen ajassa — 30.11. klo 23.30 marraskuu hylätään, 1.12. klo 1.30 hyväksytään', async () => {
+  let db = luoDb(sopimusSeura('sibbo'));
+  await assert.rejects(K.varapolkuKasittelija(vpDeps(db, HKI_30_11_2330))({ kk: '2026-11' }, ctx('sa')), { code: 'failed-precondition' });
+  await assert.rejects(K.varapolkuKasittelija(vpDeps(db, HKI_30_11_2330))({ kk: '2027-01' }, ctx('sa')), { code: 'failed-precondition' });
+  await assert.rejects(K.varapolkuKasittelija(vpDeps(db, HKI_30_11_2330))({ kk: '2026-13' }, ctx('sa')), { code: 'invalid-argument' });
+  assert.strictEqual(db.STORE.has('laskutus/2026-11/seurat/sibbo'), false);
+  db = luoDb(sopimusSeura('sibbo'));
+  const r = await K.varapolkuKasittelija(vpDeps(db, HKI_1_12_0130))({ kk: '2026-11' }, ctx('sa'));
+  assert.strictEqual(r.kk, '2026-11'); assert.strictEqual(r.luotu, 1); assert.strictEqual(r.yhteensa_snt, 12500);
+});
+
+test('varapolku: oletus = edellinen kuukausi, myohassa: true myös 1. päivänä, tapa + ajaja_uid, audit uid:llä', async () => {
+  const db = luoDb(sopimusSeura('sibbo'));
+  const r = await K.varapolkuKasittelija(vpDeps(db, HKI_1_12_0600))({}, ctx('sa'));
+  assert.deepStrictEqual(r, { kk: '2026-11', luotu: 1, on_jo: [], ohitettu: 0, virheet: [], yhteensa_snt: 12500 });
+  const s = snap(db, '2026-11', 'sibbo');
+  assert.strictEqual(s.myohassa, true); assert.strictEqual(s.tapa, 'varapolku'); assert.strictEqual(s.ajaja_uid, 'sa');
+  const a = db.audit.find((x) => x.toiminto === 'laskutus_kuukausi_ajo');
+  assert.ok(a.tapa === 'varapolku' && a.uid === 'sa' && a.myohassa === true);
+});
+
+test('varapolku ajastetun ajon jälkeen: ei korvaa (on_jo), ajastettu snapshot säilyy myohassa: false', async () => {
+  const db = luoDb(sopimusSeura('sibbo'));
+  await K.ajastettuKasittelija(deps(db, HKI_1_12_0600))();
+  const r = await K.varapolkuKasittelija(vpDeps(db, HKI_3_12_1000))({ kk: '2026-11' }, ctx('sa'));
+  assert.deepStrictEqual(r.on_jo, ['sibbo']); assert.strictEqual(r.luotu, 0);
+  const s = snap(db, '2026-11', 'sibbo'); assert.strictEqual(s.tapa, 'ajastettu'); assert.strictEqual(s.myohassa, false);
+  assert.ok(db.audit.find((x) => x.toiminto === 'laskutus_snapshot_on_jo' && x.uid === 'sa' && x.tapa === 'varapolku'));
+});
+
+test('varapolku: odottamaton virhe → internal (ei sisäistä viestiä selaimelle)', async () => {
+  const db = luoDb(sopimusSeura('sibbo')); db.collection = (n) => { if (n === 'seurat') return { get: async () => { throw new Error('salainen polku'); } }; return luoDb({}).collection(n); };
+  await assert.rejects(K.varapolkuKasittelija(vpDeps(db, HKI_3_12_1000))({}, ctx('sa')), (e) => e.code === 'internal' && !/salainen/.test(e.message));
+});
+
+test('index.js: laskutusKuukausiVarapolku = callable, europe-west1, App Check, onSuperAdminUid', () => {
+  const CF = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+  const i = CF.indexOf('exports.laskutusKuukausiVarapolku = functions'); assert.ok(i > 0, 'export puuttuu');
+  const lohko = CF.slice(i, CF.indexOf(';', i));
+  assert.match(lohko, /\.region\('europe-west1'\)/); assert.match(lohko, /enforceAppCheck: true/);
+  assert.match(lohko, /\.https\.onCall\(laskutusKuukausi\.varapolkuKasittelija\(/); assert.match(lohko, /onSuperAdminUid/);
+});
