@@ -3899,7 +3899,7 @@ async function lahetaRekisteriSahkoposti() {
     } catch(fnErr) {
       console.warn('[Kutsu] Sähköposti epäonnistui:', fnErr.message);
       await kutsuRef.update({ tila: 'epaonnistui', virhe: String(fnErr.message || fnErr).slice(0, 300) }).catch(() => {});
-      naytaToast((tmHT('⚠️ Tallennettu mutta sähköposti ei lähtenyt:') + ' ') + fnErr.message, 'virhe');
+      naytaToast(_laskutusEsto(fnErr) || ((tmHT('⚠️ Tallennettu mutta sähköposti ei lähtenyt:') + ' ') + fnErr.message), 'virhe');
       nappi.textContent = tmHT('Tallennettu ✓');
       naytaToast(`Kutsu tallennettu: ${tila._rekHEmail}`, 'ok');
     }
@@ -4632,7 +4632,7 @@ async function lahetaPelaajaLinkki(pelaajaId, seuraId, etunimi, sukunimi, hEmail
     }
   } catch(e) {
     console.error('[lahetaPelaajaLinkki]', e.message);
-    naytaToast(`❌ Lähetys epäonnistui: ${e.message}`, 'virhe');
+    naytaToast(_laskutusEsto(e) || `❌ Lähetys epäonnistui: ${e.message}`, 'virhe');
   }
 }
 
@@ -5834,7 +5834,7 @@ async function lahetaMassakutsu() {
       });
 
       // Lähetetään sähköposti Cloud Functionin kautta
-      var mailOk = false;
+      var mailOk = false, estoRivi = '';
       try {
         await lahetaFn({
           hEmail:   p.huoltajaEmail,
@@ -5856,14 +5856,14 @@ async function lahetaMassakutsu() {
         if (_joAnnettu) ohitettuSuostumus++;
       } catch(mailErr) {
         console.warn('[Massakutsu] Sähköposti epäonnistui rivillä', i + 1, ':', mailErr.message);
-        sahkopostiVirhe++;
+        sahkopostiVirhe++; estoRivi = _laskutusEsto(mailErr);
       }
 
       // Päivitetään taulukon rivi (Status = 5. sarake, indeksi 4)
       if (tbody && tbody.rows[i]) {
         tbody.rows[i].cells[4].innerHTML = mailOk
           ? '<span style="color:var(--teal);">' + tmHT('✅ Lähetetty') + '</span>'
-          : '<span style="color:#E0A040;">' + tmHT('⚠️ Linkki luotu, sähköposti ei lähtenyt') + '</span>';
+          : '<span style="color:#E0A040;">' + (estoRivi || tmHT('⚠️ Linkki luotu, sähköposti ei lähtenyt')) + '</span>';
       }
       onnistui++;
 
@@ -6094,8 +6094,9 @@ function _suostumusPvm(p) {
   return null;
 }
 const PIN_SUOSTUMUS_PUUTTUU = 'Huoltajan suostumus puuttuu – PIN luodaan suostumuksen jälkeen.';
+/* Laskutus L1c: palvelimen esto (sopimusseuran passiivinen joukkue, details.syy 'joukkue_passiivinen') → sama teksti kuin harmaassa tilassa, ei raakaa virhettä. true → pelkkä teksti. */ function _laskutusEsto(e) { return (e === true || (e && e.details && e.details.syy === 'joukkue_passiivinen')) ? tmHT('Ei käytössä – sovi käyttöönotosta TalentMasterin kanssa') : ''; }
 function _pinVirheTeksti(e) {
-  const koodi = String((e && e.code) || '').replace(/^functions\//, '');
+  const koodi = String((e && e.code) || '').replace(/^functions\//, ''); if (_laskutusEsto(e)) return _laskutusEsto(e);
   if (koodi === 'failed-precondition' && e && e.details && e.details.syy === 'suostumus_puuttuu') return PIN_SUOSTUMUS_PUUTTUU;
   if (koodi === 'permission-denied') return 'ei oikeutta tälle pelaajalle';
   if (koodi === 'invalid-argument') return (e && e.message) || 'virheellinen PIN';
@@ -6143,14 +6144,14 @@ async function luoPuuttuvatPinit() {
       if (!ilman.length) { naytaToast(eiSuostumusta ? (tmHT('PIN luodaan vasta suostumuksen jälkeen:') + ' ') + eiSuostumusta + ' valitulta puuttuu huoltajan suostumus.' : tmHT('Kaikilla valituilla on jo PIN.'), 'info'); return; }
       if (!confirm((tmHT('Luodaanko PIN-koodi') + ' ') + ilman.length + ' valitulle pelaajalle, joilta se puuttuu?'
         + (eiSuostumusta ? '\n' + eiSuostumusta + ' ohitetaan: huoltajan suostumus puuttuu.' : ''))) return;
-      let ok = 0, virhe = 0;
+      let ok = 0, virhe = 0, esto = 0;
       for (const p of ilman) {
         _tunnusTila('PIN ' + (ok + virhe + 1) + '/' + ilman.length + '…');
         try { const r = await _pinFn('asetaPelaajanPin')({ seuraId: tila.seuraId, pelaajaId: p.id }); _paivitaPinPaikallisesti(p.id, r.data.pin); ok++; }
-        catch (e) { virhe++; console.warn('[PIN]', p.id, e && e.message); }
+        catch (e) { virhe++; if (_laskutusEsto(e)) esto++; console.warn('[PIN]', p.id, e && e.message); }
       }
       _tunnusTila('');
-      naytaToast('✅ PIN luotu ' + ok + ' pelaajalle' + (virhe ? ' · ' + virhe + ' epäonnistui (ei oikeutta tai virhe)' : '')
+      naytaToast('✅ PIN luotu ' + ok + ' pelaajalle' + (virhe - esto ? ' · ' + (virhe - esto) + ' epäonnistui (ei oikeutta tai virhe)' : '') + (esto ? ' · ' + esto + ': ' + _laskutusEsto(true) : '')
         + (eiSuostumusta ? ' · ' + eiSuostumusta + ' ohitettu (ei suostumusta)' : ''), virhe ? 'varoitus' : 'ok');
     } else {
       const arg = Object.assign({ seuraId: tila.seuraId, vainPuuttuvat: true }, k.joukkue ? { joukkue: k.joukkue } : {});
@@ -6160,15 +6161,16 @@ async function luoPuuttuvatPinit() {
       const n = esi.data.luotaisiin || 0;
       const eiSuost = esi.data.ohitettuSuostumus || 0;
       const suostTeksti = eiSuost ? eiSuost + ' pelaajalta puuttuu huoltajan suostumus – PIN luodaan suostumuksen jälkeen.' : '';
-      if (!n) { naytaToast(eiSuost ? 'Ei luotavia PIN-koodeja (' + k.kuvaus + '). ' + suostTeksti : 'Kaikilla pelaajilla (' + k.kuvaus + ') on jo PIN.', 'info'); return; }
+      const estoTeksti = esi.data.ohitettuPassiivinen ? esi.data.ohitettuPassiivinen + ': ' + _laskutusEsto(true) : '';   // L1c: sopimusseuran passiiviset joukkueet
+      if (!n) { naytaToast((eiSuost || estoTeksti) ? 'Ei luotavia PIN-koodeja (' + k.kuvaus + '). ' + [suostTeksti, estoTeksti].filter(Boolean).join(' ') : 'Kaikilla pelaajilla (' + k.kuvaus + ') on jo PIN.', 'info'); return; }
       if (!confirm((tmHT('Luodaanko uusi 6-numeroinen PIN') + ' ') + n + ' pelaajalle (' + k.kuvaus + ')?\nPelaajat, joilla on jo PIN, eivät muutu.'
-        + (eiSuost ? '\n' + suostTeksti : ''))) return;
+        + (eiSuost ? '\n' + suostTeksti : '') + (estoTeksti ? '\n' + estoTeksti : ''))) return;
       _tunnusTila(tmHT('Luodaan PIN-koodeja…'));
       const r = await _pinFn('luoPinitSeuralle')(arg);
       _tunnusTila('');
       naytaToast('✅ PIN luotu ' + r.data.luotu + ' pelaajalle (' + k.kuvaus + ')'
         + (r.data.ohitettuSuostumus ? ' · ' + r.data.ohitettuSuostumus + ' ohitettu (ei suostumusta)' : '')
-        + (r.data.oliJo ? ' · ' + r.data.oliJo + ' oli jo' : ''), 'ok');
+        + (r.data.oliJo ? ' · ' + r.data.oliJo + ' oli jo' : '') + (r.data.ohitettuPassiivinen ? ' · ' + r.data.ohitettuPassiivinen + ': ' + _laskutusEsto(true) : ''), 'ok');
     }
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
   } catch (e) {
@@ -6330,17 +6332,17 @@ async function lahetaTunnuksetHuoltajille() {
     + (eiPinia ? '\n' + eiPinia + ' ohitetaan: ei PIN:iä (luo ensin PIN-koodit).' : '')
     + (eiSuostumusta ? '\n' + eiSuostumusta + ' ohitetaan: huoltajan suostumus puuttuu – lähetä heille suostumuskutsu.' : ''))) return;
   const fn = firebase.app().functions('europe-west1').httpsCallable('lahetaPelaajaSivuLinkki');
-  let ok = 0, virhe = 0;
+  let ok = 0, virhe = 0, esto = 0;
   for (const p of kohteet) {
     _tunnusTila((tmHT('Lähetetään') + ' ') + (ok + virhe + 1) + '/' + kohteet.length + '…');
     try {
       await fn({ hEmail: p.huoltajaEmail, pelaajaId: p.id, seuraId: tila.seuraId, etunimi: p.etunimi || '', sukunimi: p.sukunimi || '',
         seura: tila.seuraNimi || tila.seuraId, joukkue: p.joukkue || '' });
       ok++;
-    } catch (e) { virhe++; console.warn('[tunnukset]', p.id, e && e.message); }
+    } catch (e) { virhe++; if (_laskutusEsto(e)) esto++; console.warn('[tunnukset]', p.id, e && e.message); }
   }
   _tunnusTila('');
-  naytaToast((tmHT('✅ Tunnukset lähetetty') + ' ') + ok + ' huoltajalle' + (virhe ? ' · ' + virhe + ' epäonnistui' : '')
+  naytaToast((tmHT('✅ Tunnukset lähetetty') + ' ') + ok + ' huoltajalle' + (virhe - esto ? ' · ' + (virhe - esto) + ' epäonnistui' : '') + (esto ? ' · ' + esto + ': ' + _laskutusEsto(true) : '')
     + (eiEmailia ? ' · ' + eiEmailia + ' ilman sähköpostia' : '') + (eiPinia ? ' · ' + eiPinia + ' ilman PIN:iä' : '')
     + (eiSuostumusta ? ' · ' + suostOhje : ''), virhe ? 'varoitus' : 'ok');
 }
@@ -6844,7 +6846,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
     } catch (mailErr) {
       console.warn('[Excel] Sähköposti epäonnistui rivillä', rivinro, ':', mailErr.message);
       await kutsuRef.update({ tila: 'epaonnistui', virhe: String(mailErr.message || mailErr).slice(0, 300) }).catch(() => {});
-      if (virhe) virhe.textContent = `Sähköposti epäonnistui (rivi ${rivinro}): ${mailErr.message}`;
+      if (virhe) virhe.textContent = `Sähköposti epäonnistui (rivi ${rivinro}): ${_laskutusEsto(mailErr) || mailErr.message}`;
       return false;
     }
   }
