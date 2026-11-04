@@ -22,7 +22,7 @@ function sivu(rooli) {
   vm.runInContext([
     rivi('var HENKILO_NIMETON'), rivi('var HENKILO_EI_EMAILIA'), pura('function henkiloNimi('),
     rivi('const KAYTETTAVYYS_ROOLIT'), pura('function kaytettavyysNakyy('),
-    pura('function _renderKaytettavyys('), pura('function pelaajaRivi('),
+    pura('function _renderKaytettavyys('), pura('function _suostumusPeruttu('), pura('function _suostumusAnnettu('), pura('function pelaajaRivi('),
     'this.pelaajaRivi = pelaajaRivi; this.kaytettavyysNakyy = kaytettavyysNakyy;',
   ].join('\n'), ctx);
   return ctx;

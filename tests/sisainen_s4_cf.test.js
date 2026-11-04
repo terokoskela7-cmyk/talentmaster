@@ -66,7 +66,7 @@ function ajaVahvistus(alku) {
     functions: ketju, exports: {}, db: f.db, console: { log() {}, warn() {}, error() {} }, String, Object, Array, JSON, Date, encodeURIComponent, parseFloat, isFinite,
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' }, Timestamp: { fromDate: (d) => d } } },
     auth: { generatePasswordResetLink: async () => 'r' }, haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
-    TM_BASE_URL: 'https://tm', sisainenLuku: LUKU, tmSisainen: TS4, suostumusTarkistus: require_(join(ROOT, 'functions', 'suostumus_tarkistus.js')), suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu,
+    TM_BASE_URL: 'https://tm', sisainenLuku: LUKU, tmSisainen: TS4, suostumusTarkistus: require_(join(ROOT, 'functions', 'suostumus_tarkistus.js')), suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, suostumusPeruminen: require_(join(ROOT, 'functions', 'suostumus_peruminen.js')),
     pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
   ctx.tmHT = function (s) { return s; }; vm.createContext(ctx);

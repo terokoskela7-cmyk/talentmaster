@@ -1721,7 +1721,7 @@ async function lataaYhteenvetoKPIt() {
 
     const pelaajatData = pelaajatSnap.docs.map(d => d.data());
     const kaikki    = pelaajatData.length;
-    const annettu   = pelaajatData.filter(d => d.suostumusTila === 'annettu' || d.suostumus?.annettu).length;
+    const annettu   = pelaajatData.filter(_suostumusAnnettu).length;
     const pilottiLkm = pelaajatData.filter(d => d.suostumusTila === 'pilotti').length;
     const odottaaLkm = pelaajatData.filter(d => d.suostumusTila === 'odottaa' || d.suostumusTila === 'luotu').length;
     const suostumusPct = kaikki > 0 ? Math.round(annettu / kaikki * 100) : 0;
@@ -1841,11 +1841,11 @@ function pelaajaRivi(p) {
   const syntVuosi  = p.syntymaaika?.seconds
     ? new Date(p.syntymaaika.seconds * 1000).getFullYear()
     : (p.syntymaVuosi || '—');
-  const onAnnettu  = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
+  const onAnnettu  = _suostumusAnnettu(p);
   const onPilotti  = !onAnnettu && p.suostumusTila === 'pilotti';
   const onOdottaa  = !onAnnettu && !onPilotti &&
     (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
-  const [tilaLuokka, tilaIkoni, tilaTeksti] = onAnnettu
+  const [tilaLuokka, tilaIkoni, tilaTeksti] = _suostumusPeruttu(p) ? ['harmaa', '⊘', tmHT('Suostumus peruttu')] : onAnnettu
     ? ['ok',     '✓',  'Rekisteröity']
     : onPilotti ? ['pilotti', '🔬', 'Pilotti']
     : onOdottaa ? ['odottaa', '⏳', tmHT('Kutsu lähetetty')]
@@ -1929,7 +1929,7 @@ function suodataPelaajat(tila_suodin, hakuTeksti) {
   // Tilasuodatin
   if (window._aktiiviSuodatin !== 'kaikki') {
     lista = lista.filter(p => {
-      const onAnnettu = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
+      const onAnnettu = _suostumusAnnettu(p);
       const onPilotti = !onAnnettu && p.suostumusTila === 'pilotti';
       const onOdottaa = !onAnnettu && !onPilotti &&
         (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
@@ -2205,15 +2205,15 @@ async function renderPelaajat(alue) {
     }
 
     // Lasketaan yhteenvetoluvut
-    const annettu    = pelaajat.filter(p => p.suostumusTila === 'annettu' || !!p.suostumus?.annettu).length;
-    const odottaa    = pelaajat.filter(p => (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu') && !p.suostumus?.annettu).length;
+    const annettu    = pelaajat.filter(_suostumusAnnettu).length, peruttuLkm = pelaajat.filter(_suostumusPeruttu).length;
+    const odottaa    = pelaajat.filter(p => (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu') && !p.suostumus?.annettu && !_suostumusPeruttu(p)).length;
     const pilotti    = pelaajat.filter(p => p.suostumusTila === 'pilotti').length;
-    const eiLahetetty = pelaajat.length - annettu - odottaa - pilotti;
+    const eiLahetetty = pelaajat.length - annettu - odottaa - pilotti - peruttuLkm;
 
     // PalloID-puuttuminen: rekisteröity mutta PalloID puuttuu.
     // Ei estä mitään toimintaa — näytetään huomiona sihteereille.
     const ilmanPalloId = pelaajat.filter(p =>
-      (p.suostumusTila === 'annettu' || p.suostumus?.annettu) &&
+      _suostumusAnnettu(p) &&
       !p.palloID && !p.palloid && !p.palloId
     ).length;
 
@@ -2242,7 +2242,7 @@ async function renderPelaajat(alue) {
           <span style="width:8px;height:8px;border-radius:50%;background:var(--border);display:inline-block;"></span>
           <span style="color:var(--ink3);">${tmHT('Ei kutsua:')}</span>
           <strong style="color:var(--ink1);">${eiLahetetty}</strong>
-        </div>` : ''}
+        </div>` : ''}${peruttuLkm > 0 ? '<div style="display:flex;align-items:center;gap:7px;font-size:12px;"><span style="color:var(--ink3);">' + tmHT('Suostumus peruttu:') + '</span><strong style="color:var(--ink1);">' + peruttuLkm + '</strong></div>' : ''}
         ${ilmanPalloId > 0 ? `
         <div style="display:flex;align-items:center;gap:7px;font-size:12px;margin-left:auto;
           background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);
@@ -2265,11 +2265,11 @@ async function renderPelaajat(alue) {
               : (p.syntymaaika_vuosi || '—');
 
             // Tila-logiikka: suostumusTila (uusi kenttä) tai suostumus.annettu (vanha)
-            const onAnnettu = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
+            const onAnnettu = _suostumusAnnettu(p);
             const onPilotti = !onAnnettu && p.suostumusTila === 'pilotti';
             const onOdottaa = !onAnnettu && !onPilotti && (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
 
-            const [tilaLuokka, tilaIkoni, tilaTeksti] = onAnnettu
+            const [tilaLuokka, tilaIkoni, tilaTeksti] = _suostumusPeruttu(p) ? ['harmaa', '⊘', tmHT('Suostumus peruttu')] : onAnnettu
               ? ['ok',      '✓',  'Rekisteröity']
               : onPilotti
               ? ['pilotti', '🔬', 'Pilotti']
@@ -2290,7 +2290,7 @@ async function renderPelaajat(alue) {
             // PalloID — tarkistetaan kaikki mahdolliset kenttänimet
             // (järjestelmässä on historiallisesti käytetty eri muotoja)
             const palloIdArvo = p.palloID || p.palloid || p.palloId || '';
-            const onRekisteroity = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
+            const onRekisteroity = _suostumusAnnettu(p);
 
             // PalloID-solu: näytetään arvo jos on, huomio jos puuttuu rekisteröidyltä
             const palloIdSolu = palloIdArvo
@@ -3475,11 +3475,11 @@ async function lataaKoriJaTasoTiedot() {
     // GDPR-suostumukset — luetaan pelaajat-kokoelmasta, EI kutsut-kokoelmasta
     const pelaajatSnap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').get();
     const pelaajat = pelaajatSnap.docs.map(d => ({id:d.id,...d.data()}));
-    const annettu  = pelaajat.filter(p => p.suostumusTila==='annettu'||!!p.suostumus?.annettu);
+    const annettu  = pelaajat.filter(_suostumusAnnettu);
     const pilotti  = pelaajat.filter(p => p.suostumusTila==='pilotti');
     const odottaa  = pelaajat.filter(p =>
       (p.suostumusTila==='odottaa'||p.suostumusTila==='luotu')&&
-      !(p.suostumusTila==='annettu'||!!p.suostumus?.annettu) &&
+      !_suostumusAnnettu(p) && !_suostumusPeruttu(p) &&
       p.suostumusTila!=='pilotti'
     );
     const lkm = document.getElementById('sopimukset-lkm');
@@ -3519,10 +3519,10 @@ async function lataaKoriJaTasoTiedot() {
         <tbody>
           ${pelaajat.sort((a,b)=>(a.sukunimi||'').localeCompare(b.sukunimi||'')).map(p => {
             const nimi = (p.etunimi||'')+' '+(p.sukunimi||'');
-            const onAnnettu  = p.suostumusTila==='annettu'||!!p.suostumus?.annettu;
+            const onAnnettu  = _suostumusAnnettu(p);
             const onPilotti  = !onAnnettu && p.suostumusTila==='pilotti';
-            const badgeLuokka = onAnnettu ? 'ok' : onPilotti ? 'pilotti' : 'odottaa';
-            const badgeTeksti = onAnnettu ? tmHT('✓ Annettu') : onPilotti ? '🔬 Pilotti' : tmHT('⏳ Odottaa');
+            const badgeLuokka = _suostumusPeruttu(p) ? 'harmaa' : onAnnettu ? 'ok' : onPilotti ? 'pilotti' : 'odottaa';
+            const badgeTeksti = _suostumusPeruttu(p) ? '⊘ ' + tmHT('Suostumus peruttu') : onAnnettu ? tmHT('✓ Annettu') : onPilotti ? '🔬 Pilotti' : tmHT('⏳ Odottaa');
             return `<tr>
               <td>${nimi.trim() || HENKILO_NIMETON}</td>
               <td style="color:var(--ink3);">${p.joukkue||'—'}</td>
@@ -4691,7 +4691,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
   const esc = (v) => (window.tmEsc ? window.tmEsc(v) : _escHtml(v));
   window._pkd = { pelaajaId, seuraId: tila.seuraId, etunimi: p.etunimi || '', sukunimi: p.sukunimi || '', joukkue: p.joukkue || '',
     huoltajaEmail: p.huoltajaEmail || '', palloID: p.palloID || '', nimi };
-  const onAnnettu = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
+  const onAnnettu = _suostumusAnnettu(p), onPeruttu = _suostumusPeruttu(p);
   const syntVuosi = p.syntymaaika
     ? new Date(p.syntymaaika.seconds*1000).getFullYear() : '—';
 
@@ -4783,8 +4783,8 @@ async function naytaPelaajaTiedot(pelaajaId) {
           <div style="font-size:18px;font-weight:700;color:var(--ink1);">${esc(nimi)}</div>
           <div style="font-size:13px;color:var(--ink3);">${esc(p.joukkue || '—')} · ${esc(syntVuosi)}</div>
         </div>
-        <span class="badge ${onAnnettu ? 'ok' : 'odottaa'}" style="margin-left:auto;">
-          ${onAnnettu ? '✓ Rekisteröity' : tmHT('⏳ Kutsu lähetetty')}
+        <span class="badge ${onPeruttu ? 'harmaa' : onAnnettu ? 'ok' : 'odottaa'}" style="margin-left:auto;">
+          ${onPeruttu ? '⊘ ' + tmHT('Suostumus peruttu') + ' ' + esc(_peruttuPvm(p)) : onAnnettu ? '✓ Rekisteröity' : tmHT('⏳ Kutsu lähetetty')}
         </span>
       </div>
 
@@ -4916,7 +4916,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
             style="background:rgba(224,160,64,.1);border:1px solid rgba(224,160,64,.3);flex:1;font-size:12px;"
             onclick="avaaVaihdaJoukkuePelaajaModal(_pkd.pelaajaId, _pkd.joukkue)">
             ${tmHT('🔄 Vaihda joukkue')}
-          </button>
+          </button>${onAnnettu ? '<button class="lisaaNappi" style="background:rgba(220,50,50,.08);border:1px solid rgba(220,50,50,.3);flex:1;font-size:12px;" onclick="_seuraPeruSuostumus()">' + tmHT('Peru suostumus') + '</button>' : ''}
         </div>
       </div>` : ''}
 
@@ -5633,12 +5633,12 @@ async function _lataaMassakutsuPelaajat() {
 
     // Luokittelu: uudet (pilotti/tyhjä) vs jo kutsutut (odottaa) vs suostumus annettu
     var eiEmailia = pelaajat.filter(function(p) { return !p.huoltajaEmail; }).length;
-    var joAnnettu = pelaajat.filter(function(p) { return p.suostumusTila === 'annettu'; }).length;
+    var joAnnettu = pelaajat.filter(_suostumusAnnettu).length;
     var joKutsutut = pelaajat.filter(function(p) {
       return p.huoltajaEmail && p.suostumusTila === 'odottaa';
     });
     var uudetPelaajat = pelaajat.filter(function(p) {
-      return p.huoltajaEmail && p.suostumusTila !== 'annettu' && p.suostumusTila !== 'odottaa';
+      return p.huoltajaEmail && !_suostumusAnnettu(p) && !_suostumusPeruttu(p) && p.suostumusTila !== 'odottaa';   // B9: peruttu → ei massakutsua
     });
 
     // Oletuksena vain uudet (ei vielä kutsutut). Tallennetaan myös kutsutut erikseen.
@@ -5851,7 +5851,7 @@ async function lahetaMassakutsu() {
         await kutsuRef.update({ tila: 'lahetetty', lahetetty: firebase.firestore.FieldValue.serverTimestamp() });
         // §33 onboarding-integriteetti — ÄLÄ alenna jo annettua suostumusta (todettu tuotannossa:
         // kutsu nollasi annetun). Warn-not-block: status säilytetään, operaattori näkee ohitetun yhteenvedosta.
-        const _joAnnettu = (p.suostumusTila === 'annettu') || !!(p.suostumus && p.suostumus.annettu);
+        const _joAnnettu = _suostumusAnnettu(p);
         // Tila 'odottaa' asettuu palvelimella (lahetaRekisteriKutsu, Rules v3.33); jo annettua ei alenneta.
         if (_joAnnettu) ohitettuSuostumus++;
       } catch(mailErr) {
@@ -6083,7 +6083,7 @@ async function lataaRekisteriPohja() {
 // ─────────────────────────────────────────────────────────────────
 function _pinFn(nimi) { return firebase.app().functions('europe-west1').httpsCallable(nimi, { timeout: 300000 }); }
 /* Suostumus ennen PIN:iä (1.10.2026): sama ehto kuin palvelimella (functions/suostumus.js). */
-function _suostumusAnnettu(p) { return !!p && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); }
+function _suostumusPeruttu(p) { return !!p && (p.suostumusTila === 'peruttu' || !!(p.suostumus && p.suostumus.peruttu)); }   /* B9: kanoninen ehto = lib/tm_suostumus.js — peruttu voittaa */ function _suostumusAnnettu(p) { return !!p && !_suostumusPeruttu(p) && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); } function _peruttuPvm(p) { const a = p && p.suostumus && p.suostumus.peruttu && p.suostumus.peruttu.aika; const d = a && a.seconds ? new Date(a.seconds * 1000) : null; return d ? d.toLocaleDateString('fi-FI') : ''; } window._seuraPeruSuostumus = async function () { const d = window._pkd || {}; if (!d.pelaajaId || !confirm(tmHT('Perutaanko suostumus? Pelaaja ei voi enää kirjautua, ja huoltaja saa kuittauksen sähköpostiin. Tallennetut tiedot säilyvät; tietojen poisto on erillinen pyyntö.'))) return; try { const r = await _pinFn('peruSuostumus')({ seuraId: d.seuraId, pelaajaId: d.pelaajaId }); naytaToast(tmHT('Suostumus peruttu.') + (r && r.data && r.data.emailLahetetty ? ' ' + tmHT('Huoltaja sai kuittauksen.') : '')); naytaPelaajaTiedot(d.pelaajaId); } catch (e) { naytaToast(tmHT('Suostumuksen peruminen epäonnistui:') + ' ' + ((e && e.message) || ''), 'virhe'); } };
 /* Suostumuksen päivä: suostumusAnnettu (palvelin) tai suostumus.annettu (Timestamp / {seconds} / ISO) → Date | null. */
 function _suostumusPvm(p) {
   const v = p && (p.suostumusAnnettu || (p.suostumus && p.suostumus.annettu));

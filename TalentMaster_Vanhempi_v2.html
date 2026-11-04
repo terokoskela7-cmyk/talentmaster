@@ -135,7 +135,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
-<script src="lib/tm_pvm.js"></script><script src="lib/tm_pelaaja_ika.js"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
+<script src="lib/tm_pvm.js"></script><script src="lib/tm_pelaaja_ika.js"></script><script src="lib/tm_suostumus.js"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_kentta.js"></script>   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
 <script src="lib/tm_mediaviesti.js"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet -->
 <script src="lib/tm_klippi_perhe.js"></script>   <!-- R6.4 PR 2: Katsokaa yhdessä / keskustelu -->
@@ -313,7 +313,7 @@ function draw(){
   const pb=document.getElementById('phBody');
   let html='';
   if(_sc==='login') html=rLogin();
-  else if(_sc==='koti') html=rKoti();
+  else if(_sc==='koti') html=(_vSuostumusPeruttu(window._lapsi) ? _vanhPeruttuHTML() : rKoti());   // B9: perutulla vain tila + ohje
   else if(_sc==='viikko') html=rViikko();
   else if(_sc==='kirjaa') html=rKirjaa();
   else if(_sc==='valmentaja') html=rValmentaja();
@@ -708,7 +708,7 @@ function _vanhKertymaHTML() {   // K35-6f: lapsen "Tällä kaudella lapsella" -k
 function _vanhTilausAvaa() {   // K35-7b: per lapsi (pelaajaId); vahvistamaton email / suostumus → modaalissa syy + vahvistuslinkin pyyntö (_vanhLahetaVahvistus)
   var L = window._lapsi, cu = window._auth && window._auth.currentUser;
   window.TM_KALENTERI_TILAUS_UI.tmTilausAsenna({ t: _vKpT, kutsu: function (n, d) { return window._fbApp.functions('europe-west1').httpsCallable(n)(d); }, args: function () { return { seuraId: L.seuraId, pelaajaId: L.id }; }, toast: _toast,
-    esto: function () { return cu && cu.emailVerified === false ? { syy: 'sahkoposti', toiminto: '_vanhLahetaVahvistus' } : (L.suostumusTila && L.suostumusTila !== 'annettu' ? { syy: 'suostumus' } : null); } }).avaa();
+    esto: function () { return cu && cu.emailVerified === false ? { syy: 'sahkoposti', toiminto: '_vanhLahetaVahvistus' } : (L.suostumusTila && !_vSuostumusOk(L) ? { syy: 'suostumus' } : null); } }).avaa();
 }
 window._vanhTilausAvaa = _vanhTilausAvaa;
 function _vanhTapahtumatHTML() {
@@ -1384,6 +1384,39 @@ function rKortti(){
 }
 
 /* ══ ASETUKSET ══ */
+/* ══ B9 · Suostumuksen peruminen (functions/suostumus_peruminen.js peruSuostumus) ══ */
+function _vSuostumusOk(L) { return !!(window.TM_SUOSTUMUS && L) && window.TM_SUOSTUMUS.tmSuostumusAnnettu(L); }
+function _vSuostumusPeruttu(L) { return !!(window.TM_SUOSTUMUS && L) && window.TM_SUOSTUMUS.tmSuostumusPeruttu(L); }
+function _vPvm(x) { const d = x && typeof x.toDate === 'function' ? x.toDate() : (x && x.seconds ? new Date(x.seconds * 1000) : null); let k = 'fi'; try { k = localStorage.getItem('tm_kieli') || 'fi'; } catch (e) {} return d ? d.toLocaleDateString(k === 'sv' ? 'sv-FI' : k === 'en' ? 'en-GB' : 'fi-FI') : ''; }
+let _vPeruVahvista = false, _vPeruKesken = false;
+function _vanhSuostumusKorttiHTML(L, nimi, ok, peruttu) {
+  const S = (L && L.suostumus) || {};
+  if (peruttu) return '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">' + _vEsc(t('vanhempi.suostumus_peruttu_pvm').replace('{pvm}', _vPvm(S.peruttu && S.peruttu.aika))) + '</div>'
+    + '<div style="font-size:12px;color:var(--ink2);line-height:1.55">' + _vEsc(t('vanhempi.suostumus_peruttu_ohje')) + '</div>';
+  if (!ok) return '<div style="font-size:12px;color:var(--ink2);line-height:1.55">' + _vEsc(t('vanhempi.suostumus_ei_annettu')) + '</div>';
+  const pvm = '<div style="font-size:13px;color:var(--text);margin-bottom:10px">' + _vEsc(t('vanhempi.suostumus_annettu_pvm').replace('{pvm}', _vPvm(S.annettu || L.suostumusAnnettu))) + '</div>';
+  if (!_vPeruVahvista) return pvm + _vanhKalNappi('_vanhPeruAuki', _vEsc(t('vanhempi.suostumus_peru')), false);
+  return pvm + '<div style="font-size:12px;color:var(--ink2);line-height:1.55;margin-bottom:12px">' + _vEsc(t('vanhempi.suostumus_peru_selite').replace('{nimi}', nimi || '')) + '</div>'
+    + '<div>' + (_vPeruKesken ? '' : _vanhKalNappi('_vanhPeruSuostumus', _vEsc(t('vanhempi.suostumus_peru_vahvista')), true)) + _vanhKalNappi('_vanhPeruKiinni', _vEsc(t('vanhempi.suostumus_peruuta')), false) + '</div>';
+}
+window._vanhPeruAuki = function () { _vPeruVahvista = true; draw(); }; window._vanhPeruKiinni = function () { _vPeruVahvista = false; draw(); };
+window._vanhPeruSuostumus = async function () {
+  const L = window._lapsi; if (!L || _vPeruKesken) return;
+  _vPeruKesken = true; draw();
+  try {
+    await window._fbApp.functions('europe-west1').httpsCallable('peruSuostumus')({ seuraId: L.seuraId, pelaajaId: L.id });
+    L.suostumusTila = 'peruttu'; L.suostumus = Object.assign({}, L.suostumus || {}, { peruttu: { aika: { seconds: Math.floor(Date.now() / 1000) }, rooli: 'huoltaja' } }); L.pin = null;
+    _vPeruVahvista = false; _toast(t('vanhempi.suostumus_peruttu_toast'));
+  } catch (e) { console.warn('[B9] peruSuostumus:', e && (e.code || e.message)); _toast(t('vanhempi.suostumus_peru_virhe')); }
+  _vPeruKesken = false; draw();
+};
+function _vanhPeruttuHTML() {
+  const L = window._lapsi || {}, S = L.suostumus || {};
+  return '<div class="scroll"><div class="card2" style="padding:20px;margin:16px 0">'
+    + '<div style="font-family:var(--font-d);font-size:22px;line-height:1.2;color:var(--text);margin-bottom:8px">' + _vEsc(t('vanhempi.suostumus_peruttu_koti')) + '</div>'
+    + '<div style="font-size:13px;color:var(--ink2);margin-bottom:10px">' + _vEsc(t('vanhempi.suostumus_peruttu_pvm').replace('{pvm}', _vPvm(S.peruttu && S.peruttu.aika))) + '</div>'
+    + '<div style="font-size:13px;color:var(--ink2);line-height:1.6">' + _vEsc(t('vanhempi.suostumus_peruttu_ohje')) + '</div></div></div>';
+}
 function rAsetukset(){
   const d=IKA[_age];
   const L = window._lapsi || {};
@@ -1391,7 +1424,7 @@ function rAsetukset(){
     || (_auth && _auth.currentUser && (_auth.currentUser.displayName || _auth.currentUser.email))
     || '—';
   // Suostumus ennen kirjautumista (1.10.2026): ilman suostumusta PIN ei toimi → ei näytetä (näkyy "PIN puuttuu").
-  const _suostumusOk = L.suostumusTila === 'annettu' || !!(L.suostumus && L.suostumus.annettu);
+  const _suostumusOk = _vSuostumusOk(L), _peruttu = _vSuostumusPeruttu(L);   // B9: kanoninen ehto (lib/tm_suostumus.js), peruttu voittaa
   const pin = (_suostumusOk && L.pin != null && /^([0-9]{4}|[0-9]{6})$/.test(String(L.pin))) ? String(L.pin) : null;   // PR 4: 4 (vanha) tai 6 numeroa
   const palloId = _lapsenPalloId(L), _ikaPiilo = (window.TM_PELAAJA_IKA && window.TM_PELAAJA_IKA.pelaajaAppEstettyIka(L)) ? ' hidden' : '';   // 8–9 v -esto (vaihe 0 §7.6): alle 10 → pelaajan kirjautumiskortti piiloon
   return `
@@ -1419,6 +1452,10 @@ function rAsetukset(){
        Linkki kertoo KUKA, PIN todistaa → lapsi syöttää linkistä avattuna vain PIN:n (Pelaaja_v7). -->
   <div class="ey" style="margin:16px 2px 10px"${_ikaPiilo}>${t('vanhempi.pelaajan_kirjautuminen')}</div>
   <div class="card2" style="padding:16px;margin-bottom:14px"${_ikaPiilo}>${_ikaPiilo ? '' : _pelaajanKirjautuminenHTML(d.nimi, palloId, pin)}</div>
+
+  <!-- B9 · Suostumus (GDPR art. 7(3)): peruminen yhtä helposti kuin antaminen -->
+  <div class="ey" style="margin:16px 2px 10px">${t('vanhempi.suostumus_otsikko')}</div>
+  <div class="card2" style="padding:16px;margin-bottom:14px">${_vanhSuostumusKorttiHTML(L, d.nimi, _suostumusOk, _peruttu)}</div>
 
   <!-- Ikä-säätö -->
   <div class="ey" style="margin:16px 2px 10px">${t('vanhempi.lapsen_ikaryhma')}</div>

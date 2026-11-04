@@ -16,7 +16,7 @@
   - **Jos PR koskee molempia kaistoja, se kuuluu Teron kaistaan.** Epäselvässä tapauksessa Teron kaista.
   - Code ei koskaan mergeä käsin eikä pushaa mainiin.
 - **Git-historiaa ei kirjoiteta uudelleen:** ei force-pushia, ei rebasea jaetulle haaralle, ei `commit --amend`ia pushattuun.
-- **Ruotsinkieliset tekstit vain Geminin kautta.** Claude/Code ei kirjoita sv-käännöksiä eikä sv-luonnoksia; uudet sv-avaimet jätetään tyhjiksi / odotuslistalle.
+- **Ruotsinkieliset tekstit kirjoittaa PM (`.sv_palautukset/`, PM 3.11.2026; aiemmat erät Geminin kautta).** Claude/Code ei kirjoita sv-käännöksiä eikä sv-luonnoksia: Code kokoaa fi-tekstit erätiedostoon (`docs/i18n/sv_kaannoserae_N_gemini.json`, `sv: ""`), jättää uudet sv-avaimet tyhjiksi / odotuslistalle ja vie PM:n palautuksen koodiin merkki merkiltä (vientiskripti + sha-testi).
 - **ÄLÄ aja `npm run version:bump` feature-haaroissa** — `bump-version.yml` hoitaa sen mainissa (§33 taidossa `tm-infra`).
 - **ÄLÄ vaihda GitHub Pages -lähdettä "branch"-tilaan** — lähde on "GitHub Actions" (`deploy-pages.yml`).
 

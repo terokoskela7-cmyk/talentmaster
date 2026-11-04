@@ -124,7 +124,7 @@ describe('vahvistaSuostumus luo PIN:n (best-effort) ja säilyttää olemassa ole
 describe('Seura / Pelaaja / Vanhempi', () => {
   const SEURA = lue('TalentMaster_Seura.html');
   it('Seura: sama ehto, PIN-luonti / kortit / tunnukset vain suostumuksella; uusi pelaaja ei kutsu asetaPelaajanPin', () => {
-    expect(SEURA).toContain("function _suostumusAnnettu(p) { return !!p && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); }");
+    expect(SEURA).toContain("function _suostumusAnnettu(p) { return !!p && !_suostumusPeruttu(p) && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); }");   // B9: peruttu voittaa
     expect(SEURA).toContain("const PIN_SUOSTUMUS_PUUTTUU = 'Huoltajan suostumus puuttuu – PIN luodaan suostumuksen jälkeen.';");
     expect(SEURA).toContain('const pelaajat = k.lista.filter((p) => _suostumusAnnettu(p) && p.pin).sort(jarj);');   // PR B: pelaajakortti vain suostumuksella
     expect(SEURA).toContain('const kohteet = k.lista.filter((p) => p.huoltajaEmail && p.pin && _suostumusAnnettu(p));');
@@ -157,7 +157,7 @@ describe('Seura · tunnustyökalut ilman suostumusta (ajettu)', () => {
     };
     ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
     vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
-      + ['function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
+      + ['function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
         'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {'].map(pura).join('\n')
       + '\nthis.luo = luoPuuttuvatPinit; this.laheta = lahetaTunnuksetHuoltajille; this.virhe = _pinVirheTeksti;', ctx);
     return { ctx, loki };

@@ -136,7 +136,8 @@ describe('B7 · Master ja VP linkittävät uuteen sivuun lipun kehitystyopoyta_v
 describe('B7 · tekstit: fi-oletukset, en + sv-erätiedosto (Code ei kirjoita ruotsia)', () => {
   const ERA = JSON.parse(lue('docs/i18n/sv_kaannoserae_43_gemini.json')), RIVIT = ERA.osiot['lib.tm_kt_sivu'].rivit;
   it('erätiedosto vastaa libin FI-avaimia: fi täsmää, en täytetty, sv TYHJÄ (Gemini täyttää)', () => {
-    expect(Object.keys(RIVIT).sort()).toEqual(Object.keys(KS.FI).sort());
+    const E94 = JSON.parse(lue('docs/i18n/sv_kaannoserae_94_gemini.json')).osiot.lib.rivit;   // erä 94 (B9): uudet avaimet omassa erässään
+    expect(Object.keys(RIVIT).sort()).toEqual(Object.keys(KS.FI).filter((k) => !E94[k]).sort());
     for (const [k, r] of Object.entries(RIVIT)) { expect(r.fi, k).toBe(KS.FI[k]); expect(r.en.length, k + ' en').toBeGreaterThan(0); expect(r.sv, k + ' sv').toBe(''); }
   });
   it('tmKtSivuT: käännös voittaa, muuten FI-oletus; tuntematon avain → avain', () => {

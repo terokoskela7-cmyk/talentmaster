@@ -7054,7 +7054,7 @@ function _mvPaivitaTila(S) {   // rekisteri + suostumuslippu valituista vastaano
   const C = _mvC(), vs = _mvKentat(S), ikat = vs.map(function (p) { return C.ika(p); }).filter(function (x) { return x != null; });
   const vanha = S.rekisteri, M = window.TM_MEDIAVIESTI; S.rekisteri = M.tmMvRekisteri(ikat.length ? Math.min.apply(null, ikat) : null);
   if (S.kysymysAvain && vanha && vanha !== S.rekisteri) { const i = M.tmMvPohjat(S.klippityyppi, vanha).map(function (x) { return x.avain; }).indexOf(S.kysymysAvain); S.kysymysAvain = i >= 0 ? M.tmMvPohjat(S.klippityyppi, S.rekisteri)[i].avain : null; }   // vastaanottajien vaihto muuttaa rekisterin → valittu pohja säilyy (sama järjestysnumero)
-  S.suostumusPuuttuu = vs.some(function (p) { return p.suostumusTila !== 'annettu'; });
+  S.suostumusPuuttuu = vs.some(function (p) { return !(p.suostumusTila !== 'peruttu' && !(p.suostumus && p.suostumus.peruttu) && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu))); });   // B9: kanoninen (peruttu voittaa)
 }
 function _mvRender() {
   const S = window._mvTila, M = window.TM_MEDIAVIESTI; if (!S || !M) return; const C = _mvC();

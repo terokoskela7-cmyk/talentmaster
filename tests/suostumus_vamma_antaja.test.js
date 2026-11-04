@@ -133,7 +133,7 @@ async function seuraKortti(pelaaja, kutsut) {
   };
   ctx.TM_SEURA_TUONTI = require_(new URL('../lib/tm_seura_tuonti.js', import.meta.url).pathname);   // 21.10.2026: kutsuhistorian tilateksti
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(['function _suostumusAnnettu(p) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _lkPelaaja(p) {', 'function _lkAttr(estetty) {'].map((t) => pura(S, t)).join('\n') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
+  vm.runInContext(['function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _lkPelaaja(p) {', 'function _lkAttr(estetty) {'].map((t) => pura(S, t)).join('\n') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
   await ctx.nayta('p1').catch(() => {});
   return modal.innerHTML;
 }

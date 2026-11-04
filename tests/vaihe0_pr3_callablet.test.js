@@ -131,7 +131,7 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
       lahetaSahkoposti: async (m) => { loki.sposti++; loki.viesti = m; },
       pohjaPelaajaSivu: (o) => JSON.stringify(o),
       pelaajapin: require_('../functions/pelaajapin.js'),   // 8–9 v -esto (ikaTilaNyt)
-      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
+      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu, suostumusPeruminen: require_('../functions/suostumus_peruminen.js'),
       TM_BASE_URL: 'https://tm',
     });
     const data = { hEmail: 'Huoltaja@tm-testi.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A', seura: 'Väärä Seura' };
@@ -221,7 +221,7 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
       pohjaSuostumusLinkki: (o) => JSON.stringify(o),
       TM_BASE_URL: 'https://tm', Date, Math, JSON, Number, isNaN, parseInt, parseFloat,
       pelaajapin: require_('../functions/pelaajapin.js'),
-      sisainenLuku: require_('../functions/sisainen_luku.js'), tmSisainen: require_('../functions/tm_sisainen.js'), suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
+      sisainenLuku: require_('../functions/sisainen_luku.js'), tmSisainen: require_('../functions/tm_sisainen.js'), suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu, suostumusPeruminen: require_('../functions/suostumus_peruminen.js'),
     });
     const data = { seuraId: 'fcl', pelaajaId: 'p1', hEmail: 'Huoltaja@tm-testi.fi', suostumusTeksti: 'x', antaja: 'A', kutsuId: null,
       suostumukset: [], suostumusMap: {}, antajaRooli: 'huoltaja', aikaleima: '2026-10-01' };
