@@ -113,6 +113,7 @@ RTBF kuluttaa = poistaa; export kuluttaa = lukee. **Älä duplikoi enumerointia 
   Rekisteröidyn oma tunniste (`pelaajaId`) säilyy. Testi: `tests/gdpr_vienti_pseudonymisointi.test.js`.
 - **Nimet ja vapaateksti eivät pseudonymisoidu automaattisesti.** Muistiinpanoissa, havainnoissa ja palautteissa voi mainita muita pelaajia (tai henkilökunnan nimiä).
   → **Johto käy viennin läpi ennen luovutusta** rekisteröidylle/huoltajalle ja poistaa tai peittää muita henkilöitä koskevat kohdat (art. 15(4)). Signed URL on voimassa 24 h; lataa, tarkista, luovuta tarkistettu tiedosto.
+- **`biologinen_ika/{pvm}` (kasvumittaukset, `maturity_offset`) vain viennin kautta (PM 4b, Rules v3.77, B10 #1180).** Pelaaja eikä huoltaja lue alikokoelmaa sovelluksessa; molemmat näkevät B-muodon (`phv_tila`, `mittauspaiva`) pelaajadokumentin `biologinenIka_viimeisin`:ssa. Rekisteröidyn tai huoltajan pyynnöstä raakamittaukset luovutetaan art. 15 -viennillä (johdon tarkistuksen jälkeen, ks. yllä).
 
 ---
 
