@@ -84,6 +84,49 @@ export function dokit() {
   return D;
 }
 
+/* QG-1c · Läge-muunnelma (PM 2.11.: VP → Läge oikean seuran datalla näytti suomea tiloissa, joita perusfixture ei kata).
+   Lisää viisi joukkuetta, joiden data kattaa Tilanteen haarat: vanha mittaus (2025, > 12 kk) · fyysiset testit asteikon alarajalla · taso laskenut (TKI −12) ·
+   epätasainen fyysinen profiili (nopea 30 m + vahva CMJ, hidas käsirata) · kypsyys mittaamatta (ei biologista ikää PHV-ikkunassa) · talentit + Hidden Gem -ehdokkaat ·
+   syntymäajat osittain · ehdotukset yhdelle ja usealle joukkueelle. Jakso vain yhdellä seitsemästä joukkueesta → Kausi on alussa (käynnistys; perusfixture = rytmi).
+   Nimet ja arvot keksittyjä (repo on julkinen). */
+const LAGE_J = [
+  { id: 'qgfx_p11', nimi: 'QG P11', v: 2015, sp: 'M', tila: 'vanha' },
+  { id: 'qgfx_p12', nimi: 'QG P12', v: 2014, sp: 'M', tila: 'alaraja' },
+  { id: 'qgfx_t13', nimi: 'QG T13', v: 2013, sp: 'N', tila: 'kypsyys' },
+  { id: 'qgfx_p14', nimi: 'QG P14', v: 2012, sp: 'M', tila: 'profiili' },
+  { id: 'qgfx_t15', nimi: 'QG T15', v: 2011, sp: 'N', tila: 'vanha' },
+];
+const LAGE_NIMET = ['Ola', 'Eli', 'Iris', 'Leo', 'Mio', 'Ada'], LAGE_SUKU = ['Lind', 'Holm', 'Sund', 'Ek', 'Dahl', 'Strom'];
+function lagePelaaja(j, i) {
+  const tuore = j.tila !== 'vanha', pv = j.tila === 'profiili' ? '2026-06-10' : tuore ? '2026-09-20' : '2025-05-10', ed = tuore ? '2026-02-15' : '2024-09-15';   // P14: 'testattu 4 kk sitten'
+  /* profiili: nopea 30 m + vahva CMJ, käsirata taso 2, suunnanmuutos taso 1 (ei §28:n alla → fyysinen kehityskohde) · alaraja: kaikki tasolla 1 ·
+     kypsyys: vain §28:n alaiset (30 m, CMJ) heikkoja, PHV mittaamatta → neutraali + 'Kypsyys mittaamatta' */
+  const hh = j.tila === 'profiili' ? { lin30m: 4.15 + i * 0.02, cmj: 46 + i, kasirata: 6.8, sm_juoksu: 8.6 } : j.tila === 'alaraja' ? { lin30m: 5.9 + i * 0.05, cmj: 16 + i, kasirata: 11.9 + i * 0.1 } : j.tila === 'kypsyys' ? { lin30m: 5.9, cmj: 16, kasirata: 6.5 } : { lin30m: 5.1, cmj: 27, kasirata: 9.6 };
+  const tk = j.tila === 'kypsyys' || j.tila === 'alaraja' ? {   // tekniikka heikko vain P14:llä (+ perusfixture) → P14:n rivi 'tekniikka · profiili' (ei ryhmää)
+     kuljetus_laukaus_s: 10.5, pujottelu_s: 19, ponnauttelu_s: 22, syotto_s: 36 } : { kuljetus_laukaus_s: 21.5 + i * 0.3, pujottelu_s: 34 + i * 0.4, ponnauttelu_s: 52, syotto_s: 68 + i };
+  // TKI laskee 13 kaikilla tuoreilla (Taso laskenut · 3 joukkuetta); TKI matala vain P14:llä
+  const p = { etunimi: LAGE_NIMET[i], sukunimi: LAGE_SUKU[(i + j.v) % 6], seuraId: S, sukupuoli: j.sp, syntymaVuosi: j.v, joukkue: j.nimi, joukkueet: [j.id], joukkueNimi: j.nimi,
+    suostumusTila: 'annettu', isDemoUser: false, huoltajaEmail: 'g-' + j.id.slice(5) + '-' + i + '@example.test', pelipaikka: 'KK',
+    hh_pvm: pv, hh_viimeisin: hh, hh_historia: [{ pvm: ed, lin30m: hh.lin30m - 0.1, cmj: hh.cmj + 1, kasirata: hh.kasirata - 0.2 }, Object.assign({ pvm: pv }, hh)],
+    tki_pvm: pv, tki_viimeisin: j.tila === 'profiili' ? 30 - i : tuore ? 58 - i : 33, tki_edellinen: j.tila === 'profiili' ? 43 - i : tuore ? 71 - i : 35, tk_lajit_viimeisin: tk, tki_historia: [Object.assign({ pvm: ed }, tk), Object.assign({ pvm: pv }, tk)] };
+  if (i < 2 && j.v <= 2014) p.syntymaaika = ts(Date.UTC(j.v, 2 + i * 4, 10));   // syntymäajat vain osalla → "{n}/{yht} syntymäaikaa"
+  if (j.tila === 'profiili' && i < 2) p.talenttiOhjelma = true;                     // talentit
+  if (j.tila === 'kypsyys' && i < 3) Object.assign(p, { hh_taso: 2, d2_taso: 4 });  // Hidden Gem -ehdokas PHV-ikkunassa ilman PHV-mittausta → '{n} odottaa mittausta.' (§28-portti)
+  return p;
+}
+export function dokitLage() {
+  const D = dokit();
+  for (const j of LAGE_J) {
+    D[SP + '/joukkueet/' + j.id] = { nimi: j.nimi, ika: j.nimi.slice(3), ikaluokka: j.nimi.slice(3) };
+    for (let i = 0; i < 6; i++) D[SP + '/pelaajat/ql_' + j.id.slice(5) + '_' + i] = lagePelaaja(j, i);
+  }
+  KOOSTE_VKOT.forEach((vk) => { const k = D[SP + '/kooste/' + vk]; for (const j of LAGE_J) k.joukkueet[j.id] = koosteJ(j.nimi, 6, false, 3); });
+  const ehd = (id, signaali, joukkueet) => { D[SP + '/toimenpiteet/' + id] = { tila: 'ehdotus', tyyppi: 'ehdotus', signaali, joukkueet, joukkue: joukkueet[0], teksti: joukkueet.join(', '), luotu: ts(NYT - 2 * PV) }; };
+  ehd('te1', 'tki_lahella_merkkia', ['QG T15']);          // yhdelle joukkueelle (signaali, jota generointi ei tuota tälle datalle)
+  ehd('te2', 'hh_taso_alhainen', ['QG P12', 'QG T13']);   // {n} joukkueelle
+  return D;
+}
+
 export const CALLABLET = {
   haePelaajanKertyma: { kertyma },
   haePelaajanKalenteri: { tapahtumat: TAPAHTUMAT, laskettu: NYT },
@@ -99,7 +142,7 @@ export const ROOLIT = {
   valmentaja: () => ({ claims: { seuraId: S, rooli: 'valmentaja' }, kayttaja: { uid: 'fxv', email: 'coach@example.test' } }),
   vp: () => ({ claims: { seuraId: S, rooli: 'vp' }, kayttaja: { uid: 'fxvp', email: 'vp@example.test' } }),
 };
-export const fxKonfiguraatio = (rooli, pid) => Object.assign({ dokit: dokit(), callablet: CALLABLET }, ROOLIT[rooli](pid));
+export const fxKonfiguraatio = (rooli, pid, muunnelma) => Object.assign({ dokit: muunnelma === 'lage' ? dokitLage() : dokit(), callablet: CALLABLET }, ROOLIT[rooli](pid));   // QG-1c: muunnelma 'lage' = VP Läge -tilat
 
 /* Sivun valmistelu fixture-ajoon (Playwright page): data window.__FX:ään ennen sivun skriptejä, gstatic-SDK → tynkä,
    Firebase-taustapalvelut, Sentry ja kaikki muu ulkoverkko estetään (ei kirjoituksia minnekään, ei tuotantoa). Paikalliset tiedostot ja
