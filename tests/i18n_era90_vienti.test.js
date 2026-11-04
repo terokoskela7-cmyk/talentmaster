@@ -29,6 +29,6 @@ describe('sv-erä 90 — vienti', () => {
     const t = V.vie({ juuri: kopio, kirjoita: true }); expect(t.virheet.join('|')).toContain('kka_kehityit: sv tyhjä'); expect(t.kirjoitettu).toBe(false);
   });
   it('erä 90 ei ole enää odottavien listalla (LIB_SV_ODOTTAA tyhjä; ODOTTAVAT_ERAT ei sisällä 90)', () => {
-    expect(teksti('tests/i18n_sv_era_lib.test.js')).toMatch(/const LIB_SV_ODOTTAA = \[(?:'kts_suostumus_peruttu')?\]/); const rivi = teksti('tools/i18n/sv_kattavuus.mjs').match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].split(',').map((x) => x.trim())).not.toContain('90');
+    expect(teksti('tests/i18n_sv_era_lib.test.js')).toMatch(/const LIB_SV_ODOTTAA = \[\]/); const rivi = teksti('tools/i18n/sv_kattavuus.mjs').match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy(); expect(rivi[1].split(',').map((x) => x.trim())).not.toContain('90');
   });
 });

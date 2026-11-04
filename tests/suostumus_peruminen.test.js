@@ -160,12 +160,13 @@ describe('peruSuostumus (functions/suostumus_peruminen.js)', () => {
     const y = ymp('fi', d);
     await expect(y.peru({ seuraId: 'kpv', pelaajaId: 'topias' }, { auth: VP })).rejects.toMatchObject({ code: 'failed-precondition', details: { syy: 'ei_annettu' } });
   });
-  it('kuittaus seuran kielellä: sv vasta kun PM:n sv on viety (tyhjä sv → koko viesti suomeksi)', () => {
-    const fi = SP.pohjaSuostumusPeruttu({ kieli: 'sv', seuraNimi: 'Sibbo <b>', lapsiNimi: 'Ä<script>' });
-    const svValmis = Object.values(SP.TEKSTIT.sv).every((x) => x.trim() !== '');
-    expect(fi.kieli).toBe(svValmis ? 'sv' : 'fi');
-    expect(fi.html).not.toContain('<script>'); expect(fi.html).toContain('Sibbo &lt;b&gt;');
-    expect(fi.subject).not.toMatch(/[\r\n]/);
+  it('kuittaus seuran kielellä: sv-seuralle ruotsiksi (erä 94 viety), muille suomeksi; tyhjä sv → koko viesti suomeksi', () => {
+    const sv = SP.pohjaSuostumusPeruttu({ kieli: 'sv', seuraNimi: 'Sibbo <b>', lapsiNimi: 'Ä<script>' });
+    expect(sv.kieli).toBe('sv'); expect(sv.subject).toBe(SP.TEKSTIT.sv.otsikko.replace('{lapsi}', 'Ä<script>'));
+    expect(sv.html).not.toContain('<script>'); expect(sv.html).toContain('Sibbo &lt;b&gt;'); expect(sv.html).not.toContain('{seura}');
+    expect(sv.subject).not.toMatch(/[\r\n]/);
+    expect(SP.pohjaSuostumusPeruttu({ kieli: 'fi', seuraNimi: 'KPV', lapsiNimi: 'Topias' }).kieli).toBe('fi');
+    expect(SP.pohjaSuostumusPeruttu({ seuraNimi: 'KPV', lapsiNimi: 'Topias' }).kieli).toBe('fi');
     expect(Object.keys(SP.TEKSTIT.sv).sort()).toEqual(Object.keys(SP.TEKSTIT.fi).sort());
   });
   it('sähköpostivirhe ei kaada perumista', async () => {
@@ -254,10 +255,10 @@ describe('UI-kytkennät', () => {
 
 describe('sv-erä 94 (PM kirjoittaa ruotsin)', () => {
   const ERA = JSON.parse(lue('docs/i18n/sv_kaannoserae_94_gemini.json'));
-  it('kaikki uudet fi-tekstit erässä, sv tyhjä, fi täsmää koodiin', () => {
+  it('kaikki uudet fi-tekstit lähetetyssä erässä (sv tyhjä), fi täsmää koodiin', () => {
     const L = require_('../lib/tm_lang.js').TM_LANG;
     for (const [k, r] of Object.entries(ERA.osiot.tm_lang.rivit)) {
-      const [ry, a] = k.split('.'); expect(r.fi, k).toBe(L.fi[ry][a]); expect(r.sv).toBe(''); expect(L.sv[ry] && L.sv[ry][a], k).toBeUndefined();
+      const [ry, a] = k.split('.'); expect(r.fi, k).toBe(L.fi[ry][a]); expect(r.sv).toBe('');
     }
     const SE = lue('TalentMaster_Seura.html');
     for (const k of Object.keys(ERA.osiot.henkilosto_kartta.rivit)) expect(SE, k).toContain("tmHT('" + k + "')");

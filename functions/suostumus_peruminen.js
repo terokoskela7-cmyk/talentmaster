@@ -19,7 +19,7 @@ const { esc } = require('./sahkoposti_turva');
 const K = require('./pelaajakirjautuminen');
 
 const AVOIMET_KUTSUTILAT = ['odottaa', 'lahetetty', 'luotu'];   // sama kuin vahvistaSuostumus
-/* Kuittausviesti (päätös 6). sv: sv-erä 94 (PM kirjoittaa, .sv_palautukset/) → vienti täyttää. Tyhjä sv → koko viesti suomeksi (ei puolikasta käännöstä). */
+/* Kuittausviesti (päätös 6). sv: sv-erä 94 (PM kirjoitti 4.11.2026, vienti scripts/i18n_vie_sv_era94.cjs). Tyhjä sv-rivi → koko viesti suomeksi (ei puolikasta käännöstä). */
 const TEKSTIT = {
   fi: {
     otsikko: 'Suostumus peruttu – {lapsi}',
@@ -30,7 +30,15 @@ const TEKSTIT = {
     poisto: 'Jos haluat, että lapsen tiedot poistetaan, pyydä tietojen poistoa seuralta.',
     alaviite: 'Tämä on automaattinen kuittaus. Et tunnista perumista? Ota yhteyttä seuraan.',
   },
-  sv: { otsikko: '', tervehdys: '', vahvistus: '', aiempi: '', uudelleen: '', poisto: '', alaviite: '' },
+  sv: {   // sv-erä 94 (PM 4.11.2026; docs/i18n/sv_kaannoserae_94_palautus.json; vienti scripts/i18n_vie_sv_era94.cjs)
+    otsikko: 'Samtycke återkallat – {lapsi}',
+    tervehdys: 'Hej,',
+    vahvistus: 'Samtycket till behandling av uppgifter om spelaren {lapsi} i TalentMaster ({seura}) har återkallats. Återkallelsen gäller omedelbart: spelaren kan inte längre logga in i appen och inga nya uppgifter samlas in.',
+    aiempi: 'Uppgifter som sparats före återkallelsen finns kvar hos föreningen. Återkallelsen påverkar inte lagligheten av den tidigare behandlingen.',
+    uudelleen: 'Om du vill ge samtycke på nytt, be föreningen om en ny inbjudan.',
+    poisto: 'Om du vill att barnets uppgifter raderas, be föreningen om radering.',
+    alaviite: 'Detta är en automatisk bekräftelse. Känner du inte igen återkallelsen? Kontakta föreningen.',
+  },
 };
 function _t(s, v) { return String(s).replace(/\{(\w+)\}/g, (m, k) => (v[k] != null ? v[k] : m)); }
 function pohjaSuostumusPeruttu({ kieli, seuraNimi, lapsiNimi }) {

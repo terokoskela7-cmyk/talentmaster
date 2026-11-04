@@ -16,8 +16,7 @@ const ERA54 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require(
 const ERA55 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_55_gemini.json'), 'utf8')).osiot.tm_lang.rivit));   // erän 55 avaimet (suostumus vaihe 1, staattinen markup) kuuluvat erään 55
 const ERA56 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_56_gemini.json'), 'utf8')).osiot.tm_lang.rivit));   // erän 56 avaimet (tietosuojaikkuna, Sibbo-viimeistely) kuuluvat erään 56
 const ERA69 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_69_gemini.json'), 'utf8')).osiot.tm_lang.rivit));   // erän 69 avaimet (palaute-näkyvyys 0a: merkkinäkymä)
-const ERA94 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_94_gemini.json'), 'utf8')).osiot.tm_lang.rivit));   // erän 94 avaimet (B9): sv odottaa PM:ää
-const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').filter((p) => !ERA54.has(p) && !ERA55.has(p) && !ERA56.has(p) && !ERA69.has(p) && !ERA94.has(p));
+const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').filter((p) => !ERA54.has(p) && !ERA55.has(p) && !ERA56.has(p) && !ERA69.has(p));
 const hae = (kieli, polku) => polku.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L[kieli]);
 const rivit = ERA.osiot.tm_lang.rivit;
 const ERA3 = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_3.json'), 'utf8'));
