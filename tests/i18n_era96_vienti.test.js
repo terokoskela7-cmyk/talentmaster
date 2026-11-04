@@ -1,4 +1,4 @@
-/* sv-erä 96 (QG-1c: VP Läge oikean datan tiloissa, #1188) — vienti. Code ei kirjoita ruotsia (§0): koodin sv = PM:n palautus (sha 19120c3e…91b0) merkki merkiltä.
+/* sv-erä 96 (QG-1c: VP Läge oikean datan tiloissa, #1188) — vienti. Code ei kirjoita ruotsia (§0): koodin sv = PM:n palautus (sha ee6f6750…7c3f) merkki merkiltä.
    vp.* → lib/tm_vp_i18n.js, master.tm_kalenteri → lib/tm_master_i18n.js. Selainhyväksyntä (Läge-näkymässä ei suomea): tests/qg1c_vp_lage_selain.test.js. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -13,7 +13,7 @@ const rivit = Object.entries(P).flatMap(([o, v]) => Object.entries(v.rivit).map(
 describe('sv-erä 96 — vienti', () => {
   it('palautus = tarkistettu tiedosto (sha), 52 riviä = lähetetty erä; lähetetty sv tyhjä', () => {
     const sha = createHash('sha256').update(teksti('docs/i18n/sv_kaannoserae_96_palautus.json')).digest('hex');
-    expect(sha).toBe('19120c3e72d9564d515c39a0c43557a0ad1e7c79a2fedf1c7695cd3dcf3b91b0');
+    expect(sha).toBe('ee6f6750fd890028811ab7e31dbe53cfc7074008cf18b454e3a09fe93fc77c3f');
     expect(Object.keys(P).sort()).toEqual(Object.keys(G).sort()); expect(rivit).toHaveLength(52);
     for (const { o, k, r } of rivit) { expect(G[o].rivit[k].sv, k).toBe(''); expect(r.fi, k).toBe(G[o].rivit[k].fi); expect(r.sv.trim(), k).not.toBe(''); }
   });
