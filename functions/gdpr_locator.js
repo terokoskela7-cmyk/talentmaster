@@ -399,7 +399,14 @@ function pseudonymisoiHenkilokunta(data, { roolit = new Map(), suojatut = [] } =
   return kay(data, null);
 }
 
+// Viennin kytkentä (index.js pysyy kasvukaton alla): lue seuran roolit → pseudonymisoi koko vienti.
+async function pseudonymisoiSeuranVienti(db, seuraId, { suojatut = [], varoitukset = [] } = {}, vienti) {
+  const roolit = await lueHenkilokunnanRoolit(db, seuraId, varoitukset);
+  return pseudonymisoiHenkilokunta(vienti, { roolit, suojatut });
+}
+
 module.exports = {
+  pseudonymisoiSeuranVienti,
   TUNTEMATON_ROOLI,
   lueHenkilokunnanRoolit,
   pseudonymisoiHenkilokunta,

@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-const { pseudonymisoiHenkilokunta, lueHenkilokunnanRoolit, TUNTEMATON_ROOLI, ALIKOKOELMAT } = require('../functions/gdpr_locator.js');
+const { pseudonymisoiHenkilokunta, lueHenkilokunnanRoolit, pseudonymisoiSeuranVienti, TUNTEMATON_ROOLI, ALIKOKOELMAT } = require('../functions/gdpr_locator.js');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const INDEX = readFileSync(join(ROOT, 'functions/index.js'), 'utf8');
@@ -87,8 +87,15 @@ describe('GDPR-vienti: henkilökunnan uid → rooli (art. 15(4))', () => {
   });
   it('viePelaajanDataGDPR pseudonymisoi koko viennin ennen tallennusta (pelaajaId suojattuna)', () => {
     const f = INDEX.slice(INDEX.indexOf('exports.viePelaajanDataGDPR'), INDEX.indexOf('// ═', INDEX.indexOf('exports.viePelaajanDataGDPR')));
-    expect(f).toMatch(/const vienti = pseudonymisoiHenkilokunta\(vientiRaaka, \{ roolit, suojatut: \[pelaajaId\] \}\);/);
-    expect(f.indexOf('pseudonymisoiHenkilokunta(')).toBeLessThan(f.indexOf('file.save(JSON.stringify(vienti'));
-    expect(f).not.toMatch(/JSON\.stringify\(vientiRaaka/);
+    expect(f).toMatch(/const vienti = await pseudonymisoiSeuranVienti\(db, seuraId, \{ suojatut: \[pelaajaId\], varoitukset: manifesti\.varoitukset \}, \{/);
+    expect(f.indexOf('pseudonymisoiSeuranVienti(')).toBeLessThan(f.indexOf('file.save(JSON.stringify(vienti'));
+    expect((f.match(/const vienti\b/g) || []).length).toBe(1);   // ei raakaa rinnakkaisversiota
+  });
+  it('pseudonymisoiSeuranVienti lukee seuran roolit ja korvaa (kytkentä)', async () => {
+    const col = (docs) => ({ get: async () => ({ docs: docs.map(([id, d]) => ({ id, data: () => d })) }) });
+    const seura = { get: async () => ({ exists: true, data: () => ({}) }), collection: (n) => (n === 'kayttajat' ? col([[VALM, { rooli: 'valmentaja' }]]) : col([])) };
+    const db = { collection: (n) => (n === 'seurat' ? { doc: () => seura } : col([])) };
+    const out = await pseudonymisoiSeuranVienti(db, 's', { suojatut: [PELAAJA] }, { a: { tekija: VALM, p: PELAAJA } });
+    expect(out).toEqual({ a: { tekija: 'valmentaja', p: PELAAJA } });
   });
 });
