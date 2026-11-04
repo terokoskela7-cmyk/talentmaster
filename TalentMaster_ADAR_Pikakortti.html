@@ -1361,6 +1361,9 @@ async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId,
     var _oldAvDoc = await pRef.get().catch(function () { return null; });
     var _oldAv = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().adar_viimeisin) || null;
     havVanha = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().havainto_viimeisin_pvm) || null;
+    /* PR 2c (R6): max-vartija lukee myös sisainen/tiedot-kopion (siivouksen jälkeen kenttä on vain siellä) → myöhempi päivä voittaa; lukuvirhe → pelaajadokumentin arvo (havainto ei kaadu). */
+    var _sisDoc = null; try { _sisDoc = await pRef.collection('sisainen').doc('tiedot').get(); } catch (e) { console.warn('[ADAR sisainen-luku]', e && (e.code || e.message)); }
+    var _sisPvm = (_sisDoc && _sisDoc.exists && _sisDoc.data().havainto_viimeisin_pvm) || null; if (typeof _sisPvm === 'string' && (typeof havVanha !== 'string' || _sisPvm > havVanha)) havVanha = _sisPvm;
     kentat = (typeof tmAdarPikakentat === 'function')
       ? tmAdarPikakentat(havainnot, _phIka(pelaajaId), porras, { edellinen: _oldAv, nowMs: Date.now() }) : null;
     if (kentat && kirjoitaPorras) kentat.havainto_porras = porras;

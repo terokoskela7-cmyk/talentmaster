@@ -2165,7 +2165,7 @@ async function renderPelaajat(alue) {
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a,b) => (a.sukunimi || '').localeCompare(b.sukunimi || ''));
 
-    await _seuraYhdistaTerveys(pelaajat);   // PR 2a: käytettävyys sisainen/terveys:stä (SA/VP/UTJ)
+    await _seuraYhdista(pelaajat);   // PR 2a/2c: sisainen/tiedot (talentti*, ⭐) + käytettävyys sisainen/terveys:stä (SA/VP/UTJ)
     // Tallennetaan kaikki pelaajat suodatinta varten
     window._pelaajatKaikki = pelaajat;
     window._aktiiviSuodatin = 'kaikki';
@@ -2382,18 +2382,18 @@ function _renderKaytettavyys(p) {
 }
 
 /* PR 2a (vaihe 1 PR 2, terveys): TERVEYS_VAIN_SISAINEN — käytettävyys luetaan ja kirjoitetaan vain sisainen/terveys-dokumentissa (siivousskripti tarkistaa tämän merkin tuotannosta).
-   Lataus (lista ja muokkausikkuna) yhdistää terveys-dokumentin pelaajaan; latausvirhe näytetään eikä nielaista. */
+   PR 2c: lista, muokkausikkuna ja Kehitystilanne yhdistävät sisainen/tiedot-kopion (talentti*, signaali, adar …) + terveyden (oikeutetuille rooleille). Latausvirhe näytetään ja palautetaan (kutsuja estää tallennuksen). */
 const TERVEYS_VAIN_SISAINEN = true;
-async function _seuraYhdistaTerveys(lista) {
-  if (!kaytettavyysNakyy() || !window.TM_SISAINEN || !lista.length) return;
-  const T = window.TM_SISAINEN, r = await T.tmSisainenLataaTerveys(db, tila.seuraId, T.tmTerveysLukuOpts(tila.rooli, lista));
-  if (r.virhe) naytaToast(tmHT('Lataus epäonnistui:') + ' ' + r.virhe, 'virhe');
-  lista.forEach((p, i) => { lista[i] = T.tmSisainenYhdista(p, null, { terveys: r.mapa[p.id] }); });
+async function _seuraYhdista(lista) {
+  if (!lista.length) return null; const T = window.TM_SISAINEN; if (!T) { naytaToast(tmHT('Lataus epäonnistui:') + ' TM_SISAINEN', 'virhe'); return 'TM_SISAINEN'; }
+  const r = await T.tmSisainenLataaSeura(db, tila.seuraId, kaytettavyysNakyy() ? T.tmTerveysLukuOpts(tila.rooli, lista) : {}), virhe = r.virhe || r.terveysVirhe || null;
+  if (virhe) naytaToast(tmHT('Lataus epäonnistui:') + ' ' + virhe, 'virhe');
+  T.tmSisainenYhdistaLista(lista, r.mapa, r.terveysMapa ? { terveysMapa: r.terveysMapa } : {}).forEach((p, i) => { lista[i] = p; }); return virhe;
 }
 async function avaaKaytettavyysModal(pelaajaId) {
   if (!kaytettavyysNakyy()) return;
   let p = (window._pelaajatKaikki || []).find(x => x.id === pelaajaId);
-  if (!p) { const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get(); const l = [{ id: pelaajaId, ...snap.data() }]; await _seuraYhdistaTerveys(l); p = l[0]; }
+  if (!p) { const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get(); const l = [{ id: pelaajaId, ...snap.data() }]; await _seuraYhdista(l); p = l[0]; }
   const k = p.kaytettavyys || null;   // asettamaton → mitään tilaa ei valita valmiiksi (ei oletusta "aktiivinen")
 
   // Poista vanha modaali
@@ -2661,7 +2661,7 @@ async function _ktLataa(sid, vuosi) {
     joukkueet: jSnap ? jSnap.docs.map((d) => Object.assign({ id: d.id }, d.data())) : (tila.joukkueet || []), _puuttuu: puuttuu };
   // Pelaajakohtaiset alikokoelmat erissä (15 rinnakkain)
   const raja12vk = tmPaivaIso(new Date(Date.now() - 84 * 864e5));
-  const pel = data.pelaajat;
+  if (await _seuraYhdista(data.pelaajat)) puuttuu.push('sisainen'); const pel = data.pelaajat;   // PR 2c (R3): talentti*/signaali sisainen/tiedot:stä (tm_kehitystilanne, Hidden Gem -ehdokkuus); virhe → näkyy puuttuvana lähteenä
   for (let i = 0; i < pel.length; i += 15) {
     await Promise.all(pel.slice(i, i + 15).map(async (p) => {
       const P = S.collection('pelaajat').doc(p.id);
@@ -2917,7 +2917,7 @@ async function ktTallennaSeuratuki() {
   } catch (e) { naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe'); }
 }
 async function ktTallennaKausikuva() {
-  const K = window._kt; if (!K) return;
+  const K = window._kt; if (!K) return; if ((K.data._puuttuu || []).indexOf('sisainen') >= 0) { naytaToast(tmHT('Tallennus epäonnistui:') + ' sisainen', 'virhe'); return; }   // 2c: kausikuva on pysyvä → ei tallenneta ilman sisainen-tietoja
   if (!confirm((tmHT('Tallennetaanko kauden') + ' ') + K.vuosi + ' kausikuva? Kuvaa ei voi muuttaa tallennuksen jälkeen.')) return;
   const pelaajat = K.data.pelaajat.filter((p) => p.tila !== 'arkistoitu').map((p) => ({ id: p.id, joukkue: p.joukkue || null,
     ikaluokka: p.syntymaVuosi ? (p.sukupuoli === 'N' ? 'T' : 'P') + (K.vuosi - p.syntymaVuosi) : null, sukupuoli: p.sukupuoli || null,
@@ -4947,7 +4947,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
     const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
     if (snap.exists) p = { id: snap.id, ...snap.data() };
   } catch(e) { naytaToast(tmHT('Tietojen haku epäonnistui.'), 'virhe'); return; }
-  if (!p) return;
+  if (!p) return; { const l = [p]; if (await _seuraYhdista(l)) return; p = l[0]; }   // PR 2c (R2): sisainen/tiedot yhdistetään; latausvirhe → ikkuna ei aukea (tallennus kirjoittaisi väärän talenttiOhjelma-arvon)
 
   // Syntymäaika → date-kentäksi (YYYY-MM-DD)
   // Date-kenttää EI esitäytetä pelkästä vuodesta (ei keksittyä 1.1.); vuosi näkyy omassa kentässään.
@@ -5103,7 +5103,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
             <div style="font-size:11px;color:var(--ink3);margin-top:2px;">${tmHT('Pelaaja saa IDP:n ja talenttivalmentajan seurannan')}</div>
           </div>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-            <input type="checkbox" id="mp_talentti" ${onTalentti ? 'checked' : ''}
+            <input type="checkbox" id="mp_talentti" ${onTalentti ? 'checked data-oli-talentti="1"' : ''}
               style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;"
               onchange="document.getElementById('mp_talenttiTasoRivi').style.display=this.checked?'block':'none'">
             <span style="font-size:13px;color:var(--ink);">${onTalentti ? 'Aktiivinen' : tmHT('Ei aktiivinen')}</span>
@@ -5186,7 +5186,7 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
   });
 
   // Talenttistatus
-  const onTalentti = document.getElementById('mp_talentti')?.checked || false;
+  const onTalentti = document.getElementById('mp_talentti')?.checked || false, oliTalentti = !!document.getElementById('mp_talentti')?.dataset.oliTalentti;
   const talenttiTaso = document.getElementById('mp_talenttiTaso')?.value || 'perus';
 
   if (!etunimi && !sukunimi) {
@@ -5216,13 +5216,13 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
     // Talenttistatus
     talenttiOhjelma: onTalentti,
     ...(onTalentti && { talenttiTaso }),
-    ...(!onTalentti && { talenttiTaso: null, talenttiPaattyi: firebase.firestore.FieldValue.serverTimestamp() }),
+    ...(!onTalentti && { talenttiTaso: null }), ...(!onTalentti && oliTalentti && { talenttiPaattyi: firebase.firestore.FieldValue.serverTimestamp() }),   // 2c: päättymispäivä vain kun ohjelma oikeasti päättyy
     muokattu:    firebase.firestore.FieldValue.serverTimestamp(),
     muokkaajaUid: tila.kayttaja?.uid || 'tuntematon',
   };
 
   // Talenttiohjelma aktivointi — aseta alkupäivä vain kun aktivoidaan ensi kertaa
-  if (onTalentti && !document.getElementById('mp_talentti').dataset.oliTalentti) {
+  if (onTalentti && !oliTalentti) {   // 2c (R2): data-oli-talentti asetetaan ikkunassa → talenttiAlku ei ylikirjoitu joka tallennuksella
     paivitys.talenttiAlku    = firebase.firestore.FieldValue.serverTimestamp();
     paivitys.talenttiAktivoi = tila.kayttaja?.uid || 'tuntematon';
   }

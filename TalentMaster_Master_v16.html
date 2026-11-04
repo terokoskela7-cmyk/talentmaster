@@ -2791,7 +2791,7 @@ async function _lataaPelaajat() {
     // PR C: PHV-tila normalisoidaan TÄSSÄ (yksi rajapinta, kuten VP lataaPelaajat): kanoninen Mirwald-koodi vain
     // mittauslähteestä (biologinenIka_viimeisin), muuten null = tuntematon. Ilmoitettu PH → lippu henkilökunnalle.
     _pelaajatData = docs.map(d => { const o = { id: d.id, ...d.data() }; o.phv_ilmoitettu_ph = tmPhvIlmoitettuPH(o); o.phv_ei_mitattu = tmPhvEiMitattu(o); o.phv_tila = tmPhvKoodi(o); return o; });
-    if (!_demo && window.TM_SISAINEN) _pelaajatData = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajatData, window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, _pelaajatData));   // Vaihe 1 (1d): sisainen/tiedot yhdistetään (D3); virhe/puuttuva → vanhat kentät
+    if (!_demo) { if (!window.TM_SISAINEN) _mSisainenVirhe('TM_SISAINEN'); else _pelaajatData = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajatData, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, _pelaajatData), { onVirhe: _mSisainenVirhe })); }   // Vaihe 1 (1d/2c): sisainen/tiedot yhdistetään; puuttuva lib tai latausvirhe näkyy (ei hiljaista ohitusta)
     _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
     if (!_demo) {
       // Renderöi kaikki pelaajadataa käyttävät näkymät (alkulataus + jokainen lataus)
@@ -7048,7 +7048,7 @@ function _mvKentat(S) {   // vastaanottajat tilasta
 function _mvKrCtx() { const C = _mvC(); return { uid: C.uid(), rooli: C.rooli(), sa: (typeof _superAdmin !== 'undefined') && !!_superAdmin, omatJoukkueet: [_calJoukkueId(), _joukkue].filter(Boolean), pelaajat: C.pelaajat(), seura: window._mSeuraNimi || '' }; }
 function _mvKrAlusta(S) {   // klippi ryhmälle + oma videoklippi -varaus (lib/tm_klippi_ryhma.js): lukittu tila heti, ryhmät + lippu ladataan taustalla
   const K = window.TM_KLIPPI_RYHMA, C = _mvC(); if (!K) return; K.tmKrAsetaSheet(S, {}, _mvKrCtx()); if (C.demo()) return;
-  K.tmKrLataa(C.db(), C.seuraId()).then(function (d) { if (window._mvTila !== S) return; const k = S.kohde, r = S.ryhmaId; K.tmKrAsetaSheet(S, d, _mvKrCtx()); S.kohde = k; if (k === 'ryhma') K.tmKrValitse(S, r, _mvKrCtx()); _mvPaivitaTila(S); _mvRender(); });
+  K.tmKrLataa(C.db(), C.seuraId()).then(function (d) { if (window._mvTila !== S) return; if (d.virhe) toast(masterT('Lataus epäonnistui: ') + d.virhe, 'error'); const k = S.kohde, r = S.ryhmaId; K.tmKrAsetaSheet(S, d, _mvKrCtx()); S.kohde = k; if (k === 'ryhma') K.tmKrValitse(S, r, _mvKrCtx()); _mvPaivitaTila(S); _mvRender(); });
 }
 function _mvPaivitaTila(S) {   // rekisteri + suostumuslippu valituista vastaanottajista
   const C = _mvC(), vs = _mvKentat(S), ikat = vs.map(function (p) { return C.ika(p); }).filter(function (x) { return x != null; });
@@ -11155,14 +11155,18 @@ function _adarSentry(paikka, koodi) {
   try { if (window.Sentry && window.Sentry.captureMessage) window.Sentry.captureMessage('ADAR pikakentat: ' + paikka + ' ' + koodi, { level: 'warning', tags: { adar: 'pikakentat', paikka: String(paikka) } }); } catch (e) { /* Sentry ei estä */ }
 }
 /* Lataa pelaajan tuore dokumentti muistiin (_pelaajatData ladataan kerran — kortit lukevat sieltä) ja piirtää kortin. */
+function _mSisainenVirhe(v) { if (typeof toast === 'function') toast(masterT('Lataus epäonnistui: ') + v, 'error'); }   // PR 2c: sisainen-latausvirhe näkyviin (siivouksen jälkeen tyhjä = väärä tieto)
+/* PR 2c (R4): uudelleenluku kuten alkulataus — PHV normalisoidaan (ei raakaa phv_tila:a), sisainen/tiedot yhdistetään, terveys listan arvosta; pelaaja ei listassa → ei piirretä (ennen: listan 1. pelaaja). */
 async function _pikakorttiLataaPelaaja(pid) {
   try {
-    const d = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).get();
-    if (!d.exists) return;
-    const uusi = Object.assign({ id: d.id }, d.data());
-    const i = (_pelaajatData || []).findIndex(function (x) { return x.id === pid; });
-    if (i >= 0) _pelaajatData[i] = Object.assign({}, _pelaajatData[i], uusi);
-    if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(_pelaajatData[i >= 0 ? i : 0]);
+    const i = (_pelaajatData || []).findIndex(function (x) { return x.id === pid; }); if (i < 0) return;
+    const P = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid), T = window.TM_SISAINEN;
+    const [d, sd] = await Promise.all([P.get(), T ? P.collection(T.ALIKOKOELMA).doc(T.DOKUMENTTI).get().catch(function (e) { _mSisainenVirhe((e && (e.code || e.message)) || 'virhe'); return null; }) : null]);
+    if (!d.exists) return; if (!T) _mSisainenVirhe('TM_SISAINEN'); else if (!sd) return;   // sisainen-luku epäonnistui (virhe näytetty) → listan yhdistetty arvo säilyy, ei raakaa korvaajaa
+    let uusi = Object.assign({ id: d.id }, d.data()); uusi.phv_ilmoitettu_ph = tmPhvIlmoitettuPH(uusi); uusi.phv_ei_mitattu = tmPhvEiMitattu(uusi); uusi.phv_tila = tmPhvKoodi(uusi);
+    if (T) { uusi = T.tmSisainenYhdista(uusi, sd && sd.exists ? sd.data() : null); T.tmTerveysKentat().forEach(function (k) { delete uusi[k]; }); }
+    _pelaajatData[i] = Object.assign({}, _pelaajatData[i], uusi);
+    if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(_pelaajatData[i]);
     if (typeof setWs === 'function' && typeof _ws !== 'undefined' && !document.getElementById('_pkModal')) setWs(_ws);   // rivit ("N havaintoa") uusiksi
   } catch (e) { console.warn('[pikakorttiLataaPelaaja]', e && e.message); }
 }
