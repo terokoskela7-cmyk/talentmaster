@@ -47,16 +47,19 @@ describe('lib: tmJaksonKesto (D7) + tmAloitaJakso', () => {
 function pura(t) { const i = MA.indexOf(t); expect(i, t).toBeGreaterThan(-1); let d = 0; for (let k = MA.indexOf('{', i); k < MA.length; k++) { if (MA[k] === '{') d++; else if (MA[k] === '}' && !--d) return MA.slice(i, k + 1); } throw new Error('sulkeet'); }
 const ITEMS = [{ avain: 'y_h2', nimi: 'Saattaen vaihtaminen', koodi: 'Y-H2' }, { avain: 'y_h3', nimi: 'Toinen taito', koodi: null }];
 function ymp({ pelaaja, kentat = {}, demo = false, kaada = false, rooli = 'valmentaja', sa = false } = {}) {
-  const log = { upd: [], toastit: [], renderit: 0, modal: null, suljettu: 0 };
+  const log = { upd: [], sis: [], toastit: [], renderit: 0, modal: null, suljettu: 0 };
   const p = Object.assign({ id: PID, joukkue: 'KPV U13', syntymaVuosi: 2013 }, pelaaja || {});
-  const elementit = {}; const dok = { update: async (d) => { if (kaada) throw new Error('permission-denied'); log.upd.push(d); } };
+  /* PR 2d: jakson aloitus kulkee tm_sisainen.js:n batchin kautta → log.upd = pelaajadokumentin päivitys, log.sis = sisainen/tiedot (vastuuhenkilö = A). */
+  const ref = (polku) => ({ _polku: polku, collection: (c) => ({ doc: (d) => ref(polku + '/' + c + '/' + d) }) });
+  const _db = { collection: (c) => ({ doc: (d) => ref(c + '/' + d) }),
+    batch: () => { const ops = []; return { update: (r, d) => ops.push(() => log.upd.push(d)), set: (r, d) => ops.push(() => { if (/\/sisainen\/tiedot$/.test(r._polku)) log.sis.push(d); }), commit: async () => { if (kaada) throw new Error('permission-denied'); ops.forEach((f) => f()); } }; } };
   const el = (id) => (id in kentat ? { value: kentat[id] } : null);
   const document = { getElementById: (id) => (id === '_mAloitaJaksoModal' ? (log.modal ? { remove() { log.modal = null; log.suljettu++; } } : null) : el(id)), createElement: () => ({ set innerHTML(h) { this._h = h; }, get firstChild() { return { _h: this._h }; } }), body: { appendChild: (x) => { log.modal = x._h; } } };
   const c = { _pelaajatData: [p], _mIdpP: () => p, _mTtItems: () => ITEMS, _mTtEhdotus: () => ({ tyyppi: 'teknis_taktinen', konsepti_avain: 'y_h2' }), _ttNormPositio: () => null, _devIkaSp: () => ({ ika: 13 }), _mEsc: (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-    masterT: (x) => x, tmPaivaIso: () => PVM, toast: (t, k) => log.toastit.push([t, k]), console: { warn() {} }, _rooli: rooli, _superAdmin: sa, _demo: demo, _seuraId: 'kpv', _db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => dok }) }) }) }, _mVerkkoEnnenSulkua: () => true, _mTuoreToken: async () => {},
-    firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } }, _renderPinfoFirestore: () => { log.renderit++; }, _mIdpReRender: () => { log.renderit++; }, _tmHenkiloNimi: () => 'Topias K.', _mLataaHenkilosto() {},
+    masterT: (x) => x, tmPaivaIso: () => PVM, toast: (t, k) => log.toastit.push([t, k]), console: { warn() {} }, _rooli: rooli, _superAdmin: sa, _demo: demo, _seuraId: 'kpv', _db, _mVerkkoEnnenSulkua: () => true, _mTuoreToken: async () => {},
+    firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }), delete: () => ({ __delete: true }) } } }, _renderPinfoFirestore: () => { log.renderit++; }, _mIdpReRender: () => { log.renderit++; }, _tmHenkiloNimi: () => 'Topias K.', _mLataaHenkilosto() {},
     _mJaksoVaihto: (pp, jf) => K.tmAsetaJaksofokus(pp, jf, { nytISO: NYT }), document, Object, Array, String, Number, Promise, JSON };
-  c.window = c; c.window.TM_JAKSO_MALLI = JM; c.window.TM_VASTUUHENKILO = VH; c.window.TM_ALOITA_JAKSO = AJ; c.window._mHenkilosto = [{ id: 'u-valm', nimi: 'Veera Valmentaja', rooli: 'valmentaja' }, { id: 'u-vp', nimi: 'Vilma VP', rooli: 'vp' }]; vm.createContext(c);
+  c.window = c; c.window.TM_SISAINEN = require('../lib/tm_sisainen.js'); c.window.TM_JAKSO_MALLI = JM; c.window.TM_VASTUUHENKILO = VH; c.window.TM_ALOITA_JAKSO = AJ; c.window._mHenkilosto = [{ id: 'u-valm', nimi: 'Veera Valmentaja', rooli: 'valmentaja' }, { id: 'u-vp', nimi: 'Vilma VP', rooli: 'vp' }]; vm.createContext(c);
   vm.runInContext([pura('function _mAloitaJaksoRivi('), pura('function _msK3RiviHTML('), pura('function _mAjPelaajaPp('), pura('function _mPelaajaNimiAj('), pura('window._mAloitaJaksoAvaa = async function'), pura('window._mAloitaJaksoSulje = function'), pura('window._mAloitaJaksoTallenna = async function'), pura('async function _mAjKirjoitaJakso(')].join(';\n') + ';', c);
   return { c, p, log };
 }
@@ -75,14 +78,15 @@ describe('Master: jakson aloitus (D-3)', () => {
   });
   it('tallennus: YKSI update {jaksofokus (tukiosa + kesto + lahde valmentaja), ydinvahvuus} (+ vastuuhenkilö kun valittu); paikallinen vasta onnistumisen jälkeen; modaali sulkeutuu; toast ok', async () => {
     const e = ymp({ kentat: KENTAT({ _ajVh: 'u-valm|apuvalmentaja' }) }); await e.c.window._mAloitaJaksoAvaa(PID); await e.c.window._mAloitaJaksoTallenna(PID);
-    expect(e.log.upd.length).toBe(1); const u = e.log.upd[0]; expect(Object.keys(u).sort()).toEqual(['jaksofokus', 'vastuuhenkilo', 'ydinvahvuus']);
+    expect(e.log.upd.length).toBe(1); const u = e.log.upd[0]; expect(Object.keys(u).sort()).toEqual(['jaksofokus', 'ydinvahvuus']);   // PR 2d: vastuuhenkilö (A) VAIN sisainen/tiedot:iin samassa batchissa
+    expect(e.log.sis).toHaveLength(1); expect(e.log.sis[0].vastuuhenkilo).toEqual({ uid: 'u-valm', rooli: 'apuvalmentaja', asetettu_pvm: PVM });
     expect(u.jaksofokus).toMatchObject({ konsepti_avain: 'y_h2', konsepti_koodi: 'Y-H2', kesto_vk: 6, lahde: 'valmentaja', tukiosa: { alue: 'kestävyys', perustelu: 'Jaksaminen tukee pelin lukemista', harjoitteet: [] } });
-    expect(u.ydinvahvuus).toEqual({ kuvaus: 'Näkee pelin hyvin', havaittu_pvm: PVM, rooli: 'valmentaja' }); expect(u.vastuuhenkilo).toEqual({ uid: 'u-valm', rooli: 'apuvalmentaja', asetettu_pvm: PVM });
+    expect(u.ydinvahvuus).toEqual({ kuvaus: 'Näkee pelin hyvin', havaittu_pvm: PVM, rooli: 'valmentaja' });
     expect(e.p.jaksofokus.tukiosa.alue).toBe('kestävyys'); expect(e.p.ydinvahvuus.kuvaus).toBe('Näkee pelin hyvin'); expect(e.p.vastuuhenkilo.uid).toBe('u-valm'); expect(e.log.suljettu).toBe(1); expect(e.log.toastit.at(-1)[1]).toBe('ok');
   });
   it('ilman vastuuhenkilövalintaa vastuuhenkilöä ei kirjoiteta; SA saa roolin vp; edellinen eri jakso arkistoituu historiaan (arrayUnion)', async () => {
     const e = ymp({ sa: true, rooli: 'super_admin', kentat: KENTAT(), pelaaja: { jaksofokus: { konsepti_avain: 'y_h9', konsepti_nimi: 'Vanha', alkoi: '2026-08-01T10:00:00.000Z', kesto_vk: 6 } } }); await e.c.window._mAloitaJaksoTallenna(PID);
-    const u = e.log.upd[0]; expect('vastuuhenkilo' in u).toBe(false); expect(u.ydinvahvuus.rooli).toBe('vp'); expect(u.jaksofokus_historia).toHaveProperty('__arrayUnion'); expect(u.jaksofokus_historia.__arrayUnion[0]).toMatchObject({ konsepti_avain: 'y_h9', sulkutapa: 'korvattu' });
+    const u = e.log.upd[0]; expect('vastuuhenkilo' in u).toBe(false); expect(e.log.sis.every((d) => !('vastuuhenkilo' in d))).toBe(true); expect(u.ydinvahvuus.rooli).toBe('vp'); expect(u.jaksofokus_historia).toHaveProperty('__arrayUnion'); expect(u.jaksofokus_historia.__arrayUnion[0]).toMatchObject({ konsepti_avain: 'y_h9', sulkutapa: 'korvattu' });
   });
   it('pelaajan valinnan VAHVISTUS: sama taito + tila "valittavana" → uusi jakso on aktiivinen (tila-kenttä poistuu), alkoi säilyy; D-1 "valinta_odottaa" lakkaa', async () => {
     const e = ymp({ kentat: KENTAT(), pelaaja: { ydinvahvuus_valinta: { vaihtoehto: 'saattaen vaihtaminen' }, jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Saattaen vaihtaminen', alkoi: '2026-10-05T10:00:00.000Z', kesto_vk: 6, tila: 'valittavana' } } });

@@ -4782,10 +4782,10 @@ async function _vpHhPeru(havId) {
   /* Pikakentät uudelleen: libin konsensus ohittaa perutut, joten peliäly palautuu itsesään.
      PORRASTA EI palauteta automaattisesti — se vaatisi päättelyä siitä, nostettiinko porras
      juuri tässä havainnossa. Kerrotaan se sen sijaan. */
-  await _vpHhPaivitaPikakentat(pid);
+  var _pkOk = await _vpHhPaivitaPikakentat(pid);   // PR 2d (K1): epäonnistuminen näkyy (ennen toast "peruttu" vaikka konsensus jäi voimaan)
   (window._vpHhRivit || []).forEach(function (r) { if (r.id === havId) r.peruttu = true; });
   _vpHhPiirra();
-  toast(vpT('Merkintä peruttu'), 'ok');
+  toast(_pkOk === false ? vpT('Tallennus epäonnistui.') : vpT('Merkintä peruttu'), _pkOk === false ? 'warn' : 'ok');
 }
 
 async function _vpHhPaivitaPikakentat(pelaajaId) {
@@ -4797,9 +4797,9 @@ async function _vpHhPaivitaPikakentat(pelaajaId) {
     var pdoc = await pRef.get();
     var pd = pdoc.exists ? pdoc.data() : {};
     var ika = pd.syntymaVuosi ? (new Date().getFullYear() - Number(pd.syntymaVuosi)) : null;
-    var kentat = tmAdarPikakentat(havainnot, ika, pd.havainto_porras || null, { edellinen: pd.adar_viimeisin || null });
-    if (kentat) await pRef.set(kentat, { merge: true });
-  } catch (e) { console.warn('[vpHh] pikakentat', e && e.message); }
+    var kentat = tmAdarPikakentat(havainnot, ika, pd.havainto_porras || null, { edellinen: pd.adar_viimeisin || null }), _v = kentat && window.TM_SISAINEN.tmAdarS4Valmista(kentat);
+    if (kentat) await window.TM_SISAINEN.tmS4Kirjoita(db, _seuraId, pelaajaId, _v.upd, { pelaajaSet: true, lisa: _v.lisa });   // PR 2d (K1): adar_* VAIN sisainen → perutun havainnon konsensus päivittyy sinne
+  } catch (e) { console.warn('[vpHh] pikakentat', e && e.message); return false; } return true;
 }
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _vpPhCtaKuuntelija);
@@ -6888,12 +6888,12 @@ window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
         /* scout_potentiaali* on SEURAN luettava pikakenttä. Palloliiton arvioijan (mahd. sisäinen)
            potentiaali ei saa päätyä siihen — sama rajaus kuin kohteissa. Kerta säilyy joka
            tapauksessa, ja Palloliiton oma näkymä laskee koosteensa kerroista. */
-        if (orgP === 'seura') tx.set(pRef, pika, { merge: true }); if (orgP === 'seura' && mukaan && _SISP) _SISP.tmHenkilokuntaLisaa(tx, db, _seuraId, p.id, pika, {});
+        if (orgP === 'seura') { const _pu = _SISP.tmHenkilokuntaRiisu(pika); if (Object.keys(_pu).length) tx.set(pRef, _pu, { merge: true }); _SISP.tmHenkilokuntaLisaa(tx, db, _seuraId, p.id, pika, {}); }   // PR 2d (K2): A-kentät VAIN sisainen:iin
       }); };
-      if (_SISP && _SISP.tmHenkilokuntaVarapolulla) await _SISP.tmHenkilokuntaVarapolulla({}, _kirjP); else await _kirjP(false);   // permission-denied → uusi yritys ilman sisainen:iä
+      await _kirjP(true);   // PR 2d: fail-closed (ei uusintaa ilman sisainen:iä; lib puuttuu → virhe näkyy)
       if (orgP === 'seura') { paivitaSeuranNakyma(); _vpPotReRender(p); }
     } else {
-      await (window.TM_SISAINEN ? window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, p.id, pika, { pelaajaSet: true }) : pRef.set(pika, { merge: true }));   // PR 1c-3: + sisainen (lippu)
+      await window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, p.id, pika, { pelaajaSet: true });   // PR 2d: VAIN sisainen (fail-closed)
       paivitaSeuranNakyma(); _vpPotReRender(p);
     }
     if (typeof toast === 'function') toast(vpT('💎 Potentiaali tallennettu'), 'ok');
@@ -6914,7 +6914,7 @@ window._vpPoistaPotentiaali = async function (pid) {
   try {
     var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     var D = firebase.firestore.FieldValue.delete();
-    const _scP = { scout_potentiaali: D, scout_potentiaali_taso: D, scout_potentiaali_huomiot: D, scout_potentiaali_pvm: D, scout_potentiaali_arvioija: D }; await (window.TM_SISAINEN ? window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, p.id, _scP, { pelaajaSet: true }) : db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set(_scP, { merge: true }));   // PR 1c-3: poisto myös sisainen:stä (lippu)
+    const _scP = { scout_potentiaali: D, scout_potentiaali_taso: D, scout_potentiaali_huomiot: D, scout_potentiaali_pvm: D, scout_potentiaali_arvioija: D }; await window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, p.id, _scP, { pelaajaSet: true });   // PR 2d: poisto sisainen:stä (fail-closed)
     if (typeof toast === 'function') toast(vpT('Potentiaaliarvio poistettu'), 'ok');
   } catch (e) { console.warn('[potentiaali-poisto]', e && e.message); if (typeof toast === 'function') toast(vpT('Poisto epäonnistui'), 'error'); }
 };
@@ -7309,7 +7309,7 @@ async function _vpTallennaIdpDok(p, viesti) {
       // null = ei merkittävää (jo vaihdettu tai ei löytynyt) → ei turhaa kirjoitusta.
       if (toinenYhd) tx.set(_toinenRef, { tavoitteet: toinenYhd, paivitetty: new Date().toISOString() }, { merge: true }); if (mukaan && _IPD) { _IPD.tmIdpPelaajaLisaa(tx, db, _seuraId, p.id, vuosi, yhd, {}); if (toinenYhd) _IPD.tmIdpPelaajaLisaa(tx, db, _seuraId, p.id, _toinenVuosi, toinenYhd, {}); }
     }); }; if (_IPD) await _IPD.tmIdpPelaajaVarapolulla({}, _ajaTx); else await _ajaTx(false);
-    const _ip = { idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_dvi: _dvi }; await (window.TM_SISAINEN ? window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, p.id, _ip, { pelaajaSet: true }) : ref.set(_ip, { merge: true }));   // PR 1c-3: + sisainen (lippu)
+    const _ip = { idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_dvi: _dvi }; await window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, p.id, _ip, { pelaajaSet: true });   // PR 2d: A VAIN sisainen (fail-closed)
     _asetaPikakentat();
     /* Ankkuri seuraa kirjoitettua dokkia: seuraavat tallennukset (review, elinkaari) osuvat samaan
        dokkiin eikä A3:n toisen dokin luku toistu turhaan. VAIN voimassa olevalle — ehdotus ei saa viedä
@@ -8753,7 +8753,7 @@ window._vpAsetaVastuuhenkilo = async function (pid, arvo) {
   if (_isDemoMode || !_seuraId) { paivita(); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
-    const _vh = { vastuuhenkilo: plan.kirjoitus.vastuuhenkilo === L.POISTA ? firebase.firestore.FieldValue.delete() : plan.kirjoitus.vastuuhenkilo }; await (window.TM_SISAINEN ? window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, pid, _vh, {}) : db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(_vh));   // PR 1c-3: + sisainen (lippu)
+    const _vh = { vastuuhenkilo: plan.kirjoitus.vastuuhenkilo === L.POISTA ? firebase.firestore.FieldValue.delete() : plan.kirjoitus.vastuuhenkilo }; await window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, pid, _vh, {});   // PR 2d: VAIN sisainen (fail-closed)
     paivita();   // paikallinen tila vasta onnistumisen jälkeen
     if (typeof toast === 'function') toast(vpT('Vastuuhenkilö tallennettu') + ' ✓', 'ok');
   } catch (e) { console.warn('[vpVastuuhenkilo]', e && e.message); if (typeof toast === 'function') toast(vpT('Vastuuhenkilön asetus epäonnistui'), 'error'); _vpKausitavoiteReRender(false); }
@@ -9729,9 +9729,9 @@ async function _vpJfKirjoita(pid, upd, viesti, paivita, elinkaari) {   // elinka
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     /* PR 1b-2: osapäivitykset (linkitetyt, tavoite_tarkenteet, onnistumiskriteeri … dot-polut) kulkevat tm_sisainen.js:n kautta → dual-write sisainen/tiedot:iin kun lippu on päällä (oletus pois = ennallaan). Kokonaisen jaksofokus-olion kirjoitukset ennallaan (1b-3). */
     /* PR 1b-3: kokonaisen jaksofokus-olion kirjoitukset (aloitus/vaihto/sulku) → tmJaksofokusElinkaariKirjoita (jaksofokus_sisainen korvataan, historia_sisainen.<avain> lisätään; sama lippu). */
-    if (elinkaari && window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(db, _seuraId, pid, upd, { jaksofokus: elinkaari.jaksofokus, historiaLisays: elinkaari.historiaLisays }, { FV: firebase.firestore.FieldValue, taydenna: elinkaari.taydenna });
-    else if (!elinkaari && window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusKirjoita(db, _seuraId, pid, upd, {});
-    else await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(upd);
+    if (elinkaari) await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(db, _seuraId, pid, upd, { jaksofokus: elinkaari.jaksofokus, historiaLisays: elinkaari.historiaLisays }, { FV: firebase.firestore.FieldValue, taydenna: elinkaari.taydenna });
+    else await window.TM_SISAINEN.tmJaksofokusKirjoita(db, _seuraId, pid, upd, {});
+    /* PR 2d: fail-closed — ei raakaa update(upd)-varapolkua (se kirjoittaisi jaksofokuksen A-osat pelaajadokumenttiin); lib puuttuu → virhe näkyy toastina. */
     if (paivita) paivita();
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
     if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender();
@@ -11229,8 +11229,8 @@ async function _kvkKirjoita(p, plan, viesti, onnistui) {   // YKSI batch: pelaaj
     if (plan.poistaValinta) upd.ydinvahvuus_valinta = FV.delete();
     if (plan.pikakentat) Object.assign(upd, plan.pikakentat);   // K1d: jakson yhteenveto nollaa rytmin (review_viimeisin_*) samassa update():ssa
     const S = window.TM_SISAINEN, taydenna = function (batch) { if (plan.reviewitData) batch.set(ref.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true }); };
-    if (S && typeof S.tmJaksofokusElinkaariKirjoita === 'function') await S.tmJaksofokusElinkaariKirjoita(db, _seuraId, p.id, upd, { jaksofokus: plan.jaksofokus, historiaLisays: rivit }, { FV: FV, taydenna: taydenna });   // PR 1b-3: sama batch myös sisainen/tiedot:ille (lippu päällä; oletus pois = kuten ennen)
-    else { const batch = db.batch(); batch.update(ref, upd); taydenna(batch); await batch.commit(); }
+    await S.tmJaksofokusElinkaariKirjoita(db, _seuraId, p.id, upd, { jaksofokus: plan.jaksofokus, historiaLisays: rivit }, { FV: FV, taydenna: taydenna });   // PR 1b-3 / 2d: A-osat VAIN sisainen/tiedot:iin
+    /* PR 2d: fail-closed — ei raakaa batch.update(upd)-varapolkua (lib puuttuu → virhe näkyy). */
     lokaali(); if (typeof toast === 'function') toast(viesti + ' ✓', 'ok'); return true;
   } catch (e) { console.warn('[kkKirjoita]', e); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); return false; }
 }
@@ -12410,10 +12410,10 @@ window._vpTallennaHavaittu = async function(pid, avain, arvo) {
         const pikaObj = {}; pikaObj[avain] = eiSovellu ? DEL : arvo;
         pikaPaivitys.arviointi_havaittu = pikaObj;
       }
-      tx.set(ref, pikaPaivitys, { merge: true });
-      if (mukaan && _SIS4) _SIS4.tmS4Lisaa(tx, db, _seuraId, pid, pikaPaivitys, {});   // arviointi_havaittu pistepolulla (muut avaimet säilyvät); delete-sentinel kulkee sellaisenaan
+      /* PR 2d (K3): arviointi_* VAIN sisainen/tiedot:iin (ei pelaajadokumenttiin) */
+      _SIS4.tmS4Lisaa(tx, db, _seuraId, pid, pikaPaivitys, {});   // arviointi_havaittu pistepolulla (muut avaimet säilyvät); delete-sentinel kulkee sellaisenaan
     }); };
-    if (_SIS4 && _SIS4.tmS4Varapolulla) await _SIS4.tmS4Varapolulla({}, _kirjA); else await _kirjA(false);   // permission-denied (Rules v3.70 ei käytössä) → uusi yritys ilman sisainen:iä
+    await _kirjA(true);   // PR 2d: fail-closed
     if (typeof toast === 'function') toast(vpT('Arvio tallennettu ✓'), 'ok');
   } catch (e) { console.warn('[_vpTallennaHavaittu]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
 };
@@ -19129,8 +19129,8 @@ async function _vpKirjoitaReview(pid, pvm, review, pelaaja, lisa) {   // lisa (v
   const lisaK = {}, _rv = function (b) { b.set(pRef.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true }); };
   if (lisa && typeof lisa === 'object') Object.keys(lisa).forEach(function (k) { lisaK[k] = (window.TM_JAKSO_MALLI && lisa[k] === window.TM_JAKSO_MALLI.POISTA) ? firebase.firestore.FieldValue.delete() : lisa[k]; });
   const pk = Object.assign({}, plan.pikakentat, lisaK);
-  if (window.TM_SISAINEN) await window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, pid, pk, { pelaajaSet: true, taydenna: _rv });   // PR 1c-3: reviewit + pikakentät samassa batchissa; + sisainen (lippu)
-  else { var b = db.batch(); _rv(b); if (Object.keys(pk).length) b.set(pRef, pk, { merge: true }); await b.commit(); }
+  await window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, pid, pk, { pelaajaSet: true, taydenna: _rv });   // PR 1c-3: reviewit + pikakentät samassa batchissa; PR 2d: A VAIN sisainen
+  /* PR 2d: fail-closed — ei raakaa varapolkua (lib puuttuu → virhe heitetään kutsujalle). */
   return plan;
 }
 // Kirjaa MDT-review (§7.2 tuore token) → reviewit/{pvm} + pikakentät. Tallentaa VP-muokatun päätöstekstin.

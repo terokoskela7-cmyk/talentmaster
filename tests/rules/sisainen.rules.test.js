@@ -234,6 +234,11 @@ describe('v3.70 · S4-ryhmät + tuojaUid sisainen/tiedot:ssa', () => {
     await assertFails(deleteDoc(sis(tv()))); await assertFails(setDoc(sis(tv()), Object.assign({ seuraId: B }, KYP_TV)));   // seuraId pakotettu == sid
   });
   it('toisen seuran testivastaava ei kirjoita eikä lue', async () => { const tvB = staff('tv-b', 'testivastaava', B); await assertFails(kirj(tvB, KYP_TV)); await assertFails(getDoc(sis(tvB))); });
+  it('v3.76 (PR 2d): testivastaava kirjoittaa myös biologinenIka_viimeisin:n (koko dokumentti; Testaus_v9 kasvumittaus samassa batchissa) — yksin ja kypsyysavainten kanssa; muut avaimet edelleen hylätään', async () => {
+    const BIO = { biologinenIka_viimeisin: { phv_tila_koodi: 'LAH', phv_ika: 13.1, maturity_offset: -0.4, mittauspaiva: '2026-11-04' } };
+    await assertSucceeds(kirj(tv(), Object.assign({}, KYP_TV, BIO), 'p-bio')); await assertSucceeds(kirj(tv(), BIO));
+    await assertFails(kirj(tv(), Object.assign({}, BIO, { talenttiTaso: 'perus' }))); await assertFails(kirj(staff('tv-b', 'testivastaava', B), BIO));
+  });
   it('JOHTO (vp, utj, seurasihteeri): tuojaUid + seuraId/paivitetty onnistuu; seurasihteeri: tuojaUid + mikä tahansa muu avain ei; fysio/testivastaava/toisen seuran johto tuojaUid:ia ei', async () => {
     let n = 0; for (const db of [vp(), utj(), sihteeri()]) { n++; await assertSucceeds(kirj(db, { tuojaUid: 'uid-x' + n }, 'p-uusi2')); await assertSucceeds(kirj(db, { tuojaUid: 'uid-y' + n })); await assertSucceeds(updateDoc(sis(db), { tuojaUid: 'uid-z' + n, seuraId: A })); }   // arvo muuttuu joka kerta: no-op-merge ei oikeuta (hasAny)
     await assertFails(kirj(sihteeri(), { tuojaUid: 'uid-q', talenttiTaso: 'perus' })); await assertFails(kirj(sihteeri(), { tuojaUid: 'uid-q2', d3_taso: 1 }));   // vp/utj kirjoittavat kaiken jo ennestään (onOmanJoukkueenValmentaja) → rajaus koskee vain seurasihteeriä

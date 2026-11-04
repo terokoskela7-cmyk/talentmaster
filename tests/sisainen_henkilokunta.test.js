@@ -33,16 +33,16 @@ describe('rekisteri: S2-ryhmä', () => {
 
 describe('dual-read seuraa samaa lippua kuin kirjoitus', () => {
   const sis = () => ({ vastuuhenkilo: VH('2026-10-05', 'ERI'), review_viimeisin_pvm: '2026-10-20', scout_potentiaali: 2, d3_taso: 4 });
-  it('lippu POIS: luku = vanha kenttä, vaikka sisainen on olemassa ja eroaa; D3 yhdistyy silti (oma ryhmä); lista samoin', () => {
-    const y = S.tmSisainenYhdista(pelaaja(), sis()); expect(y.vastuuhenkilo).toEqual(VH('2026-10-01')); expect(y.review_viimeisin_pvm).toBe('2026-10-10'); expect(y.scout_potentiaali).toBe(4); expect(y.d3_taso).toBe(4);
-    expect(S.tmSisainenYhdistaLista([Object.assign({ id: 'p1' }, pelaaja())], { p1: sis() })[0].vastuuhenkilo.uid).toBe('u1');
+  it('PR 2d: lippuarvo POIS ei vaikuta — sisainen voittaa aina; D3 yhdistyy (oma ryhmä); lista samoin', () => {
+    LIPPU.kirjoitus = false; const y = S.tmSisainenYhdista(pelaaja(), sis()); expect(y.vastuuhenkilo).toEqual(VH('2026-10-05', 'ERI')); expect(y.review_viimeisin_pvm).toBe('2026-10-20'); expect(y.scout_potentiaali).toBe(2); expect(y.d3_taso).toBe(4);
+    expect(S.tmSisainenYhdistaLista([Object.assign({ id: 'p1' }, pelaaja())], { p1: sis() })[0].vastuuhenkilo.uid).toBe('ERI');
   });
   it('lippu PÄÄLLÄ: sisainen voittaa kentittäin, puuttuva kenttä jää vanhasta; syöte ennallaan', () => {
     LIPPU.kirjoitus = true; const p = pelaaja(), ennen = JSON.stringify(p), y = S.tmSisainenYhdista(p, sis());
     expect(y.vastuuhenkilo.uid).toBe('ERI'); expect(y.review_viimeisin_pvm).toBe('2026-10-20'); expect(y.scout_potentiaali).toBe(2); expect(y.tukitarve).toEqual(p.tukitarve); expect(JSON.stringify(p)).toBe(ennen);
   });
-  it('opts.henkilokuntaKirjoitus ohittaa rekisterin (CF-vakio / testit); tmSisainenJaa ei reititä henkilokunta-kenttiä (erillinen mergeFields-reitti)', () => {
-    expect(S.tmSisainenYhdista(pelaaja(), sis(), { henkilokuntaKirjoitus: true }).vastuuhenkilo.uid).toBe('ERI'); LIPPU.kirjoitus = true; expect(S.tmSisainenYhdista(pelaaja(), sis(), { henkilokuntaKirjoitus: false }).vastuuhenkilo.uid).toBe('u1');
+  it('PR 2d: opts.henkilokuntaKirjoitus ei enää ohita (aina päällä); tmSisainenJaa ei reititä henkilokunta-kenttiä (erillinen mergeFields-reitti)', () => {
+    expect(S.tmSisainenYhdista(pelaaja(), sis(), { henkilokuntaKirjoitus: true }).vastuuhenkilo.uid).toBe('ERI'); expect(S.tmSisainenYhdista(pelaaja(), sis(), { henkilokuntaKirjoitus: false }).vastuuhenkilo.uid).toBe('ERI');
     const j = S.tmSisainenJaa({ vastuuhenkilo: VH('x'), nimi: 'a' }, { seuraId: 's', ryhmat: Object.assign({}, S.RYHMAT, { henkilokunta: Object.assign({}, LIPPU, { kytketty: true }) }) }); expect(j.sisainen).toBeNull();
   });
 });
@@ -55,27 +55,29 @@ function mkDb(hylkaa) {
 }
 describe('tmHenkilokuntaOsa / tmHenkilokuntaKirjoita', () => {
   const upd = () => ({ vastuuhenkilo: VH('2026-11-02', 'u9'), review_viimeisin_pvm: '2026-11-02', review_viimeisin_tyyppi: 'jakso', jaksofokus: { x: 1 }, ydinvahvuus_valinta: DEL });
-  it('osa: vain henkilokunta-kentät, mergeFields korvaa kentän, seuraId + paivitetty mukana; lippu pois / ei kenttiä / ei oliota → null', () => {
-    expect(S.tmHenkilokuntaOsa('s', upd(), {})).toBeNull();
+  it('osa: vain henkilokunta-kentät, mergeFields korvaa kentän, seuraId + paivitetty mukana; ei kenttiä / ei oliota → null (PR 2d: lippuarvo ei vaikuta)', () => {
+    expect(S.tmHenkilokuntaOsa('s', upd(), { henkilokuntaKirjoitus: false, nytISO: 'T' }).mergeFields).toContain('vastuuhenkilo');
     const o = S.tmHenkilokuntaOsa('s', upd(), { henkilokuntaKirjoitus: true, nytISO: 'T' }); expect(o.data).toEqual({ seuraId: 's', paivitetty: 'T', vastuuhenkilo: VH('2026-11-02', 'u9'), review_viimeisin_pvm: '2026-11-02', review_viimeisin_tyyppi: 'jakso' });
     expect(o.mergeFields).toEqual(['seuraId', 'paivitetty', 'vastuuhenkilo', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi']);
     expect(S.tmHenkilokuntaOsa('s', { jaksofokus: {} }, { henkilokuntaKirjoitus: true })).toBeNull(); expect(S.tmHenkilokuntaOsa('s', null, { henkilokuntaKirjoitus: true })).toBeNull();
   });
-  it('lippu POIS: pelkkä pelaajan update (ei batchia, ei sisainen-dokumenttia); taydenna → batch ilman sisainen:iä', async () => {
-    const f = mkDb(); expect(await S.tmHenkilokuntaKirjoita(f.db, 's', 'p1', upd(), {})).toEqual({ ok: true, sisainen: false, sisainenOhitettu: false }); expect(f.loki.commits).toBe(0); expect(f.D.has(SIS)).toBe(false); expect(f.D.get(PEL).vastuuhenkilo.uid).toBe('u9');
-    const g = mkDb(); await S.tmHenkilokuntaKirjoita(g.db, 's', 'p1', upd(), { taydenna: (b) => b.set(g.db.collection('seurat').doc('s').collection('pelaajat').doc('p1').collection('reviewit').doc('d'), { a: 1 }, { merge: true }) }); expect(g.loki.commits).toBe(1); expect(g.D.has(SIS)).toBe(false); expect(g.D.get(PEL + '/reviewit/d')).toEqual({ a: 1 });
+  it('PR 2d: lippuarvo POIS ei vaikuta — YKSI batch, A-kentät VAIN sisainen:iin, pelaajadokumenttiin vain muut; taydenna samaan batchiin', async () => {
+    const f = mkDb(); expect(await S.tmHenkilokuntaKirjoita(f.db, 's', 'p1', upd(), { henkilokuntaKirjoitus: false })).toEqual({ ok: true, sisainen: true, sisainenOhitettu: false }); expect(f.loki.commits).toBe(1);
+    expect(f.D.get(SIS).vastuuhenkilo.uid).toBe('u9'); expect(f.D.get(PEL).vastuuhenkilo).toBeUndefined(); expect(f.D.get(PEL).review_viimeisin_pvm).toBeUndefined(); expect(f.D.get(PEL).jaksofokus).toEqual({ x: 1 });
+    const g = mkDb(); await S.tmHenkilokuntaKirjoita(g.db, 's', 'p1', upd(), { taydenna: (b) => b.set(g.db.collection('seurat').doc('s').collection('pelaajat').doc('p1').collection('reviewit').doc('d'), { a: 1 }, { merge: true }) }); expect(g.loki.commits).toBe(1); expect(g.D.get(SIS).review_viimeisin_tyyppi).toBe('jakso'); expect(g.D.get(PEL + '/reviewit/d')).toEqual({ a: 1 });
+    const h = mkDb(); await S.tmHenkilokuntaKirjoita(h.db, 's', 'p1', { vastuuhenkilo: VH('x', 'u7') }, {}); expect(h.D.get(PEL)).toEqual({ etunimi: 'X' });   // riisuttu tyhjä → pelaajaa ei kirjoiteta
   });
-  it('lippu PÄÄLLÄ: YKSI batch — pelaaja kuten ennen (dual-write) + sisainen mergeFields; kenttä KORVATAAN (ei syvää yhdistystä); delete-sentinel välittyy', async () => {
+  it('YKSI batch — pelaajadokumentti ilman A-kenttiä + sisainen mergeFields; kenttä KORVATAAN (ei syvää yhdistystä); delete-sentinel välittyy', async () => {
     const f = mkDb(); f.D.set(SIS, { seuraId: 's', vastuuhenkilo: { uid: 'vanha', rooli: 'vp', asetettu_pvm: '2026-01-01', ylimaarainen: true }, d3_taso: 3 });
     expect(await S.tmHenkilokuntaKirjoita(f.db, 's', 'p1', upd(), { henkilokuntaKirjoitus: true, nytISO: 'T' })).toEqual({ ok: true, sisainen: true, sisainenOhitettu: false }); expect(f.loki.commits).toBe(1);
-    expect(f.D.get(PEL).vastuuhenkilo).toEqual(VH('2026-11-02', 'u9')); expect(f.D.get(PEL).jaksofokus).toEqual({ x: 1 });
+    expect(f.D.get(PEL).vastuuhenkilo).toBeUndefined(); expect(f.D.get(PEL).jaksofokus).toEqual({ x: 1 });
     expect(f.D.get(SIS).vastuuhenkilo).toEqual(VH('2026-11-02', 'u9')); expect(f.D.get(SIS).d3_taso).toBe(3); expect(f.D.get(SIS).review_viimeisin_tyyppi).toBe('jakso'); expect(f.D.get(SIS).jaksofokus).toBeUndefined();
     await S.tmHenkilokuntaKirjoita(f.db, 's', 'p1', { vastuuhenkilo: DEL }, { henkilokuntaKirjoitus: true }); expect(f.D.get(SIS).vastuuhenkilo).toBeUndefined(); expect(f.D.get(SIS).review_viimeisin_pvm).toBe('2026-11-02');
   });
-  it('permission-denied (Rules v3.69 ei vielä käytössä) → uusi batch ILMAN sisainen:iä (pelaaja + taydenna tallentuvat), sisainenOhitettu; varapolku:false heittää', async () => {
-    const f = mkDb(true), r = await S.tmHenkilokuntaKirjoita(f.db, 's', 'p1', upd(), { henkilokuntaKirjoitus: true, taydenna: (b) => b.set(f.db.collection('seurat').doc('s').collection('pelaajat').doc('p1').collection('reviewit').doc('d'), { a: 1 }, { merge: true }) });
-    expect(r).toEqual({ ok: true, sisainen: false, sisainenOhitettu: true }); expect(f.D.get(PEL).vastuuhenkilo.uid).toBe('u9'); expect(f.D.has(SIS)).toBe(false); expect(f.D.get(PEL + '/reviewit/d')).toEqual({ a: 1 });
-    await expect(S.tmHenkilokuntaKirjoita(mkDb(true).db, 's', 'p1', upd(), { henkilokuntaKirjoitus: true, varapolku: false })).rejects.toThrow(/permissions/);
+  it('PR 2d fail-closed: permission-denied → virhe kutsujalle, EI uusintaa ilman sisainen:iä (mitään ei tallennu: ei pelaajaa, ei taydennä)', async () => {
+    const f = mkDb(true);
+    await expect(S.tmHenkilokuntaKirjoita(f.db, 's', 'p1', upd(), { taydenna: (b) => b.set(f.db.collection('seurat').doc('s').collection('pelaajat').doc('p1').collection('reviewit').doc('d'), { a: 1 }, { merge: true }) })).rejects.toThrow(/permissions/);
+    expect(f.D.get(PEL)).toEqual({ etunimi: 'X' }); expect(f.D.has(SIS)).toBe(false); expect(f.D.has(PEL + '/reviewit/d')).toBe(false); expect(f.loki.commits).toBe(0);
   });
 });
 
@@ -144,7 +146,7 @@ describe('GREP-PORTTI: pelaajan ja vanhemman sovellukset (+ libit) eivät viitta
 describe('Rules v3.69 (tekstitarkistus; toiminta: tests/rules/sisainen.rules.test.js)', () => {
   const R = lue('tm_admin/firestore.rules');
   it('versio 3.69 + changelog; sisainen-blokin create/update kutsuvat scout- ja vastuuhenkilö-ehtoja; scout-ehto = SA | johto; vastuuhenkilö kuten pelaajadokumentissa', () => {
-    expect(R).toMatch(/firestore.rules v3.(69|70|71|72|73|74|75)/); expect(R).toContain('Muutokset v3.68 → v3.69');
+    expect(R).toMatch(/firestore.rules v3.(69|70|71|72|73|74|75|76)/); expect(R).toContain('Muutokset v3.68 → v3.69');
     expect((R.match(/sisainenScoutKelpaa\(seuraId, /g) || []).length).toBe(3); expect((R.match(/sisainenVastuuKelpaa\(seuraId, pelaajaId, /g) || []).length).toBe(3);   // määritys + create + update
     expect(R).toMatch(/function sisainenScoutKelpaa[\s\S]{0,400}onSuperAdmin\(\) \|\| \(onOmaSeura\(seuraId\) && onJohtoRooli\(\)\)/); expect(R).toMatch(/function sisainenVastuuKelpaa[\s\S]{0,400}vastuuhenkiloAsettaja\(seuraId, pelaajaId\)[\s\S]{0,200}vastuuhenkiloMuotoKelpaa/);
   });

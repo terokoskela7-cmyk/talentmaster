@@ -120,7 +120,9 @@ describe('kaappaus (adar_edellinen, §29 pvm-vahti — ei clobbaa uudelleenlaske
     expect(PIKAKORTTI, 'edellinen luetaan dokumentista (ei paikallisesta välimuistista)')
       .toContain("_oldAv = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().adar_viimeisin) || null;");
     expect(PIKAKORTTI, 'kaappaus on delegoitava libille').toContain('{ edellinen: _oldAv, nowMs: Date.now() }');
-    expect(PIKAKORTTI, 'pikakentät kirjoitetaan mergellä').toMatch(/pRef\.set\((?:kentat|_s4\.upd), \{ merge: true \}\)/);   // PR 1e-3b: S4-jako (_phS4Valmista)
+    /* PR 2d: pikakentät set-mergenä tm_sisainen.js:n kautta (tmS4Kirjoita pelaajaSet: riisuttu pelaajaosa + sisainen-kopio yhdessä batchissa) */
+    expect(PIKAKORTTI, 'pikakentät kirjoitetaan mergellä').toMatch(/tmS4Kirjoita\(_PH_DB, seuraId, pelaajaId, v\.upd, \{ pelaajaSet: true/);
+    expect(PIKAKORTTI, 'ei raakaa pelaajakirjoitusta').not.toMatch(/pRef\.set\((?:kentat|_s4\w*\.upd)/);
     /* KOPIOVARTIJA: inline-konsensus ei saa palata (yhtä asiaa ei lasketa kahdessa paikassa). */
     expect(PIKAKORTTI, 'inline-konsensus palasi pikakorttiin').not.toContain('adar_yhtenevyys_taso:');
     expect(PIKAKORTTI, 'inline-konsensus palasi pikakorttiin').not.toContain('_adarSet');

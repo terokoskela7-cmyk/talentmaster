@@ -8,6 +8,7 @@ import { createRequire } from 'module';
 import vm from 'vm';
 const require = createRequire(import.meta.url);
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+const SISLIB = createRequire(import.meta.url)('../lib/tm_sisainen.js');
 const NK = require('../lib/tm_nakyvyys_kytkin.js'), VV = require('../lib/tm_valmentajaviesti.js'), HH = require('../lib/tm_havaintohistoria.js');
 const pura = (s, t) => { const i = s.indexOf(t); if (i < 0) throw new Error('puuttuu: ' + t); let d = 0; for (let k = s.indexOf('{', i); k < s.length; k++) { if (s[k] === '{') d++; else if (s[k] === '}') { d--; if (!d) return s.slice(i, k + 1); } } };
 const ADAR = lue('TalentMaster_ADAR_Pikakortti.html'), PEL = lue('TalentMaster_Pelaaja_v7.html');
@@ -47,9 +48,9 @@ describe('pikakortti: oletus sisäinen; pelaajan dokumentissa vain teksti', () =
     return { db, docs };
   };
   const aja = async (data) => {
-    const m = mockDb({}), ctx = { _PH_DB: m.db, Date, console: { warn() {} }, _phIka: () => 14, tmAdarPikakentat: () => null, window: { _pelaajaMap: { p1: {} } } };
+    const m = mockDb({}), ctx = { _PH_DB: m.db, Date, console: { warn() {} }, _phIka: () => 14, tmAdarPikakentat: () => null, window: { _pelaajaMap: { p1: {} }, TM_SISAINEN: SISLIB } };   // PR 2d: oikea lib (havainto_viimeisin_pvm → sisainen/tiedot samaan batchiin)
     vm.createContext(ctx);
-    vm.runInContext(pura(ADAR, 'function _phPelaajaRef(') + '\n' + pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'function _phS4Valmista(') + '\n' + pura(ADAR, 'function _phS4Sisainen(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat; this.ref = _phPelaajaRef;', ctx);
+    vm.runInContext(pura(ADAR, 'function _phPelaajaRef(') + '\n' + pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'function _phS4Valmista(') + '\n' + pura(ADAR, 'function _phS4Kirjoita(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat; this.ref = _phPelaajaRef;', ctx);
     const havRef = ctx.ref('kpv', 'p1').collection('havainnot').doc('sis');
     await ctx.f(havRef, data, 'kpv', 'p1', 1, false);
     return m;
@@ -66,7 +67,7 @@ describe('pikakortti: oletus sisäinen; pelaajan dokumentissa vain teksti', () =
     expect(ops.find((o) => o.p.endsWith(sis.pelaajan_havainto_id))).toBeTruthy();   // id täsmää
   });
   it('kytkin päällä mutta ei tekstiä → ei pelaajan dokumenttia; kytkin pois → vain sisäinen (nakyvyys valmentajat), ei kopiota', async () => {
-    const hav = (m) => m.db.batches[0].filter((o) => /\/havainnot\//.test(o.p));   // pelaajadokin havainto_viimeisin_pvm-rivi ei ole havainto
+    const hav = (m) => m.db.batches[0].filter((o) => /\/havainnot\//.test(o.p));   // sisainen/tiedot:in havainto_viimeisin_pvm-rivi ei ole havainto
     const a = await aja(SIS('pelaaja', '')); expect(hav(a)).toHaveLength(1); expect(hav(a)[0].d.nakyvyys).toBe('valmentajat');
     const b = await aja(SIS('valmentajat', 'Muistiinpano')); expect(hav(b)).toHaveLength(1); expect('nayta_pelaajalle' in hav(b)[0].d).toBe(false); expect(hav(b)[0].d.nakyvyys).toBe('valmentajat');
   });

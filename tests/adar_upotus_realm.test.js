@@ -130,8 +130,10 @@ function ajaLapsiRealmissa() {
   ctx.window.window = ctx.window;
   ctx.self = ctx;
 
+  /* PR 2d: lib/tm_sisainen.js ladataan LAPSIREALMIIN (kuten iframe lataa sen omalla <script>:llään) → sen luomat sisainen-oliot ovat lapsirealmin objekteja. */
+  vm.runInContext(readFileSync(new URL('../lib/tm_sisainen.js', import.meta.url), 'utf8'), ctx);
   vm.runInContext(pura(ADAR, 'function _phPelaajaRef(') + '\n'
-    + pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'function _phS4Valmista(') + '\n' + pura(ADAR, 'function _phS4Sisainen(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\n'
+    + pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'function _phS4Valmista(') + '\n' + pura(ADAR, 'function _phS4Kirjoita(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\n'
     + pura(ADAR, 'async function _phTallenna(') + '\n'
     // _phTallenna ei awaitaa kirjoitusta (UI etenee) → odotetaan että batch ehtii commitoitua
     + 'globalThis.__aja = async () => { await _phTallenna(); await new Promise((r) => setTimeout(r, 0)); };', ctx);

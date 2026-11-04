@@ -15,9 +15,9 @@ afterEach(() => { LIPPU.kirjoitus = false; CF.RYHMAT.s4.kirjoitus = false; });
 const RYHMAT_S4 = ['adar_sisainen', 'arviointi', 'kypsyys_sisainen', 'talentti', 'terveys', 'signaali'];
 const ADAR = ['adar_arvioijat', 'adar_arvioijia', 'adar_yhtenevyys', 'adar_yhtenevyys_taso', 'adar_dim_konsensus', 'adar_vahvin', 'adar_tilanne_jakauma', 'adar_vaihe_jakauma', 'adar_otos_jakauma', 'adar_ottelupohja', 'adar_luotettavuus', 'havainto_viimeisin_pvm'];
 const ARV = ['arviointi_havaittu', 'arviointi_pvm', 'arviointi_kehys', 'arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'];
-const KYP = ['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma', 'phv_ilmoitettu_ph', 'phv_ei_mitattu', 'isa_pituus_cm', 'aiti_pituus_cm', 'vanhempi_pituus_pvm', 'vanhempi_pituus_puuttuu'];
-const TT = ['talenttiOhjelma', 'talenttiTaso', 'talenttiAlku', 'talenttiAktivoi', 'talenttiPaattyi'], TERV = ['kaytettavyys', 'loukkaantuminen_tyyppi', 'loukkaantuminen_alue', 'loukkaantuminen_pvm', 'paluu_arvio'];
-const B_JAA = ['adar_viimeisin', 'adar_edellinen', 'adar_heikoin', 'havainto_porras', 'phv_tila', 'phv_tila_koodi', 'phv_ika', 'biologinenIka_viimeisin'];
+const KYP = ['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma', 'phv_ilmoitettu_ph', 'phv_ei_mitattu', 'isa_pituus_cm', 'aiti_pituus_cm', 'vanhempi_pituus_pvm', 'vanhempi_pituus_puuttuu', 'biologinenIka_viimeisin'];   // PR 2d: biologinenIka_viimeisin = jaettu (koko dok sisainen:iin, pelaajalle B-muoto)
+const TT = ['talenttiTaso', 'talenttiAlku', 'talenttiAktivoi', 'talenttiPaattyi'], TERV = ['kaytettavyys', 'loukkaantuminen_tyyppi', 'loukkaantuminen_alue', 'loukkaantuminen_pvm', 'paluu_arvio'];
+const B_JAA = ['adar_viimeisin', 'adar_edellinen', 'adar_heikoin', 'havainto_porras', 'phv_tila', 'phv_tila_koodi', 'phv_ika'];
 const PEL = 'seurat/s/pelaajat/p1', SIS = PEL + '/sisainen/tiedot';
 
 describe('rekisteri: S4-ryhmät ja yksi yhteinen lippu', () => {
@@ -26,11 +26,12 @@ describe('rekisteri: S4-ryhmät ja yksi yhteinen lippu', () => {
     expect(Object.keys(S.RYHMAT).filter((n) => S.RYHMAT[n].s4)).toEqual(expect.arrayContaining(RYHMAT_S4)); expect(Object.keys(S.RYHMAT).filter((n) => S.RYHMAT[n].s4).length).toBe(6); expect(Object.keys(S.RYHMAT).filter((n) => S.RYHMAT[n].dokumentti)).toEqual(['terveys']);
     expect(S.RYHMAT.adar_sisainen.kentat).toEqual(ADAR.concat(['havainto_porras_hist'])); expect(S.RYHMAT.arviointi.kentat).toEqual(ARV); expect(S.RYHMAT.kypsyys_sisainen.kentat).toEqual(KYP);
     expect(S.RYHMAT.talentti.kentat).toEqual(TT); expect(S.RYHMAT.terveys.kentat).toEqual(TERV); expect(S.RYHMAT.terveys.dokumentti).toBe('terveys'); expect(S.RYHMAT.terveys.seuraAvain).toBe('terveysSeuraId'); expect(S.RYHMAT.talentti_terveys).toBeUndefined(); expect(S.RYHMAT.signaali.kentat).toEqual(['signaali']); expect(S.RYHMAT.perhe).toBeUndefined(); expect(S.RYHMAT.staff_paatokset).toBeUndefined();
-    const s4 = S.tmS4Kentat(); B_JAA.concat(['havainto_porras_ehdotus']).forEach((k) => expect(s4, k).not.toContain(k));
+    const s4 = S.tmS4Kentat(); B_JAA.concat(['havainto_porras_ehdotus', 'talenttiOhjelma']).forEach((k) => expect(s4, k).not.toContain(k));   // PR 2d: talenttiOhjelma = C (PM a)
+    expect(S.tmSisainenAKentat()).not.toContain('biologinenIka_viimeisin'); expect(S.tmSisainenAKentat()).not.toContain('signaali');   // jaetut: pelaajalle B-muoto, ei A-avain
     const kaikki = Object.values(S.RYHMAT).flatMap((r) => r.kentat); expect(new Set(kaikki).size).toBe(kaikki.length);   // ei kenttää kahdessa ryhmässä
   });
   it('YKSI lippu RYHMAT.s4.kirjoitus, oletus PÄÄLLÄ (lipun käännön PR); viidellä ryhmällä ei omia lippuja; kolme kytkettävää lippua: jaksofokus_sisainen, henkilokunta, s4; tmSisainenKentat() ennallaan (vain d3)', () => {
-    expect(lue('lib/tm_sisainen.js')).toMatch(/s4: \{ kytketty: false, kirjoitus: true,/); expect(S.tmS4Paalla({ s4Kirjoitus: false })).toBe(false); expect(S.tmS4Paalla({ s4Kirjoitus: true })).toBe(true);
+    expect(lue('lib/tm_sisainen.js')).toMatch(/s4: \{ kytketty: false, kirjoitus: true,/); expect(S.tmS4Paalla({ s4Kirjoitus: false })).toBe(true); expect(S.tmS4Paalla({ s4Kirjoitus: true })).toBe(true);   // PR 2d: aina päällä, opts ei ohita
     RYHMAT_S4.forEach((n) => expect(S.RYHMAT[n].kirjoitus, n).toBeUndefined());
     expect(Object.keys(S.RYHMAT).filter((n) => 'kirjoitus' in S.RYHMAT[n]).sort()).toEqual(['henkilokunta', 'jaksofokus_sisainen', 's4']);
     expect(Object.keys(S.RYHMAT).filter((n) => S.RYHMAT[n].kytketty)).toEqual(['d3']); expect(S.tmSisainenKentat()).toEqual(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus', 'd3_vp_pvm']);
@@ -40,21 +41,21 @@ describe('rekisteri: S4-ryhmät ja yksi yhteinen lippu', () => {
 describe('dual-read seuraa lippua', () => {
   const pelaaja = () => ({ id: 'p1', kasvutahti_cm_v: 5, talenttiTaso: 'perus', loukkaantuminen_tyyppi: 'nilkka', arviointi_kooste: { a: 1 }, adar_arvioijia: 1, signaali: 'xfactor', havainto_porras_ehdotus: { valmis: false, seuraava: null, hist: [3, 3, 2] }, adar_viimeisin: { yht: 2 }, phv_tila: 'PRE' });
   const sis = () => ({ kasvutahti_cm_v: 7, loukkaantuminen_tyyppi: 'TIEDOT-EI-LUETA', adar_arvioijia: 3, signaali: 'hidden-gem', havainto_porras_hist: [1, 1, 1], adar_viimeisin: { yht: 9 }, phv_tila: 'POST', seuraId: 's' });
-  it('lippu POIS: vanha kenttä voittaa, B-kentät ja ehdotus ennallaan', () => {
-    const y = S.tmSisainenYhdista(pelaaja(), sis()); expect(y.kasvutahti_cm_v).toBe(5); expect(y.loukkaantuminen_tyyppi).toBe('nilkka'); expect(y.signaali).toBe('xfactor'); expect(y.havainto_porras_ehdotus.hist).toEqual([3, 3, 2]);
+  it('PR 2d: lippu pois ei enää vaikuta — sisainen voittaa S4-kentissä aina; tiedot:in terveyskenttä ei nouse', () => {
+    LIPPU.kirjoitus = false; const y = S.tmSisainenYhdista(pelaaja(), sis()); expect(y.kasvutahti_cm_v).toBe(7); expect(y.loukkaantuminen_tyyppi).toBe('nilkka'); expect(y.signaali).toBe('hidden-gem'); expect(y.havainto_porras_ehdotus.hist).toEqual([1, 1, 1]);
   });
   it('lippu PÄÄLLÄ: sisainen voittaa S4-kentissä, puuttuva jää vanhasta; hist yhdistyy ehdotukseen; B-kentät (adar_viimeisin, phv_tila) EIVÄT yhdisty', () => {
     LIPPU.kirjoitus = true; const p = pelaaja(), ennen = JSON.stringify(p), y = S.tmSisainenYhdista(p, sis());
     expect(y.kasvutahti_cm_v).toBe(7); expect(y.loukkaantuminen_tyyppi).toBe('nilkka'); expect(y.adar_arvioijia).toBe(3); expect(y.signaali).toBe('hidden-gem'); expect(y.talenttiTaso).toBe('perus'); expect(y.arviointi_kooste).toEqual({ a: 1 });
     expect(y.havainto_porras_ehdotus).toEqual({ valmis: false, seuraava: null, hist: [1, 1, 1] }); expect(y.adar_viimeisin).toEqual({ yht: 2 }); expect(y.phv_tila).toBe('PRE'); expect(JSON.stringify(p)).toBe(ennen);
   });
-  it('opts.s4Kirjoitus ohittaa rekisterin (CF-vakio / testit); jaa ei reititä S4-kenttiä (erillinen mergeFields-reitti)', () => {
-    expect(S.tmSisainenYhdista(pelaaja(), sis(), { s4Kirjoitus: true }).kasvutahti_cm_v).toBe(7); LIPPU.kirjoitus = true; expect(S.tmSisainenYhdista(pelaaja(), sis(), { s4Kirjoitus: false }).kasvutahti_cm_v).toBe(5);
+  it('PR 2d: opts.s4Kirjoitus ei enää ohita (yhdistys aina); jaa ei reititä S4-kenttiä (erillinen mergeFields-reitti)', () => {
+    expect(S.tmSisainenYhdista(pelaaja(), sis(), { s4Kirjoitus: true }).kasvutahti_cm_v).toBe(7); expect(S.tmSisainenYhdista(pelaaja(), sis(), { s4Kirjoitus: false }).kasvutahti_cm_v).toBe(7);
     expect(S.tmSisainenJaa({ kasvutahti_cm_v: 1, nimi: 'a' }, { seuraId: 's' }).sisainen).toBeNull();
   });
-  it('TERVEYS: kentät luetaan VAIN sisainen/terveys-datasta (opts.terveys), ei tiedot:ista; lippu pois → vanha kenttä; terveys-dokumentti puuttuu (ei oikeutta) → vanha kenttä varalla', () => {
+  it('TERVEYS: kentät luetaan VAIN sisainen/terveys-datasta (opts.terveys), ei tiedot:ista; PR 2d: lipusta riippumatta; terveys-dokumentti puuttuu (ei oikeutta) → vanha kenttä varalla', () => {
     const terv = { loukkaantuminen_tyyppi: 'polvi', kaytettavyys: 'rajoitettu', paluu_arvio: '2026-11-15', seuraId: 'EI', terveysSeuraId: 's' };
-    expect(S.tmSisainenYhdista(pelaaja(), sis(), { terveys: terv }).loukkaantuminen_tyyppi).toBe('nilkka');   // lippu pois
+    expect(S.tmSisainenYhdista(pelaaja(), sis(), { terveys: terv }).loukkaantuminen_tyyppi).toBe('polvi');   // lippu pois → silti terveys-dokumentti
     LIPPU.kirjoitus = true;
     const y = S.tmSisainenYhdista(pelaaja(), sis(), { terveys: terv }); expect(y.loukkaantuminen_tyyppi).toBe('polvi'); expect(y.kaytettavyys).toBe('rajoitettu'); expect(y.paluu_arvio).toBe('2026-11-15'); expect(y).not.toHaveProperty('terveysSeuraId');
     expect(S.tmSisainenYhdista(pelaaja(), sis()).loukkaantuminen_tyyppi).toBe('nilkka'); expect(S.tmSisainenYhdista(pelaaja(), sis(), { terveys: null }).loukkaantuminen_tyyppi).toBe('nilkka');
@@ -83,22 +84,40 @@ function mkDb(hylkaa) {
 }
 describe('tmS4Osa / tmS4Kirjoita (sama apunelikko kuin henkilokunta, oma lippu)', () => {
   const upd = () => ({ kasvutahti_cm_v: 6, kehitysvaihe_kaista: 'circa', talenttiTaso: 'kärki', jaksofokus: { x: 1 }, vastuuhenkilo: { uid: 'u' }, phv_tila: 'PH' });
-  it('osa: vain S4-kentät (ei henkilokunta-, ei B-kenttiä); lippu pois / ei kenttiä → null; henkilokunta-apuri ei poimi S4-kenttiä', () => {
-    expect(S.tmS4Osa('s', upd(), {})).toBeNull();
+  it('osa: vain S4-kentät (ei henkilokunta-, ei B-kenttiä); ei kenttiä → null (PR 2d: lippu ei vaikuta); henkilokunta-apuri ei poimi S4-kenttiä', () => {
+    expect(S.tmS4Osa('s', upd(), { s4Kirjoitus: false, nytISO: 'T' }).data.kasvutahti_cm_v).toBe(6);
     const o = S.tmS4Osa('s', upd(), { s4Kirjoitus: true, nytISO: 'T' }); expect(o.data).toEqual({ seuraId: 's', paivitetty: 'T', kasvutahti_cm_v: 6, kehitysvaihe_kaista: 'circa', talenttiTaso: 'kärki' }); expect(o.mergeFields).toEqual(['seuraId', 'paivitetty', 'kasvutahti_cm_v', 'kehitysvaihe_kaista', 'talenttiTaso']);
     expect(S.tmS4Osa('s', { jaksofokus: {}, phv_tila: 'PH' }, { s4Kirjoitus: true })).toBeNull();
     const h = S.tmHenkilokuntaOsa('s', upd(), { henkilokuntaKirjoitus: true }); expect(Object.keys(h.data).sort()).toEqual(['paivitetty', 'seuraId', 'vastuuhenkilo']);
   });
-  it('lippu POIS: pelkkä pelaajan update; lippu PÄÄLLÄ: YKSI batch (pelaaja kuten ennen + sisainen mergeFields); permission-denied → varapolku ilman sisainen:iä; varapolku:false heittää', async () => {
-    const f = mkDb(); expect(await S.tmS4Kirjoita(f.db, 's', 'p1', upd(), {})).toEqual({ ok: true, sisainen: false, sisainenOhitettu: false }); expect(f.loki.commits).toBe(0); expect(f.D.has(SIS)).toBe(false); expect(f.D.get(PEL).kasvutahti_cm_v).toBe(6);
-    const g = mkDb(); expect(await S.tmS4Kirjoita(g.db, 's', 'p1', upd(), { s4Kirjoitus: true, nytISO: 'T' })).toEqual({ ok: true, sisainen: true, sisainenOhitettu: false }); expect(g.loki.commits).toBe(1);
-    expect(g.D.get(SIS)).toEqual({ seuraId: 's', paivitetty: 'T', kasvutahti_cm_v: 6, kehitysvaihe_kaista: 'circa', talenttiTaso: 'kärki' }); expect(g.D.get(PEL).kasvutahti_cm_v).toBe(6); expect(g.D.get(PEL).phv_tila).toBe('PH');
-    const h = mkDb(true), r = await S.tmS4Kirjoita(h.db, 's', 'p1', upd(), { s4Kirjoitus: true }); expect(r).toEqual({ ok: true, sisainen: false, sisainenOhitettu: true }); expect(h.D.get(PEL).kasvutahti_cm_v).toBe(6); expect(h.D.has(SIS)).toBe(false);
-    await expect(S.tmS4Kirjoita(mkDb(true).db, 's', 'p1', upd(), { s4Kirjoitus: true, varapolku: false })).rejects.toThrow(/permissions/);
+  it('PR 2d: YKSI batch — pelaajalle VAIN riisuttu osa (ei S4-avaimia), sisainen mergeFields; lippu ei vaikuta; permission-denied → virhe heitetään, EI varapolkua (ei mitään tallennu)', async () => {
+    for (const s4Kirjoitus of [false, true]) {
+      const g = mkDb(); expect(await S.tmS4Kirjoita(g.db, 's', 'p1', upd(), { s4Kirjoitus, nytISO: 'T' })).toEqual({ ok: true, sisainen: true, sisainenOhitettu: false }); expect(g.loki.commits).toBe(1);
+      expect(g.D.get(SIS)).toEqual({ seuraId: 's', paivitetty: 'T', kasvutahti_cm_v: 6, kehitysvaihe_kaista: 'circa', talenttiTaso: 'kärki' });
+      const p = g.D.get(PEL); expect(p).not.toHaveProperty('kasvutahti_cm_v'); expect(p).not.toHaveProperty('kehitysvaihe_kaista'); expect(p).not.toHaveProperty('talenttiTaso'); expect(p.phv_tila).toBe('PH'); expect(p.jaksofokus).toEqual({ x: 1 });
+    }
+    const h = mkDb(true); await expect(S.tmS4Kirjoita(h.db, 's', 'p1', upd(), {})).rejects.toThrow(/permissions/); expect(h.D.get(PEL)).toEqual({ etunimi: 'X' }); expect(h.D.has(SIS)).toBe(false);
+    await expect(S.tmS4Kirjoita(mkDb(true).db, 's', 'p1', upd(), { varapolku: true })).rejects.toThrow(/permissions/);   // deps.varapolku ei palauta vanhaa polkua
   });
-  it('tmS4Varapolulla ja tmS4Lisaa: lippu pois → ei lisää / mukaan=false; päällä lisää sisainen-kirjoituksen annettuun batchiin', async () => {
-    const f = mkDb(); const b = f.db.batch(); expect(S.tmS4Lisaa(b, f.db, 's', 'p1', upd(), {})).toBe(false); expect(S.tmS4Lisaa(b, f.db, 's', 'p1', upd(), { s4Kirjoitus: true })).toBe(true);
-    let mukaan; await S.tmS4Varapolulla({}, async (m) => { mukaan = m; }); expect(mukaan).toBe(false); await S.tmS4Varapolulla({ s4Kirjoitus: true }, async (m) => { mukaan = m; }); expect(mukaan).toBe(true);
+  it('PR 2d: jaetut arvot pelaajalle B-muodossa — signaali (talenttiarvo → null, phv jää), porrasehdotus ilman hist:iä (+hist_n), biologinenIka_viimeisin (tmBioIkaJaa)', async () => {
+    const bio = { phv_tila: 'PH', phv_tila_koodi: 'PH', phv_ika: 13.2, ika_mittaushetkella: 13.4, mittauspaiva: '2026-10-01', maturity_offset: 0.2, kehitysvaihe_kaista: 'circa', kasvutahti_cm_v: 9, mittaukset: { pituus: 160 } };
+    const g = mkDb(); await S.tmS4Kirjoita(g.db, 's', 'p1', { signaali: 'xfactor', havainto_porras_ehdotus: { valmis: true, seuraava: 'b', hist: [3, 3] }, biologinenIka_viimeisin: bio }, { pelaajaSet: true, nytISO: 'T' });
+    const p = g.D.get(PEL), s = g.D.get(SIS);
+    expect(p.signaali).toBeNull(); expect(p.havainto_porras_ehdotus).toEqual({ valmis: true, seuraava: 'b', hist_n: 2 }); expect(p.biologinenIka_viimeisin).toEqual({ phv_tila: 'PH', phv_tila_koodi: 'PH', phv_ika: 13.2, ika_mittaushetkella: 13.4, mittauspaiva: '2026-10-01' });
+    expect(s.signaali).toBe('xfactor'); expect(s.havainto_porras_hist).toEqual([3, 3]); expect(s.biologinenIka_viimeisin).toEqual(bio);
+    expect(S.tmBioIkaJaa(bio)).toEqual({ pelaaja: p.biologinenIka_viimeisin, sisainen: bio }); expect(S.tmBioIkaJaa(null)).toEqual({ pelaaja: null, sisainen: null });
+    const h = mkDb(); await S.tmS4Kirjoita(h.db, 's', 'p1', { signaali: 'phv' }, { pelaajaSet: true }); expect(h.D.get(PEL).signaali).toBe('phv');
+  });
+  it('PR 2d: tmS4Sisainen heittää oletuksena (ainoa kopio → ei hiljaista ohitusta); hiljainen:true → { ok:false }', async () => {
+    await expect(S.tmS4Sisainen(mkDb(true).db, 's', 'p1', { talenttiTaso: 'perus' }, {})).resolves.toEqual({ ok: true, sisainen: true });   // mkDb(true) hylkää vain batchin
+    const huono = { collection: () => { const e = new Error('Missing or insufficient permissions'); e.code = 'permission-denied'; throw e; } }, w = console.warn; console.warn = () => {};
+    try { await expect(S.tmS4Sisainen(huono, 's', 'p1', { talenttiTaso: 'perus' }, {})).rejects.toThrow(/permissions/); expect(await S.tmS4Sisainen(huono, 's', 'p1', { talenttiTaso: 'perus' }, { hiljainen: true })).toMatchObject({ ok: false, sisainen: false }); } finally { console.warn = w; }
+  });
+  it('PR 2d: tmS4Lisaa lisää aina (ei kenttiä → false); tmS4Varapolulla = fn(true) kerran, virhe heitetään (ei uusintaa mukaan=false)', async () => {
+    const f = mkDb(); const b = f.db.batch(); expect(S.tmS4Lisaa(b, f.db, 's', 'p1', upd(), {})).toBe(true); expect(S.tmS4Lisaa(b, f.db, 's', 'p1', { phv_tila: 'PH' }, {})).toBe(false);
+    const kutsut = []; await S.tmS4Varapolulla({}, async (m) => { kutsut.push(m); }); expect(kutsut).toEqual([true]);
+    const e = new Error('Missing or insufficient permissions'); e.code = 'permission-denied'; const k2 = [];
+    await expect(S.tmS4Varapolulla({}, async (m) => { k2.push(m); throw e; })).rejects.toThrow(/permissions/); expect(k2).toEqual([true]);
   });
 });
 
@@ -108,7 +127,7 @@ describe('TERVEYS-dokumentti sisainen/terveys (PR #1137): kirjoitusapuri, rajaus
   it('tmS4Osa EI poimi terveyskenttiä (ne eivät päädy sisainen/tiedot:iin); tmTerveysOsa poimii VAIN ne, avain terveysSeuraId (ei seuraId)', () => {
     const t = S.tmS4Osa('s', upd(), { s4Kirjoitus: true, nytISO: 'T' }); expect(Object.keys(t.data).sort()).toEqual(['kasvutahti_cm_v', 'paivitetty', 'seuraId', 'talenttiTaso']); TERV.forEach((k) => expect(t.data, k).not.toHaveProperty(k));
     expect(S.tmS4TiedotKentat()).not.toEqual(expect.arrayContaining(['loukkaantuminen_tyyppi'])); expect(S.tmS4Kentat()).toEqual(expect.arrayContaining(TERV));
-    expect(S.tmTerveysOsa('s', upd(), {})).toBeNull(); expect(S.tmTerveysOsa('s', { talenttiTaso: 'x' }, { s4Kirjoitus: true })).toBeNull();
+    expect(S.tmTerveysOsa('s', upd(), {}).data.kaytettavyys).toBe('rajoitettu'); expect(S.tmTerveysOsa('s', { talenttiTaso: 'x' }, { s4Kirjoitus: true })).toBeNull();   // PR 2d: lippu ei vaikuta
     const o = S.tmTerveysOsa('s', upd(), { s4Kirjoitus: true, nytISO: 'T' }); expect(o.data).toEqual({ terveysSeuraId: 's', paivitetty: 'T', kaytettavyys: 'rajoitettu', loukkaantuminen_tyyppi: 'nilkka', loukkaantuminen_pvm: '2026-10-20', paluu_arvio: '2026-11-15' });
     expect(o.mergeFields).toEqual(['terveysSeuraId', 'paivitetty', 'kaytettavyys', 'loukkaantuminen_tyyppi', 'loukkaantuminen_pvm', 'paluu_arvio']); expect(o.data).not.toHaveProperty('seuraId'); expect(S.tmTerveysPolku('s', 'p1')).toBe(TERV_PATH);
   });
@@ -156,9 +175,9 @@ describe('TERVEYS-dokumentti sisainen/terveys (PR #1137): kirjoitusapuri, rajaus
     const db = { collectionGroup: cg, collection: () => ({ doc: () => ({ collection: () => ({ doc: pelaajaDok }) }) }) };
     return { kyselyt, db };
   }
-  it('lippu pois TAI terveysLuku puuttuu → vain tiedot-kysely (palautusmuoto { mapa, virhe } ennallaan); lippu päällä + terveysLuku "seura" → toinen kysely where terveysSeuraId', async () => {
+  it('terveysLuku puuttuu → vain tiedot-kysely (palautusmuoto { mapa, virhe } ennallaan); terveysLuku "seura" → toinen kysely where terveysSeuraId (PR 2d: lipusta riippumatta)', async () => {
     const a = cgDb(); const r0 = await S.tmSisainenLataaSeura(a.db, 's'); expect(r0).toEqual({ mapa: { p1: { seuraId: 's', kasvutahti_cm_v: 7 } }, virhe: null }); expect(a.kyselyt).toEqual([['sisainen', 'seuraId', 's']]);
-    const b = cgDb(); await S.tmSisainenLataaSeura(b.db, 's', { terveysLuku: 'seura' }); expect(b.kyselyt).toEqual([['sisainen', 'seuraId', 's']]);   // lippu pois → ei terveys-kyselyä
+    const b = cgDb(); await S.tmSisainenLataaSeura(b.db, 's', { s4Kirjoitus: false, terveysLuku: 'seura' }); expect(b.kyselyt).toEqual([['sisainen', 'seuraId', 's'], ['sisainen', 'terveysSeuraId', 's']]);   // PR 2d: vanha lippuarvo pois ei estä
     const c = cgDb(); const r = await S.tmSisainenLataaSeura(c.db, 's', { s4Kirjoitus: true, terveysLuku: 'seura' }); expect(c.kyselyt).toEqual([['sisainen', 'seuraId', 's'], ['sisainen', 'terveysSeuraId', 's']]); expect(r.terveysMapa).toEqual({ p1: { terveysSeuraId: 's', loukkaantuminen_tyyppi: 'polvi' } }); expect(r.terveysVirhe).toBeNull();
     expect(r.mapa.p1).not.toHaveProperty('loukkaantuminen_tyyppi');
   });
@@ -182,9 +201,9 @@ describe('TERVEYS-dokumentti sisainen/terveys (PR #1137): kirjoitusapuri, rajaus
 });
 
 describe('CF-lippu = selaimen lippu (s4 mukana)', () => {
-  it('functions/tm_sisainen.js on tavu tavulta lib; liputPaalla huomioi s4:n; oletus päällä', () => {
-    expect(lue('functions/tm_sisainen.js')).toBe(lue('lib/tm_sisainen.js')); expect(lue('functions/tm_sisainen.js')).toMatch(/s4: \{ kytketty: false, kirjoitus: true,/); CF.RYHMAT.s4.kirjoitus = false; const _m = ['jaksofokus_sisainen', 'henkilokunta'], _v = _m.map((n) => CF.RYHMAT[n].kirjoitus); _m.forEach((n) => { CF.RYHMAT[n].kirjoitus = false; });   // muut liput pois → eristää s4:n expect(LUKU.liputPaalla()).toBe(false);
-    CF.RYHMAT.s4.kirjoitus = true; expect(LUKU.liputPaalla()).toBe(true); CF.RYHMAT.s4.kirjoitus = false; expect(LUKU.liputPaalla()).toBe(false); _m.forEach((n, i) => { CF.RYHMAT[n].kirjoitus = _v[i]; });
+  it('functions/tm_sisainen.js on tavu tavulta lib; PR 2d: liputPaalla aina true (lippuarvoista riippumatta)', () => {
+    expect(lue('functions/tm_sisainen.js')).toBe(lue('lib/tm_sisainen.js')); expect(lue('functions/tm_sisainen.js')).toMatch(/s4: \{ kytketty: false, kirjoitus: true,/); const _m = ['s4', 'jaksofokus_sisainen', 'henkilokunta'], _v = _m.map((n) => CF.RYHMAT[n].kirjoitus);
+    _m.forEach((n) => { CF.RYHMAT[n].kirjoitus = false; }); expect(LUKU.liputPaalla()).toBe(true); CF.RYHMAT.s4.kirjoitus = true; expect(LUKU.liputPaalla()).toBe(true); _m.forEach((n, i) => { CF.RYHMAT[n].kirjoitus = _v[i]; });
     expect(LUKU.liputPaalla({ s4: { kirjoitus: true } })).toBe(true); expect(lue('functions/sisainen_luku.js').replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\bkirjoitus\s*[:=]\s*(true|false)|process\.env/);
   });
 });
@@ -249,7 +268,7 @@ describe('migraatio scripts/migroi_sisainen_s4.js (fake-Firestore; tuotantoon ei
 });
 
 describe('GREP-PORTTI: pelaajan ja vanhemman sivut eivät lue siirrettäviä S4-kenttiä pelaajadokumentista', () => {
-  const k = S.tmS4Kentat().filter((x) => x !== 'signaali' && x !== 'havainto_porras_hist');
+  const k = S.tmS4Kentat().filter((x) => x !== 'signaali' && x !== 'havainto_porras_hist' && x !== 'biologinenIka_viimeisin');   // jaetut arvot: pelaaja lukee B-muodon (PR 2d: biologinenIka_viimeisin)
   const A = new RegExp('\\b(' + k.join('|') + ')\\b');
   /* Jaetut libit jotka sisältävät S4-kenttänimiä, mutta joita pelaaja-appi ei käytä S4-kenttien lukuun (tarkistettu 24.10.): tm_phv_tila.js (`bio.maturity_offset` = biologinenIka_viimeisin-alaolio, B), tm_tukitavoitteet.js / tm_idp.js (henkilökunnan
      ehdotinlogiikka; Pelaaja_v7 ei kutsu sen kandidaattifunktioita), tm_eerikkila_normit.js (henkilökunnan KPI-funktiot), tm_pelialy_yksilo.js (pikakenttien LASKENTA/kirjoitusapuri; lukijat ovat staff). Rekisterointi_Suostumus: vanhempi LÄHETTÄÄ pituudet CF:lle, ei lue. */

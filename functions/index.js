@@ -1290,7 +1290,7 @@ exports.vahvistaSuostumus = functions
          YKSI batch: pelaajan update + sisainen set mergeFields (tmS4Lisaa poimii paivitys-oliosta vain S4-kentät: isa_pituus_cm, aiti_pituus_cm, vanhempi_pituus_pvm, vanhempi_pituus_puuttuu).
          Admin SDK ohittaa Rulesin → ei permission-denied-varapolkua; virhe → sama 'internal' kuin ennen (suostumus ei tallennu puoliksi). */
       const kirjBatch = db.batch();
-      kirjBatch.update(pelRef, paivitys);
+      kirjBatch.update(pelRef, tmSisainen.tmSisainenRiisu(paivitys));   // PR 2d (K8): vanhempien pituudet VAIN sisainen/tiedot:iin
       tmSisainen.tmS4Lisaa(kirjBatch, db, seuraId, pelaajaId, paivitys, {});
       await kirjBatch.commit(); await suostumusPeruminen.kirjaaHistoria(db, admin.firestore.FieldValue, seuraId, pelaajaId, snap.data());
     } catch (e) {
@@ -2363,8 +2363,7 @@ exports.arviointikertaOnWrite = functions
          YKSI batch; sisainen-puolella tmS4Lisaa käyttää mergeFields (korvaa nimetyt kentät kokonaan — sama syy kuin yllä: ikkunasta pudonnut kohde ei jää karttaan). */
       const kirjoitus = { arviointi_kooste: kooste, potentiaali_kooste: potKooste, arviointi_kooste_pvm: new Date().toISOString() };
       const dbA = admin.firestore(), batch = dbA.batch();
-      batch.set(pelaajaRef, kirjoitus, { mergeFields: ['arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'] });
-      tmSisainen.tmS4Lisaa(batch, dbA, seuraId, pelaajaId, kirjoitus, {});
+      tmSisainen.tmS4Lisaa(batch, dbA, seuraId, pelaajaId, kirjoitus, {});   // PR 2d (K9): VAIN sisainen/tiedot:iin (ei pelaajadokumenttiin)
       await batch.commit();
     } catch (e) {
       console.error('[arviointikertaOnWrite]', seuraId, pelaajaId, e && e.message);

@@ -25,6 +25,7 @@ const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const vaadi = createRequire(import.meta.url);
 const AH = vaadi('../lib/tm_arviointi_historia.js');
+const SISL = vaadi('../lib/tm_sisainen.js');   // PR 2d: oikea lib — arviointi_* / potentiaali-pikakentät VAIN sisainen/tiedot:iin
 
 function pura(tunniste) {
   const i = VP.indexOf(tunniste);
@@ -90,7 +91,7 @@ async function tallenna(opts) {
     _seura: o.seura || { maa: 'FI' },
     _isDemoMode: false,
     _pelaajat: [o.pelaaja || PELAAJA],
-    window: { TM_ARVIOINTI_HISTORIA: AH, _vpArvKonteksti: o.konteksti || null, _vpArvNakyvyys: o.nakyvyys || null, _vpArvKehys: 'palloliitto' },
+    window: { TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL, _vpArvKonteksti: o.konteksti || null, _vpArvNakyvyys: o.nakyvyys || null, _vpArvKehys: 'palloliitto' },
     document: { getElementById: () => null },
     toast: () => {},
     _jsvEsc: (s) => String(s == null ? '' : s),
@@ -128,6 +129,8 @@ describe('(1) kaksi arvioijaa samana päivänä → KAKSI kertaa, ei yhtä korva
     expect(tk.kirjoitukset.length).toBe(2);
     expect(kerta(tk)).toBeTruthy();
     expect(pelaajaKirjoitus(tk)).toBeTruthy();
+    expect(pelaajaKirjoitus(tk).polku).toBe('seurat/sjk/pelaajat/p1/sisainen/tiedot');   // PR 2d: arviointi_* VAIN sisainen/tiedot:iin
+    expect(tk.kirjoitukset.some((w) => w.polku === 'seurat/sjk/pelaajat/p1')).toBe(false);
   });
 
   it('eri arvioija → eri kerta-doc (sama päivä, sama kohde)', async () => {
@@ -313,8 +316,13 @@ describe('(10) functions/-kopio on identtinen lib/-kanssa (deploy pakkaa vain fu
     const idx = readFileSync(join(juuri, 'functions/index.js'), 'utf8');
     const i = idx.indexOf('exports.arviointikertaOnWrite');
     const f = idx.slice(i, idx.indexOf('\n});', i));
-    expect(f).toContain("mergeFields: ['arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm']");
+    /* PR 2d (K9): koosteet VAIN sisainen/tiedot:iin (tmS4Lisaa), ei pelaajadokumenttiin; mergeFields korvaa kentät kokonaan. */
+    expect(f).toContain('tmSisainen.tmS4Lisaa(batch, dbA, seuraId, pelaajaId, kirjoitus, {})');
+    expect(f).not.toMatch(/batch\.set\(pelaajaRef, kirjoitus/);
     expect(f).not.toMatch(/arviointi_kooste_pvm: new Date\(\)\.toISOString\(\),\s*\}, \{ merge: true \}/);
+    const osa = SISL.tmS4Osa('s', { arviointi_kooste: { a: 1 }, potentiaali_kooste: { b: 2 }, arviointi_kooste_pvm: 'x' }, {});
+    expect(osa.mergeFields).toEqual(expect.arrayContaining(['arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm']));
+    expect(osa.mergeFields.some((m) => /^(arviointi|potentiaali)_kooste\./.test(m))).toBe(false);   // ei pistepolkuja → koko kartta korvataan
   });
 
   it('CF suodattaa sisäiset kerrat ennen koostetta', () => {
@@ -450,7 +458,7 @@ async function tallennaPotentiaali(opts) {
     _valmentajat: [{ id: 'uid-a', nimi: 'Matti Virtanen', rooli: o.rooli || 'vp' }],
     _vpVahvistajaRooli: async () => (o.rooli || 'vp'),
     _isDemoMode: false,
-    window: { TM_ARVIOINTI_HISTORIA: AH, _vpArvKonteksti: null, _vpArvKehys: 'palloliitto', _vpNimi: 'VP Testi' },
+    window: { TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL, _vpArvKonteksti: null, _vpArvKehys: 'palloliitto', _vpNimi: 'VP Testi' },
     document: { getElementById: () => null },
     toast: () => {}, vpT: (s) => s, _jsvEsc: (s) => String(s == null ? '' : s),
     console: { warn: () => {} },
@@ -548,7 +556,7 @@ describe('(16) Arvioi-tila ei näytä seuran arvoa ennen omaa kirjausta', () => 
       _vpArvOmaKertaId: () => 'id-x',
       _uid: 'uid-a',
       window: { _vpArvTila: tila, _vpArvKehys: 'palloliitto', _vpArvTeema: 'D4_peliaaly',
-        _vpArvOmaKerta: omaKerta || null, TM_ARVIOINTI_HISTORIA: AH },
+        _vpArvOmaKerta: omaKerta || null, TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL },
       document: { getElementById: () => null },
     };
     store.window.window = store.window;
@@ -615,7 +623,7 @@ describe('(17) varmuus valittavissa ja Palloliiton potentiaali ei vuoda pikakent
 
   it('potentiaalin pikakenttä kirjoitetaan vain seuran arvioijalta', () => {
     const f = pura('window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {');
-    expect(f).toContain("if (orgP === 'seura') tx.set(pRef, pika, { merge: true });");
+    expect(f).toMatch(/if \(orgP === 'seura'\) \{ const _pu = _SISP\.tmHenkilokuntaRiisu\(pika\);[^\n]*_SISP\.tmHenkilokuntaLisaa\(tx, db, _seuraId, p\.id, pika, \{\}\); \}/);   // PR 2d (K2): scout_* VAIN sisainen:iin
   });
 
   it('kerta kirjoitetaan silti myös Palloliiton arvioijalta (historia säilyy)', () => {
@@ -670,7 +678,7 @@ describe('(18) Arvioi-tilan DOM ei sisällä seuran arvoja missään osiossa', (
       _vpArvAdarKoostumusHTML: () => '<div>ADAR_KOOSTUMUS</div>',
       _vpD3KalibraatioHTML: () => '<div>D3_KALIBRAATIO</div>',
       window: { _vpArvTila: tila, _vpArvKehys: 'palloliitto', _vpArvTeema: 'D4_peliaaly',
-        _vpArvOmaKerta: null, TM_ARVIOINTI_HISTORIA: AH },
+        _vpArvOmaKerta: null, TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL },
       document: { getElementById: () => null },
     };
     store.window.window = store.window;
@@ -830,7 +838,7 @@ describe('(21) arvioijien nimet näkyvät Katso-tilassa ja tulevat alikokoelmast
       __p: { id: 'p1' }, __avain: avain || 'pelin_lukeminen',
       vpT: (s) => s, _jsvEsc: (s) => String(s == null ? '' : s),
       _pvmLyhyt: (x) => String(x).slice(5),
-      window: { _vpArvKerrat: { pid: 'p1', lista: kerrat }, TM_ARVIOINTI_HISTORIA: AH },
+      window: { _vpArvKerrat: { pid: 'p1', lista: kerrat }, TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL },
     };
     store.window.window = store.window;
     const ymp = new Proxy(store, {
@@ -912,7 +920,7 @@ describe('(21) arvioijien nimet näkyvät Katso-tilassa ja tulevat alikokoelmast
       _vpArvOmaKertaId: () => 'id-x',
       _uid: 'uid-a',
       window: { _vpArvTila: tila, _vpArvKehys: 'palloliitto', _vpArvTeema: 'D4_peliaaly',
-        _vpArvOmaKerta: null, TM_ARVIOINTI_HISTORIA: AH,
+        _vpArvOmaKerta: null, TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL,
         _vpArvKerrat: { pid: 'p1', lista: [
           { pvm: '2026-09-12', arvioija_uid: 'u1', arvioija_nimi: 'Matti Virtanen',
             arvioija_rooli: 'valmentaja', nakyvyys: 'seuralle', konteksti: { tyyppi: 'ottelu' },
@@ -994,7 +1002,7 @@ describe('(22) Arvioi-tila näyttää oman potentiaaliarvion, ei seuran', () => 
       _vpFyysEhdotus: () => ({ prioriteetti: false }),
       _vpArvAdarKoostumusHTML: () => '', _vpD3KalibraatioHTML: () => '',
       window: { _vpArvTila: tila, _vpArvKehys: 'palloliitto', _vpArvTeema: 'D4_peliaaly',
-        _vpArvOmaKerta: omaKerta || null, TM_ARVIOINTI_HISTORIA: AH },
+        _vpArvOmaKerta: omaKerta || null, TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL },
       document: { getElementById: () => null },
     };
     store.window.window = store.window;
@@ -1115,7 +1123,7 @@ describe('(23) "Tallenna huomio" ei kirjoita edellisen arvioijan tähtiä', () =
       firebase: tk.firebase, toast: (t2) => toastit.push(t2), vpT: (s) => s,
       document: { getElementById: () => (o.huomioKentta == null ? null : { value: o.huomioKentta }) },
       console: { warn() {} },
-      window: { _vpArvTila: o.tila || 'arvioi', TM_ARVIOINTI_HISTORIA: AH, _vpNimi: 'Minä Itse' },
+      window: { _vpArvTila: o.tila || 'arvioi', TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL, _vpNimi: 'Minä Itse' },
     };
     store.window.window = store.window;
     const ymp = new Proxy(store, {
@@ -1176,7 +1184,7 @@ describe('(24) Palloliiton potentiaali ei muuta paikallista pelaajaobjektia', ()
       _isDemoMode: false, _seuraId: 'sjk', _seura: { maa: 'FI' }, db: tk.db,
       firebase: tk.firebase, toast: () => {}, vpT: (s) => s,
       document: { getElementById: () => null }, console: { warn() {} },
-      window: { _vpArvTila: 'arvioi', TM_ARVIOINTI_HISTORIA: AH, _vpNimi: 'Liiton Arvioija' },
+      window: { _vpArvTila: 'arvioi', TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL, _vpNimi: 'Liiton Arvioija' },
     };
     store.window.window = store.window;
     const ymp = new Proxy(store, {
@@ -1276,7 +1284,7 @@ describe('(26) tallennusvirhe peruu optimistisen oman arvion', () => {
       db: tynka(false).db, firebase: tynka(false).firebase,
       toast: () => {}, vpT: (s) => s,
       document: { getElementById: () => null }, console: { warn() {} },
-      window: { _vpArvTila: 'arvioi', TM_ARVIOINTI_HISTORIA: AH, _vpNimi: 'N' },
+      window: { _vpArvTila: 'arvioi', TM_ARVIOINTI_HISTORIA: AH, TM_SISAINEN: SISL, _vpNimi: 'N' },
     };
     store.window.window = store.window;
     const ymp = new Proxy(store, {

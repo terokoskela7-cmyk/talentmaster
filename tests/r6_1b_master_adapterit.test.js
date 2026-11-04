@@ -16,6 +16,8 @@ const require = createRequire(import.meta.url);
 const MASTER = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_Master_v16.html'), 'utf8');
 const J = require('../lib/tm_jaksokooste.js');
 const KS = require('../lib/tm_kehityssilmukka.js');
+const SIS = require('../lib/tm_sisainen.js');
+const A_JF = SIS.RYHMAT.jaksofokus_sisainen.kentat.map((k) => k.replace(/^jaksofokus\./, ''));
 function pura(tunniste) {
   const i = MASTER.indexOf(tunniste); expect(i, tunniste).toBeGreaterThan(-1);
   let syv = 0;
@@ -29,23 +31,32 @@ const ALKOI = '2026-09-01T08:00:00.000Z';
 function ymp({ kaada = false, demo = false, offline = false, pelaaja = {}, vt, ehdotus = null } = {}) {
   const p = Object.assign({ id: PID, joukkue: 'KPV U13', etunimi: 'Topias' }, pelaaja);
   p._mIdpTavoite = vt || { valitavoitteet: [{ nimi: 'Vaihtotavoite', konsepti_avain: 'y_vt', kesto_vk: 5 }], aikaraami: { kesto_vk: 6 }, fokus: { alue: 'syotto' } };
-  const kirj = [], log = { toastit: [], setit: 0, suljetut: [], warn: [] };
-  const doc = (path) => ({ update: async (d) => { if (kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); kirj.push({ path, data: d }); }, set: async () => { log.setit++; } });
-  const _db = { collection: (c) => ({ doc: (a) => ({ collection: (c2) => ({ doc: (b) => doc(c + '/' + a + '/' + c2 + '/' + b) }) }) }) };
+  const kirj = [], kirjS = [], log = { toastit: [], setit: 0, suljetut: [], warn: [] };
+  const hylkaa = () => { if (kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); };
+  /* PR 2d: elinkaari kulkee tm_sisainen.js:n batchin kautta (pelaajan update + sisainen/tiedot set mergeFields) → tynkä tukee polkuviitteitä ja batchia. kirj = pelaajadokumentin päivitykset, kirjS = sisainen-kirjoitukset. */
+  const doc = (path) => ({ _path: path, update: async (d) => { hylkaa(); kirj.push({ path, data: d }); }, set: async () => { log.setit++; }, collection: (c) => ({ doc: (b) => doc(path + '/' + c + '/' + b) }) });
+  const _db = { collection: (c) => ({ doc: (a) => doc(c + '/' + a) }),
+    batch: () => { const ops = []; let pu = null, sis = null; return { update: (r, d) => { pu = { path: r._path, data: d }; }, set: (r, d, o) => { if (/\/sisainen\//.test(r._path)) sis = { path: r._path, data: d, opts: o }; else ops.push(() => log.setit++); },
+      commit: async () => { hylkaa(); ops.forEach((f) => f());
+        /* invariantti: jaksofokuksen A-osat (tavoite_alue, valitavoite_idx, poikkeama …) EIVÄT koskaan pelaajadokumenttiin */
+        const jfP = pu && pu.data.jaksofokus; if (jfP && typeof jfP === 'object') A_JF.forEach((k) => { if (k in jfP) throw new Error('A-vuoto pelaajadokumenttiin: jaksofokus.' + k); });
+        if (sis) kirjS.push(sis);
+        /* kirj = henkilökunnan näkymä (dual-read: pelaajaosa ⊕ sisainen) → linkkiassertit ennallaan; raaka pelaajaosa = .pelaaja */
+        if (pu) kirj.push({ path: pu.path, pelaaja: pu.data, data: Object.assign({}, pu.data, sis && 'jaksofokus' in pu.data ? { jaksofokus: SIS.tmJaksofokusYhdista(pu.data.jaksofokus, sis.data.jaksofokus_sisainen && !sis.data.jaksofokus_sisainen.__fv ? sis.data.jaksofokus_sisainen : null) } : {}) }); } }; } };
   const sb = {
-    window: { TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, TM_VIIKKOKATSAUS: require('../lib/tm_viikkokatsaus.js'), TM_NAKYVYYS_KYTKIN: require('../lib/tm_nakyvyys_kytkin.js'), _ohjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1 }],
+    window: { TM_SISAINEN: SIS, TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, TM_VIIKKOKATSAUS: require('../lib/tm_viikkokatsaus.js'), TM_NAKYVYYS_KYTKIN: require('../lib/tm_nakyvyys_kytkin.js'), _ohjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1 }],
       TM_FYYSTEEMAT_LIB: { tmFyysTeema: (a) => (a ? { avain: a, nimi: 'Teema ' + a, testit: ['lin30m'] } : null), tmOhjelmaTemplaatti: (t) => ({ nimi: 'Pohja ' + t, kuvaus: 'k' }) } },
     _ttPelaaja: () => p, _pelaajatData: [p], _mIdpP: () => p, _mIdpReRender() {}, _mIdpTallennaDok() {}, _renderPinfoFirestore() {},
     _mTtItems: () => [{ avain: 'y_h2', nimi: 'SYÖTTÄMINEN', koodi: 'H2' }, { avain: 'y_h3', nimi: 'PELINLUKU', koodi: 'H3' }], _devIkaSp: () => ({ ika: 12 }), _ttNormPositio: () => 'KK', _mTtEhdotus: () => ehdotus,
     _msSiltaKonsepti: (a) => ({ nimi: 'Silta ' + a, koodi: 'S1' }), document: { getElementById: (id) => (/Modal$/.test(id) ? { remove() { log.suljetut.push(id); } } : null) }, _uid: 'valm-uid', _rooli: 'valmentaja', _superAdmin: false, tmPhvKoodi: () => 'PRE',
-    firebase: { auth: () => ({ currentUser: { uid: 'valm-uid' } }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } },
+    firebase: { auth: () => ({ currentUser: { uid: 'valm-uid' } }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }), delete: () => ({ __fv: 'delete' }) } } },
     _mTuoreToken: async () => {}, _mVerkkoEnnenSulkua: () => !offline, _demo: demo, _seuraId: 'kpv', _db,
     toast: (t, k) => log.toastit.push([t, k]), masterT: (x) => x, console: { warn: (...a) => log.warn.push(a) }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), Date, Object, Array, Promise, Math, confirm: () => true,
   };
   sb.tmPaivaIso = require('./helpers/k1d_korvaukset.cjs').tmPaivaIso; vm.createContext(sb);
   vm.runInContext([pura('function _mJaksoVaihto('), pura('async function _mKirjoitaJaksofokus('), pura('window._ttVieTreeniin = async function'), pura('window._msAsetaFyysFokus = async function'),
     pura('window._ohjKaytaOhjelma = async function'), pura('window._mIdpVtAktivoi = async function'), pura('window._msTallenna = async function'), pura('function _kvkLahde(')].join(';\n') + ';', sb);
-  return { sb, p, kirj, log };
+  return { sb, p, kirj, kirjS, log };
 }
 const SULKU = (p, o = {}) => ({ p, jf: p.jaksofokus, alkoi: ALKOI, loppu: '2026-10-04T10:00:00.000Z', harjoituksia: 5, lasnaolo: { paikalla: 4, yhteensa: 5, tiedossa: 5 }, arvioItse: 4, arvioAikuis: 3, tulos: 'parani', deltaMitattu: null, ...o });
 
@@ -58,7 +69,8 @@ describe('adapterit kutsuvat libiä — ei rinnakkaista päättelyä', () => {
   });
   it('kaikki 6 kirjoittavat _mKirjoitaJaksofokus:lla (update + arrayUnion; 6. = V4b-2 Hylkää valinta); Master lataa tm_kehityssilmukka.js', () => {
     expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(6);
-    expect(pura('async function _mKirjoitaJaksofokus(')).toMatch(/\.update\(upd\)/); expect(MASTER).toContain('lib/tm_kehityssilmukka.js');
+    expect(pura('async function _mKirjoitaJaksofokus(')).toMatch(/await window\.TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(_db, _seuraId, pid \|\| p\.id, upd,/);   // PR 2d: A-osat vain sisainen:iin, ei raakaa update-varapolkua
+    expect(pura('async function _mKirjoitaJaksofokus(')).not.toMatch(/\.update\(upd\)/); expect(MASTER).toContain('lib/tm_kehityssilmukka.js');
     expect(MASTER.indexOf('tm_jaksokooste.js')).toBeLessThan(MASTER.indexOf('tm_kehityssilmukka.js'));
   });
 });
@@ -131,7 +143,8 @@ describe('M5 _msTallenna (sulku) — tmSuljeJakso + yksi update', () => {
   it('ilman uutta jaksoa: YKSI update {jaksofokus:null, jaksofokus_historia:arrayUnion(sulkurivi)}; rivi sulkutapa "suljettu", arviot, kalibraatio, ISO; ei set', async () => {
     const e = ymp({ pelaaja: { jaksofokus: JF } }); await aja(e, null);
     expect(e.kirj.length).toBe(1); expect(e.log.setit).toBe(0); expect(e.kirj[0].path).toBe(POLKU);
-    expect(Object.keys(e.kirj[0].data).sort()).toEqual(['jaksofokus', 'jaksofokus_historia', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi']); expect(e.kirj[0].data.jaksofokus).toBeNull();
+    expect(Object.keys(e.kirj[0].pelaaja).sort()).toEqual(['jaksofokus', 'jaksofokus_historia']); expect(e.kirj[0].data.jaksofokus).toBeNull();   // PR 2d: rytmi (review_viimeisin_*) = A → VAIN sisainen, samassa batchissa
+    expect(e.kirjS.length).toBe(1); expect(e.kirjS[0].path).toBe(POLKU + '/sisainen/tiedot'); expect(e.kirjS[0].data.review_viimeisin_tyyppi).toBe('jakso'); expect(typeof e.kirjS[0].data.review_viimeisin_pvm).toBe('string');
     const r = e.kirj[0].data.jaksofokus_historia.__arrayUnion; expect(r.length).toBe(1);
     expect(r[0]).toMatchObject({ konsepti_avain: 'y_h2', domeeni: 'teknis_taktinen', alkoi: ALKOI, paattyi: '2026-10-04T10:00:00.000Z', sulkutapa: 'suljettu', harjoituksia: 5, arvio_itse: 4, arvio_valmentaja: 3, arvioija_rooli: 'valmentaja', tulos: 'parani', lahde_seuraava: null, kalibraatio_ero: J.tmKalibraatio(4, 3) });
     expect(new Date(r[0].suljettu).toISOString()).toBe(r[0].suljettu);

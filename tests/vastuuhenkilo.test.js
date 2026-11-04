@@ -12,10 +12,11 @@ import vm from 'vm';
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const L = require('../lib/tm_vastuuhenkilo.js');
+const SISL = require('../lib/tm_sisainen.js');   // PR 2d: adapterit kirjoittavat tm_sisainen.js:n kautta (vastuuhenkilo = henkilokunta-kenttä → VAIN sisainen/tiedot)
 const M = require('../lib/tm_jakso_malli.js');
 const lue = (f) => readFileSync(join(juuri, f), 'utf8');
 const VP = lue('TalentMaster_VP_v25.html'), MA = lue('TalentMaster_Master_v16.html');
-const PID = 'm93GBdOaGCUuenMiCL0I', POLKU = 'seurat/kpv/pelaajat/' + PID, PVM = '2026-10-05';
+const PID = 'm93GBdOaGCUuenMiCL0I', POLKU = 'seurat/kpv/pelaajat/' + PID, SISP = POLKU + '/sisainen/tiedot', PVM = '2026-10-05';
 const HENKILOT = [{ id: 'u-valm', nimi: 'Veera Valmentaja', rooli: 'valmentaja' }, { id: 'u-talval', nimi: 'Taneli Talent', rooli: 'talenttivalmentaja' }, { id: 'u-vp', nimi: 'Vilma VP', rooli: 'vp' },
   { id: 'u-fysio', nimi: 'Fiia Fysio', rooli: 'fysioterapeutti' }, { id: 'u-sihteeri', nimi: 'Sirkku', rooli: 'seurasihteeri' }, { id: 'u-pois', nimi: 'Poistunut', rooli: 'valmentaja', aktiivinen: false }];
 const PEL = (o) => Object.assign({ id: PID, joukkue: 'KPV U13', syntymaVuosi: 2013 }, o);
@@ -72,13 +73,19 @@ function pura(HTML, t) {
   for (let k = HTML.indexOf('{', i); k < HTML.length; k++) { if (HTML[k] === '{') d++; else if (HTML[k] === '}') { d--; if (!d) return HTML.slice(i, k + 1); } }
   throw new Error('sulkeet');
 }
-const DEL = { __delete: true };
+const DEL = { __poista: true };   // FieldValue.delete()-tynkä (tm_sisainen tunnistaa poistosentinellin)
 function ymp(sovellus, { kaada = false, demo = false, rooli = 'vp', vastuu = null, editable = true, henkilosto = HENKILOT } = {}) {
   const kirj = [], log = { toastit: [], renderit: 0 };
   const p = PEL(vastuu ? { vastuuhenkilo: vastuu } : {});
-  const dok = { update: async (d) => { if (kaada) throw new Error('permission-denied'); kirj.push({ polku: POLKU, d }); } };
-  const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => dok, get: async () => ({ docs: henkilosto.map((h) => ({ id: h.id, data: () => ({ rooli: h.rooli, etunimi: h.nimi, aktiivinen: h.aktiivinen }) })) }) }) }) }) };
-  const c = { window: { TM_VASTUUHENKILO: L, _vpRooli: rooli, _vpSA: false, _mHenkilosto: sovellus === 'vp' ? undefined : henkilosto }, db, _db: db, _seuraId: 'kpv', _isDemoMode: demo, _demo: demo, _valmentajat: HENKILOT, vpT: (x) => x, masterT: (x) => x, tmPaivaIso: () => PVM,
+  /* polkutietoinen tynkä: kirjoitukset kirjataan { polku, op, d }; batch kaatuu kokonaan (kaada) → ei mitään kirjattu */
+  const henkSnap = async () => ({ docs: henkilosto.map((h) => ({ id: h.id, data: () => ({ rooli: h.rooli, etunimi: h.nimi, aktiivinen: h.aktiivinen }) })) });
+  const ref = (polku) => ({ _path: polku, id: polku.split('/').pop(), collection: (n) => col(polku + '/' + n),
+    update: async (d) => { if (kaada) throw new Error('permission-denied'); kirj.push({ polku, op: 'update', d }); },
+    set: async (d) => { if (kaada) throw new Error('permission-denied'); kirj.push({ polku, op: 'set', d }); }, get: async () => ({ exists: false, data: () => undefined }) });
+  const col = (polku) => ({ doc: (id) => ref(polku + '/' + id), get: henkSnap });
+  const db = { collection: (n) => col(n), batch: () => { const ops = []; return { set: (r, d) => ops.push({ polku: r._path, op: 'set', d }), update: (r, d) => ops.push({ polku: r._path, op: 'update', d }),
+    commit: async () => { if (kaada) throw new Error('permission-denied'); ops.forEach((o) => kirj.push(o)); } }; } };
+  const c = { window: { TM_VASTUUHENKILO: L, TM_SISAINEN: SISL, _vpRooli: rooli, _vpSA: false, _mHenkilosto: sovellus === 'vp' ? undefined : henkilosto }, db, _db: db, _seuraId: 'kpv', _isDemoMode: demo, _demo: demo, _valmentajat: HENKILOT, vpT: (x) => x, masterT: (x) => x, tmPaivaIso: () => PVM,
     toast: (t, k) => log.toastit.push([t, k]), console: { warn() {} }, Object, String, Array, Promise, _vpIdpPelaaja: () => p, _mIdpP: () => p, _vpKausitavoiteReRender() { log.renderit++; }, _mIdpReRender() { log.renderit++; }, _mTuoreToken: async () => {}, _tmHenkiloNimi: (x) => x.etunimi,
     firebase: { auth: () => ({ currentUser: { getIdToken: async () => 't' } }), firestore: { FieldValue: { delete: () => DEL } } } };
   vm.createContext(c);
@@ -93,14 +100,15 @@ describe('VP_v25-adapteri', () => {
     ['valmentaja', 'fysiikkavalmentaja', 'seurasihteeri', ''].forEach((r) => expect(ymp('vp', { rooli: r }).c._vpVastuuhenkiloRivi(PEL()), r).not.toContain('<select'));
     const sa = ymp('vp', { rooli: 'valmentaja' }); sa.c.window._vpSA = true; expect(sa.c._vpVastuuhenkiloRivi(PEL())).toContain('<select');
   });
-  it('asetus: YKSI update samaan KPV U13 -pelaajadokkiin {vastuuhenkilo:{uid, rooli, asetettu_pvm tänään}}; paikallinen tila + uudelleenpiirto vasta onnistumisen jälkeen; toast', async () => {
+  it('asetus (PR 2d): YKSI kirjoitus VAIN sisainen/tiedot:iin {vastuuhenkilo:{uid, rooli, asetettu_pvm tänään}}, pelaajadokkiin ei mitään; paikallinen tila + uudelleenpiirto vasta onnistumisen jälkeen; toast', async () => {
     const e = ymp('vp'); await e.c.window._vpAsetaVastuuhenkilo(PID, 'u-valm|valmentaja');
-    expect(e.kirj).toEqual([{ polku: POLKU, d: { vastuuhenkilo: { uid: 'u-valm', rooli: 'valmentaja', asetettu_pvm: PVM } } }]); expect(e.p.vastuuhenkilo.uid).toBe('u-valm'); expect(e.log.renderit).toBe(1); expect(e.log.toastit[0][1]).toBe('ok');
+    expect(e.kirj.map((k) => k.polku)).toEqual([SISP]); expect(e.kirj[0].d.vastuuhenkilo).toEqual({ uid: 'u-valm', rooli: 'valmentaja', asetettu_pvm: PVM }); expect(e.kirj[0].d.seuraId).toBe('kpv'); expect(e.p.vastuuhenkilo.uid).toBe('u-valm'); expect(e.log.renderit).toBe(1); expect(e.log.toastit[0][1]).toBe('ok');
   });
   it('vaihto + poisto: poisto = FieldValue.delete(); tyhjä valinta → kenttä pois paikallisesti', async () => {
     const e = ymp('vp', { vastuu: { uid: 'u-valm', rooli: 'valmentaja', asetettu_pvm: '2026-09-01' } });
     await e.c.window._vpAsetaVastuuhenkilo(PID, 'u-vp|vp'); expect(e.p.vastuuhenkilo).toEqual({ uid: 'u-vp', rooli: 'vp', asetettu_pvm: PVM });
-    await e.c.window._vpAsetaVastuuhenkilo(PID, ''); expect(e.kirj[1].d.vastuuhenkilo).toBe(DEL); expect('vastuuhenkilo' in e.p).toBe(false);
+    await e.c.window._vpAsetaVastuuhenkilo(PID, '');   // poisto: delete sisainen:iin JA pelaajadokkiin (siivoamaton vanha arvo ei palaa dual-readissa)
+    const poisto = e.kirj.slice(1); expect(poisto.find((k) => k.polku === SISP).d.vastuuhenkilo).toBe(DEL); expect(poisto.find((k) => k.polku === POLKU).d.vastuuhenkilo).toBe(DEL); expect('vastuuhenkilo' in e.p).toBe(false);
   });
   it('kirjoitus epäonnistuu → EI paikallista muutosta, virheilmoitus, uudelleenpiirto (valitsin palaa); virheellinen valinta (UTJ-rooli/rikkinäinen) → ei kirjoitusta', async () => {
     const e = ymp('vp', { kaada: true, vastuu: { uid: 'u-valm', rooli: 'valmentaja', asetettu_pvm: '2026-09-01' } }); await e.c.window._vpAsetaVastuuhenkilo(PID, 'u-vp|vp');
@@ -121,10 +129,10 @@ describe('Master_v16-adapteri', () => {
     expect(l.c.window._mHenkilosto.length).toBe(HENKILOT.length); expect(l.log.renderit).toBe(1);
     await l.c._mLataaHenkilosto(); expect(l.log.renderit, 'ladataan vain kerran').toBe(1);
   });
-  it('asetus: YKSI update, paikallinen vasta onnistumisen jälkeen; poisto delete(); epäonnistuminen → ei muutosta; demo paikallinen', async () => {
+  it('asetus (PR 2d): YKSI kirjoitus VAIN sisainen/tiedot:iin, paikallinen vasta onnistumisen jälkeen; poisto delete() molempiin; epäonnistuminen → ei muutosta; demo paikallinen', async () => {
     const e = ymp('master'); await e.c.window._mAsetaVastuuhenkilo(PID, 'u-talval|talenttivalmentaja');
-    expect(e.kirj).toEqual([{ polku: POLKU, d: { vastuuhenkilo: { uid: 'u-talval', rooli: 'talenttivalmentaja', asetettu_pvm: PVM } } }]); expect(e.p.vastuuhenkilo.rooli).toBe('talenttivalmentaja');
-    await e.c.window._mAsetaVastuuhenkilo(PID, ''); expect(e.kirj[1].d.vastuuhenkilo).toBe(DEL); expect('vastuuhenkilo' in e.p).toBe(false);
+    expect(e.kirj.map((k) => k.polku)).toEqual([SISP]); expect(e.kirj[0].d.vastuuhenkilo).toEqual({ uid: 'u-talval', rooli: 'talenttivalmentaja', asetettu_pvm: PVM }); expect(e.p.vastuuhenkilo.rooli).toBe('talenttivalmentaja');
+    await e.c.window._mAsetaVastuuhenkilo(PID, ''); const poisto = e.kirj.slice(1); expect(poisto.find((k) => k.polku === SISP).d.vastuuhenkilo).toBe(DEL); expect(poisto.find((k) => k.polku === POLKU).d.vastuuhenkilo).toBe(DEL); expect('vastuuhenkilo' in e.p).toBe(false);
     const f = ymp('master', { kaada: true, vastuu: { uid: 'u-valm', rooli: 'valmentaja', asetettu_pvm: '2026-09-01' } }); await f.c.window._mAsetaVastuuhenkilo(PID, 'u-vp|vp'); expect(f.p.vastuuhenkilo.uid).toBe('u-valm'); expect(f.log.toastit.some(([, k]) => k === 'error')).toBe(true);
     const d = ymp('master', { demo: true }); await d.c.window._mAsetaVastuuhenkilo(PID, 'u-vp|vp'); expect(d.kirj).toEqual([]); expect(d.p.vastuuhenkilo.uid).toBe('u-vp');
   });

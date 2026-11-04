@@ -32,7 +32,7 @@ function mockDb({ kaada = false, alku = {} } = {}) {
         update: (r, d) => ops.push(['update', r.path, d]),
         commit: async () => {
           if (kaada) throw Object.assign(new Error('commit epäonnistui'), { code: 'unavailable' });
-          ops.forEach(([t, p, d, o]) => { docs[p] = (t === 'update' || (o && o.merge)) ? Object.assign({}, docs[p], d) : d; });
+          ops.forEach(([t, p, d, o]) => { docs[p] = (t === 'update' || (o && (o.merge || o.mergeFields))) ? Object.assign({}, docs[p], d) : d; });   // mergeFields (sisainen/tiedot) ≈ merge
           db.viimeisinBatch = ops.map(([t, p]) => t + ' ' + p);
         },
       };
@@ -99,16 +99,18 @@ describe('VP_v25 · review + review_viimeisin_pvm yhdessä batchissa', () => {
     let syv = 0; for (let k = VP.indexOf('{', i); k < VP.length; k++) { if (VP[k] === '{') syv++; else if (VP[k] === '}') { syv--; if (syv === 0) return VP.slice(i, k + 1); } }
   }
   // R6.2a: kirjoittaja käyttää tmKirjaaKatselmus:ta (window.TM_KEHITYSSILMUKKA)
-  function aja(m) { const ctx = { db: m.db, _seuraId: 'kpv', window: { TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') }, Object, Array }; vm.createContext(ctx); vm.runInContext(runko('async function _vpKirjoitaReview(') + '\nthis.f = _vpKirjoitaReview;', ctx); return ctx.f; }
+  function aja(m) { const ctx = { db: m.db, _seuraId: 'kpv', window: { TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js'), TM_SISAINEN: require('../lib/tm_sisainen.js') }, Object, Array };   /* PR 2d: oikea lib (review_viimeisin_* → sisainen/tiedot) */ vm.createContext(ctx); vm.runInContext(runko('async function _vpKirjoitaReview(') + '\nthis.f = _vpKirjoitaReview;', ctx); return ctx.f; }
   const review = { tyyppi: 'mdr', pvm: '2026-10-03', tekija_uid: 'vp-uid', tekija_rooli: 'vp', paatos: '', idp_paivitetty: false };
 
   it('batch kirjoittaa reviewit/{pvm} JA pikakentät; muut pelaajadokin kentät säilyvät (merge)', async () => {
     const m = mockDb({ alku: { [PEL]: { etunimi: 'Topias' } } });
     await aja(m)('m93GBdOaGCUuenMiCL0I', '2026-10-03', review);
     expect(m.erilliset).toEqual([]);
-    expect(m.db.viimeisinBatch).toEqual([`set ${PEL}/reviewit/2026-10-03`, `set ${PEL}`]);
+    /* PR 2d: review_viimeisin_* (A) VAIN sisainen/tiedot:iin, samassa batchissa reviewin kanssa; pelaajadokumentti ennallaan. */
+    expect(m.db.viimeisinBatch).toEqual([`set ${PEL}/sisainen/tiedot`, `set ${PEL}/reviewit/2026-10-03`]);
     expect(m.docs[`${PEL}/reviewit/2026-10-03`]).toEqual(review);
-    expect(m.docs[PEL]).toEqual({ etunimi: 'Topias', review_viimeisin_pvm: '2026-10-03', review_viimeisin_tyyppi: 'mdr' });
+    expect(m.docs[PEL]).toEqual({ etunimi: 'Topias' });
+    expect(m.docs[`${PEL}/sisainen/tiedot`]).toMatchObject({ seuraId: 'kpv', review_viimeisin_pvm: '2026-10-03', review_viimeisin_tyyppi: 'mdr' });
   });
   it('commit epäonnistuu → review EI eikä pikakenttä tallennu', async () => {
     const m = mockDb({ kaada: true, alku: { [PEL]: { etunimi: 'Topias' } } });
@@ -132,7 +134,8 @@ describe('Testaus_v9 · PHV-kasvumittaus: biologinen_ika/{pvm} + PHV-pikakentät
     expect(f).toContain('const b = baseRef.firestore.batch();');
     expect(f).toContain("b.set(baseRef.collection('biologinen_ika').doc(ops.mittausPvmId), ops.dokumentti);");
     expect(f).toMatch(/const upd = \{\s*biologinenIka_viimeisin: ops\.dokumentti,\s*phv_tila: ops\.dokumentti\.phv_tila_koodi/);   // PR 1e-3b: upd-olio jaetaan sisainen-puolelle
-    expect(f).toContain('b.update(baseRef, upd);');
+    expect(f).toContain('b.update(baseRef, S4.tmS4Riisu(upd));');   // PR 2d (K6): pelaajalle vain B-muoto
+    expect(f).toContain('S4.tmS4Lisaa(b, baseRef.firestore, _seuraId, p.id, upd, {});');   // A-osat sisainen/tiedot:iin samassa batchissa
     expect((f.match(/await b\.commit\(\)/g) || []).length).toBe(1);
     expect(f).not.toMatch(/await baseRef\.(update|collection)/);
   });

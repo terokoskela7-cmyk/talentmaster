@@ -1,7 +1,7 @@
 /**
  * havainto_viimeisin_pvm — pikakenttä havaintorytmille (lib/tm_seuraava_askel.js, sääntö 9).
  * ADAR-pikakortin _phKirjoitaHavaintoJaPikakentat kirjoittaa KAIKISTA henkilökunnan havainnoista (myös ilman pisteitä; adar_pvm kattaa vain pisteelliset)
- * havainnon päivän samaan pikakenttäsettiin kuin adar_*; ei koskaan taaksepäin. Pilotin väärät hälytykset: havainto tehty, mutta rytmi ei nollautunut.
+ * havainnon päivän (PR 2d: VAIN sisainen/tiedot:iin, havainnon batchissa); ei koskaan taaksepäin. Pilotin väärät hälytykset: havainto tehty, mutta rytmi ei nollautunut.
  * Funktio PURETAAN LÄHTEESTÄ ja AJETAAN (vm); stubien nimet = tuotannon nimet.
  */
 import { describe, it, expect } from 'vitest';
@@ -21,28 +21,36 @@ function pura(t) {
   for (let k = ADAR.indexOf('{', i); k < ADAR.length; k++) { if (ADAR[k] === '{') d++; else if (ADAR[k] === '}') { d--; if (!d) return ADAR.slice(i, k + 1); } }
   throw new Error('sulkeet');
 }
-/* Ympäristö: _PH_DB.batch() tallentaa operaatiot ja "kirjaa" ne vasta commitissa (atomisesti); pRef.set = erillinen kirjoitus (adar_*-pikakentät). */
+/* Ympäristö (PR 2d): oikea lib/tm_sisainen.js (window.TM_SISAINEN). Viitteet polkupohjaisia (_path); _PH_DB.batch() kirjaa operaatiot vasta commitissa (atomisesti).
+   Havainto-batch (kautta 'batch'): havainto + havainto_viimeisin_pvm → sisainen/tiedot (tmS4Lisaa). Pikakenttä-batch (kautta 'pika'): tmS4Kirjoita (riisuttu pelaajaosa + sisainen). */
+const SIS = require('../lib/tm_sisainen.js');
+const PID = 'm93GBdOaGCUuenMiCL0I', PEL = 'seurat/kpv/pelaajat/' + PID;
 function aja({ data, vanha = {}, kentat = { adar_pvm: 'x', adar_havaintoja: 1 }, hylkaaPelaajaOp = false, hylkaaHavainto = false, sisainen = null, sisainenVirhe = false }) {
-  const kirjattu = [];      // todella kirjatut: { kohde:'havainto'|'pelaaja', d, o, kautta:'batch'|'set' }
-  const havRef = { id: 'h1' };
-  const pRef = { id: 'm93GBdOaGCUuenMiCL0I', get: async () => ({ exists: true, data: () => vanha }),
-    collection: (c) => c === 'sisainen' ? { doc: (id) => ({ get: async () => { if (sisainenVirhe) throw Object.assign(new Error('pd'), { code: 'permission-denied' }); return { exists: !!sisainen && id === 'tiedot', data: () => sisainen }; } }) } : { get: async () => ({ docs: [] }) },
-    set: async (d, o) => { if (hylkaaPelaajaOp) throw Object.assign(new Error('denied'), { code: 'permission-denied' }); kirjattu.push({ kohde: 'pelaaja', d, o, kautta: 'set' }); } };
-  const _PH_DB = { batch: () => {
+  const kirjattu = [];      // todella kirjatut: { kohde:'havainto'|'pelaaja'|'sisainen', d, o, kautta:'batch'|'pika' }
+  const kohde = (path) => (/\/havainnot\//.test(path) ? 'havainto' : /\/sisainen\/tiedot$/.test(path) ? 'sisainen' : path === PEL ? 'pelaaja' : 'muu:' + path);
+  const ref = (path) => ({ _path: path, id: path.split('/').pop(),
+    get: async () => { if (path === PEL) return { exists: true, data: () => vanha };
+      if (kohde(path) === 'sisainen') { if (sisainenVirhe) throw Object.assign(new Error('pd'), { code: 'permission-denied' }); return { exists: !!sisainen, data: () => sisainen }; }
+      return { exists: false, data: () => undefined }; },
+    collection: (c) => ({ doc: (id) => ref(path + '/' + c + '/' + id), get: async () => ({ docs: [] }) }) });
+  const pRef = ref(PEL), havRef = ref(PEL + '/havainnot/h1');
+  const _PH_DB = { collection: (c) => ({ doc: (id) => ref(c + '/' + id) }), batch: () => {
     const ops = [];
-    return { set: (ref, d, o) => { ops.push({ ref, d, o }); },
+    return { set: (r, d, o) => { ops.push({ r, d, o }); }, update: (r, d) => { ops.push({ r, d, o: 'update' }); },
       commit: async () => {   // atomisuus: jos yksikin op hylätään, mitään ei kirjata
-        if (ops.some((x) => (x.ref === havRef && hylkaaHavainto) || (x.ref === pRef && hylkaaPelaajaOp))) throw Object.assign(new Error('denied'), { code: 'permission-denied' });
-        ops.forEach((x) => kirjattu.push({ kohde: x.ref === havRef ? 'havainto' : 'pelaaja', d: x.d, o: x.o, kautta: 'batch' }));
+        if (ops.some((x) => (kohde(x.r._path) === 'havainto' && hylkaaHavainto) || (['pelaaja', 'sisainen'].includes(kohde(x.r._path)) && hylkaaPelaajaOp))) throw Object.assign(new Error('denied'), { code: 'permission-denied' });
+        const kautta = ops.some((x) => kohde(x.r._path) === 'havainto') ? 'batch' : 'pika';
+        ops.forEach((x) => kirjattu.push({ kohde: kohde(x.r._path), d: x.d, o: x.o, kautta }));
       } };
   } };
-  const map = { m93GBdOaGCUuenMiCL0I: {} };
-  const ctx = { _PH_DB, _phPelaajaRef: () => pRef, _phIka: () => 13, console: { warn() {} }, window: { _pelaajaMap: map }, Date, Object, Promise, tmAdarPikakentat: () => kentat };
+  const map = { [PID]: {} };
+  const ctx = { _PH_DB, _phPelaajaRef: () => pRef, _phIka: () => 13, console: { warn() {} }, window: { _pelaajaMap: map, TM_SISAINEN: SIS }, Date, Object, Promise, tmAdarPikakentat: () => kentat };
   vm.createContext(ctx);
-  vm.runInContext(pura('function _phJaaPelaajalle(') + '\n' + pura('function _phS4Valmista(') + '\n' + pura('function _phS4Sisainen(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
-  return { p: ctx.f(havRef, data, 'kpv', 'm93GBdOaGCUuenMiCL0I', 1, false), kirjattu, map };
+  vm.runInContext(pura('function _phJaaPelaajalle(') + '\n' + pura('function _phS4Valmista(') + '\n' + pura('function _phS4Kirjoita(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
+  return { p: ctx.f(havRef, data, 'kpv', PID, 1, false), kirjattu, map };
 }
-const batchPelaaja = (r) => r.kirjattu.find((k) => k.kohde === 'pelaaja' && k.kautta === 'batch');
+/* PR 2d: rytmikenttä kulkee havainto-batchissa sisainen/tiedot:iin (ei pelaajadokumenttiin). */
+const batchPelaaja = (r) => r.kirjattu.find((k) => k.kohde === 'sisainen' && k.kautta === 'batch');
 
 describe('havainto_viimeisin_pvm kirjoitus (ADAR-pikakortti, KPV U13 -testipelaaja)', () => {
   it('PR 2c (R6): max-vartija lukee sisainen/tiedot-kopion — myöhempi päivä voittaa (siivouksen jälkeen kenttä on vain siellä); lukuvirhe → pelaajadokumentin arvo, havainto ei kaadu', async () => {
@@ -55,20 +63,21 @@ describe('havainto_viimeisin_pvm kirjoitus (ADAR-pikakortti, KPV U13 -testipelaa
     const r4 = aja({ data: { pisteet: { A: 2 }, pvm: '2026-10-05' }, vanha: { havainto_viimeisin_pvm: '2026-10-06' }, sisainenVirhe: true });
     expect(await r4.p).toEqual({ ok: true }); expect(batchPelaaja(r4).d.havainto_viimeisin_pvm).toBe('2026-10-06');
   });
-  it('SAMASSA BATCHISSA: havainto + havainto_viimeisin_pvm (merge) atomisesti; adar_* erillisenä setinä', async () => {
+  it('SAMASSA BATCHISSA: havainto + havainto_viimeisin_pvm (PR 2d: VAIN sisainen/tiedot, mergeFields) atomisesti; adar_* erillisenä batchina', async () => {
     const r = aja({ data: { pisteet: { A: 2 }, pvm: '2026-10-05' } });
     expect(await r.p).toEqual({ ok: true });
-    expect(r.kirjattu.filter((k) => k.kautta === 'batch').map((k) => k.kohde)).toEqual(['havainto', 'pelaaja']);
-    expect(batchPelaaja(r)).toMatchObject({ d: { havainto_viimeisin_pvm: '2026-10-05' }, o: { merge: true } });
-    expect(Object.keys(batchPelaaja(r).d)).toEqual(['havainto_viimeisin_pvm']);   // batchissa VAIN rytmikenttä (johdetut adar_* eivät uhkaa havaintoa)
-    expect(r.kirjattu.find((k) => k.kautta === 'set').d).toMatchObject({ adar_pvm: 'x', adar_havaintoja: 1 });
-    expect(r.kirjattu.find((k) => k.kautta === 'set').d).not.toHaveProperty('havainto_viimeisin_pvm');   // rytmikenttä VAIN batchissa (ei kahta kirjoituspolkua)
+    expect(r.kirjattu.filter((k) => k.kautta === 'batch').map((k) => k.kohde)).toEqual(['havainto', 'sisainen']);   // EI pelaajadokumenttia havainto-batchissa
+    expect(batchPelaaja(r)).toMatchObject({ d: { havainto_viimeisin_pvm: '2026-10-05', seuraId: 'kpv' }, o: { mergeFields: ['seuraId', 'paivitetty', 'havainto_viimeisin_pvm'] } });
+    expect(Object.keys(batchPelaaja(r).d).sort()).toEqual(['havainto_viimeisin_pvm', 'paivitetty', 'seuraId']);   // batchissa VAIN rytmikenttä (johdetut adar_* eivät uhkaa havaintoa)
+    const pika = r.kirjattu.find((k) => k.kautta === 'pika' && k.kohde === 'pelaaja');
+    expect(pika.d).toMatchObject({ adar_pvm: 'x', adar_havaintoja: 1 }); expect(pika.o).toEqual({ merge: true });
+    expect(r.kirjattu.filter((k) => k.kautta === 'pika').some((k) => 'havainto_viimeisin_pvm' in k.d)).toBe(false);   // rytmikenttä VAIN havainto-batchissa (ei kahta kirjoituspolkua)
     expect(r.map.m93GBdOaGCUuenMiCL0I.havainto_viimeisin_pvm).toBe('2026-10-05');
   });
   it('havainto ILMAN pisteitä (laskenta ei tuota adar-kenttiä) → havainto_viimeisin_pvm silti batchissa; tulos {ok:false, code:laskenta}', async () => {
     const r = aja({ data: { narratiivi: 'hyvä', pvm: '2026-10-05' }, kentat: null });
     expect(await r.p).toEqual({ ok: false, code: 'laskenta' });
-    expect(r.kirjattu.map((k) => k.kohde + ':' + k.kautta)).toEqual(['havainto:batch', 'pelaaja:batch']);
+    expect(r.kirjattu.map((k) => k.kohde + ':' + k.kautta)).toEqual(['havainto:batch', 'sisainen:batch']);
   });
   it('ATOMISUUS: batch hylätään → ei havaintoa EIKÄ rytmikenttää (ei "havainto tehty mutta rytmi ei nollautunut"); virhe palautuu kutsujalle (luonnos säilyy)', async () => {
     const r = aja({ data: { pisteet: { A: 2 }, pvm: '2026-10-05' }, hylkaaHavainto: true });
@@ -76,7 +85,7 @@ describe('havainto_viimeisin_pvm kirjoitus (ADAR-pikakortti, KPV U13 -testipelaa
     expect(r.kirjattu.filter((k) => k.kautta === 'batch')).toEqual([]);
     const q = aja({ data: { pisteet: { A: 2 }, pvm: '2026-10-05' }, hylkaaPelaajaOp: true });
     await expect(q.p).rejects.toMatchObject({ code: 'permission-denied' });
-    expect(q.kirjattu).toEqual([]);   // pelaajadokin op hylätty → batch kokonaan pois (ja adar-set hylätään sekin) — Rules-pariteetti estää tämän käytännössä
+    expect(q.kirjattu).toEqual([]);   // sisainen-op hylätty → batch kokonaan pois (ja adar-batch hylätään sekin) — Rules-pariteetti estää tämän käytännössä
   });
   it('myöhempi päivämäärä SÄILYY: offline-synkka tuo vanhemman päivän → uudempi kirjataan; uudempi voittaa vanhan', async () => {
     const a = aja({ data: { pisteet: {}, pvm: '2026-09-20' }, vanha: { havainto_viimeisin_pvm: '2026-10-01' } }); await a.p;
@@ -92,18 +101,19 @@ describe('havainto_viimeisin_pvm kirjoitus (ADAR-pikakortti, KPV U13 -testipelaa
       expect(batchPelaaja(r), String(pvm)).toBeUndefined(); expect(r.kirjattu.some((k) => k.kohde === 'havainto' && k.kautta === 'batch')).toBe(true);
     }
   });
-  it('adar_*-pikakenttien (erillinen set) epäonnistuminen EI hävitä havaintoa eikä rytmikenttää → tulos {ok:false, code}', async () => {
+  it('adar_*-pikakenttien (erillinen batch) epäonnistuminen EI hävitä havaintoa eikä rytmikenttää → tulos {ok:false, code}', async () => {
     const r = aja({ data: { pisteet: {}, pvm: '2026-10-05' } });   // perustapaus: ok
     expect(await r.p).toEqual({ ok: true });
-    // erillinen set hylätään, batch ei sisällä pelaajaoppia kun pvm puuttuu → havainto silti tallessa
+    // erillinen pikakenttä-batch hylätään, havainto-batch ei sisällä pelaaja-/sisainen-oppia kun pvm puuttuu → havainto silti tallessa
     const q = aja({ data: { pisteet: {} }, hylkaaPelaajaOp: true });
     expect(await q.p).toEqual({ ok: false, code: 'permission-denied' }); expect(q.kirjattu.map((k) => k.kohde)).toEqual(['havainto']);
   });
   it('lähde: molemmat kirjoituspolut (online _phTallenna + offline-synkka) kulkevat tämän funktion kautta; sw_adar-cache nostettu; ei suoraa havRef.set(data) -kirjoitusta', () => {
     expect((ADAR.match(/_phKirjoitaHavaintoJaPikakentat\(/g) || []).length).toBeGreaterThanOrEqual(3);   // määrittely + 2 kutsua
     expect(readFileSync(join(juuri, 'sw_adar.js'), 'utf8')).toMatch(/const CACHE = 'tm-adar-dev'/);
-    expect(pura('function _phS4Valmista(') + '\n' + pura('function _phS4Sisainen(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(')).not.toMatch(/havRef\.set\(/);
-    expect(pura('function _phS4Valmista(') + '\n' + pura('function _phS4Sisainen(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(')).toMatch(/_PH_DB\.batch\(\)[\s\S]*batch\.set\(havRef, data\)[\s\S]*havainto_viimeisin_pvm/);
+    expect(pura('function _phS4Valmista(') + '\n' + pura('function _phS4Kirjoita(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(')).not.toMatch(/havRef\.set\(/);
+    expect(pura('function _phS4Valmista(') + '\n' + pura('function _phS4Kirjoita(') + '\n' + pura('async function _phKirjoitaHavaintoJaPikakentat(')).toMatch(/_PH_DB\.batch\(\)[\s\S]*batch\.set\(havRef, data\)[\s\S]*tmS4Lisaa\(batch, _PH_DB, seuraId, pelaajaId, \{ havainto_viimeisin_pvm: havPvm \}/);
+    expect(ADAR).not.toMatch(/batch\.set\(pRef, \{ havainto_viimeisin_pvm/);   // PR 2d: ei pelaajadokumenttiin
   });
 });
 

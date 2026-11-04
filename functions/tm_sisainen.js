@@ -20,6 +20,8 @@
    · tmSisainenVainSisaiset(opts)         kentät jotka kirjoitetaan vain sisainen:iin (D3: d3_viimeisin, d3_taso, d3_pvm, d3_varmuus, d3_vp_pvm)
    · tmSisainenLataaJaYhdista(db, sid, lista, opts)  lataus + yhdistys yhdellä kutsulla (Master/VP-kuoren yksi rivi); opts.onVirhe(koodi) = latausvirhe näkyviin (PR 2c)
    · tmSisainenLataaSeura(db, sid)        YKSI collectionGroup('sisainen').where('seuraId','==',sid) → { mapa:{pid:data}, virhe }  (ei N+1; vaatii indeksin sisainen.seuraId COLLECTION_GROUP)
+   PR 2d (vaihe 1, kirjoittajat): EI dual-writea eikä lippuja — A-kentät VAIN sisainen-kopioon (apurit riisuvat pelaajadokumentin osan: tmSisainenRiisu / tmS4Riisu / tmHenkilokuntaRiisu), ei permission-denied-varapolkuja (virhe näkyy).
+     Lukijat yhdistävät aina (vanha pelaajakenttä varalla, kunnes siivous on ajettu). talenttiOhjelma = C (jää pelaajadokumenttiin). Historiarivien A-osat (historia_sisainen) = oma viipale.
    Riippuu: lib/tm_d3_itsearvio.js (TM_D3_ITSEARVIO). Pelaaja-/vanhempi-app EI saa ladata tätä tiedostoa (vartija: tests/d3_jako_kirjoittajat.test.js).
 ════════════════════════════════════════════════════════════════════════ */
 (function (root) {
@@ -39,8 +41,8 @@
     adar_sisainen: { s4: true, erillinen: true, kytketty: false, kentat: ['adar_arvioijat', 'adar_arvioijia', 'adar_yhtenevyys', 'adar_yhtenevyys_taso', 'adar_dim_konsensus', 'adar_vahvin', 'adar_tilanne_jakauma', 'adar_vaihe_jakauma', 'adar_otos_jakauma', 'adar_ottelupohja', 'adar_luotettavuus', 'havainto_viimeisin_pvm', 'havainto_porras_hist'] },   // havainto_porras_hist = havainto_porras_ehdotus.hist (≤3 raakapistettä; pelaaja näkee vain sanatilan → P7 lukee vain hist_n); ehdotus {valmis, seuraava, hist_n} jää pelaajalle (tmPorrasEhdotusJaa)
     arviointi: { s4: true, erillinen: true, kytketty: false, syva: ['arviointi_havaittu'], kentat: ['arviointi_havaittu', 'arviointi_pvm', 'arviointi_kehys', 'arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'] },   // kirjoittaja CF arviointikertaOnWrite
     kypsyys_sisainen: { s4: true, erillinen: true, kytketty: false, kentat: ['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma', 'phv_ilmoitettu_ph', 'phv_ei_mitattu',
-      'isa_pituus_cm', 'aiti_pituus_cm', 'vanhempi_pituus_pvm', 'vanhempi_pituus_puuttuu'] },   // + vanhempien pituudet (CF vahvistaSuostumus). B jää: phv_tila, phv_tila_koodi, phv_ika, biologinenIka_viimeisin
-    talentti: { s4: true, erillinen: true, kytketty: false, kentat: ['talenttiOhjelma', 'talenttiTaso', 'talenttiAlku', 'talenttiAktivoi', 'talenttiPaattyi'] },   // sisainen/tiedot (oman seuran henkilökunta lukee)
+      'isa_pituus_cm', 'aiti_pituus_cm', 'vanhempi_pituus_pvm', 'vanhempi_pituus_puuttuu', 'biologinenIka_viimeisin'] },   // + vanhempien pituudet (CF vahvistaSuostumus). B jää: phv_tila, phv_tila_koodi, phv_ika. PR 2d: biologinenIka_viimeisin = JAETTU (koko dokumentti sisainen:iin, pelaajalle B-muoto tmBioIkaJaa)
+    talentti: { s4: true, erillinen: true, kytketty: false, kentat: ['talenttiTaso', 'talenttiAlku', 'talenttiAktivoi', 'talenttiPaattyi'] },   // sisainen/tiedot. PR 2d (PM päätös a): talenttiOhjelma = C → jää VAIN pelaajadokumenttiin (4 hakua), ei enää A-ryhmässä
     /* TERVEYS (PM 25.10., PR #1137): käytettävyys/loukkaantuminen/paluu = terveystietoa (GDPR art. 9) → OMA dokumentti `sisainen/terveys` (ei tiedot:iin: tiedot lukee koko oman seuran henkilökunta, myös seurasihteeri ja testivastaava).
        Lukijat (Rules v3.70): SA · vp · urheilutoimenjohtaja · fysioterapeutti · talenttivalmentaja · oman joukkueen valmentaja. EI seurasihteeri, testivastaava, pelaaja, huoltaja. Kirjoittajat: SA · onOmanJoukkueenValmentaja · fysioterapeutti.
        Dokumentin seuraavain on `terveysSeuraId` (EI `seuraId`) → tiedot-joukkolataus (where seuraId == sid) ei osu terveys-dokumentteihin eikä kaadu niiden rajattuun lukuun. */
@@ -52,10 +54,11 @@
 
   function _ryhmat(opts) { return (opts && opts.ryhmat) || RYHMAT; }
   /* PR 1c-1 (S2): henkilokunta-ryhmän oma lippu. opts.henkilokuntaKirjoitus ohittaa (testit/CF-vakio); muuten RYHMAT.henkilokunta.kirjoitus (oletus pois). Lippu ohjaa kirjoituksen JA dual-readin (pois → vanha kenttä). */
-  function _hkPaalla(opts) { if (opts && opts.henkilokuntaKirjoitus !== undefined && opts.henkilokuntaKirjoitus !== null) return !!opts.henkilokuntaKirjoitus; var r = _ryhmat(opts).henkilokunta; return !!(r && r.kirjoitus); }
+  /* PR 2d: lippuriippuvuus poistettu — A-kentät kirjoitetaan VAIN sisainen-kopioon ja luetaan aina yhdistettynä (rollback = koodin palautus, ei lippu). Funktiot jäävät API:in (kutsujat, CF). */
+  function _hkPaalla() { return true; }
   function tmHenkilokuntaKentat(opts) { var r = _ryhmat(opts).henkilokunta; return r ? r.kentat.slice() : []; }
   /* PR 1e-1 (S4): kuuden ryhmän (adar_sisainen, arviointi, kypsyys_sisainen, talentti, terveys, signaali) YKSI lippu RYHMAT.s4.kirjoitus (oletus pois). opts.s4Kirjoitus ohittaa (testit). Lippu ohjaa kirjoituksen JA dual-readin (pois → vanha kenttä). */
-  function _s4Paalla(opts) { if (opts && opts.s4Kirjoitus !== undefined && opts.s4Kirjoitus !== null) return !!opts.s4Kirjoitus; var r = _ryhmat(opts).s4; return !!(r && r.kirjoitus); }
+  function _s4Paalla() { return true; }
   /* terveys: true → vain oman dokumentin (sisainen/terveys) S4-ryhmät; false → vain sisainen/tiedot:iin menevät; undefined → kaikki S4-kentät (grep-portti). */
   function _s4Kentat(opts, terveys) { var r = _ryhmat(opts), ulos = []; Object.keys(r).forEach(function (n) { if (r[n].s4 && (terveys === undefined || !!r[n].dokumentti === terveys)) r[n].kentat.forEach(function (k) { if (ulos.indexOf(k) < 0) ulos.push(k); }); }); return ulos; }
   function tmS4Kentat(opts) { return _s4Kentat(opts); }
@@ -170,21 +173,15 @@
      ja kerrotaan se (sisainenOhitettu + console.warn) — ei hiljaista virhettä. deps: { writeBatch? (oletus db.batch()), nytISO }. → Promise<{ ok, sisainenOhitettu, jaettu }> */
   function tmSisainenKirjoita(db, sid, pid, payload, deps) {
     deps = deps || {};
-    var o = { seuraId: sid, nytISO: deps.nytISO, ryhmat: deps.ryhmat }, j = tmSisainenJaa(payload, o), pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), vain = tmSisainenVainSisaiset(o);
-    var onVainSis = !!j.sisainen && Object.keys(payload || {}).some(function (k) { return vain.indexOf(k) >= 0; }), pelaajaTyhja = Object.keys(j.pelaaja).length === 0;
+    var o = { seuraId: sid, nytISO: deps.nytISO, ryhmat: deps.ryhmat, pelaajaIlmanA: true }, j = tmSisainenJaa(payload, o), pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid);
+    var pelaajaTyhja = Object.keys(j.pelaaja).length === 0;
     function yksin() { return pel.set(j.pelaaja, { merge: true }); }
     if (!j.sisainen) return yksin().then(function () { return { ok: true, sisainenOhitettu: false, jaettu: j }; });
     var sref = pel.collection(ALIKOKOELMA).doc(DOKUMENTTI);
     /* PR 2a: vain sisainen-kentät (D3) → YKSI set sisainen/tiedot:iin; vanhaan pelaajakenttään ei kirjoiteta eikä permission-denied-varapolkua ole (Rules v3.66 on deployattu; virhe heitetään → näkyvä toast). */
     if (pelaajaTyhja) return sref.set(j.sisainen, { merge: true }).then(function () { return { ok: true, sisainenOhitettu: false, jaettu: j }; });
     var b = db.batch(); b.set(pel, j.pelaaja, { merge: true }); b.set(sref, j.sisainen, { merge: true });
-    return b.commit().then(function () { return { ok: true, sisainenOhitettu: false, jaettu: j }; }, function (e) {
-      if (e && e.code === 'permission-denied' && deps.varapolku !== false && !onVainSis) {
-        console.warn('[tm_sisainen] sisainen/tiedot ei kirjoitettavissa (Rules v3.66 ei vielä käytössä?) — tallennettu vanhaan kenttään:', e.message);
-        return yksin().then(function () { return { ok: true, sisainenOhitettu: true, jaettu: j }; });
-      }
-      throw e;
-    });
+    return b.commit().then(function () { return { ok: true, sisainenOhitettu: false, jaettu: j }; });   // PR 2d: ei permission-denied-varapolkua (virhe → kutsujalle)
   }
 
   /* PR 1b-2 — JAKSOFOKUKSEN OSAPÄIVITYSTEN dual-write (dot-polut: tmPaivitaJaksofokus.polut). `jaksofokus.<A-alikenttä>[.…]` polut kopioidaan sisainen/tiedot.jaksofokus_sisainen.<A>[.…] -sisäkkäiseksi set-merge-olioksi
@@ -197,24 +194,22 @@
       if (a && JAKSOFOKUS_A.indexOf(a) >= 0) {
         onA = true; var kohde = sis, i; for (i = 1; i < osat.length - 1; i++) { if (!_olio(kohde[osat[i]])) kohde[osat[i]] = {}; kohde = kohde[osat[i]]; }
         kohde[osat[osat.length - 1]] = polut[k];
+        if (_onPoisto(polut[k])) pelaaja[k] = polut[k];   // PR 2d: A-polun POISTO myös pelaajadokumenttiin (siivoamaton vanha arvo ei palaa dual-readissa; poisto ei vuoda)
       } else pelaaja[k] = polut[k];
     });
     return { pelaajaPolut: pelaaja, sisainen: onA ? { jaksofokus_sisainen: sis } : null };
   }
-  function _jfKirjoitusPaalla(deps) { if (deps && deps.kirjoitus !== undefined && deps.kirjoitus !== null) return !!deps.kirjoitus; var r = _ryhmat(deps).jaksofokus_sisainen; return !!(r && r.kirjoitus); }
+  function _jfKirjoitusPaalla() { return true; }   // PR 2d: ks. _hkPaalla
   /* → Promise<{ ok, sisainen, sisainenOhitettu }>. Lippu pois / ei A-polkuja → pelkkä pelaajadokumentin osapäivitys (kuten ennen). Muuten YKSI batch (pelaajan osapäivitys + sisainen set-merge);
      permission-denied (Rules v3.68 ei käytössä) → vanha kenttä yksin + varoitus, paitsi pelaajaIlmanA-tilassa (heittää → näkyvä virhe). */
   function tmJaksofokusKirjoita(db, sid, pid, polut, deps) {
     deps = deps || {}; var pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), j = _jfKirjoitusPaalla(deps) ? tmJaksofokusPolutJaa(polut) : { pelaajaPolut: polut, sisainen: null };
     function yksin(ohitettu) { return pel.update(polut).then(function () { return { ok: true, sisainen: false, sisainenOhitettu: !!ohitettu }; }); }
     if (!j.sisainen) return yksin(false);
-    var sref = pel.collection(ALIKOKOELMA).doc(DOKUMENTTI), data = Object.assign({ seuraId: sid, paivitetty: deps.nytISO || new Date().toISOString() }, j.sisainen), pelPolut = deps.pelaajaIlmanA ? j.pelaajaPolut : polut, b = db.batch();
+    var sref = pel.collection(ALIKOKOELMA).doc(DOKUMENTTI), data = Object.assign({ seuraId: sid, paivitetty: deps.nytISO || new Date().toISOString() }, j.sisainen), pelPolut = j.pelaajaPolut, b = db.batch();   // PR 2d: A-polut VAIN sisainen:iin
     if (Object.keys(pelPolut).length) b.update(pel, pelPolut);
     b.set(sref, data, { merge: true });
-    return b.commit().then(function () { return { ok: true, sisainen: true, sisainenOhitettu: false }; }, function (e) {
-      if (e && e.code === 'permission-denied' && !deps.pelaajaIlmanA && deps.varapolku !== false) { console.warn('[tm_sisainen] sisainen/tiedot ei kirjoitettavissa (Rules v3.68 ei vielä käytössä?) — tallennettu vanhaan kenttään:', e.message); return yksin(true); }
-      throw e;
-    });
+    return b.commit().then(function () { return { ok: true, sisainen: true, sisainenOhitettu: false }; });
   }
 
   /* PR 1b-3 — JAKSON ELINKAARI: kokonaisen `jaksofokus`-olion kirjoitus (aloitus / vaihto / sulku / katselmus / hylkäys) + `jaksofokus_historia`-rivien lisäys → sisainen/tiedot (dual-write, sama lippu kuin 1b-2).
@@ -239,20 +234,21 @@
   }
   /* → Promise<{ ok, sisainen, sisainenOhitettu }>. Lippu pois → pelaajadokumentti kuten ennen (update, tai batch jos taydenna). Lippu päällä → YKSI batch (pelaaja + sisainen set mergeFields + taydenna);
      permission-denied (Rules v3.68 ei käytössä) → uusi batch ilman sisainen:iä (vanha polku) + varoitus. Muu virhe heitetään. */
+  /* PR 2d: pelaajadokumentin osa elinkaaripäivityksestä — henkilokunta-kentät pois, jaksofokus ilman A-alikenttiä (myös pistepolut jaksofokus.<A>). Historiarivien A-osat (arrayUnion) jäävät: R8 / historia_sisainen = oma viipale (ei migroitu). */
+  function tmJaksofokusElinkaariPelaajaan(upd) {
+    var u = tmHenkilokuntaRiisu(upd); if (!_olio(u)) return u;
+    if (_olio(u.jaksofokus)) u.jaksofokus = tmJaksofokusJaa(u.jaksofokus).julkinen;
+    return tmJaksofokusPolutJaa(u).pelaajaPolut;
+  }
   function tmJaksofokusElinkaariKirjoita(db, sid, pid, upd, v, deps) {
-    deps = deps || {}; var pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), s = _jfKirjoitusPaalla(deps) ? tmJaksofokusElinkaariSisainen(sid, v, deps) : null, taydenna = typeof deps.taydenna === 'function' ? deps.taydenna : null;
-    var h = tmHenkilokuntaOsa(sid, upd, deps);   // PR 1c-3: upd:n henkilokunta-kentät (review_viimeisin_*, vastuuhenkilo …) samaan sisainen-kirjoitukseen
+    deps = deps || {}; var pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), taydenna = typeof deps.taydenna === 'function' ? deps.taydenna : null;
+    var vv = (_olio(v) && 'jaksofokus' in v) || !(_olio(upd) && 'jaksofokus' in upd) ? v : Object.assign({}, v, { jaksofokus: upd.jaksofokus });   // A-osat eivät saa kadota, vaikka kutsuja ei antaisi v.jaksofokus:ta
+    var s = tmJaksofokusElinkaariSisainen(sid, vv, deps), h = tmHenkilokuntaOsa(sid, upd, deps), pu = tmJaksofokusElinkaariPelaajaan(upd), j = tmJaksofokusPolutJaa(upd);   // PR 1c-3: upd:n henkilokunta-kentät samaan sisainen-kirjoitukseen
     if (h) s = s ? { data: Object.assign({}, s.data, h.data), mergeFields: s.mergeFields.concat(h.mergeFields.filter(function (x) { return s.mergeFields.indexOf(x) < 0; })) } : h;
-    function ilman(ohitettu) {
-      if (!taydenna) return pel.update(upd).then(function () { return { ok: true, sisainen: false, sisainenOhitettu: !!ohitettu }; });
-      var b = db.batch(); b.update(pel, upd); taydenna(b); return b.commit().then(function () { return { ok: true, sisainen: false, sisainenOhitettu: !!ohitettu }; });
-    }
-    if (!s) return ilman(false);
-    var b = db.batch(); b.update(pel, upd); b.set(pel.collection(ALIKOKOELMA).doc(DOKUMENTTI), s.data, { mergeFields: s.mergeFields }); if (taydenna) taydenna(b);
-    return b.commit().then(function () { return { ok: true, sisainen: true, sisainenOhitettu: false }; }, function (e) {
-      if (e && e.code === 'permission-denied' && deps.varapolku !== false) { console.warn('[tm_sisainen] sisainen/tiedot ei kirjoitettavissa (Rules v3.68 ei vielä käytössä?) — tallennettu vanhaan kenttään:', e.message); return ilman(true); }
-      throw e;
-    });
+    if (j.sisainen) return Promise.reject(new Error('tmJaksofokusElinkaariKirjoita: jaksofokus.<A>-pistepolut kuuluvat tmJaksofokusKirjoita:lle'));   // fail-closed: ei hiljaista pudotusta
+    var b = db.batch(); if (_olio(pu) && Object.keys(pu).length) b.update(pel, pu);
+    if (s) b.set(pel.collection(ALIKOKOELMA).doc(DOKUMENTTI), s.data, { mergeFields: s.mergeFields }); if (taydenna) taydenna(b);
+    return b.commit().then(function () { return { ok: true, sisainen: !!s, sisainenOhitettu: false }; });   // PR 2d: ei permission-denied-varapolkua
   }
 
   /* PR 1c-1 — HENKILÖKUNNAN KENTÄT (S2): top-level-kenttien kirjoitus. tmHenkilokuntaOsa poimii päivitysoliosta (`upd`, sellaisenaan pelaajadokumentin päivitysolio) henkilokunta-ryhmän kentät → { data, mergeFields } | null
@@ -262,82 +258,85 @@
      havainto_porras_ehdotus {valmis, seuraava, hist}: pelaaja näkee vain sanatilan (P7 lukee hist.length) → hist (≤3 raakapistettä) sisainen:iin `havainto_porras_hist`, pelaajalle { valmis, seuraava, hist_n }. */
   var SIGNAALI_SISAINEN = ['xfactor', 'x-factor', 'hidden-gem', 'hidden'];
   function tmSignaaliJaa(arvo) { var a = typeof arvo === 'string' ? arvo.trim().toLowerCase() : arvo; return SIGNAALI_SISAINEN.indexOf(a) >= 0 ? { pelaaja: null, sisainen: arvo } : { pelaaja: arvo === undefined ? null : arvo, sisainen: null }; }
+  /* PR 2d (PM): biologinenIka_viimeisin on koko biologinen_ika-dokumentti (maturity_offset, kehitysvaihe_kaista, kasvutahti_* = A). Pelaajalle B-muoto: PHV-tila + ikä + päivä
+     (+ phv_ika, joka on B myös ylätason kenttänä; tm_phv_tila lukee phv_tila_koodi / phv_ika). Koko dokumentti → sisainen (henkilökunnan dual-read: VP kypsyys, offset, kasvutahti). */
+  var BIOIKA_B = ['phv_tila', 'phv_tila_koodi', 'phv_ika', 'ika_mittaushetkella', 'mittauspaiva'];
+  function tmBioIkaJaa(doc) {
+    if (!_olio(doc)) return { pelaaja: doc === undefined ? null : doc, sisainen: doc === undefined ? null : doc };
+    var pel = {}; BIOIKA_B.forEach(function (k) { if (doc[k] !== undefined) pel[k] = doc[k]; });
+    return { pelaaja: pel, sisainen: doc };
+  }
   function tmPorrasEhdotusJaa(e) {
     if (!_olio(e)) return { pelaaja: e === undefined ? null : e, hist: null };
     var hist = Array.isArray(e.hist) ? e.hist.slice() : null, pel = Object.assign({}, e); delete pel.hist; pel.hist_n = hist ? hist.length : (typeof e.hist_n === 'number' ? e.hist_n : 0);
     return { pelaaja: pel, hist: hist };
   }
-  /* PR 1e-1 (S4): sama kirjoitusapuri-nelikko kahdelle erilliselle lipulle — henkilokunta (oma lippu) ja S4 (RYHMAT.s4.kirjoitus). kentatFn(deps) → kentät, paallaFn(deps) → lippu päällä? */
-  function _erillinen(kentatFn, paallaFn, dok, seuraAvain, syvaFn) {
+  /* PR 1e-1 (S4) / PR 2d: sama kirjoitusapuri-nelikko henkilokunta- ja S4-ryhmille. kentatFn(deps) → A-kentät. PR 2d: A-kentät VAIN sisainen-dokumenttiin (ei dual-writea), ei permission-denied-varapolkua (virhe → kutsujalle, näkyvä).
+     pelaajaanFn(upd) (S4): pelaajadokumentin B-muoto jaetuille arvoille (signaali 'phv', porrasehdotus ilman hist:iä); lisaFn(upd) (S4): niistä johdetut sisainen-kentät (havainto_porras_hist). */
+  /* FieldValue.delete()-sentinelli (compat v8 _methodName 'FieldValue.delete', v9-compat _delegate._methodName 'deleteField', admin methodName 'FieldValue.delete'; testityngät __poista / __fv). */
+  function _onPoisto(v) { if (!v || typeof v !== 'object') return false; if (v.__poista === true || v.__fv === 'delete') return true; var m = v._methodName || (v._delegate && v._delegate._methodName) || v.methodName || ''; return /^(FieldValue\.delete|deleteField)$/.test(String(m)); }
+  function _erillinen(kentatFn, paallaFn, dok, seuraAvain, syvaFn, pelaajaanFn, lisaFn) {
     dok = dok || DOKUMENTTI; seuraAvain = seuraAvain || 'seuraId';
     function osa(sid, upd, deps) {
-      deps = deps || {}; if (!paallaFn(deps) || !_olio(upd)) return null;
-      var lahde = _olio(deps.lisa) ? Object.assign({}, upd, deps.lisa) : upd, syva = syvaFn ? syvaFn(deps) : [];   // PR 1e-3a: deps.lisa = vain sisainen-kentät (ei pelaajadokumenttiin), esim. havainto_porras_hist
+      deps = deps || {}; if (!_olio(upd)) return null;
+      var lahde = Object.assign({}, upd, lisaFn ? lisaFn(upd) : null, _olio(deps.lisa) ? deps.lisa : null), syva = syvaFn ? syvaFn(deps) : [];   // deps.lisa = vain sisainen-kentät (ei pelaajadokumenttiin)
       var kentat = kentatFn(deps).filter(function (k) { return lahde[k] !== undefined; });
       if (!kentat.length) return null;
       var data = { paivitetty: deps.nytISO || new Date().toISOString() }; data[seuraAvain] = sid; var polut = [seuraAvain, 'paivitetty'];
       kentat.forEach(function (k) {
         var v = lahde[k];
-        /* syvä kenttä (arviointi_havaittu): pelaajadokumentin set+merge yhdistää avainkohtaisesti → sisainen-puolella pistepolku k.avain, ei koko kartan korvausta (muut avaimet säilyvät). Null / ei-olio → koko kenttä. */
+        /* syvä kenttä (arviointi_havaittu): pistepolku k.avain, ei koko kartan korvausta (muut avaimet säilyvät). Null / ei-olio → koko kenttä. */
         if (syva.indexOf(k) >= 0 && _olio(v) && Object.keys(v).length) { data[k] = {}; Object.keys(v).forEach(function (a) { if (/^[^.~*\/\[\]]+$/.test(a)) { data[k][a] = v[a]; polut.push(k + '.' + a); } }); }
         else { data[k] = v; polut.push(k); }
       });
       return { data: data, mergeFields: polut };
     }
-    /* deps.pelaajaSet = true: pelaajadokumentti kirjoitetaan set-mergenä (kuten vanhat kirjoittajat: IDP-pikakentät, scout, talentti_ehdotus — syvä yhdistys säilyy), muuten update. Tyhjä upd → pelaajaa ei kirjoiteta (vain taydenna). */
-    function kirjoita(db, sid, pid, upd, deps) {
-      deps = deps || {}; var pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), s = osa(sid, upd, deps), taydenna = typeof deps.taydenna === 'function' ? deps.taydenna : null, onUpd = _olio(upd) && Object.keys(upd).length > 0;
-      function pelaajaOp(b) { if (!onUpd) return; if (deps.pelaajaSet) b.set(pel, upd, { merge: true }); else b.update(pel, upd); }
-      function ilman(ohitettu) {
-        var ulos = { ok: true, sisainen: false, sisainenOhitettu: !!ohitettu };
-        if (!taydenna && onUpd) return (deps.pelaajaSet ? pel.set(upd, { merge: true }) : pel.update(upd)).then(function () { return ulos; });
-        if (!taydenna) return Promise.resolve(ulos);
-        var b = db.batch(); pelaajaOp(b); taydenna(b); return b.commit().then(function () { return ulos; });
-      }
-      if (!s) return ilman(false);
-      var b = db.batch(); pelaajaOp(b); b.set(pel.collection(ALIKOKOELMA).doc(dok), s.data, { mergeFields: s.mergeFields }); if (taydenna) taydenna(b);
-      return b.commit().then(function () { return { ok: true, sisainen: true, sisainenOhitettu: false }; }, function (e) {
-        if (e && e.code === 'permission-denied' && deps.varapolku !== false) { console.warn('[tm_sisainen] sisainen/' + dok + ' ei kirjoitettavissa (Rules v3.69/v3.70 ei vielä käytössä?) — tallennettu vanhaan kenttään:', e.message); return ilman(true); }
-        throw e;
-      });
+    /* PR 2d: pelaajadokumentin osa = upd ilman A-kenttiä (pistepolut `<A>.x` myös), jaetut arvot B-muotoon. Kutsuja, joka kirjoittaa pelaajadokumentin itse (transaktio/oma batch), käyttää tätä (tmS4Riisu / tmHenkilokuntaRiisu). */
+    function riisu(upd, deps) {
+      if (!_olio(upd)) return upd; var a = kentatFn(deps || {}), ulos = {};
+      /* A-kentän POISTO (FieldValue.delete) menee myös pelaajadokumenttiin: muuten siivoamaton vanha arvo jäisi sinne ja dual-read (sisainen undefined → vanha kenttä) palauttaisi poistetun arvon. Poisto ei vuoda dataa. */
+      Object.keys(upd).forEach(function (k) { if (a.indexOf(k.split('.')[0]) < 0 || _onPoisto(upd[k])) ulos[k] = upd[k]; });
+      return pelaajaanFn ? pelaajaanFn(ulos, upd) : ulos;
     }
-    /* Yleiset rakennuspalikat monimutkaisille kirjoituksille (transaktio, oma batch): tmHenkilokuntaLisaa lisää sisainen-kirjoituksen annettuun batchiin/transaktioon (→ true jos lisättiin; lippu pois / ei kenttiä → false);
-       tmHenkilokuntaVarapolulla(deps, fn) ajaa fn(mukaan) ensin sisainen mukana (jos lippu päällä) ja permission-denied → uudelleen ilman sitä + console.warn. */
+    /* deps.pelaajaSet = true: pelaajadokumentti set-mergenä, muuten update. Riisuttu tyhjä → pelaajaa ei kirjoiteta. YKSI batch (pelaaja + sisainen + taydenna). */
+    function kirjoita(db, sid, pid, upd, deps) {
+      deps = deps || {}; var pel = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), s = osa(sid, upd, deps), taydenna = typeof deps.taydenna === 'function' ? deps.taydenna : null, pu = riisu(upd, deps), onUpd = _olio(pu) && Object.keys(pu).length > 0;
+      if (!s && !onUpd && !taydenna) return Promise.resolve({ ok: true, sisainen: false, sisainenOhitettu: false });
+      var b = db.batch(); if (onUpd) { if (deps.pelaajaSet) b.set(pel, pu, { merge: true }); else b.update(pel, pu); }
+      if (s) b.set(pel.collection(ALIKOKOELMA).doc(dok), s.data, { mergeFields: s.mergeFields }); if (taydenna) taydenna(b);
+      return b.commit().then(function () { return { ok: true, sisainen: !!s, sisainenOhitettu: false }; });
+    }
+    /* Rakennuspalikka transaktioon/omaan batchiin: lisää sisainen-kirjoituksen (→ true jos lisättiin). Kutsujan OMA pelaajakirjoitus käyttää riisu(upd):tä. */
     function lisaa(kohde, db, sid, pid, upd, deps) {
       var s = osa(sid, upd, deps); if (!s) return false;
       kohde.set(db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).collection(ALIKOKOELMA).doc(dok), s.data, { mergeFields: s.mergeFields }); return true;
     }
-    function varapolulla(deps, fn) {
-      var mukaan = paallaFn(deps || {});
-      return Promise.resolve().then(function () { return fn(mukaan); }).catch(function (e) {
-        if (mukaan && e && e.code === 'permission-denied' && !(deps && deps.varapolku === false)) { console.warn('[tm_sisainen] sisainen/' + dok + ' ei kirjoitettavissa (Rules v3.69/v3.70 ei vielä käytössä?) — tallennettu vanhaan kenttään:', e.message); return fn(false); }
-        throw e;
-      });
-    }
-    /* PR 1e-3a: VAIN sisainen-dokumentti omana kirjoituksenaan (pelaajadokumentti on jo kirjoitettu erikseen: Pikakortin havainto, luontipolut). deps.hiljainen !== false → mikään virhe (permission-denied, verkko) EI heitä:
-       kutsujan päätoiminto ei hylkäydy sisainen-osan takia; puuttuva kopio paikataan migraation uudelleenajossa. → Promise<{ ok, sisainen, virhe? }> */
+    /* PR 2d: fail-closed — fn(true) kerran, virhe heitetään (ei uusintaa ilman sisainen-kopiota: se kirjoittaisi A-kentät vain riisuttuun pelaajadokumenttiin = katoaisivat). Nimi säilyy kutsujia varten. */
+    function varapolulla(deps, fn) { return Promise.resolve().then(function () { return fn(true); }); }
+    /* VAIN sisainen-dokumentti omana kirjoituksenaan (pelaajadokumentti kirjoitettu erikseen). PR 2d: oletuksena virhe HEITETÄÄN (sisainen on ainoa kopio → hiljainen ohitus = datan menetys); deps.hiljainen === true → { ok:false, virhe } (kutsuja näyttää virheen itse). */
     function vainSisainen(db, sid, pid, upd, deps) {
-      deps = deps || {}; var s;
-      try { s = osa(sid, upd, deps); } catch (e) { s = null; }
+      deps = deps || {}; var s = osa(sid, upd, deps);
       if (!s) return Promise.resolve({ ok: true, sisainen: false });
       return Promise.resolve().then(function () { return db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).collection(ALIKOKOELMA).doc(dok).set(s.data, { mergeFields: s.mergeFields }); })
         .then(function () { return { ok: true, sisainen: true }; }, function (e) {
-          if (deps.hiljainen === false) throw e;
-          console.warn('[tm_sisainen] sisainen/' + dok + ' -kopio jäi kirjoittamatta (migraation uudelleenajo paikkaa):', e && (e.code || e.message)); return { ok: false, sisainen: false, virhe: (e && (e.code || e.message)) || 'virhe' };
+          if (deps.hiljainen !== true) throw e;
+          console.warn('[tm_sisainen] sisainen/' + dok + ' jäi kirjoittamatta:', e && (e.code || e.message)); return { ok: false, sisainen: false, virhe: (e && (e.code || e.message)) || 'virhe' };
         });
     }
-    return { osa: osa, kirjoita: kirjoita, lisaa: lisaa, varapolulla: varapolulla, vainSisainen: vainSisainen };
+    return { osa: osa, riisu: riisu, kirjoita: kirjoita, lisaa: lisaa, varapolulla: varapolulla, vainSisainen: vainSisainen };
   }
-  var _HK = _erillinen(tmHenkilokuntaKentat, _hkPaalla), tmHenkilokuntaOsa = _HK.osa, tmHenkilokuntaKirjoita = _HK.kirjoita, tmHenkilokuntaLisaa = _HK.lisaa, tmHenkilokuntaVarapolulla = _HK.varapolulla;
-  /* PR 1e-3a: ADAR-pikakenttien kirjoitus. S4-lippu päällä: pelaajalle ehdotus + hist_n (hist säilyy dual-write-ajan: vanha muoto), raakapisteet `havainto_porras_hist` vain sisainen-puolelle (deps.lisa, EI pelaajadokumenttiin).
-     Lippu pois → { upd: kentat sellaisenaan, lisa: null } (kirjoitus täsmälleen kuten ennen). Käyttö: var v = tmAdarS4Valmista(kentat, deps); tmS4Kirjoita(db, sid, pid, v.upd, Object.assign({ pelaajaSet: true, lisa: v.lisa }, deps)). */
-  function tmAdarS4Valmista(kentat, opts) {
+  var _HK = _erillinen(tmHenkilokuntaKentat, _hkPaalla), tmHenkilokuntaRiisu = _HK.riisu, tmHenkilokuntaOsa = _HK.osa, tmHenkilokuntaKirjoita = _HK.kirjoita, tmHenkilokuntaLisaa = _HK.lisaa, tmHenkilokuntaVarapolulla = _HK.varapolulla;
+  /* PR 1e-3a / 2d: ADAR-pikakenttien kirjoitus. Käyttö: var v = tmAdarS4Valmista(kentat); tmS4Kirjoita(db, sid, pid, v.upd, { pelaajaSet: true, lisa: v.lisa }). */
+  function tmAdarS4Valmista(kentat) {   // PR 2d: aina — pelaajalle ehdotus ilman hist:iä (+ hist_n), raakapisteet vain sisainen-puolelle
     var e = _olio(kentat) ? kentat.havainto_porras_ehdotus : null;
-    if (!_s4Paalla(opts) || !_olio(e) || !Array.isArray(e.hist)) return { upd: kentat, lisa: null };
-    var upd = Object.assign({}, kentat); upd.havainto_porras_ehdotus = Object.assign({}, e, { hist_n: e.hist.length });
+    if (!_olio(e) || !Array.isArray(e.hist)) return { upd: kentat, lisa: null };
+    var upd = Object.assign({}, kentat); upd.havainto_porras_ehdotus = tmPorrasEhdotusJaa(e).pelaaja;
     return { upd: upd, lisa: { havainto_porras_hist: e.hist.slice() } };
   }
-  var _S4 = _erillinen(tmS4TiedotKentat, _s4Paalla, null, null, tmS4SyvaKentat), tmS4Sisainen = _S4.vainSisainen, tmS4Osa = _S4.osa, tmS4Kirjoita = _S4.kirjoita, tmS4Lisaa = _S4.lisaa, tmS4Varapolulla = _S4.varapolulla;
+  /* PR 2d: jaetut arvot pelaajadokumentissa B-muodossa: signaali (talenttisignaali → null, 'phv' jää), biologinenIka_viimeisin (tmBioIkaJaa), havainto_porras_ehdotus ilman hist:iä (+ hist_n); hist → sisainen.havainto_porras_hist. */
+  function _s4Pelaajaan(u, alk) { if ('signaali' in alk) u.signaali = tmSignaaliJaa(alk.signaali).pelaaja; if ('biologinenIka_viimeisin' in alk) u.biologinenIka_viimeisin = tmBioIkaJaa(alk.biologinenIka_viimeisin).pelaaja; if (_olio(u.havainto_porras_ehdotus)) u.havainto_porras_ehdotus = tmPorrasEhdotusJaa(u.havainto_porras_ehdotus).pelaaja; return u; }
+  function _s4Lisa(u) { var e = _olio(u) && u.havainto_porras_ehdotus; return _olio(e) && Array.isArray(e.hist) ? { havainto_porras_hist: e.hist.slice() } : null; }
+  var _S4 = _erillinen(tmS4TiedotKentat, _s4Paalla, null, null, tmS4SyvaKentat, _s4Pelaajaan, _s4Lisa), tmS4Riisu = _S4.riisu, tmS4Sisainen = _S4.vainSisainen, tmS4Osa = _S4.osa, tmS4Kirjoita = _S4.kirjoita, tmS4Lisaa = _S4.lisaa, tmS4Varapolulla = _S4.varapolulla;
   /* TERVEYS (PR #1137): sama nelikko, oma dokumentti sisainen/terveys + seuraavain terveysSeuraId; sama S4-lippu. Terveyskentät eivät koskaan päädy tmS4*-apurien kautta sisainen/tiedot:iin. */
   var _TV = _erillinen(tmTerveysKentat, _s4Paalla, TERVEYS_DOK, TERVEYS_SEURA), tmTerveysOsa = _TV.osa, tmTerveysLisaa = _TV.lisaa, tmTerveysVarapolulla = _TV.varapolulla, tmTerveysSisainen = _TV.vainSisainen;
   /* PR 2a (vaihe 1 PR 2, terveys): TERVEYS_VAIN_SISAINEN — terveystieto kirjoitetaan VAIN sisainen/terveys-dokumenttiin, EI enää pelaajadokumenttiin (ei dual-writea, ei permission-denied-varapolkua:
@@ -352,6 +351,14 @@
     return Promise.resolve().then(function () { return db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).collection(ALIKOKOELMA).doc(TERVEYS_DOK).set(s.data, { mergeFields: s.mergeFields }); })
       .then(function () { return { ok: true, sisainen: true }; });
   }
+  /* PR 2d: KAIKKI A-avaimet pois pelaajadokumentin päivityksestä (henkilokunta + S4/tiedot + terveys + D3; jaetut arvot B-muotoon). Kutsujat, jotka kirjoittavat pelaajadokumentin itse, ja grep-/ajoportti. */
+  function tmSisainenRiisu(upd) {
+    if (!_olio(upd)) return upd; var vain = tmSisainenVainSisaiset(), tv = tmTerveysKentat(), u = tmS4Riisu(tmHenkilokuntaRiisu(upd)), ulos = {};
+    Object.keys(u).forEach(function (k) { var j = k.split('.')[0]; if (vain.indexOf(j) < 0 && tv.indexOf(j) < 0) ulos[k] = u[k]; });
+    return tmJaksofokusPolutJaa(ulos).pelaajaPolut;
+  }
+  /* PR 2d: A-avaimet, joita pelaajadokumenttiin ei enää kirjoiteta (portit). */
+  function tmSisainenAKentat() { var k = tmSisainenVainSisaiset().concat(tmHenkilokuntaKentat(), tmS4TiedotKentat(), tmTerveysKentat()).filter(function (x) { return x !== 'signaali' && x !== 'biologinenIka_viimeisin'; });   /* jaetut arvot: pelaajalle B-muoto */ return k.filter(function (x, i) { return k.indexOf(x) === i; }); }
   /* Terveys-lukutapa rooleittain (Rules v3.70): 'seura' = yksi collectionGroup-kysely (where terveysSeuraId == sid); 'pelaajat' = pelaajakohtaiset get:it (valmentaja: vain OMAN joukkueen pelaajat — kutsuja antaa idt); null = ei lue (seurasihteeri, testivastaava …). */
   /* PR 1e-3a: kutsupaikan apuri — lataus-opts roolin mukaan. 'seura' → collectionGroup; 'pelaajat' → kutsujan jo lataamat (oman joukkueen) pelaajat; muut roolit (seurasihteeri, testivastaava, fysiikkavalmentaja …) → {} = terveyttä ei yritetä lukea. */
   function tmTerveysLukuOpts(rooli, lista) {
@@ -399,6 +406,6 @@
 
   var API = { tmSisainenLataaJaYhdista: tmSisainenLataaJaYhdista, ALIKOKOELMA: ALIKOKOELMA, DOKUMENTTI: DOKUMENTTI, RYHMAT: RYHMAT, tmSisainenKentat: tmSisainenKentat, tmSisainenVainSisaiset: tmSisainenVainSisaiset,
     JAKSOFOKUS_A: JAKSOFOKUS_A, HISTORIA_A: HISTORIA_A, tmHistoriaAvain: tmHistoriaAvain, tmJaksofokusJaa: tmJaksofokusJaa, tmJaksofokusYhdista: tmJaksofokusYhdista, tmHistoriaJaa: tmHistoriaJaa, tmHistoriaYhdista: tmHistoriaYhdista, tmSisainenPolku: tmSisainenPolku, tmSisainenYhdista: tmSisainenYhdista,
-    tmSisainenYhdistaLista: tmSisainenYhdistaLista, tmSisainenJaa: tmSisainenJaa, tmSisainenKirjoita: tmSisainenKirjoita, tmJaksofokusPolutJaa: tmJaksofokusPolutJaa, tmJaksofokusKirjoita: tmJaksofokusKirjoita, tmJaksoAvain: tmJaksoAvain, tmHenkilokuntaKentat: tmHenkilokuntaKentat, tmHenkilokuntaOsa: tmHenkilokuntaOsa, tmHenkilokuntaKirjoita: tmHenkilokuntaKirjoita, tmHenkilokuntaLisaa: tmHenkilokuntaLisaa, tmHenkilokuntaVarapolulla: tmHenkilokuntaVarapolulla, tmHenkilokuntaPaalla: _hkPaalla, tmS4Kentat: tmS4Kentat, tmS4TiedotKentat: tmS4TiedotKentat, tmTerveysKentat: tmTerveysKentat, TERVEYS_DOK: TERVEYS_DOK, TERVEYS_SEURA: TERVEYS_SEURA, tmTerveysPolku: tmTerveysPolku, tmTerveysOsa: tmTerveysOsa, tmTerveysKirjoita: tmTerveysKirjoita, TERVEYS_VAIN_SISAINEN: TERVEYS_VAIN_SISAINEN, tmTerveysLisaa: tmTerveysLisaa, tmTerveysVarapolulla: tmTerveysVarapolulla, tmTerveysLuvunTapa: tmTerveysLuvunTapa, tmSisainenLataaTerveys: tmSisainenLataaTerveys, tmS4Paalla: _s4Paalla, tmS4Sisainen: tmS4Sisainen, tmTerveysSisainen: tmTerveysSisainen, tmTerveysLukuOpts: tmTerveysLukuOpts, tmS4SyvaKentat: tmS4SyvaKentat, tmAdarS4Valmista: tmAdarS4Valmista, tmS4Osa: tmS4Osa, tmS4Kirjoita: tmS4Kirjoita, tmS4Lisaa: tmS4Lisaa, tmS4Varapolulla: tmS4Varapolulla, SIGNAALI_SISAINEN: SIGNAALI_SISAINEN, tmSignaaliJaa: tmSignaaliJaa, tmPorrasEhdotusJaa: tmPorrasEhdotusJaa, tmJaksofokusElinkaariSisainen: tmJaksofokusElinkaariSisainen, tmJaksofokusElinkaariKirjoita: tmJaksofokusElinkaariKirjoita, tmSisainenLataaSeura: tmSisainenLataaSeura };
+    tmSisainenYhdistaLista: tmSisainenYhdistaLista, tmSisainenJaa: tmSisainenJaa, tmSisainenKirjoita: tmSisainenKirjoita, tmJaksofokusPolutJaa: tmJaksofokusPolutJaa, tmJaksofokusKirjoita: tmJaksofokusKirjoita, tmJaksoAvain: tmJaksoAvain, tmHenkilokuntaKentat: tmHenkilokuntaKentat, tmHenkilokuntaOsa: tmHenkilokuntaOsa, tmHenkilokuntaKirjoita: tmHenkilokuntaKirjoita, tmHenkilokuntaLisaa: tmHenkilokuntaLisaa, tmHenkilokuntaVarapolulla: tmHenkilokuntaVarapolulla, tmHenkilokuntaPaalla: _hkPaalla, tmS4Kentat: tmS4Kentat, tmS4TiedotKentat: tmS4TiedotKentat, tmTerveysKentat: tmTerveysKentat, TERVEYS_DOK: TERVEYS_DOK, TERVEYS_SEURA: TERVEYS_SEURA, tmTerveysPolku: tmTerveysPolku, tmTerveysOsa: tmTerveysOsa, tmTerveysKirjoita: tmTerveysKirjoita, TERVEYS_VAIN_SISAINEN: TERVEYS_VAIN_SISAINEN, tmTerveysLisaa: tmTerveysLisaa, tmTerveysVarapolulla: tmTerveysVarapolulla, tmTerveysLuvunTapa: tmTerveysLuvunTapa, tmSisainenLataaTerveys: tmSisainenLataaTerveys, tmS4Paalla: _s4Paalla, tmS4Sisainen: tmS4Sisainen, tmTerveysSisainen: tmTerveysSisainen, tmTerveysLukuOpts: tmTerveysLukuOpts, tmS4SyvaKentat: tmS4SyvaKentat, tmAdarS4Valmista: tmAdarS4Valmista, tmS4Osa: tmS4Osa, tmS4Riisu: tmS4Riisu, tmHenkilokuntaRiisu: tmHenkilokuntaRiisu, tmSisainenRiisu: tmSisainenRiisu, tmSisainenAKentat: tmSisainenAKentat, tmJaksofokusElinkaariPelaajaan: tmJaksofokusElinkaariPelaajaan, tmS4Kirjoita: tmS4Kirjoita, tmS4Lisaa: tmS4Lisaa, tmS4Varapolulla: tmS4Varapolulla, SIGNAALI_SISAINEN: SIGNAALI_SISAINEN, tmSignaaliJaa: tmSignaaliJaa, tmBioIkaJaa: tmBioIkaJaa, tmPorrasEhdotusJaa: tmPorrasEhdotusJaa, tmJaksofokusElinkaariSisainen: tmJaksofokusElinkaariSisainen, tmJaksofokusElinkaariKirjoita: tmJaksofokusElinkaariKirjoita, tmSisainenLataaSeura: tmSisainenLataaSeura };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else if (root) root.TM_SISAINEN = API;
 })(typeof window !== 'undefined' ? window : this);

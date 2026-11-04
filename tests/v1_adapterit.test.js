@@ -26,6 +26,7 @@ const PANKKI = [{ id: 'koti1', nimi: 'Seinäsyöttö kotona', tila: 'hyvaksytty'
 function fakeDb(S, log) {
   const clone = (x) => JSON.parse(JSON.stringify(x));
   const node = (path, ehto) => ({
+    _path: path,
     get: async () => {
       log.luvut.push(path + (ehto ? '?' + ehto : ''));
       if (S.viive) { log.kaynnissa = (log.kaynnissa || 0) + 1; log.maksimi = Math.max(log.maksimi || 0, log.kaynnissa); await new Promise((r) => setTimeout(r, 15)); log.kaynnissa--; }
@@ -37,7 +38,14 @@ function fakeDb(S, log) {
     update: async (u) => { if (S.kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); log.upd.push({ polku: path, data: u }); },
     collection: (c) => node(path ? path + '/' + c : c), doc: (d) => node(path ? path + '/' + d : d), where: (f, op, v) => node(path, f + '=' + v),
   });
-  return node('');
+  /* PR 2d: kirjoitukset kulkevat tm_sisainen.js:n batchin kautta (pelaajan update + sisainen/tiedot set) → batch-tuki. log.upd = pelaajadokumentin päivitykset (kuten ennen), log.sis = sisainen-kirjoitukset. */
+  const juuri = node('');
+  const SIS = require('../lib/tm_sisainen.js'), AK = SIS.tmSisainenAKentat(), AJF = SIS.RYHMAT.jaksofokus_sisainen.kentat.map((k) => k.replace(/^jaksofokus\./, ''));
+  const tarkistaA = (u) => { Object.keys(u || {}).forEach((k) => { if (AK.indexOf(k.split('.')[0]) >= 0 && !(u[k] && u[k].__delete)) throw new Error('A-vuoto pelaajadokumenttiin: ' + k); });
+    if (u && u.jaksofokus && typeof u.jaksofokus === 'object') AJF.forEach((k) => { if (k in u.jaksofokus) throw new Error('A-vuoto pelaajadokumenttiin: jaksofokus.' + k); }); };
+  juuri.batch = () => { const ops = []; return { update: (r, u) => { tarkistaA(u); ops.push(() => log.upd.push({ polku: r._path, data: u })); }, set: (r, d, o) => ops.push(() => (/\/sisainen\/tiedot$/.test(r._path) ? log.sis : log.set).push({ polku: r._path, data: d, o })),
+    commit: async () => { if (S.kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); ops.forEach((f) => f()); } }; };
+  return juuri;
 }
 const OLETUS = (lisa) => {
   const S = { docs: {
@@ -56,14 +64,14 @@ const kehys = (k) => ({ avain: k, nimi: k, asteikko: L.TAKS.TM_ARVIOINTI_ASTEIKK
 
 function rakenna(sovellus, { pelaaja, kentat = {}, rooli = 'valmentaja', sa = false, S = OLETUS(), verkko = true, ika = 13 } = {}) {
   const master = sovellus === 'master', SRC = master ? MA : VP;
-  const log = { upd: [], luvut: [], toastit: [], warn: [], modal: null, modalHtml: null, renderit: 0, el: kentat };
+  const log = { upd: [], sis: [], set: [], luvut: [], toastit: [], warn: [], modal: null, modalHtml: null, renderit: 0, el: kentat };
   const p = TOPIAS(pelaaja);
   const db = fakeDb(S, log);
   const elementti = (id) => (id in kentat ? { value: kentat[id], type: /^_ajTt[VH]_/.test(id) ? 'checkbox' : 'text', checked: kentat[id] === '1' } : null);
   const modalId = master ? '_mAloitaJaksoModal' : '_vpAloitaJaksoModal';
   const document = { getElementById: (id) => (id === modalId ? (log.modal ? { remove() { log.modal = null; } } : null) : elementti(id)), createElement: () => ({ set innerHTML(h) { this._h = h; log.modalHtml = h; }, get firstChild() { return { _h: this._h }; } }), body: { appendChild: (x) => { log.modal = x._h; } } };
   const yht = { Object, Array, String, Number, Promise, JSON, Math, Date, console: { warn: (...a) => log.warn.push(a) }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), document, toast: (t, k) => log.toastit.push([t, k]), tmPaivaIso: pvmIso, tmKehys: kehys,
-    firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } }, _tmHenkiloNimi: () => 'Topias K.' };
+    firebase: { auth: () => ({ currentUser: { getIdToken: async () => 't' } }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }), delete: () => ({ __delete: true }) } } }, _tmHenkiloNimi: () => 'Topias K.' };
   let c;
   if (master) {
     c = Object.assign(yht, { _pelaajatData: [p], _mIdpP: () => p, _mTtItems: () => ITEMS, _mTtEhdotus: () => ({ tyyppi: 'teknis_taktinen', konsepti_avain: 'y_h2' }), _ttNormPositio: () => null, _devIkaSp: () => ({ ika: ika, sp: 'P' }), _mEsc: (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
@@ -73,12 +81,12 @@ function rakenna(sovellus, { pelaaja, kentat = {}, rooli = 'valmentaja', sa = fa
     c = Object.assign(yht, { _vpTtPelaaja: () => p, _dimIkaSp: () => ({ ika: ika, sp: 'P' }), _vpTtNormPositio: () => null, _vpTtEhdotus: () => ({ tyyppi: 'teknis_taktinen', konsepti_avain: 'y_h2' }), _ttItems: () => ITEMS, _jsvEsc: (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
       vpT: (x) => x, _valmentajat: [{ id: 'u1', nimi: 'Ville', rooli: 'valmentaja' }], _seuraId: 'kpv', _isDemoMode: false, db: db, _vpJfMergeLisakentat() {}, _vpJfKanonNimi: () => 'Saattaen vaihtaminen', _vpOhjLataaKirjasto: async () => OHJELMAT, _vpAloitusReRender() { log.renderit++; }, _vpJaksoReRender() { log.renderit++; }, _vpKehAskelReRender() { log.renderit++; } });
     c._vpJaksoVaihto = (pp, jf) => L.KS.tmAsetaJaksofokus(pp, jf, { nytISO: NYT.toISOString(), tulos: 'vaihdettu' });
-    c._vpJfKirjoita = async (pid, upd, viesti, paivita) => { try { await db.collection('seurat').doc('kpv').collection('pelaajat').doc(pid).update(upd); paivita && paivita(); c.toast(viesti, 'ok'); } catch (e) { c.toast('virhe', 'error'); } };
+    /* PR 2d: _vpJfKirjoita = OIKEA sivukoodi (puretaan alla); ei raakaa update-tynkää */
   }
-  c.window = c; Object.assign(c.window, { TM_LIPUT: require('../lib/tm_liput.js'), TM_JAKSO_MALLI: L.JM, TM_VASTUUHENKILO: L.VH, TM_ALOITA_JAKSO: L.AJ, TM_TUKITAVOITTEET: L.TT, TM_KOTI_OLETUS: L.KOTI, _mHenkilosto: [], _vpSA: sa, _vpRooli: rooli }); vm.createContext(c);
+  c.window = c; Object.assign(c.window, { TM_SISAINEN: require('../lib/tm_sisainen.js'), TM_LIPUT: require('../lib/tm_liput.js'), TM_JAKSO_MALLI: L.JM, TM_VASTUUHENKILO: L.VH, TM_ALOITA_JAKSO: L.AJ, TM_TUKITAVOITTEET: L.TT, TM_KOTI_OLETUS: L.KOTI, _mHenkilosto: [], _vpSA: sa, _vpRooli: rooli }); vm.createContext(c);
   const nimet = master
     ? ['function _mAloitaJaksoRivi(', 'function _mAjPelaajaPp(', 'function _mPelaajaNimiAj(', 'async function _mJjLataaLiput(', 'async function _mAjHaeYhteinen(', 'async function _mAjHaeHavainnot(', 'async function _mAjHaeTuki(', 'window._mAloitaJaksoAvaa = async function', 'window._mAloitaJaksoSulje = function', 'window._mAloitaJaksoTallenna = async function', 'async function _mAjKirjoitaJakso(']
-    : ['async function _vpLataaLiput(', 'async function _vpAjHaeTuki(', 'window._vpAloitaJaksoAvaa = async function', 'window._vpAloitaJaksoSulje = function', 'window._vpAloitaJaksoTallenna = async function'];
+    : ['async function _vpJfKirjoita(', 'async function _vpLataaLiput(', 'async function _vpAjHaeTuki(', 'window._vpAloitaJaksoAvaa = async function', 'window._vpAloitaJaksoSulje = function', 'window._vpAloitaJaksoTallenna = async function'];
   vm.runInContext('window._mJjLiput = {}; window._vpLiput = {};\n' + nimet.map((n) => pura(SRC, n)).join(';\n') + ';', c);
   const w = c.window;
   return { c, p, log, S, avaa: () => (master ? w._mAloitaJaksoAvaa(PID) : w._vpAloitaJaksoAvaa(PID)), tallenna: () => (master ? w._mAloitaJaksoTallenna(PID) : w._vpAloitaJaksoTallenna(PID)), muuttuneet: () => log.upd };

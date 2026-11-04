@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const require = createRequire(import.meta.url);
-require('../lib/tm_sisainen.js').RYHMAT.jaksofokus_sisainen.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_jaksofokus_kirjoitus.test.js
+/* PR 2d: osa_havainnot* = A → VAIN sisainen/tiedot.jaksofokus_sisainen; pelaajadokumenttiin vain osa_arviot (B). tmJaksofokusKirjoita = YKSI batch (update + set + commit). */
 const KT = require('../lib/tm_kehitystyopoyta.js');
 const AJ = require('../lib/tm_aloita_jakso.js');
 const TS = require('../lib/tm_tanaan_signaali.js');
@@ -82,17 +82,24 @@ describe('2 · yksi kirjoitusydin', () => {
     for (const [nimi, src] of [['VP', VP], ['Master', MASTER]]) { expect(src, nimi).not.toMatch(/'osa_arviot\.' \+ /); expect(src, nimi).not.toMatch(/tmPaivitaJaksofokus\(p, _osa\)/); }
     expect((LIB.match(/function tmKtTallennaOsaArvio\(/g) || []).length).toBe(1); expect(LIB).toContain("'osa_arviot.' + konsepti");
   });
-  function db(log, kaada) { return { collection: (a) => ({ doc: (b) => ({ collection: (c) => ({ doc: (d) => ({ update: async (data) => { log.push(['update', [a, b, c, d].join('/'), data]); if (kaada) throw Object.assign(new Error('permission-denied'), { code: 'permission-denied' }); } }) }) }) }) }; }
+  function db(log, kaada) {
+    const ref = (polku) => ({ _p: polku, update: async (data) => { log.push(['update', polku, data]); if (kaada) throw Object.assign(new Error('permission-denied'), { code: 'permission-denied' }); }, collection: (c) => ({ doc: (d) => ref(polku + '/' + c + '/' + d) }) });
+    return { collection: (a) => ({ doc: (b) => ({ collection: (c) => ({ doc: (d) => ref([a, b, c, d].join('/')) }) }) }),
+      batch: () => ({ update: (r, data) => log.push(['update', r._p, data]), set: (r, data, o) => log.push(['set', r._p, data, o]), commit: async () => { log.push(['commit']); if (kaada) throw Object.assign(new Error('permission-denied'), { code: 'permission-denied' }); } }) };
+  }
   const deps = (log, o) => Object.assign({ db: db(log, o && o.kaada), sid: 'kpv', auth: () => ({ getIdToken: async (f) => { log.push(['token', f]); } }), KS, demo: false, toast: (m, t) => log.push(['toast', m, t]), t: (k) => k, viesti: 'Osa-arvio tallennettu', demoLisa: ' (demo)', paivita: () => log.push(['paivita']) }, o || {});
   it('paikallinen päivitys heti; getIdToken(true) ENNEN update-kutsua; vain dot-polut jaksofokus.osa_havainnot.<konsepti>.<koodi>.<oma uid>.{arvo,pvm,rooli} + osa_arviot.<konsepti> (muu jaksofokus koskematta)', async () => {
     const log = [], p = pel(); const ok = await KT.tmKtTallennaOsaArvio(deps(log, { uid: 'u1', rooli: 'valmentaja', nyt: () => new Date(2026, 9, 9, 12) }), p, 'kons', 'k3', 2);
     expect(ok).toBe(true); expect(p.jaksofokus.osa_arviot.kons).toEqual({ k1: 3, k2: 2, k3: 2 });
-    expect(log.map((x) => x[0])).toEqual(['token', 'update', 'toast', 'paivita']); expect(log[0][1]).toBe(true);
-    expect(log[1][1]).toBe('seurat/kpv/pelaajat/' + PID); expect(log[1][2]).toEqual({ 'jaksofokus.osa_havainnot.kons.k3.u1.arvo': 2, 'jaksofokus.osa_havainnot.kons.k3.u1.pvm': '2026-10-09', 'jaksofokus.osa_havainnot.kons.k3.u1.rooli': 'valmentaja', 'jaksofokus.osa_havainnot_vk.kons.k3.2026-W41.u1.arvo': 2, 'jaksofokus.osa_havainnot_vk.kons.k3.2026-W41.u1.pvm': '2026-10-09', 'jaksofokus.osa_havainnot_vk.kons.k3.2026-W41.u1.rooli': 'valmentaja', 'jaksofokus.osa_arviot.kons': { k1: 3, k2: 2, k3: 2 } });   // B2b: vain omat kentät (rivin koko korvaus pyyhkisi aiemman lauseen); B2c: + viikkohistoria (ISO-viikko)
-    expect(log[2][1]).toBe('Osa-arvio tallennettu ✓');
+    expect(log.map((x) => x[0])).toEqual(['token', 'update', 'set', 'commit', 'toast', 'paivita']); expect(log[0][1]).toBe(true);
+    /* PR 2d: pelaajadokumenttiin VAIN voimassa oleva arvo (B); oma rivi + viikkohistoria (A) sisainen/tiedot:iin samassa batchissa, syvä set-merge (vain omat kentät → aiempi lause säilyy; B2b/B2c) */
+    expect(log[1][1]).toBe('seurat/kpv/pelaajat/' + PID); expect(log[1][2]).toEqual({ 'jaksofokus.osa_arviot.kons': { k1: 3, k2: 2, k3: 2 } });
+    expect(log[2][1]).toBe('seurat/kpv/pelaajat/' + PID + '/sisainen/tiedot'); expect(log[2][3]).toEqual({ merge: true });
+    expect(log[2][2].seuraId).toBe('kpv'); expect(log[2][2].jaksofokus_sisainen).toEqual({ osa_havainnot: { kons: { k3: { u1: { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' } } } }, osa_havainnot_vk: { kons: { k3: { '2026-W41': { u1: { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' } } } } } });
+    expect(log[4][1]).toBe('Osa-arvio tallennettu ✓');
   });
   it('demo: ei kirjoitusta, lokaali päivitys + toast; virhe: toast + false (paikallinen jää, kuten ennen); ei jaksoa / koodia → false ilman kirjoitusta', async () => {
-    const l1 = [], p1 = pel(); expect(await KT.tmKtTallennaOsaArvio(deps(l1, { demo: true }), p1, 'kons', 'k3', 1)).toBe(true); expect(l1.some((x) => x[0] === 'update')).toBe(false); expect(p1.jaksofokus.osa_arviot.kons.k3).toBe(1);
+    const l1 = [], p1 = pel(); expect(await KT.tmKtTallennaOsaArvio(deps(l1, { demo: true }), p1, 'kons', 'k3', 1)).toBe(true); expect(l1.some((x) => x[0] === 'update' || x[0] === 'set' || x[0] === 'commit')).toBe(false); expect(p1.jaksofokus.osa_arviot.kons.k3).toBe(1);
     const l2 = []; expect(await KT.tmKtTallennaOsaArvio(deps(l2, { kaada: true, virheTeksti: (t, e) => t + ' [' + e.code + ']' }), pel(), 'kons', 'k3', 1)).toBe(false); expect(l2.find((x) => x[0] === 'toast')).toEqual(['toast', 'Tallennus epäonnistui [permission-denied]', 'error']);
     const l3 = []; expect(await KT.tmKtTallennaOsaArvio(deps(l3), { id: 'x' }, 'kons', 'k1', 1)).toBe(false); expect(await KT.tmKtTallennaOsaArvio(deps(l3), pel(), '', 'k1', 1)).toBe(false); expect(l3).toEqual([]);
   });
