@@ -1,8 +1,8 @@
 /**
- * Vaihe 1 PR 2a (PM 2.11.2026): GDPR-vienti kattaa pelaajadokumentin alikokoelmat.
- *  - Jokainen Rulesin `match /pelaajat/{pelaajaId}` -lohkon alikokoelma on joko locatorin ALIKOKOELMAT-listassa (viedään)
- *    tai VIENTI_ODOTTAA-listassa (PM:n päätös kesken, inventaario 2.11.). Uusi alikokoelma ilman kumpaakaan → testi kaatuu.
- *  - VIENTI_ODOTTAA saa vain pienentyä: kun alikokoelma lisätään vientiin, se poistetaan täältä.
+ * Vaihe 1 PR 2a (PM 2.11.2026) + B8 (PM 4.11.2026): GDPR-vienti kattaa KAIKKI pelaajadokumentin alikokoelmat.
+ *  - Jokainen Rulesin `match /pelaajat/{pelaajaId}` -lohkon alikokoelma on locatorin ALIKOKOELMAT-listassa. Uusi alikokoelma
+ *    ilman sitä → testi kaatuu. B8 tyhjensi PR 2a:n odotuslistan (14 alikokoelmaa vientiin), joten odotuslistaa ei enää ole.
+ *  - Poisto (RTBF) kattaa alikokoelmat recursiveDeletellä; sama lista ohjaa manifestin lukumääriä (dryRun-esikatselu + audit).
  *  - `sisainen` (tiedot + terveys) viedään (tarkastusoikeus koskee myös henkilökunnan arvioita ja terveystietoa).
  *  - viePelaajanDataGDPR rakentaa alikokoelmaosion suoraan ALIKOKOELMAT-listasta (ei käsin ylläpidettyä luetteloa).
  */
@@ -10,17 +10,19 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-const { ALIKOKOELMAT, keraaPelaajanManifesti } = require('../functions/gdpr_locator.js');
+const { ALIKOKOELMAT, keraaPelaajanManifesti, nollaLukumaarat } = require('../functions/gdpr_locator.js');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RULES = readFileSync(join(ROOT, 'tm_admin/firestore.rules'), 'utf8');
 const INDEX = readFileSync(join(ROOT, 'functions/index.js'), 'utf8');
 
-/* PM päättää (INVENTAARIO_VAIHE1_PR2.md, 2.11.): nämä pelaajadokumentin alikokoelmat EIVÄT ole vielä viennissä. Lista saa vain pienentyä. */
-const VIENTI_ODOTTAA = [
+/* B8: PR 2a:n odotuslistalla olleet 14 alikokoelmaa — nyt viennissä (regressiovartija: ei saa pudota listalta). */
+const B8_LISATYT = [
   'kenttatarkkailut', 'tavoitteet', 'reviewit', 'kooste', 'viikkokatsaukset', 'notifikaatiot', 'tapahtumat', 'idp',
   'vp_muistiinpanot', 'arviointikerrat', 'arviointi', 'idp_kausi', 'idp_pelaaja', 'palautteet',
 ];
+/* Viennin muut ylätason avaimet (index.js viePelaajanDataGDPR) — alikokoelman nimi ei saa törmätä näihin (ylikirjoittaisi osion). */
+const VIENNIN_MUUT_AVAIMET = ['_meta', 'pelaaja', 'lasnaolo', 'testitapahtuma_tulokset', 'palloID_viitteet', 'omat_kirjaukset', 'kausikuvat', 'solo', 'media'];
 
 /* Rulesin pelaajadokumentin lohkon suorat alikokoelmat (sisäkkäisyys aaltosulkeista, ei rivien sisennyksestä). */
 function pelaajanAlikokoelmat() {
@@ -40,15 +42,27 @@ function pelaajanAlikokoelmat() {
 }
 
 describe('GDPR-vienti: pelaajadokumentin alikokoelmat', () => {
-  it('jokainen Rulesin alikokoelma on viennissä tai PM:n odotuslistalla (uusi alikokoelma kaatuu tähän)', () => {
+  it('jokainen Rulesin alikokoelma on viennissä (uusi alikokoelma kaatuu tähän)', () => {
     const rules = pelaajanAlikokoelmat();
     expect(rules.length).toBeGreaterThan(10);   // parseri löytää lohkon (ei hiljaista tyhjää)
-    const puuttuu = rules.filter((n) => !ALIKOKOELMAT.includes(n) && !VIENTI_ODOTTAA.includes(n));
-    expect(puuttuu, 'lisää gdpr_locator ALIKOKOELMAT-listaan (tai PM:n päätöksellä VIENTI_ODOTTAA:an)').toEqual([]);
+    const puuttuu = rules.filter((n) => !ALIKOKOELMAT.includes(n));
+    expect(puuttuu, 'lisää gdpr_locator ALIKOKOELMAT-listaan').toEqual([]);
   });
-  it('odotuslista ei sisällä viennissä olevaa eikä Rulesista poistunutta (pitää listan ajan tasalla)', () => {
+  it('B8: PR 2a:n odotuslistan 14 alikokoelmaa ovat viennissä ja yhä Rulesissa', () => {
     const rules = pelaajanAlikokoelmat();
-    VIENTI_ODOTTAA.forEach((n) => { expect(ALIKOKOELMAT, n).not.toContain(n); expect(rules, n + ' poistui Rulesista → poista odotuslistalta').toContain(n); });
+    B8_LISATYT.forEach((n) => { expect(ALIKOKOELMAT, n).toContain(n); expect(rules, n + ' poistui Rulesista → päivitä B8_LISATYT').toContain(n); });
+    expect(new Set(ALIKOKOELMAT).size).toBe(ALIKOKOELMAT.length);   // ei tuplia
+  });
+  it('alikokoelman nimi ei törmää viennin muihin avaimiin', () => {
+    VIENNIN_MUUT_AVAIMET.forEach((k) => expect(ALIKOKOELMAT, k).not.toContain(k));
+    const f = INDEX.slice(INDEX.indexOf('exports.viePelaajanDataGDPR'), INDEX.indexOf('// Toimitus: JSON Storageen'));
+    const vienti = f.slice(f.indexOf('const vienti = {'));
+    const avaimet = [...vienti.matchAll(/^\s{6}([A-Za-z_]+):/gm)].map((m) => m[1]);
+    expect(avaimet.sort()).toEqual([...VIENNIN_MUUT_AVAIMET].sort());   // lista pysyy index.js:n kanssa ajan tasalla
+  });
+  it('lukumäärät kattavat jokaisen alikokoelman (dryRun-esikatselu + audit)', () => {
+    const nolla = nollaLukumaarat();
+    ALIKOKOELMAT.forEach((n) => expect(nolla[n], n).toBe(0));
   });
   it('sisainen on viennissä (PM 2.11.)', () => { expect(ALIKOKOELMAT).toContain('sisainen'); });
   it('viePelaajanDataGDPR rakentaa alikokoelmaosion ALIKOKOELMAT-listasta', () => {
@@ -64,5 +78,26 @@ describe('GDPR-vienti: pelaajadokumentin alikokoelmat', () => {
     const m = await keraaPelaajanManifesti({ collection: colRef }, 's', 'p1');
     expect(m.alikokoelmat.sisainen.map((x) => x.id).sort()).toEqual(['terveys', 'tiedot']);
     expect(m.lukumaarat.sisainen).toBe(2);
+  });
+  it('B8: locator kerää uudet alikokoelmat manifestiin ja laskee ne', async () => {
+    const base = 'seurat/s/pelaajat/p1';
+    const cols = {
+      [base + '/kenttatarkkailut']: [{ id: 'k1_uid', data: { tekija: 'uid' } }, { id: 'k2_uid', data: { tekija: 'uid' } }],
+      [base + '/vp_muistiinpanot']: [{ id: 'm1', data: { teksti: 'x' } }],
+      [base + '/idp_kausi']: [{ id: '2026', data: { tavoite: 'y' } }],
+      [base + '/palautteet']: [{ id: 'p1', data: { teksti: 'z' } }],
+    };
+    const docs = { [base]: { etunimi: 'T' } };
+    const colRef = (path) => ({ doc: (id) => docRef(path + '/' + id), get: async () => ({ docs: (cols[path] || []).map((d) => ({ id: d.id, data: () => d.data, ref: docRef(path + '/' + d.id), exists: true })) }) });
+    const docRef = (path) => ({ path, collection: (n) => colRef(path + '/' + n), get: async () => ({ id: path.split('/').pop(), exists: docs[path] != null, data: () => docs[path] }) });
+    const m = await keraaPelaajanManifesti({ collection: colRef }, 's', 'p1');
+    B8_LISATYT.forEach((n) => expect(Array.isArray(m.alikokoelmat[n]), n).toBe(true));
+    expect(m.lukumaarat.kenttatarkkailut).toBe(2);
+    expect(m.lukumaarat.vp_muistiinpanot).toBe(1);
+    expect(m.lukumaarat.idp_kausi).toBe(1);
+    expect(m.lukumaarat.palautteet).toBe(1);
+    expect(m.lukumaarat.reviewit).toBe(0);
+    expect(m.alikokoelmat.idp_kausi[0].data).toEqual({ tavoite: 'y' });
+    expect(m.varoitukset).toEqual([]);
   });
 });

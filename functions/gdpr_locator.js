@@ -14,8 +14,14 @@
 
 // Pelaajadokumentin alikokoelmat (recursiveDelete kattaa nämä RTBF:ssä; export lukee).
 // Vaihe 1 PR 2a (PM 2.11.): + 'sisainen' (tiedot + terveys) — tarkastusoikeus koskee kaikkia rekisteröidyn henkilötietoja, myös henkilökunnan arvioita ja terveystietoa.
-// Vartija tests/gdpr_vienti_alikokoelmat.test.js: jokainen Rulesin pelaajadokumentin alikokoelma on joko tässä tai testin VIENTI_ODOTTAA-listassa (PM päättää; lista saa vain pienentyä).
-const ALIKOKOELMAT = ['havainnot', 'kirjaukset', 'testitulokset', 'biologinen_ika', 'pelidata', 'kehut', 'sisainen'];
+// B8 (PM 4.11.): + loput 14 Rulesin pelaajadokumentin alikokoelmaa → vienti kattaa kaikki (poisto kattoi jo recursiveDeletellä).
+// Vartija tests/gdpr_vienti_alikokoelmat.test.js: jokainen Rulesin pelaajadokumentin alikokoelma on tässä listassa (ei odotuslistaa).
+// Lista ohjaa myös manifestin lukumääriä (nollaLukumaarat/rakennaLukumaarat) → uusi nimi näkyy dryRun-esikatselussa ja auditissa.
+const ALIKOKOELMAT = Object.freeze([
+  'havainnot', 'kirjaukset', 'testitulokset', 'biologinen_ika', 'pelidata', 'kehut', 'sisainen',
+  'kenttatarkkailut', 'tavoitteet', 'reviewit', 'kooste', 'viikkokatsaukset', 'notifikaatiot', 'tapahtumat', 'idp',
+  'vp_muistiinpanot', 'arviointikerrat', 'arviointi', 'idp_kausi', 'idp_pelaaja', 'palautteet',
+]);
 
 // Lue alikokoelman dokumentit → [{id, data, ref}]. Virhe → varoitus, ei kaada (best-effort enumerointi).
 async function lueAlikokoelma(paaRef, nimi, varoitukset) {
@@ -268,7 +274,7 @@ function yhdistaUniikit(a, b) {
 
 function nollaLukumaarat() {
   return {
-    pelaaja: 0, havainnot: 0, kirjaukset: 0, testitulokset: 0, biologinen_ika: 0, pelidata: 0, kehut: 0, sisainen: 0,
+    pelaaja: 0, ...Object.fromEntries(ALIKOKOELMAT.map((n) => [n, 0])),
     lasnaolo: 0, testitapahtuma_tulokset: 0, palloID_viitteet: 0, omat_kirjaukset: 0, kausikuvat: 0, solo: 0, media_tiedostoja: 0, auth: 0,
   };
 }
@@ -281,13 +287,7 @@ function rakennaLukumaarat(m) {
   const pituus = (x) => (Array.isArray(x) ? x.length : 0);
   return {
     pelaaja: 1,
-    havainnot: pituus(a.havainnot),
-    kirjaukset: pituus(a.kirjaukset),
-    testitulokset: pituus(a.testitulokset),
-    biologinen_ika: pituus(a.biologinen_ika),
-    pelidata: pituus(a.pelidata),
-    kehut: pituus(a.kehut),
-    sisainen: pituus(a.sisainen),
+    ...Object.fromEntries(ALIKOKOELMAT.map((n) => [n, pituus(a[n])])),
     lasnaolo: pituus(r.lasnaolo),
     testitapahtuma_tulokset: pituus(r.testitapahtuma_tulokset),
     palloID_viitteet: pituus(r.palloID_viitteet),

@@ -41,6 +41,8 @@
 | `…/pelaajat/{pid}/biologinen_ika/{pvm}` | alikokoelma | GDPR Art. 9 (terveys) |
 | `…/pelaajat/{pid}/pelidata/{otteluId}` | alikokoelma | TASO-pelidata |
 | `…/pelaajat/{pid}/kehut/{id}` | alikokoelma | perhekehut |
+| `…/pelaajat/{pid}/sisainen/{tiedot\|terveys}` | alikokoelma | henkilökunnan sisäiset kentät + terveys (PR 2a) |
+| `…/pelaajat/{pid}/{kenttatarkkailut, tavoitteet, reviewit, kooste, viikkokatsaukset, notifikaatiot, tapahtumat, idp, vp_muistiinpanot, arviointikerrat, arviointi, idp_kausi, idp_pelaaja, palautteet}/{id}` | alikokoelma | B8 (4.11.2026): loput Rulesin alikokoelmat. Kanoninen lista = `functions/gdpr_locator.js` `ALIKOKOELMAT` (testi vaatii kaikki Rulesin alikokoelmat) |
 | **Ristiviitteet (eivät katoa recursiveDeletellä):** | | |
 | `seurat/{sid}/kalenteri/{tid}/lasnaolijat/{pelaajaId}` | UID | läsnäolo (§35) — collectionGroup `lasnaolijat` |
 | `seurat/{sid}/testitapahtumat/{tid}/tulokset/{pid}` | UID/palloID | testitapahtuma-tulokset (§22) |
