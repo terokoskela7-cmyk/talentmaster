@@ -23,9 +23,9 @@ beforeAll(() => {
     if (s < 0 || e >= lines.length) throw new Error('lohkoa ei löytynyt: ' + startNeedle);
     return lines.slice(s, e + 1).join('\n');
   };
-  const merkBlock = grab('var _VPM_KEYNORM', 'window._vpMittausRebuildMerkinnat = _vpMittausRebuildMerkinnat;');
+  const merkBlock = grab('function _vpMittausProtokollaId', 'window._vpMittausRebuildMerkinnat = _vpMittausRebuildMerkinnat;');
   const suodBlock = grab('function _vpMittausKenttaDomain', 'window._vpMittausSuodataPoistetut = _vpMittausSuodataPoistetut;');
-  const api = eval('(function(){ var window = {};\n' + merkBlock + '\n' + suodBlock + '\n return { _vpMittausSuodataPoistetut, _vpMittausKenttaDomain, _vpMittausRebuildMerkinnat }; })()');
+  const api = eval('(function(){ var window = { TM_MITTAUS_KORJAA: require("../lib/tm_mittaus_korjaa.js") };\nfunction _vpMK() { return window.TM_MITTAUS_KORJAA; }\n' + merkBlock + '\n' + suodBlock + '\n return { _vpMittausSuodataPoistetut, _vpMittausKenttaDomain, _vpMittausRebuildMerkinnat }; })()');
   _vpMittausSuodataPoistetut = api._vpMittausSuodataPoistetut;
   _vpMittausKenttaDomain = api._vpMittausKenttaDomain;
   _vpMittausRebuildMerkinnat = api._vpMittausRebuildMerkinnat;

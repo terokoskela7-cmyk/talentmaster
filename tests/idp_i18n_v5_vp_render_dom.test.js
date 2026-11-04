@@ -386,9 +386,9 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const src = lines.slice(RLO - 1, RHI - 1).join('\n');
     expect(scanLeaks(src, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).length).toBe(0);
     // kaksi eri funktiota perheen eri päistä → todistaa ettei vain yksi ankkuri osu
-    const r1 = src.replace("vpT('Korjaa mittaus')", "'Korjaa mittaus'");
+    const r1 = src.replace("vpT('Ei kirjattuja mittauksia — lisää Pikakirjauksella.')", "'Ei kirjattuja mittauksia — lisää Pikakirjauksella.'");   // B3: Korjaa-dialogi siirtyi libiin (lib/tm_mittaus_korjaa.js; tekstigate b3_vp_mittaus_dialogi_karakterisointi)
     expect(r1).not.toBe(src);
-    expect(scanLeaks(r1, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p)).toContain('Korjaa mittaus');
+    expect(scanLeaks(r1, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p)).toContain('Ei kirjattuja mittauksia — lisää Pikakirjauksella.');
     const r2 = src.replace("vpT('Mitä testit kertovat')", "'Mitä testit kertovat'");
     expect(r2).not.toBe(src);
     const l2 = scanLeaks(r2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);

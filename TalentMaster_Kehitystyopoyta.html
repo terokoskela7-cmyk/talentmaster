@@ -102,11 +102,12 @@
 <script src="lib/tm_todistekortit_fi.js"></script><script src="lib/tm_fyysinen_profiili.js"></script><script src="lib/tm_todistekortit.js"></script><script src="lib/tm_todistekortit_html.js"></script><script src="lib/tm_d3_kortti.js"></script><script src="lib/tm_pelaajaraportti.js"></script>   <!-- K4a: Profiilin todistekortit (D102) -->
 <script src="lib/tm_arviointi_historia.js"></script>   <!-- K4c: kausiavain (Tämä kausi -suodatin): tmKausiNyt + tmKausiAlku, sama lähde kuin VP/Admin -->
 <script src="lib/tm_mittaukset_fi.js"></script><script src="lib/tm_mittaukset.js"></script><script src="lib/tm_mittaukset_html.js"></script><script src="lib/tm_mittaukset_sheet.js"></script>   <!-- K4c: Kaikki mittaukset -sheet (D102 jatko) -->
+<script src="lib/tm_testikatalogi.js"></script><script src="lib/tm_historia.js"></script><script src="lib/tm_pikakentat.js"></script><script src="lib/tm_mittaus_korjaa.js"></script>   <!-- B3: Profiili → Kaikki mittaukset → Korjaa = sama E2.3-korjaus + E2.2-rebuild kuin VP:ssä (samat rebuild-riippuvuudet: eerikkilä + testit_indeksit + historia) -->
 <script src="lib/tm_kt_sivu.js"></script><script src="lib/tm_kt_taulu.js"></script>
 <style>
 /* ── TOKENEET (samat kuin Master_v16; ei uusia) ── */
 :root[data-theme="dark"] { --bg:#0F0F0D; --bg2:#161614; --card:#1C1C1A; --card2:#212120; --ink:rgba(242,239,230,.95); --ink2:rgba(242,239,230,.62); --ink3:rgba(242,239,230,.55); --line:rgba(242,239,230,.09); --line2:rgba(242,239,230,.16); --teal:#28B090; --teal-bg:rgba(40,176,144,.09); --teal-brd:rgba(40,176,144,.22); --amber:#E0A653; --amber-bg:rgba(224,166,83,.09); --red:#D85A5A; --blue:#6FA8DC; --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.25); }
-:root { --carbon:#1C1C1A; --bone:#F2EFE6; --font-display:'Cormorant Garamond',Georgia,serif; --font-body:'DM Sans',-apple-system,sans-serif; --font-mono:'DM Mono','SF Mono',monospace; --fs-h1:40px; --fs-h2:26px; --fs-lead:16px; --fs-body:14px; --fs-meta:12.5px; --fs-eb:11px; --border:var(--line2); --surface:var(--card); }
+:root { --carbon:#1C1C1A; --bone:#F2EFE6; --font-display:'Cormorant Garamond',Georgia,serif; --font-body:'DM Sans',-apple-system,sans-serif; --font-mono:'DM Mono','SF Mono',monospace; --fs-h1:40px; --fs-h2:26px; --fs-lead:16px; --fs-body:14px; --fs-meta:12.5px; --fs-eb:11px; --border:var(--line2); --surface:var(--card); --bg3:var(--card); --font-serif:var(--font-display); --font-m:var(--font-mono); }   /* B3: jaetun Korjaa mittaus -dialogin (lib/tm_mittaus_korjaa.js) VP-tokenit → tämän sivun tokenit, ei uusia värejä */
 :root[data-theme="light"] { --bg:#F2EFE6; --bg2:#FAF9F4; --card:#FFFFFF; --card2:#F5F4EF; --ink:rgba(28,28,26,.95); --ink2:rgba(28,28,26,.62); --ink3:#66635A; --line:rgba(28,28,26,.1); --line2:rgba(28,28,26,.18); --teal:#1A7A5E; --teal-bg:rgba(26,122,94,.07); --teal-brd:rgba(26,122,94,.2); --amber:#7A5A10; --amber-bg:rgba(122,90,16,.07); --on-accent:#FFFFFF; --red:#8A2B2B; --blue:#2A5E8A; --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06); }
 /* täytetty nappi (Tero 14.10.2026): #1A7A5E + valkoinen teksti molemmissa teemoissa */
 :root { --fill:#1A7A5E; --on-fill:#FFFFFF; }
@@ -715,12 +716,43 @@ function _kausiAlkuIso(nyt) {
 let _mkInst = null;
 function _mkSheet() {
   return _mkInst || (_mkInst = window.TM_MITTAUKSET_SHEET.tmMittauksetSheet({ doc: document, win: window, tausta: document.getElementById('ktJuuri'), pelaaja: _pelaaja, suljeMuut: function () { _sheet.sulje(); },
+    escOhita: function () { return _mkKorjaaAuki; },
     ctx: function (p, suod) {
       const isp = window.TM_NAYTTO_LOHKOT.tmNayttoDevIkaSp(p), nyt = new Date();
-      return { t: TT, esc: _e, pid: p.id, nyt: nyt, ika: isp.ika, sp: isp.sp, jaksoTila: window.TM_ALOITA_JAKSO.tmJaksoTila(p, { nyt: nyt }).tila, nimi: _nimi(p), suodatin: suod, kausiAlku: _kausiAlkuIso(nyt), uid: _uid, superAdmin: _superAdmin };
+      return { t: TT, esc: _e, pid: p.id, nyt: nyt, ika: isp.ika, sp: isp.sp, jaksoTila: window.TM_ALOITA_JAKSO.tmJaksoTila(p, { nyt: nyt }).tila, nimi: _nimi(p), suodatin: suod, kausiAlku: _kausiAlkuIso(nyt), uid: _uid, superAdmin: _superAdmin,
+        korjattava: function (osio, r) { return !!_mkKohde(p, r); }, korjaaTeksti: masterT('Korjaa') };
     } }));
 }
-window._ktMkAvaa = function (pid, o) { return _voiNahda(pid) ? _mkSheet().avaa(pid, o) : false; };
+/* B3 · Korjaa mittaus (Profiili → Kaikki mittaukset): SAMA E2.3-korjaus kuin VP:ssä (lib/tm_mittaus_korjaa.js): dialogi + testitulokset/{id} update (testit.<avain> + korjattu.<avain>)
+   + pikakenttien rebuild tmRakennaPikakentatArkistosta-primitiivillä (E2.2.1-poistosuoja). Ei uutta kirjoituspolkua. Linkki vain, jos pelaajan saa kirjoittaa (_voiKirjoittaa = sama sääntö kuin Rules)
+   ja rivi osuu TASAN yhteen testitulokseen (sama testi + sama päivä). Testitulokset luetaan, kun sheet avataan (ei pelaajalistan latauksessa). */
+const _mkDocs = {};   // pid → [{ __id, data }] | 'lataa'
+let _mkKorjaaAuki = false;
+function _mkKohde(p, r) {
+  const MK = window.TM_MITTAUS_KORJAA, d = _mkDocs[p.id];
+  if (!MK || !Array.isArray(d) || !_voiKirjoittaa(p)) return null;
+  return MK.rivinKohde(r, MK.merkinnat(d, window.TM_TESTIKATALOGI));
+}
+async function _mkLataaTestitulokset(pid) {
+  const p = _pelaaja(pid); if (!p || !window.TM_MITTAUS_KORJAA || !_voiKirjoittaa(p) || _mkDocs[pid]) return;
+  _mkDocs[pid] = 'lataa';
+  try {
+    const qs = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('testitulokset').get();
+    _mkDocs[pid] = qs.docs.map(function (d) { return { __id: d.id, data: d.data() || {} }; });
+    if (_mkSheet().pid() === pid) _mkSheet().paivita();
+  } catch (e) { delete _mkDocs[pid]; console.warn('[mittaukset] testitulokset:', e && e.message); }   // ei Korjaa-linkkejä; lukunäkymä toimii ennallaan
+}
+window._ktMkKorjaa = async function (osio, testi, lahde, pvm) {
+  const MK = window.TM_MITTAUS_KORJAA, pid = _mkSheet().pid(), p = pid && _pelaaja(pid), docs = p && _mkDocs[p.id];
+  if (!MK || !p || !Array.isArray(docs) || _mkKorjaaAuki) return;
+  const k = _mkKohde(p, { id: testi, lahde: lahde, viimeisin: { pvm: pvm } }); if (!k) return;
+  const env = { db: _db, seuraId: _seuraId, firebase: firebase, uid: _uid, K: window.TM_TESTIKATALOGI, t: masterT, voiMuokata: _voiKirjoittaa,
+    dialogi: function (o) { _mkKorjaaAuki = true; return MK.dialogi(o, { doc: document, t: masterT, esc: _e, zIndex: 9200, pvmFi: function (x) { return x ? String(x).slice(0, 10).split('-').reverse().map(Number).join('.') : '—'; } }).then(function (v) { _mkKorjaaAuki = false; return v; }); },
+    rebuildKirjoita: function (pp) { return MK.rebuildKirjoita({ db: _db, seuraId: _seuraId, firebase: firebase, K: window.TM_TESTIKATALOGI, rakenna: window.tmRakennaPikakentatArkistosta }, pp, docs); },
+    paivita: function () { _mkSheet().paivita(); }, toast: function (m) { toast(m); } };
+  return MK.korjaa(env, p, docs, k.dokkiId, k.avain);
+};
+window._ktMkAvaa = function (pid, o) { if (!_voiNahda(pid)) return false; if (Array.isArray(_mkDocs[pid])) delete _mkDocs[pid]; const r = _mkSheet().avaa(pid, o); _mkLataaTestitulokset(pid); return r; };   // tuore arkisto joka avauksella (rebuild ei saa nojata vanhaan)
 window._ktMkSulje = function () { _mkSheet().sulje(); }; window._ktMkSuodata = function (s) { _mkSheet().suodata(s); };
 window._ktMkOsio = function (o) { _mkSheet().osio(o); }; window._ktMkRivi = function (o, t) { _mkSheet().rivi(o, t); };
 function _voiNahda(pid) { const p = _pelaaja(pid); return !!p && H.tmPelaajaOikeus(p, _oikeusCtx()).ok; }   // sama oikeussääntö kuin sivun näkymä (Rules tekee saman)
