@@ -3,12 +3,13 @@ module.exports = function (ROOT) {   // Kehitystilanne-data setup_demo_kehitys.j
   const D = require(ROOT + '/tm_admin/setup_demo_kehitys.js');
   const fix = (o) => JSON.parse(JSON.stringify(o, (k, v) => (v && v.__ts ? { seconds: Date.parse(v.__ts) / 1000 } : v && v.__serverTimestamp ? null : v)));
   const S = 'seurat/demo-fc', data = { pelaajat: [], bio: {}, kerrat: {}, idp: {}, kartoitus: {}, kirjaukset: {}, harjoitusarvioinnit: [], mentoroinnit: [], kalenteri: [], joukkueet: [], kausikuvat: [] };
-  const kal = {}, omat = {};
+  const kal = {}, omat = {}, sis = {};
   D.JONO.forEach(({ polku, data: d0 }) => {
     const d = fix(d0), o = polku.split('/'), id = o[o.length - 1];
     if (polku === S) data.seura = d;
     else if (o[2] === 'joukkueet') data.joukkueet.push(Object.assign({ id }, d));
     else if (o[2] === 'pelaajat' && o.length === 4) data.pelaajat.push(Object.assign({ id }, d));
+    else if (o[2] === 'pelaajat' && o[4] === 'sisainen' && o[5] === 'tiedot') sis[o[3]] = d;   // PR 2d: demo vie A-kentät (talentti*, signaali-talenttiarvo, …) sisainen/tiedot:iin
     else if (o[4] === 'biologinen_ika') (data.bio[o[3]] = data.bio[o[3]] || []).push(d);
     else if (o[4] === 'arviointikerrat') (data.kerrat[o[3]] = data.kerrat[o[3]] || []).push(d);
     else if (o[4] === 'idp_kausi') data.idp[o[3]] = d;
@@ -24,6 +25,9 @@ module.exports = function (ROOT) {   // Kehitystilanne-data setup_demo_kehitys.j
     else if (o[2] === 'omat_tavoitteet' && o[4] === 'kirjaukset') (omat[o[3]] = omat[o[3]] || { id: o[3], kirjaukset: [] }).kirjaukset.push(Object.assign({ id }, d));
     else if (o[2] === 'kausikuvat') data.kausikuvat.push(Object.assign({}, d, { luotu: '2026-10-02' }));
   });
+  /* PR 2d: kuten sivut (tmSisainenLataaJaYhdista) — henkilökunnan näkymä = pelaajadokumentti + sisainen/tiedot yhdistettynä. */
+  const SIS = require(ROOT + '/lib/tm_sisainen.js');
+  data.pelaajat = SIS.tmSisainenYhdistaLista(data.pelaajat, sis, {});
   data.kalenteri = Object.values(kal);
   data.omatTavoitteet = Object.values(omat);
   return data;

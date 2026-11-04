@@ -36,20 +36,15 @@ function ajaArviointi() {
   return { f, kaynnista: () => ctx.exports.arviointikertaOnWrite({}, { params: { seuraId: 'kpv', pelaajaId: 'm93' } }) };
 }
 describe('arviointikertaOnWrite (ajettu) — S4 dual-write', () => {
-  it('lippu POIS (peruutus): vain pelaajadokumentti, koostekentät korvataan; sisainen/tiedot-dokumenttia EI synny', async () => {
-    TS4.RYHMAT.s4.kirjoitus = false;
-    const a = ajaArviointi(); await a.kaynnista();
-    const p = a.f.D.get(PEL); expect(p).toHaveProperty('arviointi_kooste'); expect(p).toHaveProperty('arviointi_kooste_pvm'); expect(p.arviointi_kooste).not.toEqual({ vanha: 1 }); expect(p.etunimi).toBe('Topias');
-    expect(a.f.D.has(SIS)).toBe(false);
-  });
-  it('lippu PÄÄLLÄ: sama arvo pelaajadokumenttiin JA sisainen/tiedot:iin (seuraId + paivitetty + vain arviointi-kentät) YHDESSÄ batchissa', async () => {
-    TS4.RYHMAT.s4.kirjoitus = true;
-    const a = ajaArviointi(); await a.kaynnista();
-    const p = a.f.D.get(PEL), s = a.f.D.get(SIS);
-    expect(s).toBeDefined(); expect(s.seuraId).toBe('kpv'); expect(typeof s.paivitetty).toBe('string'); expect(s.arviointi_kooste_pvm).toBe(p.arviointi_kooste_pvm);
-    expect(s.arviointi_kooste).toEqual(p.arviointi_kooste); expect(a.f.loki.commits).toBe(1);   // kooste ei jää pelaajalle vanhaksi ilman sisainen-kopiota (yksi commit)
-    Object.keys(s).forEach((k) => expect(['seuraId', 'paivitetty', 'arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'], k).toContain(k));
-    expect(p.etunimi).toBe('Topias');   // muu pelaajadoc koskematon
+  it('PR 2d (K9): koosteet VAIN sisainen/tiedot:iin (seuraId + paivitetty + vain arviointi-kentät) yhdessä batchissa — pelaajadokumenttia ei kirjoiteta, lipusta riippumatta', async () => {
+    for (const lippu of [false, true]) {
+      TS4.RYHMAT.s4.kirjoitus = lippu;
+      const a = ajaArviointi(); await a.kaynnista();
+      const p = a.f.D.get(PEL), s = a.f.D.get(SIS);
+      expect(s).toBeDefined(); expect(s.seuraId).toBe('kpv'); expect(typeof s.paivitetty).toBe('string'); expect(typeof s.arviointi_kooste_pvm).toBe('string'); expect(s).toHaveProperty('arviointi_kooste'); expect(a.f.loki.commits).toBe(1);
+      Object.keys(s).forEach((k) => expect(['seuraId', 'paivitetty', 'arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'], k).toContain(k));
+      expect(p).toEqual({ etunimi: 'Topias', arviointi_kooste: { vanha: 1 } });   // pelaajadoc koskematon (vanha kenttä siivotaan erikseen)
+    }
   });
   it('virhe ei kaada triggeriä (console.error, palauttaa null) — kuten ennen', async () => {
     TS4.RYHMAT.s4.kirjoitus = true; const a = ajaArviointi(); a.f.db.batch = () => { throw new Error('boom'); };
@@ -75,17 +70,14 @@ function ajaVahvistus(alku) {
 }
 const L = (o) => Object.assign({ seuraId: 'kpv', pelaajaId: 'm93', hEmail: 'h@x.fi', antaja: 'Tero Koskela', antajaRooli: 'huoltaja', etunimi: 'Topias', syntyma: '2013-03-15', suostumukset: ['rekisteri'], suostumusMap: { rekisteri: true }, aikaleima: '1.10.2026' }, o);
 describe('vahvistaSuostumus (ajettu) — vanhempien pituudet → sisainen/tiedot (S4)', () => {
-  it('lippu POIS (peruutus): pituudet vain pelaajadokumenttiin; sisainen/tiedot ei synny', async () => {
-    TS4.RYHMAT.s4.kirjoitus = false;
-    const v = ajaVahvistus(); await v.fn(L({ bioPituudet: { isa_pituus_cm: 181, aiti_pituus_cm: 169, vanhempi_pituus_pvm: '2026-10-25' } }), {});
-    expect(v.f.D.get(PEL)).toMatchObject({ isa_pituus_cm: 181, aiti_pituus_cm: 169, vanhempi_pituus_pvm: '2026-10-25', vanhempi_pituus_puuttuu: false, suostumusTila: 'annettu' }); expect(v.f.D.has(SIS)).toBe(false);
-  });
-  it('lippu PÄÄLLÄ: pituudet + puuttuu-lippu + pvm myös sisainen/tiedot:iin; suostumuskentät (suostumus, suostumusTila, huoltajaEmail …) EIVÄT; pelaajadokumentti kuten ennen (dual-write)', async () => {
-    TS4.RYHMAT.s4.kirjoitus = true;
-    const v = ajaVahvistus(); await v.fn(L({ bioPituudet: { isa_pituus_cm: 181, aiti_pituus_cm: 169, vanhempi_pituus_pvm: '2026-10-25' } }), {});
-    const s = v.f.D.get(SIS); expect(s).toMatchObject({ seuraId: 'kpv', isa_pituus_cm: 181, aiti_pituus_cm: 169, vanhempi_pituus_pvm: '2026-10-25', vanhempi_pituus_puuttuu: false });
-    Object.keys(s).forEach((k) => expect(['seuraId', 'paivitetty', 'isa_pituus_cm', 'aiti_pituus_cm', 'vanhempi_pituus_pvm', 'vanhempi_pituus_puuttuu'], k).toContain(k));
-    expect(v.f.D.get(PEL)).toMatchObject({ isa_pituus_cm: 181, aiti_pituus_cm: 169, suostumusTila: 'annettu' });
+  it('PR 2d (K8): pituudet + puuttuu-lippu + pvm VAIN sisainen/tiedot:iin (lipusta riippumatta); suostumuskentät pelaajadokumenttiin, ei sisainen:iin', async () => {
+    for (const lippu of [false, true]) {
+      TS4.RYHMAT.s4.kirjoitus = lippu;
+      const v = ajaVahvistus(); await v.fn(L({ bioPituudet: { isa_pituus_cm: 181, aiti_pituus_cm: 169, vanhempi_pituus_pvm: '2026-10-25' } }), {});
+      const s = v.f.D.get(SIS); expect(s).toMatchObject({ seuraId: 'kpv', isa_pituus_cm: 181, aiti_pituus_cm: 169, vanhempi_pituus_pvm: '2026-10-25', vanhempi_pituus_puuttuu: false });
+      Object.keys(s).forEach((k) => expect(['seuraId', 'paivitetty', 'isa_pituus_cm', 'aiti_pituus_cm', 'vanhempi_pituus_pvm', 'vanhempi_pituus_puuttuu'], k).toContain(k));
+      const p = v.f.D.get(PEL); expect(p.suostumusTila).toBe('annettu'); ['isa_pituus_cm', 'aiti_pituus_cm', 'vanhempi_pituus_pvm', 'vanhempi_pituus_puuttuu'].forEach((k) => expect(p, k).not.toHaveProperty(k));
+    }
   });
   it('lippu päällä, ei pituuksia lomakkeella: sisainen/tiedot:iin ei kirjoiteta mitään (ei tyhjää dokumenttia)', async () => {
     TS4.RYHMAT.s4.kirjoitus = true; const v = ajaVahvistus(); await v.fn(L({}), {});
@@ -94,11 +86,12 @@ describe('vahvistaSuostumus (ajettu) — vanhempien pituudet → sisainen/tiedot
   it('DUAL-READ: lippu päällä, tallennettu isän pituus vain sisainen/tiedot:issa → puuttuu-lippu lasketaan sen perusteella (sisainen voittaa)', async () => {
     TS4.RYHMAT.s4.kirjoitus = true;
     const v = ajaVahvistus({ [SIS]: { seuraId: 'kpv', isa_pituus_cm: 182 } }); await v.fn(L({ bioPituudet: { aiti_pituus_cm: 170, vanhempi_pituus_pvm: '2026-10-25' } }), {});
-    expect(v.f.D.get(PEL).vanhempi_pituus_puuttuu).toBe(false); expect(v.f.D.get(SIS)).toMatchObject({ isa_pituus_cm: 182, aiti_pituus_cm: 170, vanhempi_pituus_puuttuu: false });   // isa säilyy (mergeFields ei koske)
+    expect(v.f.D.get(PEL)).not.toHaveProperty('vanhempi_pituus_puuttuu'); expect(v.f.D.get(SIS)).toMatchObject({ isa_pituus_cm: 182, aiti_pituus_cm: 170, vanhempi_pituus_puuttuu: false });   // isa säilyy (mergeFields ei koske); PR 2d: ei pelaajadokumenttiin
   });
-  it('lippu POIS: tallennettu pituus luetaan pelaajadokumentista kuten ennen (ei sisainen-lukua)', async () => {
+  it('siirtymä: vanha pituus vain pelaajadokumentissa (ei sisainen-kopiota) → dual-read käyttää sitä varalla; tulos VAIN sisainen:iin', async () => {
+    TS4.RYHMAT.s4.kirjoitus = false;
     const v = ajaVahvistus({ [PEL]: { etunimi: 'Topias', sukunimi: 'K', huoltajaEmail: 'h@x.fi', syntymaVuosi: 2013, suostumusTila: 'odottaa', pin: '591217', isa_pituus_cm: 182 } });
-    await v.fn(L({ bioPituudet: { aiti_pituus_cm: 170 } }), {}); expect(v.f.D.get(PEL).vanhempi_pituus_puuttuu).toBe(false); expect(v.f.D.has(SIS)).toBe(false);
+    await v.fn(L({ bioPituudet: { aiti_pituus_cm: 170 } }), {}); expect(v.f.D.get(SIS)).toMatchObject({ aiti_pituus_cm: 170, vanhempi_pituus_puuttuu: false }); expect(v.f.D.get(PEL)).not.toHaveProperty('vanhempi_pituus_puuttuu');
   });
   it('sisainen-kirjoitus epäonnistuu → koko suostumus EI tallennu puoliksi (batch kaikki tai ei mitään) → internal', async () => {
     TS4.RYHMAT.s4.kirjoitus = true; const v = ajaVahvistus();
@@ -113,8 +106,8 @@ describe('CF-kirjoittajien rajaus (PR 1e-2)', () => {
     const i = CF.indexOf('exports.arviointikertaOnWrite'); expect(CF.slice(i, CF.indexOf('\n  });', i))).toContain('tmSisainen.tmS4Lisaa(batch');
     const j = CF.indexOf('exports.vahvistaSuostumus'); expect(CF.slice(j, CF.indexOf('\n  });', j))).toContain('tmSisainen.tmS4Lisaa(kirjBatch');
   });
-  it('CF-lippu oletuksena PÄÄLLÄ (lähde) ja sisainen_luku.liputPaalla seuraa s4:ää (ei omaa vakiota)', () => {
-    expect(readFileSync(join(ROOT, 'functions', 'tm_sisainen.js'), 'utf8')).toMatch(/s4: \{ kytketty: false, kirjoitus: true,/); TS4.RYHMAT.s4.kirjoitus = false; const _m = ['jaksofokus_sisainen', 'henkilokunta'], _v = _m.map((n) => TS4.RYHMAT[n].kirjoitus); _m.forEach((n) => { TS4.RYHMAT[n].kirjoitus = false; }); expect(LUKU.liputPaalla()).toBe(false); TS4.RYHMAT.s4.kirjoitus = true; expect(LUKU.liputPaalla()).toBe(true); _m.forEach((n, i) => { TS4.RYHMAT[n].kirjoitus = _v[i]; });
+  it('CF-lippu oletuksena PÄÄLLÄ (lähde); PR 2d: sisainen_luku.liputPaalla aina true (ei lippuriippuvuutta, ei omaa vakiota)', () => {
+    expect(readFileSync(join(ROOT, 'functions', 'tm_sisainen.js'), 'utf8')).toMatch(/s4: \{ kytketty: false, kirjoitus: true,/); const _m = ['s4', 'jaksofokus_sisainen', 'henkilokunta'], _v = _m.map((n) => TS4.RYHMAT[n].kirjoitus); _m.forEach((n) => { TS4.RYHMAT[n].kirjoitus = false; }); expect(LUKU.liputPaalla()).toBe(true); _m.forEach((n, i) => { TS4.RYHMAT[n].kirjoitus = _v[i]; });
   });
   it('functions/tm_sisainen.js on tavu tavulta lib (deploy pakkaa vain functions/)', () => {
     expect(readFileSync(join(ROOT, 'functions', 'tm_sisainen.js'), 'utf8')).toBe(readFileSync(join(ROOT, 'lib', 'tm_sisainen.js'), 'utf8'));

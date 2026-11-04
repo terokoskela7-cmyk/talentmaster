@@ -58,6 +58,8 @@ describe('vartija: ei kahta samannimistä globaalia VP_v25:ssä', () => {
 });
 
 /* ── Firestore-tynkä: batch.set kirjaa polut, commit voi kaatua ── */
+const SIS = require('../lib/tm_sisainen.js');   // PR 2d: review_viimeisin_* (henkilokunta, A) VAIN sisainen/tiedot:iin samassa batchissa reviewit/{pvm}:n kanssa
+const SISP = (p) => 'seurat/kpv/pelaajat/' + p + '/sisainen/tiedot';
 function mockDb({ kaada = false } = {}) {
   const kirjoitukset = [];
   const doc = (p) => ({ path: p, collection: (c) => ({ doc: (id) => doc(p + '/' + c + '/' + id) }) });
@@ -70,11 +72,11 @@ const PID2 = 'kpvU13Testi2';
 const POLKU = (p) => 'seurat/kpv/pelaajat/' + p;
 
 describe('_vpKirjoitaReview — kirjoittaja', () => {
-  const aja = (m) => { const c = { db: m.db, _seuraId: 'kpv', window: { TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') }, Object, Array }; vm.createContext(c); vm.runInContext(pura('async function _vpKirjoitaReview(') + '\nthis.f = _vpKirjoitaReview;', c); return c.f; };
+  const aja = (m) => { const c = { db: m.db, _seuraId: 'kpv', window: { TM_SISAINEN: SIS, TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') }, Object, Array }; vm.createContext(c); vm.runInContext(pura('async function _vpKirjoitaReview(') + '\nthis.f = _vpKirjoitaReview;', c); return c.f; };
   it('kirjoittaa reviewit/{pvm} + pikakentät yhteen batchiin, vain tämän pelaajan polkuihin (KPV)', async () => {
     const m = mockDb(); await aja(m)(PID, '2026-10-05', { tyyppi: 'mdr', pvm: '2026-10-05' });
-    expect(m.kirjoitukset.map((o) => o.polku)).toEqual([POLKU(PID) + '/reviewit/2026-10-05', POLKU(PID)]);
-    expect(m.kirjoitukset[1].data).toEqual({ review_viimeisin_pvm: '2026-10-05', review_viimeisin_tyyppi: 'mdr' });
+    expect(m.kirjoitukset.map((o) => o.polku)).toEqual([SISP(PID), POLKU(PID) + '/reviewit/2026-10-05']);   // PR 2d: ei pelaajadokumentin kirjoitusta (vain A-kenttiä)
+    expect(m.kirjoitukset[0].data).toMatchObject({ seuraId: 'kpv', review_viimeisin_pvm: '2026-10-05', review_viimeisin_tyyppi: 'mdr' });
   });
   it('väärä kutsu (modaalikutsu 1 argumentilla / puuttuva pvm / review) HEITTÄÄ eikä kirjoita mitään (ei hiljaista valeonnistumista)', async () => {
     const m = mockDb(); const f = aja(m);
@@ -90,7 +92,7 @@ describe('MDT-review (_mdtMerkitseReview): ✓ vasta onnistumisen jälkeen', () 
     const c = { db: m.db, _seuraId: 'kpv', _mdtPid: PID, _pelaajat: [p], _uid: 'vp-uid', tmPaivaIso: () => '2026-10-05', vpT: (x) => x,
       firebase: { auth: () => ({ currentUser: { uid: 'vp-uid', getIdTokenResult: async () => ({ claims: { rooli: 'vp' } }) } }) },
       document: { getElementById: () => ({ value: 'päätös' }) }, toast: (t, tyyppi) => log.toastit.push([t, tyyppi]),
-      _renderMDTProfiili: () => { log.renderit++; }, renderReviewit: () => { log.renderit++; }, renderTilanne: () => { log.renderit++; }, console: { warn() {} }, window: { TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') }, Object, Array };
+      _renderMDTProfiili: () => { log.renderit++; }, renderReviewit: () => { log.renderit++; }, renderTilanne: () => { log.renderit++; }, console: { warn() {} }, window: { TM_SISAINEN: SIS, TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') }, Object, Array };
     vm.createContext(c);
     vm.runInContext(pura('async function _vpKirjoitaReview(') + '\n' + pura('window._mdtMerkitseReview = async function') + ';', c);
     return { c, log, p };
@@ -98,7 +100,7 @@ describe('MDT-review (_mdtMerkitseReview): ✓ vasta onnistumisen jälkeen', () 
   it('onnistuu: batch kirjoitettu, paikallinen tila päivittyy, "✓ Kehityskeskustelu merkitty tehdyksi" (ok)', async () => {
     const m = mockDb(); const { c, log, p } = ymp(m);
     await c.window._mdtMerkitseReview();
-    expect(m.kirjoitukset.map((o) => o.polku)).toEqual([POLKU(PID) + '/reviewit/2026-10-05', POLKU(PID)]);
+    expect(m.kirjoitukset.map((o) => o.polku)).toEqual([SISP(PID), POLKU(PID) + '/reviewit/2026-10-05']);   // PR 2d: rytmikentät sisainen:iin
     expect(p.review_viimeisin_pvm).toBe('2026-10-05');
     expect(log.toastit).toEqual([['✓ Kehityskeskustelu merkitty tehdyksi', 'ok']]); expect(log.renderit).toBe(3);
   });
@@ -122,7 +124,7 @@ describe('Bulk (_vpCockpitBulkMerkitse): ok++ ja ✓ vasta kirjoituksen onnistut
     const c = { db, _seuraId: 'kpv', _isDemoMode: false, _reviewSel: { [PID]: 1, [PID2]: 1 }, _reviewSelMode: true, _pelajaat: null, _pelaajat: [p1, p2], _uid: 'vp-uid',
       _vpVoiMuokata: () => true, tmPaivaIso: () => '2026-10-05', vpT: (x) => x, toast: (t, tyyppi) => log.toastit.push([t, tyyppi]), renderReviewit: () => { log.renderit++; },
       firebase: { auth: () => ({ currentUser: { uid: 'vp-uid', getIdToken: async () => 't' } }) }, Array, Object, Promise, Math, console: { warn() {} },
-      window: { confirm: () => true, _vpRooli: 'vp', TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') } };
+      window: { confirm: () => true, _vpRooli: 'vp', TM_SISAINEN: SIS, TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') } };
     vm.createContext(c);
     vm.runInContext(pura('async function _vpKirjoitaReview(') + '\n' + pura('window._vpCockpitBulkMerkitse = async function') + ';', c);
     return { c, log, p1, p2, kirjoitukset };

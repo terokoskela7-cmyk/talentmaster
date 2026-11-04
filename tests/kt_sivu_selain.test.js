@@ -9,11 +9,16 @@ const SUODATA = (v) => v.filter((e) => !/sentry|integrity|Failed to load resourc
 const odota = (p) => p.waitForSelector('.kt-nimi', { timeout: 15000 });
 const hash = (p) => p.evaluate(() => location.hash);
 const P2 = 'seurat/demo/pelaajat/p2';
-/* B2: yksi havainto = yksi batch (pelaajadokki + sisainen/tiedot, #1144–#1147); palauttaa n:nnen batchin pelaajaopin päivityksen ja tarkistaa sisäisen opin */
+/* B2: yksi havainto = yksi batch (pelaajadokki + sisainen/tiedot, #1144–#1147). PR 2d: osa_havainnot* (A) VAIN sisainen/tiedot.jaksofokus_sisainen; pelaajadokkiin vain osa_arviot (B) —
+   pelaajaop puuttuu kokonaan, kun muutettavana on vain A-osia (esim. VP:n kumoa). Palauttaa loogisen pistepolkunäkymän (pelaajaop ∪ jaksofokus_sisainen → 'jaksofokus.…') ja tarkistaa, ettei pelaajaopissa ole A-polkuja. */
+const _litista = (o, pre, ulos) => { Object.keys(o).forEach((k) => { const v = o[k], q = pre + '.' + k; if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length && !Object.keys(v).some((x) => x.indexOf('__') === 0)) _litista(v, q, ulos); else ulos[q] = v; }); return ulos; };
 const batchPelaaja = async (p, n) => {
-  const b = await p.evaluate((i) => window.__batch[i], n); expect(b.map((o) => o.path).sort()).toEqual([P2, P2 + '/sisainen/tiedot']);
+  const b = await p.evaluate((i) => window.__batch[i], n); const polut = b.map((o) => o.path).sort();
+  expect(polut.indexOf(P2 + '/sisainen/tiedot')).toBeGreaterThan(-1); expect(polut.every((x) => x === P2 || x === P2 + '/sisainen/tiedot')).toBe(true);
   const sis = b.filter((o) => SISAINEN.test(o.path))[0]; expect(sis.set).toMatchObject({ seuraId: 'demo' }); expect(Object.keys(sis.set)).toEqual(expect.arrayContaining(['seuraId', 'paivitetty', 'jaksofokus_sisainen']));
-  return b.filter((o) => o.path === P2)[0].update;
+  const pel = (b.filter((o) => o.path === P2)[0] || {}).update || {};
+  expect(Object.keys(pel).filter((k) => /^jaksofokus\.osa_havainnot/.test(k) && pel[k] !== 'DEL'), 'PR 2d: A-polut eivät pelaajadokkiin').toEqual([]);
+  return _litista(sis.set.jaksofokus_sisainen, 'jaksofokus', Object.assign({}, pel));
 };
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B7 · Kehitystyöpöytä-sivu', () => {
   let selain; const avaa = async () => { selain = await selainKaynnista(); };

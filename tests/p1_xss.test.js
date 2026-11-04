@@ -134,7 +134,9 @@ describe('vahvistaSuostumus (ajettu) · tyhjä = ei muutosta', () => {
     const ref = 'seurat/kpv/pelaajat/m93';
     v.f.D.set(ref, Object.assign({}, v.f.D.get(ref), { isa_pituus_cm: 182 }));
     await v.fn(L({ bioPituudet: { aiti_pituus_cm: 170, vanhempi_pituus_pvm: '2026-10-01' } }), {});
-    expect(v.f.D.get(ref)).toMatchObject({ isa_pituus_cm: 182, aiti_pituus_cm: 170, vanhempi_pituus_pvm: '2026-10-01', vanhempi_pituus_puuttuu: false });
+    /* PR 2d (K8): pituudet (A) VAIN sisainen/tiedot:iin; puuttuu-lippu lasketaan lopputilasta (vanha isän pituus pelaajadokumentissa = siirtymän varalukema). */
+    expect(v.f.D.get(ref + '/sisainen/tiedot')).toMatchObject({ aiti_pituus_cm: 170, vanhempi_pituus_pvm: '2026-10-01', vanhempi_pituus_puuttuu: false });
+    expect(v.f.D.get(ref)).not.toHaveProperty('aiti_pituus_cm'); expect(v.f.D.get(ref)).not.toHaveProperty('vanhempi_pituus_pvm');
   });
 });
 
@@ -160,7 +162,8 @@ describe('vahvistaSuostumus (ajettu) · P1', () => {
     expect(x.suostumukset).toEqual(['rekisteri']);
     expect(x.suostumus.aikaleima).toBe('b1.10/b');
     expect(x.suostumusTeksti).toBe('ok script');
-    expect(x).not.toHaveProperty('isa_pituus_cm');   // virheellinen = ei muutosta (ei null-kirjoitusta)
-    expect(x.aiti_pituus_cm).toBe(165);
+    const sis = v.f.D.get('seurat/kpv/pelaajat/m93/sisainen/tiedot');   // PR 2d (K8): pituudet VAIN sisainen/tiedot:iin
+    expect(sis).not.toHaveProperty('isa_pituus_cm');   // virheellinen = ei muutosta (ei null-kirjoitusta)
+    expect(sis.aiti_pituus_cm).toBe(165); expect(x).not.toHaveProperty('aiti_pituus_cm');
   });
 });

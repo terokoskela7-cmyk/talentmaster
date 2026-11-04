@@ -37,15 +37,15 @@ describe('Seura: _seuraYhdista (ajo)', () => {
     expect(await h.aja(lista)).toBe('permission-denied');
     expect(h.toastit).toEqual([['Lataus epäonnistui: permission-denied', 'virhe']]); expect(lista[0].kaytettavyys).toBe('tauko');
   });
-  it('PR 2c (R1): sisainen/tiedot voittaa — talenttiOhjelma/-Taso ja signaali sisäisestä kopiosta (⭐-merkki ei katoa siivouksessa)', async () => {
-    const h = hiekka({}, null, { tiedot: { a: { seuraId: 'sjk', talenttiOhjelma: true, talenttiTaso: 'laajennettu', signaali: 'x_factor' } } });
-    const lista = [{ id: 'a', etunimi: 'A' }, { id: 'b', talenttiOhjelma: false }]; await h.aja(lista);
+  it('PR 2c (R1) / 2d: sisainen/tiedot voittaa — talenttiTaso ja signaali sisäisestä kopiosta; talenttiOhjelma = C (PM päätös a) → pelaajadokumentin arvo, sisainen-kopio EI voita', async () => {
+    const h = hiekka({}, null, { tiedot: { a: { seuraId: 'sjk', talenttiOhjelma: false, talenttiTaso: 'laajennettu', signaali: 'x_factor' } } });
+    const lista = [{ id: 'a', etunimi: 'A', talenttiOhjelma: true }, { id: 'b', talenttiOhjelma: false }]; await h.aja(lista);
     expect(lista[0]).toMatchObject({ etunimi: 'A', talenttiOhjelma: true, talenttiTaso: 'laajennettu', signaali: 'x_factor' }); expect(lista[1].talenttiOhjelma).toBe(false);
   });
   it('rooli ilman käytettävyysnäkymää: tiedot yhdistetään, terveyttä ei pyydetä', async () => {
-    const h = hiekka({ a: { kaytettavyys: 'loukkaantunut' } }, null, { kaytettavyys: false, rooli: 'seurasihteeri', tiedot: { a: { talenttiOhjelma: true } } });
+    const h = hiekka({ a: { kaytettavyys: 'loukkaantunut' } }, null, { kaytettavyys: false, rooli: 'seurasihteeri', tiedot: { a: { talenttiTaso: 'perus' } } });
     const lista = [{ id: 'a' }]; await h.aja(lista);
-    expect(h.kutsut[0].opts).toEqual({}); expect(lista[0].talenttiOhjelma).toBe(true); expect(lista[0]).not.toHaveProperty('kaytettavyys');
+    expect(h.kutsut[0].opts).toEqual({}); expect(lista[0].talenttiTaso).toBe('perus'); expect(lista[0]).not.toHaveProperty('kaytettavyys');
   });
   it('tiedot-latausvirhe ja puuttuva lib → näkyvä virhe + palautus (kutsuja estää tallennuksen)', async () => {
     const h = hiekka({}, null, { tiedotVirhe: 'failed-precondition' }); expect(await h.aja([{ id: 'a' }])).toBe('failed-precondition'); expect(h.toastit[0][1]).toBe('virhe');

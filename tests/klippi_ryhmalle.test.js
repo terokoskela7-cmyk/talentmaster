@@ -48,11 +48,11 @@ describe('yhteenveto, kohde, purku', () => {
   it('ei ryhmiä sallittu → tarjolla.ryhma false', () => { const S = {}; K.tmKrAsetaSheet(S, { ryhmat: [R({ pelaajat_id: ['p3'], valmentajat: [] })], pelaajat: PELAAJAT }, ctx()); expect(S.tarjolla.ryhma).toBe(false); expect(S.ryhmat).toEqual([]); });
   it('tmKrLataa: ryhmät + lippu + (vain jos ryhmiä) pelaajat; virhe → tyhjää, ei heitä', async () => {
     const dok = (data, id) => ({ id, data: () => data }), kutsut = [];
-    /* PR 2c (R5): pelaajat yhdistetään sisainen/tiedot-kopioon (collectionGroup('sisainen').where('seuraId','==',sid)) — talenttiOhjelma/vastuuhenkilo sisäisestä kopiosta */
-    const sis = { id: 'tiedot', ref: { parent: { parent: { id: 'p1' } } }, data: () => ({ seuraId: 's', talenttiOhjelma: true, vastuuhenkilo: { uid: 'v1', rooli: 'valmentaja' } }) };
+    /* PR 2c (R5): pelaajat yhdistetään sisainen/tiedot-kopioon (collectionGroup('sisainen').where('seuraId','==',sid)) — talenttiTaso/vastuuhenkilo sisäisestä kopiosta (PR 2d: talenttiOhjelma = C → pelaajadokumentin arvo pysyy) */
+    const sis = { id: 'tiedot', ref: { parent: { parent: { id: 'p1' } } }, data: () => ({ seuraId: 's', talenttiOhjelma: true, talenttiTaso: 'perus', vastuuhenkilo: { uid: 'v1', rooli: 'valmentaja' } }) };
     const cg = (fail) => () => ({ where: () => ({ get: async () => { if (fail) throw Object.assign(new Error('pd'), { code: 'permission-denied' }); return { forEach: (f) => [sis].forEach(f) }; } }) });
-    const db = { collectionGroup: cg(false), collection: () => ({ doc: () => ({ get: async () => ({ exists: true, data: () => ({ liput: { klippi_oma_video: true } }) }), collection: (c) => ({ get: async () => { kutsut.push(c); return { docs: c === 'ryhmat' ? [dok(R(), 'r1')] : [dok({ etunimi: 'A', talenttiOhjelma: false }, 'p1')] }; } }) }) }) };
-    expect(await K.tmKrLataa(db, 's')).toMatchObject({ lippu: true, ryhmat: [{ id: 'r1' }], pelaajat: [{ id: 'p1', talenttiOhjelma: true, vastuuhenkilo: { uid: 'v1' } }] }); expect(kutsut).toEqual(['ryhmat', 'pelaajat']);
+    const db = { collectionGroup: cg(false), collection: () => ({ doc: () => ({ get: async () => ({ exists: true, data: () => ({ liput: { klippi_oma_video: true } }) }), collection: (c) => ({ get: async () => { kutsut.push(c); return { docs: c === 'ryhmat' ? [dok(R(), 'r1')] : [dok({ etunimi: 'A', talenttiOhjelma: true, talenttiTaso: null }, 'p1')] }; } }) }) }) };
+    expect(await K.tmKrLataa(db, 's')).toMatchObject({ lippu: true, ryhmat: [{ id: 'r1' }], pelaajat: [{ id: 'p1', talenttiOhjelma: true, talenttiTaso: 'perus', vastuuhenkilo: { uid: 'v1' } }] }); expect(kutsut).toEqual(['ryhmat', 'pelaajat']);
     const r2 = await K.tmKrLataa(Object.assign({}, db, { collectionGroup: cg(true) }), 's');   // sisainen-latausvirhe → ei ryhmiä (väärä jäsenlista/vastaanottaja ei synny hiljaa), syy palautetaan
     expect(r2).toEqual({ ryhmat: [], lippu: true, pelaajat: [], virhe: 'permission-denied' });
     const tyhja = { collection: () => ({ doc: () => ({ get: async () => ({ exists: true, data: () => ({}) }), collection: () => ({ get: async () => ({ docs: [] }) }) }) }) }; kutsut.length = 0;

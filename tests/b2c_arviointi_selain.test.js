@@ -44,7 +44,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('B2c · Jakson
       const b = await p.evaluate(() => window.__batch[0]); expect(b).toHaveLength(3);   // sisainen/tiedot dual-write samassa batchissa (#1144–#1147)
       expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0);
       const upd = b.find((o) => o.path === 'seurat/demo/pelaajat/p2'), set = b.find((o) => /\/reviewit\//.test(o.path)), sis = b.find((o) => SISAINEN.test(o.path));
-      expect(upd.update).toBeDefined(); expect(Object.keys(upd.update).sort()).toEqual(['jaksofokus', 'jaksofokus_historia', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi']);
+      expect(upd.update).toBeDefined(); expect(Object.keys(upd.update).sort()).toEqual(['jaksofokus', 'jaksofokus_historia']);   // PR 2d: review_viimeisin_* (A) VAIN sisainen:iin
+      expect(JSON.stringify(upd.update.jaksofokus)).not.toMatch(/osa_havainnot/);   // jaksofokuksen A-osat eivät pelaajalle
       const rivi = upd.update.jaksofokus_historia.__arrayUnion[0]; expect(rivi).toMatchObject({ konsepti_avain: 'y_h1', sulkutapa: 'suljettu', lause: 'Katsoi ylös ennen vastaanottoa.' }); expect(rivi.havainnot_vk).toEqual(VK);
       expect(set.path).toMatch(/^seurat\/demo\/pelaajat\/p2\/reviewit\/\d{4}-\d{2}-\d{2}$/); expect(set.set.kevyt).toEqual({ nakyi: 'itsenaisesti', treeni: 'usein', mukana: 'hyvin' }); expect(set.opts).toEqual({ merge: true });
       expect(sis.path).toBe('seurat/demo/pelaajat/p2/sisainen/tiedot'); expect(Object.keys(sis.set).sort()).toEqual(['historia_sisainen', 'jaksofokus_sisainen', 'paivitetty', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi', 'seuraId']);

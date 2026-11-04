@@ -1,9 +1,11 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.75
+// TalentMaster™ — firestore.rules v3.76
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.75 → v3.76 (Vaihe 1 · PR 2d, LAAJENTAA kapeasti): testivastaavan sisainen/tiedot-avaimiin `biologinenIka_viimeisin` (Testaus_v9 kasvumittaus kirjoittaa sen samaan batchiin muiden kypsyysavainten kanssa; pelaajalle jää B-muoto) — deploy ENNEN 2d:n klienttejä.
 //
 // Muutokset v3.74 → v3.75 (PM 3.11.2026, KIRISTÄÄ: yksikään client-polku ei kirjoita kenttää): seurat/{sid}/joukkueet/{jid}.`demo` (bool) mukaan laskutusAvaimet():iin → create/update/poisto VAIN SA.
 //   Johto ei aseta luonnissa eikä muuta/poista päivityksessä; valmentajan haara oli jo hasOnly(jakso/pelimuodot). Peruste: demo-joukkue ohittaa laskennan (L1a) ja passiivisen eston (L1c).
@@ -799,8 +801,8 @@ service cloud.firestore {
     /* v3.70 (PR 1e-1): kapeat lisäkirjoittajat — testivastaava (kypsyys_sisainen: kasvumittaus) ja johto (tuojaUid). avaimet kuten yllä (create: keys(); update: affectedKeys()). */
     function sisainenTestivastaavaKelpaa(seuraId, avaimet) {
       return onTestivastaava(seuraId)
-          && avaimet.hasOnly(['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma', 'seuraId', 'paivitetty'])
-          && avaimet.hasAny(['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma']);   // hasAny: tyhjä muutosjoukko (no-op-merge) ei oikeuta
+          && avaimet.hasOnly(['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma', 'biologinenIka_viimeisin', 'seuraId', 'paivitetty'])   // v3.76: + biologinenIka_viimeisin (PR 2d)
+          && avaimet.hasAny(['kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma', 'biologinenIka_viimeisin']);   // hasAny: tyhjä muutosjoukko (no-op-merge) ei oikeuta
     }
     function sisainenTuojaKelpaa(seuraId, avaimet) {
       return onOmaSeura(seuraId) && onJohtoRooli() && avaimet.hasOnly(['tuojaUid', 'seuraId', 'paivitetty']) && avaimet.hasAny(['tuojaUid']);

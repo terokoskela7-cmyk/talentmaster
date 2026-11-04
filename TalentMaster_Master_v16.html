@@ -6560,8 +6560,8 @@ async function _mKirjoitaJaksofokus(p, v, pid, extra) {
   var upd = Object.assign({ jaksofokus: v.jaksofokus }, extra || {});   // extra: K3 — vanha ydinvahvuus_valinta pois samassa updatessa
   if (rivit.length) upd.jaksofokus_historia = firebase.firestore.FieldValue.arrayUnion.apply(null, rivit);
   /* PR 1b-3: jakson elinkaari kulkee tm_sisainen.js:n tmJaksofokusElinkaariKirjoita:n kautta → A-osat dual-write sisainen/tiedot:iin kun lippu on päällä (oletus pois = täsmälleen kuten ennen: yksi update()); lib puuttuu → vanha polku. */
-  if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(_db, _seuraId, pid || p.id, upd, { jaksofokus: v.jaksofokus, historiaLisays: rivit }, { FV: firebase.firestore.FieldValue });
-  else await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid || p.id).update(upd);
+  await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(_db, _seuraId, pid || p.id, upd, { jaksofokus: v.jaksofokus, historiaLisays: rivit }, { FV: firebase.firestore.FieldValue });
+  /* PR 2d: fail-closed — ei raakaa varapolkua (lib puuttuu → virhe näkyy). */
   if (rivit.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(rivit);   // lokaali vasta onnistumisen jälkeen
 }
 window._ttVieTreeniin = async function (pid, avain) {
@@ -6934,8 +6934,8 @@ async function _kvkKirjoita(p, plan, pid) {   // YKSI batch: pelaajadokki + revi
   if (plan.poistaValinta) upd.ydinvahvuus_valinta = FV.delete();
   if (plan.pikakentat) Object.assign(upd, plan.pikakentat);   // K1d: jakson yhteenveto nollaa rytmin (review_viimeisin_*) samassa update():ssa
   const taydenna = function (batch) { if (plan.reviewitData) batch.set(ref.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true }); };
-  if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(_db, _seuraId, pid || p.id, upd, { jaksofokus: plan.jaksofokus, historiaLisays: rivit }, { FV: FV, taydenna: taydenna });   // PR 1b-3: sama batch myös sisainen/tiedot:ille (lippu päällä; oletus pois = kuten ennen)
-  else { const batch = _db.batch(); batch.update(ref, upd); taydenna(batch); await batch.commit(); }
+  await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(_db, _seuraId, pid || p.id, upd, { jaksofokus: plan.jaksofokus, historiaLisays: rivit }, { FV: FV, taydenna: taydenna });   // PR 1b-3: sama batch myös sisainen/tiedot:ille (lippu päällä; oletus pois = kuten ennen)
+  /* PR 2d: fail-closed — ei raakaa varapolkua (lib puuttuu → virhe näkyy). */
   if (plan.pikakentat) Object.assign(p, plan.pikakentat);
   if (rivit.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(rivit);   // lokaali vasta onnistumisen jälkeen
   p.jaksofokus = plan.jaksofokus; if (plan.poistaValinta) delete p.ydinvahvuus_valinta;
@@ -7807,8 +7807,8 @@ async function _mIdpTallennaDok(p, viesti) {
     }); };
     if (_IPD) await _IPD.tmIdpPelaajaVarapolulla({}, _ajaTx); else await _ajaTx(false);
     const _idpUpd = { idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_lahde: pk.idp_lahde || null };
-    if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmHenkilokuntaKirjoita === 'function') await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, p.id, _idpUpd, { pelaajaSet: true });   // PR 1c-3: idp_edistyma/_lahde/_viim_review dual-write (lippu pois = set-merge kuten ennen)
-    else await ref.set(_idpUpd, { merge: true });
+    await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, p.id, _idpUpd, { pelaajaSet: true });   // PR 1c-3: idp_edistyma/_lahde/_viim_review dual-write (lippu pois = set-merge kuten ennen)
+    /* PR 2d: fail-closed — ei raakaa varapolkua (lib puuttuu → virhe näkyy). */
     _asetaPikakentat();
     /* Ankkuri seuraa kirjoitettua dokkia → seuraavat tallennukset osuvat samaan eikä A3:n luku toistu.
        VAIN voimassa olevalle: jos valmentaja tallentaa C:n EHDOTUKSENA, tavoite-ankkurin on jäätävä vanhaan
@@ -8021,8 +8021,8 @@ async function _mAjKirjoitaJakso(p, tulos, vh, opts) {
     await _mTuoreToken(firebase.auth().currentUser);
     const _ajUpd = AJ.tmAloitaJaksoKirjoitus(v, tulos, vh, { arrayUnion: function () { return firebase.firestore.FieldValue.arrayUnion.apply(null, arguments); } });
     /* PR 1c-3: jakson aloitus (jaksofokus + vastuuhenkilo) tm_sisainen.js:n elinkaarihelperin kautta (aiemmin suora update → sisainen ei seurannut lippu päällä); lippu pois = yksi update() kuten ennen. */
-    if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita === 'function') await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(_db, _seuraId, p.id, _ajUpd, { jaksofokus: v.jaksofokus, historiaLisays: v.historiaLisays || [] }, { FV: firebase.firestore.FieldValue });
-    else await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).update(_ajUpd);
+    await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(_db, _seuraId, p.id, _ajUpd, { jaksofokus: v.jaksofokus, historiaLisays: v.historiaLisays || [] }, { FV: firebase.firestore.FieldValue });
+    /* PR 2d: fail-closed — ei raakaa varapolkua (lib puuttuu → virhe näkyy). */
     paivita();   // paikallinen tila vasta onnistumisen jälkeen
     ilmoita(masterT('Jakso aloitettu') + ' ✓', 'ok'); return { ok: true };
   } catch (e) { console.warn('[aloitaJakso]', e && e.message); ilmoita(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), e), 'error'); return { ok: false, syy: (e && e.code === 'permission-denied') ? masterT('ei oikeutta') : masterT('tallennus epäonnistui') }; }
@@ -8223,8 +8223,8 @@ window._mAsetaVastuuhenkilo = async function (pid, arvo) {
   try {
     await _mTuoreToken(firebase.auth().currentUser);
     const _vhUpd = { vastuuhenkilo: plan.kirjoitus.vastuuhenkilo === L.POISTA ? firebase.firestore.FieldValue.delete() : plan.kirjoitus.vastuuhenkilo };
-    if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmHenkilokuntaKirjoita === 'function') await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, pid, _vhUpd, {});   // PR 1c-3: dual-write sisainen/tiedot:iin kun RYHMAT.henkilokunta.kirjoitus päällä (oletus pois = yksi update() kuten ennen)
-    else await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(_vhUpd);
+    await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, pid, _vhUpd, {});   // PR 1c-3: dual-write sisainen/tiedot:iin kun RYHMAT.henkilokunta.kirjoitus päällä (oletus pois = yksi update() kuten ennen)
+    /* PR 2d: fail-closed — ei raakaa varapolkua (lib puuttuu → virhe näkyy). */
     paivita();   // paikallinen tila vasta onnistumisen jälkeen
     if (typeof toast === 'function') toast(masterT('Vastuuhenkilö tallennettu') + ' ✓', 'ok');
   } catch (e) { console.warn('[mVastuuhenkilo]', e && e.message); if (typeof toast === 'function') toast(masterT('Vastuuhenkilön asetus epäonnistui'), 'error'); if (typeof _mIdpReRender === 'function') _mIdpReRender(); }
@@ -8474,13 +8474,8 @@ window._mIdpTallennaReview = async function (pid) {
     if (!(_demo || !_seuraId || typeof _db === 'undefined' || !_db)) {   // demo: vain paikallinen tila
       const pRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
       const _reviewitOp = function (b) { b.set(pRef.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true }); };
-      if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmHenkilokuntaKirjoita === 'function') await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, p.id, plan.pikakentat, { pelaajaSet: true, taydenna: _reviewitOp });   // PR 1c-3: review_viimeisin_* dual-write samassa batchissa (lippu pois = sama batch kuin ennen)
-      else {
-        const b = _db.batch();
-        _reviewitOp(b);
-        if (Object.keys(plan.pikakentat).length) b.set(pRef, plan.pikakentat, { merge: true });
-        await b.commit();
-      }
+      await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, p.id, plan.pikakentat, { pelaajaSet: true, taydenna: _reviewitOp });   // PR 1c-3: review_viimeisin_* dual-write samassa batchissa (lippu pois = sama batch kuin ennen)
+      /* PR 2d: fail-closed — ei raakaa varapolkua (lib puuttuu → virhe näkyy; raaka kirjoitus veisi A-kentät pelaajadokumenttiin). */
     }
     Object.assign(p, plan.pikakentat);   // paikallinen tila VASTA onnistumisen jälkeen
   } catch (e) { console.warn('[mIdpTallennaReview rytmi]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); }
@@ -11009,11 +11004,11 @@ function drillDo(label) {
    synkassa. Tämä helper jää Master-puolen mahdollista käyttöä varten.
    Älä riko olemassa olevaa ADAR-kirjauslogiikkaa — tämä vain päivittää pikakentät.
 ════════════════════════════════════════════════════════════ */
-/* PR 1e-3b (S4): adar_*-pikakenttien kirjoitus — pelaajadokumentti set-mergenä kuten ennen + sisainen/tiedot-kopio (tm_sisainen.js; lippu RYHMAT.s4.kirjoitus pois → täsmälleen vanha set-merge, ei sisainen-kirjoitusta).
-   Lippu päällä: YKSI batch (pelaaja + sisainen); permission-denied (Rules v3.70 ei käytössä) → vanha kenttä ilman sisainen:iä + varoitus. Raakapisteet (havainto_porras_hist) vain sisainen-puolelle (tmAdarS4Valmista). */
+/* PR 1e-3b / 2d (S4): adar_*-pikakentät VAIN sisainen/tiedot:iin (tm_sisainen.js riisuu pelaajadokumentin osan); pelaajalle porrasehdotus ilman raakapisteitä (hist_n).
+   YKSI batch; virhe → kutsujalle (ei permission-denied-varapolkua). Raakapisteet (havainto_porras_hist) vain sisainen-puolelle (tmAdarS4Valmista). */
 function _adarS4Kirjoita(pelaajaId, kentat) {
   const S4 = window.TM_SISAINEN;
-  if (!S4 || typeof S4.tmS4Kirjoita !== 'function') return _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).set(kentat, { merge: true });
+  if (!S4 || typeof S4.tmS4Kirjoita !== 'function') return Promise.reject(new Error('TM_SISAINEN_PUUTTUU'));   // PR 2d: fail-closed (raaka set veisi adar_* pelaajadokumenttiin)
   const v = S4.tmAdarS4Valmista(kentat);
   return S4.tmS4Kirjoita(_db, _seuraId, pelaajaId, v.upd, { pelaajaSet: true, lisa: v.lisa || undefined });
 }
@@ -11095,8 +11090,8 @@ window._ehdotaTalentti = async function (pid) {
   try {
     const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     const _teUpd = { talentti_ehdotus: { lahde: 'ristiinarvio', pvm: new Date().toISOString(), ehdottaja_uid: _uid || null, ehdottaja_rooli: _rooli || null } };
-    if (window.TM_SISAINEN && typeof window.TM_SISAINEN.tmHenkilokuntaKirjoita === 'function') await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, pid, _teUpd, { pelaajaSet: true });   // PR 1c-3: dual-write (lippu pois = set-merge kuten ennen)
-    else await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set(_teUpd, { merge: true });
+    await window.TM_SISAINEN.tmHenkilokuntaKirjoita(_db, _seuraId, pid, _teUpd, { pelaajaSet: true });   // PR 1c-3: dual-write (lippu pois = set-merge kuten ennen)
+    /* PR 2d: fail-closed — ei raakaa varapolkua (lib puuttuu → virhe näkyy). */
     if (typeof toast === 'function') toast(masterT('💎 Talenttiehdotus lähetetty VP:lle'), 'ok');
   } catch (e) {
     // §silent-failure: näytä virhe, älä niele (kirjoitusoikeus voi puuttua muun joukkueen pelaajaan).

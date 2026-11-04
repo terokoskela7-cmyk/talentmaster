@@ -37,15 +37,15 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K4b · Kehity
         await p.locator('[data-kes-tallenna]').click({ force: true }); expect(await p.locator('#toast-wrap').innerText()).toContain('Kirjoita sovitut asiat');   // aria-disabled-nappi on silti painettavissa → selkeä ohje expect((await BATCH(p)).length).toBe(0);
         await p.locator('#kesSovitut').fill('Sovittiin ylimääräinen ensiaskelharjoitus tiistaisin. Seuraavaksi puhutaan vanhempien kanssa.'); await p.locator('[data-kes-kausi-valinta="pidetaan"]').click();
         await p.locator('[data-kes-tallenna]').click(); await p.waitForSelector('[data-ts-sheet^="keskustelu_"]', { state: 'detached', timeout: 5000 });
-        const b = await BATCH(p); expect(b).toHaveLength(1); expect(b[0]).toHaveLength(3);   // sisainen/tiedot dual-write samassa batchissa (#1144–#1147)
+        const b = await BATCH(p); expect(b).toHaveLength(1); expect(b[0]).toHaveLength(2);   // PR 2d: reviewit + sisainen/tiedot samassa batchissa; review_viimeisin_* (A) EI pelaajadokkiin → pelaajaop puuttuu
         expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0);
         const rev = b[0].find((o) => /\/reviewit\/2026-10-19$/.test(o.path)), pel = b[0].find((o) => o.path === 'seurat/demo/pelaajat/p2'), st = b[0].find((o) => SISAINEN.test(o.path));
         expect(st.path).toBe('seurat/demo/pelaajat/p2/sisainen/tiedot'); expect(Object.keys(st.set).sort()).toEqual(['paivitetty', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi', 'seuraId']); expect([...st.opts.mergeFields].sort()).toEqual(['paivitetty', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi', 'seuraId']);
-        expect(st.set).toMatchObject({ review_viimeisin_pvm: '2026-10-19', review_viimeisin_tyyppi: 'kehityskeskustelu' }); expect(JSON.stringify(pel.set)).not.toContain('Sovittiin');   // sovitut vain reviewit-dokkiin
+        expect(st.set).toMatchObject({ review_viimeisin_pvm: '2026-10-19', review_viimeisin_tyyppi: 'kehityskeskustelu' }); expect(pel).toBeUndefined(); expect(JSON.stringify(st.set)).not.toContain('Sovittiin');   // sovitut vain reviewit-dokkiin; PR 2d: ei pelaajadokin kirjoitusta
         expect(rev.opts).toEqual({ merge: true });
         expect(Object.keys(rev.set).sort()).toEqual(['kk_kausitavoite', 'kk_tallennettu', 'kk_tekija_rooli', 'kk_tekija_uid', 'pvm', 'sovitut_sisainen', 'tyyppi']);   // eri kentät kuin jakson yhteenvedolla (lause_sisainen/kevyt) → merge ei ylikirjoita
         expect(rev.set).toMatchObject({ tyyppi: 'kehityskeskustelu', kk_tekija_uid: 'u1', kk_tekija_rooli: rooli, kk_kausitavoite: 'pidetaan', sovitut_sisainen: { teksti: 'Sovittiin ylimääräinen ensiaskelharjoitus tiistaisin. Seuraavaksi puhutaan vanhempien kanssa.', lahde: rooli === 'vp' ? 'vp' : 'valmentaja', uid: 'u1' } });
-        expect(pel.set).toEqual({ review_viimeisin_pvm: '2026-10-19', review_viimeisin_tyyppi: 'kehityskeskustelu' }); expect(pel.opts).toEqual({ merge: true });
+        expect(b[0].map((o) => o.path).sort()).toEqual(['seurat/demo/pelaajat/p2/reviewit/2026-10-19', 'seurat/demo/pelaajat/p2/sisainen/tiedot']);   // PR 2d: rytmi (review_viimeisin_*) VAIN sisainen:iin
         expect(await p.locator('#toast-wrap').innerText()).toMatch(/Kehityskeskustelu kirjattu ✓/);
         expect(await p.locator('[data-kt-h-keskustelu]').count()).toBe(1);   // Historia heti, ei latausta
         const rivi = await p.locator('[data-kt-h-keskustelu]').innerText(); expect(rivi).toContain('Kehityskeskustelu 19.10.'); expect(rivi).toContain('Sovittiin ylimääräinen'); expect(rivi).toContain(rooli === 'vp' ? '” – VP' : '” – valmentaja'); expect(rivi.toLowerCase()).toContain('sisäinen');

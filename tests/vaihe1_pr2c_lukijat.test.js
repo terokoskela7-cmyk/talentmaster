@@ -34,10 +34,10 @@ function master({ raaka, sisainen, sisVirhe = false, lista, eiLibia = false }) {
 describe('R4 Master _pikakorttiLataaPelaaja (ajo)', () => {
   it('sisainen/tiedot yhdistetään, PHV normalisoidaan, terveys säilyy listan arvona, oikea pelaaja piirretään', async () => {
     const lista = [{ id: 'muu', etunimi: 'Muu' }, { id: PID, etunimi: 'Topias', kaytettavyys: 'loukkaantunut', adar_arvioijia: 1 }];
-    const m = master({ lista, raaka: { etunimi: 'Topias', phv_tila: 'AN', kaytettavyys: 'aktiivinen', adar_arvioijia: 1 }, sisainen: { seuraId: 'kpv', adar_arvioijia: 3, talenttiOhjelma: true } });
+    const m = master({ lista, raaka: { etunimi: 'Topias', phv_tila: 'AN', kaytettavyys: 'aktiivinen', adar_arvioijia: 1 }, sisainen: { seuraId: 'kpv', adar_arvioijia: 3, talenttiTaso: 'perus', talenttiOhjelma: true } });   // PR 2d: talenttiOhjelma = C (pelaajadokumentti voittaa), talenttiTaso = A
     await m.aja();
     const p = m.ctx._pelaajatData[1];
-    expect(p).toMatchObject({ etunimi: 'Topias', adar_arvioijia: 3, talenttiOhjelma: true, kaytettavyys: 'loukkaantunut' });
+    expect(p).toMatchObject({ etunimi: 'Topias', adar_arvioijia: 3, talenttiTaso: 'perus', kaytettavyys: 'loukkaantunut' }); expect(p.talenttiOhjelma).toBeUndefined();
     expect(p.phv_tila).toBe(PHV.tmPhvKoodi({ phv_tila: 'AN' })); expect(p.phv_tila).not.toBe('AN');
     expect(m.piirretty).toHaveLength(1); expect(m.piirretty[0].id).toBe(PID); expect(m.toastit).toEqual([]);
   });

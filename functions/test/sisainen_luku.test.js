@@ -56,16 +56,15 @@ const lippu = (hk, js) => { HK.kirjoitus = !!hk; JS.kirjoitus = !!js; S.RYHMAT.s
 function alusta() { STORE.clear(); KIRJOITUKSET.length = 0; LUVUT = { cg: 0, sisainenDoc: 0 }; CG_VIRHE = false; lippu(false, false); }
 afterEach(() => lippu(false, false));
 
-test('liputPaalla: kaikki pois → pois; kumpi tahansa lippu (henkilokunta tai jaksofokus) → päällä; ryhmat-parametri ohittaa', () => {
-  lippu(false, false); assert.strictEqual(L.liputPaalla(), false); lippu(true, false); assert.strictEqual(L.liputPaalla(), true); lippu(false, true); assert.strictEqual(L.liputPaalla(), true);
-  lippu(false, false); assert.strictEqual(L.liputPaalla({ henkilokunta: { kirjoitus: true } }), true);
+test('PR 2d: liputPaalla on aina päällä (lippuriippuvuus poistettu; A-kentät ovat vain sisainen:ssä)', () => {
+  lippu(false, false); assert.strictEqual(L.liputPaalla(), true); lippu(true, true); assert.strictEqual(L.liputPaalla(), true);
 });
 
-test('lippu POIS: yhdistaLista / yhdistaYksi eivät lue mitään (ei collectionGroup-, ei dokumenttilukua) ja palauttavat datan sellaisenaan', async () => {
+test('PR 2d: vanhat lippuarvot pois → yhdistaLista / yhdistaYksi lukevat silti sisainen:in (sisainen voittaa)', async () => {
   alusta(); STORE.set(`seurat/${SID}/pelaajat/${PID}/sisainen/tiedot`, { seuraId: SID, review_viimeisin_pvm: '2026-11-01' });
-  const rivit = [{ id: PID, data: { review_viimeisin_pvm: '2020-01-01' } }];
-  assert.strictEqual(await L.yhdistaLista(fakeDb, SID, rivit), rivit); const d = { vastuuhenkilo: { uid: 'a' } }; assert.strictEqual(await L.yhdistaYksi(fakeDb, SID, PID, d), d);
-  assert.deepStrictEqual(LUVUT, { cg: 0, sisainenDoc: 0 });
+  const r = await L.yhdistaLista(fakeDb, SID, [{ id: PID, data: { review_viimeisin_pvm: '2020-01-01' } }]); assert.strictEqual(r[0].data.review_viimeisin_pvm, '2026-11-01');
+  const y = await L.yhdistaYksi(fakeDb, SID, PID, {}); assert.strictEqual(y.review_viimeisin_pvm, '2026-11-01');
+  assert.deepStrictEqual(LUVUT, { cg: 1, sisainenDoc: 1 });
 });
 
 test('lippu PÄÄLLÄ: lista = YKSI collectionGroup-kysely, sisainen voittaa, puuttuva sisainen → vanha kenttä; yksittäinen = yksi dokumenttiluku', async () => {
@@ -91,11 +90,9 @@ function valintaAlusta() {
 }
 const syyt = () => lapset(`seurat/${SID}/viestit`).map((k) => STORE.get(k).syy).sort();
 
-test('notifValintaOdottaa: vastuuhenkilö vain sisainen:ssä → lippu päällä viesti hänelle (syy vastuuhenkilo), lippu pois ei (joukkue-reitti)', async () => {
+test('notifValintaOdottaa: vastuuhenkilö vain sisainen:ssä → viesti hänelle (syy vastuuhenkilo) — PR 2d: lipusta riippumatta', async () => {
   const vh = { uid: 'valm-u13', rooli: 'valmentaja', asetettu_pvm: '2026-10-05' };
   valintaAlusta(); STORE.set(`seurat/${SID}/pelaajat/${PID}/sisainen/tiedot`, { seuraId: SID, vastuuhenkilo: vh });
-  await valintaAja(PELAAJA(), PELAAJA({ ydinvahvuus_valinta: VALINTA })); assert.deepStrictEqual(syyt(), ['joukkue', 'johto', 'johto'].sort()); assert.strictEqual(LUVUT.sisainenDoc, 0);
-  valintaAlusta(); lippu(true, false); STORE.set(`seurat/${SID}/pelaajat/${PID}/sisainen/tiedot`, { seuraId: SID, vastuuhenkilo: vh });
   await valintaAja(PELAAJA(), PELAAJA({ ydinvahvuus_valinta: VALINTA })); assert.deepStrictEqual(syyt(), ['johto', 'johto', 'vastuuhenkilo']); assert.strictEqual(LUVUT.sisainenDoc, 1);
 });
 
@@ -112,9 +109,9 @@ function rytmiAlusta() {
 const notifit = () => lapset(`seurat/${SID}/kayttajat/vp1/notifikaatiot`).map((k) => STORE.get(k));
 const tanaan = () => new Date().toISOString().slice(0, 10);
 
-test('notifReviewEraantyy: lippu POIS → vanha review_viimeisin_pvm (myöhässä) → notif; EI collectionGroup-lukua', async () => {
+test('PR 2d: notifReviewEraantyy lukee sisainen:in lippuarvosta riippumatta → tuore sisainen-pvm voittaa → ei notifia', async () => {
   rytmiAlusta(); STORE.set(`seurat/${SID}/pelaajat/${PID}/sisainen/tiedot`, { seuraId: SID, review_viimeisin_pvm: tanaan(), review_viimeisin_tyyppi: 'kehityskeskustelu' });
-  await fns.notifReviewEraantyy.run(); assert.strictEqual(notifit().length, 1); assert.strictEqual(LUVUT.cg, 0);
+  await fns.notifReviewEraantyy.run(); assert.strictEqual(notifit().length, 0); assert.strictEqual(LUVUT.cg, 1);
 });
 
 test('notifReviewEraantyy: lippu PÄÄLLÄ → tuore review_viimeisin_pvm sisainen:stä voittaa → ei notifia; sisainen puuttuu → vanha kenttä → notif; yksi collectionGroup-kysely per seura', async () => {

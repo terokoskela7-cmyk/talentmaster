@@ -3,19 +3,28 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-require('../lib/tm_sisainen.js').RYHMAT.jaksofokus_sisainen.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_jaksofokus_kirjoitus.test.js
+/* PR 2d: osa_havainnot / osa_havainnot_vk ovat A-osia → VAIN sisainen/tiedot.jaksofokus_sisainen (tmJaksofokusKirjoita: YKSI batch, pelaajadokumenttiin vain B-polut).
+   Tynkä kokoaa kirjoituksesta loogisen pistepolkunäkymän (`kirj`, kuten ennen) ja pitää pelaajadokumentin osan erikseen (`pel`) — portti: pelaajalle ei A-polkuja. */
+const _litista = (o, pre, ulos) => { Object.keys(o).forEach((k) => { const v = o[k], q = pre + '.' + k; if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length && !Object.keys(v).some((x) => x.indexOf('__') === 0)) _litista(v, q, ulos); else ulos[q] = v; }); return ulos; };
+function jfDb(kirj, pel) {
+  const ref = { update: async (u) => { kirj.push(u); pel.push(u); }, collection: () => ({ doc: () => ({}) }) };
+  return { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ref }) }) }),
+    batch: () => { let u = null, sd = null; return { update: (r, d) => { u = d; }, set: (r, d) => { sd = d; }, commit: async () => { const y = Object.assign({}, u || {}); if (sd && sd.jaksofokus_sisainen) _litista(sd.jaksofokus_sisainen, 'jaksofokus', y); kirj.push(y); pel.push(u || {}); } }; } };
+}
+const eiAPelaajalle = (pel) => pel.forEach((u) => Object.keys(u).forEach((k) => { if (/^jaksofokus\.osa_havainnot/.test(k)) expect(u[k], k).toBe('DEL'); }));   // vain poisto saa mennä pelaajalle
 const KT = require('../lib/tm_kehitystyopoyta.js'), KS = require('../lib/tm_kehityssilmukka.js'), JK = require('../lib/tm_jaksokooste.js');
 const JF = { konsepti_avain: 'kons', konsepti_nimi: 'Kons', alkoi: '2026-10-05T08:00:00', kesto_vk: 6, osa_havainnot: {}, osa_arviot: {} };
 function mk(jf, uid, pvm) {
-  const kirj = []; let kumoa = null; const p = { id: 'p1', jaksofokus: JSON.parse(JSON.stringify(jf)) };
-  const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ update: async (u) => { kirj.push(u); } }) }) }) }) };
+  const kirj = [], pel = []; let kumoa = null; const p = { id: 'p1', jaksofokus: JSON.parse(JSON.stringify(jf)) };
+  const db = jfDb(kirj, pel);
   const d = { db, sid: 's', auth: () => ({ uid, getIdToken: async () => 't', getIdTokenResult: async () => ({ claims: { rooli: 'valmentaja' } }) }), KS, rooli: 'valmentaja', uid, nyt: () => pvm, eiToastia: true, poista: 'DEL', kumoaFn: (f) => { kumoa = f; }, nayta: () => {}, t: (k) => k };
-  return { p, d, kirj, kumoa: () => kumoa };
+  return { p, d, kirj, pel, kumoa: () => kumoa };
 }
 const vkAvaimet = (u) => Object.keys(u).filter((k) => /osa_havainnot_vk/.test(k)).sort();
 describe('B2c · viikkohistoria: kirjoitus', () => {
   it('napautus kirjoittaa viikkoavaimen alle {arvo, pvm, rooli} (ei lausetta); viikkonumero = ISO-viikko (ma 19.10.2026 = 2026-W43)', async () => {
     const a = mk(JF, 'u1', new Date(2026, 9, 19)); expect(await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 2)).toBe(true);
+    eiAPelaajalle(a.pel); expect(Object.keys(a.pel[0]).filter((k) => /osa_havainnot/.test(k))).toEqual([]);   // PR 2d: viikkohistoria VAIN sisainen:iin
     expect(vkAvaimet(a.kirj[0])).toEqual(['jaksofokus.osa_havainnot_vk.kons.k1.2026-W43.u1.arvo', 'jaksofokus.osa_havainnot_vk.kons.k1.2026-W43.u1.pvm', 'jaksofokus.osa_havainnot_vk.kons.k1.2026-W43.u1.rooli']);
     expect(a.p.jaksofokus.osa_havainnot_vk.kons.k1['2026-W43'].u1).toEqual({ arvo: 2, pvm: '2026-10-19', rooli: 'valmentaja' });
   });
@@ -35,7 +44,7 @@ describe('B2c · viikkohistoria: kirjoitus', () => {
     expect(a.p.jaksofokus.osa_havainnot_vk.kons.k1['2026-W44'].u1.lause).toBeUndefined();
   });
   it('Kumoa palauttaa myös historian: ei aiempaa viikon riviä → rivi poistetaan; aiempi saman viikon rivi → vain kirjoitetut kentät palaavat; muut viikot koskematta', async () => {
-    const a = mk(JF, 'u1', new Date(2026, 9, 19)); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 2); await a.kumoa()();
+    const a = mk(JF, 'u1', new Date(2026, 9, 19)); await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 2); await a.kumoa()(); eiAPelaajalle(a.pel);
     expect(a.kirj[1]['jaksofokus.osa_havainnot_vk.kons.k1.2026-W43.u1']).toBe('DEL'); expect(a.p.jaksofokus.osa_havainnot_vk.kons.k1['2026-W43']).toBeUndefined();
     const b = mk(Object.assign({}, JF, { osa_havainnot_vk: { kons: { k1: { '2026-W42': { u1: { arvo: 3, pvm: '2026-10-14', rooli: 'valmentaja' } }, '2026-W43': { u1: { arvo: 1, pvm: '2026-10-19', rooli: 'valmentaja', lause: 'Vanha' } } } } } }), 'u1', new Date(2026, 9, 21));
     await KT.tmKtTallennaOsaArvio(b.d, b.p, 'kons', 'k1', 3); await b.kumoa()();
