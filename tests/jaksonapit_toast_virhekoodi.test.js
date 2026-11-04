@@ -2,13 +2,12 @@
  * Pieni korjaus-PR (Master_v16 + VP_v25; kaista Tero): (1) toast kaikkien modaalien yläpuolelle, (2) jaksonapit pelaajakortin otsikkoalueelle (lipun takana),
  * (3) tallennusvirheen syy (koodi) toastiin. Funktiot PURETAAN SIVUILTA ja AJETAAN (vm). Chrome-testi (z-index oikeasti ylimpänä) kuten kentta_k0: ohitetaan jos Chromea ei ole / TM_CHROME_TESTS=0.
  */
-import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync, mkdtempSync, writeFileSync } from 'fs';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { readFileSync } from 'fs';
+import { CHROME_KAYTOSSA, kaynnistaSelain, avaaSivu } from './helpers/chrome_ajo.mjs';
 import { createRequire } from 'module';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { tmpdir } from 'os';
-import { spawn } from 'child_process';
 import vm from 'vm';
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,25 +28,25 @@ describe('1 · Toast kaikkien modaalien yläpuolelle', () => {
       expect(kaikki.filter((n) => n >= 300 && n < z).length).toBeGreaterThan(2);   // ei vacuous: modaaleja on
     });
   }
-  const CHROME = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((p) => existsSync(p));
-  const KAYTOSSA = process.env.TM_CHROME_TESTS !== '0';
-  for (const [nimi, src, re] of SOVELLUKSET) {
-    ((CHROME && KAYTOSSA) ? it : it.skip)(nimi + ': headless-Chrome — toast on näkyvin elementti modaalin (z 9600, koko ruutu) päällä: elementFromPoint osuu toastiin', async () => {
-      const css = re.exec(src)[0];
-      const html = '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%}' + css + '#toast.show{transform:translateY(0);opacity:1}</style>'
-        + '<div id="modal" style="position:fixed;inset:0;z-index:9600;background:#222">modaali</div><div id="toast-wrap"><div id="toast-item" style="padding:12px 16px">Tallennus epäonnistui (permission-denied)</div></div><div id="toast" class="show ok" style="min-width:120px;min-height:20px">x</div>'
-        + '<script>var el=document.getElementById(' + JSON.stringify(nimi === 'Master' ? 'toast-item' : 'toast') + '),r=el.getBoundingClientRect(),t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);document.body.setAttribute("data-ylin",t&&t.id);document.body.setAttribute("data-valmis","1");</script>';
-      const polku = join(mkdtempSync(join(tmpdir(), 'tm-toast-')), 'toast.html'); writeFileSync(polku, html);
-      const profiili = mkdtempSync(join(tmpdir(), 'tm-chrome-'));
-      const out = await new Promise((resolve, reject) => {
-        const lapsi = spawn(CHROME, ['--headless=new', '--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--user-data-dir=' + profiili, '--window-size=800,600', '--virtual-time-budget=1500', '--dump-dom', pathToFileURL(polku).href], { stdio: ['ignore', 'pipe', 'ignore'] });
-        let data = '', valmis = false; const lopeta = (fn) => { if (valmis) return; valmis = true; clearTimeout(ajastin); try { lapsi.kill('SIGKILL'); } catch (e) { /* päättynyt */ } fn(); };
-        const ajastin = setTimeout(() => lopeta(() => reject(new Error('Chrome ei tuottanut DOM:ia'))), 30000);
-        lapsi.stdout.setEncoding('utf8'); lapsi.stdout.on('data', (d) => { data += d; if (/<\/html>\s*$/i.test(data)) lopeta(() => resolve(data)); }); lapsi.on('close', () => lopeta(() => resolve(data)));
-      });
-      expect(out).toContain('data-valmis="1"'); expect(out).toContain('data-ylin="' + (nimi === 'Master' ? 'toast-item' : 'toast') + '"');
-    }, 60000);
-  }
+  /* Oikea Chrome (Playwright, tests/helpers/chrome_ajo.mjs): yksi selain koko lohkolle; sivu avataan ja toastin keskipiste luetaan elementFromPointilla.
+     Aiempi `--dump-dom --virtual-time-budget` -ajo jäi CI:ssä ajoittain tulostamatta mitään ("Chrome ei tuottanut DOM:ia", main 4.11.2026). */
+  describe.skipIf(!CHROME_KAYTOSSA)('headless-Chrome', () => {
+    let selain;
+    beforeAll(async () => { selain = await kaynnistaSelain(); }, 60000);
+    afterAll(async () => { if (selain) await selain.close(); }, 30000);   // macOS-Chrome sulkeutuu ~10 s
+    for (const [nimi, src, re] of SOVELLUKSET) {
+      it(nimi + ': toast on näkyvin elementti modaalin (z 9600, koko ruutu) päällä: elementFromPoint osuu toastiin', async () => {
+        const css = re.exec(src)[0], kohde = nimi === 'Master' ? 'toast-item' : 'toast';
+        const html = '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%}' + css + '#toast.show{transform:translateY(0);opacity:1}</style>'
+          + '<div id="modal" style="position:fixed;inset:0;z-index:9600;background:#222">modaali</div><div id="toast-wrap"><div id="toast-item" style="padding:12px 16px">Tallennus epäonnistui (permission-denied)</div></div><div id="toast" class="show ok" style="min-width:120px;min-height:20px">x</div>';
+        const s = await avaaSivu(selain, { html }, { odota: '#' + kohde });
+        try {
+          const ylin = await s.p.evaluate((id) => { const r = document.getElementById(id).getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return t && t.id; }, kohde);
+          expect(ylin).toBe(kohde);
+        } finally { await s.sulje(); }
+      }, 60000);
+    }
+  });
 });
 
 describe('3 · tmVirheKoodi — virheen syy toastiin', () => {
