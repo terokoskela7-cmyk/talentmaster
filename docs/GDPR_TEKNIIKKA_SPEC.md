@@ -104,6 +104,16 @@ RTBF kuluttaa = poistaa; export kuluttaa = lukee. **Älä duplikoi enumerointia 
 3. **Audit:** `tyyppi:'gdpr_export'`, `severity:'info'`, lukumäärät.
 4. palauta `{ url, vanhenee, lukumäärät }`.
 
+**Sisältö (PM 4.11.2026, #1178):**
+- **Kaikki alikokoelmat viedään** (art. 15), myös henkilökunnan `vp_muistiinpanot` (myös `naytaPelaajalle: false`) ja `kenttatarkkailut`. Lista = `ALIKOKOELMAT` (§2).
+- **Henkilökunnan tekijätunnisteet → rooli** (art. 15(4), muiden henkilöiden oikeudet): `pseudonymisoiHenkilokunta` (`functions/gdpr_locator.js`) korvaa ennen tallennusta **koko viennistä** (pelaajadokumentti, kaikki alikokoelmat, ristiviitteet, `_meta.viejaUid`):
+  1. arvon, joka on seuran henkilökunnan uid (`kayttajat.rooli`, seuran `vp_uid` → `vp`, `valmentajat` → `valmentaja`, `admins` → `superadmin`), roolilla kentän nimestä riippumatta;
+  2. jokaisen kentän, jonka nimessä on `uid` (esim. `tekija_uid`, `valmentajaUid`, `osallistujat_uid[]`), arvon: tuntematon (esim. poistettu valmentaja, huoltaja) → `muu_kayttaja`;
+  3. edellisten uid:t merkkijonon osana (doc-id `pvm_<uid>`, polku `valmentajat/<uid>/…`) ja olion avaimena.
+  Rekisteröidyn oma tunniste (`pelaajaId`) säilyy. Testi: `tests/gdpr_vienti_pseudonymisointi.test.js`.
+- **Nimet ja vapaateksti eivät pseudonymisoidu automaattisesti.** Muistiinpanoissa, havainnoissa ja palautteissa voi mainita muita pelaajia (tai henkilökunnan nimiä).
+  → **Johto käy viennin läpi ennen luovutusta** rekisteröidylle/huoltajalle ja poistaa tai peittää muita henkilöitä koskevat kohdat (art. 15(4)). Signed URL on voimassa 24 h; lataa, tarkista, luovuta tarkistettu tiedosto.
+
 ---
 
 ## 5. RULES + TESTIT

@@ -319,7 +319,90 @@ function rakennaAuditPayload({ tyyppi, severity, seuraId, pelaajaId, requesterUi
 // huomio tyhjennetään (huomiossa voi olla nimi, vaikka lomake ohjeistaa käyttämään pelaajalinkkiä).
 const OMA_KIRJAUS_PSEUDONYMISOINTI = Object.freeze({ pelaajaId: null, huomio: '' });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Viennin henkilökuntatunnisteet (PM 4.11., art. 15(4)): henkilökunnan uid → rooli KAIKISSA vientiosioissa.
+// Sisältö (muistiinpanot, kenttätarkkailut) jää vientiin (art. 15), mutta kuka sen kirjoitti, näkyy vain roolina.
+// Kolme kerrosta, koska uid-kenttiä on kymmeniä eri nimisiä (tekija_uid, valmentajaUid, luoja_uid, osallistujat_uid …):
+//   1) arvo on seuran tunnetun henkilökunnan uid → sen rooli (kentän nimestä riippumatta)
+//   2) kentän nimessä on "uid" (iso/pieni) → arvo korvataan aina (tuntematon, esim. poistettu valmentaja → 'muu_kayttaja')
+//   3) tunnettu tai kerroksessa 2 löytynyt uid merkkijonon OSANA (doc-id `x_<uid>`, polku valmentajat/<uid>/…) → rooli
+// Myös olion avain, joka on uid, nimetään roolin mukaan. Rekisteröidyn omat tunnisteet (pelaajaId) säilyvät.
+// Vain tavalliset oliot ja taulukot käydään läpi (Firestore Timestamp ym. säilyvät sellaisinaan).
+// ─────────────────────────────────────────────────────────────────────────────
+const TUNTEMATON_ROOLI = 'muu_kayttaja';
+const UID_AVAIN = /uid/i;
+
+function onTavallinenOlio(x) {
+  if (x === null || typeof x !== 'object' || Array.isArray(x)) return false;
+  const p = Object.getPrototypeOf(x);
+  return p === Object.prototype || p === null;
+}
+
+// Seuran henkilökunta: uid → rooli. Lähteet: kayttajat (rooli), seuran vp_uid, valmentajat-dokumentit, admins (SA).
+async function lueHenkilokunnanRoolit(db, seuraId, varoitukset = []) {
+  const roolit = new Map();
+  const aseta = (uid, rooli) => { if (uid && !roolit.has(String(uid))) roolit.set(String(uid), String(rooli || 'henkilokunta')); };
+  const seuraRef = db.collection('seurat').doc(seuraId);
+  try {
+    const snap = await seuraRef.collection('kayttajat').get();
+    (snap.docs || []).forEach((d) => { const x = d.data() || {}; aseta(d.id, x.rooli); });
+  } catch (e) { varoitukset.push('roolit:kayttajat:' + (e && e.message ? e.message : String(e))); }
+  try {
+    const s = await seuraRef.get();
+    const vp = s && s.exists ? (s.data() || {}).vp_uid : null;
+    if (vp) { roolit.delete(String(vp)); aseta(vp, 'vp'); }
+  } catch (e) { varoitukset.push('roolit:seura:' + (e && e.message ? e.message : String(e))); }
+  try {
+    const snap = await seuraRef.collection('valmentajat').get();
+    (snap.docs || []).forEach((d) => aseta(d.id, 'valmentaja'));
+  } catch (e) { varoitukset.push('roolit:valmentajat:' + (e && e.message ? e.message : String(e))); }
+  try {
+    const snap = await db.collection('admins').get();
+    (snap.docs || []).forEach((d) => { roolit.delete(d.id); aseta(d.id, 'superadmin'); });
+  } catch (e) { varoitukset.push('roolit:admins:' + (e && e.message ? e.message : String(e))); }
+  return roolit;
+}
+
+// Puhdas: palauttaa uuden rakenteen, alkuperäistä ei muuteta. roolit: Map uid→rooli · suojatut: rekisteröidyn omat tunnisteet.
+function pseudonymisoiHenkilokunta(data, { roolit = new Map(), suojatut = [] } = {}) {
+  const suoja = new Set(suojatut.filter(Boolean).map(String));
+  const korvaus = new Map();
+  roolit.forEach((r, uid) => { if (!suoja.has(uid)) korvaus.set(uid, r); });
+  // Kerros 2 (kerätään ensin koko rakenteesta, jotta kerros 3 löytää saman uid:n myös doc-id:stä).
+  const keraa = (x, avain) => {
+    if (Array.isArray(x)) { x.forEach((v) => keraa(v, avain)); return; }
+    if (onTavallinenOlio(x)) { Object.keys(x).forEach((k) => keraa(x[k], k)); return; }
+    if (typeof x === 'string' && avain && UID_AVAIN.test(avain) && x && !suoja.has(x) && !korvaus.has(x)) korvaus.set(x, TUNTEMATON_ROOLI);
+  };
+  keraa(data, null);
+  const pituusjarj = [...korvaus.keys()].filter((u) => u.length >= 6).sort((a, b) => b.length - a.length);   // lyhyt arvo (esim. 'x') ei korvaudu osana muuta tekstiä
+  const merkkijono = (x, avain) => {
+    if (korvaus.has(x)) return korvaus.get(x);
+    if (avain && UID_AVAIN.test(avain) && x && !suoja.has(x)) return TUNTEMATON_ROOLI;
+    let y = x;
+    for (const u of pituusjarj) if (y.indexOf(u) >= 0) y = y.split(u).join(korvaus.get(u));
+    return y;
+  };
+  const kay = (x, avain) => {
+    if (Array.isArray(x)) return x.map((v) => kay(v, avain));
+    if (onTavallinenOlio(x)) {
+      const out = {};
+      Object.keys(x).forEach((k) => {
+        let uk = korvaus.has(k) ? korvaus.get(k) : k;
+        if (uk !== k) { let i = 2; const pohja = uk; while (Object.prototype.hasOwnProperty.call(out, uk) || Object.prototype.hasOwnProperty.call(x, uk)) uk = pohja + '_' + (i++); }
+        out[uk] = kay(x[k], k);
+      });
+      return out;
+    }
+    return typeof x === 'string' ? merkkijono(x, avain) : x;
+  };
+  return kay(data, null);
+}
+
 module.exports = {
+  TUNTEMATON_ROOLI,
+  lueHenkilokunnanRoolit,
+  pseudonymisoiHenkilokunta,
   OMA_KIRJAUS_PSEUDONYMISOINTI,
   ALIKOKOELMAT,
   keraaPelaajanManifesti,

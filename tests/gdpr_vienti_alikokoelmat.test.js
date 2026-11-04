@@ -56,7 +56,7 @@ describe('GDPR-vienti: pelaajadokumentin alikokoelmat', () => {
   it('alikokoelman nimi ei törmää viennin muihin avaimiin', () => {
     VIENNIN_MUUT_AVAIMET.forEach((k) => expect(ALIKOKOELMAT, k).not.toContain(k));
     const f = INDEX.slice(INDEX.indexOf('exports.viePelaajanDataGDPR'), INDEX.indexOf('// Toimitus: JSON Storageen'));
-    const vienti = f.slice(f.indexOf('const vienti = {'));
+    const vienti = f.slice(f.indexOf('const vientiRaaka = {'), f.indexOf('const roolit = await'));
     const avaimet = [...vienti.matchAll(/^\s{6}([A-Za-z_]+):/gm)].map((m) => m[1]);
     expect(avaimet.sort()).toEqual([...VIENNIN_MUUT_AVAIMET].sort());   // lista pysyy index.js:n kanssa ajan tasalla
   });

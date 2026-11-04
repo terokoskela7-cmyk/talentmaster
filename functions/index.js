@@ -14,7 +14,7 @@ const admin     = require('firebase-admin');
 const https     = require('https');
 const crypto    = require('crypto');
 const { kayttajaRooliSallittu, kayttajaRooliClaimeista, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
-const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI, ALIKOKOELMAT: GDPR_ALIKOKOELMAT } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
+const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI, ALIKOKOELMAT: GDPR_ALIKOKOELMAT, lueHenkilokunnanRoolit, pseudonymisoiHenkilokunta } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const { rakennaPaivitys } = require('./testipvm_korjaus');   // korjaaJoukkueenTestipvm: *_pvm + *_pvm_arvio poisto
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
@@ -2126,7 +2126,7 @@ exports.viePelaajanDataGDPR = functions
     const soloAli = manifesti.solo
       ? Object.keys(manifesti.solo.alikokoelmat).reduce((o, k) => { o[k] = dataMap(manifesti.solo.alikokoelmat[k]); return o; }, {})
       : null;
-    const vienti = {
+    const vientiRaaka = {
       _meta: { standardi: 'GDPR Art. 20 (koneluettava)', luotu: new Date().toISOString(),
         seuraId, pelaajaId, palloID: manifesti.palloID, viejaUid: context.auth.uid, lukumaarat: manifesti.lukumaarat },
       pelaaja: Object.assign({ _id: manifesti.paaDoc.id }, manifesti.paaDoc.data),
@@ -2140,6 +2140,9 @@ exports.viePelaajanDataGDPR = functions
       solo: manifesti.solo ? Object.assign({ _id: manifesti.solo.id }, manifesti.solo.data, { _alikokoelmat: soloAli }) : null,
       media: manifesti.media,
     };
+    // Art. 15(4) (PM 4.11.): henkilökunnan uid → rooli kaikissa osioissa; sisältö säilyy. Pelaajan oma tunniste säilyy.
+    const roolit = await lueHenkilokunnanRoolit(db, seuraId, manifesti.varoitukset);
+    const vienti = pseudonymisoiHenkilokunta(vientiRaaka, { roolit, suojatut: [pelaajaId] });
 
     // Toimitus: JSON Storageen + signed URL (24 h). Iso data → ei inline.
     const ts    = new Date().toISOString().replace(/[:.]/g, '-');
