@@ -21,6 +21,7 @@ import { dirname, join } from 'path';
 import vm from 'vm';
 import { onkoSuomea, tekstinOsat } from './sv_lapiajo_fi.mjs';
 import { valmisteleFx, fxKonfiguraatio } from './sv_fixtuuri.mjs';
+import { tLiteraalit } from './sv_t_literaalit.mjs';
 
 const TYOKALU = join(dirname(fileURLToPath(import.meta.url)), '..', '..');   // baseline, sallitut: aina tämän työkalun repo
 const arg = (n) => process.argv.includes(n);
@@ -52,6 +53,7 @@ export const SOVELLUKSET = {
     askeleet: [...['koti', 'viikko', 'valmentaja', 'kortti', 'asetukset'].map((n) => ({ nimi: n, js: `go('${n}')` })), { nimi: 'kalendertilaus', js: "go('koti'); _vanhTilausAvaa()" }] },
   fx_master: { tiedosto: 'TalentMaster_Master_v16.html', kysely: '', fx: ['valmentaja'], entry: '0', askeleet: NAV('setWs', ['koti', 'dev', 'inbox', 'pulse', 'season', 'cal']) },
   fx_vp: { tiedosto: 'TalentMaster_VP_v25.html', kysely: '', fx: ['vp'], entry: '0', askeleet: NAV('setWs', ['koti', 'tilanne', 'pelaajat', 'kalenteri', 'jaksofokus']) },
+  fx_vp_lage: { tiedosto: 'TalentMaster_VP_v25.html', kysely: '', fx: ['vp', null, 'lage'], entry: '0', askeleet: NAV('setWs', ['tilanne']).concat([{ nimi: 'tilanne_kaikki', js: "setWs('tilanne'); setTimeout(function () { ['huomiot', 'ehdotukset', 'jaksot'].forEach(function (k) { _vpTilanneAuki(k); }); }, 400)" }]) },   // QG-1c: Läge oikean seuran tiloissa (sv_fixtuuri.mjs dokitLage)
   fx_kehitystyopoyta: { tiedosto: 'TalentMaster_Kehitystyopoyta.html', kysely: '', fx: ['valmentaja'], entry: '0',
     askeleet: [...['tanaan', 'polku', 'profiili'].map((n) => ({ nimi: n, kysely: '#pelaaja/qp1/' + n, js: '0' })), { nimi: 'pelaajaraportti', kysely: '?avaa=raportti#pelaaja/qp1/profiili', js: '0' }, { nimi: 'utan_atagande/polku', kysely: '#pelaaja/qp2/polku', js: '0' }] },
 };
@@ -97,10 +99,17 @@ function keruu() {
 /* ── Fi-korpus ja lähdeindeksi ── */
 /* fi-korpus: avain(fi-teksti) → onko sv-rivi. Lisäksi OSAT: tunnetut fi-merkkijonot (≥ 5 kirjainta, sv ≠ fi), joilla tunnistetaan suomi tekstin osana
    ("Tällä kaudella: 3 omatoimista", "Du utvecklar det här: Haltuunotto.") — heuristiikka ei tunnista näitä (viikon 44 aukot). */
-const OSAT = new Set(), SV_TEKSTIT = [];
+const OSAT = new Set(), SV_TEKSTIT = [], MALLIT = [], SV_MALLIT = [];   // MALLIT (QG-1c): kääntämättömät paikkamerkilliset t()-literaalit säännöllisinä lausekkeina
 function lisaaOsa(t, sv) { if (typeof sv === 'string' && sv) SV_TEKSTIT.push(sv); const k = avain(t); if ((k.match(/[a-zåäö]/g) || []).length < 5 || k.length > 60 || /[{}<>]/.test(k)) return; if (typeof sv === 'string' && avain(sv) === k) return; if (sallittu(t)) return; OSAT.add(k); }
 // Osa, joka esiintyy jonkin sv-käännöksen osana tai sanana (esim. "Streak", "Bio-banding"), ei ole suomen tunniste
 function karsiSvOsat() { const sv = new Set(); for (const t of SV_TEKSTIT) { sv.add(avain(t)); for (const o of tekstinOsat(t)) sv.add(avain(o)); for (const w of avain(t).split(/[^a-zåäö-]+/)) if (w) sv.add(w); } for (const k of [...OSAT]) if (sv.has(k)) OSAT.delete(k); }
+/* QG-1c: käännetty sv-malli, jonka paikkamerkin ARVO on suomea ('{aihe} för ett lag' + aihe 'Tekniikkaharjoittelua' → "Tekniikkaharjoittelua för ett lag").
+   Kiinteässä osassa ≥ 5 kirjainta; arvo tarkistetaan renderöinnin jälkeen (korpus, osat, t()-literaalit tai heuristiikka). */
+function svMalli(v) {
+  if (typeof v !== 'string' || !/\{\w+\}/.test(v)) return; const osat = v.split(/\{\w+\}/);
+  if ((osat.join('').match(/[a-zåäö]/gi) || []).length < 5) return;
+  SV_MALLIT.push(new RegExp('^' + osat.map((o) => o.replace(/\s+/g, ' ').toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(.+?)') + '$', 'i'));
+}
 function lataaKorpus() {
   const fi = new Map(); const lisaa = (t, sv) => { const k = avain(t); fi.set(k, (fi.get(k) || false) || !!sv); lisaaOsa(t, sv); }; const req = createRequire(import.meta.url);
   const sb = { console: { log() {}, warn() {}, error() {} }, module: { exports: {} } }; sb.window = sb; vm.createContext(sb);
@@ -109,13 +118,17 @@ function lataaKorpus() {
     const kaveleFi = (o, svO) => { for (const [k, v] of Object.entries(o || {})) { if (typeof v === 'string') lisaa(v, svO && typeof svO[k] === 'string' && svO[k] !== ''); else if (v && typeof v === 'object') kaveleFi(v, svO && svO[k]); } };
     const kaveleFi2 = (o, svO) => { for (const [k, v] of Object.entries(o || {})) { if (typeof v === 'string') lisaaOsa(v, svO && svO[k]); else if (v && typeof v === 'object') kaveleFi2(v, svO && svO[k]); } };
     kaveleFi(vm.runInContext('TM_LANG.fi', sb), vm.runInContext('TM_LANG.sv', sb)); kaveleFi2(vm.runInContext('TM_LANG.fi', sb), vm.runInContext('TM_LANG.sv', sb));
-    for (const k of ['TM_I18N_COMMON', 'TM_VP_I18N', 'TM_MASTER_I18N']) { const m = vm.runInContext(`(typeof ${k} !== 'undefined' ? ${k}.sv : {})`, sb); for (const [a, v] of Object.entries(m || {})) { lisaa(a, typeof v === 'string' && v !== ''); lisaaOsa(a, v); } }
+    for (const k of ['TM_I18N_COMMON', 'TM_VP_I18N', 'TM_MASTER_I18N']) { const m = vm.runInContext(`(typeof ${k} !== 'undefined' ? ${k}.sv : {})`, sb); for (const [a, v] of Object.entries(m || {})) { lisaa(a, typeof v === 'string' && v !== ''); lisaaOsa(a, v); svMalli(v); } }
   } catch (e) { console.warn('korpus: ' + e.message); }
   let libSv = {}; try { libSv = req(join(JUURI, 'lib/tm_lib_i18n.js')).TM_LIB_I18N.sv || {}; } catch (e) { /* ei vielä */ }
   for (const f of readdirSync(join(JUURI, 'lib')).filter((x) => x.endsWith('.js'))) { try { const m = req(join(JUURI, 'lib', f)); if (m && m.FI) for (const [k, v] of Object.entries(m.FI)) { lisaa(v, typeof libSv[k] === 'string'); lisaaOsa(v, libSv[k]); } } catch (e) { /* ei FI */ } }
   for (const [k, v] of Object.entries(libSv)) if (/[\sÄÖäö]|^[A-ZÄÖ]/.test(k) && !/^[a-z0-9]+_[a-z0-9_]+$/i.test(k)) { lisaa(k, typeof v === 'string' && v !== ''); lisaaOsa(k, v); }   // lib-kartan fi-tekstiavaimet ("Tällä kaudella")
   try { const KP = req(join(JUURI, 'lib/tm_kehityspolku.js')); for (const v of Object.values(KP.YOUTH_NIMI || {})) if (typeof v === 'string') lisaaOsa(v, null); } catch (e) { /* ei kehityspolkua */ }   // tallennetut konseptinimet (jaksofokus.konsepti_nimi)
-  for (const v of Object.values(libSv)) if (typeof v === 'string') SV_TEKSTIT.push(v);
+  for (const v of Object.values(libSv)) if (typeof v === 'string') { SV_TEKSTIT.push(v); svMalli(v); }
+  // QG-1c: lähdekoodin t()-literaalit, joita ei ole missään kartassa = kääntämätöntä käyttöliittymää (sv_t_literaalit.mjs)
+  const TL = tLiteraalit(JUURI, (t) => fi.has(avain(t)));
+  for (const x of TL.kokonaiset) lisaa(x.teksti, false);
+  for (const x of TL.mallit) { MALLIT.push(x); for (const o of x.teksti.split(/\{\w+\}/)) for (const p of tekstinOsat(o)) lisaaOsa(p, null); }
   karsiSvOsat();
   return fi;
 }
@@ -142,7 +155,7 @@ const sallittu = (t) => { const a = avain(t); return SALLITUT.tekstit.includes(a
 
 async function suoritaAskel(selain, cfg, as, nimi, virheet) {
   const ctx = await selain.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage();
-  const fx = as.fx || cfg.fx; if (fx) await valmisteleFx(p, fxKonfiguraatio(fx[0], fx[1]));   // QG-1: fixture-seura muistissa, ulkoverkko estetty
+  const fx = as.fx || cfg.fx; if (fx) await valmisteleFx(p, fxKonfiguraatio(fx[0], fx[1], fx[2]));   // QG-1: fixture-seura muistissa, ulkoverkko estetty
   await p.addInitScript((k) => { try { localStorage.setItem('tm_kieli', k); } catch (e) { /* ei LS */ } }, KIELI);
   p.on('pageerror', () => { /* demo-datan ulkoiset kutsut; ei raportoida */ });
   // Deterministinen mittaus: kiinteä kello + siemennetty Math.random (päivän harjoitevalinta, synttäribonus yms. ovat satunnais-/päiväriippuvaisia) → fi before/after -diff vertailukelpoinen
@@ -202,10 +215,13 @@ async function main() {
           const t = norm(k.t); const id = k.tyyppi + '|' + t; if (nahty.has(id)) continue; nahty.add(id);
           if (sallittu(t)) continue;
           const tunn = onkoSuomea(t); const kartassa = fiKorpus.has(avain(t)); const svRivi = kartassa ? fiKorpus.get(avain(t)) : null;
-          const osat = kartassa || tunn.fi ? [] : osaOnFi(t);   // QG-1: tunnettu fi-merkkijono tekstin osana (heuristiikka ei tunnista)
-          if (!tunn.fi && !kartassa && !osat.length) continue;
+          const malli = kartassa ? null : MALLIT.find((m) => m.re.test(avain(t)));   // QG-1c: kääntämätön paikkamerkillinen t()-literaali
+          let osat = kartassa || tunn.fi || malli ? [] : osaOnFi(t), heurOsa = false;
+          if (!kartassa && !tunn.fi && !malli && !osat.length) { for (const re of SV_MALLIT) { const m = t.match(re); if (!m) continue; const fiArvot = m.slice(1).filter((x) => /[a-zåäö]{4}/i.test(x) && (fiKorpus.has(avain(x)) || OSAT.has(avain(x)) || onkoSuomea(x).fi)); if (fiArvot.length) { osat = fiArvot; break; } } }   // QG-1c: sv-mallin suomenkielinen arvo
+          if (!kartassa && !tunn.fi && !malli && !osat.length) { osat = tekstinOsat(t).filter((o) => o !== t && o.split(' ').length >= 2 && (({ fi: f, sv: s }) => f && !s)(onkoSuomea(o))); heurOsa = osat.length > 0; }   // QG-1c: suomenkielinen lause sv-tekstin osana (objektikartan arvo t(KL[k]))   // QG-1: tunnettu fi-merkkijono tekstin osana (heuristiikka ei tunnista)
+          if (!tunn.fi && !kartassa && !malli && !osat.length) continue;
           const lahde = etsiLahde(idx, t, cfg.tiedosto);
-          rivit.push({ teksti: t, tyyppi: k.tyyppi, polku: k.polku, varmuus: kartassa ? 'kartta' : osat.length ? 'kartta-osa' : 'heuristiikka', svRivi, luokka: lahde.length ? 'ui' : 'data?', lahde, ...(osat.length ? { osat } : {}) });
+          rivit.push({ teksti: t, tyyppi: k.tyyppi, polku: k.polku, varmuus: kartassa ? 'kartta' : malli ? 'malli' : heurOsa ? 'heuristiikka-osa' : osat.length ? 'kartta-osa' : 'heuristiikka', svRivi, ...(malli ? { malli: malli.teksti } : {}), luokka: lahde.length ? 'ui' : 'data?', lahde, ...(osat.length ? { osat } : {}) });
         }
         tulokset[i] = { tekstejaYht: nahty.size, fi: rivit };
         if (DUMP) tulokset[i].kaikki = [...new Set(kaikki.map((k) => k.tyyppi + '|' + norm(k.t)))].sort();
