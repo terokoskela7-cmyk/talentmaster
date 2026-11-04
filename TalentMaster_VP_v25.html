@@ -54,6 +54,7 @@
 <script src="lib/tm_testipaiva.js"></script>   <!-- testipäivän lähde (oikea / arvio / tuntematon) -->
 <script src="lib/tm_pikakentat.js"></script>       <!-- P2.0: §26-pikakenttien kanoninen laskenta (tmLaskePikakentat) — VP: H-H + TKI (tm_tki_core.js → TM_TESTIT) -->
 <script src="lib/tm_testikatalogi.js"></script>    <!-- P2.1: jaettu testikatalogi (Pikakirjaus-valitsin) -->
+<script src="lib/tm_mittaus_korjaa.js"></script>   <!-- B3: jaettu mittauksen Korjaa-dialogi + E2.3-kirjoitus + E2.2-rebuild (VP + Kehitystyöpöytä) -->
 <script src="lib/tm_alusta.js"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
 <script src="lib/tm_ennatykset.js"></script>      <!-- Omat ennätykset (PB): Pikakirjaus päivittää pelaajan ennatykset (jaettu TM_ENNATYKSET) -->
 <script src="lib/tm_pikakirjaus.js"></script>      <!-- P2.1: Pikakirjaus-lomake (TM_PIKAKIRJAUS.avaa) -->
@@ -15031,45 +15032,17 @@ window._p1bSarjat = _p1bSarjat; window._p1bInjektoi = _p1bInjektoi;
    (nimet/yksiköt). Design-tokenit docs/E2_design_kartta.html (molemmat teemat). */
 var _vpMittausCache = {};   // pid → [{ __id, data }] (asetetaan olemassa olevassa testitulokset-luvussa)
 
-// Katalogitesti stored-avaimesta. testitulokset-testit-avaimet ovat SEKAMUOTOA: import→'lin30m', Pikakirjaus→'lin_30m'.
-// Suora osuma (Excel-id) TAI käänteinen lin_ → lin. Johdannaiset (mas_kmh, *_protokolla) → null (ohitetaan listalta).
-function _vpMittausKatTesti(avain) {
-  var K = window.TM_TESTIKATALOGI; if (!K) return null;
-  var t = K.tmKatalogiTesti(avain);
-  if (t) return t;
-  var rev = { lin_5m: 'lin5m', lin_10m: 'lin10m', lin_30m: 'lin30m' };
-  return rev[avain] ? K.tmKatalogiTesti(rev[avain]) : null;
-}
-function _vpMittausArvo(v) {
-  if (v == null) return null;
-  if (typeof v === 'object') v = (v.tulos != null ? v.tulos : (v.paras != null ? v.paras : (v.netto != null ? v.netto : null)));
-  var n = parseFloat(v); return isNaN(n) ? null : n;
-}
+// B3: korjauksen, rebuildin ja rivien puhdas logiikka jaetussa libissä lib/tm_mittaus_korjaa.js (window.TM_MITTAUS_KORJAA); VP:n nimet ovat kääreitä.
+function _vpMK() { return window.TM_MITTAUS_KORJAA; }
+// Katalogitesti stored-avaimesta (sekamuoto lin30m / lin_30m; johdannaiset → null).
+function _vpMittausKatTesti(avain) { return _vpMK().katTesti(avain, window.TM_TESTIKATALOGI); }
+function _vpMittausArvo(v) { return _vpMK().arvo(v); }
 function _vpMittausLahdeLabel(lahde) { return /pikakirjaus/i.test(String(lahde || '')) ? vpT('Pikakirjaus') : vpT('Testitapahtuma'); }
 function _vpMittausKatLvl(kategoria) { return kategoria === 'Tekniikkakilpailu' ? 'TKI' : 'H-H'; }
 function _vpMittausPvmFi(pvm) { try { var d = new Date(pvm); return (pvm && !isNaN(d.getTime()) && typeof _pvmFiVP === 'function') ? _pvmFiVP(d) : (pvm || '—'); } catch (e) { return pvm || '—'; } }
 
-// Merkinnät-rakentaja: laajenna cachetut dokit riveiksi (yksi rivi per katalogitesti-avain). EI toista hakua.
-function _vpMittausMerkinnat(pel) {
-  var dwid = (pel && _vpMittausCache[pel.id]) || [];
-  var rows = [];
-  dwid.forEach(function (w) {
-    var data = w.data || {}, testit = data.testit || {}, mit = data.mitatoidut || {};
-    var lahde = data.lahde || data.protokolla || '';
-    Object.keys(testit).forEach(function (avain) {
-      // PR G: H-H vs TK tunnisteella (vanha Excel-H-H-dokki: 'pujottelu' + pujottelu_protokolla:'hh' → Pujottelu (H-H)).
-      // avain (tallennettu) säilyy mitätöinti-/palautusavaimena; vain katalogihaku kanonisella id:llä.
-      var kat = _vpMittausKatTesti(_vpMittausProtokollaId(avain, testit, data.protokolla)); if (!kat) return;   // ei-katalogitesti / johdannainen → ohita
-      var arvo = _vpMittausArvo(testit[avain]); if (arvo == null) return;
-      rows.push({
-        dokkiId: w.__id, pvm: data.testauspvm || '', avain: avain,
-        nimi: kat.nimi, yksikko: kat.yksikko, kategoria: kat.kategoria,
-        arvo: arvo, lahde: lahde, mitatoituMeta: mit[avain] || null
-      });
-    });
-  });
-  return rows;
-}
+// Merkinnät-rakentaja: laajenna cachetut dokit riveiksi (yksi rivi per katalogitesti-avain). EI toista hakua. B3: lib.
+function _vpMittausMerkinnat(pel) { return _vpMK().merkinnat((pel && _vpMittausCache[pel.id]) || [], window.TM_TESTIKATALOGI); }
 
 // Oikeus muokata (§9367 ratkaistu R1:ssä). SA/VP/johto → koko seura (globaali, pelaaja-arg tarpeeton — backward compat).
 // Oman joukkueen valmentaja → LÄPI pelaajakohtaisesti (pelaaja ∈ omat joukkueet, _vpOmistaaPelaajan). Portti pitää myös
@@ -15188,90 +15161,17 @@ window._vpMittausTulossa = function (mita) {
    Kehityskaari + lista regressoivat p:n päivitetyistä pikakentistä; käyttäjä pidetään Mittaus-välilehdellä
    (_jspVaihda(1)). f1/f2-tasotiilet ovat syvästi inline → in-place-osaus olisi kohtuuttoman kietoutunut. */
 
-// Lin-splittien avainnormalisointi: tuonti-dokit tallentavat 'lin30m'/'lin10m'/'lin5m', mutta primitiivi/_HH_MAP
-// odottaa Testaus_v9/Pikakirjaus-muotoa 'lin_30m' jne. Ilman tätä tuontidokin 30 m katoaisi hh_viimeisin:istä
-// rebuildissa (datahukka). EI katalogimuunnos — vain primitiivin odottama raaka-avain. Muut avaimet täsmäävät jo.
-var _VPM_KEYNORM = { lin30m: 'lin_30m', lin10m: 'lin_10m', lin5m: 'lin_5m' };
-// PR G: tallennettu testiavain → kanoninen katalogi-id (H-H vs TK tunnisteella, lib/tm_testikatalogi.js tmTestiProtokollaId).
-// Käytössä mittauslistassa, rebuild-syötteessä ja poistosuodattimessa (function-hoisting → myös yllä). Lib puuttuu → avain.
-function _vpMittausProtokollaId(avain, testit, docProtokolla) {
-  var K = (typeof window !== 'undefined' && window.TM_TESTIKATALOGI) || null;
-  return (K && typeof K.tmTestiProtokollaId === 'function') ? K.tmTestiProtokollaId(avain, testit, docProtokolla) : avain;
-}
-
-// PUHDAS (Node-testattava): cache-dokit → primitiivin syöte [{pvm, tulokset}], mitätöidyt avaimet karsittuina.
-function _vpMittausRebuildMerkinnat(cacheDocs) {
-  return (cacheDocs || []).map(function (w) {
-    var d = (w && w.data) || {}, testit = d.testit || {}, mit = d.mitatoidut || {};
-    var tulokset = {};
-    Object.keys(testit).forEach(function (k) {
-      if (mit[k]) return;                                        // karsi mitätöity (mitatoidut avaimet = stored testit-avaimet)
-      if (/_protokolla$/.test(k)) return;                        // merkintä, ei mittaus
-      // PR G: H-H vs TK TUNNISTEELLA — vanha Excel-H-H-dokki ('pujottelu' + _protokolla:'hh' / hh_*-protokolla) EI saa
-      // valua primitiivin TK-polulle (TKI/tk_lajit); se kuuluu hh_viimeisin.pujottelu:iin (pujottelu_hh).
-      var id = _vpMittausProtokollaId(k, testit, d.protokolla);
-      if (id !== k && Object.prototype.hasOwnProperty.call(testit, id)) return;   // eksplisiittinen avain voittaa
-      tulokset[_VPM_KEYNORM[id] || id] = testit[k];              // normalisoi lin-splitit primitiivin raaka-avaimeen
-    });
-    return { pvm: d.testauspvm || '', tulokset: tulokset };      // täysin mitätöity dokki → tulokset:{}
-  });
-}
+// B3: rebuild-syöte, E2.2.1-poistosuoja ja kirjoitus jaetussa libissä lib/tm_mittaus_korjaa.js (KEYNORM lin-splitit, PR G H-H vs TK tunnisteella).
+function _vpMittausProtokollaId(avain, testit, docProtokolla) { return _vpMK().protokollaId(avain, testit, docProtokolla, window.TM_TESTIKATALOGI); }
+function _vpMittausRebuildMerkinnat(cacheDocs) { return _vpMK().rebuildMerkinnat(cacheDocs, window.TM_TESTIKATALOGI); }
 window._vpMittausRebuildMerkinnat = _vpMittausRebuildMerkinnat;
-
-/* ═══ E2.2.1 — DATAHUKKA-FIX (docs/E2_2_1_CODE_BRIEF.md) ══════════════════════════════════════════════
-   Primitiivin `poistetut` sisältää kentät jotka olivat pelaajadokissa muttei rebuild-tuloksessa. Rebuild
-   näkee VAIN testitulokset-arkiston → muualta tulleet pikakentät (esim. recalcHH kirjoitti hh_taso/d1_*
-   suoraan pelaajadokkiin hh_viimeisin:istä ILMAN H-H-testitulos-dokkia) päätyisivät FieldValue.delete():en.
-   Suojaa ne: älä poista kenttää jonka DOMAIN (hh/tki) ei ole edustettuna raa'assa arkistossa (ml. mitätöidyt).
-   Korjaus KUTSUJASSA — primitiiviä ei muuteta. */
-// Domain-luokitin: hh_/d1_/d2_ → 'hh' · tki_/tk_ → 'tki' · muu → null (suojattu). Prefiksipohjainen → kattaa
-// primitiivin _OMISTETUT_YDIN + _D2_KENTAT + hh_historia/tki_historia ja pysyy synkassa uusillekin kentille.
-function _vpMittausKenttaDomain(f) {
-  if (/^(hh_|d1_|d2_)/.test(f)) return 'hh';
-  if (/^(tki_|tk_)/.test(f)) return 'tki';
-  return null;
-}
-// Raaka-avainten domain-edustus (ml. mitätöidyt → luetaan w.data.testit suoraan, EI karsittua).
-var _VPM_HH_AVAIMET = { lin5m: 1, lin_5m: 1, lin10m: 1, lin_10m: 1, lin30m: 1, lin_30m: 1, hyppy_cj: 1, cmj: 1, mas: 1, kasirata: 1, sm_juoksu: 1, sm_pallo: 1, pujottelu_hh: 1, syotto_hh: 1 };
-var _VPM_TK_AVAIMET = { ponnauttelu: 1, syotto: 1, pujottelu: 1, kuljetus_laukaus: 1, pituuspotku: 1 };
-
-// PUHDAS: suodata poistetut → poista vain kentät joiden domain on edustettu arkistossa (muuten rakentumaton → suojaa).
-function _vpMittausSuodataPoistetut(poistetut, cacheDocs) {
-  if (!poistetut || !poistetut.length) return poistetut || [];
-  var hhEdustettu = false, tkiEdustettu = false;
-  (cacheDocs || []).forEach(function (w) {
-    var testit = (w && w.data && w.data.testit) || {};
-    Object.keys(testit).forEach(function (k0) {
-      var k = _vpMittausProtokollaId(k0, testit, w && w.data && w.data.protokolla);   // PR G: H-H vs TK tunnisteella
-      if (_VPM_HH_AVAIMET[k]) hhEdustettu = true;
-      if (_VPM_TK_AVAIMET[k]) tkiEdustettu = true;
-    });
-  });
-  return poistetut.filter(function (f) {
-    var dom = _vpMittausKenttaDomain(f);
-    if (dom === 'hh') return hhEdustettu;    // poista vain jos H-H edustettu (dokki olemassa, myös mitätöity)
-    if (dom === 'tki') return tkiEdustettu;  // poista vain jos TKI edustettu
-    return false;                            // kartoittamaton kenttä → suojataan (fail-safe)
-  });
-}
+function _vpMittausKenttaDomain(f) { return _vpMK().kenttaDomain(f); }
+function _vpMittausSuodataPoistetut(poistetut, cacheDocs) { return _vpMK().suodataPoistetut(poistetut, cacheDocs, window.TM_TESTIKATALOGI); }
 window._vpMittausSuodataPoistetut = _vpMittausSuodataPoistetut;
-
-// Jaettu rebuild + kirjoitus (Poista JA Palauta). Kirjoittaa pelaajadokin pikakentät + poistot; päivittää in-memory p.
+// Jaettu rebuild + kirjoitus (Poista, Palauta, Korjaa). Kirjoittaa pelaajadokin pikakentät + poistot; päivittää in-memory p.
 async function _vpMittausRebuildKirjoita(p) {
-  if (typeof tmRakennaPikakentatArkistosta !== 'function') { console.warn('[mittaus] rebuild-primitiivi puuttuu'); return null; }
-  var cu = firebase.auth().currentUser; if (cu) { try { await cu.getIdToken(true); } catch (e) {} }   // §2 sessio tuore
-  var pelRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
-  var merkinnat = _vpMittausRebuildMerkinnat(_vpMittausCache[p.id]);
-  var res = tmRakennaPikakentatArkistosta(p, merkinnat) || { upd: {}, poistetut: [] };
-  res.poistetut = _vpMittausSuodataPoistetut(res.poistetut, _vpMittausCache[p.id]);   // E2.2.1 — älä poista rakentumattomia (muualta tulleita) pikakenttiä
-  if (res.upd && Object.keys(res.upd).length) await pelRef.set(res.upd, { merge: true });             // pikakentät korvaten (hh_viimeisin = map)
-  if (res.poistetut && res.poistetut.length) {
-    var del = {}; res.poistetut.forEach(function (f) { del[f] = firebase.firestore.FieldValue.delete(); });
-    await pelRef.update(del);                                                                          // merge ei poista → FieldValue.delete
-  }
-  if (res.upd) Object.assign(p, res.upd);                                                              // in-memory p → UI regressoi ilman uutta hakua
-  if (res.poistetut) res.poistetut.forEach(function (f) { try { delete p[f]; } catch (e) {} });
-  return res;
+  return _vpMK().rebuildKirjoita({ db: db, seuraId: _seuraId, firebase: firebase, K: window.TM_TESTIKATALOGI,
+    rakenna: (typeof tmRakennaPikakentatArkistosta === 'function') ? tmRakennaPikakentatArkistosta : null }, p, _vpMittausCache[p.id]);
 }
 
 // Re-render rebuildin jälkeen: rakenna Mittaus-välilehti uudelleen p:n päivitetyistä pikakentistä, pysy välilehdellä.
@@ -15354,141 +15254,28 @@ window._vpMittausPalauta = async function (dokkiId, avain) {
 // TODO (Master-porttaus): oman joukkueen valmentaja -kirjoitusportti; VP_v25:ssä kirjoitus vain VP/johto/SA (_vpVoiMuokata).
 
 /* ═══ E2.3 — KORJAA (yksittäisen mittauksen korjaus paikallaan, docs/E2_3_CODE_BRIEF.md) ═══════════════
-   Ylikirjoittaa LÄHDEdokin testit[avain] paikallaan (update, EI uutta dokkia) + korjattu-audit → recompute
-   VAIN jaetun _vpMittausRebuildKirjoita (E2.2.1-suojattu) kautta. EI tmLaskePikakentatia, EI TM_PIKAKIRJAUSta. */
-
-// Komposiitti = objekti jolla raaka/rangaistukset/ennenaikaiset (esim. kuljetus_laukaus) → read-only (ei yksittäisarvo-korjausta).
-function _vpMittausOnkoKomposiitti(v) {
-  return v != null && typeof v === 'object' &&
-    (Object.prototype.hasOwnProperty.call(v, 'raaka') ||
-     Object.prototype.hasOwnProperty.call(v, 'rangaistukset') ||
-     Object.prototype.hasOwnProperty.call(v, 'ennenaikaiset'));
-}
-// PUHDAS: säilytä arvon muoto — objekti → päivitä tulos (tai paras); skalaari → korvaa; komposiitti → null (ei tallenneta).
-function _vpMittausKorjaaArvo(vanha, uusi) {
-  if (_vpMittausOnkoKomposiitti(vanha)) return null;
-  if (vanha != null && typeof vanha === 'object') {
-    var o = Object.assign({}, vanha);
-    if (Object.prototype.hasOwnProperty.call(o, 'tulos')) o.tulos = uusi; else o.paras = uusi;
-    return o;
-  }
-  return uusi;
-}
+   B3: logiikka + dialogi jaetussa libissä lib/tm_mittaus_korjaa.js (sama Kehitystyöpöydän Profiilille). Ylikirjoittaa LÄHDEdokin
+   testit[avain] paikallaan (update, EI uutta dokkia) + korjattu-audit → recompute VAIN jaetun _vpMittausRebuildKirjoita (E2.2.1-suojattu) kautta. */
+function _vpMittausOnkoKomposiitti(v) { return _vpMK().onkoKomposiitti(v); }
+function _vpMittausKorjaaArvo(vanha, uusi) { return _vpMK().korjaaArvo(vanha, uusi); }
 window._vpMittausKorjaaArvo = _vpMittausKorjaaArvo;
-
-// ── E2.3.1 — kuljetus_laukaus-komposiitti (korjattava) ──────────────────────────────────────────────
-// PUHDAS: parsi rangaistuslista "5, 10, -2" → [5,10,-2] (tyhjät/NaN pois). Negatiiviset sallitaan.
-function _vpKuljetusRangaistukset(str) {
-  return String(str == null ? '' : str).split(',').map(function (s) { return parseFloat(String(s).trim()); }).filter(function (n) { return !isNaN(n); });
-}
-// PUHDAS: netto s — REPLIKA lib/tm_pikakentat.js _kuljetusLaukausTulos (⚠ PIDÄ SYNKASSA; primitiivi = totuuslähde).
-// max(0, raaka + ennenaikaiset*10 − Σrangaistukset), 2 desimaalia. NaN raaka → null.
-function _vpKuljetusNetto(raaka, ennenaikaiset, rangaistukset) {
-  var r = parseFloat(raaka); if (isNaN(r)) return null;
-  var sum = (rangaistukset || []).reduce(function (a, x) { return a + (parseFloat(x) || 0); }, 0);
-  var ennen = parseInt(ennenaikaiset) || 0;
-  return Math.max(0, +(r + ennen * 10 - sum).toFixed(2));
-}
-// PUHDAS: rakenna komposiittiobjekti dialogin syötteestä. Raaka pakollinen (NaN → null). Ennen/rang oletus 0/[].
-function _vpKomposiittiSyotteesta(raakaStr, ennenStr, rangStr) {
-  var r = parseFloat(raakaStr); if (isNaN(r)) return null;
-  var ennen = parseInt(ennenStr); if (isNaN(ennen) || ennen < 0) ennen = 0;
-  return { raaka: r, rangaistukset: _vpKuljetusRangaistukset(rangStr), ennenaikaiset: ennen };
-}
+// E2.3.1 — kuljetus_laukaus-komposiitti (netto = replika lib/tm_pikakentat.js _kuljetusLaukausTulos, ks. lib).
+function _vpKuljetusRangaistukset(str) { return _vpMK().kuljetusRangaistukset(str); }
+function _vpKuljetusNetto(raaka, ennenaikaiset, rangaistukset) { return _vpMK().kuljetusNetto(raaka, ennenaikaiset, rangaistukset); }
+function _vpKomposiittiSyotteesta(raakaStr, ennenStr, rangStr) { return _vpMK().komposiittiSyotteesta(raakaStr, ennenStr, rangStr); }
 window._vpKuljetusNetto = _vpKuljetusNetto;
 window._vpKomposiittiSyotteesta = _vpKomposiittiSyotteesta;
+// Brändätty Korjaa-dialogi → Promise<number | {raaka,rangaistukset,ennenaikaiset} | null> (VP-tokenit, molemmat teemat).
+function _vpMittausKorjaaDialog(opts) { return _vpMK().dialogi(opts, { doc: document, t: vpT, esc: _esc, pvmFi: _vpMittausPvmFi }); }
 
-// Brändätty Korjaa-dialogi → Promise<number | {raaka,rangaistukset,ennenaikaiset} | null>. Skalaari: number-input.
-// Komposiitti (opts.komposiitti = stored-objekti): raaka/ennenaikaiset/rangaistukset-kentät + livenä netto-esikatselu.
-function _vpMittausKorjaaDialog(opts) {
-  opts = opts || {};
-  return new Promise(function (resolve) {
-    var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.72);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
-    var pvmFi = _vpMittausPvmFi(opts.pvm);
-    var h = '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:min(400px,94vw);padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.4)">';
-    h += '<div style="font-family:var(--font-serif);font-size:21px;font-weight:400;color:var(--ink);margin-bottom:4px">' + vpT('Korjaa mittaus') + '</div>';
-    h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);margin-bottom:16px">' + _esc(opts.nimi || '') + (opts.yksikko ? ' · ' + _esc(opts.yksikko) : '') + ' ' + vpT('· testipäivä') + ' ' + _esc(pvmFi) + ' <span style="opacity:.7">🔒</span></div>';
-    if (opts.komposiitti) {
-      var k0 = opts.komposiitti || {};
-      var _in = 'box-sizing:border-box;background:var(--bg3);border:.5px solid var(--border);border-radius:6px;color:var(--ink);padding:9px 11px;font-family:var(--font-serif);font-size:18px';
-      var _lbl = 'display:block;font-size:12px;color:var(--ink2);margin:0 0 5px';
-      h += '<div style="font-size:12px;line-height:1.45;color:var(--ink3);margin-bottom:12px">' + vpT('Koostettu tulos — korjaa osat. Netto lasketaan kaavalla max(0, raaka + ennenaikaiset·10 − Σrangaistukset).') + '</div>';
-      h += '<div style="display:flex;gap:10px;margin-bottom:12px">'
-        + '<label style="flex:1"><span style="' + _lbl + '">' + vpT('Raaka (s)') + '</span><input data-act="raaka" type="number" step="any" inputmode="decimal" value="' + _esc(k0.raaka != null ? k0.raaka : '') + '" style="width:100%;' + _in + '"></label>'
-        + '<label style="flex:0 0 108px"><span style="' + _lbl + '">' + vpT('Ennenaikaiset') + '</span><input data-act="ennen" type="number" step="1" min="0" inputmode="numeric" value="' + _esc(k0.ennenaikaiset != null ? k0.ennenaikaiset : 0) + '" style="width:100%;' + _in + '"></label></div>';
-      h += '<label style="display:block;margin-bottom:12px"><span style="' + _lbl + '">' + vpT('Rangaistukset (pilkuin eroteltu, esim. 5, 10)') + '</span><input data-act="rang" type="text" inputmode="decimal" value="' + _esc((k0.rangaistukset || []).join(', ')) + '" style="width:100%;' + _in + ';font-family:var(--font-m);font-size:15px"></label>';
-      h += '<div style="font-family:var(--font-m);font-size:13px;color:var(--teal);margin-bottom:6px">' + vpT('Netto:') + ' <b data-act="netto">—</b> s</div>';
-      h += '<div data-act="err" style="display:none;font-size:12px;color:var(--red);margin-bottom:10px">' + vpT('Raaka-aika on pakollinen (numero).') + '</div>';
-      h += '<div style="display:flex;gap:10px;justify-content:flex-end"><button data-act="peru" style="font-family:\'DM Sans\',sans-serif;font-size:13px;padding:9px 16px;border-radius:6px;cursor:pointer;background:transparent;border:.5px solid var(--border);color:var(--ink2)">' + vpT('Peruuta') + '</button><button data-act="ok" style="font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:6px;cursor:pointer;border:none;background:var(--teal);color:#fff">' + vpT('Tallenna korjaus') + '</button></div>';
-    } else {
-      h += '<label style="display:block;font-size:12px;color:var(--ink2);margin-bottom:6px">' + vpT('Korjattu arvo (') + _esc(opts.yksikko || '') + ')</label>';
-      h += '<input data-act="arvo" type="number" step="any" inputmode="decimal" value="' + _esc(opts.arvo != null ? opts.arvo : '') + '" style="width:100%;box-sizing:border-box;background:var(--bg3);border:.5px solid var(--border);border-radius:6px;color:var(--ink);padding:10px 12px;font-family:var(--font-serif);font-size:20px;margin-bottom:18px">';
-      h += '<div style="display:flex;gap:10px;justify-content:flex-end"><button data-act="peru" style="font-family:\'DM Sans\',sans-serif;font-size:13px;padding:9px 16px;border-radius:6px;cursor:pointer;background:transparent;border:.5px solid var(--border);color:var(--ink2)">' + vpT('Peruuta') + '</button><button data-act="ok" style="font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:6px;cursor:pointer;border:none;background:var(--teal);color:#fff">' + vpT('Tallenna korjaus') + '</button></div>';
-    }
-    h += '</div>';
-    ov.innerHTML = h;
-    var done = function (v) { if (ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener('keydown', onKey); resolve(v); };
-    var inp = ov.querySelector('[data-act=arvo]');
-    var raakaEl = ov.querySelector('[data-act=raaka]'), ennenEl = ov.querySelector('[data-act=ennen]'), rangEl = ov.querySelector('[data-act=rang]');
-    var nettoEl = ov.querySelector('[data-act=netto]'), errEl = ov.querySelector('[data-act=err]');
-    var paivitaNetto = function () {
-      if (!nettoEl) return;
-      var netto = _vpKuljetusNetto(raakaEl.value, ennenEl.value, _vpKuljetusRangaistukset(rangEl.value));
-      nettoEl.textContent = (netto == null) ? '—' : netto;
-    };
-    var talleta = function () {
-      if (opts.komposiitti) {
-        var komp = _vpKomposiittiSyotteesta(raakaEl.value, ennenEl.value, rangEl.value);
-        if (!komp) { if (errEl) errEl.style.display = 'block'; if (raakaEl) raakaEl.focus(); return; }   // raaka pakollinen
-        return done(komp);
-      }
-      if (!inp) return done(null); var n = parseFloat(inp.value); done(isNaN(n) ? null : n);
-    };
-    var onKey = function (e) { if (e.key === 'Escape') done(null); else if (e.key === 'Enter') talleta(); };
-    ov.addEventListener('click', function (e) { if (e.target === ov) done(null); });
-    var b;
-    if ((b = ov.querySelector('[data-act=peru]'))) b.addEventListener('click', function () { done(null); });
-    if ((b = ov.querySelector('[data-act=ok]'))) b.addEventListener('click', talleta);
-    if (opts.komposiitti) { [raakaEl, ennenEl, rangEl].forEach(function (el) { if (el) el.addEventListener('input', paivitaNetto); }); paivitaNetto(); }
-    document.addEventListener('keydown', onKey);
-    document.body.appendChild(ov);
-    if (inp) { inp.focus(); inp.select(); } else if (raakaEl) { raakaEl.focus(); raakaEl.select(); }
-  });
-}
-
-// Korjaa-käsittelijä: LÄHDEdokki paikallaan (INV1) → recompute vain jaetun (E2.2.1-suojatun) kautta (INV2).
+// Korjaa-käsittelijä (B3: jaettu lib/tm_mittaus_korjaa.js korjaa): LÄHDEdokki paikallaan (INV1) → recompute vain jaetun (E2.2.1-suojatun) kautta (INV2).
 window._vpMittausKorjaa = async function (dokkiId, avain) {
   var p = window._vpMittausPelaaja; if (!p || !dokkiId || !avain) return;
   if (!_vpVoiMuokata(p)) return;   // A4: pelaajakohtainen oikeus
-  var w = (_vpMittausCache[p.id] || []).find(function (x) { return x.__id === dokkiId; });
-  if (!w) return;
-  var vanha = (w.data.testit || {})[avain];
-  var kat = _vpMittausKatTesti(avain) || {};
-  var onKomp = _vpMittausOnkoKomposiitti(vanha);
-  var uusi = await _vpMittausKorjaaDialog({ nimi: kat.nimi || avain, yksikko: kat.yksikko || '', arvo: _vpMittausArvo(vanha), pvm: w.data.testauspvm || '', komposiitti: onKomp ? vanha : null });
-  if (uusi == null) return;                                   // peruttu
-  var uusiArvo;
-  if (onKomp) {
-    // E2.3.1: dialogi palauttaa komposiittiobjektin — säilytä muut kentät, päivitä osat. Rebuild laskee netton (primitiivi).
-    uusiArvo = Object.assign({}, vanha, { raaka: uusi.raaka, rangaistukset: uusi.rangaistukset, ennenaikaiset: uusi.ennenaikaiset });
-  } else {
-    uusiArvo = _vpMittausKorjaaArvo(vanha, uusi);
-    if (uusiArvo == null) return;                             // skalaari-suoja
-  }
-  try {
-    var pelRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
-    var cu = firebase.auth().currentUser; if (cu) { try { await cu.getIdToken(true); } catch (e) {} }
-    var kentat = {};
-    kentat['testit.' + avain] = uusiArvo;                     // INV1: ylikirjoita lähdedokki paikallaan (ei uutta dokkia)
-    kentat['korjattu.' + avain] = { kuka: _uid || null, milloin: new Date().toISOString() };   // audit (GDPR: vain uid+aikaleima)
-    await pelRef.collection('testitulokset').doc(dokkiId).update(kentat);
-    w.data.testit = w.data.testit || {}; w.data.testit[avain] = uusiArvo;                       // cache paikallisesti (ei toista hakua)
-    w.data.korjattu = w.data.korjattu || {}; w.data.korjattu[avain] = kentat['korjattu.' + avain];
-    await _vpMittausRebuildKirjoita(p);                       // INV2: recompute vain jaetun (E2.2.1-suojatun) kautta
-    _vpMittausPaivitaNakyma(p);
-    if (typeof toast === 'function') toast(vpT('Mittaus korjattu'), 'ok');
-  } catch (e) { console.warn('[mittaus korjaa]', e && e.message); if (typeof toast === 'function') toast(vpT('Korjaus epäonnistui'), 'err'); }
+  await _vpMK().korjaa({ db: db, seuraId: _seuraId, firebase: firebase, uid: _uid, K: window.TM_TESTIKATALOGI, t: vpT,
+    voiMuokata: function () { return true; }, dialogi: function (o) { return _vpMittausKorjaaDialog(o); },
+    rebuildKirjoita: function (pp) { return _vpMittausRebuildKirjoita(pp); }, paivita: function (pp) { _vpMittausPaivitaNakyma(pp); },
+    toast: (typeof toast === 'function') ? toast : null }, p, _vpMittausCache[p.id], dokkiId, avain);
 };
 
 // R2 (pala 1) — Mittaus v4 tulkinta-ensin -kehys. Kolme kääre-elementtiä olemassa olevan f1/f2-detaljin ympärille;
