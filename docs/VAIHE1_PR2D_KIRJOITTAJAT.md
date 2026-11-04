@@ -35,7 +35,7 @@ Lähde: `.briefit/INVENTAARIO_VAIHE1_PR2.md` §3/§6. PM-päätökset: talenttiO
 ## Avoimet / ei tässä PR:ssä
 
 - **Vanhat A-arvot pelaajadokumenteissa** jäävät, kunnes PR 3 -siivous ajetaan. Dual-read antaa sisainen-arvon etusijan, joten henkilökunnalle ne eivät näy, mutta pelaaja ja huoltaja voivat yhä lukea ne pelaajadokumentista.
-- **`biologinen_ika/{pvm}`-alikokoelma** (sisältää `maturity_offset` ym.) on yhä pelaajan luettavissa. Inventaarion PM-kysymys 4b, Rules-muutos erikseen.
+- **`biologinen_ika/{pvm}`-alikokoelma**: pelaajan luku poistettu Rules v3.77:ssä (B10, PM 4b). Huoltajan luku on ennallaan, ja sen kohtalo on PM-päätös.
 - **R8 `historia_sisainen`**: `jaksofokus_historia`-rivien A-osat menevät yhä pelaajadokumenttiin (oma viipale).
 - `tmIdpPelaajaVarapolulla` (pelaajan oma `idp_pelaaja`-dokumentti) ei kuulu A-kenttiin, ennallaan.
 
