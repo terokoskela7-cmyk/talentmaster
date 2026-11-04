@@ -61,6 +61,11 @@ describe('B3 · VP:n Korjaa mittaus -dialogi ennallaan (karakterisointi)', () =>
     expect(f.skalaari.html).toContain('⟨Korjaa mittaus⟩'); expect(f.skalaari.html).toContain('value="4.82"'); expect(f.komposiitti.html).toContain('⟨Rangaistukset (pilkuin eroteltu, esim. 5, 10)⟩');
     expect(f.skalaari_tallenna).toBe(4.71); expect(f.skalaari_suljettu).toBe(0); expect(f.skalaari_ei_numero).toBe(null); expect(f.skalaari_peru).toBe(null); expect(f.skalaari_esc).toBe(null); expect(f.esc_kuuntelija_pois).toBe(0); expect(f.skalaari_enter).toBe(4.6); expect(f.skalaari_tausta).toBe(null);
     expect(f.komposiitti_netto).toBe(14);   // max(0, 19 + 1·10 − (5+10)) expect(f.komposiitti_tallenna).toEqual({ raaka: 19, rangaistukset: [5, 10], ennenaikaiset: 1 });
+    // Tekstigate (VP:n render-gate ei enää näe dialogia, joka on libissä): näkyvä teksti = kääntäjän läpi kulkenut ⟨…⟩ + data (nimi, yksikkö, päivä, luvut) — ei kovakoodattua suomea.
+    for (const [h, o] of [[f.skalaari.html, SKAL], [f.komposiitti.html, KOMP]]) {
+      const jaljella = h.replace(/<[^>]*>/g, ' ').replace(/⟨[^⟩]*⟩/g, ' ').split(o.nimi).join(' ').replace(/\b(s|ms|—)\b/g, ' ').replace(o.pvm, ' ');
+      expect(jaljella, 'kovakoodattu teksti dialogissa').not.toMatch(/\p{L}{2,}/u);
+    }
     expect(f.komposiitti_raaka_puuttuu_virhe).toBe('block'); expect(f.komposiitti_raaka_puuttuu_auki).toBe(1); expect(f.komposiitti_peru).toBe(null);
   });
 });
