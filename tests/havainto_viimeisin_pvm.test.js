@@ -22,10 +22,11 @@ function pura(t) {
   throw new Error('sulkeet');
 }
 /* Ympäristö: _PH_DB.batch() tallentaa operaatiot ja "kirjaa" ne vasta commitissa (atomisesti); pRef.set = erillinen kirjoitus (adar_*-pikakentät). */
-function aja({ data, vanha = {}, kentat = { adar_pvm: 'x', adar_havaintoja: 1 }, hylkaaPelaajaOp = false, hylkaaHavainto = false }) {
+function aja({ data, vanha = {}, kentat = { adar_pvm: 'x', adar_havaintoja: 1 }, hylkaaPelaajaOp = false, hylkaaHavainto = false, sisainen = null, sisainenVirhe = false }) {
   const kirjattu = [];      // todella kirjatut: { kohde:'havainto'|'pelaaja', d, o, kautta:'batch'|'set' }
   const havRef = { id: 'h1' };
-  const pRef = { id: 'm93GBdOaGCUuenMiCL0I', collection: () => ({ get: async () => ({ docs: [] }) }), get: async () => ({ exists: true, data: () => vanha }),
+  const pRef = { id: 'm93GBdOaGCUuenMiCL0I', get: async () => ({ exists: true, data: () => vanha }),
+    collection: (c) => c === 'sisainen' ? { doc: (id) => ({ get: async () => { if (sisainenVirhe) throw Object.assign(new Error('pd'), { code: 'permission-denied' }); return { exists: !!sisainen && id === 'tiedot', data: () => sisainen }; } }) } : { get: async () => ({ docs: [] }) },
     set: async (d, o) => { if (hylkaaPelaajaOp) throw Object.assign(new Error('denied'), { code: 'permission-denied' }); kirjattu.push({ kohde: 'pelaaja', d, o, kautta: 'set' }); } };
   const _PH_DB = { batch: () => {
     const ops = [];
@@ -44,6 +45,16 @@ function aja({ data, vanha = {}, kentat = { adar_pvm: 'x', adar_havaintoja: 1 },
 const batchPelaaja = (r) => r.kirjattu.find((k) => k.kohde === 'pelaaja' && k.kautta === 'batch');
 
 describe('havainto_viimeisin_pvm kirjoitus (ADAR-pikakortti, KPV U13 -testipelaaja)', () => {
+  it('PR 2c (R6): max-vartija lukee sisainen/tiedot-kopion — myöhempi päivä voittaa (siivouksen jälkeen kenttä on vain siellä); lukuvirhe → pelaajadokumentin arvo, havainto ei kaadu', async () => {
+    const r = aja({ data: { pisteet: { A: 2 }, pvm: '2026-10-05' }, vanha: {}, sisainen: { havainto_viimeisin_pvm: '2026-10-09' } });
+    expect(await r.p).toEqual({ ok: true }); expect(batchPelaaja(r).d.havainto_viimeisin_pvm).toBe('2026-10-09');
+    const r2 = aja({ data: { pisteet: { A: 2 }, pvm: '2026-10-05' }, vanha: { havainto_viimeisin_pvm: '2026-10-07' }, sisainen: { havainto_viimeisin_pvm: '2026-10-01' } });
+    await r2.p; expect(batchPelaaja(r2).d.havainto_viimeisin_pvm).toBe('2026-10-07');
+    const r3 = aja({ data: { pisteet: { A: 2 }, pvm: '2026-10-05' }, sisainen: { havainto_viimeisin_pvm: '2026-10-01' } });
+    await r3.p; expect(batchPelaaja(r3).d.havainto_viimeisin_pvm).toBe('2026-10-05');
+    const r4 = aja({ data: { pisteet: { A: 2 }, pvm: '2026-10-05' }, vanha: { havainto_viimeisin_pvm: '2026-10-06' }, sisainenVirhe: true });
+    expect(await r4.p).toEqual({ ok: true }); expect(batchPelaaja(r4).d.havainto_viimeisin_pvm).toBe('2026-10-06');
+  });
   it('SAMASSA BATCHISSA: havainto + havainto_viimeisin_pvm (merge) atomisesti; adar_* erillisenä setinä', async () => {
     const r = aja({ data: { pisteet: { A: 2 }, pvm: '2026-10-05' } });
     expect(await r.p).toEqual({ ok: true });

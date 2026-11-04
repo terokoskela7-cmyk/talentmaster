@@ -4000,7 +4000,7 @@ async function lataaPelaajat() {
     });
     // Lajittele sukunimen mukaan
     _pelaajat.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
-    if (window.TM_SISAINEN) { _pelaajat = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(db, _seuraId, _pelaajat, window.TM_SISAINEN.tmTerveysLukuOpts(window._vpSA ? "super_admin" : window._vpRooli, _pelaajat)); }   // Vaihe 1 (1d): sisainen/tiedot yhdistetään (D3); virhe → vanhat kentät
+    { const _sv = (v) => toast(vpT('Lataus epäonnistui:') + ' ' + v, 'err'); if (!window.TM_SISAINEN) _sv('TM_SISAINEN'); else _pelaajat = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(db, _seuraId, _pelaajat, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(window._vpSA ? "super_admin" : window._vpRooli, _pelaajat), { onVirhe: _sv })); }   // 2c: virhe näkyviin   // Vaihe 1 (1d): sisainen/tiedot yhdistetään (D3); virhe → vanhat kentät
     _vpJasenyydet();
     if (typeof _ktKaynnista === 'function') _ktKaynnista();   // V4a: lippu + hash-reititin (vain lipulla)
   } catch(e) {
@@ -11332,7 +11332,7 @@ function _mvKentat(S) {   // vastaanottajat tilasta
 function _mvKrCtx() { const C = _mvC(); return { uid: C.uid(), rooli: C.rooli(), sa: (typeof _superAdmin !== 'undefined') && !!_superAdmin, omatJoukkueet: [], pelaajat: C.pelaajat(), seura: window._vpSeuraNimi || window._mSeuraNimi || '' }; }
 function _mvKrAlusta(S) {   // klippi ryhmälle + oma videoklippi -varaus (lib/tm_klippi_ryhma.js): lukittu tila heti, ryhmät + lippu ladataan taustalla
   const K = window.TM_KLIPPI_RYHMA, C = _mvC(); if (!K) return; K.tmKrAsetaSheet(S, {}, _mvKrCtx()); if (C.demo()) return;
-  K.tmKrLataa(C.db(), C.seuraId()).then(function (d) { if (window._mvTila !== S) return; const k = S.kohde, r = S.ryhmaId; K.tmKrAsetaSheet(S, d, _mvKrCtx()); S.kohde = k; if (k === 'ryhma') K.tmKrValitse(S, r, _mvKrCtx()); _mvPaivitaTila(S); _mvRender(); });
+  K.tmKrLataa(C.db(), C.seuraId()).then(function (d) { if (window._mvTila !== S) return; if (d.virhe) toast(vpT('Lataus epäonnistui:') + ' ' + d.virhe, 'err'); const k = S.kohde, r = S.ryhmaId; K.tmKrAsetaSheet(S, d, _mvKrCtx()); S.kohde = k; if (k === 'ryhma') K.tmKrValitse(S, r, _mvKrCtx()); _mvPaivitaTila(S); _mvRender(); });
 }
 function _mvPaivitaTila(S) {   // rekisteri + suostumuslippu valituista vastaanottajista
   const C = _mvC(), vs = _mvKentat(S), ikat = vs.map(function (p) { return C.ika(p); }).filter(function (x) { return x != null; });
