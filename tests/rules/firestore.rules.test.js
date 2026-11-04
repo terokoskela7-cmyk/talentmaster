@@ -4059,6 +4059,18 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
     expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID])).phv_tila).toBeUndefined();
     expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'biologinen_ika', '2026-10-03'])).toBeUndefined();
   });
+  it('v3.77 (B10, 4b): biologinen_ika/{pvm} — pelaaja eikä huoltaja lue; oman seuran henkilökunta lukee; toinen seura ei', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'biologinen_ika', '2026-10-03'), { mittauspaiva: '2026-10-03', maturity_offset: -1.2 }); });
+    const bio = (db) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'biologinen_ika', '2026-10-03');
+    await assertFails(getDoc(bio(pelaajaItseContext().firestore())));
+    await assertFails(getDocs(collection(pelaajaItseContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'biologinen_ika')));
+    await assertFails(getDoc(bio(huoltajaContext().firestore())));
+    await assertFails(getDocs(collection(huoltajaContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'biologinen_ika')));
+    await assertSucceeds(getDoc(bio(valmentajaContext(VALM_A_UID, SEURA_A).firestore())));
+    await assertFails(getDoc(bio(testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B }).firestore())));
+    await assertSucceeds(getDoc(pel(pelaajaItseContext().firestore(), SEURA_A, PELAAJA_UID)));   // B-muoto pelaajadokumentissa luettavissa ennallaan
+    await assertSucceeds(getDoc(pel(huoltajaContext().firestore(), SEURA_A, PELAAJA_UID)));
+  });
   it('review: toisen seuran VP → koko batch hylätään, kumpikaan ei tallennu', async () => {
     const db = testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B }).firestore();
     const b = FS_MOD.writeBatch(db);
