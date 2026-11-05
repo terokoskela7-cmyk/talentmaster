@@ -3,7 +3,8 @@
    · secretitPuuttuvat(env)            → puuttuvien secretien nimet (tyhjä = kaikki on)
    · kanavaUrl(url)                     → { ok, url, syy } — VAIN talentmaster-pilot--savutesti-*.web.app (tunnukset ja debug-token eivät koskaan lähde muualle)
    · luokittelePyynto({url, method})    → { paatos: 'sallittu'|'estetty'|'vaimennettu', syy } — verkkoesto (kerros 2, varmistus)
-   · luokitteleKirjoitus({op, polku}, sivu) → { tunnettu, syy } — sivun kirjoitusvartijan (kerros 2) kirjaamat yritykset
+   · vartijaLahde(viesti)               → sivun kirjoitusvartijan (kerros 2a) lähdekoodi addInitScriptille
+   · luokitteleKirjoitus({op, polku, kentat, arvot, uid}, sivu) → { tunnettu, syy } — vartijan kirjaamat yritykset (tunnettu = nimetty polku + kentät + arvot)
    · svLoydot(tekstit, { sallitut, baseline }) → { uudet, tunnetut } — sv-ajon suomi (QG-1:n tunnistin + sallittulista + sv-baseline)
    · konsoliVirheet(viestit, sallitut, estetytUrlit) → virheet, joita ei selitä sallittulista eikä savutestin oma esto
    · arvioi(nakyma) → tarkistusten tilat · yhteenvetoMarkdown(tulos) · issueRunko(tulos, ajoUrl) */
@@ -54,11 +55,66 @@ export function luokittelePyynto(req, callablet) {
   return { paatos: 'sallittu', syy: 'muu liikenne' };
 }
 
-/* kirjoitus = { op, polku } (sivun vartija: set/update/delete/add, batch.x, tx.x). sallitut = savutesti_sallitut.json tunnetut_kirjoitukset. */
+/* Sivun Firestore-kirjoitusvartija (kerros 2a), ajetaan selaimessa addInitScriptinä. compat-SDK:n luokat ovat jaettuja kaikille apeille (myös P7:n nimetty 'tm-pelaaja').
+   Kirjaa jokaisesta yrityksestä { op, polku, kentat, arvot, uid }: kentat = ylätason kenttänimet (update(kenttä, arvo, …) -muodossa parittomat argumentit),
+   arvot = ylätason skalaariarvot (merkkijono ≤ 80), uid = kirjoittavan apin kirjautunut käyttäjä. Luokittelu: luokitteleKirjoitus. */
+export function vartijaLahde(viesti) {
+  return `(function () {
+  window.__savuKirj = []; var VIESTI = ${JSON.stringify(viesti)};
+  function virhe(op, polku) { var e = new Error(VIESTI + ' (' + op + ' ' + polku + ')'); e.code = 'permission-denied'; return e; }
+  function kuvaa(op, ref, args, polku) {
+    var k = { op: op, polku: String(polku || (ref && ref.path) || ''), kentat: [], arvot: {}, uid: null }, d = args && args[0];
+    try {
+      var FP = window.firebase && window.firebase.firestore && window.firebase.firestore.FieldPath;
+      var onFP = function (x) { return !!(x && typeof x === 'object' && FP && x instanceof FP); };
+      var nimi = function (x) { if (!onFP(x)) return String(x); var s = x._delegate || x;
+        try { return s._internalPath && s._internalPath.canonicalString ? s._internalPath.canonicalString() : String(x); } catch (e) { return String(x); } };
+      if (typeof d === 'string' || onFP(d)) {
+        for (var i = 0; i < args.length; i += 2) k.kentat.push(nimi(args[i]));
+      } else if (d && typeof d === 'object') {
+        Object.keys(d).forEach(function (x) { k.kentat.push(x); var v = d[x];
+          if (v === null || typeof v === 'number' || typeof v === 'boolean') k.arvot[x] = v; else if (typeof v === 'string') k.arvot[x] = v.slice(0, 80); });
+      }
+      k.kentat.sort();
+      var app = ref && ref.firestore && ref.firestore.app, F = window.firebase, a = app && F && F.auth ? F.auth(app) : null;
+      k.uid = a && a.currentUser ? String(a.currentUser.uid) : null;
+    } catch (e) { /* kuvaus jää vajaaksi → luokittelija ei tunnista → kaataa (turvallinen suunta) */ }
+    return k;
+  }
+  function kirjaa(k) { window.__savuKirj.push(k); }
+  function asenna() {
+    var F = window.firebase && window.firebase.firestore; if (!F || !F.DocumentReference || !F.CollectionReference) return false;
+    if (window.__savuVartija) return true;
+    var DR = F.DocumentReference.prototype;
+    ['set', 'update', 'delete'].forEach(function (m) { DR[m] = function () { kirjaa(kuvaa(m, this, [].slice.call(arguments))); return Promise.reject(virhe(m, this.path)); }; });
+    F.CollectionReference.prototype.add = function () { kirjaa(kuvaa('add', this, [].slice.call(arguments), this.path + '/*')); return Promise.reject(virhe('add', this.path)); };
+    if (F.WriteBatch) { var WB = F.WriteBatch.prototype;
+      ['set', 'update', 'delete'].forEach(function (m) { WB[m] = function (ref) { (this.__savu = this.__savu || []).push(kuvaa('batch.' + m, ref, [].slice.call(arguments, 1))); return this; }; });
+      WB.commit = function () { var l = this.__savu || []; l.forEach(kirjaa); return Promise.reject(virhe('commit', l.length + ' kirjoitusta')); }; }
+    if (F.Transaction) { var TR = F.Transaction.prototype;
+      ['set', 'update', 'delete'].forEach(function (m) { TR[m] = function (ref) { kirjaa(kuvaa('tx.' + m, ref, [].slice.call(arguments, 1))); throw virhe('tx.' + m, ref && ref.path); }; }); }
+    window.__savuVartija = true; return true;
+  }
+  if (!asenna()) { var t = setInterval(function () { if (asenna()) clearInterval(t); }, 2); setTimeout(function () { clearInterval(t); }, 60000); }
+})();`;
+}
+
+/* kirjoitus = vartijan kirjaus { op, polku, kentat, arvot, uid }. sallitut = savutesti_sallitut.json tunnetut_kirjoitukset.
+   Tunnettu (⚠) VAIN kun kaikki täsmää: op täsmälleen (batch./tx. ei kelpaa yksittäisen kirjoituksen tilalle), sivu, ankkuroitu polku
+   ({oma_uid} = kirjoittajan oma kirjautunut uid), kenttäjoukko täsmälleen sama ja nimetyt arvot samat. Kaikki muu = tuntematon → kaataa. */
+const UID_RE = /^[A-Za-z0-9]{1,128}$/;
+function polkuOsuu(malli, polku, uid) {
+  if (malli.includes('{oma_uid}')) { if (!uid || !UID_RE.test(uid)) return false; malli = malli.split('{oma_uid}').join(uid); }
+  return new RegExp(malli).test(polku);
+}
 export function luokitteleKirjoitus(kirjoitus, sivu, sallitut) {
-  const op = String((kirjoitus && kirjoitus.op) || '').replace(/^(batch|tx)\./, ''), polku = String((kirjoitus && kirjoitus.polku) || '');
-  const r = (sallitut || []).find((s) => s.op === op && new RegExp(s.polku).test(polku) && (!s.sivu || s.sivu === sivu));
-  return r ? { tunnettu: true, syy: r.perustelu } : { tunnettu: false, syy: 'tuntematon kirjoitus ' + op + ' ' + polku };
+  const k = kirjoitus || {}, op = String(k.op || ''), polku = String(k.polku || '');
+  const kentat = Array.isArray(k.kentat) ? k.kentat.map(String).sort() : null, arvot = (k.arvot && typeof k.arvot === 'object') ? k.arvot : {};
+  const uid = typeof k.uid === 'string' ? k.uid : null;
+  const r = (sallitut || []).find((s) => s.op === op && (!s.sivu || s.sivu === sivu) && polkuOsuu(s.polku, polku, uid) &&
+    !!kentat && Array.isArray(s.kentat) && s.kentat.length === kentat.length && [...s.kentat].sort().every((x, i) => x === kentat[i]) &&
+    Object.keys(s.arvot || {}).every((a) => Object.prototype.hasOwnProperty.call(arvot, a) && arvot[a] === s.arvot[a]));
+  return r ? { tunnettu: true, syy: r.perustelu } : { tunnettu: false, syy: 'tuntematon kirjoitus ' + op + ' ' + polku + (kentat && kentat.length ? ' [' + kentat.join(',') + ']' : '') };
 }
 
 const norm = (s) => String(s).replace(/\s+/g, ' ').trim();

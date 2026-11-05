@@ -2,9 +2,10 @@
    konsolisuodatus, yhteenveto ja ohitus ilman secretejä. Ei selainta, ei verkkoa. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
+import vm from 'vm';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, svLoydot, konsoliVirheet, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
+import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, konsoliVirheet, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
 import { aja } from '../tools/savutesti/savutesti.mjs';
 
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -63,19 +64,112 @@ describe('QG-3 · verkkoesto (kerros 2)', () => {
   });
 });
 
-describe('QG-3 · kirjoitukset (kerros 2a + 3)', () => {
-  const T = SALLITUT.tunnetut_kirjoitukset;
-  it('VP:n tunnetut avauskirjoitukset qg_savussa → tunnettu (estetään, ei kaada)', () => {
-    expect(luokitteleKirjoitus({ op: 'update', polku: 'seurat/qg_savu/kayttajat/u1' }, 'TalentMaster_VP_v25.html', T).tunnettu).toBe(true);
-    expect(luokitteleKirjoitus({ op: 'set', polku: 'seurat/qg_savu/toimenpiteet/abc' }, 'TalentMaster_VP_v25.html', T).tunnettu).toBe(true);
-    expect(luokitteleKirjoitus({ op: 'batch.set', polku: 'seurat/qg_savu/toimenpiteet/abc' }, 'TalentMaster_VP_v25.html', T).tunnettu).toBe(true);
+describe('QG-3 · kirjoitukset (kerros 2a + 3): ⚠ vain nimetyt polut, kaikki muu kaataa (PM 5.11.)', () => {
+  const T = SALLITUT.tunnetut_kirjoitukset, VP = 'TalentMaster_VP_v25.html', UID = 'vpUid123';
+  const AUTO_ID = 'AbCdEfGhIjKlMnOpQrSt';
+  const kirj = (o) => Object.assign({ op: 'update', polku: 'seurat/qg_savu/kayttajat/' + UID, kentat: ['viimeisinKirjautuminen'], arvot: {}, uid: UID }, o);
+  const tp = (o) => kirj(Object.assign({ op: 'set', polku: 'seurat/qg_savu/toimenpiteet/' + AUTO_ID,
+    kentat: ['tyyppi', 'signaali', 'joukkue', 'teksti', 'tila', 'vp_teksti', 'luotu', 'kuitattu_pvm', 'kuitattu_uid'],
+    arvot: { tyyppi: 'automaattinen', signaali: 'suunta_lasku', joukkue: 'P13', teksti: 'x', tila: 'ehdotus', vp_teksti: null, kuitattu_pvm: null, kuitattu_uid: null } }, o));
+  const tunnettu = (k, sivu) => luokitteleKirjoitus(k, sivu || VP, T).tunnettu;
+
+  it('sallittulistalla on täsmälleen kaksi nimettyä kirjoitusta, kumpikin ankkuroitu, kentät lueteltu, VP-sivulle rajattu', () => {
+    expect(T.map((k) => k.op + ' ' + k.polku)).toEqual(['update ^seurat/qg_savu/kayttajat/{oma_uid}$', 'set ^seurat/qg_savu/toimenpiteet/[A-Za-z0-9]{20}$']);
+    for (const k of T) {
+      expect(k.sivu).toBe(VP);
+      expect(k.polku).toMatch(/^\^seurat\/qg_savu\/[a-z_]+\/[^/]+\$$/);
+      expect(Array.isArray(k.kentat) && k.kentat.length > 0, k.polku).toBe(true);
+      expect(k.op).toMatch(/^(set|update)$/);
+    }
+    expect(T[0].kentat).toEqual(['viimeisinKirjautuminen']);
+    expect(T[1].arvot).toMatchObject({ tyyppi: 'automaattinen', tila: 'ehdotus' });
   });
-  it('muu kirjoitus, toinen sivu, toinen seura tai poisto → tuntematon (kaataa)', () => {
-    expect(luokitteleKirjoitus({ op: 'update', polku: 'seurat/qg_savu/kayttajat/u1' }, 'TalentMaster_Kehitystyopoyta.html', T).tunnettu).toBe(false);
-    expect(luokitteleKirjoitus({ op: 'update', polku: 'seurat/kpv/kayttajat/u1' }, 'TalentMaster_VP_v25.html', T).tunnettu).toBe(false);
-    expect(luokitteleKirjoitus({ op: 'delete', polku: 'seurat/qg_savu/toimenpiteet/abc' }, 'TalentMaster_VP_v25.html', T).tunnettu).toBe(false);
-    expect(luokitteleKirjoitus({ op: 'set', polku: 'seurat/qg_savu/pelaajat/qp1' }, 'TalentMaster_VP_v25.html', T).tunnettu).toBe(false);
-    expect(luokitteleKirjoitus({ op: 'update', polku: 'seurat/qg_savu/kayttajat/u1/notifikaatiot/n1' }, 'TalentMaster_VP_v25.html', T).tunnettu).toBe(false);
+  it('nimetyt avauskirjoitukset → tunnettu (⚠, estetään)', () => {
+    expect(tunnettu(kirj())).toBe(true);
+    expect(tunnettu(tp())).toBe(true);
+  });
+  it('viimeisinKirjautuminen: toisen käyttäjän dokki, puuttuva uid, lisäkenttä tai muu kenttä → kaataa', () => {
+    expect(tunnettu(kirj({ polku: 'seurat/qg_savu/kayttajat/toinenUid' }))).toBe(false);
+    expect(tunnettu(kirj({ uid: null }))).toBe(false);
+    expect(tunnettu(kirj({ uid: '.*' , polku: 'seurat/qg_savu/kayttajat/.*' }))).toBe(false);
+    expect(tunnettu(kirj({ kentat: ['viimeisinKirjautuminen', 'rooli'] }))).toBe(false);
+    expect(tunnettu(kirj({ kentat: ['rooli'] }))).toBe(false);
+    expect(tunnettu(kirj({ kentat: [] }))).toBe(false);
+    expect(tunnettu(kirj({ kentat: undefined }))).toBe(false);
+    expect(tunnettu(kirj({ op: 'set' }))).toBe(false);
+    expect(tunnettu(kirj({ op: 'batch.update' }))).toBe(false);
+    expect(tunnettu(kirj({ polku: 'seurat/qg_savu/kayttajat/' + UID + '/notifikaatiot/n1' }))).toBe(false);
+  });
+  it('toimenpide: muu tila/tyyppi, VP-teksti, kuittaus, puuttuva tai ylimääräinen kenttä, ei-auto-id, update/delete → kaataa', () => {
+    const a = (x) => tp({ arvot: Object.assign({}, tp().arvot, x) });
+    expect(tunnettu(a({ tila: 'kuitattu' }))).toBe(false);
+    expect(tunnettu(a({ tyyppi: 'manuaalinen' }))).toBe(false);
+    expect(tunnettu(a({ vp_teksti: 'oma teksti' }))).toBe(false);
+    expect(tunnettu(a({ kuitattu_uid: UID }))).toBe(false);
+    expect(tunnettu(tp({ kentat: tp().kentat.concat('pelaajaId') }))).toBe(false);
+    expect(tunnettu(tp({ kentat: tp().kentat.filter((k) => k !== 'luotu') }))).toBe(false);
+    expect(tunnettu(tp({ polku: 'seurat/qg_savu/toimenpiteet/oma' }))).toBe(false);
+    expect(tunnettu(tp({ polku: 'seurat/qg_savu/toimenpiteet/' + AUTO_ID + '/x/y' }))).toBe(false);
+    expect(tunnettu(tp({ op: 'update' }))).toBe(false);
+    expect(tunnettu(tp({ op: 'delete', kentat: [] }))).toBe(false);
+    expect(tunnettu(tp({ op: 'batch.set' }))).toBe(false);
+  });
+  it('toinen sivu, toinen seura tai muu kokoelma → kaataa', () => {
+    expect(tunnettu(kirj(), 'TalentMaster_Kehitystyopoyta.html')).toBe(false);
+    expect(tunnettu(tp(), 'TalentMaster_Pelaaja_v7.html')).toBe(false);
+    expect(tunnettu(kirj({ polku: 'seurat/kpv/kayttajat/' + UID }))).toBe(false);
+    expect(tunnettu(tp({ polku: 'seurat/kpv/toimenpiteet/' + AUTO_ID }))).toBe(false);
+    expect(tunnettu(kirj({ op: 'set', polku: 'seurat/qg_savu/pelaajat/qp1', kentat: ['viimeisinKirjautuminen'] }))).toBe(false);
+    expect(tunnettu(kirj({ op: 'add', polku: 'seurat/qg_savu/toimenpiteet/*' }))).toBe(false);
+  });
+  it('tuntemattoman syy kertoo op:n, polun ja kentät (yhteenvetoon)', () => {
+    expect(luokitteleKirjoitus(kirj({ kentat: ['rooli'] }), VP, T).syy).toBe('tuntematon kirjoitus update seurat/qg_savu/kayttajat/' + UID + ' [rooli]');
+  });
+});
+
+/* Vartija (kerros 2a) ajettuna valeympäristössä: kirjaa kentät, skalaariarvot ja kirjoittajan uid:n, hylkää jokaisen kirjoituksen. */
+describe('QG-3 · sivun kirjoitusvartija kirjaa kentät, arvot ja uid:n', () => {
+  function ymparisto(uid) {
+    function DR(path, app) { this.path = path; this.firestore = { app }; }
+    DR.prototype.set = () => Promise.resolve('MENI'); DR.prototype.update = () => Promise.resolve('MENI'); DR.prototype.delete = () => Promise.resolve('MENI');
+    function CR(path, app) { this.path = path; this.firestore = { app }; } CR.prototype.add = () => Promise.resolve('MENI');
+    function WB() {} WB.prototype.set = function () { return this; }; WB.prototype.commit = () => Promise.resolve('MENI');
+    function TR() {} TR.prototype.set = function () { return this; };
+    function FieldPath(n) { this._delegate = { _internalPath: { canonicalString: () => n } }; }
+    const app = { name: '[DEFAULT]' }, firestore = () => ({}); Object.assign(firestore, { DocumentReference: DR, CollectionReference: CR, WriteBatch: WB, Transaction: TR, FieldPath });
+    const w = { firebase: { firestore, auth: (a) => ({ currentUser: a === app && uid ? { uid } : null }) }, setInterval, clearInterval, setTimeout };
+    w.window = w; vm.createContext(w); vm.runInContext(vartijaLahde(ESTO_VIESTI), w);
+    return { w, app, DR, CR, WB, TR, FieldPath };
+  }
+  it('update(objekti) ja set(objekti): kentät lajiteltuina, skalaariarvot (merkkijono ≤ 80), uid; kirjoitus hylätään', async () => {
+    const { w, app, DR } = ymparisto('vpUid123');
+    const ts = { _methodName: 'serverTimestamp' };
+    await expect(new DR('seurat/qg_savu/kayttajat/vpUid123', app).update({ viimeisinKirjautuminen: ts })).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(new DR('seurat/qg_savu/toimenpiteet/AbCdEfGhIjKlMnOpQrSt', app).set({ tyyppi: 'automaattinen', tila: 'ehdotus', vp_teksti: null, teksti: 'x'.repeat(200), luotu: ts, n: 3 })).rejects.toThrow(ESTO_VIESTI);
+    expect(w.__savuVartija).toBe(true);
+    const [a, b] = w.__savuKirj;
+    expect(a).toEqual({ op: 'update', polku: 'seurat/qg_savu/kayttajat/vpUid123', kentat: ['viimeisinKirjautuminen'], arvot: {}, uid: 'vpUid123' });
+    expect(b.kentat).toEqual(['luotu', 'n', 'teksti', 'tila', 'tyyppi', 'vp_teksti']);
+    expect(b.arvot).toEqual({ tyyppi: 'automaattinen', tila: 'ehdotus', vp_teksti: null, teksti: 'x'.repeat(80), n: 3 });
+    // luokittelija: vartijan oma kirjaus viimeisinKirjautumisesta tunnistetaan, rooli-kenttä ei
+    expect(luokitteleKirjoitus(a, 'TalentMaster_VP_v25.html', SALLITUT.tunnetut_kirjoitukset).tunnettu).toBe(true);
+  });
+  it('update(kenttä, arvo, …) ja FieldPath-muoto → kentät argumenteista; ei kirjautunutta → uid null → kaataa', async () => {
+    const { w, app, DR, FieldPath } = ymparisto(null);
+    await new DR('seurat/qg_savu/kayttajat/vpUid123', app).update('viimeisinKirjautuminen', 1, 'rooli', 'sa').catch(() => {});
+    await new DR('seurat/qg_savu/kayttajat/vpUid123', app).update(new FieldPath('viimeisinKirjautuminen'), 1).catch(() => {});
+    expect(w.__savuKirj[0]).toMatchObject({ kentat: ['rooli', 'viimeisinKirjautuminen'], uid: null });
+    expect(w.__savuKirj[1].kentat).toEqual(['viimeisinKirjautuminen']);
+    expect(luokitteleKirjoitus(w.__savuKirj[1], 'TalentMaster_VP_v25.html', SALLITUT.tunnetut_kirjoitukset).tunnettu).toBe(false);
+  });
+  it('add, batch ja transaktio kirjataan omilla op-nimillään (eivät koskaan täsmää nimettyihin) ja hylätään', async () => {
+    const { w, app, DR, CR, WB, TR } = ymparisto('vpUid123');
+    await expect(new CR('seurat/qg_savu/toimenpiteet', app).add({ tila: 'ehdotus' })).rejects.toThrow(ESTO_VIESTI);
+    const b = new WB(); b.set(new DR('seurat/qg_savu/kayttajat/vpUid123', app), { viimeisinKirjautuminen: 1 });
+    await expect(b.commit()).rejects.toThrow(ESTO_VIESTI);
+    expect(() => new TR().set(new DR('x/y', app), {})).toThrow(ESTO_VIESTI);
+    expect(w.__savuKirj.map((k) => k.op + ' ' + k.polku)).toEqual(['add seurat/qg_savu/toimenpiteet/*', 'batch.set seurat/qg_savu/kayttajat/vpUid123', 'tx.set x/y']);
+    for (const k of w.__savuKirj) expect(luokitteleKirjoitus(k, 'TalentMaster_VP_v25.html', SALLITUT.tunnetut_kirjoitukset).tunnettu).toBe(false);
   });
 });
 

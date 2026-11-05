@@ -10,6 +10,7 @@ const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RAAKA = readFileSync(join(JUURI, '.github/workflows/savutesti.yml'), 'utf8');
 const WF = RAAKA.split('\n').filter((r) => !/^\s*#/.test(r)).join('\n');   // väitteet askeliin, ei kommentteihin
 const SKRIPTI = readFileSync(join(JUURI, 'tools/savutesti/savutesti.mjs'), 'utf8');
+const LIB = readFileSync(join(JUURI, 'tools/savutesti/savutesti_lib.mjs'), 'utf8');
 const SECRETIT = ['TM_SAVU_EMAIL', 'TM_SAVU_SALASANA', 'TM_SAVU_PELAAJA_TUNNISTE', 'TM_SAVU_PELAAJA_PIN', 'TM_SAVU_APPCHECK_DEBUG'];
 
 describe('QG-3 · savutesti.yml', () => {
@@ -77,6 +78,7 @@ describe('QG-3 · savutesti.mjs turvasäännöt', () => {
     expect(SKRIPTI).toContain("serviceWorkers: 'block'");
     expect(SKRIPTI).toContain('ctx.addInitScript(VARTIJA)');
     expect(SKRIPTI).toContain('ctx.route(REITITA_RE');
-    for (const m of ["DR[m] = function", 'CollectionReference.prototype.add', 'WB.commit', 'TR[m] = function']) expect(SKRIPTI).toContain(m);
+    expect(SKRIPTI).toContain('const VARTIJA = vartijaLahde(ESTO_VIESTI)');
+    for (const m of ["DR[m] = function", 'CollectionReference.prototype.add', 'WB.commit', 'TR[m] = function']) expect(LIB).toContain(m);
   });
 });

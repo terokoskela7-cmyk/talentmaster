@@ -6,7 +6,8 @@
      P7 = oma PalloID-kenttä (#pinTunnus) + _kirjaudu(pin) → pelaajaKirjaudu → custom token (sama reitti kuin oikeilla pelaajilla). Pelaaja omassa kontekstissaan.
    KIRJOITUSESTO (vaihe 0 S3): kerros 1 = Rules-eristys (tunnukset vain qg_savu) · kerros 2 = (a) sivun Firestore-vartija hylkää set/update/delete/add/batch/transaktion
      ennen verkkoa ja kirjaa polun, (b) verkkoesto (luokittelePyynto) katkaisee Write-kanavan, REST-commitin, Storage-uploadit ja callablet sallittulistan ulkopuolelta ·
-     kerros 3 = jokainen tuntematon kirjoitusyritys kaataa näkymän. Tunnetut avauskirjoitukset (savutesti_sallitut.json, perusteltu) estetään mutta raportoidaan ⚠.
+     kerros 3 = jokainen tuntematon kirjoitusyritys kaataa näkymän. ⚠ vain VP:n kaksi nimettyä avauskirjoitusta (savutesti_sallitut.json: oma viimeisinKirjautuminen +
+     automaattinen toimenpide-ehdotus, polku + kentät + arvot täsmälleen); ne estetään silti. Siirto palvelimelle: docs/BACKLOG_SAVUTESTI.md.
    SALAISUUDET: vain env (GitHub Secrets). Ei koskaan lokiin: PIN välitetään sivulle funktion argumenttina, CI:ssä lisäksi ::add-mask::.
    Ajo:  TM_SAVU_URL=https://talentmaster-pilot--savutesti-xxxx.web.app TM_SAVU_EMAIL=… TM_SAVU_SALASANA=… TM_SAVU_PELAAJA_TUNNISTE=… TM_SAVU_PELAAJA_PIN=… TM_SAVU_APPCHECK_DEBUG=…
            node tools/savutesti/savutesti.mjs [--tulos=savutesti-tulos/tulos.json] [--issue=savutesti-tulos/issue.md] [--kielet=fi,sv]
@@ -14,7 +15,7 @@
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { REITITA_RE, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, svLoydot, konsoliVirheet, yhteenvetoMarkdown, issueRunko, onnistui, SECRETIT, SEURA, ESTO_VIESTI } from './savutesti_lib.mjs';
+import { REITITA_RE, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, konsoliVirheet, yhteenvetoMarkdown, issueRunko, onnistui, SECRETIT, SEURA, ESTO_VIESTI } from './savutesti_lib.mjs';
 
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SALLITUT = JSON.parse(readFileSync(join(JUURI, 'tools/savutesti/savutesti_sallitut.json'), 'utf8'));
@@ -24,26 +25,8 @@ const CALLABLET = SALLITUT.callablet.map((c) => c.nimi);
 const PELAAJA = 'qp1', ODOTUS = 45000, ASETU = 2500;
 const argArvo = (n) => { const a = process.argv.find((x) => x.startsWith(n + '=')); return a ? a.slice(n.length + 1) : null; };
 
-/* Sivun Firestore-kirjoitusvartija (kerros 2a). compat-SDK:n luokat ovat jaettuja kaikille apeille (myös P7:n nimetty 'tm-pelaaja'). */
-const VARTIJA = `(function () {
-  window.__savuKirj = []; var VIESTI = ${JSON.stringify(ESTO_VIESTI)};
-  function virhe(op, polku) { var e = new Error(VIESTI + ' (' + op + ' ' + polku + ')'); e.code = 'permission-denied'; return e; }
-  function kirjaa(op, polku) { window.__savuKirj.push({ op: op, polku: String(polku || '') }); }
-  function asenna() {
-    var F = window.firebase && window.firebase.firestore; if (!F || !F.DocumentReference || !F.CollectionReference) return false;
-    if (window.__savuVartija) return true;
-    var DR = F.DocumentReference.prototype;
-    ['set', 'update', 'delete'].forEach(function (m) { DR[m] = function () { kirjaa(m, this.path); return Promise.reject(virhe(m, this.path)); }; });
-    F.CollectionReference.prototype.add = function () { kirjaa('add', this.path + '/*'); return Promise.reject(virhe('add', this.path)); };
-    if (F.WriteBatch) { var WB = F.WriteBatch.prototype;
-      ['set', 'update', 'delete'].forEach(function (m) { WB[m] = function (ref) { (this.__savu = this.__savu || []).push([m, ref && ref.path]); return this; }; });
-      WB.commit = function () { var l = this.__savu || []; l.forEach(function (x) { kirjaa('batch.' + x[0], x[1]); }); return Promise.reject(virhe('commit', l.length + ' kirjoitusta')); }; }
-    if (F.Transaction) { var TR = F.Transaction.prototype;
-      ['set', 'update', 'delete'].forEach(function (m) { TR[m] = function (ref) { kirjaa('tx.' + m, ref && ref.path); throw virhe('tx.' + m, ref && ref.path); }; }); }
-    window.__savuVartija = true; return true;
-  }
-  if (!asenna()) { var t = setInterval(function () { if (asenna()) clearInterval(t); }, 2); setTimeout(function () { clearInterval(t); }, 60000); }
-})();`;
+/* Sivun Firestore-kirjoitusvartija (kerros 2a): savutesti_lib.mjs vartijaLahde (kirjaa op, polku, kentät, arvot, uid). */
+const VARTIJA = vartijaLahde(ESTO_VIESTI);
 
 /* Selaimessa: näkyvät tekstit (sv-tarkistus) — sama rajaus kuin QG-1:n keruussa (teksti + placeholder/title/aria-label/alt). */
 function keraaTekstit() {
