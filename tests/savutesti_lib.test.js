@@ -263,6 +263,26 @@ describe('QG-3 · tulos, yhteenveto ja ohitus', () => {
     expect(md).toContain('TypeError: a\\|b');
     expect(issueRunko({ nakymat: [fi] }, 'https://github.com/x/actions/runs/1')).toMatch(/^Savutesti epäonnistui: https:\/\/github\.com\/x\/actions\/runs\/1/);
   });
+  it('lippu pois → Kehitystyöpöytä-näkymät ohitetaan yhdellä syyllä: "–"-solut, ↷-löydös, ajo punainen VP Kodin lipusta (#1197)', () => {
+    const vp = Object.assign({}, ok, { nimi: 'VP Koti', kieli: 'fi', sv: undefined, lippu: { ok: false, syy: 'kehitystyopoyta_v2 ei päällä (liput/julkiset false, _ktSivuLippu false) — Admin → Liput' } });
+    const kt = { nimi: 'Kehitystyöpöytä Tänään', kieli: 'fi', sivu: 'TalentMaster_Kehitystyopoyta.html', ohitettu: 'kehitystyopoyta_v2 pois (ks. VP Koti)', virheet: [] };
+    expect(Object.values(arvioi(kt)).map((x) => x.tila)).toEqual(['-', '-', '-', '-', '-']);
+    expect(onnistui({ nakymat: [Object.assign({}, ok, { lippu: { ok: true } }), kt] })).toBe(true);   // ohitus ei yksin kaada
+    expect(onnistui({ nakymat: [vp, kt] })).toBe(false);   // lippu ✗ kaataa
+    const md = yhteenvetoMarkdown({ nakymat: [vp, kt] });
+    expect(md).toContain('| Kehitystyöpöytä Tänään | fi | – | – | – | – | – |');
+    expect(md).toContain('- ↷ **Kehitystyöpöytä Tänään (fi)** · ohitettu: kehitystyopoyta_v2 pois (ks. VP Koti)');
+    expect(md.match(/Kehitystyöpöytä Tänään \(fi\)/g).length).toBe(1);   // ei seurannaisvirheitä
+  });
+  it('savutesti ohittaa Kehitystyöpöydän VAIN kun lippu luettiin pois-tilassa (ei kun lippua ei luettu)', () => {
+    const src = readFileSync(join(JUURI, 'tools/savutesti/savutesti.mjs'), 'utf8');
+    expect(src).toMatch(/else if \(!l\.julkiset \|\| l\.sivu !== true\) \{ lippuPois = true;/);
+    expect(src).toMatch(/if \(!l\) koti\.lippu = \{ ok: false, syy: 'lippua ei luettu/);
+    const i = src.indexOf('if (lippuPois)'), j = src.indexOf("if (!ohjasi) await p.goto");
+    expect(i).toBeGreaterThan(0); expect(i).toBeLessThan(j);
+    expect(src.slice(i, j)).toMatch(/for \(const k of KTP_NAKYMAT\) ulos\.push\(ohitettu\(NAKYMAT\[k\], kieli, .*\)\); return;/);
+    expect(src).toMatch(/const KTP_NAKYMAT = \['ktTanaan', 'ktPolku', 'ktProfiili', 'ktRaportti'\]/);
+  });
   it('kanavan URL: vain talentmaster-pilot--savutesti-*.web.app (tunnukset eivät lähde liveen eikä vieraalle)', () => {
     expect(kanavaUrl('https://talentmaster-pilot--savutesti-k3j2h1.web.app/').ok).toBe(true);
     expect(kanavaUrl('https://talentmaster-pilot--savutesti-k3j2h1.web.app/').url).toBe('https://talentmaster-pilot--savutesti-k3j2h1.web.app');

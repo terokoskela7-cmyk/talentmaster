@@ -188,10 +188,12 @@ export function virheRivit(virheet) {
   return [...m].map(([r, n]) => (n > 1 ? r + ' ×' + n : r));
 }
 
-/* nakyma = { nimi, kieli, sivu, virheet:[], lohkot:{ ok, puuttuu:[] }, sv?:{uudet,tunnetut}, lippu?:{ ok, syy }, kirjoitukset:{ tuntemattomat:[], tunnetut:[], verkko:[] }, vartija:bool, kaatui? }
+/* nakyma.ohitettu = syy (näkymää ei ajettu, esim. lippu pois) → kaikki tarkistukset '–', ei kaada yksinään.
+   nakyma = { nimi, kieli, sivu, virheet:[], lohkot:{ ok, puuttuu:[] }, sv?:{uudet,tunnetut}, lippu?:{ ok, syy }, kirjoitukset:{ tuntemattomat:[], tunnetut:[], verkko:[] }, vartija:bool, kaatui? }
    → { virheet, lohkot, kieli, lippu, kirjoitukset }: kukin { tila: 'ok'|'varoitus'|'virhe'|'-', tieto } */
 export function arvioi(n) {
   const t = (tila, tieto) => ({ tila, tieto: tieto || '' });
+  if (n.ohitettu) { const o = t('-', n.ohitettu); return { virheet: o, lohkot: o, kieli: o, lippu: o, kirjoitukset: o }; }   // syy näkyy omana löydöksenään (↷); ajon kaataa syy-tarkistus (esim. VP Kodin lippu ✗)
   if (n.kaatui) { const k = t('virhe', n.kaatui); return { virheet: k, lohkot: k, kieli: n.kieli === 'sv' ? k : t('-'), lippu: n.lippu ? k : t('-'), kirjoitukset: k }; }
   const kirj = n.kirjoitukset || { tuntemattomat: [], tunnetut: [], verkko: [] };
   return {
@@ -215,6 +217,7 @@ export function yhteenvetoMarkdown(tulos) {
   for (const n of tulos.nakymat || []) {
     const a = arvioi(n);
     r.push('| ' + n.nimi + ' | ' + n.kieli + ' | ' + TARKISTUKSET.map(([k]) => MERKKI[a[k].tila]).join(' | ') + ' |');
+    if (n.ohitettu) { tiedot.push('- ↷ **' + n.nimi + ' (' + n.kieli + ')** · ohitettu: ' + solu(n.ohitettu)); continue; }
     for (const [k, nimi] of TARKISTUKSET) if (a[k].tila === 'virhe' || a[k].tila === 'varoitus') tiedot.push('- ' + MERKKI[a[k].tila] + ' **' + n.nimi + ' (' + n.kieli + ')** · ' + nimi + ': ' + solu(a[k].tieto));
   }
   if (tiedot.length) r.push('', '### Löydökset', '', ...tiedot);

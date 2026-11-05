@@ -43,7 +43,7 @@ describe('QG-3 · savutesti.yml', () => {
     expect(WF).not.toContain('FIREBASE_SERVICE_ACCOUNT');   // savutesti ei tarvitse palvelutiliä: lukee artefaktin, ajaa selainta
   });
   it('kanavan URL artefaktista savutesti-kanava (url.txt) → syöte → vars.TM_SAVU_URL', () => {
-    expect(WF).toContain('actions/download-artifact@v4');
+    expect(WF).toContain('actions/download-artifact@v7');
     expect(WF).toContain('name: savutesti-kanava');
     expect(WF).toContain('run-id: ${{ github.event.workflow_run.id }}');
     expect(WF).toContain('kanava/url.txt');
@@ -54,7 +54,7 @@ describe('QG-3 · savutesti.yml', () => {
     expect(WF).toContain('node tools/savutesti/savutesti.mjs --tulos=savutesti-tulos/tulos.json --issue=savutesti-tulos/issue.md');
     expect(WF).toContain('TM_CHROME_PATH="$(which google-chrome)"');
     expect(WF).toMatch(/timeout-minutes: \d+/);
-    expect(WF).toContain('actions/upload-artifact@v4');
+    expect(WF).toContain('actions/upload-artifact@v6');
   });
   it('issue: yksi auki oleva label savutesti — kommentoi olemassa olevaa, luo vain jos ei ole; vihreä sulkee', () => {
     expect(WF).toContain('gh issue list --label savutesti --state open');
