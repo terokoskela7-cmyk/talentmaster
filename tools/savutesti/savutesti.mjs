@@ -118,6 +118,8 @@ export const NAKYMAT = {
   p7Jag: { nimi: 'P7 Jag', sivu: 'TalentMaster_Pelaaja_v7.html', valmis: "(() => typeof _tab !== 'undefined' && _tab === 'mina' && !document.getElementById('pinTunnus') && (document.getElementById('phBody') || {}).innerText && document.getElementById('phBody').innerText.trim().length > 100)()", lohkot: ['#phBody', '#phBody .tabs'] },
 };
 const kaatunut = (def, kieli, syy) => ({ nimi: def.nimi, kieli, sivu: def.sivu, kaatui: syy, virheet: [] });
+const ohitettu = (def, kieli, syy) => ({ nimi: def.nimi, kieli, sivu: def.sivu, ohitettu: syy, virheet: [] });
+const KTP_NAKYMAT = ['ktTanaan', 'ktPolku', 'ktProfiili', 'ktRaportti'];
 
 async function henkilokunta(selain, url, kieli, env, tila, ulos) {
   const kerays = uusiKeraaja(); tila.nyky = kerays;
@@ -130,15 +132,15 @@ async function henkilokunta(selain, url, kieli, env, tila, ulos) {
       await p.waitForSelector('#lEmail', { state: 'attached', timeout: ODOTUS });
       await p.evaluate(({ e, s }) => { document.getElementById('lEmail').value = e; document.getElementById('lPass').value = s; kirjaudu(); }, { e: env.TM_SAVU_EMAIL, s: env.TM_SAVU_SALASANA });
     } catch (e) { kirjautui = false; }
-    if (!kirjautui) { for (const k of ['vpKoti', 'ktTanaan', 'ktPolku', 'ktProfiili', 'ktRaportti']) ulos.push(kaatunut(NAKYMAT[k], kieli, 'VP-kirjautumislomake ei avautunut')); return; }
+    if (!kirjautui) { for (const k of ['vpKoti', ...KTP_NAKYMAT]) ulos.push(kaatunut(NAKYMAT[k], kieli, 'VP-kirjautumislomake ei avautunut')); return; }
     const koti = await mittaa(p, NAKYMAT.vpKoti, kieli, tila, kerays);
     if (koti.kaatui) { const v = await p.evaluate(() => ((document.getElementById('lErr') || {}).textContent || '').trim()).catch(() => ''); if (v) koti.kaatui += ' · kirjautuminen: ' + v.slice(0, 120); }
     /* Tarkistus 4: liput/julkiset luettu (kehitystyopoyta_v2) ja VP ohjaa pelaajan työpöydän Kehitystyöpöydälle (B7: window._ktAvaa → TM_KT_SIVU.tmKtSivuLinkki). */
-    let ohjasi = false;
+    let ohjasi = false, lippuPois = false;
     if (!koti.kaatui) {
       const l = await p.waitForFunction((s) => window._ktSivuLippu !== undefined && ({ sivu: window._ktSivuLippu, julkiset: !!(window._vpLiput && window._vpLiput[s] && window._vpLiput[s].kehitystyopoyta_v2 === true) }), SEURA, { timeout: 20000 }).then((h) => h.jsonValue()).catch(() => null);
       if (!l) koti.lippu = { ok: false, syy: 'lippua ei luettu (window._ktSivuLippu)' };
-      else if (!l.julkiset || l.sivu !== true) koti.lippu = { ok: false, syy: 'kehitystyopoyta_v2 ei päällä (liput/julkiset ' + l.julkiset + ', _ktSivuLippu ' + l.sivu + ') — Admin → Liput' };
+      else if (!l.julkiset || l.sivu !== true) { lippuPois = true; koti.lippu = { ok: false, syy: 'kehitystyopoyta_v2 ei päällä (liput/julkiset ' + l.julkiset + ', _ktSivuLippu ' + l.sivu + ') — Admin → Liput → ' + SEURA + ' → kehitystyopoyta_v2 päälle (seed ei kirjoita lippua)' }; }
       else {
         const loput = await p.evaluate(() => (window.__savuKirj || []).splice(0)).catch(() => []);   // VP:n myöhäiset kirjoitukset ennen sivun vaihtoa
         if (koti.kirjoitukset) lisaaKirjoitukset(koti, loput, kerays);
@@ -148,6 +150,9 @@ async function henkilokunta(selain, url, kieli, env, tila, ulos) {
       }
     } else koti.lippu = { ok: false, syy: 'VP Koti ei avautunut' };
     ulos.push(koti);
+    /* Lippu luettiin ja se on pois → Kehitystyöpöytä ei avaudu VP:n kautta. Näkymät ohitetaan yhdellä syyllä (ei 4 × 45 s odotusta eikä
+       seurannaisvirheitä, #1197). Ajo on silti punainen: VP Kodin lipputarkistus ✗. Lippua ei luettu (null) → yritetään normaalisti. */
+    if (lippuPois) { for (const k of KTP_NAKYMAT) ulos.push(ohitettu(NAKYMAT[k], kieli, 'kehitystyopoyta_v2 pois (ks. VP Koti)')); return; }
     if (!ohjasi) await p.goto(url + '/TalentMaster_Kehitystyopoyta.html#pelaaja/' + PELAAJA + '/tanaan', { waitUntil: 'load', timeout: ODOTUS }).catch(() => {});
     ulos.push(await mittaa(p, NAKYMAT.ktTanaan, kieli, tila, kerays));
     for (const [k, polku] of [['ktPolku', '#pelaaja/' + PELAAJA + '/polku'], ['ktProfiili', '#pelaaja/' + PELAAJA + '/profiili'], ['ktRaportti', '?avaa=raportti#pelaaja/' + PELAAJA + '/profiili']]) {
