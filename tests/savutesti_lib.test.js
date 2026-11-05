@@ -5,8 +5,10 @@ import { readFileSync } from 'fs';
 import vm from 'vm';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, konsoliVirheet, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
+import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, poistaNimet, konsoliVirheet, ilmanQuerya, pyyntoRivi, epaonnistuneetPyynnot, liitaPyynnot, virheRivit, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
 import { aja } from '../tools/savutesti/savutesti.mjs';
+import { createRequire } from 'module';
+const { SALLITUT_NIMET } = createRequire(import.meta.url)('../scripts/savutesti_seura_luo.js');
 
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SALLITUT = JSON.parse(readFileSync(join(JUURI, 'tools/savutesti/savutesti_sallitut.json'), 'utf8'));
@@ -184,6 +186,59 @@ describe('QG-3 · sv-löydökset ja konsoli', () => {
       { tyyppi: 'pageerror', teksti: 'TypeError: x is undefined' }, { tyyppi: 'console', teksti: 'tunnettu varoitus 1', url: 'https://a/b.js' }];
     const j = konsoliVirheet(v, [{ malli: '^tunnettu varoitus', url: 'b\\.js$', perustelu: 'testi' }], [CF + 'paivitaSeuranKooste']);
     expect(j.map((x) => x.teksti)).toEqual(['TypeError: x is undefined']);
+  });
+  it('seed-datan nimet (seed-skriptin SALLITUT_NIMET) eivät ole suomea: "Jo Strand" ohitetaan, nimen ympärillä oleva suomi jää kiinni', () => {
+    expect(SALLITUT_NIMET.has('Jo') && SALLITUT_NIMET.has('Strand')).toBe(true);
+    const o = { sallitut: { tekstit: [], alkavat: [] }, baseline: { tekstit: [] }, nimet: SALLITUT_NIMET };
+    expect(svLoydot(['Jo Strand'], Object.assign({}, o, { nimet: undefined })).uudet).toEqual(['Jo Strand']);   // ilman nimiä väärä hälytys ("jo")
+    const r = svLoydot(['Jo Strand', 'Strand, Jo', 'Iris Lund · VP', 'Jo Strand on jo tallentanut harjoituksen', 'Leo Berg tallenna muutokset'], o);
+    expect(r.uudet).toEqual(['Jo Strand on jo tallentanut harjoituksen', 'Leo Berg tallenna muutokset']);
+    expect(poistaNimet('Jo Strand on jo täällä', SALLITUT_NIMET).trim()).toBe('on jo täällä');
+    expect(poistaNimet('Jonne Strandberg', SALLITUT_NIMET)).toBe('Jonne Strandberg');   // vain kokonaiset sanat
+  });
+  it('savutesti lukee nimet seed-skriptistä, ei omasta listasta', () => {
+    const src = readFileSync(join(JUURI, 'tools/savutesti/savutesti.mjs'), 'utf8');
+    expect(src).toMatch(/createRequire\(import\.meta\.url\)\('\.\.\/\.\.\/scripts\/savutesti_seura_luo\.js'\)\.SALLITUT_NIMET/);
+    expect(src).toMatch(/nimet: SEED_NIMET/);
+    expect(src).not.toMatch(/'Strand'/);
+  });
+});
+
+describe('QG-3 · epäonnistuneet pyynnöt (metodi + status + URL ilman queryä)', () => {
+  const L = FS + '/google.firestore.v1.Firestore/Listen/channel';
+  const q = (rid) => L + '?VER=8&database=projects%2Fx&gsessionid=abc&SID=s1&RID=' + rid + '&AID=4&t=1';
+  it('URL ilman queryä ja fragmenttia; rivi = status metodi URL', () => {
+    expect(ilmanQuerya(q(1))).toBe(L);
+    expect(ilmanQuerya('https://a.b/c#x')).toBe('https://a.b/c');
+    expect(pyyntoRivi({ metodi: 'post', url: q(1), status: 400 })).toBe('400 POST ' + L);
+    expect(pyyntoRivi({ metodi: 'GET', url: q('rpc'), status: 0, virhe: 'net::ERR_FAILED' })).toBe('ei vastausta (net::ERR_FAILED) GET ' + L);
+  });
+  it('konsolin "Failed to load resource" saa pyynnön; savutestin omat estot pois; tulokseen ei queryä', () => {
+    const pyynnot = [{ metodi: 'POST', url: q(4450), status: 400, t: 1 }, { metodi: 'GET', url: q('rpc'), status: 404, t: 2 }, { metodi: 'POST', url: CF + 'paivitaSeuranKooste', status: 403 }];
+    const viestit = konsoliVirheet([{ tyyppi: 'console', teksti: 'Failed to load resource: the server responded with a status of 400 ()', url: q(4450) },
+      { tyyppi: 'console', teksti: 'Failed to load resource: the server responded with a status of 404 ()', url: q('rpc') },
+      { tyyppi: 'console', teksti: 'Failed to load resource: 403', url: CF + 'paivitaSeuranKooste' }, { tyyppi: 'pageerror', teksti: 'TypeError: x' }], [], [CF + 'paivitaSeuranKooste']);
+    const v = liitaPyynnot(viestit, pyynnot);
+    expect(v.map((x) => x.pyynto && x.pyynto.status)).toEqual([400, 404, undefined]);
+    expect(v[0].url).toBe(L); expect(v[0].pyynto).toEqual({ metodi: 'POST', url: L, status: 400 });
+    expect(JSON.stringify(v)).not.toMatch(/gsessionid|SID=|RID=/);
+    const e = epaonnistuneetPyynnot(pyynnot, [CF + 'paivitaSeuranKooste']);
+    expect(e.map((x) => x.status + ' ' + x.url)).toEqual(['400 ' + L, '404 ' + L]);
+  });
+  it('yhteenveto näyttää pyynnöt, ei pelkkää "Failed to load resource"; toistuvat kootaan', () => {
+    const virheet = liitaPyynnot([1, 2, 3].map((i) => ({ tyyppi: 'console', teksti: 'Failed to load resource: the server responded with a status of 400 ()', url: q(i) })).concat([{ tyyppi: 'pageerror', teksti: 'TypeError: x' }]),
+      [1, 2, 3].map((i) => ({ metodi: 'POST', url: q(i), status: 400 })));
+    expect(virheRivit(virheet)).toEqual(['400 POST ' + L + ' ×3', 'TypeError: x']);
+    const n = { nimi: 'P7 Idag', kieli: 'sv', virheet, lohkot: { ok: true, puuttuu: [] }, sv: { uudet: [], tunnetut: [] }, vartija: true, kirjoitukset: { tuntemattomat: [], tunnetut: [], verkko: [] } };
+    const md = yhteenvetoMarkdown({ nakymat: [n] });
+    expect(md).toContain('400 POST ' + L + ' ×3');
+    expect(md).not.toContain('Failed to load resource');
+  });
+  it('savutesti kuuntelee response- ja requestfailed-tapahtumia (status + metodi)', () => {
+    const src = readFileSync(join(JUURI, 'tools/savutesti/savutesti.mjs'), 'utf8');
+    expect(src).toMatch(/p\.on\('response'/); expect(src).toMatch(/r\.status\(\)/); expect(src).toMatch(/r\.request\(\)\.method\(\)/);
+    expect(src).toMatch(/p\.on\('requestfailed'/);
+    expect(src).toMatch(/liitaPyynnot\(/); expect(src).toMatch(/epaonnistuneetPyynnot\(/);
   });
 });
 
