@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Admin</title>
 <script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1793831206432';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1793864804465';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -28,7 +28,7 @@
 <script src="lib/tm_audit_nimet.js"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
 <script src="lib/tm_esc.js"></script>
 <script src="lib/tm_seuran_kooste.js"></script><script src="lib/tm_joukkuejakso.js"></script><script src="lib/tm_kayttoaste.js"></script>   <!-- S1.1: Käyttöaste (Pilotin tila): koko osio libissä -->   <!-- P1: jaettu HTML-escape (tallennettu XSS) -->
-<script src="lib/tm_laskutus.js"></script><script src="lib/tm_laskutus_admin.js"></script>   <!-- Laskutus L1a: laskenta + "Laskutus"-näkymä (vain SA) -->
+<script src="lib/tm_laskutus.js"></script><script src="lib/tm_laskutus_admin.js"></script><script src="lib/tm_liput.js"></script><script src="lib/tm_liput_admin.js"></script>   <!-- Laskutus L1a + D1 Liput (vain SA) -->
 <script src="tm_auth.js"></script>
 
 <style>
@@ -291,7 +291,7 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
     <div class="navNappi" onclick="vaihdaNakyma('joukkueet',this)">
       <span class="navIkoni">⚽</span>Joukkueet
     </div>
-    <div class="navNappi" onclick="vaihdaNakyma('laskutus',this)"><span class="navIkoni">🧾</span>Laskutus</div>
+    <div class="navNappi" onclick="vaihdaNakyma('laskutus',this)"><span class="navIkoni">🧾</span>Laskutus</div><div class="navNappi" onclick="vaihdaNakyma('liput',this)"><span class="navIkoni">🚩</span>Liput</div>
     <div class="navNappi" onclick="vaihdaNakyma('audit',this)">
       <span class="navIkoni">🔍</span>Audit-loki
     </div>
@@ -926,7 +926,7 @@ function renderoi(nakyma) {
     case 'pelaajat':   renderPelaajat(alue);   break;
     case 'joukkueet':  renderJoukkueet(alue);  break;
     case 'audit':      renderAudit(alue);      break;
-    case 'laskutus':   _lask().render();       break;
+    case 'laskutus':   _lask().render();       break;   case 'liput':      _liput().render();      break;
   }
 }
 
@@ -1606,7 +1606,7 @@ async function renderPilotinTila(alue) {
 const _ka = () => window.TM_KAYTTOASTE.tmKayttoasteAdmin({ db, document, FieldPath: firebase.firestore.FieldPath, kutsu: (d) => firebase.app().functions('europe-west1').httpsCallable('paivitaSeuranKooste')(d), seurat: () => tila.seurat, esc: _auditEsc });
 const _lask = () => window.TM_LASKUTUS_ADMIN.tmLaskutusAdmin({ db, FieldValue: firebase.firestore.FieldValue, kutsu: (n) => functions.httpsCallable(n), alue: () => document.getElementById('nakymaAlue'), seurat: () => tila.seurat, uid: () => auth.currentUser && auth.currentUser.uid, tuoreToken: () => auth.currentUser && auth.currentUser.getIdToken(true), toast: naytaToast, vahvista: (t) => window.confirm(t), lataaTiedosto: (nimi, sis) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([sis], { type: 'text/csv;charset=utf-8' })); a.download = nimi; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); } });
 window.laskutusTilanneNyt = () => _lask().tilanneNyt(); window.laskutusTallennetut = () => _lask().tallennetut(); window.laskutusVaihdaTila = (s, j, u) => _lask().vaihdaTila(s, j, u); window.laskutusCsv = () => _lask().csv(); window.laskutusVarapolku = () => _lask().varapolku();   // Laskutus L1a + L1b varapolku (lib/tm_laskutus_admin.js)
-window.kayttoasteLataa = () => _ka().lataa(); window.kayttoastePaivitaKaikki = () => _ka().paivitaKaikki();   // S1.1: lataus + "📊 Päivitä kaikki" (SA)
+const _liput = () => window.TM_LIPUT_ADMIN.tmLiputAdmin({ db, kutsu: (n) => functions.httpsCallable(n), alue: () => document.getElementById('nakymaAlue'), seurat: () => tila.seurat, vahvista: (t) => window.confirm(t), ilmoita: (t, ty) => naytaToast(t, ty === 'virhe' ? 'virhe' : 'ok') }); window.liputVaihda = (s, l, a) => _liput().vaihda(s, l, a); window.kayttoasteLataa = () => _ka().lataa(); window.kayttoastePaivitaKaikki = () => _ka().paivitaKaikki();   // D1 Liput (SA) · S1.1: lataus + "📊 Päivitä kaikki" (SA)
 
 // Nudge — kutsumuistutus odottaville (lahetaMuistutukset-CF). Kuivaajo→confirm→lähetys.
 function _ohSyyt(oh) {

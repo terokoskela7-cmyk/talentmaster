@@ -1548,7 +1548,7 @@ exports.tasoHaeSeuranOttelut = functions
     const kalenteri = await _tasoKal.ajaSeura(_tasoDeps, seuraId, Date.now()).catch((e) => ({ virhe: e.message }));   // K35-5: sama haku kalenteriin (yhdistetyt joukkueet)
     return { ok: true, ottelut: lkm, seuraId, kalenteri };
   });
-Object.assign(exports, _tasoKal.luo(_tasoDeps), _salaiset.luo({ functions, db, admin, tarkistaOikeus }));   // kalenteriTasoSynkka (K35-5) + asetaTasoAsetukset (avain kirjoitetaan vain palvelimella)
+Object.assign(exports, _tasoKal.luo(_tasoDeps), _salaiset.luo({ functions, db, admin, tarkistaOikeus }), require('./liput_hallinta').luo({ functions, db, admin, onSuperAdminUid }));   // kalenteriTasoSynkka (K35-5) + asetaTasoAsetukset (avain vain palvelimella) + asetaSeuranLippu (D1: vain SA, loki audit)
 // ============================================================
 // AI PROXY — SULJETTU
 // ============================================================
