@@ -114,11 +114,12 @@ describe('v3.66 · pelaajan d3_itsearvio (B) ja siirtymäajan vanhat D3-avaimet'
   it('v3.67: huoltaja EI kirjoita mitään D3:a (vanhat kentät eikä d3_itsearvio) lapsen dokumenttiin', async () => {
     for (const k of [{ d3_viimeisin: { pisteet: {} } }, { d3_taso: 4 }, { d3_varmuus: 'itsearvio' }, IT()]) await assertFails(updateDoc(pel(huoltaja()), k));
   });
-  it('v3.67: valmentaja ja VP kirjoittavat D3:n sisainen/tiedot:iin; toisen seuran valmentaja/VP ei; pelaaja ei; henkilökunnan pelaajadokumentti-kirjoitus ei muutu (stale-asiakkaat)', async () => {
+  it('v3.67: valmentaja ja VP kirjoittavat D3:n sisainen/tiedot:iin; toisen seuran valmentaja/VP ei; pelaaja ei; v3.79 (PR 2e): henkilökunnan vanha pelaajadokumentti-polku hylätään', async () => {
     const d3 = { d3_viimeisin: { pisteet: { focus: { valmentaja: 3, avg: 3 } }, pvm: '2026-10-23', lahteet: ['valmentaja'] }, d3_taso: 3, d3_pvm: '2026-10-23', d3_varmuus: 'valmentaja', seuraId: A };
     await assertSucceeds(setDoc(sis(valm12()), d3, { merge: true })); await assertSucceeds(setDoc(sis(vp()), Object.assign({}, d3, { d3_vp_pvm: '2026-10-23' }), { merge: true }));
     await assertFails(setDoc(sis(valmB()), d3, { merge: true })); await assertFails(setDoc(sis(staff('vp-b', 'vp', B)), d3, { merge: true })); await assertFails(setDoc(sis(pelaaja()), d3, { merge: true }));
-    await assertSucceeds(setDoc(pel(valm12()), { d3_viimeisin: { pisteet: {} }, d3_taso: 3 }, { merge: true }));   // ei kiristetä (henkilökunnan vanha polku); siivous poistaa datan, koodi ei enää kirjoita sinne
+    await assertFails(setDoc(pel(valm12()), { d3_viimeisin: { pisteet: {} }, d3_taso: 3 }, { merge: true }));   // v3.79: D3 (A) ei enää pelaajadokumenttiin kenellekään
+    await assertFails(setDoc(pel(vp()), { d3_taso: 3 }, { merge: true }));
   });
   it('pelaaja lukee oman d3_itsearvio:nsa pelaajadokumentista, mutta ei sisainen/tiedot-dokumenttia', async () => {
     await env.withSecurityRulesDisabled(async (c) => { await setDoc(pel(c.firestore()), IT(), { merge: true }); });

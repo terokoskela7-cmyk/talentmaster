@@ -784,31 +784,39 @@ describe('A13 jatko 3 — viikkohavainto: dot-polku jaksofokus.osa_arviot.<konse
   });
 });
 
-describe('A13 jatko 4 (D108) — jaksofokus.osa_havainnot.<konsepti>.<koodi>.<uid>: Rules ei rajaa jaksofokuksen sisäkkäisiä avaimia (versio ennallaan v3.56)', () => {
+describe('A13 jatko 4 (D108) — osa_havainnot.<konsepti>.<koodi>.<uid> (v3.79: vain sisainen/tiedot.jaksofokus_sisainen; pelaajadokumentin jaksofokus.<A> hylätään kaikilta)', () => {
   beforeEach(async () => {
     await seedAdminDoc(); await seedSeuraAndPelaaja();
     await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Syöttäminen', alkoi: '2026-10-05', kesto_vk: 6 } }); });
   });
   const ref = (db) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
-  const rivi = (uid) => ({ ['jaksofokus.osa_havainnot.y_h2.a.' + uid]: { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' }, 'jaksofokus.osa_arviot.y_h2': { a: 2 } });
-  it('henkilökunta kirjoittaa OMAN uid:nsä alle: oman joukkueen valmentaja ✓, VP ✓; pelaaja ✗, toisen seuran valmentaja ✗', async () => {
-    await assertSucceeds(updateDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), rivi(VALM_A_UID)));
-    await assertSucceeds(updateDoc(ref(vpContext(SEURA_A).firestore()), { 'jaksofokus.osa_havainnot.y_h2.a.vp-uid': { arvo: 3, pvm: '2026-10-09', rooli: 'vp' } }));
-    await assertFails(updateDoc(ref(pelaajaItseContext().firestore()), rivi(PELAAJA_UID)));
-    await assertFails(updateDoc(ref(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), rivi(VALM_B_UID)));
-    await testEnv.withSecurityRulesDisabled(async (c) => { const jf = (await getDoc(ref(c.firestore()))).data().jaksofokus; expect(Object.keys(jf.osa_havainnot.y_h2.a).sort()).toEqual(['vp-uid', VALM_A_UID].sort()); });
+  const sis = (db) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'sisainen', 'tiedot');
+  const H = (uid, rooli) => ({ arvo: 2, pvm: '2026-10-09', rooli: rooli || 'valmentaja' });
+  const sisRivi = (uid, rooli) => ({ seuraId: SEURA_A, paivitetty: '2026-10-09T10:00:00.000Z', jaksofokus_sisainen: { osa_havainnot: { y_h2: { a: { [uid]: H(uid, rooli) } } } } });
+  it('henkilökunta kirjoittaa OMAN uid:nsä alle sisainen/tiedot:iin: oman joukkueen valmentaja ✓, VP ✓; pelaaja ✗, toisen seuran valmentaja ✗; pelaajadokumentin dot-polku hylätään kaikilta (v3.79)', async () => {
+    await assertSucceeds(setDoc(sis(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), sisRivi(VALM_A_UID), { merge: true }));
+    await assertSucceeds(setDoc(sis(vpContext(SEURA_A).firestore()), sisRivi('vp-uid', 'vp'), { merge: true }));
+    await assertFails(setDoc(sis(pelaajaItseContext().firestore()), sisRivi(PELAAJA_UID), { merge: true }));
+    await assertFails(setDoc(sis(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), sisRivi(VALM_B_UID), { merge: true }));
+    await testEnv.withSecurityRulesDisabled(async (c) => { const jf = (await getDoc(sis(c.firestore()))).data().jaksofokus_sisainen; expect(Object.keys(jf.osa_havainnot.y_h2.a).sort()).toEqual(['vp-uid', VALM_A_UID].sort()); });
+    // v3.79: sama A-osa pelaajadokumenttiin hylätään (myös VP ja SA); B-osa (osa_arviot) toimii kuten ennen
+    await assertFails(updateDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), { ['jaksofokus.osa_havainnot.y_h2.a.' + VALM_A_UID]: H(VALM_A_UID) }));
+    await assertFails(updateDoc(ref(vpContext(SEURA_A).firestore()), { 'jaksofokus.osa_havainnot.y_h2.a.vp-uid': H('vp-uid', 'vp') }));
+    await assertFails(updateDoc(ref(saContext().firestore()), { 'jaksofokus.osa_havainnot.y_h2.a.sa': H('sa', 'vp') }));
+    await assertSucceeds(updateDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), { 'jaksofokus.osa_arviot.y_h2': { a: 2 } }));
   });
-  it('B2c: viikkohistoria jaksofokus.osa_havainnot_vk.<konsepti>.<koodi>.<vvvv-Www>.<uid>.{arvo,pvm,rooli,lause}: sama kirjoittajajoukko kuin osa_havainnot — valmentaja ✓, VP ✓, pelaaja ✗, toisen seuran valmentaja ✗ (Rules ennallaan, ei versionostoa)', async () => {
-    const vk = (uid, rooli) => ({ ['jaksofokus.osa_havainnot_vk.y_h2.a.2026-W43.' + uid + '.arvo']: 2, ['jaksofokus.osa_havainnot_vk.y_h2.a.2026-W43.' + uid + '.pvm']: '2026-10-19', ['jaksofokus.osa_havainnot_vk.y_h2.a.2026-W43.' + uid + '.rooli']: rooli, ['jaksofokus.osa_havainnot.y_h2.a.' + uid + '.arvo']: 2 });
-    await assertSucceeds(updateDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), vk(VALM_A_UID, 'valmentaja')));
-    await assertSucceeds(updateDoc(ref(vpContext(SEURA_A).firestore()), vk('vp-uid', 'vp')));
-    await assertFails(updateDoc(ref(pelaajaItseContext().firestore()), vk(PELAAJA_UID, 'valmentaja')));
-    await assertFails(updateDoc(ref(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), vk(VALM_B_UID, 'valmentaja')));
-    await testEnv.withSecurityRulesDisabled(async (c) => { const jf = (await getDoc(ref(c.firestore()))).data().jaksofokus; expect(Object.keys(jf.osa_havainnot_vk.y_h2.a['2026-W43']).sort()).toEqual(['vp-uid', VALM_A_UID].sort()); expect(jf.osa_havainnot_vk.y_h2.a['2026-W43'][VALM_A_UID]).toEqual({ arvo: 2, pvm: '2026-10-19', rooli: 'valmentaja' }); });
+  it('B2c: viikkohistoria jaksofokus_sisainen.osa_havainnot_vk.<konsepti>.<koodi>.<vvvv-Www>.<uid>.{arvo,pvm,rooli}: sama kirjoittajajoukko kuin osa_havainnot — valmentaja ✓, VP ✓, pelaaja ✗, toisen seuran valmentaja ✗; pelaajadokumenttiin ✗ (v3.79)', async () => {
+    const vk = (uid, rooli) => ({ seuraId: SEURA_A, jaksofokus_sisainen: { osa_havainnot_vk: { y_h2: { a: { '2026-W43': { [uid]: { arvo: 2, pvm: '2026-10-19', rooli } } } } }, osa_havainnot: { y_h2: { a: { [uid]: { arvo: 2 } } } } } });
+    await assertSucceeds(setDoc(sis(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), vk(VALM_A_UID, 'valmentaja'), { merge: true }));
+    await assertSucceeds(setDoc(sis(vpContext(SEURA_A).firestore()), vk('vp-uid', 'vp'), { merge: true }));
+    await assertFails(setDoc(sis(pelaajaItseContext().firestore()), vk(PELAAJA_UID, 'valmentaja'), { merge: true }));
+    await assertFails(setDoc(sis(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), vk(VALM_B_UID, 'valmentaja'), { merge: true }));
+    await testEnv.withSecurityRulesDisabled(async (c) => { const jf = (await getDoc(sis(c.firestore()))).data().jaksofokus_sisainen; expect(Object.keys(jf.osa_havainnot_vk.y_h2.a['2026-W43']).sort()).toEqual(['vp-uid', VALM_A_UID].sort()); expect(jf.osa_havainnot_vk.y_h2.a['2026-W43'][VALM_A_UID]).toEqual({ arvo: 2, pvm: '2026-10-19', rooli: 'valmentaja' }); });
+    await assertFails(updateDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), { ['jaksofokus.osa_havainnot_vk.y_h2.a.2026-W43.' + VALM_A_UID + '.arvo']: 2 }));
   });
-  it('HAVAINTO: toisen uid:n rivin kirjoitusta ei voi estää Rulesissa kohtuudella (dot-polun sisäkkäiset avaimet ovat tuntemattomia: konsepti × koodi × uid; Rules ei silmukoi) → rajaus on kirjoitusytimessä (tmKtTallennaOsaArvio kirjoittaa vain auth.uid:n alle, testattu libissä); ei Rules-muutosta', async () => {
+  it('HAVAINTO: toisen uid:n rivin kirjoitusta ei voi estää Rulesissa kohtuudella (sisäkkäiset avaimet tuntemattomia: konsepti × koodi × uid; Rules ei silmukoi) → rajaus on kirjoitusytimessä (tmKtTallennaOsaArvio kirjoittaa vain auth.uid:n alle, testattu libissä); sisainen/tiedot:ssa sama nykytila', async () => {
     const valm = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
-    await assertSucceeds(updateDoc(ref(valm), { 'jaksofokus.osa_havainnot.y_h2.a.jonkun-toisen-uid': { arvo: 1, pvm: '2026-10-09', rooli: 'vp' } }));   // dokumentoi nykytila
+    await assertSucceeds(setDoc(sis(valm), sisRivi('jonkun-toisen-uid', 'vp'), { merge: true }));   // dokumentoi nykytila
   });
 });
 
@@ -913,11 +921,12 @@ describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () 
   it('R6.0b: toinen arrayUnion ei ylikirjoita aiempia rivejä (additiivinen); jaksofokus korvautuu kokonaan', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     const ref = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
-    await assertSucceeds(updateDoc(ref, { jaksofokus: Object.assign({}, JF, { poikkeama: true }), jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
+    await assertFails(updateDoc(ref, { jaksofokus: Object.assign({}, JF, { poikkeama: true }) }));   // v3.79: poikkeama on A-osa → vain sisainen/tiedot.jaksofokus_sisainen
+    await assertSucceeds(updateDoc(ref, { jaksofokus: Object.assign({}, JF, { domeeni: 'teknis_taktinen' }), jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
     await assertSucceeds(updateDoc(ref, { jaksofokus: JF, jaksofokus_historia: FS_MOD.arrayUnion(Object.assign({}, ARKISTORIVI, { konsepti_avain: 'y_toinen', alkoi: '2026-10-05T12:00:00.000Z' })) }));
     const d = (await getDoc(ref)).data();
     expect(d.jaksofokus_historia.map((r) => r.konsepti_avain)).toEqual(['y_edellinen', 'y_toinen']);
-    expect(d.jaksofokus.poikkeama).toBeUndefined();   // update() korvasi kartan (set-merge olisi jättänyt jäänteen)
+    expect(d.jaksofokus.domeeni).toBeUndefined();   // update() korvasi kartan (set-merge olisi jättänyt jäänteen)
   });
   it('R6.0b: VP päivittää samalla tavalla; toisen seuran valmentaja EI saa (tenant-eristys) — fokus + historia', async () => {
     await assertSucceeds(updateDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
@@ -935,15 +944,20 @@ describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () 
   });
 
   // ── R6.1c — VP:n osapäivitykset dot-poluilla (jaksofokus.osa_arviot.<konsepti> / jaksofokus.linkitetyt + FieldValue.delete) + V8 arrayUnion ──
-  it('R6.1c: VP + valmentaja päivittävät jaksofokus.osa_arviot.<konsepti> dot-polulla (muu jaksofokus koskematon); poisto FieldValue.delete():llä', async () => {
+  it('R6.1c: VP + valmentaja päivittävät jaksofokus.osa_arviot.<konsepti> dot-polulla (muu jaksofokus koskematon); A-osat (linkitetyt, onnistumiskriteeri) sisainen/tiedot.jaksofokus_sisainen:iin, poisto FieldValue.delete():llä; pelaajadokumenttiin A-osa ✗ (v3.79)', async () => {
     for (const ctx of [vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A)]) {
-      const db = ctx.firestore(), ref = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
-      await assertSucceeds(updateDoc(ref, { jaksofokus: Object.assign({}, JF, { osa_arviot: { y_h2: { a: 2 } }, linkitetyt: [{ domeeni: 'fyysinen', konsepti_avain: 'fy_nopeus' }] }) }));
+      const db = ctx.firestore(), ref = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), sis = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'sisainen', 'tiedot');
+      await assertSucceeds(updateDoc(ref, { jaksofokus: Object.assign({}, JF, { osa_arviot: { y_h2: { a: 2 } } }) }));
+      await assertSucceeds(setDoc(sis, { seuraId: SEURA_A, jaksofokus_sisainen: { linkitetyt: [{ domeeni: 'fyysinen', konsepti_avain: 'fy_nopeus' }] } }, { merge: true }));
       await assertSucceeds(updateDoc(ref, { 'jaksofokus.osa_arviot.y_h2': { a: 2, b: 3 } }));
-      await assertSucceeds(updateDoc(ref, { 'jaksofokus.linkitetyt': FS_MOD.deleteField(), 'jaksofokus.onnistumiskriteeri': 'uusi' }));
-      const d = (await getDoc(ref)).data();
-      expect(d.jaksofokus.osa_arviot.y_h2).toEqual({ a: 2, b: 3 }); expect(d.jaksofokus.linkitetyt).toBeUndefined();   // poisto onnistui (set-merge ei olisi poistanut)
-      expect(d.jaksofokus.konsepti_avain).toBe('y_h2'); expect(d.jaksofokus.onnistumiskriteeri).toBe('uusi');
+      await assertSucceeds(updateDoc(sis, { 'jaksofokus_sisainen.linkitetyt': FS_MOD.deleteField(), 'jaksofokus_sisainen.onnistumiskriteeri': 'uusi', seuraId: SEURA_A }));
+      await assertFails(updateDoc(ref, { 'jaksofokus.onnistumiskriteeri': 'uusi' }));
+      await assertFails(updateDoc(ref, { 'jaksofokus.linkitetyt': [{ domeeni: 'fyysinen', konsepti_avain: 'fy_nopeus' }] }));
+      const d = (await getDoc(ref)).data(), ds = (await getDoc(sis)).data();
+      expect(d.jaksofokus.osa_arviot.y_h2).toEqual({ a: 2, b: 3 }); expect(d.jaksofokus.konsepti_avain).toBe('y_h2');
+      expect(ds.jaksofokus_sisainen.linkitetyt).toBeUndefined();   // poisto onnistui (set-merge ei olisi poistanut)
+      expect(ds.jaksofokus_sisainen.onnistumiskriteeri).toBe('uusi');
+      expect(d.jaksofokus.onnistumiskriteeri).toBeUndefined();
     }
   });
   it('R6.1c: toisen seuran valmentaja, pelaaja ja huoltaja EIVÄT päivitä jaksofokuksen dot-polkuja; seurasihteeri hasOnly: sallittu, mutta + kielletty kenttä ei', async () => {
@@ -2598,11 +2612,18 @@ describe('Arviointikerrat — sovelluksen payload Rulesia vasten (H1, review 1)'
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     const kertaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-tx1');
     const pelaajaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+    const sisRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'sisainen', 'tiedot');
     await assertSucceeds(runTransaction(db, async (tx) => {
       const snap = await tx.get(kertaRef);
       const data = Object.assign({}, payload(VALM_A_UID));
       if (!snap.exists()) data.luotu = serverTimestamp();
       tx.set(kertaRef, data, { merge: true });
+      tx.set(sisRef, { seuraId: SEURA_A, arviointi_havaittu: { pelin_lukeminen: 4 }, arviointi_pvm: '2026-09-20' }, { merge: true });   // v3.79: A-pikakentät sisainen/tiedot:iin
+    }));
+    // v3.79: sama transaktio pelaajadokumentin pikakentillä hylätään kokonaan
+    await assertFails(runTransaction(db, async (tx) => {
+      await tx.get(kertaRef);
+      tx.set(kertaRef, payload(VALM_A_UID), { merge: true });
       tx.set(pelaajaRef, { arviointi_havaittu: { pelin_lukeminen: 4 }, arviointi_pvm: '2026-09-20' }, { merge: true });
     }));
   });
@@ -2610,14 +2631,14 @@ describe('Arviointikerrat — sovelluksen payload Rulesia vasten (H1, review 1)'
   it('SOVELLUKSEN TRANSAKTIO valmentajana: 2. klikkaus samaan kertaan läpi', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     const kertaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-tx2');
-    const pelaajaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+    const sisRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'sisainen', 'tiedot');
     const kirjoita = (avain, arvo) => runTransaction(db, async (tx) => {
       const snap = await tx.get(kertaRef);
       const kohteet = {}; kohteet[avain] = { arvo: arvo, pvm: '2026-09-20' };
       const data = Object.assign({}, payload(VALM_A_UID, { kohteet: kohteet }));
       if (!snap.exists()) data.luotu = serverTimestamp();
       tx.set(kertaRef, data, { merge: true });
-      tx.set(pelaajaRef, { arviointi_pvm: '2026-09-20' }, { merge: true });
+      tx.set(sisRef, { seuraId: SEURA_A, arviointi_pvm: '2026-09-20' }, { merge: true });   // v3.79
     });
     await assertSucceeds(kirjoita('pelin_lukeminen', 4));
     await assertSucceeds(kirjoita('pressing', 3));
@@ -3187,10 +3208,11 @@ describe('v3.28 · anonyymi evätty (positiivinen kontrolli pelaajatokenilla)', 
     await assertFails(getDoc(doc(pelaajaItseContext().firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal-anon')));
     await assertFails(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal-anon')));
   });
-  it('IDP (idp/{id}): huoltaja lukee (kontrolli), anonyymi ei lue eikä kirjoita', async () => {
-    await assertSucceeds(getDoc(doc(huoltajaContext().firestore(), ...P('idp', 'idp-anon'))));
-    await assertFails(getDoc(doc(anonContext().firestore(), ...P('idp', 'idp-anon'))));
-    await assertFails(setDoc(doc(anonContext().firestore(), ...P('idp', 'idp-uusi')), { teksti: 'x' }));
+  it('IDP (idp/{id}): v3.79 (2e) kokoelma suljettu — huoltaja, anonyymi ja SA eivät lue eivätkä kirjoita', async () => {
+    for (const ctx of [huoltajaContext(), anonContext(), saContext()]) {
+      await assertFails(getDoc(doc(ctx.firestore(), ...P('idp', 'idp-anon'))));
+      await assertFails(setDoc(doc(ctx.firestore(), ...P('idp', 'idp-uusi')), { teksti: 'x' }));
+    }
   });
   it('VARTIJA: pelaajatoken (seura) EI pääse Solon players-kokoelmaan', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -3989,6 +4011,7 @@ describe('v3.36 · testitulokset: oman joukkueen valmentaja', () => {
 describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
   beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
   const pel = (db, sid, pid) => doc(db, 'seurat', sid, 'pelaajat', pid);
+  const sis = (db, sid, pid) => doc(db, 'seurat', sid, 'pelaajat', pid, 'sisainen', 'tiedot');   // v3.79: review_* ovat A-kenttiä
   const lue = async (polku) => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), ...polku))).data(); }); return d; };
 
   it('VP: testitulos + hh-pikakenttäpari samassa batchissa onnistuu (create + update)', async () => {
@@ -4014,9 +4037,15 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
     for (const [ctx, pvm] of [[vpContext(SEURA_A), '2026-10-03'], [valmentajaContext(VALM_A_UID, SEURA_A), '2026-10-04']]) {
       const db = ctx.firestore(), b = FS_MOD.writeBatch(db);
       b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm), { tyyppi: 'mdr', pvm, paatos: '', idp_paivitetty: false });
-      b.set(pel(db, SEURA_A, PELAAJA_UID), { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'mdr' }, { merge: true });
+      b.set(sis(db, SEURA_A, PELAAJA_UID), { seuraId: SEURA_A, review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'mdr' }, { merge: true });
       await assertSucceeds(b.commit());
-      expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).review_viimeisin_pvm).toBe(pvm);
+      expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'sisainen', 'tiedot'])).review_viimeisin_pvm).toBe(pvm);
+      // v3.79: sama batch pelaajadokumentin pikakentillä hylätään kokonaan
+      const b2 = FS_MOD.writeBatch(db);
+      b2.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm + 'x'), { tyyppi: 'mdr', pvm, paatos: '', idp_paivitetty: false });
+      b2.set(pel(db, SEURA_A, PELAAJA_UID), { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'mdr' }, { merge: true });
+      await assertFails(b2.commit());
+      expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).review_viimeisin_pvm).toBeUndefined();
     }
   });
   // R6.2a — cockpitin "Kirjaa kehityskeskustelu" kirjoittaa saman tietueen kuin MDT: reviewit/{pvm} (merge) + review_viimeisin_pvm/-tyyppi + review_tagit
@@ -4025,9 +4054,10 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
     for (const [ctx, pvm] of [[vpContext(SEURA_A), '2026-10-05'], [valmentajaContext(VALM_A_UID, SEURA_A), '2026-10-06']]) {
       const db = ctx.firestore(), b = FS_MOD.writeBatch(db);
       b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm), KK_REVIEW(pvm), { merge: true });
-      b.set(pel(db, SEURA_A, PELAAJA_UID), { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu', review_tagit: ['oikea-jalka'] }, { merge: true });
+      b.set(sis(db, SEURA_A, PELAAJA_UID), { seuraId: SEURA_A, review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu', review_tagit: ['oikea-jalka'] }, { merge: true });
       await assertSucceeds(b.commit());
-      const d = await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID]);
+      await assertFails(FS_MOD.setDoc(pel(db, SEURA_A, PELAAJA_UID), { review_tagit: ['oikea-jalka'] }, { merge: true }));   // v3.79
+      const d = await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'sisainen', 'tiedot']);
       expect(d.review_viimeisin_pvm).toBe(pvm); expect(d.review_viimeisin_tyyppi).toBe('kehityskeskustelu'); expect(d.review_tagit).toEqual(['oikea-jalka']);
     }
   });
@@ -4042,12 +4072,12 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
   it('R6.2a: muun joukkueen valmentaja, toisen seuran VP ja pelaaja EIVÄT kirjaa cockpit-katselmusta (koko batch hylätään)', async () => {
     const yrita = (ctx, pid) => { const db = ctx.firestore(), b = FS_MOD.writeBatch(db);
       b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', pid, 'reviewit', '2026-10-05'), KK_REVIEW('2026-10-05'), { merge: true });
-      b.set(pel(db, SEURA_A, pid), { review_viimeisin_pvm: '2026-10-05', review_viimeisin_tyyppi: 'kehityskeskustelu', review_tagit: ['oikea-jalka'] }, { merge: true });
+      b.set(sis(db, SEURA_A, pid), { seuraId: SEURA_A, review_viimeisin_pvm: '2026-10-05', review_viimeisin_tyyppi: 'kehityskeskustelu', review_tagit: ['oikea-jalka'] }, { merge: true });
       return b.commit(); };
     await assertFails(yrita(valmentajaContext(VALM_A_UID, SEURA_A), PELAAJA_A2_UID));
     await assertFails(yrita(testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B }), PELAAJA_UID));
     await assertFails(yrita(pelaajaItseContext(), PELAAJA_UID));
-    expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID])).review_viimeisin_pvm).toBeUndefined();
+    expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'sisainen', 'tiedot'])).toBeUndefined();
     expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', '2026-10-05'])).toBeUndefined();
   });
   it('PHV: oman joukkueen valmentaja kirjaa biologinen_ika/{pvm} + phv-pikakentät samassa batchissa; muun joukkueen → hylätään kokonaan', async () => {
@@ -4075,9 +4105,9 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
     const db = testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B }).firestore();
     const b = FS_MOD.writeBatch(db);
     b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', '2026-10-03'), { tyyppi: 'mdr', pvm: '2026-10-03' });
-    b.set(pel(db, SEURA_A, PELAAJA_UID), { review_viimeisin_pvm: '2026-10-03', review_viimeisin_tyyppi: 'mdr' }, { merge: true });
+    b.set(sis(db, SEURA_A, PELAAJA_UID), { seuraId: SEURA_A, review_viimeisin_pvm: '2026-10-03', review_viimeisin_tyyppi: 'mdr' }, { merge: true });
     await assertFails(b.commit());
-    expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).review_viimeisin_pvm).toBeUndefined();
+    expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'sisainen', 'tiedot'])).toBeUndefined();
     expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', '2026-10-03'])).toBeUndefined();
   });
 });
@@ -4088,12 +4118,14 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
 describe('havainto + havainto_viimeisin_pvm samassa batchissa', () => {
   beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
   const pelDoc = (db, pid) => doc(db, 'seurat', SEURA_A, 'pelaajat', pid);
+  const sisDoc = (db, pid) => doc(db, 'seurat', SEURA_A, 'pelaajat', pid, 'sisainen', 'tiedot');   // v3.79: havainto_viimeisin_pvm on A-kenttä
   const lue = async (...polku) => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), ...polku))).data(); }); return d; };
+  const lueSis = async (pid) => (await lue('seurat', SEURA_A, 'pelaajat', pid, 'sisainen', 'tiedot')) || {};
   const HAV = (pid) => ({ tyyppi: 'adar_pikakortti', tila: 'valmis', pisteet: { A: 2 }, pvm: '2026-10-05', pelaaja_id: pid, seura_id: SEURA_A, luotu: new Date() });
   const batchKirjaus = (db, pid, hid) => {
     const b = FS_MOD.writeBatch(db);
     b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', pid, 'havainnot', hid), HAV(pid));
-    b.set(pelDoc(db, pid), { havainto_viimeisin_pvm: '2026-10-05' }, { merge: true });
+    b.set(sisDoc(db, pid), { seuraId: SEURA_A, havainto_viimeisin_pvm: '2026-10-05' }, { merge: true });
     return b;
   };
 
@@ -4101,23 +4133,26 @@ describe('havainto + havainto_viimeisin_pvm samassa batchissa', () => {
     const tapaukset = [[valmentajaContext(VALM_A_UID, SEURA_A), 'h-valm'], [talenttivalmentajaContext('talval-fcl-001', SEURA_A), 'h-talval'], [vpContext(SEURA_A), 'h-vp'], [saContext(), 'h-sa']];
     for (const [ctx, hid] of tapaukset) {
       await assertSucceeds(batchKirjaus(ctx.firestore(), PELAAJA_UID, hid).commit());
-      expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).havainto_viimeisin_pvm, hid).toBe('2026-10-05');
+      expect((await lueSis(PELAAJA_UID)).havainto_viimeisin_pvm, hid).toBe('2026-10-05');
       expect(await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', hid), hid).toBeTruthy();
+      // v3.79: sama kenttä pelaajadokumenttiin hylätään kaikilta (myös SA)
+      await assertFails(setDoc(pelDoc(ctx.firestore(), PELAAJA_UID), { havainto_viimeisin_pvm: '2026-10-05' }, { merge: true }));
     }
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).havainto_viimeisin_pvm).toBeUndefined();
   });
   it('myöhempi päivämäärä säilyy: päivitys uudemmalla päivällä menee läpi (merge), kentän lukeminen ennen kirjoitusta on clientin max-logiikkaa (ADAR-testit)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertSucceeds(batchKirjaus(db, PELAAJA_UID, 'h1x').commit());
     const b = FS_MOD.writeBatch(db);
     b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'h2x'), Object.assign(HAV(PELAAJA_UID), { pvm: '2026-10-09' }));
-    b.set(pelDoc(db, PELAAJA_UID), { havainto_viimeisin_pvm: '2026-10-09' }, { merge: true });
+    b.set(sisDoc(db, PELAAJA_UID), { seuraId: SEURA_A, havainto_viimeisin_pvm: '2026-10-09' }, { merge: true });
     await assertSucceeds(b.commit());
-    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).havainto_viimeisin_pvm).toBe('2026-10-09');
+    expect((await lueSis(PELAAJA_UID)).havainto_viimeisin_pvm).toBe('2026-10-09');
   });
   it('ATOMISUUS: valmentaja MUUN joukkueen pelaajaan → koko batch hylätään (ei havaintoa, ei rytmikenttää)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertFails(batchKirjaus(db, PELAAJA_A2_UID, 'h-muu').commit());
-    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)).havainto_viimeisin_pvm).toBeUndefined();
+    expect((await lueSis(PELAAJA_A2_UID)).havainto_viimeisin_pvm).toBeUndefined();
     expect(await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'havainnot', 'h-muu')).toBeUndefined();
   });
   it('PARITEETTI: kaikki roolit joille havainnot.create on sallittu saavat myös päivittää havainto_viimeisin_pvm (kenttä ⊇ havaintojen kirjoittajat); batch onnistuu täsmälleen heille', async () => {
@@ -4131,7 +4166,7 @@ describe('havainto + havainto_viimeisin_pvm samassa batchissa', () => {
       const db = ctx.firestore(); i++;
       let luo = false, kentta = false;
       try { await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'p-' + i), HAV(PELAAJA_UID))); luo = true; } catch (e) { luo = false; }
-      try { await assertSucceeds(updateDoc(pelDoc(db, PELAAJA_UID), { havainto_viimeisin_pvm: '2026-10-05' })); kentta = true; } catch (e) { kentta = false; }
+      try { await assertSucceeds(setDoc(sisDoc(db, PELAAJA_UID), { seuraId: SEURA_A, havainto_viimeisin_pvm: '2026-10-05' }, { merge: true })); kentta = true; } catch (e) { kentta = false; }
       let batch = false;
       try { await assertSucceeds(batchKirjaus(db, PELAAJA_UID, 'b-' + i).commit()); batch = true; } catch (e) { batch = false; }
       if (luo) { luojia++; expect(kentta, nimi + ': saa luoda havainnon mutta ei päivittää kenttää → batch hylkäytyisi').toBe(true); }
@@ -4143,7 +4178,7 @@ describe('havainto + havainto_viimeisin_pvm samassa batchissa', () => {
     for (const ctx of [randomContext(), pelaajaItseContext(), huoltajaContext(), sihteeriContext(SEURA_A), unauthContext()]) {
       await assertFails(batchKirjaus(ctx.firestore(), PELAAJA_UID, 'h-ei').commit());
     }
-    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).havainto_viimeisin_pvm).toBeUndefined();
+    expect((await lueSis(PELAAJA_UID)).havainto_viimeisin_pvm).toBeUndefined();
   });
 });
 
@@ -4408,51 +4443,60 @@ describe('v3.38 · vastuuhenkilo', () => {
         ['fysiikka-kpv-001', 'fysiikkavalmentaja', ['kpv_u13']], ['fysio-kpv-001', 'fysioterapeutti', ['kpv_u13']], ['sihteeri-kpv-001', 'seurasihteeri', []]]) await setDoc(doc(db, 'seurat', KPV, 'kayttajat', uid), { rooli, seuraId: KPV, joukkueet: jk, aktiivinen: true }); });
   });
   const pel = (c) => doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS);
-  const lue = async () => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS))).data(); }); return d; };
+  // v3.79 (2e): vastuuhenkilo on A-kenttä → kirjoitetaan VAIN sisainen/tiedot:iin (sisainenVastuuKelpaa: sama asettaja- ja muototarkistus)
+  const sis = (c) => doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot');
+  const lue = async () => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot'))).data(); }); return d; };
+  const luePel = async () => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS))).data(); }); return d; };
+  beforeEach(async () => { await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot'), { seuraId: KPV, paivitetty: '2026-10-01T10:00:00.000Z' }); }); });
 
-  it('ASETTAJAT: VP (KPV:n VP-tunnus, ei kayttajat-dokkia), UTJ, talenttivalmentaja, KPV U13 -valmentaja ja SA asettavat vastuuhenkilön KPV U13 -testipelaajalle', async () => {
+  it('ASETTAJAT: VP (KPV:n VP-tunnus, ei kayttajat-dokkia), UTJ, talenttivalmentaja, KPV U13 -valmentaja ja SA asettavat vastuuhenkilön KPV U13 -testipelaajalle (sisainen/tiedot); pelaajadokumenttiin ✗ kaikilta (v3.79)', async () => {
     for (const c of [VPK(), UTJ(), TALVAL(), VALM13(), saContext()]) {
-      await assertSucceeds(updateDoc(pel(c), { vastuuhenkilo: VH() }));
-      const d = await lue(); expect(d.vastuuhenkilo).toEqual(VH()); expect(d.etunimi).toBe('Topias');   // muu data säilyy
+      await assertSucceeds(updateDoc(sis(c), { vastuuhenkilo: VH() }));
+      const d = await lue(); expect(d.vastuuhenkilo).toEqual(VH()); expect(d.seuraId).toBe(KPV);   // muu data säilyy
+      await assertFails(updateDoc(pel(c), { vastuuhenkilo: VH() }));
     }
+    expect((await luePel()).vastuuhenkilo).toBeUndefined();
   });
   it('EI-ASETTAJAT: toisen joukkueen (U15) valmentaja HYLÄTÄÄN; fysiikkavalmentaja, fysioterapeutti, seurasihteeri, pelaaja itse, huoltaja, toisen seuran VP, vieras, kirjautumaton hylätään', async () => {
-    for (const c of [VALM15(), FYSIIKKA(), FYSIO(), SIHTEERI(), pelaajaContext(KPV, TOPIAS), huoltajaContext(), VAARA_SEURA_VP(), randomContext(), unauthContext()]) await assertFails(updateDoc(pel(c), { vastuuhenkilo: VH() }));
+    for (const c of [VALM15(), FYSIIKKA(), FYSIO(), SIHTEERI(), pelaajaContext(KPV, TOPIAS), huoltajaContext(), VAARA_SEURA_VP(), randomContext(), unauthContext()]) await assertFails(updateDoc(sis(c), { vastuuhenkilo: VH() }));
     expect((await lue()).vastuuhenkilo).toBeUndefined();
   });
   it('MUOTO: ylimääräinen avain, puuttuva avain, väärä rooli (UTJ/fysiikka/pelaaja), ei-map, tyhjä/liian pitkä uid, väärä päivämäärän pituus, uid joka ei ole seuran käyttäjä → hylätään', async () => {
     const huono = [VH({ ylim: 'x' }), { uid: 'valm-kpv-u13', rooli: 'valmentaja' }, { uid: 'valm-kpv-u13', asetettu_pvm: '2026-10-05' }, VH({ rooli: 'urheilutoimenjohtaja' }), VH({ rooli: 'fysiikkavalmentaja' }), VH({ rooli: 'pelaaja' }), VH({ rooli: 'VP' }),
       'valm-kpv-u13', ['valm-kpv-u13'], null, 5, true, VH({ uid: '' }), VH({ uid: 'x'.repeat(129) }), VH({ uid: 5 }), VH({ asetettu_pvm: '5.10.2026' }), VH({ asetettu_pvm: '2026-10-5' }), VH({ asetettu_pvm: 20261005 }),
       VH({ uid: 'tuntematon-uid' }), VH({ uid: 'vieraan-seuran-vp' })];
-    for (const v of huono) await assertFails(updateDoc(pel(VPK()), { vastuuhenkilo: v }));
-    await assertFails(updateDoc(pel(VPK()), { 'vastuuhenkilo.uid': 'valm-kpv-u13' }));   // pistepolku kenttään jota ei vielä ole
+    for (const v of huono) await assertFails(updateDoc(sis(VPK()), { vastuuhenkilo: v }));
+    await assertFails(updateDoc(sis(VPK()), { 'vastuuhenkilo.uid': 'valm-kpv-u13' }));   // pistepolku kenttään jota ei vielä ole
     expect((await lue()).vastuuhenkilo).toBeUndefined();
   });
   it('uid-tarkistus: seuran kayttajat-dokumentti TAI seura.vp_uid (VP ilman dokkia kelpaa vastuuhenkilöksi, rooli vp); talenttivalmentaja- ja apuvalmentaja-rooli kelpaavat', async () => {
-    await assertSucceeds(updateDoc(pel(TALVAL()), { vastuuhenkilo: VH({ uid: 'vp-kpv-001', rooli: 'vp' }) }));            // vp_uid, ei dokkia
-    await assertSucceeds(updateDoc(pel(VPK()), { vastuuhenkilo: VH({ uid: 'talval-kpv-001', rooli: 'talenttivalmentaja' }) }));
-    await assertSucceeds(updateDoc(pel(VALM13()), { vastuuhenkilo: VH({ rooli: 'apuvalmentaja' }) }));                    // apuvalmentaja = valmentaja-tilin rooli
+    await assertSucceeds(updateDoc(sis(TALVAL()), { vastuuhenkilo: VH({ uid: 'vp-kpv-001', rooli: 'vp' }) }));            // vp_uid, ei dokkia
+    await assertSucceeds(updateDoc(sis(VPK()), { vastuuhenkilo: VH({ uid: 'talval-kpv-001', rooli: 'talenttivalmentaja' }) }));
+    await assertSucceeds(updateDoc(sis(VALM13()), { vastuuhenkilo: VH({ rooli: 'apuvalmentaja' }) }));                    // apuvalmentaja = valmentaja-tilin rooli
     expect((await lue()).vastuuhenkilo.rooli).toBe('apuvalmentaja');
   });
   it('POISTO (kenttä pois) sallittu asettajille, hylätty muille; poisto ei vaadi muotoa', async () => {
-    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS), { vastuuhenkilo: VH() }); });
-    for (const c of [VALM15(), FYSIIKKA(), SIHTEERI(), pelaajaContext(KPV, TOPIAS), huoltajaContext()]) await assertFails(updateDoc(pel(c), { vastuuhenkilo: FS_MOD.deleteField() }));
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot'), { vastuuhenkilo: VH() }); });
+    for (const c of [VALM15(), FYSIIKKA(), SIHTEERI(), pelaajaContext(KPV, TOPIAS), huoltajaContext()]) await assertFails(updateDoc(sis(c), { vastuuhenkilo: FS_MOD.deleteField() }));
     expect((await lue()).vastuuhenkilo).toEqual(VH());
-    await assertSucceeds(updateDoc(pel(VALM13()), { vastuuhenkilo: FS_MOD.deleteField() })); expect((await lue()).vastuuhenkilo).toBeUndefined();
+    await assertSucceeds(updateDoc(sis(VALM13()), { vastuuhenkilo: FS_MOD.deleteField() })); expect((await lue()).vastuuhenkilo).toBeUndefined();
   });
   it('EI RAJAA OIKEUKSIA: vastuuhenkilöksi nimetty ei saa lisäoikeuksia (U15-valmentaja vastuuhenkilönä ei kirjoita U13-pelaajaan), eikä muut menetä: VP ja talenttivalmentaja kirjoittavat kaikkeen kuten ennen', async () => {
-    await assertSucceeds(updateDoc(pel(VPK()), { vastuuhenkilo: VH({ uid: 'valm-kpv-u15' }) }));    // U15-valmentaja nimetään vastuuhenkilöksi
-    // HUOM: jaksofokus-kenttä on seurataso-sallittu kaikille valmentajille jo v3.x (Vaihe 4a, joukkuerajaus vain UI:ssa; backlog) — ei vastuuhenkilön asia. Joukkuerajatut kentät:
-    await assertFails(updateDoc(pel(VALM15()), { review_viimeisin_pvm: '2026-10-05' }));      // ei oikeuksia vaikka vastuuhenkilö
+    await assertSucceeds(updateDoc(sis(VPK()), { vastuuhenkilo: VH({ uid: 'valm-kpv-u15' }) }));    // U15-valmentaja nimetään vastuuhenkilöksi
+    // HUOM: jaksofokus-kenttä (B-osat) on seurataso-sallittu kaikille valmentajille jo v3.x (Vaihe 4a, joukkuerajaus vain UI:ssa; backlog) — ei vastuuhenkilön asia. Joukkuerajatut kentät:
+    await assertFails(updateDoc(sis(VALM15()), { review_viimeisin_pvm: '2026-10-05' }));      // ei oikeuksia vaikka vastuuhenkilö (v3.79: A-kenttä sisainen/tiedot:ssa)
     await assertFails(updateDoc(pel(VALM15()), { hh_pvm: '2026-10-05', hh_viimeisin: { lin30m: 4.6 } }));
     for (const c of [VPK(), TALVAL(), VALM13()]) await assertSucceeds(updateDoc(pel(c), { jaksofokus: { konsepti_avain: 'y_h3', alkoi: '2026-10-06T10:00:00.000Z' } }));
-    await assertSucceeds(updateDoc(pel(VPK()), { vastuuhenkilo: VH({ uid: 'valm-kpv-u13' }) }));   // vaihto toiseen
+    for (const c of [VPK(), TALVAL(), VALM13()]) await assertSucceeds(updateDoc(sis(c), { review_viimeisin_pvm: '2026-10-05' }));
+    await assertSucceeds(updateDoc(sis(VPK()), { vastuuhenkilo: VH({ uid: 'valm-kpv-u13' }) }));   // vaihto toiseen
   });
   it('REGRESSIO: muut kentät ennallaan — valmentaja päivittää pikakenttiä ilman vastuuhenkilö-kenttää (ei vaadi asettajaa/muotoa); fysiikkavalmentaja ei saa vastuuhenkilöä mutta muu käytös ennallaan', async () => {
     await assertSucceeds(updateDoc(pel(VALM13()), { hh_pvm: '2026-10-05', hh_viimeisin: { lin30m: 4.6 } }));
-    await assertFails(updateDoc(pel(VALM13()), { hh_pvm: '2026-10-05', vastuuhenkilo: VH({ ylim: 1 }) }));   // yhdessä: muoto hylkää koko päivityksen
-    await assertFails(updateDoc(pel(FYSIIKKA()), { hh_pvm: '2026-10-05', vastuuhenkilo: VH() }));
-    expect((await lue()).hh_pvm).toBe('2026-10-05');
+    await assertSucceeds(updateDoc(sis(VALM13()), { review_viimeisin_pvm: '2026-10-05' }));   // sisainen ilman vastuuhenkilöä: ei asettaja-/muototarkistusta
+    await assertFails(updateDoc(sis(VALM13()), { review_viimeisin_pvm: '2026-10-06', vastuuhenkilo: VH({ ylim: 1 }) }));   // yhdessä: muoto hylkää koko päivityksen
+    await assertFails(updateDoc(sis(FYSIIKKA()), { review_viimeisin_pvm: '2026-10-06', vastuuhenkilo: VH() }));
+    expect((await luePel()).hh_pvm).toBe('2026-10-05');
+    expect((await lue()).review_viimeisin_pvm).toBe('2026-10-05');
   });
 });
 
@@ -4471,22 +4515,25 @@ describe('VP-periaate · KPV:n VP kirjaa KPV U13 -testipelaajalle', () => {
       await setDoc(doc(db, 'seurat', KPV, 'kayttajat', VALM_UID), { rooli: 'valmentaja', seuraId: KPV, joukkueet: ['kpv_u15'], aktiivinen: true }); });
   });
   const pel = (db) => doc(db, 'seurat', KPV, 'pelaajat', TOPIAS);
+  const sisK = (db) => doc(db, 'seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot');
   const lue = async (...p) => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), ...p))).data(); }); return d; };
   const nyt = () => new Date();
 
   it('KATSELMUS: reviewit/{pvm} + review_viimeisin_pvm/-tyyppi samassa batchissa; VP ilman kayttajat-dokkia JA VP jonka dokissa on muu joukkue; valmentaja (U15) EI', async () => {
     const kirjaa = (ctx, pvm) => { const db = ctx.firestore(), b = FS_MOD.writeBatch(db); b.set(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS, 'reviewit', pvm), { tyyppi: 'kehityskeskustelu', pvm, tekija_uid: VP_UID, tekija_rooli: 'vp', idp_paivitetty: true }, { merge: true });
-      b.set(pel(db), { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }, { merge: true }); return b.commit(); };
+      b.set(sisK(db), { seuraId: KPV, review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }, { merge: true }); return b.commit(); };   // v3.79: A-pikakentät sisainen/tiedot:iin
     await assertSucceeds(kirjaa(vpKpv(), '2026-10-05'));                                                    // ei kayttajat-dokkia
     await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', KPV, 'kayttajat', VP_UID), { rooli: 'vp', seuraId: KPV, joukkueet: ['kpv_u15'], joukkue: 'KPV U15', aktiivinen: true }); });
     await assertSucceeds(kirjaa(vpKpv(), '2026-10-06'));                                                    // dokissa MUU joukkue
-    expect((await lue('seurat', KPV, 'pelaajat', TOPIAS)).review_viimeisin_pvm).toBe('2026-10-06');
+    expect((await lue('seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot')).review_viimeisin_pvm).toBe('2026-10-06');
     await assertFails(kirjaa(valmKpv(), '2026-10-07'));                                                     // U15-valmentaja ei U13-pelaajaan
+    await assertFails(setDoc(pel(vpKpv().firestore()), { review_viimeisin_pvm: '2026-10-08' }, { merge: true }));   // v3.79: pelaajadokumenttiin ✗
   });
   it('HAVAINTO: ADAR-batch (havainto + havainto_viimeisin_pvm) VP:ltä onnistuu U13-pelaajalle; U15-valmentajalta hylätään', async () => {
     const kirjaa = (ctx, id) => { const db = ctx.firestore(), b = FS_MOD.writeBatch(db); b.set(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS, 'havainnot', id), { tyyppi: 'adar_pikakortti', tila: 'valmis', pisteet: { A: 2 }, pvm: '2026-10-05', luotu: nyt() });
-      b.set(pel(db), { havainto_viimeisin_pvm: '2026-10-05' }, { merge: true }); return b.commit(); };
-    await assertSucceeds(kirjaa(vpKpv(), 'h-vp')); expect((await lue('seurat', KPV, 'pelaajat', TOPIAS)).havainto_viimeisin_pvm).toBe('2026-10-05');
+      b.set(sisK(db), { seuraId: KPV, havainto_viimeisin_pvm: '2026-10-05' }, { merge: true }); return b.commit(); };   // v3.79
+    await assertSucceeds(kirjaa(vpKpv(), 'h-vp')); expect((await lue('seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot')).havainto_viimeisin_pvm).toBe('2026-10-05');
+    await assertFails(setDoc(pel(vpKpv().firestore()), { havainto_viimeisin_pvm: '2026-10-05' }, { merge: true }));   // v3.79: pelaajadokumenttiin ✗
     await assertFails(kirjaa(valmKpv(), 'h-valm')); expect(await lue('seurat', KPV, 'pelaajat', TOPIAS, 'havainnot', 'h-valm')).toBeUndefined();
   });
   it('TESTITULOS: testitulos + hh-pikakentät samassa batchissa VP:ltä onnistuu; U15-valmentajalta hylätään (koko batch)', async () => {
@@ -4775,15 +4822,24 @@ describe('D-3 · jakson aloituksen yhdistelmäkirjoitus (KPV U13)', () => {
   const PAKETTI = (vh) => Object.assign({ jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Saattaen vaihtaminen', alkoi: '2026-10-05T10:00:00.000Z', kesto_vk: 6, lahde: 'valmentaja', tukiosa: { alue: 'kestävyys', perustelu: 'Jaksaminen tukee pelin lukemista', harjoitteet: [] } },
     ydinvahvuus: { kuvaus: 'Näkee pelin hyvin', havaittu_pvm: '2026-10-07', rooli: 'valmentaja' }, jaksofokus_historia: FS_MOD.arrayUnion({ konsepti_avain: 'y_h9', sulkutapa: 'korvattu' }) }, vh ? { vastuuhenkilo: vh } : {});
   const VH = { uid: 'valm-kpv-u13', rooli: 'valmentaja', asetettu_pvm: '2026-10-07' };
-  it.each([['VP', () => ctx('vp-kpv-001', 'vp')], ['KPV U13 -valmentaja', () => ctx('valm-kpv-u13', 'valmentaja')]])('%s kirjoittaa koko paketin (myös vastuuhenkilön) yhdellä updatella', async (nimi, c) => { await assertSucceeds(updateDoc(pel(c()), PAKETTI(VH))); });
+  // v3.79 (2e): vastuuhenkilo on A-kenttä → paketti = YKSI batch: pelaajadokumentti (jakso + ydinvahvuus + historia) + sisainen/tiedot (vastuuhenkilo). Kaikki tai ei mitään.
+  const sisT = (c) => doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot');
+  const PAKETTI_BATCH = (cf, vh) => { const c = cf(), b = FS_MOD.writeBatch(c.firestore()); b.update(pel(c), PAKETTI()); if (vh) b.set(sisT(c), { seuraId: KPV, vastuuhenkilo: vh }, { merge: true }); return b.commit(); };
+  it.each([['VP', () => ctx('vp-kpv-001', 'vp')], ['KPV U13 -valmentaja', () => ctx('valm-kpv-u13', 'valmentaja')]])('%s kirjoittaa koko paketin (myös vastuuhenkilön) yhdellä updatella', async (nimi, c) => {
+    await assertFails(updateDoc(pel(c()), PAKETTI(VH)));   // v3.79: vastuuhenkilo pelaajadokumenttiin ✗
+    await assertSucceeds(PAKETTI_BATCH(c, VH));
+    let s2; await testEnv.withSecurityRulesDisabled(async (x) => { s2 = (await getDoc(doc(x.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot'))).data(); });
+    expect(s2.vastuuhenkilo).toEqual(VH);
+  });
   // Jokainen kieltäytyvä toimija omalla tuoreella tilalla (peräkkäiset onnistuneet kirjoitukset tekisivät "samat arvot" → ei muutosta → läpi). Vastuuhenkilön asettajat rajaavat: U15-valmentaja ja fysiikkavalmentaja eivät aseta.
-  it.each([['toisen joukkueen (U15) valmentaja', () => ctx('valm-kpv-u15', 'valmentaja')], ['fysiikkavalmentaja', () => ctx('fysiikka-kpv-001', 'fysiikkavalmentaja')], ['pelaaja itse', () => pelaajaContext(KPV, TOPIAS)], ['huoltaja', () => huoltajaContext()]])('%s EI saa kirjoittaa pakettia vastuuhenkilön kanssa', async (nimi, c) => { await assertFails(updateDoc(pel(c()), PAKETTI(VH))); });
+  it.each([['toisen joukkueen (U15) valmentaja', () => ctx('valm-kpv-u15', 'valmentaja')], ['fysiikkavalmentaja', () => ctx('fysiikka-kpv-001', 'fysiikkavalmentaja')], ['pelaaja itse', () => pelaajaContext(KPV, TOPIAS)], ['huoltaja', () => huoltajaContext()]])('%s EI saa kirjoittaa pakettia vastuuhenkilön kanssa', async (nimi, c) => { await assertFails(PAKETTI_BATCH(c, VH)); });
   it('toisen joukkueen (U15) valmentaja EI saa kirjoittaa jaksoa+ydinvahvuutta Topiakselle edes ilman vastuuhenkilöä (tuore tila) — joukkuerajaus on Rules-tasolla; VP ja oman joukkueen valmentaja saavat', async () => { await assertFails(updateDoc(pel(ctx('valm-kpv-u15', 'valmentaja')), PAKETTI())); await assertSucceeds(updateDoc(pel(ctx('valm-kpv-u13', 'valmentaja')), PAKETTI())); });
   it('paketti ilman vastuuhenkilöä onnistuu; virheellinen vastuuhenkilö (vieras uid) kaataa KOKO päivityksen (atomisuus — jakso ei jää puoliksi kirjoitetuksi)', async () => {
     await assertSucceeds(updateDoc(pel(ctx('valm-kpv-u13', 'valmentaja')), PAKETTI()));
-    await assertFails(updateDoc(pel(ctx('valm-kpv-u13', 'valmentaja')), PAKETTI({ uid: 'tuntematon', rooli: 'valmentaja', asetettu_pvm: '2026-10-07' })));
-    let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS))).data(); });
-    expect(d.vastuuhenkilo).toBeUndefined(); expect(d.jaksofokus.tukiosa.alue).toBe('kestävyys');   // ensimmäinen (validi) kirjoitus on voimassa, epäkelpo ei muuttanut mitään
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS), { 'jaksofokus.tukiosa.alue': 'nopeus' }); });   // erotetaan epäkelvon batchin vaikutus
+    await assertFails(PAKETTI_BATCH(() => ctx('valm-kpv-u13', 'valmentaja'), { uid: 'tuntematon', rooli: 'valmentaja', asetettu_pvm: '2026-10-07' }));
+    let d, s2; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS))).data(); s2 = (await getDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS, 'sisainen', 'tiedot'))).data(); });
+    expect(s2).toBeUndefined(); expect(d.vastuuhenkilo).toBeUndefined(); expect(d.jaksofokus.tukiosa.alue).toBe('nopeus');   // epäkelpo batch ei muuttanut mitään (jakso ei jäänyt puoliksi kirjoitetuksi)   // ensimmäinen (validi) kirjoitus on voimassa, epäkelpo ei muuttanut mitään
   });
 });
 
@@ -5770,10 +5826,11 @@ describe('K4b · kehityskeskustelu: reviewit/{pvm}.sovitut_sisainen + kk_* ja re
     for (const [ctx, pvm, rooli, uid] of [[valmentajaContext(VALM_A_UID, SEURA_A), '2026-11-12', 'valmentaja', VALM_A_UID], [vpContext(SEURA_A), '2026-11-13', 'vp', 'vp-uid']]) {
       const db = ctx.firestore(), b = FS_MOD.writeBatch(db);
       b.set(rev(db, pvm), { ...KK(rooli, uid), pvm }, { merge: true });
-      b.set(pel(db, SEURA_A, PELAAJA_UID), { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }, { merge: true });
+      b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'sisainen', 'tiedot'), { seuraId: SEURA_A, review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }, { merge: true });   // v3.79: A-pikakentät sisainen/tiedot:iin
       await assertSucceeds(b.commit());
       const d = await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm]); expect(d.sovitut_sisainen.teksti).toBe('Sovittiin ensiaskelharjoitus.'); expect(d.kk_tekija_rooli).toBe(rooli);
-      expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).review_viimeisin_tyyppi).toBe('kehityskeskustelu');
+      expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'sisainen', 'tiedot'])).review_viimeisin_tyyppi).toBe('kehityskeskustelu');
+      await assertFails(setDoc(pel(db, SEURA_A, PELAAJA_UID), { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }, { merge: true }));   // v3.79: pelaajadokumenttiin ✗
       await assertSucceeds(getDoc(rev(db, pvm)));
     }
     await assertFails(getDoc(rev(pelaajaItseContext().firestore()))); await assertFails(getDoc(rev(huoltajaContext().firestore()))); await assertFails(getDoc(rev(valmentajaContext(VALM_B_UID, SEURA_B).firestore())));
