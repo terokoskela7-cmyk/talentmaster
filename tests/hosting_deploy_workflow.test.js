@@ -51,6 +51,30 @@ describe('deploy-hosting.yml', () => {
   });
 });
 
+/* QG-3 · savutesti-kanava (.briefit/QG3_SAVUTESTI_VAIHE0.md S2 A): sama build esikatselukanavalle `savutesti`, live ensin. */
+describe('deploy-hosting.yml · savutesti-kanava', () => {
+  const s = lue('deploy-hosting.yml');
+  const job = s.slice(s.indexOf('\n  savutesti-kanava:'));
+  it('oma job, joka ajetaan live-deployn JÄLKEEN (kanavan virhe ei estä tuotantoa)', () => {
+    expect(s).toMatch(/\n {2}savutesti-kanava:\n {4}needs: deploy\n/);
+    expect(s.indexOf('channelId: live')).toBeLessThan(s.indexOf('channelId: savutesti'));
+  });
+  it('vain live ja savutesti -kanavat; savutesti vanhenee 30 pv:ssä (uusiutuu joka deployssa)', () => {
+    expect([...s.matchAll(/channelId:\s*(\S+)/g)].map((m) => m[1])).toEqual(['live', 'savutesti']);
+    expect(job).toMatch(/expires:\s*30d/);
+  });
+  it('sama hosting-scopattu secret ja sama tiivistekomento ennen kanavan deployta', () => {
+    expect(job).toContain('secrets.FIREBASE_SERVICE_ACCOUNT_HOSTING');
+    expect(job.indexOf('run: node scripts/versiotiiviste.js --kirjoita')).toBeGreaterThan(-1);
+    expect(job.indexOf('run: node scripts/versiotiiviste.js --kirjoita')).toBeLessThan(job.indexOf('action-hosting-deploy'));
+  });
+  it('URL artefaktiin savutesti-kanava/url.txt, vain odotetun muotoinen URL kelpaa', () => {
+    expect(job).toContain('steps.savu.outputs.details_url');
+    expect(job).toMatch(/name:\s*savutesti-kanava\n\s*path:\s*savutesti-kanava\/url\.txt/);
+    expect(job).toContain('https://talentmaster-pilot--savutesti-*.web.app*');
+  });
+});
+
 describe('Pages-fallback koskematon (rollback-polku)', () => {
   it('deploy-pages.yml on olemassa ja julkaisee yhä', () => {
     expect(existsSync(join(wfDir, 'deploy-pages.yml'))).toBe(true);
