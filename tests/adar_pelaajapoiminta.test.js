@@ -198,9 +198,9 @@ describe('ADAR · pelaajapoiminta roolin mukaan', () => {
       }
       throw new Error('sulkeet eivät täsmää');
     };
-    const runko = [poimi('function _adarNakeeKaikki(rooli) {'), poimi('function _adarEstonSyy() {')].join('\n');
+    const runko = [poimi('function _adarNakeeKaikki(rooli) {'), poimi('function _adarEstonSyy(pelaajaId) {')].join('\n');
     // eslint-disable-next-line no-new-func
-    return new Function('__ymp', 'with(__ymp){' + runko + '\nreturn _adarEstonSyy();}')(ymp);
+    return new Function('__ymp', 'with(__ymp){var _adarPeruttu = function () { return false; };' + runko + '\nreturn _adarEstonSyy();}')(ymp);
   }
 
   it('SELKEÄ VIRHE: permission-denied kertoo syyn, ei "katso konsoli"', () => {
@@ -211,7 +211,7 @@ describe('ADAR · pelaajapoiminta roolin mukaan', () => {
     const loppu = ADAR.indexOf('_luonnosMerkitse(pelaajaId', i);
     expect(loppu, 'haaran loppua ei löydy').toBeGreaterThan(i);
     const lohko = ADAR.slice(i, loppu);
-    expect(lohko, 'syy on haettava funktiosta, ei kovakoodattava').toContain('_adarEstonSyy()');
+    expect(lohko, 'syy on haettava funktiosta, ei kovakoodattava').toContain('_adarEstonSyy(pelaajaId)');
     /* kentällä ei ole konsolia — syy tallentuu luonnokseen ja näytetään pysyvänä bannerina + toastina */
     const vir = ADAR.slice(loppu, loppu + 700);
     expect(vir).toContain("{ virhe: syy }");

@@ -179,7 +179,7 @@ describe('c) Testaus_v9 · valmiiksi-merkinnän pelaajakentät yhtenä kirjoituk
   const aja = (m, upd) => {
     const ctx = { _db: m.db, _seuraId: 'kpv', console: { warn() {} },
       _aktiivinenTapahtuma: { pelaajatData: [{ id: 'a' }, { id: 'b' }, { id: 'puuttuu' }] },
-      _v6EnnatyksetUpd: (pl) => (upd[pl.id] || {}).e || {}, _v6HistoriaUpd: (pl) => (upd[pl.id] || {}).h || {}, _v6PikakentatUpd: (pl) => (upd[pl.id] || {}).p || {} };
+      _v6EnnatyksetUpd: (pl) => (upd[pl.id] || {}).e || {}, _v6HistoriaUpd: (pl) => (upd[pl.id] || {}).h || {}, _v6PikakentatUpd: (pl) => (upd[pl.id] || {}).p || {}, _v9Peruttu: (d) => !!(d && d.suostumusTila === 'peruttu') };
     vm.createContext(ctx); vm.runInContext(pura(T9, 'async function _v6TallennaPelaajienKentat(') + '\nthis.f = _v6TallennaPelaajienKentat;', ctx);
     return ctx.f();
   };
@@ -187,14 +187,14 @@ describe('c) Testaus_v9 · valmiiksi-merkinnän pelaajakentät yhtenä kirjoituk
     b: { p: { tki_viimeisin: 55, tki_pvm: '2026-10-03' } } };
   it('per pelaaja YKSI kirjoitus (ennätykset + historia + pikakentät); puuttuva profiili ohitetaan', async () => {
     const m = mockDb({ docs: { [PEL('a')]: {}, [PEL('b')]: {} } });
-    expect(await aja(m, upd)).toEqual({ ok: 2, virhe: 0, ohitettu: 1 });
+    expect(await aja(m, upd)).toEqual({ ok: 2, virhe: 0, ohitettu: 1, peruttu: 0 });
     expect(m.db.batches).toEqual([['update ' + PEL('a')], ['update ' + PEL('b')]]);
     expect(Object.keys(m.docs[PEL('a')]).sort()).toEqual(['ennatykset', 'hh_historia', 'hh_pvm', 'hh_viimeisin']);
     expect(m.db.erilliset).toEqual([]);
   });
   it('kirjoitus epäonnistuu → pelaajalle ei osittaista tilaa, virhe raportoidaan', async () => {
     const m = mockDb({ docs: { [PEL('a')]: { hh_pvm: '2026-04-01' }, [PEL('b')]: {} }, kaada: true });
-    expect(await aja(m, upd)).toEqual({ ok: 0, virhe: 2, ohitettu: 1 });
+    expect(await aja(m, upd)).toEqual({ ok: 0, virhe: 2, ohitettu: 1, peruttu: 0 });
     expect(m.docs[PEL('a')]).toEqual({ hh_pvm: '2026-04-01' });
   });
   it('valmiiksi-merkintä kutsuu yhdistettyä tallennusta (ei enää kolmea erillistä) ja näyttää virheet', () => {

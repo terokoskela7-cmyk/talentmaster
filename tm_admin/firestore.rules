@@ -1,10 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.78
+// TalentMaster™ — firestore.rules v3.80
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.79 → v3.80 (B9b, PM 3.11.2026 B9 päätös 4, KIRISTÄÄ; v3.79 = PR 2e): perutun suostumuksen pelaajalle (suostumusTila 'peruttu' tai suostumus.peruttu, sama ehto kuin lib/tm_suostumus.js)
+//   EI uusia dokumentteja mihinkään pelaajat/{pid}/<alikokoelma>-polkuun — kaikilta, myös SA:lta (palvelin/admin-SDK ohittaa). eiUuttaPerutulle() koskee vain create-metodia: olemassa olevan päivitys/poisto ja luku ennallaan.
+//   Pelaajadokumentin get() on sama luku kuin joukkuetarkistuksissa (ei lisäkustannusta niissä); puuttuva pelaajadokumentti ei estä (tuonnin batch).
 // Muutokset v3.77 → v3.78 (D1 lippujen hallinta, Tero 5.11.2026, KIRISTÄÄ): käyttöönottoliput kirjoittaa VAIN SA — seurat/{id}/liput/{lippuId} create/update/delete
 //   onSuperAdmin(); seura-dokin vanha liput-kenttä pois johdon create/update-oikeudesta (kuten laskutus_sopimus). SA:n Admin käyttää callablea asetaSeuranLippu (audit lippu_muutettu).
 // Muutokset v3.76 → v3.77 (B10, PM 4b, KIRISTÄÄ): pelaaja EIKÄ huoltaja lue biologinen_ika/{pvm}:ta (maturity_offset = A); B-muoto pelaajadokumentin biologinenIka_viimeisin:ssa (PR 2d), art. 15 = GDPR-vienti. Mikään pelaaja-/huoltajasovellus ei lue alikokoelmaa.
@@ -760,6 +763,12 @@ service cloud.firestore {
     /* v3.70 (PR #1137): terveys-dokumentti. Terveys-avaimet EIVÄT kuulu sisainen/tiedot:iin (avaimet kuten yllä). Lukijat: SA | vp, urheilutoimenjohtaja, fysioterapeutti | pelaajan joukkueen valmentaja (rooli 'valmentaja'). */
     function terveysAvaimet() { return ['kaytettavyys', 'loukkaantuminen_tyyppi', 'loukkaantuminen_alue', 'loukkaantuminen_pvm', 'paluu_arvio']; }
     function sisainenEiTerveysta(avaimet) { return !avaimet.hasAny(terveysAvaimet()); }
+    /* v3.80 (B9b): uusia kirjauksia ei perutun suostumuksen pelaajalle. Ehto = lib/tm_suostumus.js suostumusPeruttu. */
+    function pelaajaEiPeruttu(sid, pid) {
+      let p = get(/databases/$(database)/documents/seurat/$(sid)/pelaajat/$(pid));
+      return p == null || (p.data.get('suostumusTila', '') != 'peruttu' && !(p.data.get('suostumus', null) is map && p.data.suostumus.get('peruttu', null) != null));
+    }
+    function eiUuttaPerutulle(sid, pid) { return request.method != 'create' || pelaajaEiPeruttu(sid, pid); }
     function pelaajaTerveysEiMuutu() { return !request.resource.data.diff(resource.data).addedKeys().hasAny(terveysAvaimet()) && !request.resource.data.diff(resource.data).changedKeys().hasAny(terveysAvaimet()); }   // v3.73: poisto (removedKeys) sallittu
     function sisainenTerveysLukija(seuraId, pelaajaId) {
       return onSuperAdmin()
@@ -1535,8 +1544,8 @@ service cloud.firestore {
                         || (onPelaajaItse(seuraId, pelaajaId) && resource.data.get('nakyvyys', '') == 'pelaaja')
                         || (onLapsenHuoltaja(seuraId, pelaajaId)
                             && resource.data.get('nakyvyys', '') == 'pelaaja');
-          allow create: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))   // permissio-joukkulukko (johto ohittaa)
-                        && luotuLuontiKelpaa();                       // A5
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && ((onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))   // permissio-joukkulukko (johto ohittaa)
+                        && luotuLuontiKelpaa());                       // A5
           /* PELAAJAN KIRJOITUS RAJATTU (v3.22): pelaajaistunto tarvitsee vain lukukuittauksen,
              mutta sai muuttaa mitä tahansa kenttää — myös omia pisteitään ja näkyvyyttään. */
           allow update: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
@@ -1562,13 +1571,13 @@ service cloud.firestore {
         match /kenttatarkkailut/{tarkkailuId} {
           allow read:   if onSuperAdmin()
                         || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()));
-          allow create: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && ((onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))
                         && luotuLuontiKelpaa()
                         && request.resource.data.valmentajaUid == request.auth.uid
                         // id paattyy omaan uid:hen: toisen uid:lla varattu id kaantaisi hanen oman
                         // tallennuksensa paivitykseksi, jonka update-saanto torjuu (hiljainen lukko)
                         && (onSuperAdmin() || tarkkailuId.matches('.*_' + request.auth.uid))
-                        && !request.resource.data.keys().hasAny(['pisteet','narratiivi','teksti','oppimisnakokohta']);
+                        && !request.resource.data.keys().hasAny(['pisteet','narratiivi','teksti','oppimisnakokohta']));
           allow update: if (onSuperAdmin()
                         || (onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                             && resource.data.valmentajaUid == request.auth.uid))
@@ -1585,7 +1594,7 @@ service cloud.firestore {
         // delete: SA | johto. luotu-vartija A5. Pikakenttä tavoite_aktiivinen_kpl → pelaaja-dokumenttiin (pelaajat-update).
         match /tavoitteet/{tavoiteId} {
           allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
-          allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && luotuLuontiKelpaa();    // A5
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && ((onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && luotuLuontiKelpaa());    // A5
           allow update: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && luotuPaivitysKelpaa();   // A5
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
@@ -1600,14 +1609,14 @@ service cloud.firestore {
         match /sisainen/{dokId} {
           allow read:           if (dokId != 'terveys' && (onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId))))   // v3.70: terveys-dokumentti rajatummalle joukolle
                                 || (dokId == 'terveys' && sisainenTerveysLukija(seuraId, pelaajaId));
-          allow create:         if dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId
+          allow create:         if eiUuttaPerutulle(seuraId, pelaajaId) && (dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId
                                 && ( onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                                   || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
                                       && request.resource.data.keys().hasOnly(['jaksofokus_sisainen', 'historia_sisainen', 'seuraId', 'paivitetty']))
                                   || sisainenTestivastaavaKelpaa(seuraId, request.resource.data.keys())      // v3.70
                                   || sisainenTuojaKelpaa(seuraId, request.resource.data.keys()) )            // v3.70
-                                && sisainenScoutKelpaa(seuraId, request.resource.data.keys()) && sisainenVastuuKelpaa(seuraId, pelaajaId, request.resource.data.keys()) && sisainenEiTerveysta(request.resource.data.keys());   // v3.69 + v3.70
-          allow create:         if dokId == 'terveys' && request.resource.data.get('terveysSeuraId', '') == seuraId && sisainenTerveysKirjoittaja(seuraId, pelaajaId, request.resource.data.keys());   // v3.70
+                                && sisainenScoutKelpaa(seuraId, request.resource.data.keys()) && sisainenVastuuKelpaa(seuraId, pelaajaId, request.resource.data.keys()) && sisainenEiTerveysta(request.resource.data.keys()));   // v3.69 + v3.70
+          allow create:         if eiUuttaPerutulle(seuraId, pelaajaId) && (dokId == 'terveys' && request.resource.data.get('terveysSeuraId', '') == seuraId && sisainenTerveysKirjoittaja(seuraId, pelaajaId, request.resource.data.keys()));   // v3.70
           allow update:         if dokId == 'tiedot' && request.resource.data.get('seuraId', '') == seuraId
                                 && ( onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                                   || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
@@ -1621,7 +1630,7 @@ service cloud.firestore {
 
         match /reviewit/{reviewId} {
           allow read:           if onSuperAdmin() || onOmaSeura(seuraId);
-          allow create, update: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || onOmanSeuranValmentaja(seuraId)) && reviewKevytKelpaa();   // v3.46: kevyt-enum
+          allow create, update: if eiUuttaPerutulle(seuraId, pelaajaId) && ((onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || onOmanSeuranValmentaja(seuraId)) && reviewKevytKelpaa());   // v3.46: kevyt-enum
           allow delete:         if onSuperAdmin();
         }
 
@@ -1641,7 +1650,7 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || onPelaajaItse(seuraId, pelaajaId)
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if (onSuperAdmin()
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && ((onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || onPelaajaItse(seuraId, pelaajaId)   // pelaaja kirjaa itse PIN-tilassa
                         || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
@@ -1649,7 +1658,7 @@ service cloud.firestore {
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'urheilutoimenjohtaja')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'talenttivalmentaja')
                         || onU12Huoltaja(seuraId, pelaajaId))
-                        && luotuLuontiKelpaa();                       // A5
+                        && luotuLuontiKelpaa());                       // A5
           allow update: if (onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || onPelaajaItse(seuraId, pelaajaId)
@@ -1671,7 +1680,7 @@ service cloud.firestore {
           allow read:   if onSuperAdmin()
                         || (onKirjautunut() && onOmaSeura(seuraId))
                         || onPelaajaItse(seuraId, pelaajaId);
-          allow create: if onPelaajaItse(seuraId, pelaajaId) && vkKelpaa(pvm);
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onPelaajaItse(seuraId, pelaajaId) && vkKelpaa(pvm));
           allow update, delete: if false;
         }
 
@@ -1683,14 +1692,14 @@ service cloud.firestore {
           allow read:   if onSuperAdmin() || onOmaSeura(seuraId) || onPelaajaItse(seuraId, pelaajaId) || onLapsenHuoltaja(seuraId, pelaajaId);
           allow update: if onSuperAdmin()
                         || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['luettu', 'luettu_pvm']));
-          allow create: if onSuperAdmin();   // vain CF/SA (admin-SDK) — client ei väärennä
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin());   // vain CF/SA (admin-SDK) — client ei väärennä
           allow delete: if onSuperAdmin();
         }
 
         // ── Tapahtumat (LEGACY — käytä mieluummin testitapahtumat) ────────
         match /tapahtumat/{tapahtumaId} {
           allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
-          allow write: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow write: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin() || onOmanSeuranValmentaja(seuraId));
         }
 
         // ── IDP (kausikohtainen kehityssuunnitelma) ───────────────────────
@@ -1698,7 +1707,7 @@ service cloud.firestore {
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin() || onOmanSeuranValmentaja(seuraId));
           allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
@@ -1715,8 +1724,8 @@ service cloud.firestore {
                             && onOmanSeuranValmentaja(seuraId))
                         || (resource.data.naytaPelaajalle == true
                             && onPelaajaItse(seuraId, pelaajaId));
-          allow create: if onSuperAdmin()
-                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin()
+                        || (onOmaSeura(seuraId) && onJohtoRooli()));
           allow update: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli());
           allow delete: if onSuperAdmin();
@@ -1734,11 +1743,11 @@ service cloud.firestore {
                         || onLapsenHuoltaja(seuraId, pelaajaId);
           // Kirjoitus: VP/UTJ (johto) + testivastaava + oman joukkueen valmentaja (v3.36, Masterin Pikakirjaus).
           // EI seurasihteeri (valmennusdata, ei valmentajarooli).
-          allow create: if onSuperAdmin()
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin()
                         || (onOmaSeura(seuraId) && (request.auth.token.rooli == 'vp'
                                                     || request.auth.token.rooli == 'urheilutoimenjohtaja'))
                         || onTestivastaava(seuraId)
-                        || onOmanJoukkueenValmentaja(seuraId, pelaajaId);
+                        || onOmanJoukkueenValmentaja(seuraId, pelaajaId));
           allow update: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && (request.auth.token.rooli == 'vp'
                                                     || request.auth.token.rooli == 'urheilutoimenjohtaja'))
@@ -1756,7 +1765,7 @@ service cloud.firestore {
         // Firestore EI periydy alikokoelmiin → oma blokki pakollinen (§17 #18).
         match /biologinen_ika/{mittausPvm} {
           allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
-          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin() || onOmanSeuranValmentaja(seuraId));
           allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow delete: if onSuperAdmin();
         }
@@ -1780,14 +1789,14 @@ service cloud.firestore {
           allow read:   if onSuperAdmin() || onPalloliitto()
                         || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli())
                             && (resource == null || resource.data.nakyvyys == 'seuralle'));
-          allow create: if request.resource.data.arvioija_uid == request.auth.uid
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (request.resource.data.arvioija_uid == request.auth.uid
                         && (
                              (onPalloliitto() && request.resource.data.arvioija_org == 'palloliitto')
                           || ((onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                                || (onOmaSeura(seuraId) && onJohtoRooli()))
                               && request.resource.data.arvioija_org == 'seura'
                               && request.resource.data.nakyvyys == 'seuralle')
-                        );
+                        ));
           allow update: if resource.data.arvioija_uid == request.auth.uid
                         && request.resource.data.arvioija_uid == resource.data.arvioija_uid
                         && request.resource.data.arvioija_org == resource.data.arvioija_org
@@ -1809,9 +1818,9 @@ service cloud.firestore {
         match /arviointi/{kausiId} {
           allow read:   if onSuperAdmin()
                         || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()));
-          allow create: if onSuperAdmin()
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin()
                         || onOmanJoukkueenValmentaja(seuraId, pelaajaId)   // permissio-joukkulukko (johto ohittaa)
-                        || (onOmaSeura(seuraId) && onJohtoRooli());
+                        || (onOmaSeura(seuraId) && onJohtoRooli()));
           allow update: if onSuperAdmin()
                         || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                         || (onOmaSeura(seuraId) && onJohtoRooli());
@@ -1827,12 +1836,12 @@ service cloud.firestore {
           allow read:   if onSuperAdmin()
                         || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()))
                         || onPelaajaItse(seuraId, pelaajaId);   // pelaaja lukee oman kausitavoitteensa (3c-peili)
-          allow create: if onSuperAdmin()
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         // IDP-kortti v2 §4 — PIN-pelaaja saa luoda OMAN sitoumuksensa jos dokkia ei vielä ole (vain pelaaja_sitoumus).
                         || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.keys().hasOnly(['pelaaja_sitoumus'])
-                            && request.resource.data.pelaaja_sitoumus.vahvistettu_pvm == null);
+                            && request.resource.data.pelaaja_sitoumus.vahvistettu_pvm == null));
           allow update: if onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && onJohtoRooli())
@@ -1854,11 +1863,11 @@ service cloud.firestore {
                         || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()))
                         || onPelaajaItse(seuraId, pelaajaId)
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if onSuperAdmin()
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.keys().hasOnly(['pelaaja_sitoumus', 'paivitetty'])
-                            && request.resource.data.pelaaja_sitoumus.get('vahvistettu_pvm', null) == null);
+                            && request.resource.data.pelaaja_sitoumus.get('vahvistettu_pvm', null) == null));
           allow update: if onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && onJohtoRooli())
@@ -1878,9 +1887,9 @@ service cloud.firestore {
           allow read:   if onSuperAdmin()
                         || onPelaajaItse(seuraId, pelaajaId)
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if (onSuperAdmin()
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && ((onSuperAdmin()
                         || onLapsenHuoltaja(seuraId, pelaajaId))
-                        && luotuLuontiKelpaa();                       // A5
+                        && luotuLuontiKelpaa());                       // A5
           allow update: if (onSuperAdmin()
                         || (onPelaajaItse(seuraId, pelaajaId)
                             && request.resource.data.diff(resource.data).affectedKeys()
@@ -1898,7 +1907,7 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || (resource.data.nakyvyys == 'pelaaja'
                             && (onPelaajaItse(seuraId, pelaajaId) || onLapsenHuoltaja(seuraId, pelaajaId)));
-          allow create: if onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId);   // permissio-joukkulukko (johto ohittaa)
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId));   // permissio-joukkulukko (johto ohittaa)
           allow update: if onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }

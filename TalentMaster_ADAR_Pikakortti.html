@@ -242,6 +242,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <script src="lib/tm_i18n_common.js"></script>
 <script src="lib/tm_lib_i18n.js"></script>   <!-- jaettu kirjastokartta (tmLibT): ADAR-tekstit + nimikanoni -->
 <script src="lib/tm_henkilosto_i18n.js"></script>   <!-- tmHT: henkilöstösovellusten reititin -->
+<script src="lib/tm_suostumus.js"></script>   <!-- B9b: tmSuostumusPeruttu — perutulle ei uusia havaintoja (Rules v3.80) -->
 <script src="lib/tm_adar_tekstit.js"></script>   <!-- ulottuvuustekstit FI-kartassa (ent. PH_TEKSTIT) -->
 <script src="lib/tm_adar_pelitilanne.js"></script>   <!-- pelitilanne (vaihe · paine · otos) + luotettavuus; vain kirjaus, konsensus ennallaan -->
 </head>
@@ -404,7 +405,12 @@ function _adarTekijaNimi(user) {
 }
 
 /** Miksi kirjoitus estyi? Palauttaa käyttäjälle näytettävän syyn. */
-function _adarEstonSyy() {
+/* B9b (Rules v3.80): perutun suostumuksen pelaajalle ei uusia havaintoja. Teksti = B9:n käännetty avain kts_suostumus_peruttu (ei uutta sv-lausetta). */
+function _adarPeruttu(pelaajaId) { var p = (window._pelaajaMap || {})[pelaajaId]; return !!(p && window.TM_SUOSTUMUS && window.TM_SUOSTUMUS.tmSuostumusPeruttu(p)); }
+function _adarPeruttuTeksti() { return (typeof tmLibT === 'function' && tmLibT('kts_suostumus_peruttu')) || tmHT('Suostumus peruttu'); }   // fi = kts_suostumus_peruttu:n fi (lib/tm_kt_sivu.js)
+window._adarPeruttu = _adarPeruttu;
+function _adarEstonSyy(pelaajaId) {
+  if (pelaajaId && _adarPeruttu(pelaajaId)) return _adarPeruttuTeksti();
   if (!_adarNakeeKaikki() && !(window._omatJoukkueet || []).length) {
     return tmHT('Käyttäjätunnuksesi joukkuetieto puuttuu — ota yhteys seuran pääkäyttäjään');
   }
@@ -561,7 +567,8 @@ async function _adarLataaPelaajat(seuraId) {
         havainto_porras_ehdotus: p.havainto_porras_ehdotus || null,
         adar_pvm: p.adar_pvm || null,
         // adar_edellinen-kaappaus (§29 pvm-vahti) tarvitsee edellisen arvon
-        adar_viimeisin: p.adar_viimeisin || null
+        adar_viimeisin: p.adar_viimeisin || null,
+        suostumusTila: p.suostumusTila || null, suostumus: (p.suostumus && p.suostumus.peruttu) ? { peruttu: true } : null   // B9b: _adarPeruttu
       };
     });
     console.log('[ADAR] ' + snap.docs.length + ' pelaajaa ladattu seuralle ' + seuraId);
@@ -1418,6 +1425,13 @@ async function _phTallenna() {
   var seuraId = window._tmSeuraId || '', pelaajaId = S.pelaajaId;
   if (!db || !auth || !auth.currentUser) { _showToast(tmHT('⚠ Kirjaudu ensin sisään')); return; }
   if (!seuraId || !pelaajaId) { _showToast(tmHT('⚠ Valitse pelaaja ensin')); return; }
+  /* B9b: suostumus peruttu → ei kirjoitusta (Rules hylkäisi). Luonnos säilyy ja pysyvä palkki näyttää syyn (ei hiljaista katoamista). */
+  if (_adarPeruttu(pelaajaId)) {
+    var _syyP = _adarPeruttuTeksti(), _nimiP = ((window._pelaajaMap || {})[pelaajaId] || {}).nimi || tmHT('pelaaja');
+    _luonnosMerkitse(pelaajaId, 'epaonnistui', { virhe: _syyP }, _luonnosKeraa()); _phRender();
+    _showToast('⚠ ' + tmHT('{nimi}: havaintoa ei tallennettu').replace('{nimi}', _nimiP) + ' · ' + _syyP);
+    return;
+  }
 
   /* Tuore token vain verkossa: offline-tilassa getIdToken(true) heittää eikä
      kirjoitusta tarvitse estää — se jonottuu joka tapauksessa. */
@@ -1489,7 +1503,7 @@ async function _phTallenna() {
     if (!_offline) _ilmoitaIsannalle({ type: 'tm:adar:failed', pelaajaId: pelaajaId, koodi: (err && err.code) || 'virhe' });
     console.error('[ADAR] Tallennusvirhe:', err && (err.message || err));
     var syy = (err && (err.code === 'permission-denied' || (err.message || '').indexOf('permissions') >= 0))
-      ? _adarEstonSyy() : '';
+      ? _adarEstonSyy(pelaajaId) : '';
     /* EI HILJAISTA KATOAMISTA: luonnos säilyy 'epaonnistui'-tilassa, lomake palautetaan ruudulle ja virhe näkyy pysyvänä
        bannerina (toast katoaa; kentällä konsolia ei ole). */
     _luonnosMerkitse(pelaajaId, 'epaonnistui', { virhe: syy }, luonnosTila);

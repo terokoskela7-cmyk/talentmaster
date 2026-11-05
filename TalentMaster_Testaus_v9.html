@@ -21,6 +21,7 @@
      kuin #491. lib/ tarjoillaan molemmilla originilla. -->
 <script src="lib/tm_bioika.js"></script>
 <script src="lib/tm_sisainen.js"></script>   <!-- PR 2d: kypsyyskentät + koko biologinenIka_viimeisin VAIN sisainen/tiedot:iin (pelaajalle B-muoto) -->
+<script src="lib/tm_suostumus.js"></script>   <!-- B9b: tmSuostumusPeruttu — perutulle ei uusia kirjauksia (Rules v3.80) -->
 <script src="lib/tm_alusta.js"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) — ennen tm_ennatykset/valikkoa -->
 <script src="lib/tm_ennatykset.js"></script>   <!-- Omat ennätykset (PB): jaettu kaikille kirjoittajille (TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js"></script>   <!-- Trendi Vaihe 1b: H-H/TKI-historia online-tallennuksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
@@ -955,6 +956,9 @@ function _escapeHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+/* B9b (Rules v3.80): perutun suostumuksen pelaajalle ei uusia kirjauksia (PHV-historia, sisäiset ja pikakentät). Ehto = lib/tm_suostumus.js; Testaus on suomenkielinen → B9:n fi-teksti. */
+function _v9Peruttu(d) { return !!(d && window.TM_SUOSTUMUS && window.TM_SUOSTUMUS.tmSuostumusPeruttu(d)); }
+const _V9_PERUTTU_TEKSTI = 'Suostumus peruttu';
 let _toastTimer = null;
 function _toast(msg, tyyppi) {
   const el = document.getElementById('toast');
@@ -3130,7 +3134,7 @@ function _v6PikakentatUpd(pl, d) {
    riippumattomia (yhden virhe ei kaada muita, kuten ennen). Palauttaa { ok, virhe, ohitettu }. */
 async function _v6TallennaPelaajienKentat() {
   var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
-  var tila = { ok: 0, virhe: 0, ohitettu: 0 };
+  var tila = { ok: 0, virhe: 0, ohitettu: 0, peruttu: 0 };
   for (var i = 0; i < pelaajat.length; i++) {
     var pl = pelaajat[i];
     try {
@@ -3138,6 +3142,7 @@ async function _v6TallennaPelaajienKentat() {
       var snap = await ref.get();
       if (!snap.exists) { tila.ohitettu++; continue; }   // vain löydetyt profiilit (kuten Excel _loytyyFirestoresta)
       var d = snap.data() || {};
+      if (_v9Peruttu(d)) { tila.peruttu++; continue; }   // B9b
       var upd = Object.assign({}, _v6EnnatyksetUpd(pl, d), _v6HistoriaUpd(pl, d), _v6PikakentatUpd(pl, d));
       if (!Object.keys(upd).length) continue;
       var b = _db.batch();
@@ -3173,6 +3178,7 @@ window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
     try {
       var _kt = await _v6TallennaPelaajienKentat();
       if (_kt.virhe) _toast('⚠ ' + _kt.virhe + ' pelaajan tietojen päivitys epäonnistui — merkitse uudelleen valmiiksi', 'err');
+      else if (_kt.peruttu) _toast('⚠ ' + _V9_PERUTTU_TEKSTI + ': ' + _kt.peruttu, 'err');   // B9b: ohitetut näkyviin
     } catch (e) { console.warn('[pelaajakentat]', e && e.message); }
 
     _v6Renderoi();
@@ -3215,6 +3221,7 @@ async function _kasvuTallennaPHV(p) {
     const snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).get();
     if (snap.exists) {
       const d = snap.data();
+      if (_v9Peruttu(d)) return 'peruttu';   // B9b: ei biologinen_ika-/sisainen-kirjoitusta (Rules hylkäisi); valmiiksi-merkinnän toast kertoo määrän
       sukupuoli = d.sukupuoli || sukupuoli;
       syntyma   = d.syntymaaika || d.syntymapaiva || syntyma;
     }

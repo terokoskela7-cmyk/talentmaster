@@ -95,7 +95,7 @@ async function testaus9(m, pvm, s) {
   const src = [T9.slice(T9.indexOf('var _V6_HH_MAP ='), T9.indexOf('\n', T9.indexOf('var _V6_HH_MAP ='))),
     pura(T9, 'function _kuljetusLaukausTulos('), pura(T9, 'function _v6HhTaso('), pura(T9, 'function _v6TkLajitPikakentat('),
     pura(T9, 'function _v6PikakentatUpd('), pura(T9, 'async function _v6TallennaPelaajienKentat(')].join('\n');
-  vm.runInContext(src + '\nfunction _v6EnnatyksetUpd() { return {}; } function _v6HistoriaUpd() { return {}; }\nthis.f = _v6TallennaPelaajienKentat;', ctx);
+  vm.runInContext(src + '\nfunction _v9Peruttu() { return false; } function _v6EnnatyksetUpd() { return {}; } function _v6HistoriaUpd() { return {}; }\nthis.f = _v6TallennaPelaajienKentat;', ctx);
   const tila = await ctx.f();
   expect(tila.virhe, 'Testaus_v9 ei saa kaatua').toBe(0);
   return tila;
