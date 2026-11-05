@@ -102,7 +102,7 @@ async function testaus9(m, pvm, s) {
 }
 const TT = lue('TalentMaster_Testituonti_Master.html');
 async function testituonti(m, pvm, s) {
-  const ctx = { TM_ENNATYKSET: E, TM_PIKAKENTAT: PIKA, tmPaivaIso: PVM_LIB.tmPaivaIso, TM_TESTIPAIVA: require('../lib/tm_testipaiva.js'), firebase: { firestore: { FieldValue: FV } }, Date, Object, parseFloat, isNaN, String };
+  const ctx = { TM_ENNATYKSET: E, TM_PIKAKENTAT: PIKA, tmPaivaIso: PVM_LIB.tmPaivaIso, TM_TESTIPAIVA: require('../lib/tm_testipaiva.js'), window: { TM_SUOSTUMUS: require('../lib/tm_suostumus.js') }, firebase: { firestore: { FieldValue: FV } }, Date, Object, parseFloat, isNaN, String };
   vm.createContext(ctx);
   const src = TT.slice(TT.indexOf('const TT_LIB_AVAIN ='), TT.indexOf('};', TT.indexOf('const TT_LIB_AVAIN =')) + 2) + '\n'
     + pura(TT, 'function ttLibTulokset(') + '\n' + pura(TT, 'async function ttTallennaPelaaja(');

@@ -2704,8 +2704,16 @@ async function _kirjoitaFirestoreTulos(pelaajaId) {
     return true;
   } catch(e) {
     console.warn('[_kirjoitaFirestoreTulos]', e.code, e.message);
+    /* B9b: Rules hylkää uuden tulosrivin perutulle → tulos ei saa jäädä laitteelle jonoon (ei tallennu koskaan). 'peruttu' on tosi → kutsuja poistaa offline-avaimet. */
+    if (e && e.code === 'permission-denied' && await _v9TulosPeruttu(pelaajaId)) {
+      _toast(((pel.etunimi || '') + ' ' + (pel.sukunimi || '')).trim() + ': ' + _V9_PERUTTU_TEKSTI + ' — tulosta ei tallennettu', 'err');
+      return 'peruttu';
+    }
     return false;
   }
+}
+async function _v9TulosPeruttu(pelaajaId) {
+  try { const s = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).get(); return !!s.exists && _v9Peruttu(s.data()); } catch (e2) { return false; }
 }
 
 /* ── Synkronointi: localStorage → Firestore ── */

@@ -22,6 +22,7 @@
 <script src="lib/tm_tki_core.js"></script>   <!-- PR B: TKI-ydin + _laskeVahvuudetJaKehityskohteet → TM_TESTIT (IIFE) -->
 <script src="lib/tm_testipaiva.js"></script>   <!-- testipäivän lähde (oikea / arvio / tuntematon) -->
 <script src="lib/tm_pikakentat.js"></script>   <!-- PR B: tmLaskePikakentat — §26-pikakentät samassa batchissa tuloksen kanssa -->
+<script src="lib/tm_suostumus.js"></script>   <!-- B9b: perutun suostumuksen pelaajalle ei uutta tulosta (TM_SUOSTUMUS) -->
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -1411,7 +1412,7 @@ function masAikaKmh(arvo) {
 // ════════════════════════════════════════
 // VAIHE E: FIRESTORE-TALLENNUS
 // ════════════════════════════════════════
-/* Yhden pelaajan tallennus (§26, §7.6). Palauttaa 'ok' | 'ohitettu'.
+/* Yhden pelaajan tallennus (§26, §7.6). Palauttaa 'ok' | 'ohitettu' | 'peruttu' (B9b: suostumus peruttu → ei kirjoitusta).
    · Pelaaja haetaan PalloID-KENTÄLLÄ (tunniste → palloID, §7.13). Ei löydy → 'ohitettu': EI kirjoitusta eikä
      haamudokkia (ennen fallback .doc(palloID) + set loi pelaajadokin, jonka doc-ID oli PalloID).
    · Tulos + pelaajan pikakentät SAMASSA batchissa (kaikki tai ei mitään). Ennen erilliset kutsut, ja
@@ -1439,6 +1440,7 @@ async function ttTallennaPelaaja(db, seuraId, tapahtuma, p, tallennusData, fleiP
   let snap = await pelaajat.where('tunniste', '==', tunniste).limit(1).get();
   if (snap.empty) snap = await pelaajat.where('palloID', '==', tunniste).limit(1).get();
   if (snap.empty) return 'ohitettu';
+  if (window.TM_SUOSTUMUS.tmSuostumusPeruttu(snap.docs[0].data() || {})) return 'peruttu';   // B9b: ei kirjoitusta (rivin doc-ID on PalloID → Rules ei näe pelaajaa)
   const pelaajaRef = snap.docs[0].ref;
   const pvm = p.testauspvm || tapahtuma.pvm || '';
   /* YKSI päivä-sääntö (lib/tm_testipaiva.js, sama kuin Excel_Tuonti): oikea → oikea; kausiteksti → ARVIO (pvm_arvio); muuten tuntematon → EI pikakenttiä (ei keksittyä päivää) */
@@ -1497,6 +1499,7 @@ async function tallennaFirestoreen() {
   const pelaajat = tuontiData.pelaajat;
   const okRivit = [];
   const virheRivit = [];
+  const perutut = [];    // B9b: suostumus peruttu → ei kirjoitusta, näkyy toastissa
   const ohitetut = [];   // PalloID ei vastaa yhtään seuran pelaajaa → ei kirjoitusta, ei haamudokkia
 
   for (let i = 0; i < pelaajat.length; i++) {
@@ -1563,6 +1566,7 @@ async function tallennaFirestoreen() {
 
       const tulos = await ttTallennaPelaaja(db, seuraId, tapahtuma, p, tallennusData, fleiPct);
       if (tulos === 'ohitettu') { ohitetut.push(p); continue; }
+      if (tulos === 'peruttu') { perutut.push(p); continue; }
       okRivit.push(p);
     } catch(e) {
       virheRivit.push({ pelaaja: p, virhe: e.message });
@@ -1578,13 +1582,18 @@ async function tallennaFirestoreen() {
     const nimet = ohitetut.slice(0, 5).map(o => ((o.etunimi || '') + ' ' + (o.sukunimi || '')).trim() || o.tunniste || '?').join(', ');
     progressText.textContent += ` · ${ohitetut.length} ohitettu (tuntematon PalloID: ${nimet}${ohitetut.length > 5 ? ', …' : ''})`;
   }
+  if (perutut.length) {
+    const nimet = perutut.slice(0, 5).map(o => ((o.etunimi || '') + ' ' + (o.sukunimi || '')).trim() || o.tunniste || '?').join(', ');
+    progressText.textContent += ` · Suostumus peruttu: ${perutut.length} (ei tallennettu: ${nimet}${perutut.length > 5 ? ', …' : ''})`;
+  }
   if (virheRivit.length === 0) {
-    toast(ohitetut.length ? `✅ ${okRivit.length} tallennettu · ${ohitetut.length} ohitettu (tuntematon PalloID)` : `✅ Kaikki ${okRivit.length} pelaajaa tallennettu Firestoreen!`, ohitetut.length ? 'err' : 'ok');
+    const _peruttuOsa = perutut.length ? ` · Suostumus peruttu: ${perutut.length} (ei tallennettu)` : '';
+    toast((ohitetut.length ? `✅ ${okRivit.length} tallennettu · ${ohitetut.length} ohitettu (tuntematon PalloID)` : perutut.length ? `✅ ${okRivit.length} tallennettu` : `✅ Kaikki ${okRivit.length} pelaajaa tallennettu Firestoreen!`) + _peruttuOsa, (ohitetut.length || perutut.length) ? 'err' : 'ok');
     asetaStepAktiivinen(4, true);
     asetaStepAktiivinen(5, false);
     nappi.innerHTML = '✅ Tallennettu';
   } else {
-    toast(`${okRivit.length} tallennettu, ${virheRivit.length} virhettä`, 'err');
+    toast(`${okRivit.length} tallennettu, ${virheRivit.length} virhettä` + (perutut.length ? ` · Suostumus peruttu: ${perutut.length}` : ''), 'err');
     nappi.disabled = false;
     nappi.innerHTML = '💾 Yritä uudelleen';
   }

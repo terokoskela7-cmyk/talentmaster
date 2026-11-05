@@ -8,6 +8,10 @@ rules_version = '2';
 // Muutokset v3.79 → v3.80 (B9b, PM 3.11.2026 B9 päätös 4, KIRISTÄÄ; v3.79 = PR 2e): perutun suostumuksen pelaajalle (suostumusTila 'peruttu' tai suostumus.peruttu, sama ehto kuin lib/tm_suostumus.js)
 //   EI uusia dokumentteja mihinkään pelaajat/{pid}/<alikokoelma>-polkuun — kaikilta, myös SA:lta (palvelin/admin-SDK ohittaa). eiUuttaPerutulle() koskee vain create-metodia: olemassa olevan päivitys/poisto ja luku ennallaan.
 //   Pelaajadokumentin get() on sama luku kuin joukkuetarkistuksissa (ei lisäkustannusta niissä); puuttuva pelaajadokumentti ei estä (tuonnin batch).
+//   Sama luontiesto seuratason testitapahtumat/{tid}/tulokset/{pelaajaId}:lle (PM 6.11.); PalloID-avaimiset tulosrivit (Testituonti_Master) estää sovellus.
+// Muutokset v3.78 → v3.79 (Vaihe 1 · PR 2e, KIRISTÄÄ — siivous (scripts/siivoa_sisainen_vanhat.js) ajettu 5.11.2026, merge aikaisintaan ≥ 24 h siitä; PR 2d kirjoittaa A-kentät vain sisainen/tiedot:iin): pelaajadokumentin create hylkää
+//   A-avaimet (pelaajaAAvaimet = lib/tm_sisainen.js tmSisainenAKentat ilman terveyttä) ja jaettujen kenttien A-osat (jaksofokus.<A>, talenttisignaali, havainto_porras_ehdotus.hist, biologinenIka_viimeisin muu kuin B-muoto) KAIKILTA, myös SA:lta;
+//   update hylkää niiden lisäyksen ja muutoksen, poisto sallitaan (kuten terveys v3.73). jaksofokus_historia-rivien A-osat eivät kuulu tähän (R8). idp/{id} suljettu kokonaan (ei elävää käyttäjää; huoltajan luku pois).
 // Muutokset v3.77 → v3.78 (D1 lippujen hallinta, Tero 5.11.2026, KIRISTÄÄ): käyttöönottoliput kirjoittaa VAIN SA — seurat/{id}/liput/{lippuId} create/update/delete
 //   onSuperAdmin(); seura-dokin vanha liput-kenttä pois johdon create/update-oikeudesta (kuten laskutus_sopimus). SA:n Admin käyttää callablea asetaSeuranLippu (audit lippu_muutettu).
 // Muutokset v3.76 → v3.77 (B10, PM 4b, KIRISTÄÄ): pelaaja EIKÄ huoltaja lue biologinen_ika/{pvm}:ta (maturity_offset = A); B-muoto pelaajadokumentin biologinenIka_viimeisin:ssa (PR 2d), art. 15 = GDPR-vienti. Mikään pelaaja-/huoltajasovellus ei lue alikokoelmaa.
@@ -769,6 +773,17 @@ service cloud.firestore {
       return p == null || (p.data.get('suostumusTila', '') != 'peruttu' && !(p.data.get('suostumus', null) is map && p.data.suostumus.get('peruttu', null) != null));
     }
     function eiUuttaPerutulle(sid, pid) { return request.method != 'create' || pelaajaEiPeruttu(sid, pid); }
+    /* v3.79 (PR 2e): A-avaimet ja jaettujen kenttien A-osat eivät kuulu pelaajadokumenttiin (vain sisainen/tiedot). d = kirjoitettava dokumentti, k = tarkistettavat avaimet (create: kaikki; update: affectedKeys). */
+    function pelaajaAAvaimet() { return ['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus', 'd3_vp_pvm', 'vastuuhenkilo', 'tukitarve', 'scout_potentiaali', 'scout_potentiaali_taso', 'scout_potentiaali_huomiot', 'scout_potentiaali_pvm', 'scout_potentiaali_arvioija', 'talentti_ehdotus', 'review_viimeisin_pvm', 'review_viimeisin_tyyppi', 'review_tagit', 'idp_edistyma', 'idp_lahde', 'idp_viim_review', 'idp_dvi', 'adar_arvioijat', 'adar_arvioijia', 'adar_yhtenevyys', 'adar_yhtenevyys_taso', 'adar_dim_konsensus', 'adar_vahvin', 'adar_tilanne_jakauma', 'adar_vaihe_jakauma', 'adar_otos_jakauma', 'adar_ottelupohja', 'adar_luotettavuus', 'havainto_viimeisin_pvm', 'havainto_porras_hist', 'arviointi_havaittu', 'arviointi_pvm', 'arviointi_kehys', 'arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm', 'kasvutahti_cm_v', 'kasvutahti_vyohyke', 'maturity_offset', 'kehitysvaihe_kaista', 'kronologinen_ika', 'phv_raaka', 'phv_huom', 'phv_ongelma', 'phv_ilmoitettu_ph', 'phv_ei_mitattu', 'isa_pituus_cm', 'aiti_pituus_cm', 'vanhempi_pituus_pvm', 'vanhempi_pituus_puuttuu', 'talenttiTaso', 'talenttiAlku', 'talenttiAktivoi', 'talenttiPaattyi']; }
+    function pelaajaAOsat(d, k) {
+      return (k.hasAny(['jaksofokus']) && d.get('jaksofokus', null) is map && d.jaksofokus.keys().hasAny(['osa_havainnot', 'osa_havainnot_vk', 'tavoite_tarkenteet', 'onnistumiskriteeri', 'linkitetyt', 'tavoite_alue', 'valitavoite_idx', 'poikkeama', 'oma_jakso']))
+          || (k.hasAny(['signaali']) && d.get('signaali', null) is string && d.signaali.trim().lower() in ['xfactor', 'x-factor', 'hidden-gem', 'hidden'])
+          || (k.hasAny(['havainto_porras_ehdotus']) && d.get('havainto_porras_ehdotus', null) is map && d.havainto_porras_ehdotus.keys().hasAny(['hist']))
+          || (k.hasAny(['biologinenIka_viimeisin']) && d.get('biologinenIka_viimeisin', null) is map && !d.biologinenIka_viimeisin.keys().hasOnly(['phv_tila', 'phv_tila_koodi', 'phv_ika', 'ika_mittaushetkella', 'mittauspaiva']));
+    }
+    function pelaajaEiAOsia() { return !request.resource.data.keys().hasAny(pelaajaAAvaimet()) && !pelaajaAOsat(request.resource.data, request.resource.data.keys()); }
+    function pelaajaAEiMuutu() { return !request.resource.data.diff(resource.data).addedKeys().hasAny(pelaajaAAvaimet()) && !request.resource.data.diff(resource.data).changedKeys().hasAny(pelaajaAAvaimet())
+                                     && !pelaajaAOsat(request.resource.data, request.resource.data.diff(resource.data).affectedKeys()); }   // poisto (removedKeys) sallittu
     function pelaajaTerveysEiMuutu() { return !request.resource.data.diff(resource.data).addedKeys().hasAny(terveysAvaimet()) && !request.resource.data.diff(resource.data).changedKeys().hasAny(terveysAvaimet()); }   // v3.73: poisto (removedKeys) sallittu
     function sisainenTerveysLukija(seuraId, pelaajaId) {
       return onSuperAdmin()
@@ -1461,8 +1476,8 @@ service cloud.firestore {
         // v3.30 (PR 4): PIN asetetaan VAIN palvelimella (asetaPelaajanPin / luoPinitSeuralle / vahvistaSuostumus),
         // jotta hajautus (_pelaajaPin) ja selväkielinen kopio pysyvät samana. Koskee myös SA:n selainkirjoituksia.
         allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && pinEiAsetetaClientista()
-                      && suostumusEiAsetetaClientista() && kayttoasteEiAsetetaClientista() && sisainenEiTerveysta(request.resource.data.keys());   // v3.73: terveys vain sisainen/terveys:iin
-        allow update: if pinEiMuutuClientista() && suostumusEiMuutuClientista() && kayttoasteEiMuutuClientista() && pelaajaTerveysEiMuutu() && (   // v3.73: terveysavaimia ei lisätä/muuteta (poisto sallittu), koskee myös SA:ta
+                      && suostumusEiAsetetaClientista() && kayttoasteEiAsetetaClientista() && sisainenEiTerveysta(request.resource.data.keys()) && pelaajaEiAOsia();   // v3.73: terveys vain sisainen/terveys:iin · v3.79: ei A-avaimia
+        allow update: if pinEiMuutuClientista() && suostumusEiMuutuClientista() && kayttoasteEiMuutuClientista() && pelaajaTerveysEiMuutu() && pelaajaAEiMuutu() && (   // v3.73: terveysavaimia ei lisätä/muuteta (poisto sallittu), koskee myös SA:ta
                          onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)   // permissio-joukkulukko: ADAR-pikakentät ym. vain oman joukkueen pelaajaan (johto ohittaa)
                       || onTestivastaava(seuraId)   // testituonnin profiili-pikakentät (hh_taso/hh_viimeisin/mas_kmh)
                       || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
@@ -1702,15 +1717,8 @@ service cloud.firestore {
           allow write: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin() || onOmanSeuranValmentaja(seuraId));
         }
 
-        // ── IDP (kausikohtainen kehityssuunnitelma) ───────────────────────
-        match /idp/{idpId} {
-          allow read:   if onSuperAdmin()
-                        || onOmaSeura(seuraId)
-                        || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin() || onOmanSeuranValmentaja(seuraId));
-          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
-          allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
-        }
+        // ── IDP (vanha) — v3.79 (PR 2e) SULJETTU: ei elävää lukijaa eikä kirjoittajaa (IDP = idp_kausi / idp_pelaaja). Nimenomainen esto (ei luku, ei kirjoitus, ei myöskään SA).
+        match /idp/{idpId} { allow read, write: if false; }
 
         // ── VP-muistiinpanot per pelaajalle (v2.4) ────────────────────────
         // VP tekee muistiinpanon pelaajasta. Näkyvyys flaggeilla:
@@ -2061,7 +2069,7 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || onPelaajaItse(seuraId, pelaajaId)
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId) || onTestivastaava(seuraId);
+          allow create: if eiUuttaPerutulle(seuraId, pelaajaId) && (onSuperAdmin() || onOmanSeuranValmentaja(seuraId) || onTestivastaava(seuraId));   // v3.80 B9b: ei uutta tulosriviä perutulle (doc-ID = pelaajan doc-ID)
           allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId) || onTestivastaava(seuraId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }

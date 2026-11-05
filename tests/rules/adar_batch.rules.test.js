@@ -14,6 +14,7 @@ import { setDoc, doc, writeBatch, serverTimestamp, getDoc, updateDoc } from 'fir
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const PY = require('../../lib/tm_pelialy_yksilo.js');
+const S = require('../../lib/tm_sisainen.js');
 const PROJECT_ID = 'talentmaster-adar-batch-test';
 const SEURA = 'kpv', TOPIAS = 'm93GBdOaGCUuenMiCL0I', VALM = 'valm-kpv-1', VP = 'vp-kpv-1', TALVAL = 'talval-kpv-1', TESTIV = 'testiv-kpv-1';
 let testEnv;
@@ -60,8 +61,15 @@ async function ajaBatch(ctx, k, { nakyvyys = 'valmentajat', uid = VALM, tekijaNi
   const pRef = doc(db, 'seurat', SEURA, 'pelaajat', TOPIAS);
   const b = writeBatch(db);
   b.set(hRef, havaintoData(uid, nakyvyys, tekijaNimi));
-  if (k) b.set(pRef, k, { merge: true });
+  if (k) jaaPikakentat(b, db, k);
   return b.commit();
+}
+/* v3.79 (PR 2e): kuten sovellus (tmAdarS4Valmista + tmS4Kirjoita) — pelaajadokumenttiin vain B/C-osa, A-osa (adar_*-konsensus, porrashistoria) sisainen/tiedot:iin samassa batchissa. */
+function jaaPikakentat(b, db, k) {
+  const v = S.tmAdarS4Valmista(k);
+  const o = S.tmS4Osa(SEURA, v.upd, { lisa: v.lisa || undefined });
+  b.set(doc(db, 'seurat', SEURA, 'pelaajat', TOPIAS), S.tmSisainenRiisu(v.upd), { merge: true });
+  if (o) b.set(doc(db, 'seurat', SEURA, 'pelaajat', TOPIAS, 'sisainen', 'tiedot'), o.data, { mergeFields: o.mergeFields });
 }
 
 describe('ADAR-batch (havainto + adar_*) — KPV-valmentaja, Rules v3.36', () => {
@@ -181,10 +189,15 @@ describe('Pikakirjaus/Testituonti/Testaus_v9 -batchit (testitulos + pelaajan pik
 });
 
 describe('pelaajadokin adar_*-update YKSINÄÄN (Masterin varapolku: paivitaAdarPikakentat) — KPV U13 -pelaaja', () => {
-  const paivita = (ctx) => setDoc(doc(ctx.firestore(), 'seurat', SEURA, 'pelaajat', TOPIAS), kentat(true), { merge: true });
-  it('oman joukkueen valmentaja: sallittu (ei kenttärajausta adar_*:lle)', async () => {
+  const paivita = (ctx) => { const db = ctx.firestore(); const b = writeBatch(db); jaaPikakentat(b, db, kentat(true)); return b.commit(); };
+  it('oman joukkueen valmentaja: sallittu (jaettuna: B/C pelaajadokumenttiin, A sisainen/tiedot:iin)', async () => {
     await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
     await assertSucceeds(paivita(ctxRooli(VALM, 'valmentaja')));
+  });
+  it('v3.79 (PR 2e): jakamaton adar_*-paketti pelaajadokumenttiin hylätään (A-avaimet) — myös VP:ltä', async () => {
+    await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
+    await assertFails(setDoc(doc(ctxRooli(VALM, 'valmentaja').firestore(), 'seurat', SEURA, 'pelaajat', TOPIAS), kentat(true), { merge: true }));
+    await assertFails(setDoc(doc(ctxRooli(VP, 'vp').firestore(), 'seurat', SEURA, 'pelaajat', TOPIAS), { adar_arvioijat: 2 }, { merge: true }));
   });
   it('pelaajalta puuttuu joukkueet[] → update hylätään (sama predikaatti kuin havainnon create → myös havainto olisi hylätty)', async () => {
     const { joukkueet, ...ilman } = TOPIAS_OK;

@@ -54,8 +54,27 @@ describe('v3.80 · lähde: jokainen pelaajan alikokoelman create kulkee eiUuttaP
     const r = RULES.split('\n'); const alku = r.findIndex((l) => /match \/havainnot\/\{havaintoId\}/.test(l)); const loppu = r.findIndex((l, i) => i > alku && /^\s*match \/kayttajat\/\{uid\}/.test(l));
     const alipuu = r.slice(alku, loppu).join('\n').replace(/\/\/[^\n]*/g, '');
     const lauseet = alipuu.match(/allow [a-z, ]+:\s*if[^;]*;/g).filter((l) => /allow [a-z, ]*(create|write)/.test(l) && !/if\s+false\s*;/.test(l));
-    expect(lauseet.length).toBeGreaterThanOrEqual(20);
+    expect(lauseet.length).toBe(19);   // 20 ennen PR 2e:tä; idp/{id} suljettu (write: if false) → 19. Uusi lause → lisää kääre ja päivitä luku.
     for (const l of lauseet) expect(l, l.slice(0, 80)).toMatch(/if eiUuttaPerutulle\(seuraId, pelaajaId\) && \(/);
+  });
+});
+
+describe('v3.80 · seuratason testitulosrivi (PM 6.11.): testitapahtumat/{tid}/tulokset/{pelaajaId} — vain luontiesto', () => {
+  const tulos = (db, pid) => doc(db, 'seurat', A, 'testitapahtumat', 'tt1', 'tulokset', pid);
+  it('lähde: create kääritty, update ennallaan', () => {
+    const b = RULES.slice(RULES.indexOf('match /tulokset/{pelaajaId}'), RULES.indexOf('allow delete', RULES.indexOf('match /tulokset/{pelaajaId}')));
+    expect(b).toMatch(/allow create: if eiUuttaPerutulle\(seuraId, pelaajaId\) && \(onSuperAdmin\(\) \|\| onOmanSeuranValmentaja\(seuraId\) \|\| onTestivastaava\(seuraId\)\);/);
+    expect(b).toMatch(/allow update: if onSuperAdmin\(\) \|\| onOmanSeuranValmentaja\(seuraId\) \|\| onTestivastaava\(seuraId\);/);
+  });
+  it('uusi rivi perutulle hylätään (SA, VP, valmentaja); sama ei-perutulle onnistuu; olemassa olevan päivitys sallittu', async () => {
+    for (const pid of ['p-peruttu', 'p-olio']) for (const db of [sa(), vp(), valm12()]) await assertFails(setDoc(tulos(db, pid), { testit: { lin_30m: 5 }, pelaajaId: pid }));
+    for (const db of [sa(), valm12()]) await assertSucceeds(setDoc(tulos(db, 'p-ok'), { testit: { lin_30m: 5 }, pelaajaId: 'p-ok' }));
+    await env.withSecurityRulesDisabled(async (c) => setDoc(tulos(c.firestore(), 'p-peruttu'), { testit: { lin_30m: 5 } }));
+    await assertSucceeds(setDoc(tulos(valm12(), 'p-peruttu'), { testit: { lin_30m: 4.9 } }, { merge: true }));   // update: vain luonti estetty (PM 6.11.)
+    await assertSucceeds(getDoc(tulos(vp(), 'p-peruttu')));
+  });
+  it('PalloID-avaiminen rivi (pelaajadokumenttia ei ole sillä ID:llä) ei esty Rulesissa — sovellus estää (Testituonti_Master)', async () => {
+    await assertSucceeds(setDoc(tulos(sa(), '12345678'), { testit: { lin_30m: 5 } }));
   });
 });
 

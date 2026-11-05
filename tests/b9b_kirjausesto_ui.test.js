@@ -17,7 +17,7 @@ const TS = req('../lib/tm_suostumus.js');
 const LIBI18N = req('../lib/tm_lib_i18n.js');
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (f) => readFileSync(join(juuri, f), 'utf8');
-const ADAR = lue('TalentMaster_ADAR_Pikakortti.html'), MASTER = lue('TalentMaster_Master_v16.html'), VP = lue('TalentMaster_VP_v25.html'), TESTAUS = lue('TalentMaster_Testaus_v9.html');
+const ADAR = lue('TalentMaster_ADAR_Pikakortti.html'), MASTER = lue('TalentMaster_Master_v16.html'), VP = lue('TalentMaster_VP_v25.html'), TESTAUS = lue('TalentMaster_Testaus_v9.html'), TT = lue('TalentMaster_Testituonti_Master.html');
 function pura(src, tunniste) {
   const i = src.indexOf(tunniste); expect(i, tunniste).toBeGreaterThan(-1);
   let syv = 0;
@@ -29,7 +29,7 @@ const UUSI_KUTSU = { etunimi: 'Testi', suostumusTila: 'odottaa', suostumus: { pe
 const OK = { etunimi: 'Testi', suostumusTila: 'annettu' };
 
 describe('lib/tm_suostumus.js ladataan ennen käyttöä', () => {
-  it.each([['ADAR', ADAR, '_adarPeruttu('], ['Master', MASTER, 'lib/tm_pikakirjaus.js'], ['VP', VP, 'lib/tm_pikakirjaus.js'], ['Testaus', TESTAUS, '_v9Peruttu(']])('%s', (_n, src, kaytto) => {
+  it.each([['ADAR', ADAR, '_adarPeruttu('], ['Master', MASTER, 'lib/tm_pikakirjaus.js'], ['VP', VP, 'lib/tm_pikakirjaus.js'], ['Testaus', TESTAUS, '_v9Peruttu('], ['Testituonti', TT, 'window.TM_SUOSTUMUS.tmSuostumusPeruttu(']])('%s', (_n, src, kaytto) => {
     const i = src.indexOf('<script src="lib/tm_suostumus.js"></script>');
     expect(i).toBeGreaterThan(-1);
     expect(i).toBeLessThan(src.indexOf(kaytto));
@@ -133,5 +133,60 @@ describe('Testaus_v9', () => {
     const i = f.indexOf("if (_v9Peruttu(d)) return 'peruttu';");
     expect(i).toBeGreaterThan(-1);
     expect(i).toBeLessThan(f.indexOf("collection('biologinen_ika').doc(ops.mittausPvmId)"));
+  });
+});
+
+describe('Testaus_v9 · tulosrivi (PM 6.11.: testitapahtumat/{tid}/tulokset luontiesto)', () => {
+  /* Rules hylkää uuden tulosrivin perutulle; laitteelle tallennettu tulos ei saa jäädä jonoon eikä hylkäys hiljaiseksi. */
+  const aja = async (pelaaja) => {
+    const toastit = [];
+    const ref = (p) => ({ collection: (c) => ({ doc: (id) => ref(p.concat(c, id)) }),
+      set: async () => { throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); },
+      get: async () => ({ exists: !!pelaaja, data: () => pelaaja }) });
+    const ctx = { _db: { collection: (c) => ({ doc: (id) => ref([c, id]) }) }, _seuraId: 'kpv', _tulokset: { a: { lin_30m: 5 } }, Date,
+      _aktiivinenTapahtuma: { id: 't1', pelaajatData: [{ id: 'a', etunimi: 'Testi', sukunimi: 'Pelaaja' }] },
+      firebase: { firestore: { FieldValue: { serverTimestamp: () => 'ts' } } }, console: { warn() {} }, window: { TM_SUOSTUMUS: TS },
+      _V9_PERUTTU_TEKSTI: 'Suostumus peruttu', _toast: (m, t) => toastit.push([m, t]) };
+    vm.createContext(ctx);
+    vm.runInContext(pura(TESTAUS, 'function _v9Peruttu(') + '\n' + pura(TESTAUS, 'async function _kirjoitaFirestoreTulos(') + '\n' + pura(TESTAUS, 'async function _v9TulosPeruttu(') + '\nthis.f = _kirjoitaFirestoreTulos;', ctx);
+    return { tulos: await ctx.f('a'), toastit };
+  };
+  it('peruttu → \'peruttu\' (tosi: kutsuja poistaa offline-avaimet) + toast syyllä', async () => {
+    const r = await aja(Object.assign({}, PERUTTU));
+    expect(r.tulos).toBe('peruttu');
+    expect(r.toastit).toEqual([['Testi Pelaaja: Suostumus peruttu — tulosta ei tallennettu', 'err']]);
+  });
+  it('muu permission-denied (ei peruttu / pelaaja puuttuu) → false, jää jonoon kuten ennen', async () => {
+    expect(await aja(Object.assign({}, OK))).toEqual({ tulos: false, toastit: [] });
+    expect(await aja(null)).toEqual({ tulos: false, toastit: [] });
+  });
+  it('kutsujat poistavat offline-avaimet totuusarvolla (\'peruttu\' on tosi)', () => {
+    expect(pura(TESTAUS, 'function _tallennaTulosKentta(')).toMatch(/_kirjoitaFirestoreTulos\(pelaajaId\)\.then\(ok => \{\s*if \(ok\) \{[^}]*localStorage\.removeItem\(lkey\)/);
+  });
+});
+
+describe('Testituonti_Master (tulosrivin doc-ID = PalloID → Rules ei näe pelaajaa)', () => {
+  const aja = async (pelaaja) => {
+    const { db, D } = fakeDb({ 'seurat/kpv/pelaajat/a': Object.assign({ tunniste: '12345678' }, pelaaja) });
+    const ctx = { firebase: { firestore: { FieldValue: { serverTimestamp: () => 'ts', delete: () => ({ __poista: true }), arrayUnion: (...x) => x } } }, Date,
+      TM_TESTIPAIVA: req('../lib/tm_testipaiva.js'), window: { TM_SUOSTUMUS: TS }, console };
+    vm.createContext(ctx);
+    vm.runInContext(pura(TT, 'function ttLibTulokset(') + '\n' + pura(TT, 'async function ttTallennaPelaaja(') + '\nthis.f = ttTallennaPelaaja;', ctx);
+    const tulos = await ctx.f(db, 'kpv', { id: 'tt1', pvm: '2026-10-03' }, { tunniste: '12345678', testauspvm: '2026-10-03' }, { testit: { kyykky: 3 } }, null);
+    return { tulos, rivi: D.get('seurat/kpv/testitapahtumat/tt1/tulokset/12345678') };
+  };
+  it('peruttu → \'peruttu\', ei tulosriviä', async () => {
+    expect(await aja(PERUTTU)).toEqual({ tulos: 'peruttu', rivi: undefined });
+    expect((await aja(UUSI_KUTSU)).tulos).toBe('peruttu');
+  });
+  it('ei peruttu → tallentuu kuten ennen (ei vacuous)', async () => {
+    const r = await aja(OK); expect(r.tulos).toBe('ok'); expect(r.rivi.testit).toEqual({ kyykky: 3 });
+  });
+  it('tarkistus ennen batchia; perutut lasketaan ja näytetään toastissa', () => {
+    const f = pura(TT, 'async function ttTallennaPelaaja(');
+    expect(f.indexOf("return 'peruttu'")).toBeLessThan(f.indexOf('db.batch()'));
+    const t = pura(TT, 'async function tallennaFirestoreen(');
+    expect(t).toContain("if (tulos === 'peruttu') { perutut.push(p); continue; }");
+    expect(t).toContain('Suostumus peruttu: ${perutut.length} (ei tallennettu)');
   });
 });
