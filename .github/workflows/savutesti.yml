@@ -1,0 +1,102 @@
+name: Savutesti
+
+# QG-3 · tuotannon savutesti (vaihe 0 hyväksytty 5.11.2026; tools/savutesti/savutesti.mjs).
+# Ajaa Hosting-kanavaa `savutesti` vasten (sama julkaisu kuin live, tuotantobackend) synteettisellä seuralla qg_savu:
+# P7 Idag/Jag · VP Koti · Kehitystyöpöytä Tänään/Polku/Profiili/Pelaajaraportti × fi + sv. Kirjoitukset estetään (sivun vartija + verkkoesto).
+# Kanavan URL: deploy-hosting.yml:n artefakti `savutesti-kanava` (url.txt) → käsiajossa syöte `url` tai viimeisin onnistunut Hosting-ajo → vars.TM_SAVU_URL.
+# Secretit tai URL puuttuvat → "ohitettu" yhteenvetoon, vihreä. Epäonnistuessa yksi auki oleva issue (label savutesti), päivitetään kommentilla.
+# Ei ajastusta (lisätään tarvittaessa).
+
+on:
+  workflow_run:
+    workflows: ["Deploy to Firebase Hosting"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Kanavan URL (tyhjä = viimeisin onnistunut Hosting-deploy)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: "savutesti"
+  cancel-in-progress: false
+
+jobs:
+  savutesti:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Kanavan URL (Hosting-ajon artefakti)
+        if: github.event_name == 'workflow_run'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: savutesti-kanava
+          path: kanava
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Kanavan URL (käsiajo, viimeisin Hosting-deploy)
+        if: github.event_name == 'workflow_dispatch' && inputs.url == ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          AJO="$(gh run list --workflow deploy-hosting.yml --branch main --status success --limit 1 --json databaseId -q '.[0].databaseId')"
+          if [ -n "$AJO" ]; then gh run download "$AJO" -n savutesti-kanava -D kanava; fi
+      - name: Savutesti
+        id: savu
+        env:
+          TM_SAVU_EMAIL: ${{ secrets.TM_SAVU_EMAIL }}
+          TM_SAVU_SALASANA: ${{ secrets.TM_SAVU_SALASANA }}
+          TM_SAVU_PELAAJA_TUNNISTE: ${{ secrets.TM_SAVU_PELAAJA_TUNNISTE }}
+          TM_SAVU_PELAAJA_PIN: ${{ secrets.TM_SAVU_PELAAJA_PIN }}
+          TM_SAVU_APPCHECK_DEBUG: ${{ secrets.TM_SAVU_APPCHECK_DEBUG }}
+          URL_SYOTE: ${{ inputs.url }}
+          URL_VAR: ${{ vars.TM_SAVU_URL }}
+        run: |
+          URL="$URL_SYOTE"
+          if [ -z "$URL" ] && [ -f kanava/url.txt ]; then URL="$(head -n1 kanava/url.txt | tr -d '[:space:]')"; fi
+          if [ -z "$URL" ]; then URL="$URL_VAR"; fi
+          export TM_SAVU_URL="$URL"
+          export TM_CHROME_PATH="$(which google-chrome)"
+          node tools/savutesti/savutesti.mjs --tulos=savutesti-tulos/tulos.json --issue=savutesti-tulos/issue.md
+      - name: Tulos talteen (synteettinen data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: savutesti-tulos
+          path: savutesti-tulos/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Issue (epäonnistui)
+        if: failure() && steps.savu.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUNKO=savutesti-tulos/issue.md
+          [ -f "$RUNKO" ] || { mkdir -p savutesti-tulos; echo "Savutesti kaatui: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > "$RUNKO"; }
+          gh label create savutesti --color B60205 --description "QG-3 tuotannon savutesti" 2>/dev/null || true
+          NRO="$(gh issue list --label savutesti --state open --limit 1 --json number -q '.[0].number')"
+          if [ -n "$NRO" ]; then gh issue comment "$NRO" --body-file "$RUNKO"; else gh issue create --title "Savutesti epäonnistui" --label savutesti --body-file "$RUNKO"; fi
+      - name: Issue (korjautui)
+        if: success() && steps.savu.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if grep -q '"ohitettu"' savutesti-tulos/tulos.json 2>/dev/null; then exit 0; fi
+          NRO="$(gh issue list --label savutesti --state open --limit 1 --json number -q '.[0].number')"
+          if [ -n "$NRO" ]; then gh issue close "$NRO" --comment "Savutesti vihreä: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"; fi
