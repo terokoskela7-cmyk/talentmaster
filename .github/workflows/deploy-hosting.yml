@@ -44,3 +44,44 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HOSTING }}
           projectId: talentmaster-pilot
           channelId: live
+
+  # QG-3 · savutesti-kanava (.briefit/QG3_SAVUTESTI_VAIHE0.md S2 A): SAMA build myös esikatselukanavalle `savutesti`
+  # (talentmaster-pilot--savutesti-<tiiviste>.web.app). Tuotantobackend (Firestore, Functions, Rules, liput) ja täsmälleen sama
+  # julkaistu koodi (?v-tiivisteet) — vain host eroaa. Syy: App Check ENFORCE + headless-Chrome saa matalan reCAPTCHA-arvion, ja
+  # debug-token toimii koodissa vain *--*.web.app-hosteilla (lib/tm_appcheck.js). Ei ohitusta tuotantohostille.
+  # Oma job live-deployn jälkeen: kanavan virhe ei estä tuotantojulkaisua. Kanava deployataan jokaisella ajolla → 30 pv:n
+  # vanheneminen siirtyy aina eteenpäin ja URL pysyy samana. URL artefaktiin `savutesti-kanava` (url.txt) → savutesti.yml lukee sen.
+  savutesti-kanava:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Versiotiivisteet
+        run: node scripts/versiotiiviste.js --kirjoita
+      - id: savu
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HOSTING }}
+          projectId: talentmaster-pilot
+          channelId: savutesti
+          expires: 30d
+      - name: Kanavan URL artefaktiin
+        env:
+          KANAVA_URL: ${{ steps.savu.outputs.details_url }}
+        run: |
+          case "$KANAVA_URL" in
+            https://talentmaster-pilot--savutesti-*.web.app*) ;;
+            *) echo "::error::Odottamaton kanavan URL: '$KANAVA_URL'"; exit 1 ;;
+          esac
+          mkdir -p savutesti-kanava
+          printf '%s\n' "${KANAVA_URL%/}" > savutesti-kanava/url.txt
+          echo "Savutesti-kanava: ${KANAVA_URL%/}" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: savutesti-kanava
+          path: savutesti-kanava/url.txt
+          retention-days: 30
