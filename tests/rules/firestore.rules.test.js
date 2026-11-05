@@ -4590,7 +4590,7 @@ describe('v3.39 · viestit.nakyvyys', () => {
   });
 });
 
-/* ══ v3.43 · seurat/{sid}/liput/julkiset (K1 osa 2): pelaajalle luettavat liput — luku oma seura (henkilökunta + pelaaja), kirjoitus SA + johto ══ */
+/* ══ v3.43 · seurat/{sid}/liput/julkiset (K1 osa 2): pelaajalle luettavat liput — luku oma seura (henkilökunta + pelaaja); kirjoitus v3.78 (D1) alkaen VAIN SA ══ */
 describe('v3.43 · liput/julkiset', () => {
   const liput = (db, sid) => doc(db, 'seurat', sid || SEURA_A, 'liput', 'julkiset');
   beforeEach(async () => {
@@ -4607,11 +4607,25 @@ describe('v3.43 · liput/julkiset', () => {
     await assertFails(getDoc(liput(huoltajaContext().firestore()))); await assertFails(getDoc(liput(randomContext().firestore())));
     await assertFails(getDoc(liput(pelaajaContext(SEURA_A, PELAAJA_UID).firestore(), SEURA_B)));   // oma pelaaja ei lue TOISEN seuran lippuja
   });
-  it('KIRJOITUS: SA ✓ ja oman seuran johto (VP, UTJ-rooli, sihteeri) ✓; pelaaja ✗, valmentaja ✗, talenttivalmentaja ✗, fysiikkavalmentaja ✗, huoltaja ✗, toisen seuran VP ✗; poisto vain SA', async () => {
-    await assertSucceeds(setDoc(liput(saContext().firestore()), { kentta: true })); await assertSucceeds(setDoc(liput(vpContext(SEURA_A).firestore()), { kentta: false })); await assertSucceeds(setDoc(liput(sihteeriContext(SEURA_A).firestore()), { kentta: true }));
-    await assertSucceeds(updateDoc(liput(vpContext(SEURA_A).firestore()), { kentta: false }));
-    for (const c of [pelaajaContext(SEURA_A, PELAAJA_UID), valmentajaContext(VALM_A_UID, SEURA_A), talenttivalmentajaContext('talval-a', SEURA_A), fysiikkavalmentajaContext('fys-a', SEURA_A), huoltajaContext(), vpContext(SEURA_B), unauthContext()]) await assertFails(setDoc(liput(c.firestore()), { kentta: true }));
-    await assertFails(updateDoc(liput(pelaajaContext(SEURA_A, PELAAJA_UID).firestore()), { kentta: true })); await assertFails(deleteDoc(liput(vpContext(SEURA_A).firestore()))); await assertSucceeds(deleteDoc(liput(saContext().firestore())));
+  it('v3.78 (D1) KIRJOITUS VAIN SA: johto (VP, UTJ, sihteeri) ✗, pelaaja ✗, valmentaja ✗, talenttivalmentaja ✗, fysiikkavalmentaja ✗, huoltaja ✗, toisen seuran VP ✗; poisto vain SA', async () => {
+    const utj = () => testEnv.authenticatedContext('utj-a', { rooli: 'urheilutoimenjohtaja', seuraId: SEURA_A });
+    await assertSucceeds(setDoc(liput(saContext().firestore()), { kentta: true })); await assertSucceeds(updateDoc(liput(saContext().firestore()), { kentta: false }));
+    for (const c of [vpContext(SEURA_A), utj(), sihteeriContext(SEURA_A), pelaajaContext(SEURA_A, PELAAJA_UID), valmentajaContext(VALM_A_UID, SEURA_A), talenttivalmentajaContext('talval-a', SEURA_A), fysiikkavalmentajaContext('fys-a', SEURA_A), huoltajaContext(), vpContext(SEURA_B), unauthContext()]) {
+      await assertFails(setDoc(liput(c.firestore()), { kentta: true })); await assertFails(updateDoc(liput(c.firestore()), { kentta: true })); await assertFails(deleteDoc(liput(c.firestore())));
+    }
+    await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'liput', 'uusi'), { kentta: true }));   // uusikaan lippudokumentti ei johdolle
+    await assertSucceeds(deleteDoc(liput(saContext().firestore())));
+  });
+  it('v3.78 (D1) seura-dokin vanha liput-kenttä: johto ✗ (update + create), muut kentät johdolle ennallaan ✓, SA ✓', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A), { nimi: 'FC Lahti', liput: { kentta: false } }); });
+    const utj = () => testEnv.authenticatedContext('utj-a', { rooli: 'urheilutoimenjohtaja', seuraId: SEURA_A });
+    for (const c of [vpContext(SEURA_A), utj(), sihteeriContext(SEURA_A)]) {
+      await assertFails(updateDoc(doc(c.firestore(), 'seurat', SEURA_A), { liput: { kentta: true } })); await assertFails(updateDoc(doc(c.firestore(), 'seurat', SEURA_A), { 'liput.klippi_oma_video': true }));
+      await assertSucceeds(updateDoc(doc(c.firestore(), 'seurat', SEURA_A), { nimi: 'FC Lahti' }));
+    }
+    await assertFails(setDoc(doc(vpContext('seura-uusi-d1').firestore(), 'seurat', 'seura-uusi-d1'), { nimi: 'Uusi', liput: { kentta: true } }));
+    await assertSucceeds(setDoc(doc(vpContext('seura-uusi-d1').firestore(), 'seurat', 'seura-uusi-d1'), { nimi: 'Uusi' }));
+    await assertSucceeds(updateDoc(doc(saContext().firestore(), 'seurat', SEURA_A), { liput: { kentta: true } }));
   });
   it('seurat/{id}-dokumentti ei avaudu pelaajalle tämän myötä (vanha sääntö ennallaan) — siksi erillinen liput-dokumentti', async () => {
     await assertFails(getDoc(doc(pelaajaContext(SEURA_A, PELAAJA_UID).firestore(), 'seurat', SEURA_A)));

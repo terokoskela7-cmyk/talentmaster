@@ -1,10 +1,12 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.77
+// TalentMaster™ — firestore.rules v3.78
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.77 → v3.78 (D1 lippujen hallinta, Tero 5.11.2026, KIRISTÄÄ): käyttöönottoliput kirjoittaa VAIN SA — seurat/{id}/liput/{lippuId} create/update/delete
+//   onSuperAdmin(); seura-dokin vanha liput-kenttä pois johdon create/update-oikeudesta (kuten laskutus_sopimus). SA:n Admin käyttää callablea asetaSeuranLippu (audit lippu_muutettu).
 // Muutokset v3.76 → v3.77 (B10, PM 4b, KIRISTÄÄ): pelaaja EIKÄ huoltaja lue biologinen_ika/{pvm}:ta (maturity_offset = A); B-muoto pelaajadokumentin biologinenIka_viimeisin:ssa (PR 2d), art. 15 = GDPR-vienti. Mikään pelaaja-/huoltajasovellus ei lue alikokoelmaa.
 // Muutokset v3.75 → v3.76 (Vaihe 1 · PR 2d, LAAJENTAA kapeasti): testivastaavan sisainen/tiedot-avaimiin `biologinenIka_viimeisin` (Testaus_v9 kasvumittaus kirjoittaa sen samaan batchiin muiden kypsyysavainten kanssa; pelaajalle jää B-muoto) — deploy ENNEN 2d:n klienttejä.
 //
@@ -511,64 +513,11 @@ rules_version = '2';
 //     VP:n kuittaus/muokkaus/hylkäys.
 //     Ei delete: audit-jälki säilyy aina.
 //
-// Muutokset v2.9 → v3.0 (Master_v16 — TKI-palaute + harjoitusprioriteetti):
-//   + seurat/{sid}/pelaajat/{pid}/palautteet/{pvm}_tki — valmentajan TKI-palaute
-//     pelaajalle. nakyvyys-flag ('pelaaja'|'vain_valmentaja') gateaa pelaajan luvun.
-//   + seurat/{sid}/joukkueet/{jid}/harjoitusprioriteetti/{id} — joukkueen
-//     harjoitusprioriteetti testidatasta (doc 'aktiivinen'); koko seura lukee.
-//   Firestore EI periydy alikokoelmiin → omat blokit pakolliset (§17 #18).
-//
-// Muutokset v2.8 → v2.9 (VP kalenteri):
-//   + seurat/{sid}/tapahtumat/{id} — SEURATASON yleistapahtumat +
-//     VP_v22:n mentorointi-pikamalli (tyyppi:'mentorointi'/'kokous').
-//     Ilman tätä mentoroinnin tallennus + viikkonäkymän luku kaatuvat.
-//     HUOM: eri kuin pelaajatason legacy /pelaajat/{id}/tapahtumat.
-//   + seurat/{sid}/vp_kalenteri/{id} — VP:n deadlinet/muistutukset (amber).
-//
-// Muutokset v2.7 → v2.8 (Bio-ikä — PHV/Mirwald):
-//   + seurat/{sid}/pelaajat/{pid}/biologinen_ika/{mittausPvm} — Testaus_v9:n
-//     kasvumittaus-protokolla kirjoittaa PHV-mittaushistorian tänne.
-//     VP-pikakentät (phv_tila, biologinenIka_viimeisin) menevät suoraan
-//     pelaajadokumenttiin (pelaajat-update sallii valmentajan jo ennestään).
-//     Vanhempien pituudet (isa_pituus_cm/aiti_pituus_cm) tallennetaan
-//     rekisteröinnissä pelaajadokumenttiin — ei vaadi uutta blokkia.
-//
-// Muutokset v2.6 → v2.7 (Testaus_v8 kalenterikopio):
-//   + seurat/{sid}/joukkueet/{jid}/kalenteri/{kid} — alikokoelma jonka
-//     Testaus_v8._tallennaTapahtuma kirjoittaa testitapahtuman luonnin
-//     yhteydessä (pikaviittaus joukkueen kalenteriin). Aiemmin puuttuva
-//     match-blokki aiheutti "Missing or insufficient permissions"-virheen
-//     vaikka pää-testitapahtuma tallentui onnistuneesti.
-//     CLAUDE.md §17 #18 — Rules eivät periydy alikokoelmiin automaattisesti.
-//
-// Muutokset v2.5 → v2.6 (Sprint 3.1 — Historiapohja-tuonti):
-//   + seurat/{sid}/pelaajat/{pid}/testitulokset/{pvm}_{protokolla} —
-//     Excel_Tuonti.html:n historiapohja-moodin kirjoituspolku. Tukee
-//     vanhan testidatan tuontia ilman testitapahtumaa.
-//     read:  SA | omaSeura (johto|valmentaja) | anonymous (PIN) | huoltaja
-//     write: SA | omaSeura (johto)
-//
-// Muutokset v2.4 → v2.5 (Sprint 3):
-//   * idp_jono — tila-arvo 'odottaa' tuettu rinnakkain 'ehdotettu'-arvon
-//     kanssa (uusi standardi). Valmentaja saa muokata omaa ehdotustaan
-//     niin kauan kuin tila in ['ehdotettu','odottaa'].
-//   + meta/{key} — VP:n metadatakanava (esim. phv_snapshot Sprint 3
-//     signaaleille — VP/UTJ/seurasihteeri kirjoittaa, koko seura lukee).
-//
-// Muutokset v2.3 → v2.4 (Sprint 2):
-//   + seurat/{sid}/pelaajat/{pid}/vp_muistiinpanot/{mid} — VP:n muistiinpanot
-//     pelaajalle, näkyvyys-flageilla naytaValmentajalle / naytaPelaajalle
-//
-// Muutokset v2.1.0 → v2.3:
-//   + onLapsenHuoltaja(seuraId, pelaajaId) — vanhempi tunnistetaan
-//     huoltajaEmail-kentän kautta (case-insensitive vertailu)
-//   + Vanhemman luku lisätty: pelaajat, havainnot, kirjaukset, idp,
-//     testitapahtumat/tulokset
-//   + kehut/{kehuId} — vanhempi luo, pelaaja lukee + kuittaa nahty-kentän
-//   + testitapahtumat/{id} + tulokset/{pelaajaId}  (CLAUDE.md §17 #19, §23)
-//   + idp_jono/{id}
-//   + valmentajat/{uid} + kontribuutio + tuloskortti
-//   + viestit/{viestiId}
+// Muutokset v2.1.0 → v3.0 (tiivistetty v3.78:ssa; täysi teksti git-historiassa, tm_admin/firestore.rules ennen 5.11.2026):
+//   + huoltajan luku (onLapsenHuoltaja), kehut, testitapahtumat/tulokset, idp_jono, valmentajat, viestit (v2.3) · vp_muistiinpanot (v2.4)
+//   + meta/{key}, idp_jono 'odottaa' (v2.5) · testitulokset/{pvm}_{protokolla} historiatuonti (v2.6) · joukkueet/{jid}/kalenteri (v2.7)
+//   + biologinen_ika/{mittausPvm} (v2.8) · seurat/{sid}/tapahtumat + vp_kalenteri (v2.9) · palautteet/{pvm}_tki + harjoitusprioriteetti (v3.0)
+//   Firestore EI periydy alikokoelmiin → jokaisella alikokoelmalla oma match-blokki (§17 #18).
 //
 // Säilyy v2.1.0:sta:
 //   • Anonyymi (PIN) saa lukea seurat/{id}/pelaajat + havainnot
@@ -1210,8 +1159,8 @@ service cloud.firestore {
     match /seurat/{seuraId} {
       allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
       // v3.74 (L1c): laskutus_sopimus (UI:n harmaan tilan peili laskutus_asetuksista) vain SA, bool; johto kirjoittaa muut kentät kuten ennen.
-      allow create: if (onSuperAdmin() && request.resource.data.get('laskutus_sopimus', false) is bool) || (onOmaSeura(seuraId) && onJohtoRooli() && !('laskutus_sopimus' in request.resource.data));
-      allow update: if (onSuperAdmin() && request.resource.data.get('laskutus_sopimus', false) is bool) || (onOmaSeura(seuraId) && onJohtoRooli() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['laskutus_sopimus']));
+      allow create: if (onSuperAdmin() && request.resource.data.get('laskutus_sopimus', false) is bool) || (onOmaSeura(seuraId) && onJohtoRooli() && !('laskutus_sopimus' in request.resource.data) && !('liput' in request.resource.data));   // v3.78: liput vain SA
+      allow update: if (onSuperAdmin() && request.resource.data.get('laskutus_sopimus', false) is bool) || (onOmaSeura(seuraId) && onJohtoRooli() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['laskutus_sopimus', 'liput']));
       allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
 
       // ── SALAISET (v3.62) — server-only: ulkoisten palveluiden avaimet. EI mikään selain (SA, johto, valmentaja, pelaaja, huoltaja) lue eikä kirjoita; vain Admin SDK. ──
@@ -1356,11 +1305,10 @@ service cloud.firestore {
                       || (lohko == 'teemat' && onPelaajanSeura(seuraId));
         allow create, update, delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
       }
-      // v3.43 — seuran julkiset liput (luku pelaajalle; kirjoitus johto/SA). Vain boolean-liput, ei piilotettavaa sisältöä.
+      // v3.43 — seuran julkiset liput (luku pelaajalle). Vain boolean-liput, ei piilotettavaa sisältöä. v3.78 (D1): kirjoitus VAIN SA (johto ei enää).
       match /liput/{lippuId} {
         allow read:   if onLiputLuku(seuraId);
-        allow create, update: if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId) && onJohtoRooli());
-        allow delete: if onSuperAdmin();
+        allow create, update, delete: if onSuperAdmin();
       }
       match /harjoitepankki/{harjoiteId} {
         // v3.41: pelaaja vain hyväksytyt (luonnos = SJK:n kuittaamaton / TM:n esitäyttö → ei pelaajalle)
