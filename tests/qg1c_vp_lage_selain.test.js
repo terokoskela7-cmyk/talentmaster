@@ -1,5 +1,6 @@
 /* QG-1c · hyväksyntä (PM 2.11.2026): kielivartija löytää VP → Läge -näkymän suomen oikean datan tiloissa (fixture-seuran Läge-muunnelma, sv-tila).
-   Niin kauan kuin erä 96 odottaa PM:ää, jokainen PM:n listan kohta on löydettävä; erän viennin jälkeen yksikään ei saa enää näkyä suomeksi.
+   Niin kauan kuin erä 96 odottaa PM:ää, jokainen PM:n listan kohta on löydettävä; erän viennin jälkeen (5.11.2026) yksikään ei saa enää näkyä suomeksi
+   EIKÄ Läge-paneelissa (#tilanne…, .tt-*) saa näkyä mitään muutakaan suomea (yläpalkki, piilomodaalit ja muut työtilat eivät ole Läge-näkymää).
    Lisäksi dump: tuplaosa ("6/6 uppmätta · … · 6/6 uppmätta") ei toistu. Ajetaan vain chrome-tests-vaiheessa (.github/chrome_testit.txt). */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { spawnSync } from 'child_process';
@@ -24,16 +25,20 @@ function aja(lisa) {
 }
 
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('QG-1c · kielivartija VP Läge -tiloissa', () => {
-  let fi = [], kaikki = [];
+  let fi = [], fiRivit = [], kaikki = [];
   beforeAll(() => {
     const a = aja((d) => ['--ulos=' + join(d, 't.json')]); expect(a.koodi, a.ulos.slice(-800)).toBe(0);
-    fi = Object.values(JSON.parse(readFileSync(join(a.d, 't.json'), 'utf8')).nakymat).flatMap((v) => v.fi.map((r) => r.teksti)); rmSync(a.d, { recursive: true, force: true });
+    fiRivit = Object.values(JSON.parse(readFileSync(join(a.d, 't.json'), 'utf8')).nakymat).flatMap((v) => v.fi); fi = fiRivit.map((r) => r.teksti); rmSync(a.d, { recursive: true, force: true });
     const b = aja((d) => ['--dump=' + join(d, 'd.json')]); expect(b.koodi, b.ulos.slice(-800)).toBe(0);
     kaikki = Object.values(JSON.parse(readFileSync(join(b.d, 'd.json'), 'utf8'))).flat(); rmSync(b.d, { recursive: true, force: true });
   }, 600000);
 
   it(ODOTTAA ? 'erä 96 odottaa → vartija löytää jokaisen PM:n listan kohdan' : 'erä 96 viety → yksikään PM:n listan kohta ei näy suomeksi', () => {
     for (const re of PM) { const osuma = fi.some((t) => re.test(t)); expect(osuma, String(re)).toBe(ODOTTAA); }
+  });
+  it.skipIf(ODOTTAA)('erä 96 viety → Läge-paneelissa ei yhtään suomenkielistä tekstiä', () => {
+    const LAGE = /#tilanne|\.tt(?:-|\b)/;   // paneeli: #tilanneKausi/#tilannePoikkeamat/#tilanneEhdotukset/…, .tt / .tt-list / .tt-it / .tt-ryhma
+    const lage = fiRivit.filter((r) => LAGE.test(r.polku)); expect(lage.map((r) => r.teksti + '  @ ' + r.polku)).toEqual([]);
   });
   it('näkymä renderöi tilat: profiilirivi, kypsyys, vanha mittaus, ehdotus yhdelle ja usealle joukkueelle', () => {
     const t = kaikki.join('\n');
