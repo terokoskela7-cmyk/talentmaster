@@ -39,6 +39,88 @@ describe('suunnittele: synteettinen data', () => {
   });
 });
 
+/* PR 2d -malli: pelaajadokumenttiin EI yhtään A-avainta (siivousskripti scripts/siivoa_sisainen_vanhat.js jätti qg_savu/qp1:n jaksofokus.osa_havainnot-kentän,
+   koska seed kirjoitti A-kentät vanhaan malliin). Määritelmä = lib/tm_sisainen.js (sama kuin sovelluksilla ja siivouksella), ei omaa listaa. */
+const TS = require('../lib/tm_sisainen.js');
+const SIIVOUS = require('../scripts/siivoa_sisainen_vanhat.js');
+const A_KENTAT = TS.tmSisainenAKentat().concat(TS.tmSisainenVainSisaiset(), TS.tmTerveysKentat());
+const BIOIKA_B = Object.keys(TS.tmBioIkaJaa({ phv_tila: 1, phv_tila_koodi: 1, phv_ika: 1, ika_mittaushetkella: 1, mittauspaiva: 1, maturity_offset: 1 }).pelaaja);
+/* → pelaajadokumentin A-avaimet (tyhjä = ok) */
+function aAvaimet(d) {
+  const v = [];
+  for (const k of Object.keys(d || {})) { if (k.indexOf('.') >= 0) v.push('pistepolku ' + k); if (A_KENTAT.indexOf(k) >= 0) v.push(k); }
+  if (d.jaksofokus && typeof d.jaksofokus === 'object') TS.JAKSOFOKUS_A.forEach((a) => { if (d.jaksofokus[a] != null) v.push('jaksofokus.' + a); });
+  (Array.isArray(d.jaksofokus_historia) ? d.jaksofokus_historia : []).forEach((r, i) => TS.HISTORIA_A.forEach((a) => { if (r && r[a] != null) v.push('jaksofokus_historia[' + i + '].' + a); }));
+  if (d.signaali != null && TS.tmSignaaliJaa(d.signaali).pelaaja === null) v.push('signaali (talenttisignaali)');
+  if (d.havainto_porras_ehdotus && Array.isArray(d.havainto_porras_ehdotus.hist)) v.push('havainto_porras_ehdotus.hist');
+  if (d.biologinenIka_viimeisin && typeof d.biologinenIka_viimeisin === 'object') Object.keys(d.biologinenIka_viimeisin).forEach((k) => { if (BIOIKA_B.indexOf(k) < 0) v.push('biologinenIka_viimeisin.' + k); });
+  if (d.tuoja !== undefined) v.push('tuoja');
+  return v;
+}
+
+describe('suunnittele: A-kentät vain sisainen-kopioon (PR 2d -malli)', () => {
+  const p = suunnitelma(), dok = (polku) => (p.dokit.find((d) => d.polku === polku) || {}).data;
+  const pelaajat = p.dokit.filter((d) => /^seurat\/qg_savu\/pelaajat\/[^/]+$/.test(d.polku));
+  it('seed ei kirjoita yhtään A-avainta yhteenkään pelaajadokumenttiin', () => {
+    expect(pelaajat.length).toBeGreaterThan(30);
+    for (const { polku, data } of pelaajat) expect(aAvaimet(data), polku).toEqual([]);
+  });
+  it('siivousskripti ei löydä seedin jäljiltä mitään (luokka ei_a jokaiselle pelaajalle)', () => {
+    for (const { polku, data } of pelaajat) expect(SIIVOUS.suunnittele(data, dok(polku + '/sisainen/tiedot'), 'qg_savu').luokka, polku).toBe('ei_a');
+  });
+  it('qp1: A-osat sisainen/tiedot-kopiossa (ei katoa) ja dual-read palauttaa ne', () => {
+    const pel = dok('seurat/qg_savu/pelaajat/qp1'), sis = dok('seurat/qg_savu/pelaajat/qp1/sisainen/tiedot');
+    expect(sis).toMatchObject({ seuraId: 'qg_savu', adar_arvioijia: 2 });
+    expect(sis.jaksofokus_sisainen.jakso_avain).toBe(TS.tmJaksoAvain(pel.jaksofokus));
+    expect(Object.keys(sis.jaksofokus_sisainen.osa_havainnot)).toEqual(['y_h1']);
+    expect(sis.biologinenIka_viimeisin).toMatchObject({ maturity_offset: -0.6, kasvutahti_cm_v: 6.8, phv_tila_koodi: 'LAH' });
+    expect(pel.biologinenIka_viimeisin).toEqual({ phv_tila_koodi: 'LAH', phv_ika: 13.6 });
+    const y = TS.tmSisainenYhdista(pel, sis);
+    expect(y.jaksofokus.osa_havainnot).toEqual(sis.jaksofokus_sisainen.osa_havainnot);
+    expect(y.adar_arvioijia).toBe(2);
+    expect(S.tarkistaSynteettisyys(p.dokit)).toEqual([]);
+  });
+  it('sisainen-dokkeja vain pelaajille, joilla on A-osia; polku = sisainen/tiedot', () => {
+    const sis = p.dokit.filter((d) => /\/sisainen\//.test(d.polku));
+    expect(sis.map((d) => d.polku)).toEqual(['seurat/qg_savu/pelaajat/qp1/sisainen/tiedot']);
+  });
+});
+
+describe('jaaSisainen: kaikki A-ryhmät (samat apurit kuin sovelluksissa)', () => {
+  const NYT_ISO = '2026-11-09T08:00:00.000Z', P = 'seurat/qg_savu/pelaajat/x';
+  const syote = { etunimi: 'Leo', joukkue: 'P13', phv_tila: 'LAH',
+    d3_taso: 3, vastuuhenkilo: { rooli: 'valmentaja' }, adar_arvioijia: 2, talenttiTaso: 'perus', kaytettavyys: 'rajoitettu',
+    signaali: 'xfactor', havainto_porras_ehdotus: { valmis: true, seuraava: 2, hist: [1, 2] },
+    biologinenIka_viimeisin: { phv_tila_koodi: 'PH', phv_ika: 13.1, maturity_offset: 0.1 },
+    jaksofokus: { konsepti_avain: 'k1', alkoi: '2026-11-02', osa_arviot: { k1: { a: 2 } }, osa_havainnot: { k1: { a: 3 } }, onnistumiskriteeri: 'x' },
+    jaksofokus_historia: [{ konsepti_avain: 'k0', alkoi: '2026-09-07', lause: '', kalibraatio_ero: 1 }] };
+  const ulos = S.jaaSisainen(P, JSON.parse(JSON.stringify(syote)), NYT_ISO), dok = (q) => (ulos.find((d) => d.polku === q) || {}).data;
+  it('pelaajadokumentissa ei A-avaimia; B/C-kentät ja jaettujen arvojen B-muoto jäävät', () => {
+    const pel = dok(P);
+    expect(aAvaimet(pel)).toEqual([]);
+    expect(pel).toMatchObject({ etunimi: 'Leo', joukkue: 'P13', phv_tila: 'LAH', signaali: null, biologinenIka_viimeisin: { phv_tila_koodi: 'PH', phv_ika: 13.1 } });
+    expect(pel.havainto_porras_ehdotus).toEqual({ valmis: true, seuraava: 2, hist_n: 2 });
+    expect(pel.jaksofokus).toEqual({ konsepti_avain: 'k1', alkoi: '2026-11-02', osa_arviot: { k1: { a: 2 } } });
+  });
+  it('A-osat sisainen/tiedot:iin, terveys omaan sisainen/terveys-dokkiin', () => {
+    const sis = dok(P + '/sisainen/tiedot'), tv = dok(P + '/sisainen/terveys');
+    expect(sis).toMatchObject({ seuraId: 'qg_savu', paivitetty: NYT_ISO, d3_taso: 3, vastuuhenkilo: { rooli: 'valmentaja' }, adar_arvioijia: 2, talenttiTaso: 'perus', signaali: 'xfactor', havainto_porras_hist: [1, 2],
+      biologinenIka_viimeisin: syote.biologinenIka_viimeisin, jaksofokus_sisainen: { jakso_avain: '2026-11-02_k1', osa_havainnot: { k1: { a: 3 } }, onnistumiskriteeri: 'x' } });
+    expect(sis.historia_sisainen['2026-09-07_k0']).toEqual({ kalibraatio_ero: 1 });
+    expect(sis.kaytettavyys).toBeUndefined();
+    expect(tv).toMatchObject({ terveysSeuraId: 'qg_savu', kaytettavyys: 'rajoitettu' });
+  });
+  it('ilman A-kenttiä → vain pelaajadokumentti sellaisenaan', () => {
+    expect(S.jaaSisainen(P, { etunimi: 'Leo', jaksofokus: { konsepti_avain: 'k1', alkoi: '2026-11-02' } }, NYT_ISO)).toEqual([{ polku: P, data: { etunimi: 'Leo', jaksofokus: { konsepti_avain: 'k1', alkoi: '2026-11-02' } } }]);
+  });
+  it('seed käyttää lib/tm_sisainen.js:n apureita, ei omaa A-listaa', () => {
+    const src = readFileSync(new URL('../scripts/savutesti_seura_luo.js', import.meta.url), 'utf8');
+    expect(src).toMatch(/require\('\.\.\/lib\/tm_sisainen\.js'\)/);
+    for (const f of ['tmSisainenJaa', 'tmSisainenRiisu', 'tmHenkilokuntaOsa', 'tmS4Osa', 'tmTerveysOsa', 'tmJaksofokusJaa', 'tmJaksofokusElinkaariSisainen', 'tmHistoriaJaa']) expect(src, f).toMatch(new RegExp('TS\\.' + f + '\\('));
+    expect(src).not.toMatch(/osa_havainnot|'adar_arvioijia'/);
+  });
+});
+
 describe('synteettisyysvartija laukeaa', () => {
   const ok = { polku: 'seurat/qg_savu/pelaajat/x', data: { etunimi: 'Alex', sukunimi: 'Berg', huoltajaEmail: 'g@example.test' } };
   const v = (d) => S.tarkistaSynteettisyys([d]);
