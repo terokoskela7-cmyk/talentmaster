@@ -7,6 +7,7 @@
    · luokitteleKirjoitus({op, polku, kentat, arvot, uid}, sivu) → { tunnettu, syy } — vartijan kirjaamat yritykset (tunnettu = nimetty polku + kentät + arvot)
    · svLoydot(tekstit, { sallitut, baseline }) → { uudet, tunnetut } — sv-ajon suomi (QG-1:n tunnistin + sallittulista + sv-baseline)
    · konsoliVirheet(viestit, sallitut, estetytUrlit) → virheet, joita ei selitä sallittulista eikä savutestin oma esto
+   · epaonnistuneetPyynnot / liitaPyynnot / virheRivit → jokaisesta epäonnistuneesta pyynnöstä metodi + HTTP-status + URL ilman queryä
    · arvioi(nakyma) → tarkistusten tilat · yhteenvetoMarkdown(tulos) · issueRunko(tulos, ajoUrl) */
 import { onkoSuomea } from '../i18n/sv_lapiajo_fi.mjs';
 
@@ -123,12 +124,21 @@ export function onSallittu(t, sallitut) {
   const a = avain(t), S = sallitut || { tekstit: [], alkavat: [] };
   return (S.tekstit || []).includes(a) || (S.alkavat || []).some((p) => a.startsWith(String(p).toLowerCase())) || !/[a-zåäö]{3}/i.test(t);
 }
-/* Suomi sv-ajossa: sallittu → ohitetaan · sv-baselinessa (tunnettu, PM:n sv-erä odottaa; tools/i18n/sv_lapiajo_baseline.json) → varoitus · muu → virhe. */
+/* Seed-datan henkilönimet (scripts/savutesti_seura_luo.js SALLITUT_NIMET) pois tekstistä ennen suomen tunnistusta: "Jo Strand" ei ole suomea,
+   vaikka "jo" on suomen sana. Vain isolla alkukirjaimella kirjoitettu kokonainen sana (pieni "jo" lauseessa jää tunnistettavaksi). */
+export function poistaNimet(teksti, nimet) {
+  const l = [...(nimet || [])].filter((x) => typeof x === 'string' && /^\p{Lu}\p{L}*$/u.test(x));
+  if (!l.length) return String(teksti);
+  const re = new RegExp('(?<!\\p{L})(?:' + l.join('|') + ')(?!\\p{L})', 'gu');
+  return String(teksti).replace(re, ' ');
+}
+/* Suomi sv-ajossa: sallittu → ohitetaan · sv-baselinessa (tunnettu, PM:n sv-erä odottaa; tools/i18n/sv_lapiajo_baseline.json) → varoitus · muu → virhe.
+   opts.nimet = seed-datan nimet: tunnistetaan vain nimien jälkeen jäävä teksti. */
 export function svLoydot(tekstit, opts) {
   const o = opts || {}, base = new Set(((o.baseline && o.baseline.tekstit) || []).map(avain)), uudet = [], tunnetut = [], nahty = new Set();
   for (const t0 of tekstit || []) {
     const t = norm(t0); if (!t || nahty.has(avain(t))) continue; nahty.add(avain(t));
-    if (onSallittu(t, o.sallitut) || !onkoSuomea(t).fi) continue;
+    if (onSallittu(t, o.sallitut) || !onkoSuomea(poistaNimet(t, o.nimet)).fi) continue;
     (base.has(avain(t)) ? tunnetut : uudet).push(t);
   }
   return { uudet, tunnetut };
@@ -145,6 +155,39 @@ export function konsoliVirheet(viestit, sallitut, estetytUrlit) {
   });
 }
 
+/* Epäonnistuneet pyynnöt (Playwrightin response-tapahtuma status ≥ 400 + requestfailed). Query-osa pois kaikkialta tuloksesta:
+   siinä kulkee istuntotunnisteita (gsessionid, SID) ja API-avain, eikä se kerro vian syytä. */
+export function ilmanQuerya(url) {
+  try { const u = new URL(String(url)); return u.origin + u.pathname; } catch (e) { return String(url || '').split(/[?#]/)[0]; }
+}
+/* pyynto = { metodi, url (täysi tai ilman queryä), status (0 = ei vastausta), virhe? } → "400 POST https://…/Listen/channel" */
+export function pyyntoRivi(p) {
+  return (p.status ? String(p.status) : 'ei vastausta' + (p.virhe ? ' (' + p.virhe + ')' : '')) + ' ' + String(p.metodi || '?').toUpperCase() + ' ' + ilmanQuerya(p.url);
+}
+/* pyynnot = [{ metodi, url (täysi), status, virhe?, t? }]. Savutestin omat estot pois (estetytUrlit) → [{ metodi, url ilman queryä, status, virhe?, t? }]. */
+export function epaonnistuneetPyynnot(pyynnot, estetytUrlit) {
+  const est = new Set(estetytUrlit || []);
+  return (pyynnot || []).filter((p) => !est.has(p.url)).map((p) => Object.assign({}, p, { url: ilmanQuerya(p.url) }));
+}
+/* Konsolin "Failed to load resource" ei kerro pyyntöä: liitetään viestiin saman täyden URL:n pyyntö (metodi + status) ja
+   viestin URL tallennetaan ilman queryä. viestit = konsoliVirheet()-tulos, pyynnot = täysillä URL:eilla. */
+export function liitaPyynnot(viestit, pyynnot) {
+  const kartta = new Map(); for (const p of pyynnot || []) if (p.url && !kartta.has(p.url)) kartta.set(p.url, p);
+  return (viestit || []).map((v) => {
+    const o = Object.assign({}, v); if (!v.url) return o;
+    const p = kartta.get(v.url);
+    if (p) { o.pyynto = { metodi: p.metodi, url: ilmanQuerya(p.url), status: p.status }; if (p.virhe) o.pyynto.virhe = p.virhe; }
+    o.url = ilmanQuerya(v.url);
+    return o;
+  });
+}
+/* Virheen näyttöteksti: pyyntö (status metodi URL) jos tiedossa, muuten konsolin teksti. Samat rivit kootaan (×n). */
+export function virheRivit(virheet) {
+  const m = new Map();
+  for (const v of virheet || []) { const r = v.pyynto ? pyyntoRivi(v.pyynto) : String(v.teksti || ''); m.set(r, (m.get(r) || 0) + 1); }
+  return [...m].map(([r, n]) => (n > 1 ? r + ' ×' + n : r));
+}
+
 /* nakyma = { nimi, kieli, sivu, virheet:[], lohkot:{ ok, puuttuu:[] }, sv?:{uudet,tunnetut}, lippu?:{ ok, syy }, kirjoitukset:{ tuntemattomat:[], tunnetut:[], verkko:[] }, vartija:bool, kaatui? }
    → { virheet, lohkot, kieli, lippu, kirjoitukset }: kukin { tila: 'ok'|'varoitus'|'virhe'|'-', tieto } */
 export function arvioi(n) {
@@ -152,7 +195,7 @@ export function arvioi(n) {
   if (n.kaatui) { const k = t('virhe', n.kaatui); return { virheet: k, lohkot: k, kieli: n.kieli === 'sv' ? k : t('-'), lippu: n.lippu ? k : t('-'), kirjoitukset: k }; }
   const kirj = n.kirjoitukset || { tuntemattomat: [], tunnetut: [], verkko: [] };
   return {
-    virheet: (n.virheet || []).length ? t('virhe', n.virheet.slice(0, 5).map((v) => v.teksti).join(' | ')) : t('ok'),
+    virheet: (n.virheet || []).length ? t('virhe', virheRivit(n.virheet).slice(0, 5).join(' | ')) : t('ok'),
     lohkot: n.lohkot && n.lohkot.ok ? t('ok') : t('virhe', 'puuttuu: ' + ((n.lohkot && n.lohkot.puuttuu) || []).join(', ')),
     kieli: n.kieli !== 'sv' ? t('-') : n.sv && n.sv.uudet.length ? t('virhe', n.sv.uudet.slice(0, 8).join(' | ')) : n.sv && n.sv.tunnetut.length ? t('varoitus', n.sv.tunnetut.length + ' tunnettua (sv-baseline)') : t('ok'),
     lippu: !n.lippu ? t('-') : n.lippu.ok ? t('ok') : t('virhe', n.lippu.syy),

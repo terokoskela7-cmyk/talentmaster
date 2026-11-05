@@ -6,6 +6,8 @@
    · Päivämäärät siirretään ajohetkeen KOKONAISINA VIIKKOINA (viikonpäivät säilyvät, jakso on käynnissä viikolla 1–2). Aja uudelleen ~4 viikon välein.
    · Kirjoittaa VAIN: seurat/qg_savu/** (koko puu poistetaan ja kirjoitetaan uudelleen = idempotentti) + _pelaajaPin/qg_savu_qp1 (PIN-hajautus kuten
      palvelin) + qp1:n lukituslaskurien nollaus + yksi Auth-käyttäjä (rooli vp, seuraId qg_savu). Ei admins/-dokkia, ei selväkielistä PIN:iä.
+   · A-kentät (henkilökunnan sisäiset) PR 2d -mallissa: VAIN pelaajat/{pid}/sisainen/tiedot (+ terveys → sisainen/terveys), pelaajadokumenttiin ei yhtään A-avainta
+     (jaaSisainen, lib/tm_sisainen.js:n apurit kuten sovelluksissa). Fixture (QG-1) on vanhassa muodossa; jako tehdään tässä.
    · Ei kirjoita liput/julkiset: kehitystyopoyta_v2 laitetaan päälle Admin → Liput (audit-loki, D1 #1191).
    · Laskutus ja yhteenvedot: seura + joukkueet demo:true (functions/laskutus_kuukausi.js ja Adminin yhteenvedot ohittavat), ei laskutus_asetuksia.
    · Vartijat ennen kirjoitusta: olemassa oleva seurat/qg_savu ilman savutesti-merkkiä → keskeytys · PalloID jo toisella pelaajalla → keskeytys ·
@@ -21,6 +23,7 @@
 const path = require('path');
 const { pathToFileURL } = require('url');
 const K = require('../functions/pelaajakirjautuminen.js');
+const TS = require('../lib/tm_sisainen.js');   // A-kenttien jako sisainen-kopioon: samat apurit kuin sovelluksissa (PR 2d)
 
 const PROJECT_ID = 'talentmaster-pilot';
 const SID = 'qg_savu', LAHDE_SID = 'qgfx';
@@ -68,6 +71,31 @@ function muunnaPolku(p, ms, kausi) {
 /* Siirto: kokonaiset viikot, alaspäin → fixturen "nyt" ≤ todellinen nyt (ei tulevaisuuteen kirjattuja kirjauksia). */
 function viikkosiirto(fxNyt, nyt) { return Math.max(0, Math.floor((nyt - fxNyt) / VK)) * VK; }
 
+/* PURE: pelaajadokumentin A-kentät sisainen-kopioon (PR 2d -malli, sama jako kuin sovelluksissa). Pelaajadokumenttiin ei jää yhtään A-avainta:
+   · top-level A (D3, henkilokunta, S4/tiedot) → sisainen/tiedot (tmSisainenJaa + tmHenkilokuntaOsa + tmS4Osa); jaetut arvot pelaajalle B-muodossa (tmSisainenRiisu:
+     signaali 'phv', biologinenIka_viimeisin = tmBioIkaJaa, porrasehdotus ilman hist:iä) · terveys → sisainen/terveys (tmTerveysOsa)
+   · jaksofokuksen A-alikentät → sisainen/tiedot.jaksofokus_sisainen (+ jakso_avain) ja historiarivien A-osat → historia_sisainen (tmJaksofokusElinkaariSisainen).
+   → [{ polku, data }] (pelaaja + 0–2 sisainen-dokumenttia). */
+function jaaSisainen(polku, data, nytISO) {
+  const o = { seuraId: SID, nytISO, pelaajaIlmanA: true }, d3 = TS.tmSisainenJaa(data, o), hk = TS.tmHenkilokuntaOsa(SID, data, o), s4 = TS.tmS4Osa(SID, data, o), tv = TS.tmTerveysOsa(SID, data, o);
+  const pelaaja = TS.tmSisainenRiisu(d3.pelaaja);
+  const historia = Array.isArray(pelaaja.jaksofokus_historia) ? pelaaja.jaksofokus_historia : [];
+  const jfA = !!TS.tmJaksofokusJaa(pelaaja.jaksofokus).sisainen, histA = historia.some((r) => !!TS.tmHistoriaJaa(r).sisainen);
+  let jf = null;
+  if (jfA || histA) {
+    jf = TS.tmJaksofokusElinkaariSisainen(SID, { jaksofokus: pelaaja.jaksofokus === undefined ? null : pelaaja.jaksofokus, historiaLisays: historia }, { nytISO, FV: { delete: () => undefined } }).data;
+    if (jf.jaksofokus_sisainen === undefined) delete jf.jaksofokus_sisainen;   // vain historiassa A-osia
+    if (jfA) pelaaja.jaksofokus = TS.tmJaksofokusJaa(pelaaja.jaksofokus).julkinen;
+    if (histA) pelaaja.jaksofokus_historia = historia.map((r) => TS.tmHistoriaJaa(r).julkinen);
+  }
+  const ulos = [{ polku, data: pelaaja }];
+  const osat = [d3.sisainen, hk && hk.data, s4 && s4.data, jf].filter(Boolean);
+  if (osat.length) ulos.push({ polku: polku + '/' + TS.ALIKOKOELMA + '/' + TS.DOKUMENTTI, data: Object.assign({}, ...osat, { seuraId: SID, paivitetty: nytISO }) });
+  if (tv) ulos.push({ polku: polku + '/' + TS.ALIKOKOELMA + '/' + TS.TERVEYS_DOK, data: tv.data });
+  return ulos;
+}
+const ON_PELAAJA = new RegExp('^seurat/' + SID + '/pelaajat/[^/]+$');
+
 /* PURE suunnitelma: dokit = sv_fixtuuri.dokitLage(), fxNyt = sv_fixtuuri.NYT. → { dokit: [{polku, data}], siirtoVk, kausi, virheet } */
 function suunnittele(dokit, { fxNyt, nyt, tunniste }) {
   const virheet = [];
@@ -82,8 +110,10 @@ function suunnittele(dokit, { fxNyt, nyt, tunniste }) {
     if (polku === 'seurat/' + SID) { delete data.liput; Object.assign(data, { demo: true, savutesti: true, aktiivinen: true }); }
     if (/^seurat\/qg_savu\/joukkueet\/[^/]+$/.test(polku)) data.demo = true;
     if (polku === 'seurat/' + SID + '/pelaajat/' + PELAAJA && t) data.tunniste = t;
-    ulos.push({ polku, data });
+    if (ON_PELAAJA.test(polku)) ulos.push(...jaaSisainen(polku, data, new Date(nyt).toISOString()));
+    else ulos.push({ polku, data });
   }
+  const polut = new Set(); for (const d of ulos) { if (polut.has(d.polku)) virheet.push('sama polku kahdesti: ' + d.polku); polut.add(d.polku); }   // fixturen oma sisainen-dokki ei saa jäädä jaon alle
   ulos.sort((a, b) => a.polku.split('/').length - b.polku.split('/').length || (a.polku < b.polku ? -1 : 1));
   return { dokit: ulos, siirtoVk: ms / VK, kausi, tunniste: t, virheet };
 }
@@ -201,5 +231,5 @@ async function main() {
   const admin = require('firebase-admin'); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault(), projectId: PROJECT_ID });
   await aja({ admin, db: admin.firestore(), auth: admin.auth(), dokit, fxNyt, nyt: Date.now(), salaiset, kirjoita: argv.includes('--kirjoita'), kylla: argv.includes('--kylla'), kysy });
 }
-module.exports = { suunnittele, tarkistaSynteettisyys, aja, viikkosiirto, siirraPvm, siirraVk, isoVkAvain, isoVkMaanantai, lataaFixtuuri, SID, PELAAJA, PIN_POLKU, SALLITUT_NIMET };
+module.exports = { suunnittele, jaaSisainen, tarkistaSynteettisyys, aja, viikkosiirto, siirraPvm, siirraVk, isoVkAvain, isoVkMaanantai, lataaFixtuuri, SID, PELAAJA, PIN_POLKU, SALLITUT_NIMET };
 if (require.main === module) main().catch((err) => { console.error('VIRHE:', err.message); process.exit(1); });

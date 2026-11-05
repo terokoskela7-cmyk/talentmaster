@@ -15,13 +15,16 @@
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { REITITA_RE, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, konsoliVirheet, yhteenvetoMarkdown, issueRunko, onnistui, SECRETIT, SEURA, ESTO_VIESTI } from './savutesti_lib.mjs';
+import { createRequire } from 'module';
+import { REITITA_RE, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, konsoliVirheet, epaonnistuneetPyynnot, liitaPyynnot, yhteenvetoMarkdown, issueRunko, onnistui, SECRETIT, SEURA, ESTO_VIESTI } from './savutesti_lib.mjs';
 
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SALLITUT = JSON.parse(readFileSync(join(JUURI, 'tools/savutesti/savutesti_sallitut.json'), 'utf8'));
 const SV_SALLITUT = JSON.parse(readFileSync(join(JUURI, 'tools/i18n/sv_lapiajo_sallitut.json'), 'utf8'));
 const SV_BASELINE = JSON.parse(readFileSync(join(JUURI, 'tools/i18n/sv_lapiajo_baseline.json'), 'utf8'));
 const CALLABLET = SALLITUT.callablet.map((c) => c.nimi);
+/* Seed-datan henkilönimet suoraan seed-skriptistä (ei käsin ylläpidettävää kopiota): eivät ole suomea sv-tarkistuksessa. */
+const SEED_NIMET = createRequire(import.meta.url)('../../scripts/savutesti_seura_luo.js').SALLITUT_NIMET;
 const PELAAJA = 'qp1', ODOTUS = 45000, ASETU = 2500;
 const argArvo = (n) => { const a = process.argv.find((x) => x.startsWith(n + '=')); return a ? a.slice(n.length + 1) : null; };
 
@@ -41,7 +44,8 @@ function tarkistaLohkot(valitsimet) {
   return { ok: !puuttuu.length, puuttuu };
 }
 
-function uusiKeraaja() { return { viestit: [], verkko: [], estetytUrlit: [] }; }
+function uusiKeraaja() { return { viestit: [], verkko: [], estetytUrlit: [], pyynnot: [], varoitukset: [], alku: Date.now() }; }
+const sek = (k) => Math.round((Date.now() - k.alku) / 100) / 10;
 
 export async function konteksti(selain, kieli, env, tila) {
   const ctx = await selain.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });   // SW ei ole testin kohde; SW:n pyynnöt ohittaisivat verkkoeston
@@ -60,7 +64,21 @@ export async function konteksti(selain, kieli, env, tila) {
 export async function sivu(ctx, tila) {
   const p = await ctx.newPage();
   p.on('pageerror', (e) => { if (tila.nyky) tila.nyky.viestit.push({ tyyppi: 'pageerror', teksti: String(e && e.message || e) }); });
-  p.on('console', (m) => { if (m.type() === 'error' && tila.nyky) tila.nyky.viestit.push({ tyyppi: 'console', teksti: m.text(), url: (m.location() || {}).url || '' }); });
+  p.on('console', (m) => {
+    const k = tila.nyky; if (!k) return;
+    if (m.type() === 'error') k.viestit.push({ tyyppi: 'console', teksti: m.text(), url: (m.location() || {}).url || '', t: sek(k) });
+    else if (m.type() === 'warning' && /@firebase\//.test(m.text())) k.varoitukset.push({ teksti: m.text().replace(/\s+/g, ' ').slice(0, 300), t: sek(k) });   // diagnostiikka, ei kaada
+  });
+  /* Jokainen epäonnistunut pyyntö: metodi + HTTP-status (response-tapahtuma) tai verkkovirhe (requestfailed). Täysi URL vain täsmäykseen, tulokseen ilman queryä. */
+  p.on('response', (r) => {
+    const k = tila.nyky; if (!k || r.status() < 400) return;
+    const e = { metodi: r.request().method(), url: r.url(), status: r.status(), t: sek(k) }; k.pyynnot.push(e);
+    r.text().then((x) => { const s = String(x || '').replace(/\s+/g, ' ').trim(); if (s) e.runko = s.slice(0, 160); }, () => {});   // palvelimen selite (esim. Firestore-kanavan syy)
+  });
+  p.on('requestfailed', (q) => {
+    const k = tila.nyky, f = (q.failure() || {}).errorText || ''; if (!k || /ERR_ABORTED/.test(f)) return;   // keskeytetty (sivun vaihto, pitkä striimi suljettu) ei ole vika
+    k.pyynnot.push({ metodi: q.method(), url: q.url(), status: 0, virhe: f, t: sek(k) });
+  });
   return p;
 }
 
@@ -75,7 +93,7 @@ export async function mittaa(p, def, kieli, tila, kerays) {
     await p.waitForFunction(def.valmis, null, { timeout: ODOTUS });
     await p.waitForTimeout(ASETU);
     n.lohkot = await p.evaluate(tarkistaLohkot, def.lohkot);
-    if (kieli === 'sv') n.sv = svLoydot(await p.evaluate(keraaTekstit), { sallitut: SV_SALLITUT, baseline: SV_BASELINE });
+    if (kieli === 'sv') n.sv = svLoydot(await p.evaluate(keraaTekstit), { sallitut: SV_SALLITUT, baseline: SV_BASELINE, nimet: SEED_NIMET });
     const sk = await p.evaluate(() => ({ v: window.__savuVartija === true, k: (window.__savuKirj || []).splice(0) }));
     n.vartija = sk.v; n.kirjoitukset = { tuntemattomat: [], tunnetut: [], verkko: [] };
     lisaaKirjoitukset(n, sk.k, kerays);
@@ -83,7 +101,10 @@ export async function mittaa(p, def, kieli, tila, kerays) {
     n.kaatui = 'näkymä ei valmistunut ' + ODOTUS / 1000 + ' s:ssa (' + String(e.message || e).split('\n')[0].slice(0, 120) + ')';
     if (tila.kuvat) { try { mkdirSync(tila.kuvat, { recursive: true }); await p.screenshot({ path: join(tila.kuvat, (def.nimi + '_' + kieli).replace(/[^a-z0-9_]+/gi, '_') + '.png') }); } catch (e2) { /* ei kuvaa */ } }
   }
-  n.virheet = konsoliVirheet(kerays.viestit.splice(0), SALLITUT.konsoli, kerays.estetytUrlit);
+  const pyynnot = kerays.pyynnot.splice(0);
+  n.virheet = liitaPyynnot(konsoliVirheet(kerays.viestit.splice(0), SALLITUT.konsoli, kerays.estetytUrlit), pyynnot);
+  n.pyynnot = epaonnistuneetPyynnot(pyynnot, kerays.estetytUrlit);
+  n.firebaseVaroitukset = kerays.varoitukset.splice(0).slice(0, 20);
   return n;
 }
 
