@@ -14,6 +14,7 @@ import { createHash } from 'crypto';
 const require = createRequire(import.meta.url);
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VT = require('../scripts/versiotiiviste.js');
+const { kuorenOsat, OSAKANSIOT } = require('../scripts/kuoren_lahde.js');
 const lue = (j, f) => readFileSync(join(j, f), 'utf8');
 const sha8 = (s) => createHash('sha256').update(String(s).replace(/\r\n/g, '\n')).digest('hex').slice(0, 8);
 
@@ -22,6 +23,7 @@ function kopioiPuu(kohde) {
   mkdirSync(kohde, { recursive: true });
   for (const f of readdirSync(JUURI)) if (statSync(join(JUURI, f)).isFile()) cpSync(join(JUURI, f), join(kohde, f));
   cpSync(join(JUURI, 'lib'), join(kohde, 'lib'), { recursive: true });
+  for (const k of OSAKANSIOT) if (existsSync(join(JUURI, k))) cpSync(join(JUURI, k), join(kohde, k), { recursive: true });   // kuorista siirretty koodi (seura/)
   mkdirSync(join(kohde, 'docs'), { recursive: true });
   for (const f of readdirSync(join(JUURI, 'docs'))) if (/\.js$/.test(f)) cpSync(join(JUURI, 'docs', f), join(kohde, 'docs', f));
   mkdirSync(join(kohde, 'scripts'), { recursive: true }); cpSync(join(JUURI, 'scripts', 'versiotiiviste.js'), join(kohde, 'scripts', 'versiotiiviste.js'));
@@ -170,6 +172,55 @@ describe('QG-2 · sisältömuutos → uusi ?v ja uusi SW-cachenimi (ei käsinost
     const r1 = VT.laske(a).raportti;
     expect(r1.sivut['TalentMaster_VP_v25.html'][vainVp]).not.toBe(r0.sivut['TalentMaster_VP_v25.html'][vainVp]);
     for (const sw of ['sw_pelaaja.js', 'sw_vanhempi.js', 'sw_adar.js']) expect(r1.sw[sw], sw).toBe(r0.sw[sw]);
+    rmSync(t, { recursive: true, force: true });
+  });
+});
+
+describe('Rivikattojen purku S1 · kuoren osatiedostot (seura/) kuuluvat versiotiivisteeseen ja SW-listaan', () => {
+  const sivut = readdirSync(JUURI).filter((f) => /\.html$/.test(f));
+  it('jokainen kuoren osa (script tai stylesheet) on paikallisten latausten listalla → saa ?v:n deployssa', () => {
+    const puuttuu = [];
+    for (const sivu of sivut) {
+      const html = lue(JUURI, sivu), lataus = new Set(VT.lataukset(html).map((l) => l.polku));
+      for (const o of kuorenOsat(html)) if (!lataus.has(o.polku)) puuttuu.push(sivu + ' → ' + o.polku);
+    }
+    expect(puuttuu).toEqual([]);
+    expect(VT.lataukset(lue(JUURI, 'TalentMaster_Seura.html')).filter((l) => l.tapa === 'css').map((l) => l.polku)).toEqual(['seura/seura.css']);
+  });
+  it('julkaisussa seura/seura.css = ?v=<sha256 8 merkkiä sisällöstä>; repossa ei ?v:tä', () => {
+    expect(lue(JUURI, 'TalentMaster_Seura.html')).toMatch(/<link rel="stylesheet" href="seura\/seura\.css">/);
+    const t = mkdtempSync(join(tmpdir(), 'qg2-css-')); const a = kopioiPuu(join(t, 'a'));
+    expect(VT.kirjoita(a).ok).toBe(true);
+    expect(lue(a, 'TalentMaster_Seura.html')).toContain('<link rel="stylesheet" href="seura/seura.css?v=' + sha8(lue(JUURI, 'seura/seura.css')) + '">');
+    expect(VT.tarkistaJulkaisu(a)).toEqual([]);
+    rmSync(t, { recursive: true, force: true });
+  });
+  it('vartija huomaa käsin kirjoitetun ?v:n tyylilinkissä; manifest- ja ikonilinkit eivät ole latauksia', () => {
+    const t = mkdtempSync(join(tmpdir(), 'qg2-cssv-'));
+    writeFileSync(join(t, 'a.css'), '.a{}'); writeFileSync(join(t, 'sivu.html'), '<link rel="manifest" href="m.json"><link rel="icon" href="i.png"><link rel="stylesheet" href="a.css?v=3">');
+    expect(VT.lataukset(lue(t, 'sivu.html')).map((l) => l.tapa + ':' + l.polku)).toEqual(['css:a.css']);
+    expect(VT.tarkistaRepo(t).join('\n')).toContain('a.css?v=3');
+    rmSync(t, { recursive: true, force: true });
+  });
+  it('osan muutos vaihtaa sen ?v:n; Seuralla ei ole SW:tä, joten SW-cachenimet eivät muutu', () => {
+    expect(Object.values(VT.SW).map((m) => m.kuori)).not.toContain('TalentMaster_Seura.html');
+    expect(lue(JUURI, 'TalentMaster_Seura.html')).not.toMatch(/serviceWorker\.register/);
+    const t = mkdtempSync(join(tmpdir(), 'qg2-seura-')); const a = kopioiPuu(join(t, 'a')); const r0 = VT.laske(a).raportti;
+    writeFileSync(join(a, 'seura/seura.css'), lue(a, 'seura/seura.css') + '\n/* muutos */\n');
+    const r1 = VT.laske(a).raportti;
+    expect(r1.sivut['TalentMaster_Seura.html']['seura/seura.css']).not.toBe(r0.sivut['TalentMaster_Seura.html']['seura/seura.css']);
+    for (const sw of Object.keys(VT.SW)) expect(r1.sw[sw], sw).toBe(r0.sw[sw]);
+    rmSync(t, { recursive: true, force: true });
+  });
+  it('jos SW:n kuori lataa osatiedoston, osan muutos vaihtaa SW-cachenimen (kuori lasketaan tiivisteineen)', () => {
+    const t = mkdtempSync(join(tmpdir(), 'qg2-swosa-'));
+    mkdirSync(join(t, 'seura')); writeFileSync(join(t, 'seura', 'x.css'), '.x{}');
+    writeFileSync(join(t, 'TalentMaster_Pelaaja_v7.html'), '<link rel="stylesheet" href="seura/x.css">');
+    writeFileSync(join(t, 'manifest_pelaaja.json'), '{}');
+    writeFileSync(join(t, 'sw_pelaaja.js'), "const CACHE = 'tm-pelaaja-dev'; // TalentMaster_Pelaaja_v7.html");
+    const n0 = VT.laske(t).raportti.sw['sw_pelaaja.js'];
+    writeFileSync(join(t, 'seura', 'x.css'), '.x{color:red}');
+    expect(VT.laske(t).raportti.sw['sw_pelaaja.js']).not.toBe(n0);
     rmSync(t, { recursive: true, force: true });
   });
 });

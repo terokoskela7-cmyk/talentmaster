@@ -15,6 +15,7 @@ function kopio() {
   const d = mkdtempSync(join(tmpdir(), 'qg1-'));
   for (const f of readdirSync(JUURI)) { const p = join(JUURI, f); if (statSync(p).isFile()) cpSync(p, join(d, f)); }
   cpSync(join(JUURI, 'lib'), join(d, 'lib'), { recursive: true });
+  if (existsSync(join(JUURI, 'seura'))) cpSync(join(JUURI, 'seura'), join(d, 'seura'), { recursive: true });   // kuorista siirretty koodi (rivikattojen purku)
   mkdirSync(join(d, 'docs')); for (const f of readdirSync(join(JUURI, 'docs'))) if (f.endsWith('.js')) cpSync(join(JUURI, 'docs', f), join(d, 'docs', f));
   return d;
 }

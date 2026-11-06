@@ -12,13 +12,15 @@
 
 const { spawnSync } = require('child_process');
 const { join } = require('path');
-const { existsSync } = require('fs');
+const { existsSync, readdirSync } = require('fs');
 const { tarjoiltavatAppit } = require('./tarjoiltavat_appit.js');
 
 const JUURI = join(__dirname, '..');
 const KIRJASTOT = ['lib/', 'docs/testit_indeksit.js', 'harjoitelogiikka_v4.js'];
 // Kuorista siirretty koodi (rivikattojen purku). Mukana vasta kun kansio on olemassa (S1+).
-const KUORIOSAT = ['seura/'].filter((k) => existsSync(join(JUURI, k)));
+/* Kuorista siirretyt osat (seura/): vain .js-tiedostot — pelkkä CSS-kansio saisi eslintin kaatumaan ("all files ignored"). */
+const KUORIOSAT = ['seura'].filter((k) => existsSync(join(JUURI, k)))
+  .flatMap((k) => readdirSync(join(JUURI, k)).filter((f) => f.endsWith('.js')).map((f) => k + '/' + f));
 
 const kohteet = [...tarjoiltavatAppit(JUURI), ...KIRJASTOT, ...KUORIOSAT];
 
