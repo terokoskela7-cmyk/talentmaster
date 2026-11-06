@@ -5,11 +5,13 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import vm from 'vm';
 import { createRequire } from 'module';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const IKA = require('../lib/tm_pelaaja_ika.js');
 const L = require('../lib/tm_laskutus.js');
 const S = require('../scripts/poista_alle10_pinit.js');
-const lue = (f) => fs.readFileSync(f, 'utf8');
+const lue = (f) => lueKuori(f);
 const SEURA = lue('TalentMaster_Seura.html'), VANH = lue('TalentMaster_Vanhempi_v2.html'), PEL = lue('TalentMaster_Pelaaja_v7.html');
 
 describe('lib/tm_pelaaja_ika.js', () => {

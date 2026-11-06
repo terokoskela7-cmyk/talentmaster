@@ -7,6 +7,8 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const req = createRequire(import.meta.url);
@@ -111,7 +113,7 @@ describe('raportti ja koodivartijat', () => {
     expect(h).toContain("naytaPelaajaTiedot('demo_p14_01')");
   });
   it('ei seuran nimiä eikä seuraId-literaaleja muutetuissa tiedostoissa (näkymäosuus)', () => {
-    const SEURA = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+    const SEURA = lueKuori('TalentMaster_Seura.html');
     const osa = SEURA.slice(SEURA.indexOf('/* ═════════ KEHITYSTILANNE v0'), SEURA.indexOf('function renderJoukkueet() {'));
     const kielletty = /\b(EPS|Espoo|Espoon|Pallo-Iirot|palloiirot|sjk|kpv|grifk|sibbovargarna|yilves|vifk|demo-fc)\b/i;
     for (const t of [osa, readFileSync(join(ROOT, 'lib/tm_kehitystilanne.js'), 'utf8'), readFileSync(join(ROOT, 'lib/tm_kehikot.js'), 'utf8'), readFileSync(join(ROOT, 'lib/tm_mittarit.js'), 'utf8')]) {
@@ -120,7 +122,7 @@ describe('raportti ja koodivartijat', () => {
     }
   });
   it('Seura.html: yksi @media(max-width:768px)-lohko; kausikuva kerran per kausi (demorajaus purettu v3.35); raportti avaa ikkunan ensin', () => {
-    const SEURA = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+    const SEURA = lueKuori('TalentMaster_Seura.html');
     expect(SEURA.match(/@media\(max-width:768px\)/g)).toHaveLength(1);
     expect(SEURA).toContain('const kausikuvaSallittu = !K.data.kausikuvat.some(');
     expect(SEURA).not.toMatch(/seura\.demo !== true\) \{ naytaToast\('Kausikuva/);
@@ -238,7 +240,7 @@ describe('Seuran omat vapaat tavoitteet (v0.1, demodata)', () => {
     expect(() => KT.renderEnsinakyma(KT.rakennaMalli(d, { nyt: NYT }), { avoin: 'seura' })).not.toThrow();
   });
   it('Seura.html: kehitysasetukset tallennetaan mergeFields-asetuksella (ei ylikirjoita muita kenttiä); kirjauslomakkeessa nimiohje', () => {
-    const f = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+    const f = lueKuori('TalentMaster_Seura.html');
     expect(f).toContain('Älä kirjoita pelaajan nimeä huomioon, käytä pelaajalinkkiä.');
     expect(f).toMatch(/collection\('kehitysasetukset'\)\.doc\(String\(K\.vuosi\)\)\.set\(doc, \{ mergeFields: Object\.keys\(doc\) \}\)/);
     expect(f).not.toMatch(/collection\('kehitysasetukset'\)\.doc\(String\(K\.vuosi\)\)\.set\(doc\);/);

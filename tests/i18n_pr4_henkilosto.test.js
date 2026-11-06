@@ -6,10 +6,12 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { skannaaHtml, lataaSallitut, onSallittu } from '../tools/i18n/sv_staattinen.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (f) => readFileSync(join(juuri, f), 'utf8');
+const lue = (f) => lueKuori(f);
 const ERA = JSON.parse(lue('docs/i18n/sv_kaannoserae_2.json'));
 const { poimi } = require('../tools/i18n/reititin_avaimet.cjs');
 

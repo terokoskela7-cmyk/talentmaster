@@ -101,16 +101,18 @@ function keraaHtmlista(src, g) {
   return g;
 }
 
-/** Kerää globaalit repon juuresta: juuren *.html + *.js sekä lib/*.js. */
+/** Kerää globaalit repon juuresta: juuren *.html + *.js sekä lib/*.js ja seura/*.js. */
 function keraaGlobaalit(juuri) {
   const g = {};
   const tiedostot = [];
   try {
     fs.readdirSync(juuri).forEach((f) => { if (/\.(html|js)$/.test(f)) tiedostot.push(f); });
   } catch (e) { return g; }
-  try {
-    fs.readdirSync(path.join(juuri, 'lib')).forEach((f) => { if (/\.js$/.test(f)) tiedostot.push('lib/' + f); });
-  } catch (e) { /* ohita */ }
+  ['lib', 'seura'].forEach((kansio) => {   // seura/ = Seura.html:stä siirretty koodi (rivikattojen purku)
+    try {
+      fs.readdirSync(path.join(juuri, kansio)).forEach((f) => { if (/\.js$/.test(f)) tiedostot.push(kansio + '/' + f); });
+    } catch (e) { /* ohita */ }
+  });
   tiedostot.forEach((f) => {
     let src;
     try { src = fs.readFileSync(path.join(juuri, f), 'utf8'); } catch (e) { return; }

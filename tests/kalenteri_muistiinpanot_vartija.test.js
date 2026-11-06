@@ -5,7 +5,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
+const lue = (f) => lueKuori(f);
 const SOVELLUKSET = ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Seura.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'];
 
 // Koodirivit ilman //-kommentteja; palauttaa [rivinro, rivi] -parit joissa kenttä kirjoitetaan (avain `muistiinpanot:` tai sijoitus `.muistiinpanot =`)

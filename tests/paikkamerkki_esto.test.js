@@ -9,13 +9,15 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { ESTA_LAHDE, lisaaPaikkamerkki } from './_paikkamerkkiCtx.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
 const CFM = require_(join(ROOT, 'functions', 'paikkamerkki.js'));
 const LIB = require_(join(ROOT, 'lib', 'tm_paikkamerkki.js'));
 const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
-const SEURA = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+const SEURA = lueKuori('TalentMaster_Seura.html');
 
 describe('domainlista ja tunnistus', () => {
   it('functions- ja lib-lista ovat samat ja sisältävät briefin domainit', () => {

@@ -18,6 +18,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
@@ -38,7 +40,7 @@ const IDENTITEETTI = (l) => /\bemail\s*:/.test(l) && /\brooli\s*:/.test(l);
 describe('A — yksikään kayttajat-sivukirjoitus ei luo profiilia', () => {
   for (const f of TIEDOSTOT) {
     it(`${f}: set(merge) kayttajat-dokkiin vain identiteettikenttien kanssa`, () => {
-      const rivit = koodi(readFileSync(join(ROOT, f), 'utf8')).split('\n');
+      const rivit = koodi(lueKuori(f)).split('\n');
       const osumat = rivit
         .map((l, i) => [i + 1, l])
         .filter(([, l]) => /collection\(['"]kayttajat['"]\)/.test(l) && /\.set\(/.test(l) && /merge/.test(l))

@@ -5,6 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KUVIO = /(?:\b|['"])ottelu['"]?\s*:\s*[{'"]|\bid\s*:\s*['"]ottelu['"]/g;
 const SALLITTU = {
@@ -13,7 +15,7 @@ const SALLITTU = {
   'TalentMaster_Vanhempi_v2.html': 1,     // _VANH_TT
   'TalentMaster_Pelihavainto_Kentta.html': 1   // pelitapahtumien kartta (ei kalenteri) — vanha, ei saa kasvaa
 };
-const laske = () => Object.fromEntries(readdirSync(juuri).filter((f) => /^TalentMaster_.*\.html$/.test(f)).map((f) => [f, (readFileSync(join(juuri, f), 'utf8').match(KUVIO) || []).length]).filter(([, n]) => n > 0));
+const laske = () => Object.fromEntries(readdirSync(juuri).filter((f) => /^TalentMaster_.*\.html$/.test(f)).map((f) => [f, (lueKuori(f).match(KUVIO) || []).length]).filter(([, n]) => n > 0));
 
 describe('vartija: yksi kalenterin tyyppirekisteri (D186)', () => {
   const nyt = laske();

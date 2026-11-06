@@ -14,11 +14,13 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { lisaaPaikkamerkki, onPaikkamerkkiOsoite } from './_paikkamerkkiCtx.mjs';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
 const { kayttajaRooliSallittu } = require_(join(ROOT, 'functions', 'authz_paatos.js'));
-const lue = (n) => readFileSync(join(ROOT, n), 'utf8');
+const lue = (n) => lueKuori(n);
 const CF = lue('functions/index.js');
 class HttpsError extends Error { constructor(c, m, d) { super(m); this.code = c; this.details = d; } }
 const valilta = (alku, loppu) => { const i = CF.indexOf(alku); const j = CF.indexOf(loppu, i); if (i < 0 || j < 0) throw new Error('ei löydy: ' + alku); return CF.slice(i, j); };

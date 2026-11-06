@@ -14,9 +14,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (p) => readFileSync(join(juuri, p), 'utf8');
+const lue = (p) => lueKuori(p);
 const IGNORE = JSON.parse(lue('firebase.json')).hosting.ignore;
 const OMA_PAGES = 'terokoskela7-cmyk.github.io';
 

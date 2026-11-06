@@ -15,7 +15,8 @@ import { skannaaMarkup } from './sv_staattinen_markup.mjs';
 const require = createRequire(import.meta.url);
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const argArvo = (n) => { const a = process.argv.find((x) => x.startsWith(n + '=')); return a ? a.slice(n.length + 1) : null; };
-const lue = (f) => readFileSync(join(JUURI, f), 'utf8');
+const { lueKuori } = require('../../scripts/kuoren_lahde.js');
+const lue = (f) => lueKuori(f, JUURI);   // HTML-kuoret seura/-osineen
 const _melu = console.log; console.log = (...a) => { if (!String(a[0]).startsWith('[TM Lang]') && !String(a[0]).startsWith('[tm-')) _melu(...a); };   // vaienna kirjastojen latauslokit
 
 /* ── Näkymät. html = sovellussivut (staattinen skannaus + libit joita ne lataavat); lang = tm_lang-ryhmät; router = reititinkartan poiminta; libs = näkymän omat lib-FI-kartat (ylittää HTML-latauksen);

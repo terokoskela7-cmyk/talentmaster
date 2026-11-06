@@ -15,11 +15,13 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
 const APIT = ['TalentMaster_Seura.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html'];
-const LUE = (f) => readFileSync(join(ROOT, f), 'utf8');
+const LUE = (f) => lueKuori(f);
 // Kommentit pois: ne SELITTÄVÄT vanhan idiomin, eivät toteuta sitä.
 const koodi = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 

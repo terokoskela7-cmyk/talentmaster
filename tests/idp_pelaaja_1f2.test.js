@@ -7,6 +7,8 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { vi, beforeEach, afterAll } from 'vitest';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 // Kiinteä kello (sama hetki kuin NYT; kausi = kuluva vuosi). Vain Date — setTimeout pysyy aitona.
 const KELLO = new Date('2026-10-19T06:00:00.000Z');
 vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
@@ -14,7 +16,7 @@ beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELL
 afterEach(() => { vi.useRealTimers(); });
 afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
-const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+const lue = (f) => lueKuori(f);
 const SISL = require('../lib/tm_sisainen.js');   // PR 2d: IDP-pikakenttien henkilökunta-osa kulkee tm_sisainen.js:n kautta (fail-closed: ilman libiä tallennus epäonnistuu)
 const D = require('../lib/tm_idp_pelaaja_dok.js'), I = require('../lib/tm_idp.js'), L = require('../lib/tm_idp_lomake.js'), M = require('../scripts/migroi_idp_pelaaja.js');
 afterEach(() => { D.LIPPU.kirjoitus = false; });

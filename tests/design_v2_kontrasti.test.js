@@ -11,9 +11,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (f) => readFileSync(join(ROOT, f), 'utf8');
+const lue = (f) => lueKuori(f);
 const AA = 4.5;
 
 // Tokenit annetulle teemalle: ensin pelkkä :root, sitten :root[data-theme="<teema>"] (suurempi spesifisyys voittaa).

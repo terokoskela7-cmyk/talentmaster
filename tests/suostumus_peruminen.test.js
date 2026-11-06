@@ -9,10 +9,12 @@ import { readFileSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const require_ = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (f) => readFileSync(join(ROOT, f), 'utf8');
+const lue = (f) => lueKuori(f);
 const TS = require_('../lib/tm_suostumus.js');
 const SP = require_('../functions/suostumus_peruminen.js');
 const K = require_('../functions/pelaajakirjautuminen.js');

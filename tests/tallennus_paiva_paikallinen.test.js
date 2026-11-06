@@ -12,9 +12,11 @@ import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (p) => readFileSync(join(juuri, p), 'utf8');
+const lue = (p) => lueKuori(p);
 const PVM = JSON.stringify(join(juuri, 'lib/tm_pvm.js'));
 const ajaTz = (koodi, tz = 'Europe/Helsinki') => execFileSync(process.execPath, ['-e', koodi], { env: { ...process.env, TZ: tz }, encoding: 'utf8' }).trim();
 /* Kiinnitetty kello: new Date() = FIXED, TZ säilyy (tmPaivaIso lukee paikallisen ajan). */
