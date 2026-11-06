@@ -1172,7 +1172,7 @@ exports.haeLapsiHuoltajalle = functions
         }));
       return { found: lapset.length > 0, lapset };
     } catch (e) {
-      console.error('[haeLapsiHuoltajalle]', email, e.message);
+      console.error('[haeLapsiHuoltajalle]', context.auth.uid, e.message);   // ei sähköpostia lokiin (email_verified a, PM 6.11.2026)
       throw new functions.https.HttpsError('internal', 'Lapsen haku epäonnistui.');
     }
   });
