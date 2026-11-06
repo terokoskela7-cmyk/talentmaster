@@ -6,7 +6,7 @@
  * Repossa: <script src="lib/x.js"> ilman ?v:tä ja SW:ssä const CACHE = 'tm-<appi>-dev'.
  * Deployssa (deploy-pages.yml + deploy-hosting.yml, ennen julkaisua):
  *   - jokainen juuren HTML-sivun paikallinen skriptilataus saa ?v=<sha256(sisältö) 8 merkkiä>
- *     (<script src>, sekä Masterin dynaaminen `s.src = 'tm-demo.js'`)
+ *     (<script src>, Masterin dynaaminen `s.src = 'tm-demo.js'` ja paikallinen <link rel="stylesheet" href>)
  *   - jokaisen SW:n cachenimi = tm-<appi>-<tiiviste>, joka lasketaan SW:n omasta koodista, sen kuorisivusta (jo tiivisteineen,
  *     eli kaikista sivun lataamista tiedostoista) ja manifestista. Mikä tahansa muutos → uusi cachenimi → activate siivoaa vanhan.
  *
@@ -34,6 +34,10 @@ const RE_SCRIPT = /(<script\b[^>]*\bsrc\s*=\s*)(["'])([^"']+)\2/gi;
 const RE_DYN = /(\.src\s*=\s*)(["'])([^"'+\s]+\.js(?:\?[^"']*)?)\2/g;
 const RE_REKISTEROI = /serviceWorker\.register\(\s*["']([^"']+)["']/g;
 const RE_CACHE = /^const CACHE = '([^']*)';/m;
+/* Paikallinen tyylitiedosto (rivikattojen purku S1: seura/seura.css): <link rel="stylesheet" href="…">. Muut <link>-tagit (manifest, ikonit, fontit) eivät kuulu tähän. */
+const RE_LINK = /<link\b[^>]*>/gi;
+const RE_HREF = /(\bhref\s*=\s*)(["'])([^"']+)\2/i;
+const onTyylilinkki = (tagi) => /\brel\s*=\s*(["'])stylesheet\1/i.test(tagi);
 
 function tiiviste(sisalto) { return crypto.createHash('sha256').update(String(sisalto).replace(/\r\n/g, '\n')).digest('hex').slice(0, 8); }
 function paikallinen(src) { return !/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(src); }
@@ -54,6 +58,10 @@ function lataukset(html) {
   const ulos = [];
   for (const m of html.matchAll(RE_SCRIPT)) if (paikallinen(m[3])) ulos.push(Object.assign({ src: m[3], tapa: 'script' }, jasenna(m[3])));
   for (const m of html.matchAll(RE_DYN)) if (paikallinen(m[3])) ulos.push(Object.assign({ src: m[3], tapa: 'dynaaminen' }, jasenna(m[3])));
+  for (const m of html.matchAll(RE_LINK)) {
+    if (!onTyylilinkki(m[0])) continue;
+    const h = RE_HREF.exec(m[0]); if (h && paikallinen(h[3])) ulos.push(Object.assign({ src: h[3], tapa: 'css' }, jasenna(h[3])));
+  }
   return ulos;
 }
 
@@ -73,7 +81,8 @@ function laske(juuri) {
       const j = jasenna(src), t = tiedostonTiiviste(j.polku, sivu); if (!t) return all;
       rivi[j.polku] = t; return alku + q + kokoa(j, t) + q;
     };
-    const uusi = html.replace(RE_SCRIPT, korvaa).replace(RE_DYN, korvaa);
+    const uusi = html.replace(RE_SCRIPT, korvaa).replace(RE_DYN, korvaa)
+      .replace(RE_LINK, (tagi) => (onTyylilinkki(tagi) ? tagi.replace(RE_HREF, korvaa) : tagi));
     raportti.sivut[sivu] = rivi;
     if (uusi !== html) tiedostot[sivu] = uusi;
   }

@@ -112,6 +112,19 @@ describe('tarjoiltava joukko (johdettu firebase.jsonista)', () => {
   });
 });
 
+describe('rivikattojen purku · kuoren osatiedostot (seura/) tarjoillaan Hostingissa', () => {
+  /* lue() laajentaa kuoren osat, joten linkkiskanneri ei näe <script src="seura/x.js">- tai <link href="seura/x.css">-tagia.
+     Tarkistetaan osat suoraan raakakuoresta: jokainen on olemassa eikä ole ignoressa (muuten Seura 404:äisi custom-domainilla). */
+  const { kuorenOsat } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');
+  const osat = SERVED.flatMap((sivu) => kuorenOsat(readFileSync(join(juuri, sivu), 'utf8')).map((o) => ({ sivu, polku: o.polku })));
+  it('EI VACUOUS: Seura lataa seura/seura.css:n', () => {
+    expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura.css');
+  });
+  it('jokainen osa on olemassa eikä ignoressa', () => {
+    expect(osat.filter((o) => !existsSync(join(juuri, o.polku)) || ignoroitu(o.polku))).toEqual([]);
+  });
+});
+
 describe('suljettu navigoinnin suhteen', () => {
   const { rikki, ignoroituun, omaPages } = skannaa();
 

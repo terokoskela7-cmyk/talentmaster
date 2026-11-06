@@ -20,7 +20,7 @@ const MERKKI = (n) => '\n;self.__qgSwVersio = ' + n + ';\n';
 function kopioiPuu(kohde) {
   mkdirSync(kohde, { recursive: true });
   for (const f of readdirSync(JUURI)) if (statSync(join(JUURI, f)).isFile()) cpSync(join(JUURI, f), join(kohde, f));
-  for (const d of ['lib', 'assets/pwa', 'assets/fonts']) if (existsSync(join(JUURI, d))) cpSync(join(JUURI, d), join(kohde, d), { recursive: true });
+  for (const d of ['lib', 'seura', 'assets/pwa', 'assets/fonts']) if (existsSync(join(JUURI, d))) cpSync(join(JUURI, d), join(kohde, d), { recursive: true });
   mkdirSync(join(kohde, 'docs'), { recursive: true });
   for (const f of readdirSync(join(JUURI, 'docs'))) if (/\.js$/.test(f)) cpSync(join(JUURI, 'docs', f), join(kohde, 'docs', f));
   return kohde;
