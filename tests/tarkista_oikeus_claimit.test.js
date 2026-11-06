@@ -8,11 +8,13 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1)
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const P = require('../functions/authz_paatos.js');
-const SRC = readFileSync(join(juuri, 'functions/index.js'), 'utf8');
+const SRC = lueFunctionsLahde(juuri);   // lähdevartija kattaa myös siirtomoduulien tarkistaOikeus-kutsut
 function pura(t) {
   const i = SRC.indexOf(t); expect(i, t).toBeGreaterThan(-1); let d = 0;
   for (let k = SRC.indexOf('{', i); k < SRC.length; k++) { if (SRC[k] === '{') d++; else if (SRC[k] === '}') { d--; if (!d) return SRC.slice(i, k + 1); } }
