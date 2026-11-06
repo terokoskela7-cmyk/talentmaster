@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import vm from 'vm';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, poistaNimet, konsoliVirheet, ilmanQuerya, pyyntoRivi, epaonnistuneetPyynnot, liitaPyynnot, erotaListenKohina, onListenKohina, erotaCspKohina, onCspGoogleKehysKohina, virheRivit, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
+import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, poistaNimet, poistaSahkopostit, konsoliVirheet, ilmanQuerya, pyyntoRivi, epaonnistuneetPyynnot, liitaPyynnot, erotaListenKohina, onListenKohina, erotaCspKohina, onCspGoogleKehysKohina, virheRivit, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
 import { aja } from '../tools/savutesti/savutesti.mjs';
 import { createRequire } from 'module';
 const { SALLITUT_NIMET } = createRequire(import.meta.url)('../scripts/savutesti_seura_luo.js');
@@ -215,6 +215,19 @@ describe('QG-3 · sv-löydökset ja konsoli', () => {
     expect(r.uudet).toEqual(['Jo Strand on jo tallentanut harjoituksen', 'Leo Berg tallenna muutokset']);
     expect(poistaNimet('Jo Strand on jo täällä', SALLITUT_NIMET).trim()).toBe('on jo täällä');
     expect(poistaNimet('Jonne Strandberg', SALLITUT_NIMET)).toBe('Jonne Strandberg');   // vain kokonaiset sanat
+  });
+  it('sähköpostiosoite on dataa, ei suomea (savutesti 6.11.: Seuran yläpalkin savutesti@… kaatoi kaikki Seuran sv-näkymät); ympäröivä suomi jää kiinni', () => {
+    const o = { sallitut: { tekstit: [], alkavat: [] }, baseline: { tekstit: [] } };
+    const r = svLoydot(['savutesti@example.test', 'Kirjautunut: testivalmentaja@seura.fi', 'testivalmentaja@seura.fi tallenna muutokset', 'Pelaajat'], o);
+    expect(r.uudet).toEqual(['testivalmentaja@seura.fi tallenna muutokset', 'Pelaajat']);
+    expect(poistaSahkopostit('a b.c@d.fi c').replace(/\s+/g, ' ')).toBe('a c');
+  });
+  it('Seuran tuotantotilat (savutesti 6.11. klo 16.54) ovat baselinessa ja fixturessa fx_seura_lage', () => {
+    const base = JSON.parse(readFileSync(join(JUURI, 'tools/i18n/sv_lapiajo_baseline.json'), 'utf8'));
+    const o = { sallitut: { tekstit: [], alkavat: [] }, baseline: base };
+    const tuotanto = ['0 / 0 tavoitetta raiteilla. 6 % pelaajista kehittyy fyysisesti.', 'Kirjaa testikierros joukkueille QG P11 ja QG T15 – fyysisen kehityksen luku tarkentuu.', 'Ei tavoitetta', '🟡 Basprogram — 2 pelaajaa'];
+    expect(svLoydot(tuotanto, o).uudet).toEqual([]);
+    expect(readFileSync(join(JUURI, 'tools/i18n/sv_lapiajo.mjs'), 'utf8')).toMatch(/fx_seura_lage: \{ tiedosto: 'TalentMaster_Seura\.html', kysely: '', fx: \['vp', null, 'lage'\]/);
   });
   it('savutesti lukee nimet seed-skriptistä, ei omasta listasta', () => {
     const src = readFileSync(join(JUURI, 'tools/savutesti/savutesti.mjs'), 'utf8');

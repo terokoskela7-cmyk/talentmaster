@@ -60,6 +60,10 @@ export const SOVELLUKSET = {
   /* Seura (PM 6.11.2026, savutestin pohja ennen rivikattojen S2a:ta): VP-rooli fixture-seurassa, päänäkymät renderoi():lla (ikkunan avaavat rekisteröinti/tuonti/massakutsu pois). Seuran sv-velka baselinessa [baseline] 6.11.; korjaus S4:n jälkeen omana kokonaisuutenaan. */
   fx_seura: { tiedosto: 'TalentMaster_Seura.html', kysely: '', fx: ['vp'], entry: '0', askeleet: ['yhteenveto', 'kehitystilanne', 'pelaajat', 'joukkueet', 'talentit', 'henkilosto'].map((n) => ({ nimi: n,
     js: `(async () => { vaihdaNakyma('${n}', null); const s = '${SEURA_VALMIS[n] || '#nakymaAlue'}'; for (let i = 0; i < 150 && !document.querySelector(s); i++) await new Promise((r) => setTimeout(r, 100)); })()` })) },
+  /* Seura Läge-datalla (savutesti 6.11. klo 16.54: tuotannon qg_savu näytti tiloja, joita perusfixture ei kata): fyysisen kehityksen luku,
+     vanha testikierros useammalla joukkueella, "Ei tavoitetta" -tila, perusohjelman talentit. Vain ne kaksi näkymää, joissa tilat näkyvät. */
+  fx_seura_lage: { tiedosto: 'TalentMaster_Seura.html', kysely: '', fx: ['vp', null, 'lage'], entry: '0', askeleet: ['kehitystilanne', 'talentit'].map((n) => ({ nimi: n,
+    js: `(async () => { vaihdaNakyma('${n}', null); const s = '${SEURA_VALMIS[n] || '#nakymaAlue'}'; for (let i = 0; i < 150 && !document.querySelector(s); i++) await new Promise((r) => setTimeout(r, 100)); })()` })) },
   fx_kehitystyopoyta: { tiedosto: 'TalentMaster_Kehitystyopoyta.html', kysely: '', fx: ['valmentaja'], entry: '0',
     askeleet: [...['tanaan', 'polku', 'profiili'].map((n) => ({ nimi: n, kysely: '#pelaaja/qp1/' + n, js: '0' })), { nimi: 'pelaajaraportti', kysely: '?avaa=raportti#pelaaja/qp1/profiili', js: '0' }, { nimi: 'utan_atagande/polku', kysely: '#pelaaja/qp2/polku', js: '0' }] },
 };
