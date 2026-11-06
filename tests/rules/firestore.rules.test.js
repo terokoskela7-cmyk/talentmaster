@@ -242,6 +242,7 @@ function pelaajaItseContext() {
 function huoltajaContext() {
   return testEnv.authenticatedContext(HUOLTAJA_UID, {
     email: 'huoltaja@test.fi',  // lowercase — Rules vertaa .lower()
+    email_verified: true,       // v3.81: huoltajan pääsy vaatii vahvistetun sähköpostin
   });
 }
 
@@ -2537,7 +2538,7 @@ describe('Arviointikerrat — append-only, arvio kuuluu arvioijalle (H1)', () =>
 
   it('§7.22: huoltaja ei lue arviointikertoja', async () => {
     await seedKerta('k-jaettu', kerta(VALM_A_UID));
-    const db = testEnv.authenticatedContext(HUOLTAJA_UID, { email: 'Huoltaja@Test.fi' }).firestore();
+    const db = testEnv.authenticatedContext(HUOLTAJA_UID, { email: 'Huoltaja@Test.fi', email_verified: true }).firestore();
     await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-jaettu')));
   });
 
@@ -4410,7 +4411,7 @@ describe('v3.37 · kirjaukset/{pvm}.jakso_kuittaus: U12-huoltaja kuittaa omaan k
     expect((await lue(PELAAJA_UID)).jakso_kuittaus).toBeUndefined();
   });
   it('U13+-lapsen huoltaja (s. 2012), toisen lapsen huoltaja ja vieras EIVÄT kuittaa; pelaaja itse kuittaa nykyisillä oikeuksilla', async () => {
-    const muuHuoltaja = testEnv.authenticatedContext('huolt-muu', { email: 'muu@test.fi' });
+    const muuHuoltaja = testEnv.authenticatedContext('huolt-muu', { email: 'muu@test.fi', email_verified: true });
     await assertFails(updateDoc(kir(muuHuoltaja.firestore(), PELAAJA_A2_UID), KUIT('vanhempi')));   // 2012 → yli U12
     await assertFails(updateDoc(kir(muuHuoltaja.firestore(), PELAAJA_UID), KUIT('vanhempi')));      // väärä lapsi
     await assertFails(updateDoc(kir(randomContext().firestore()), KUIT('vanhempi')));
@@ -4584,12 +4585,12 @@ describe('v3.39 · viestit.nakyvyys', () => {
   it("'pelaaja': pelaaja (oma), huoltaja (lapsen) ja KAIKKI oman seuran henkilökunta lukevat; toisen pelaaja/huoltaja, toisen seuran VP ja vieras eivät", async () => {
     for (const c of [PEL(), HUOLT(), VPK(), UTJ(), VALM13(), VALM15(), saContext()]) await assertSucceeds(getDoc(ref(c, 'v_pel')));
     for (const c of [MUU_PEL(), VAARA_SEURA_VP(), randomContext(), unauthContext()]) await assertFails(getDoc(ref(c, 'v_pel')));
-    const toinenHuoltaja = testEnv.authenticatedContext('toinen-huoltaja', { email: 'toinen@test.fi' }); await assertFails(getDoc(ref(toinenHuoltaja, 'v_pel')));
+    const toinenHuoltaja = testEnv.authenticatedContext('toinen-huoltaja', { email: 'toinen@test.fi', email_verified: true }); await assertFails(getDoc(ref(toinenHuoltaja, 'v_pel')));
   });
   it("'huoltaja': huoltaja ja henkilökunta lukevat; PELAAJA EI; toisen huoltaja ei", async () => {
     for (const c of [HUOLT(), VPK(), UTJ(), VALM13(), VALM15()]) await assertSucceeds(getDoc(ref(c, 'v_huolt')));
     for (const c of [PEL(), MUU_PEL(), VAARA_SEURA_VP(), randomContext(), unauthContext()]) await assertFails(getDoc(ref(c, 'v_huolt')));
-    const toinenHuoltaja = testEnv.authenticatedContext('toinen-huoltaja', { email: 'toinen@test.fi' }); await assertFails(getDoc(ref(toinenHuoltaja, 'v_huolt')));
+    const toinenHuoltaja = testEnv.authenticatedContext('toinen-huoltaja', { email: 'toinen@test.fi', email_verified: true }); await assertFails(getDoc(ref(toinenHuoltaja, 'v_huolt')));
   });
   const uusi = (lisa) => Object.assign({ tyyppi: 'keskustelu', pelaajaId: TOPIAS, luettu: false, lahettajaUid: 'pel_kpv_' + TOPIAS, teksti: 'Moi valmentaja', nakyvyys: 'pelaaja', aika: new Date() }, lisa || {});
   it("pelaajan LUOMA viesti: nakyvyys pakotettu 'pelaaja', ei video_url, avainjoukko rajattu, lähettäjä = auth.uid, luettu:false, vain OMAAN pelaajaId:hen → muuten hylätään", async () => {
@@ -5844,5 +5845,55 @@ describe('K4b · kehityskeskustelu: reviewit/{pvm}.sovitut_sisainen + kk_* ja re
     await assertSucceeds(setDoc(rev(db()), KK('valmentaja', VALM_A_UID), { merge: true }));
     const d = await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', '2026-11-12']);
     expect(d.lause_sisainen).toEqual(LS); expect(d.kevyt.nakyi).toBe('ohjatusti'); expect(d.sovitut_sisainen.teksti).toBe('Sovittiin ensiaskelharjoitus.'); expect(d.kk_kausitavoite).toBe('pidetaan');
+  });
+});
+
+describe('v3.81 · email_verified: huoltajan luku ja kirjoitus vaativat vahvistetun sähköpostin (PM 6.11.2026)', () => {
+  const EMAIL = 'huoltaja@test.fi';
+  const VAHVISTETTU = () => huoltajaContext().firestore();
+  const VAHVISTAMATON = [
+    ['email_verified false', () => testEnv.authenticatedContext(HUOLTAJA_UID, { email: EMAIL, email_verified: false }).firestore()],
+    ['email_verified puuttuu', () => testEnv.authenticatedContext(HUOLTAJA_UID, { email: EMAIL }).firestore()],
+  ];
+  const P = (db, ...polku) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, ...polku);
+  beforeEach(async () => {
+    await seedSeuraAndPelaaja(); await seedHavainto(); await seedKehu();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
+      await setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { suostumusTila: 'annettu' }, { merge: true });   // viestit vaativat suostumuksen (v3.51)
+      await setDoc(P(db, 'kirjaukset', '2026-10-05'), { tehty: true, tyyppi: 'D', lahde: 'pelaaja', luotu: new Date() }); });
+  });
+  // Jokainen operaatio: vahvistettu huoltaja ONNISTUU (ei vacuous), vahvistamaton (false / puuttuu) HYLÄTÄÄN.
+  const LUVUT = [
+    ['pelaajadokumentti (inline-huoltajahaara)', (db) => getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID))],
+    ['havainnot (nakyvyys pelaaja)', (db) => getDoc(P(db, 'havainnot', 'hav1'))],
+    ['kehut', (db) => getDoc(P(db, 'kehut', 'kehu1'))],
+    ['kirjaukset', (db) => getDoc(P(db, 'kirjaukset', '2026-10-05'))],
+  ];
+  const KIRJOITUKSET = [
+    ['kehut create', (db, id) => setDoc(P(db, 'kehut', 'k-' + id), { emoji: '⭐', teksti: 'Hienoa!', lahettaja: 'Vanhempi', luotu: new Date(), nahty: false })],
+    ['U12-kirjaus create (lahde vanhempi)', (db, id) => setDoc(P(db, 'kirjaukset', '2026-10-1' + id), { tyyppi: 'T', tehty: true, kesto_min: 20, lahde: 'vanhempi', luotu: new Date() })],
+    ['jakso_kuittaus update', (db) => updateDoc(P(db, 'kirjaukset', '2026-10-05'), { jakso_kuittaus: { kuitattu: true, lahde: 'vanhempi', aika: '2026-10-05T17:00:00.000Z' } })],
+    ['viesti create (keskustelu)', (db, id) => setDoc(doc(db, 'seurat', SEURA_A, 'viestit', 'h-' + id), { tyyppi: 'keskustelu', pelaajaId: PELAAJA_UID, luettu: false, lahettajaUid: HUOLTAJA_UID, teksti: 'Moi', nakyvyys: 'pelaaja', aika: new Date() })],
+  ];
+  for (const [nimi, op] of LUVUT) {
+    it('luku · ' + nimi + ': vahvistettu ✓, vahvistamaton ✗', async () => {
+      await assertSucceeds(op(VAHVISTETTU()));
+      for (const [, ctx] of VAHVISTAMATON) await assertFails(op(ctx()));
+    });
+  }
+  for (const [nimi, op] of KIRJOITUKSET) {
+    it('kirjoitus · ' + nimi + ': vahvistamaton ✗, vahvistettu ✓', async () => {
+      for (const [i, [, ctx]] of VAHVISTAMATON.entries()) await assertFails(op(ctx(), String(i + 1)));
+      await assertSucceeds(op(VAHVISTETTU(), '0'));
+    });
+  }
+  it('Rules: ehto onLapsenHuoltaja():ssa ennen pelaajadokumentin get():iä ja inline-haarassa; huoltajaRsvp perii sen', () => {
+    const r = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../tm_admin/firestore.rules'), 'utf8');
+    const f = r.slice(r.indexOf('function onLapsenHuoltaja('), r.indexOf('function huoltajaRsvp('));
+    expect(f.indexOf("request.auth.token.get('email_verified', false) == true")).toBeGreaterThan(0);
+    expect(f.indexOf("request.auth.token.get('email_verified', false) == true")).toBeLessThan(f.indexOf('pelaajaData('));
+    const pel = r.slice(r.indexOf('match /pelaajat/{pelaajaId} {'), r.indexOf('allow create:', r.indexOf('match /pelaajat/{pelaajaId} {')));
+    expect(pel).toMatch(/request\.auth\.token\.email is string\s*\n\s*&& request\.auth\.token\.get\('email_verified', false\) == true/);
+    expect(r.slice(r.indexOf('function huoltajaRsvp('), r.indexOf('function onU12HuoltajaIka(')).startsWith('function huoltajaRsvp(seuraId, pelaajaId) {\n      return onLapsenHuoltaja(seuraId, pelaajaId)')).toBe(true);
   });
 });

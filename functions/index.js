@@ -1144,6 +1144,11 @@ exports.haeLapsiHuoltajalle = functions
     if (!context.auth || !context.auth.token.email) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjautuminen vaaditaan.');
     }
+    // email_verified PR c (Rules v3.81, PM 6.11.2026): vahvistamaton sähköposti ei näe lasten nimiä, seuraa eikä joukkuetta.
+    // Ei virhettä (Vanhempi_v2:n portti näyttää ohjeen); ei Firestore-hakua.
+    if (context.auth.token.email_verified !== true) {
+      return { found: false, lapset: [], vahvistamatta: true };
+    }
     // Firebase Auth -tokenin email on jo lowercase; data normalisoitu samaan (migraatio).
     const email = String(context.auth.token.email).toLowerCase().trim();
     try {

@@ -29,7 +29,7 @@ function cfYmp(docs) {
   vm.runInContext(valilta(CF, 'function jarjestaHuoltajanLapset(', '// ═══════════════════════════════════════════════════════════════════════════\n// N1 NOTIFIKAATIOT'), ctx);
   return ctx.exports.haeLapsiHuoltajalle;
 }
-const H = { auth: { uid: 'h1', token: { email: 'tero@x.fi' } } };
+const H = { auth: { uid: 'h1', token: { email: 'tero@x.fi', email_verified: true } } };
 
 describe('haeLapsiHuoltajalle (ajettu)', () => {
   it('vanhin ensin, sama vuosi → etunimi; puuttuva vuosi loppuun; kentät joukkueNimi + syntymaVuosi', async () => {
