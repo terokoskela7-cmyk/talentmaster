@@ -10,13 +10,15 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
 const { kayttajaRooliSallittu, kayttajaRooliClaimeista } = require_(join(ROOT, 'functions', 'authz_paatos.js'));
 const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
 const ADMIN = readFileSync(join(ROOT, 'TalentMaster_Admin.html'), 'utf8');
-const SEURA = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+const SEURA = lueKuori('TalentMaster_Seura.html');
 
 class HttpsError extends Error { constructor(c, m) { super(m); this.code = c; } }
 const valilta = (alku, loppu) => { const i = CF.indexOf(alku); const j = CF.indexOf(loppu, i); if (i < 0 || j < 0) throw new Error('ei löydy: ' + alku); return CF.slice(i, j); };

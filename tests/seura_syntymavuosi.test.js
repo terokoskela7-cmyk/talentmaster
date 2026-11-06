@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const L = require('../lib/tm_syntymavuosi.js');
 const NYT = new Date(Date.UTC(2026, 9, 26));
 
@@ -82,7 +84,7 @@ describe('tmSyntyma11Tilasto (lukeva tarkistus, vain lukumäärät)', () => {
 });
 
 describe('Seura-HTML käyttää libiä', () => {
-  const html = fs.readFileSync(require('path').join(__dirname, '..', 'TalentMaster_Seura.html'), 'utf8');
+  const html = lueKuori('TalentMaster_Seura.html');
   it('ei esitäytä date-kenttää vuodesta eikä kirjoita syntymaaikaa suoraan', () => {
     expect(html).not.toMatch(/syntymaVuosi \+ '-01-01'/);
     expect(html).not.toMatch(/paivitys\.syntymaaika\s*=/);

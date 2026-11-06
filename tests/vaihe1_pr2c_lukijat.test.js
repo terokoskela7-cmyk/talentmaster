@@ -6,10 +6,12 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const S = require('../lib/tm_sisainen.js');
 const PHV = require('../lib/tm_phv_tila.js');
-const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+const lue = (f) => lueKuori(f);
 const MASTER = lue('TalentMaster_Master_v16.html'), SEURA = lue('TalentMaster_Seura.html');
 function runko(src, alku) {
   const a = src.indexOf(alku); expect(a, alku).toBeGreaterThan(-1);

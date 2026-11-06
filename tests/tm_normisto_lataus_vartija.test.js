@@ -7,9 +7,11 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SIVUT = readdirSync(juuri).filter((f) => /^TalentMaster_.*\.html$/.test(f)), lue = (f) => readFileSync(join(juuri, f), 'utf8');
+const SIVUT = readdirSync(juuri).filter((f) => /^TalentMaster_.*\.html$/.test(f)), lue = (f) => lueKuori(f);
 const skriptit = (h) => [...h.matchAll(/<script[^>]+src="([^"?]+)(?:\?[^"]*)?"/g)].map((m) => m[1]);
 const KAYTTAJAT = SIVUT.filter((f) => { const s = skriptit(lue(f)); return s.includes('lib/tm_tekniikka.js') || s.includes('lib/tm_fyysinen.js'); });
 const ORDER = ['lib/tm_normisto.js', 'lib/tm_joukkuesaanto.js', 'lib/tm_tekniikka.js', 'lib/tm_fyysinen.js'];
@@ -41,7 +43,7 @@ describe('ei hiljaista oletusta: TM_NORMISTO puuttuu selaimesta', () => {
     const varoitukset = [], viestit = [], ikkuna = { console: { warn: (m) => varoitukset.push(String(m)), log() {}, error() {} }, Date, Math, JSON };
     if (sentry) ikkuna.Sentry = { captureMessage: (m, taso) => viestit.push([String(m), taso]) };
     ikkuna.window = ikkuna; vm.createContext(ikkuna);
-    for (const f of libit) vm.runInContext(readFileSync(join(juuri, f), 'utf8'), ikkuna);
+    for (const f of libit) vm.runInContext(lueKuori(f), ikkuna);
     return { ikkuna, varoitukset, viestit };
   };
   const PERUS = ['lib/tm_eerikkila_normit.js', 'lib/tm_phv_tila.js', 'lib/tm_idp.js', 'lib/tm_koti_luvut.js'];   // EI tm_normisto.js

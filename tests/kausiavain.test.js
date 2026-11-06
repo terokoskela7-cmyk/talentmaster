@@ -13,6 +13,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
@@ -269,7 +271,7 @@ describe('(8) kovakoodattu kausilaskenta ei saa palata', () => {
     const osumat = [];
     TIEDOSTOT.forEach((f) => {
       if (SALLITUT.indexOf(f) >= 0) return;
-      const s = readFileSync(join(juuri, f), 'utf8');
+      const s = lueKuori(f);
       s.split('\n').forEach((rivi, i) => {
         if (/getMonth\(\)\s*>=\s*6/.test(rivi)) osumat.push(f + ':' + (i + 1) + ' ' + rivi.trim().slice(0, 90));
       });

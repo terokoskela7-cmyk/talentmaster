@@ -4,9 +4,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const S = require('../lib/tm_sisainen.js');
-const SEURA = readFileSync(new URL('../TalentMaster_Seura.html', import.meta.url), 'utf8');
+const SEURA = lueKuori('TalentMaster_Seura.html');
 
 function funktio(nimi) {
   const a = SEURA.indexOf('async function ' + nimi + '('); expect(a, nimi).toBeGreaterThan(0);

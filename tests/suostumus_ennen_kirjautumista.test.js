@@ -11,6 +11,8 @@ import { dirname, join } from 'path';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { PEL_APU } from './helpers/pelaaja_t.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const require_ = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -18,7 +20,7 @@ const K = require_('../functions/pelaajakirjautuminen.js');
 const P = require_('../functions/pelaajapin.js');
 const { suostumusAnnettu } = require_('../functions/suostumus.js');
 const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
-const lue = (f) => readFileSync(join(ROOT, f), 'utf8');
+const lue = (f) => lueKuori(f);
 
 class HttpsError extends Error { constructor(code, msg, details) { super(msg); this.code = code; this.details = details; } }
 const FieldValue = { serverTimestamp: () => 'TS', increment: (n) => ({ __inc: n }) };

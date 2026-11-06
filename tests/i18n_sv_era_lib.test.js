@@ -9,8 +9,10 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { S67, E80AVAIN } from './helpers/era67_korvatut.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
-const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+const lue = (f) => lueKuori(f);
 const ERA = JSON.parse(lue('docs/i18n/sv_kaannoserae_2026-10-08.json'));
 const LIB = require('../lib/tm_lib_i18n.js');
 const SV = LIB.TM_LIB_I18N.sv;

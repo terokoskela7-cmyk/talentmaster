@@ -12,12 +12,15 @@
 
 const { spawnSync } = require('child_process');
 const { join } = require('path');
+const { existsSync } = require('fs');
 const { tarjoiltavatAppit } = require('./tarjoiltavat_appit.js');
 
 const JUURI = join(__dirname, '..');
 const KIRJASTOT = ['lib/', 'docs/testit_indeksit.js', 'harjoitelogiikka_v4.js'];
+// Kuorista siirretty koodi (rivikattojen purku). Mukana vasta kun kansio on olemassa (S1+).
+const KUORIOSAT = ['seura/'].filter((k) => existsSync(join(JUURI, k)));
 
-const kohteet = [...tarjoiltavatAppit(JUURI), ...KIRJASTOT];
+const kohteet = [...tarjoiltavatAppit(JUURI), ...KIRJASTOT, ...KUORIOSAT];
 
 const r = spawnSync('npx', ['eslint', '--no-warn-ignored', ...kohteet], {
   cwd: JUURI,

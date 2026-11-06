@@ -3,8 +3,10 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'fs';
 import { createRequire } from 'module';
 import { VOIMA, JUOKSU, SUUNNANMUUTOS } from './helpers/k4d_fixturet.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
-const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+const lue = (f) => lueKuori(f);
 const N = require('../lib/tm_eerikkila_normit.js');
 globalThis.normiIka = N.normiIka;
 const TC = require('../lib/tm_todistekortit.js'), FP = require('../lib/tm_fyysinen_profiili.js'), L = require('../lib/tm_naytto_lohkot.js'), FI = require('../lib/tm_todistekortit_fi.js');

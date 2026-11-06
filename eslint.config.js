@@ -158,6 +158,17 @@ module.exports = [
     },
     rules: { 'no-undef': 'error' },
   },
+  // Kuorista siirretty selainkoodi (seura/*.js, rivikattojen purku): tavallisia <script src> -skriptejä samassa
+  // globaalissa näkymässä kuin kuoren inline-koodi → samat säännöt kuin HTML-lohkoille.
+  {
+    files: ['seura/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: COMMON,
+    },
+    rules: { 'no-undef': 'error' },
+  },
   // HTML inline <script> -lohkot (selain-skriptejä): no-undef-portti.
   {
     files: ['*.html'],

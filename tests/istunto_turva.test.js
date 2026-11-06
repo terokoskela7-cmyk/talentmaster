@@ -9,10 +9,12 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { lataaSivu } from './helpers/sivu_ajuri.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const I = require('../lib/tm_istunto.js');
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (f) => readFileSync(join(juuri, f), 'utf8');
+const lue = (f) => lueKuori(f);
 const SIVUT = { Seura: lue('TalentMaster_Seura.html'), Admin: lue('TalentMaster_Admin.html'), Master: lue('TalentMaster_Master_v16.html'), VP: lue('TalentMaster_VP_v25.html'), Valmennusapuri: lue('TalentMaster_Valmennusapuri.html'), Excel_Tuonti: lue('TalentMaster_Excel_Tuonti.html') };
 
 describe('lib/tm_istunto.js', () => {
