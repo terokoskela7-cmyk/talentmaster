@@ -134,12 +134,15 @@ export function poistaNimet(teksti, nimet) {
 }
 /* Suomi sv-ajossa: sallittu → ohitetaan · sv-baselinessa (tunnettu, PM:n sv-erä odottaa; tools/i18n/sv_lapiajo_baseline.json) → varoitus · muu → virhe.
    opts.nimet = seed-datan nimet: tunnistetaan vain nimien jälkeen jäävä teksti. */
+/* Baseline-vertailu ilman numeroita: QG-1 mittaa kiinteällä kellolla ja fixture-datalla, tuotannossa päivä ja luvut vaihtelevat
+   ("Kehitystilanne · koko vuosi 2026 · päivitetty 14.10.2026", "0 / 0 tavoitetta raiteilla"). Sama teksti eri luvuilla = sama baselinen teksti. */
+export const ilmanLukuja = (s) => avain(s).replace(/\d+/g, '#');
 export function svLoydot(tekstit, opts) {
-  const o = opts || {}, base = new Set(((o.baseline && o.baseline.tekstit) || []).map(avain)), uudet = [], tunnetut = [], nahty = new Set();
+  const o = opts || {}, base = new Set(((o.baseline && o.baseline.tekstit) || []).map(ilmanLukuja)), uudet = [], tunnetut = [], nahty = new Set();
   for (const t0 of tekstit || []) {
     const t = norm(t0); if (!t || nahty.has(avain(t))) continue; nahty.add(avain(t));
     if (onSallittu(t, o.sallitut) || !onkoSuomea(poistaNimet(t, o.nimet)).fi) continue;
-    (base.has(avain(t)) ? tunnetut : uudet).push(t);
+    (base.has(ilmanLukuja(t)) ? tunnetut : uudet).push(t);
   }
   return { uudet, tunnetut };
 }
