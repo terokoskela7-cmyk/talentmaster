@@ -115,11 +115,11 @@ describe('Vanhempi_v2 — vahvistusportti ennen lapsen dataa (email_verified a)'
     expect(pura(VA, 'async function _vanhLahetaVahvistus(')).toContain("if (tila === 'jo_vahvistettu') { await _vanhPaivitaVahvistus(); return; }");
     expect((VA.match(/await _haeViimeisinKirjaus\(\)/g) || []).length).toBe(1);   // ainoa kutsu = portin sisällä
   });
-  it('uusi avain fi + en, sv odotuslistalla (erä 97, PM kirjoittaa)', () => {
+  it('uusi avain fi + en + sv (erä 97, PM:n palautus viety; ei odotuslistalla)', () => {
     expect(LANG.TM_LANG.fi.vanhempi.vahvista_sahkoposti_yleinen).toBe('Vahvista sähköpostisi, niin näet lapsesi tiedot');
     expect(LANG.TM_LANG.en.vanhempi.vahvista_sahkoposti_yleinen).toBe("Verify your email to see your child's information");
-    expect(LANG.TM_LANG.sv.vanhempi.vahvista_sahkoposti_yleinen).toBeUndefined();
-    expect(require('./tm_lang_sv_odotuslista.cjs')).toContain('vanhempi.vahvista_sahkoposti_yleinen');
+    expect(LANG.TM_LANG.sv.vanhempi.vahvista_sahkoposti_yleinen).toBe(JSON.parse(lue('docs/i18n/sv_kaannoserae_97_palautus.json')).osiot.tm_lang.rivit['vanhempi.vahvista_sahkoposti_yleinen'].sv);
+    expect(require('./tm_lang_sv_odotuslista.cjs')).not.toContain('vanhempi.vahvista_sahkoposti_yleinen');
     const era = JSON.parse(lue('docs/i18n/sv_kaannoserae_97_gemini.json'));
     expect(era.osiot.tm_lang.rivit['vanhempi.vahvista_sahkoposti_yleinen']).toMatchObject({ fi: 'Vahvista sähköpostisi, niin näet lapsesi tiedot', sv: '' });
   });
