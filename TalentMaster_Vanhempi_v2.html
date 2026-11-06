@@ -313,6 +313,7 @@ function draw(){
   const pb=document.getElementById('phBody');
   let html='';
   if(_sc==='login') html=rLogin();
+  else if(window._vanhVahvistamatta===true) { pb.innerHTML='<div class="scene">'+_vanhVahvistaPorttiHTML()+'</div>'; return; }   // email_verified (a): ei lapsen dataa, ei välilehtiä ennen vahvistusta
   else if(_sc==='koti') html=(_vSuostumusPeruttu(window._lapsi) ? _vanhPeruttuHTML() : rKoti());   // B9: perutulla vain tila + ohje
   else if(_sc==='viikko') html=rViikko();
   else if(_sc==='kirjaa') html=rKirjaa();
@@ -685,14 +686,39 @@ async function _vanhLahetaVahvistus() {
   try {
     var r = await window._fbApp.functions('europe-west1').httpsCallable('lahetaVahvistuslinkkiItselle')();
     var tila = r && r.data && r.data.tila;
-    if (tila === 'jo_vahvistettu') { _vanhKalYritaUudelleen(); return; }
+    if (tila === 'jo_vahvistettu') { await _vanhPaivitaVahvistus(); return; }
     _toast(t(tila === 'odota' ? 'vanhempi.vahvistus_odota' : 'vanhempi.vahvistus_lahetetty'));
   } catch (e) { console.warn('[vanh vahvistus]', e && (e.code || ''), e && e.message); _toast(t('vanhempi.vahvistus_ei_onnistunut')); }
 }
 async function _vanhPaivitaVahvistus() {
   var cu = _auth && _auth.currentUser;
   if (cu) { try { await cu.reload(); } catch (e) { /* offline */ } }
-  if (cu && cu.emailVerified !== false) _vanhKalYritaUudelleen(); else _toast(t('vanhempi.vahvistus_ei_viela'));
+  if (!cu || cu.emailVerified === false) { _toast(t('vanhempi.vahvistus_ei_viela')); return; }
+  try { await cu.getIdToken(true); } catch (e) { /* ei estä */ }   // reload päivittää vain käyttäjäolion; token kantaa email_verified:false:a kunnes se pakotetaan
+  if (window._vanhVahvistamatta === true) { await _vanhAvaaVahvistettuna(); return; }   // portti auki → lapsen data vasta nyt
+  _vanhKalYritaUudelleen();
+}
+/* email_verified (a), PM 6.11.2026: Rules v3.81 vaatii huoltajan luvuilta ja kirjoituksilta email_verified == true. Vahvistamaton huoltaja näkee vain portin:
+   ei haeLapsiHuoltajalle-kutsua, ei Firestore-lukuja (muuten permission-denied → harhaanjohtava "lapsen haku epäonnistui" ja hiljaa tyhjät näkymät).
+   Vahvistuksen jälkeen ID-token päivitetään (getIdToken(true)), koska vanha token kantaa email_verified:false:a jopa tunnin. */
+async function _vanhAvaaVahvistettuna() {
+  var cu = _auth && _auth.currentUser;
+  if (cu && cu.emailVerified === false) {
+    try { await cu.reload(); } catch (e) { /* offline → käytä tunnettua tilaa */ }
+    if (cu.emailVerified === false) { window._vanhVahvistamatta = true; if (typeof draw === 'function') draw(); return; }
+    try { await cu.getIdToken(true); } catch (e) { /* ei estä */ }
+  }
+  window._vanhVahvistamatta = false;
+  if (typeof draw === 'function') draw();
+  await _haeViimeisinKirjaus();
+}
+function _vanhVahvistaPorttiHTML() {
+  return '<div class="scroll"><div class="card2" style="padding:20px;margin:16px 0">'
+    + '<div style="font-family:var(--font-d);font-size:22px;line-height:1.2;color:var(--text);margin-bottom:8px">' + _vEsc(t('vanhempi.vahvista_sahkoposti_yleinen')) + '</div>'
+    + '<div style="font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:14px">' + _vEsc(t('vanhempi.vahvista_sahkoposti_ohje')) + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px">' + _vanhKalNappi('_vanhLahetaVahvistus', t('vanhempi.laheta_vahvistus_uudelleen'), true) + _vanhKalNappi('_vanhPaivitaVahvistus', t('vanhempi.olen_vahvistanut'), false) + '</div>'
+    + '<button onclick="_kirjauduUlos()" style="margin-top:18px;padding:8px 0;background:transparent;border:none;color:var(--ink2);font-size:13px;text-decoration:underline;cursor:pointer">' + _vEsc(t('vanhempi.aset_kirjaudu_ulos')) + '</button>'
+    + '</div></div>';
 }
 function _vanhKalYritaUudelleen() { window._vanhKalenteri = null; window._vanhKalLadattu = false; window._vanhKalTila = null; if (typeof draw === 'function') draw(); }
 window._vanhLahetaVahvistus = _vanhLahetaVahvistus; window._vanhPaivitaVahvistus = _vanhPaivitaVahvistus; window._vanhKalYritaUudelleen = _vanhKalYritaUudelleen;
@@ -1624,8 +1650,9 @@ try {
         draw();
         setTimeout(function () { _tmPwaKehote(t('vanhempi.pwa_vanhempi_sivu')); }, 1500);   // kirjautumisen jälkeen, ei login-ruudussa
       }
-      await _haeViimeisinKirjaus();
+      await _vanhAvaaVahvistettuna();   // email_verified (a): portti ennen lapsen datan latausta
     } else {
+      window._vanhVahvistamatta = null;
       // Ei sessiota TAI anonyymi sessio → pysy login-näkymässä
       // Anonyymi on vain Firestore-rules-apuri, ei oikea kirjautuminen
       if (_sc === 'login') draw(); // renderöi login jos ei vielä renderöity
@@ -2184,6 +2211,7 @@ function _kirjauduUlos() {
   } catch(e) {}
   _lapsiPyynto++;   // keskeneräiset lataukset hylätään
   _lapsiTilaNollaa();
+  window._vanhVahvistamatta = null;
   window._lapsetLista = [];
   _sc = 'login';
   draw();
