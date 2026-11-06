@@ -66,6 +66,69 @@ describe('Vanhempi_v2 — vahvistamaton sähköposti', () => {
   });
 });
 
+/* email_verified (a), PM 6.11.2026: koko sovelluksen portti ennen lapsen datan latausta (Rules v3.81 vaatii email_verified == true). */
+function portti({ vahvistettu, vahvistuuReloadissa }) {
+  const loki = { jarjestys: [], toastit: [], db: 0, kutsut: [] };
+  const cu = { emailVerified: vahvistettu, reload: async () => { loki.jarjestys.push('reload'); if (vahvistuuReloadissa) cu.emailVerified = true; }, getIdToken: async (f) => { loki.jarjestys.push('token:' + f); } };
+  const pb = { innerHTML: '' };
+  const ctx = { console: { warn() {} }, Object, String, t: LANG.t, _sc: 'koti', _toast: (x) => loki.toastit.push(x),
+    document: { getElementById: () => pb }, _auth: { currentUser: cu },
+    _haeViimeisinKirjaus: async () => { loki.jarjestys.push('lataa'); }, rTabs: () => 'TABS', rKoti: () => 'KOTI', _vSuostumusPeruttu: () => false, _lapsiValitsinHTML: () => '',
+    _vanhKalYritaUudelleen: () => { loki.jarjestys.push('kalenteri'); },
+    window: { _fbApp: { functions: () => ({ httpsCallable: (n) => async () => { loki.kutsut.push(n); return { data: { tila: 'lahetetty' } }; } }) } } };
+  ctx.window._db = new Proxy({}, { get: () => { loki.db++; return () => ({}); } });
+  vm.createContext(ctx);
+  vm.runInContext(['async function _vanhAvaaVahvistettuna(', 'async function _vanhPaivitaVahvistus(', 'function _vanhVahvistaPorttiHTML(', 'function _vanhKalNappi(', 'function draw(', 'function _vEsc(s) {'].map((a) => pura(VA, a)).join('\n')
+    + '\nthis.avaa=_vanhAvaaVahvistettuna; this.paivita=_vanhPaivitaVahvistus; this.draw=draw;', ctx);
+  return { ctx, loki, pb };
+}
+
+describe('Vanhempi_v2 — vahvistusportti ennen lapsen dataa (email_verified a)', () => {
+  it('vahvistamaton: EI lapsen latausta eikä Firestorea, portti näkyy ilman välilehtiä (otsikko, ohje, napit, kirjaudu ulos)', async () => {
+    const e = portti({ vahvistettu: false });
+    await e.ctx.avaa();
+    expect(e.loki.jarjestys).toEqual(['reload']); expect(e.loki.db).toBe(0); expect(e.loki.kutsut).toEqual([]);
+    expect(e.ctx.window._vanhVahvistamatta).toBe(true);
+    for (const s of ['Vahvista sähköpostisi, niin näet lapsesi tiedot', 'Lähetimme osoitteeseesi vahvistuslinkin', 'Lähetä linkki uudelleen', 'Olen vahvistanut — päivitä', '_vanhLahetaVahvistus()', '_vanhPaivitaVahvistus()', '_kirjauduUlos()', 'Kirjaudu ulos']) expect(e.pb.innerHTML).toContain(s);
+    expect(e.pb.innerHTML).not.toContain('TABS'); expect(e.pb.innerHTML).not.toContain('KOTI');
+  });
+  it('vahvistui toisessa välilehdessä (reload → true): token päivitetään ENNEN lapsen latausta', async () => {
+    const e = portti({ vahvistettu: false, vahvistuuReloadissa: true }); await e.ctx.avaa();
+    expect(e.loki.jarjestys).toEqual(['reload', 'token:true', 'lataa']); expect(e.ctx.window._vanhVahvistamatta).toBe(false);
+  });
+  it('vahvistettu: ennallaan (ei reloadia eikä tokenin pakotusta, lapsi ladataan, koti + välilehdet)', async () => {
+    const e = portti({ vahvistettu: true }); await e.ctx.avaa();
+    expect(e.loki.jarjestys).toEqual(['lataa']); expect(e.pb.innerHTML).toContain('KOTI'); expect(e.pb.innerHTML).toContain('TABS');
+  });
+  it('"Olen vahvistanut — päivitä" portissa: ei vielä → toast, portti pysyy; vahvistunut → token + lapsen lataus (ei pelkkä kalenteri)', async () => {
+    const e = portti({ vahvistettu: false }); await e.ctx.avaa();
+    await e.ctx.paivita();
+    expect(e.loki.toastit).toEqual(['Osoitetta ei ole vielä vahvistettu.']); expect(e.ctx.window._vanhVahvistamatta).toBe(true); expect(e.loki.jarjestys).not.toContain('lataa');
+    e.ctx._auth.currentUser.reload = async () => { e.ctx._auth.currentUser.emailVerified = true; };
+    e.loki.jarjestys.length = 0; await e.ctx.paivita();
+    expect(e.loki.jarjestys).toEqual(['token:true', 'lataa']); expect(e.ctx.window._vanhVahvistamatta).toBe(false);
+  });
+  it('kytkentä: kirjautuminen kulkee portin kautta, uloskirjautuminen nollaa tilan, "jo vahvistettu" avaa portin', () => {
+    const auth = VA.slice(VA.indexOf('_auth.onAuthStateChanged(async (user) =>'), VA.indexOf('_auth.onAuthStateChanged(async (user) =>') + 1600);
+    expect(auth).toContain('await _vanhAvaaVahvistettuna();'); expect(auth).not.toMatch(/await _haeViimeisinKirjaus\(\)/); expect(auth).toContain('window._vanhVahvistamatta = null;');
+    expect(pura(VA, 'function _kirjauduUlos(')).toContain('window._vanhVahvistamatta = null;');
+    expect(pura(VA, 'async function _vanhLahetaVahvistus(')).toContain("if (tila === 'jo_vahvistettu') { await _vanhPaivitaVahvistus(); return; }");
+    expect((VA.match(/await _haeViimeisinKirjaus\(\)/g) || []).length).toBe(1);   // ainoa kutsu = portin sisällä
+  });
+  it('uusi avain fi + en + sv (erä 97, PM:n palautus viety; ei odotuslistalla)', () => {
+    expect(LANG.TM_LANG.fi.vanhempi.vahvista_sahkoposti_yleinen).toBe('Vahvista sähköpostisi, niin näet lapsesi tiedot');
+    expect(LANG.TM_LANG.en.vanhempi.vahvista_sahkoposti_yleinen).toBe("Verify your email to see your child's information");
+    expect(LANG.TM_LANG.sv.vanhempi.vahvista_sahkoposti_yleinen).toBe(JSON.parse(lue('docs/i18n/sv_kaannoserae_97_palautus.json')).osiot.tm_lang.rivit['vanhempi.vahvista_sahkoposti_yleinen'].sv);
+    expect(require('./tm_lang_sv_odotuslista.cjs')).not.toContain('vanhempi.vahvista_sahkoposti_yleinen');
+    const era = JSON.parse(lue('docs/i18n/sv_kaannoserae_97_gemini.json'));
+    expect(era.osiot.tm_lang.rivit['vanhempi.vahvista_sahkoposti_yleinen']).toMatchObject({ fi: 'Vahvista sähköpostisi, niin näet lapsesi tiedot', sv: '' });
+  });
+  it('haeLapsiHuoltajalle ei kirjoita sähköpostia lokiin (vain uid)', () => {
+    const f = lue('functions/index.js'), i = f.indexOf('exports.haeLapsiHuoltajalle'), lohko = f.slice(i, f.indexOf('\n  });', i));
+    expect(lohko).toContain("console.error('[haeLapsiHuoltajalle]', context.auth.uid, e.message);"); expect(lohko).not.toMatch(/console\.\w+\([^)]*\bemail\b/);
+  });
+});
+
 describe('Luontipolku ja SA-työkalu', () => {
   it('Rekisterointi_Suostumus: ohje mainitsee 1 h voimassaolon ja "Unohdin salasanan" -polun (uutta linkkiä ei tarvitse pyytää seuralta)', () => {
     const r = lue('TalentMaster_Rekisterointi_Suostumus.html'); expect(r).toContain('Linkki on voimassa 1 tunnin.'); expect(r).toContain('Unohdin salasanan'); expect(r).toContain('TalentMaster_Vanhempi_v2.html');

@@ -35,6 +35,9 @@ describe('Vanhempi_v2 · nimetty appi, ei anonyymiä', () => {
     const i = KOODI.indexOf('_auth.onAuthStateChanged(async (user) => {');
     const b = KOODI.slice(i, i + 900);
     expect(b).toContain('if (user && !user.isAnonymous) {');
-    expect(b.indexOf('await _haeViimeisinKirjaus()')).toBeGreaterThan(b.indexOf('if (user && !user.isAnonymous) {'));
+    // email_verified (a): lataus kulkee vahvistusportin kautta (_vanhAvaaVahvistettuna → _haeViimeisinKirjaus vasta vahvistetulle)
+    expect(b.indexOf('await _vanhAvaaVahvistettuna()')).toBeGreaterThan(b.indexOf('if (user && !user.isAnonymous) {'));
+    const p = KOODI.slice(KOODI.indexOf('async function _vanhAvaaVahvistettuna('), KOODI.indexOf('function _vanhVahvistaPorttiHTML('));
+    expect(p.indexOf('await _haeViimeisinKirjaus()')).toBeGreaterThan(p.indexOf("window._vanhVahvistamatta = false;"));
   });
 });
