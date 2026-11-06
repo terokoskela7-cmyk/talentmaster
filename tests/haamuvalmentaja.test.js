@@ -14,6 +14,8 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { lisaaPaikkamerkki, onPaikkamerkkiOsoite } from './_paikkamerkkiCtx.mjs';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1)
 import { createRequire as _kuoriReq } from 'module';
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
@@ -21,10 +23,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
 const { kayttajaRooliSallittu } = require_(join(ROOT, 'functions', 'authz_paatos.js'));
 const lue = (n) => lueKuori(n);
-const CF = lue('functions/index.js');
+const CF = lueFunctionsLahde(ROOT);
 class HttpsError extends Error { constructor(c, m, d) { super(m); this.code = c; this.details = d; } }
 const valilta = (alku, loppu) => { const i = CF.indexOf(alku); const j = CF.indexOf(loppu, i); if (i < 0 || j < 0) throw new Error('ei löydy: ' + alku); return CF.slice(i, j); };
-const runko = (nimi) => { const i = CF.indexOf('exports.' + nimi + ' = functions'); return CF.slice(i, CF.indexOf('\n  });', i) + 6); };
+const runko = (nimi) => _fnRunko(CF, nimi);
 
 function luoKayttaja(alku, authUsers) {
   const f = fakeDb(alku);
@@ -46,7 +48,7 @@ function luoKayttaja(alku, authUsers) {
   vm.createContext(ctx);
   vm.runInContext(valilta('async function tarkistaOikeus(', '// ─────────────────────────────────────────────────────────────────────────────\n// APUFUNKTIOT: henkilökunnan')
     + valilta('function uusiValiaikainenSalasana(', 'async function haeOrLuoHuoltajaAuth(')
-    + valilta('async function onSuperAdminUid(', 'const _authEiLoydy') + '\n'
+    + valilta('async function onSuperAdminUid(', '// ─────────────────────────────────────────────────────────────────────────────\n// APUFUNKTIO: Hae tai luo') + '\n'
     + valilta('const SALLITUT_ROOLIT_VAIHTO', 'exports.vaihdaKayttajanRooli') + '\n' + runko('luoKayttaja'), ctx);
   return { f, loki, fn: ctx.exports.luoKayttaja };
 }

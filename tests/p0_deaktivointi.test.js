@@ -10,19 +10,21 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1)
 import { createRequire as _kuoriReq } from 'module';
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
 const { kayttajaRooliSallittu, kayttajaRooliClaimeista } = require_(join(ROOT, 'functions', 'authz_paatos.js'));
-const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
+const CF = lueFunctionsLahde(ROOT);
 const ADMIN = readFileSync(join(ROOT, 'TalentMaster_Admin.html'), 'utf8');
 const SEURA = lueKuori('TalentMaster_Seura.html');
 
 class HttpsError extends Error { constructor(c, m) { super(m); this.code = c; } }
 const valilta = (alku, loppu) => { const i = CF.indexOf(alku); const j = CF.indexOf(loppu, i); if (i < 0 || j < 0) throw new Error('ei löydy: ' + alku); return CF.slice(i, j); };
-const runko = (nimi) => { const i = CF.indexOf('exports.' + nimi + ' = functions'); if (i < 0) throw new Error(nimi); return CF.slice(i, CF.indexOf('\n  });', i) + 6); };
+const runko = (nimi) => _fnRunko(CF, nimi);
 
 function ymparisto(alku, authUsers) {
   const f = fakeDb(alku);
@@ -42,6 +44,7 @@ function ymparisto(alku, authUsers) {
   vm.createContext(ctx);
   vm.runInContext(valilta('async function tarkistaOikeus(', '// ─────────────────────────────────────────────────────────────────────────────\n// APUFUNKTIOT: henkilökunnan')
     + valilta('async function onSuperAdminUid(', '// ─────────────────────────────────────────────────────────────────────────────\n// APUFUNKTIO: Hae tai luo')
+    + valilta('const _authEiLoydy', 'exports.luoKayttaja = (async')
     + valilta('const SALLITUT_ROOLIT_VAIHTO', 'exports.vaihdaKayttajanRooli') + '\n'
     + ['deaktivioiKayttaja', 'aktivoiKayttaja', 'poistaKayttaja', 'vaihdaKayttajanRooli'].map(runko).join('\n'), ctx);
   const audit = () => [...f.D.entries()].filter(([k]) => k.startsWith('audit/')).map(([, v]) => v);

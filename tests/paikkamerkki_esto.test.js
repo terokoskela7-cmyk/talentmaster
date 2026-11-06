@@ -9,6 +9,8 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { ESTA_LAHDE, lisaaPaikkamerkki } from './_paikkamerkkiCtx.mjs';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1)
 import { createRequire as _kuoriReq } from 'module';
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
@@ -16,7 +18,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
 const CFM = require_(join(ROOT, 'functions', 'paikkamerkki.js'));
 const LIB = require_(join(ROOT, 'lib', 'tm_paikkamerkki.js'));
-const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
+const CF = lueFunctionsLahde(ROOT);
 const SEURA = lueKuori('TalentMaster_Seura.html');
 
 describe('domainlista ja tunnistus', () => {
@@ -63,7 +65,7 @@ describe('haeOrLuoHuoltajaAuth (ajettu)', () => {
 });
 
 describe('palvelimen kutsukohdat', () => {
-  const runko = (nimi) => { const i = CF.indexOf('exports.' + nimi + ' = functions'); return CF.slice(i, CF.indexOf('\n  });', i)); };
+  const runko = (nimi) => _fnRunko(CF, nimi, true);
   it('luoKayttaja tarkistaa ennen tarkistaOikeutta ja Auth-hakua', () => {
     const r = runko('luoKayttaja');
     expect(r.indexOf('estaPaikkamerkkiOsoite(email);')).toBeGreaterThan(-1);
@@ -106,7 +108,7 @@ describe('Seura-sivu', () => {
 /* Kutsufunktiot ajettuna (oikea lähde): paikkamerkkiosoite hylätään oikeustarkistuksen JÄLKEEN (anonyymi saa yhä
    permission-denied, ei tietoa osoitteesta) ja ENNEN sähköpostia, kutsudokumenttia tai audit-riviä. */
 describe('lahetaRekisteriKutsu / lahetaHuoltajaKutsu (ajettu)', () => {
-  const runko = (nimi) => { const i = CF.indexOf('exports.' + nimi + ' = functions'); return CF.slice(i, CF.indexOf('\n  });', i) + 6); };
+  const runko = (nimi) => _fnRunko(CF, nimi);
   const VP = { uid: 'vp-1', token: { seuraId: 'kpv', rooli: 'vp', email: 'vp@tm-testi.fi' } };
   function aja(nimi, sallittu = true) {
     const loki = { sposti: 0, kirjoitukset: 0 };
