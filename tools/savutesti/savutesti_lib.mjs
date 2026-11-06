@@ -181,6 +181,22 @@ export function liitaPyynnot(viestit, pyynnot) {
     return o;
   });
 }
+/* Firestoren Listen-kanavan uusinta (WebChannel avaa yhteyden uudelleen → vanhan istunnon pyyntö saa 400/404) on kohinaa (PM 6.11.:
+   VP Koti sv, aiemmin P7). Sallitaan VAIN tämä osoite ja VAIN status 400/404, ja vain kun näkymä muuten valmistui; muut 400/404 kaatavat.
+   v = liitaPyynnot()-rivi: status pyynnöstä, muuten konsolitekstistä ("status of 400"). */
+export const LISTEN_KANAVA_RE = /^https:\/\/firestore\.googleapis\.com\/(?:[^?#]*\/)?Listen\/channel$/;
+export function onListenKohina(v) {
+  if (!v || !LISTEN_KANAVA_RE.test(ilmanQuerya((v.pyynto && v.pyynto.url) || v.url || ''))) return false;
+  const s = v.pyynto ? Number(v.pyynto.status) : Number((String(v.teksti || '').match(/status of (\d{3})\b/) || [])[1]);
+  return s === 400 || s === 404;
+}
+/* → { virheet (kaatavat), kohina (sallitut Listen-uusinnat, näkyvät ⚠:na) }. valmistui = false → kaikki pysyvät virheinä. */
+export function erotaListenKohina(virheet, valmistui) {
+  const kaikki = virheet || [];
+  if (!valmistui) return { virheet: kaikki, kohina: [] };
+  return { virheet: kaikki.filter((v) => !onListenKohina(v)), kohina: kaikki.filter(onListenKohina) };
+}
+
 /* Virheen näyttöteksti: pyyntö (status metodi URL) jos tiedossa, muuten konsolin teksti. Samat rivit kootaan (×n). */
 export function virheRivit(virheet) {
   const m = new Map();
@@ -189,7 +205,7 @@ export function virheRivit(virheet) {
 }
 
 /* nakyma.ohitettu = syy (näkymää ei ajettu, esim. lippu pois) → kaikki tarkistukset '–', ei kaada yksinään.
-   nakyma = { nimi, kieli, sivu, virheet:[], lohkot:{ ok, puuttuu:[] }, sv?:{uudet,tunnetut}, lippu?:{ ok, syy }, kirjoitukset:{ tuntemattomat:[], tunnetut:[], verkko:[] }, vartija:bool, kaatui? }
+   nakyma = { nimi, kieli, sivu, virheet:[], listenKohina?:[], lohkot:{ ok, puuttuu:[] }, sv?:{uudet,tunnetut}, lippu?:{ ok, syy }, kirjoitukset:{ tuntemattomat:[], tunnetut:[], verkko:[] }, vartija:bool, kaatui? }
    → { virheet, lohkot, kieli, lippu, kirjoitukset }: kukin { tila: 'ok'|'varoitus'|'virhe'|'-', tieto } */
 export function arvioi(n) {
   const t = (tila, tieto) => ({ tila, tieto: tieto || '' });
@@ -197,7 +213,7 @@ export function arvioi(n) {
   if (n.kaatui) { const k = t('virhe', n.kaatui); return { virheet: k, lohkot: k, kieli: n.kieli === 'sv' ? k : t('-'), lippu: n.lippu ? k : t('-'), kirjoitukset: k }; }
   const kirj = n.kirjoitukset || { tuntemattomat: [], tunnetut: [], verkko: [] };
   return {
-    virheet: (n.virheet || []).length ? t('virhe', virheRivit(n.virheet).slice(0, 5).join(' | ')) : t('ok'),
+    virheet: (n.virheet || []).length ? t('virhe', virheRivit(n.virheet).slice(0, 5).join(' | ')) : (n.listenKohina || []).length ? t('varoitus', 'Listen-kanavan uusinta sallittu: ' + virheRivit(n.listenKohina).slice(0, 3).join(' | ')) : t('ok'),
     lohkot: n.lohkot && n.lohkot.ok ? t('ok') : t('virhe', 'puuttuu: ' + ((n.lohkot && n.lohkot.puuttuu) || []).join(', ')),
     kieli: n.kieli !== 'sv' ? t('-') : n.sv && n.sv.uudet.length ? t('virhe', n.sv.uudet.slice(0, 8).join(' | ')) : n.sv && n.sv.tunnetut.length ? t('varoitus', n.sv.tunnetut.length + ' tunnettua (sv-baseline)') : t('ok'),
     lippu: !n.lippu ? t('-') : n.lippu.ok ? t('ok') : t('virhe', n.lippu.syy),

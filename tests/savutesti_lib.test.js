@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import vm from 'vm';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, poistaNimet, konsoliVirheet, ilmanQuerya, pyyntoRivi, epaonnistuneetPyynnot, liitaPyynnot, virheRivit, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
+import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, poistaNimet, konsoliVirheet, ilmanQuerya, pyyntoRivi, epaonnistuneetPyynnot, liitaPyynnot, erotaListenKohina, onListenKohina, virheRivit, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
 import { aja } from '../tools/savutesti/savutesti.mjs';
 import { createRequire } from 'module';
 const { SALLITUT_NIMET } = createRequire(import.meta.url)('../scripts/savutesti_seura_luo.js');
@@ -239,6 +239,42 @@ describe('QG-3 · epäonnistuneet pyynnöt (metodi + status + URL ilman queryä)
     expect(src).toMatch(/p\.on\('response'/); expect(src).toMatch(/r\.status\(\)/); expect(src).toMatch(/r\.request\(\)\.method\(\)/);
     expect(src).toMatch(/p\.on\('requestfailed'/);
     expect(src).toMatch(/liitaPyynnot\(/); expect(src).toMatch(/epaonnistuneetPyynnot\(/);
+  });
+});
+
+describe('PM 6.11. · Listen-kanavan uusinta 400/404 sallittu vain valmistuneessa näkymässä', () => {
+  const L = FS + '/google.firestore.v1.Firestore/Listen/channel';
+  const q = (rid) => L + '?VER=8&gsessionid=abc&SID=s1&RID=' + rid;
+  const fail = (url, status) => ({ tyyppi: 'console', teksti: 'Failed to load resource: the server responded with a status of ' + status + ' ()', url });
+  const liita = (rivit) => liitaPyynnot(rivit.map(([u, s]) => fail(u, s)), rivit.map(([u, s]) => ({ metodi: 'POST', url: u, status: s })));
+  const PERUS = { nimi: 'VP Koti', kieli: 'sv', lohkot: { ok: true, puuttuu: [] }, sv: { uudet: [], tunnetut: [] }, vartija: true, kirjoitukset: { tuntemattomat: [], tunnetut: [], verkko: [] } };
+  it('vain firestore.googleapis.com/…/Listen/channel ja vain 400/404', () => {
+    const v = liita([[q(1), 400], [q(2), 404], [q(3), 403], [q(4), 500], [FS + '/google.firestore.v1.Firestore/Write/channel?x=1', 400],
+      [FS + '/v1/projects/p/databases/(default)/documents:runQuery', 404], ['https://evil.example/google.firestore.v1.Firestore/Listen/channel', 400], [CF + 'x', 404]]);
+    expect(v.map(onListenKohina)).toEqual([true, true, false, false, false, false, false, false]);
+    expect(onListenKohina(fail(q(9), 404))).toBe(true);                    // ilman liitettyä pyyntöä: status konsolitekstistä
+    expect(onListenKohina({ tyyppi: 'pageerror', teksti: 'status of 400 Listen/channel' })).toBe(false);
+    expect(onListenKohina({ tyyppi: 'console', teksti: 'Failed to load resource: net::ERR_FAILED', url: q(1), pyynto: { metodi: 'POST', url: L, status: 0 } })).toBe(false);
+  });
+  it('valmistunut näkymä: kohina ⚠ (ei kaada), muut 400/404 kaatavat edelleen', () => {
+    const lk = erotaListenKohina(liita([[q(1), 400], [q(2), 404], [CF + 'x', 404]]), true);
+    expect(lk.kohina.length).toBe(2); expect(lk.virheet.map((x) => x.pyynto.status + ' ' + x.pyynto.url)).toEqual(['404 ' + CF + 'x']);
+    const vain = erotaListenKohina(liita([[q(1), 400], [q(2), 400]]), true);
+    const n = Object.assign({}, PERUS, { virheet: vain.virheet, listenKohina: vain.kohina });
+    expect(arvioi(n).virheet).toEqual({ tila: 'varoitus', tieto: 'Listen-kanavan uusinta sallittu: 400 POST ' + L + ' ×2' });
+    expect(onnistui({ nakymat: [n] })).toBe(true);
+    expect(yhteenvetoMarkdown({ nakymat: [n] })).toContain('⚠ **VP Koti (sv)** · Ei virheitä: Listen-kanavan uusinta sallittu');
+    const muu = Object.assign({}, PERUS, { virheet: lk.virheet, listenKohina: lk.kohina });
+    expect(arvioi(muu).virheet.tila).toBe('virhe'); expect(onnistui({ nakymat: [muu] })).toBe(false);
+  });
+  it('näkymä ei valmistunut: Listen 400/404 pysyy virheenä', () => {
+    const lk = erotaListenKohina(liita([[q(1), 400]]), false);
+    expect(lk.kohina).toEqual([]); expect(lk.virheet.length).toBe(1);
+  });
+  it('savutesti.mjs erottelee kohinan vain kun näkymä ei kaatunut', () => {
+    const src = readFileSync(join(JUURI, 'tools/savutesti/savutesti.mjs'), 'utf8');
+    expect(src).toMatch(/erotaListenKohina\(liitaPyynnot\(konsoliVirheet\([^\n]*\), !n\.kaatui\)/);
+    expect(src).toMatch(/n\.virheet = lk\.virheet/);
   });
 });
 

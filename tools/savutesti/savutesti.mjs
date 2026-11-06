@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { REITITA_RE, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, konsoliVirheet, epaonnistuneetPyynnot, liitaPyynnot, yhteenvetoMarkdown, issueRunko, onnistui, SECRETIT, SEURA, ESTO_VIESTI } from './savutesti_lib.mjs';
+import { REITITA_RE, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, konsoliVirheet, epaonnistuneetPyynnot, liitaPyynnot, erotaListenKohina, yhteenvetoMarkdown, issueRunko, onnistui, SECRETIT, SEURA, ESTO_VIESTI } from './savutesti_lib.mjs';
 
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SALLITUT = JSON.parse(readFileSync(join(JUURI, 'tools/savutesti/savutesti_sallitut.json'), 'utf8'));
@@ -102,7 +102,8 @@ export async function mittaa(p, def, kieli, tila, kerays) {
     if (tila.kuvat) { try { mkdirSync(tila.kuvat, { recursive: true }); await p.screenshot({ path: join(tila.kuvat, (def.nimi + '_' + kieli).replace(/[^a-z0-9_]+/gi, '_') + '.png') }); } catch (e2) { /* ei kuvaa */ } }
   }
   const pyynnot = kerays.pyynnot.splice(0);
-  n.virheet = liitaPyynnot(konsoliVirheet(kerays.viestit.splice(0), SALLITUT.konsoli, kerays.estetytUrlit), pyynnot);
+  const lk = erotaListenKohina(liitaPyynnot(konsoliVirheet(kerays.viestit.splice(0), SALLITUT.konsoli, kerays.estetytUrlit), pyynnot), !n.kaatui);   // Listen-uusinta 400/404 vain valmistuneessa näkymässä
+  n.virheet = lk.virheet; if (lk.kohina.length) n.listenKohina = lk.kohina;
   n.pyynnot = epaonnistuneetPyynnot(pyynnot, kerays.estetytUrlit);
   n.firebaseVaroitukset = kerays.varoitukset.splice(0).slice(0, 20);
   return n;
