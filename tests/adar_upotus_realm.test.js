@@ -115,7 +115,7 @@ function ajaLapsiRealmissa() {
     _phIka: () => 13,
     _nakArvo: () => 'valmentajat',
     _adarTekijaNimi: (u) => (u && u.displayName) || null,
-    _adarEstonSyy: () => 'syy',
+    _adarEstonSyy: () => 'syy', _adarPeruttu: () => false,   // B9b
     _showToast: () => {},
     _phRender: () => {},
     _luonnosTyhjenna: () => {},
