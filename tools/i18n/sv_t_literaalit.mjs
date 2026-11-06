@@ -8,6 +8,8 @@
    Avaintyyliset literaalit (tm_lang-avaimet 'yleiset.x', 'kes_alue_') eivät ole näkyvää tekstiä → ohitetaan. Puhdas funktio: lukee vain tiedostoja. */
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { createRequire } from 'module';
+const { lueKuori } = createRequire(import.meta.url)('../../scripts/kuoren_lahde.js');
 
 const KUTSU = /(?<![\w$.])(?:t|_t|masterT|vpT|_vpT|T)\(\s*'((?:[^'\\\n]|\\.){2,})'/g;
 const AVAINTYYLI = /^[a-z0-9_.]+$/i;
@@ -24,7 +26,7 @@ export function lahdetiedostot(juuri) {
 export function tLiteraalit(juuri, tunnettu) {
   const nahty = new Set(), kokonaiset = [], mallit = [];
   for (const f of lahdetiedostot(juuri)) {
-    const s = readFileSync(join(juuri, f), 'utf8');
+    const s = lueKuori(f, juuri);   // seura/-osat mukana
     for (const m of s.matchAll(KUTSU)) {
       const lit = unescape(m[1]).replace(/\s+/g, ' ').trim();
       if (nahty.has(lit)) continue; nahty.add(lit);

@@ -9,9 +9,11 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (p) => readFileSync(join(juuri, p), 'utf8');
+const lue = (p) => lueKuori(p);
 
 const SRI = 'integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB"';
 const BUNDLE = 'https://browser.sentry-cdn.com/10.58.0/bundle.min.js';

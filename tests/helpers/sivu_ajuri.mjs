@@ -9,9 +9,10 @@ import vm from 'vm';
 process.env.TZ = 'Europe/Helsinki';   // ks. master_pinfo.mjs
 const require = createRequire(import.meta.url);
 const espree = require('espree');
+const { laajennaKuori } = require('../../scripts/kuoren_lahde.js');   // seura/-osatiedostot ajetaan kuten inline-lohkot, samassa kohdassa
 const juuri = process.env.TM_SIVU_JUURI || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export function lataaSivu(htmlTiedosto, extra) {
-  const src = readFileSync(join(juuri, htmlTiedosto), 'utf8');
+  const src = laajennaKuori(readFileSync(join(juuri, htmlTiedosto), 'utf8'), juuri);
   const KIINTEA = new Date('2026-10-07T12:00:00+03:00').getTime(); class KDate extends Date { constructor(...a) { if (a.length) super(...a); else super(KIINTEA); } static now() { return KIINTEA; } }
   const ctx = { console: { warn() {}, log() {}, error() {} }, setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {}, Date: KDate, Math, JSON, Object, Array, String, Number, Promise, RegExp, Error, isFinite, isNaN, parseFloat, parseInt, Map, Set, Symbol, encodeURIComponent, decodeURIComponent, Boolean, TypeError };
   ctx.window = ctx; ctx.self = ctx; ctx.globalThis = ctx;

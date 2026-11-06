@@ -7,6 +7,8 @@ import { readFileSync, readdirSync } from 'fs';
 import { createRequire } from 'module';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const V = require('../lib/tm_viikko.js');
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,7 +47,7 @@ describe('vartija: ei omia viikkokaavoja sovelluksissa eikä libeissä', () => {
   it('kaavat löytyvät vain lib/tm_viikko.js:stä', () => {
     const rikkojat = [];
     tiedostot.filter((f) => !SALLITTU.has(f)).forEach((f) => {
-      const rivit = readFileSync(join(juuri, f), 'utf8').split('\n');
+      const rivit = lueKuori(f).split('\n');
       rivit.forEach((r, i) => { if (/^\s*(\/\/|\*|\/\*)/.test(r)) return; KAAVAT.forEach((k) => { if (k.test(r)) rikkojat.push(f + ':' + (i + 1) + ' ' + r.trim().slice(0, 90)); }); });
     });
     expect(rikkojat, 'oma viikkokaava → käytä TM_VIIKKO.tmIsoViikkoNro / tmIsoViikkoYMD').toEqual([]);
@@ -55,7 +57,7 @@ describe('vartija: ei omia viikkokaavoja sovelluksissa eikä libeissä', () => {
     expect([/\bstartOfYear\b/, /getDay\(\)\s*\+\s*1\)\s*\/\s*7/].every((k) => k.test(vanha))).toBe(true);
   });
   it('Master, VP ja Pelaaja lataavat tm_viikko.js ennen käyttöä', () => {
-    ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Pelaaja_v7.html'].forEach((f) => { const s = readFileSync(join(juuri, f), 'utf8'); expect(s, f).toContain('<script src="lib/tm_viikko.js">'); expect(s.indexOf('lib/tm_viikko.js'), f).toBeLessThan(s.indexOf('<script>', s.indexOf('lib/tm_viikko.js'))); });
+    ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Pelaaja_v7.html'].forEach((f) => { const s = lueKuori(f); expect(s, f).toContain('<script src="lib/tm_viikko.js">'); expect(s.indexOf('lib/tm_viikko.js'), f).toBeLessThan(s.indexOf('<script>', s.indexOf('lib/tm_viikko.js'))); });
   });
   it('Masterin otsikko ja kalenteri kutsuvat samaa funktiota', () => {
     const m = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8'); expect((m.match(/TM_VIIKKO\.tmIsoViikkoNro/g) || []).length).toBeGreaterThanOrEqual(2);
@@ -66,7 +68,7 @@ describe('vartija: ei omia viikkokaavoja sovelluksissa eikä libeissä', () => {
 describe('vartija: sivut lataavat tm_viikko.js:n ennen viikkoa käyttäviä kirjastoja', () => {
   // Riippuvat kirjastot JOHDETAAN lähteistä: jokainen lib, jonka lähde viittaa tm_viikko.js:ään (ei kovakoodattua listaa → uusi riippuvuus punaistaa sivut automaattisesti)
   const riippuvat = [].concat(readdirSync(join(juuri, 'lib')).filter((f) => /\.js$/.test(f) && f !== 'tm_viikko.js').map((f) => 'lib/' + f), ['harjoitelogiikka_v4.js'])
-    .filter((f) => readFileSync(join(juuri, f), 'utf8').indexOf('tm_viikko.js') >= 0);
+    .filter((f) => lueKuori(f).indexOf('tm_viikko.js') >= 0);
   const sivut = readdirSync(juuri).filter((f) => /\.html$/.test(f));   // juuren sivut; archive/ ei ole juuressa → pois
   const skriptit = (html) => [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1].split('?')[0]);
   const rikkomukset = (html) => {
@@ -80,7 +82,7 @@ describe('vartija: sivut lataavat tm_viikko.js:n ennen viikkoa käyttäviä kirj
   });
   it('jokainen juuren HTML-sivu joka lataa riippuvan kirjaston, lataa myös tm_viikko.js:n ja tekee sen ENSIN', () => {
     const viat = []; let kayttajia = 0;
-    sivut.forEach((f) => { const r = rikkomukset(readFileSync(join(juuri, f), 'utf8')); if (r !== null || /<script\b[^>]*\bsrc="lib\/tm_viikko\.js/.test(readFileSync(join(juuri, f), 'utf8'))) kayttajia++; if (r) viat.push(f + ': ' + r); });
+    sivut.forEach((f) => { const r = rikkomukset(lueKuori(f)); if (r !== null || /<script\b[^>]*\bsrc="lib\/tm_viikko\.js/.test(lueKuori(f))) kayttajia++; if (r) viat.push(f + ': ' + r); });
     expect(viat).toEqual([]); expect(kayttajia).toBeGreaterThanOrEqual(9);   // Admin, Excel_Tuonti, Master, Pelaaja, Seura, Solo_Koti, Testaus_v9, Testituonti_Master, VP
   });
   it('mutaatiotodistus: sivu ilman tm_viikko.js:ää tai sen jälkeen jää kiinni', () => {
@@ -95,7 +97,7 @@ describe('vartija: sivut lataavat tm_viikko.js:n ennen viikkoa käyttäviä kirj
 });
 
 describe('puuttuva TM_VIIKKO = kova virhe, ei hiljaista väärää viikkoa', () => {
-  const vm = require('vm'), lue = (f) => readFileSync(join(juuri, f), 'utf8');
+  const vm = require('vm'), lue = (f) => lueKuori(f);
   const ymp = (...tiedostot) => { const ctx = { console, Math, Date, JSON, Intl, Object, Array, String, Number, Promise, isNaN, parseInt }; ctx.window = ctx; vm.createContext(ctx); tiedostot.forEach((f) => vm.runInContext(lue(f), ctx, { filename: f })); return ctx; };
   const VIESTI = /TM_VIIKKO puuttuu: lataa lib\/tm_viikko\.js/;
   it('tm-methodology / harjoitelogiikka_v4 / tm_eerikkila_normit / tm_kayttoaste / tm_seuran_pulssi / tm_vp_tilanne heittävät selkeän virheen', () => {

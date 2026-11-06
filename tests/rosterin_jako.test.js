@@ -18,11 +18,13 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
 import { createRequire } from 'module';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
-const S = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+const S = lueKuori('TalentMaster_Seura.html');
 const M = readFileSync(join(ROOT, 'TalentMaster_Master_v16.html'), 'utf8');
 const V = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
 const pala = (src, nimi, loppu) => {

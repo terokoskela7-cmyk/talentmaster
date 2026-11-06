@@ -71,7 +71,7 @@ function poimi(a) {
   const onSv = (t) => kartat.some((K) => [t, _dec(t), t.trim()].some((x) => typeof K[x] === 'string' && K[x] !== ''));
   const avaimet = new Set();
   for (const f of a.tiedostot) {
-    const src = fs.readFileSync(path.join(juuri, f), 'utf8');
+    const src = require('../../scripts/kuoren_lahde.js').lueKuori(f, juuri);   // seura/-osat mukana
     reititinKutsut(src, a.routerit).forEach((t) => avaimet.add(t));
     dataI18n(src).forEach((t) => avaimet.add(t));
     if (a.taulukot && a.taulukot.length) taulukkoTekstit(src, a.taulukot).forEach((t) => avaimet.add(t));

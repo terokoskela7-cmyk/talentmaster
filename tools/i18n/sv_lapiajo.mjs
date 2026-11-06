@@ -19,6 +19,7 @@ import { createRequire } from 'module';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+const { lueKuori } = createRequire(import.meta.url)('../../scripts/kuoren_lahde.js');   // seura/-osat kuoren lähteeseen
 import { onkoSuomea, tekstinOsat } from './sv_lapiajo_fi.mjs';
 import { valmisteleFx, fxKonfiguraatio } from './sv_fixtuuri.mjs';
 import { tLiteraalit } from './sv_t_literaalit.mjs';
@@ -134,7 +135,7 @@ function lataaKorpus() {
 }
 function lahdeindeksi() {
   const tied = [...readdirSync(JUURI).filter((f) => /^TalentMaster_.*\.html$/.test(f) || f === 'harjoitelogiikka_v4.js'), ...readdirSync(join(JUURI, 'lib')).filter((f) => f.endsWith('.js')).map((f) => 'lib/' + f)];
-  return tied.map((f) => { const s = readFileSync(join(JUURI, f), 'utf8'); return { f, s, rivit: null }; });
+  return tied.map((f) => { const s = lueKuori(f, JUURI); return { f, s, rivit: null }; });   // seura/-osat mukana
 }
 const osaOnFi = (t) => tekstinOsat(t).filter((o) => OSAT.has(avain(o)));
 function etsiLahde(idx0, teksti, ensin) {

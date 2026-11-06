@@ -9,6 +9,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join, relative } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
@@ -82,7 +84,7 @@ describe('vartijat', () => {
       if (/api\.sendgrid\.com|@sendgrid\//.test(s)) osumat.push(relative(ROOT, f));   // kutsukohdat (ei kommentit ct.sendgrid.net)
     }
     for (const f of readdirSync(ROOT).filter((n) => n.endsWith('.html'))) {
-      if (/api\.sendgrid\.com/.test(readFileSync(join(ROOT, f), 'utf8'))) osumat.push(f);
+      if (/api\.sendgrid\.com/.test(lueKuori(f))) osumat.push(f);
     }
     expect(osumat).toEqual(['functions/index.js']);
     expect(INDEX.match(/api\.sendgrid\.com/g)).toHaveLength(1);

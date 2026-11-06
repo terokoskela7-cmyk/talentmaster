@@ -7,8 +7,10 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
-const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+const lue = (f) => lueKuori(f);
 const S = require('../lib/tm_sisainen.js');
 const A = S.tmSisainenAKentat();
 

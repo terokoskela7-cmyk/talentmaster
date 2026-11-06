@@ -10,10 +10,12 @@ import { readFileSync } from 'fs';
 import vm from 'vm';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const J = require('../lib/tm_joukkue.js');
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (f) => readFileSync(join(juuri, f), 'utf8');
+const lue = (f) => lueKuori(f);
 
 const D = [{ id: 'sib_p12', nimi: 'Sibbo-Vargarna P12', ikaryhma: 'P12' }, { id: 'sib_p11', nimi: 'Sibbo-Vargarna P11', ikaryhma: 'P11' }, { id: 'sib_bla', nimi: 'Sibbo-Vargarna 2014 Blå', ikaryhma: 'P12', vuosi: 2014 }];
 const BLA = 'Sibbo-Vargarna 2014 Blå';
