@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /* QG-3 · tuotannon savutesti (vaihe 0 hyväksytty 5.11.2026; kaista: Tero). Ajetaan .github/workflows/savutesti.yml:stä Hosting-deployn jälkeen tai käsin.
    MITÄ: Hosting-kanava `savutesti` (sama julkaisu kuin live, tuotantobackend: Firestore, Functions, Rules, liput) × synteettinen seura qg_savu
-   (scripts/savutesti_seura_luo.js) × kielet fi + sv. Näkymät: P7 Idag + Jag (pelaaja qp1) · VP Koti · Kehitystyöpöytä Tänään/Polku/Profiili/Pelaajaraportti (VP-tunnus).
-   KIRJAUTUMINEN: VP = sovelluksen oma lomake (#lEmail/#lPass → kirjaudu()); Kehitystyöpöytä käyttää samaa istuntoa (sama origin, sama selainkonteksti).
+   (scripts/savutesti_seura_luo.js) × kielet fi + sv. Näkymät: P7 Idag + Jag (pelaaja qp1) · VP Koti · Kehitystyöpöytä Tänään/Polku/Profiili/Pelaajaraportti (VP-tunnus) ·
+   Seura Yhteenveto/Kehitystilanne/Pelaajat/Joukkueet/Talentit/Henkilöstö (VP-tunnus, PM 6.11.2026; ikkunan avaavat rekisteröinti/tuonti/massakutsu eivät ole näkymiä).
+   KIRJAUTUMINEN: VP = sovelluksen oma lomake (#lEmail/#lPass → kirjaudu()); Kehitystyöpöytä ja Seura käyttävät samaa istuntoa (sama origin, sama selainkonteksti).
      P7 = oma PalloID-kenttä (#pinTunnus) + _kirjaudu(pin) → pelaajaKirjaudu → custom token (sama reitti kuin oikeilla pelaajilla). Pelaaja omassa kontekstissaan.
    KIRJOITUSESTO (vaihe 0 S3): kerros 1 = Rules-eristys (tunnukset vain qg_savu) · kerros 2 = (a) sivun Firestore-vartija hylkää set/update/delete/add/batch/transaktion
      ennen verkkoa ja kirjaa polun, (b) verkkoesto (luokittelePyynto) katkaisee Write-kanavan, REST-commitin, Storage-uploadit ja callablet sallittulistan ulkopuolelta ·
-     kerros 3 = jokainen tuntematon kirjoitusyritys kaataa näkymän. ⚠ vain VP:n kaksi nimettyä avauskirjoitusta (savutesti_sallitut.json: oma viimeisinKirjautuminen +
-     automaattinen toimenpide-ehdotus, polku + kentät + arvot täsmälleen); ne estetään silti. Siirto palvelimelle: docs/BACKLOG_SAVUTESTI.md.
+     kerros 3 = jokainen tuntematon kirjoitusyritys kaataa näkymän. ⚠ vain kolme nimettyä avauskirjoitusta (savutesti_sallitut.json: VP:n oma viimeisinKirjautuminen +
+     automaattinen toimenpide-ehdotus, Seuran oma viimeisinKirjautuminen; sivu + polku + kentät + arvot täsmälleen); ne estetään silti. Siirto palvelimelle: docs/BACKLOG_SAVUTESTI.md.
    SALAISUUDET: vain env (GitHub Secrets). Ei koskaan lokiin: PIN välitetään sivulle funktion argumenttina, CI:ssä lisäksi ::add-mask::.
    Ajo:  TM_SAVU_URL=https://talentmaster-pilot--savutesti-xxxx.web.app TM_SAVU_EMAIL=… TM_SAVU_SALASANA=… TM_SAVU_PELAAJA_TUNNISTE=… TM_SAVU_PELAAJA_PIN=… TM_SAVU_APPCHECK_DEBUG=…
            node tools/savutesti/savutesti.mjs [--tulos=savutesti-tulos/tulos.json] [--issue=savutesti-tulos/issue.md] [--kielet=fi,sv]
@@ -119,51 +120,86 @@ export const NAKYMAT = {
   p7Idag: { nimi: 'P7 Idag', sivu: 'TalentMaster_Pelaaja_v7.html', valmis: "(() => typeof _tab !== 'undefined' && _tab === 'tanaan' && !document.getElementById('pinTunnus') && (document.getElementById('phBody') || {}).innerText && document.getElementById('phBody').innerText.trim().length > 100)()", lohkot: ['#phBody', '#phBody .tabs'] },
   p7Jag: { nimi: 'P7 Jag', sivu: 'TalentMaster_Pelaaja_v7.html', valmis: "(() => typeof _tab !== 'undefined' && _tab === 'mina' && !document.getElementById('pinTunnus') && (document.getElementById('phBody') || {}).innerText && document.getElementById('phBody').innerText.trim().length > 100)()", lohkot: ['#phBody', '#phBody .tabs'] },
 };
+/* Seura: näkymä vaihdetaan vaihdaNakyma():lla (asettaa tila.aktiivNakyma) tyhjennetyn #nakymaAlue:n päälle → valmis = oikea näkymä piirretty, ei edellisen jäänne. */
+const SEURA_VALMIS = { kehitystilanne: '#nakymaAlue .ke' };   // Kehitystilanne laskee datan viiveellä: latausviesti ei ole valmis näkymä (sama ehto QG-1:ssä, tools/i18n/sv_lapiajo.mjs)
+const SEURA_NIMI = { yhteenveto: 'Yhteenveto', kehitystilanne: 'Kehitystilanne', pelaajat: 'Pelaajat', joukkueet: 'Joukkueet', talentit: 'Talentit', henkilosto: 'Henkilöstö' };
+for (const v of Object.keys(SEURA_NIMI)) {
+  NAKYMAT['seura_' + v] = { nimi: 'Seura ' + SEURA_NIMI[v], sivu: 'TalentMaster_Seura.html', nakyma: v, lohkot: ['#nakymaAlue'],
+    valmis: `(() => { const s = document.getElementById('sovellus'), e = document.getElementById('nakymaAlue'); return !!s && s.style.display === 'block' && typeof tila !== 'undefined' && tila.aktiivNakyma === '${v}' && !!e && (e.innerText || '').trim().length > 20${SEURA_VALMIS[v] ? " && !!document.querySelector('" + SEURA_VALMIS[v] + "')" : ''}; })()` };
+}
 const kaatunut = (def, kieli, syy) => ({ nimi: def.nimi, kieli, sivu: def.sivu, kaatui: syy, virheet: [] });
 const ohitettu = (def, kieli, syy) => ({ nimi: def.nimi, kieli, sivu: def.sivu, ohitettu: syy, virheet: [] });
 const KTP_NAKYMAT = ['ktTanaan', 'ktPolku', 'ktProfiili', 'ktRaportti'];
+export const SEURA_NAKYMAT = Object.keys(SEURA_NIMI).map((v) => 'seura_' + v);
 
 async function henkilokunta(selain, url, kieli, env, tila, ulos) {
   const kerays = uusiKeraaja(); tila.nyky = kerays;
   const ctx = await konteksti(selain, kieli, env, tila);
   try {
-    const p = await sivu(ctx, tila);
-    let kirjautui = true;
-    try {
-      await p.goto(url + '/TalentMaster_VP_v25.html', { waitUntil: 'load', timeout: ODOTUS });
-      await p.waitForSelector('#lEmail', { state: 'attached', timeout: ODOTUS });
-      await p.evaluate(({ e, s }) => { document.getElementById('lEmail').value = e; document.getElementById('lPass').value = s; kirjaudu(); }, { e: env.TM_SAVU_EMAIL, s: env.TM_SAVU_SALASANA });
-    } catch (e) { kirjautui = false; }
-    if (!kirjautui) { for (const k of ['vpKoti', ...KTP_NAKYMAT]) ulos.push(kaatunut(NAKYMAT[k], kieli, 'VP-kirjautumislomake ei avautunut')); return; }
-    const koti = await mittaa(p, NAKYMAT.vpKoti, kieli, tila, kerays);
-    if (koti.kaatui) { const v = await p.evaluate(() => ((document.getElementById('lErr') || {}).textContent || '').trim()).catch(() => ''); if (v) koti.kaatui += ' · kirjautuminen: ' + v.slice(0, 120); }
-    /* Tarkistus 4: liput/julkiset luettu (kehitystyopoyta_v2) ja VP ohjaa pelaajan työpöydän Kehitystyöpöydälle (B7: window._ktAvaa → TM_KT_SIVU.tmKtSivuLinkki). */
-    let ohjasi = false, lippuPois = false;
-    if (!koti.kaatui) {
-      const l = await p.waitForFunction((s) => window._ktSivuLippu !== undefined && ({ sivu: window._ktSivuLippu, julkiset: !!(window._vpLiput && window._vpLiput[s] && window._vpLiput[s].kehitystyopoyta_v2 === true) }), SEURA, { timeout: 20000 }).then((h) => h.jsonValue()).catch(() => null);
-      if (!l) koti.lippu = { ok: false, syy: 'lippua ei luettu (window._ktSivuLippu)' };
-      else if (!l.julkiset || l.sivu !== true) { lippuPois = true; koti.lippu = { ok: false, syy: 'kehitystyopoyta_v2 ei päällä (liput/julkiset ' + l.julkiset + ', _ktSivuLippu ' + l.sivu + ') — Admin → Liput → ' + SEURA + ' → kehitystyopoyta_v2 päälle (seed ei kirjoita lippua)' }; }
-      else {
-        const loput = await p.evaluate(() => (window.__savuKirj || []).splice(0)).catch(() => []);   // VP:n myöhäiset kirjoitukset ennen sivun vaihtoa
-        if (koti.kirjoitukset) lisaaKirjoitukset(koti, loput, kerays);
-        await p.evaluate((pid) => window._ktAvaa(pid, 'tanaan'), PELAAJA).catch(() => {});
-        ohjasi = await p.waitForURL(/TalentMaster_Kehitystyopoyta\.html#pelaaja\/qp1\/tanaan$/, { timeout: 20000 }).then(() => true, () => false);
-        koti.lippu = ohjasi ? { ok: true, syy: '' } : { ok: false, syy: 'VP ei ohjannut Kehitystyöpöydälle (_ktAvaa)' };
-      }
-    } else koti.lippu = { ok: false, syy: 'VP Koti ei avautunut' };
-    ulos.push(koti);
-    /* Lippu luettiin ja se on pois → Kehitystyöpöytä ei avaudu VP:n kautta. Näkymät ohitetaan yhdellä syyllä (ei 4 × 45 s odotusta eikä
-       seurannaisvirheitä, #1197). Ajo on silti punainen: VP Kodin lipputarkistus ✗. Lippua ei luettu (null) → yritetään normaalisti. */
-    if (lippuPois) { for (const k of KTP_NAKYMAT) ulos.push(ohitettu(NAKYMAT[k], kieli, 'kehitystyopoyta_v2 pois (ks. VP Koti)')); return; }
-    if (!ohjasi) await p.goto(url + '/TalentMaster_Kehitystyopoyta.html#pelaaja/' + PELAAJA + '/tanaan', { waitUntil: 'load', timeout: ODOTUS }).catch(() => {});
-    ulos.push(await mittaa(p, NAKYMAT.ktTanaan, kieli, tila, kerays));
-    for (const [k, polku] of [['ktPolku', '#pelaaja/' + PELAAJA + '/polku'], ['ktProfiili', '#pelaaja/' + PELAAJA + '/profiili'], ['ktRaportti', '?avaa=raportti#pelaaja/' + PELAAJA + '/profiili']]) {
-      const q = await sivu(ctx, tila);
-      try { await q.goto(url + '/TalentMaster_Kehitystyopoyta.html' + polku, { waitUntil: 'load', timeout: ODOTUS }); ulos.push(await mittaa(q, NAKYMAT[k], kieli, tila, kerays)); }
-      catch (e) { ulos.push(kaatunut(NAKYMAT[k], kieli, 'sivu ei latautunut')); }
-      finally { await q.close(); }
-    }
+    const kirjautui = await vpJaKehitystyopoyta(ctx, url, kieli, env, tila, kerays, ulos);
+    if (kirjautui) await seura(ctx, url, kieli, tila, kerays, ulos);
+    else for (const k of SEURA_NAKYMAT) ulos.push(kaatunut(NAKYMAT[k], kieli, 'VP-kirjautumislomake ei avautunut'));
   } finally { await ctx.close(); tila.nyky = null; }
+}
+
+/* Seura samalla VP-istunnolla (uusi sivu, sama konteksti). Avauksen oma aikaleima tulee Yhteenvedon kirjoituksiin (sallittulista: sivu Seura). */
+export async function seura(ctx, url, kieli, tila, kerays, ulos) {
+  const p = await sivu(ctx, tila);
+  try {
+    try {
+      await p.goto(url + '/TalentMaster_Seura.html', { waitUntil: 'load', timeout: ODOTUS });
+      await p.waitForFunction(() => { const s = document.getElementById('sovellus'); return !!s && s.style.display === 'block'; }, null, { timeout: ODOTUS });
+    } catch (e) {
+      const v = await p.evaluate(() => ((document.getElementById('kirjautumisVirhe') || {}).textContent || '').trim()).catch(() => '');
+      for (const k of SEURA_NAKYMAT) ulos.push(kaatunut(NAKYMAT[k], kieli, 'Seura ei avautunut VP-istunnolla' + (v ? ': ' + v.slice(0, 120) : '')));
+      return;
+    }
+    for (const k of SEURA_NAKYMAT) {
+      await p.evaluate((v) => { document.getElementById('nakymaAlue').innerHTML = ''; vaihdaNakyma(v, null); }, NAKYMAT[k].nakyma).catch(() => {});
+      ulos.push(await mittaa(p, NAKYMAT[k], kieli, tila, kerays));
+    }
+  } finally { await p.close(); }
+}
+
+/* VP Koti + Kehitystyöpöytä. Palauttaa false vain, jos VP:n kirjautumislomake ei avautunut (Seura ohitetaan samalla syyllä). */
+async function vpJaKehitystyopoyta(ctx, url, kieli, env, tila, kerays, ulos) {
+  const p = await sivu(ctx, tila);
+  let kirjautui = true;
+  try {
+    await p.goto(url + '/TalentMaster_VP_v25.html', { waitUntil: 'load', timeout: ODOTUS });
+    await p.waitForSelector('#lEmail', { state: 'attached', timeout: ODOTUS });
+    await p.evaluate(({ e, s }) => { document.getElementById('lEmail').value = e; document.getElementById('lPass').value = s; kirjaudu(); }, { e: env.TM_SAVU_EMAIL, s: env.TM_SAVU_SALASANA });
+  } catch (e) { kirjautui = false; }
+  if (!kirjautui) { for (const k of ['vpKoti', ...KTP_NAKYMAT]) ulos.push(kaatunut(NAKYMAT[k], kieli, 'VP-kirjautumislomake ei avautunut')); return false; }
+  const koti = await mittaa(p, NAKYMAT.vpKoti, kieli, tila, kerays);
+  if (koti.kaatui) { const v = await p.evaluate(() => ((document.getElementById('lErr') || {}).textContent || '').trim()).catch(() => ''); if (v) koti.kaatui += ' · kirjautuminen: ' + v.slice(0, 120); }
+  /* Tarkistus 4: liput/julkiset luettu (kehitystyopoyta_v2) ja VP ohjaa pelaajan työpöydän Kehitystyöpöydälle (B7: window._ktAvaa → TM_KT_SIVU.tmKtSivuLinkki). */
+  let ohjasi = false, lippuPois = false;
+  if (!koti.kaatui) {
+    const l = await p.waitForFunction((s) => window._ktSivuLippu !== undefined && ({ sivu: window._ktSivuLippu, julkiset: !!(window._vpLiput && window._vpLiput[s] && window._vpLiput[s].kehitystyopoyta_v2 === true) }), SEURA, { timeout: 20000 }).then((h) => h.jsonValue()).catch(() => null);
+    if (!l) koti.lippu = { ok: false, syy: 'lippua ei luettu (window._ktSivuLippu)' };
+    else if (!l.julkiset || l.sivu !== true) { lippuPois = true; koti.lippu = { ok: false, syy: 'kehitystyopoyta_v2 ei päällä (liput/julkiset ' + l.julkiset + ', _ktSivuLippu ' + l.sivu + ') — Admin → Liput → ' + SEURA + ' → kehitystyopoyta_v2 päälle (seed ei kirjoita lippua)' }; }
+    else {
+      const loput = await p.evaluate(() => (window.__savuKirj || []).splice(0)).catch(() => []);   // VP:n myöhäiset kirjoitukset ennen sivun vaihtoa
+      if (koti.kirjoitukset) lisaaKirjoitukset(koti, loput, kerays);
+      await p.evaluate((pid) => window._ktAvaa(pid, 'tanaan'), PELAAJA).catch(() => {});
+      ohjasi = await p.waitForURL(/TalentMaster_Kehitystyopoyta\.html#pelaaja\/qp1\/tanaan$/, { timeout: 20000 }).then(() => true, () => false);
+      koti.lippu = ohjasi ? { ok: true, syy: '' } : { ok: false, syy: 'VP ei ohjannut Kehitystyöpöydälle (_ktAvaa)' };
+    }
+  } else koti.lippu = { ok: false, syy: 'VP Koti ei avautunut' };
+  ulos.push(koti);
+  /* Lippu luettiin ja se on pois → Kehitystyöpöytä ei avaudu VP:n kautta. Näkymät ohitetaan yhdellä syyllä (ei 4 × 45 s odotusta eikä
+     seurannaisvirheitä, #1197). Ajo on silti punainen: VP Kodin lipputarkistus ✗. Lippua ei luettu (null) → yritetään normaalisti. */
+  if (lippuPois) { for (const k of KTP_NAKYMAT) ulos.push(ohitettu(NAKYMAT[k], kieli, 'kehitystyopoyta_v2 pois (ks. VP Koti)')); return true; }
+  if (!ohjasi) await p.goto(url + '/TalentMaster_Kehitystyopoyta.html#pelaaja/' + PELAAJA + '/tanaan', { waitUntil: 'load', timeout: ODOTUS }).catch(() => {});
+  ulos.push(await mittaa(p, NAKYMAT.ktTanaan, kieli, tila, kerays));
+  for (const [k, polku] of [['ktPolku', '#pelaaja/' + PELAAJA + '/polku'], ['ktProfiili', '#pelaaja/' + PELAAJA + '/profiili'], ['ktRaportti', '?avaa=raportti#pelaaja/' + PELAAJA + '/profiili']]) {
+    const q = await sivu(ctx, tila);
+    try { await q.goto(url + '/TalentMaster_Kehitystyopoyta.html' + polku, { waitUntil: 'load', timeout: ODOTUS }); ulos.push(await mittaa(q, NAKYMAT[k], kieli, tila, kerays)); }
+    catch (e) { ulos.push(kaatunut(NAKYMAT[k], kieli, 'sivu ei latautunut')); }
+    finally { await q.close(); }
+  }
+  return true;
 }
 
 async function pelaaja(selain, url, kieli, env, tila, ulos) {

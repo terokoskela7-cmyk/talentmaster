@@ -38,6 +38,8 @@ const avain = (s) => norm(s).toLowerCase();
 
 /* ── Näkymät: sovellus · sisäänkäynti (demo) · askeleet. Jokainen askel ajetaan TUOREESSA sivussa (puhdas tila, modaalit eivät kasaudu). ── */
 const NAV = (fn, arvot) => arvot.map((a) => ({ nimi: a, js: `${fn}('${a}')` }));
+/* Seura: vaihdaNakyma() kuten sivupalkki (asettaa tila.aktiivNakyma; renderKehitystilanne piirtää vain kun se on 'kehitystilanne'). Kehitystilanne laskee datan viiveellä → odotetaan valmista sisältöä (≤ 15 s). Sama ehto savutestissä. */
+const SEURA_VALMIS = { kehitystilanne: '#nakymaAlue .ke' };
 export const SOVELLUKSET = {
   pelaaja: { tiedosto: 'TalentMaster_Pelaaja_v7.html', kysely: '?demo=1', entry: "demoKirjaudu('aleksi')", sisaan: "typeof _suljeTervetulo === 'function' && _suljeTervetulo()", askeleet: [{ nimi: 'tanaan', js: "tab('tanaan')" }, { nimi: 'mina', js: "tab('mina')", avaa: '.mgrp' }, { nimi: 'meista', js: "tab('meista')" }, ...NAV('go', ['pin', 'train', 'card', 'haptic', 'offline', 'parent', 'vapaa', 'haaste', 'valinta'])] },
   vanhempi: { tiedosto: 'TalentMaster_Vanhempi_v2.html', kysely: '?demo=1', entry: '0', askeleet: [{ nimi: 'kirjautuminen', js: '0' }, ...['u12', 'u15', 'u19'].flatMap((a) => ['koti', 'viikko', 'kirjaa', 'valmentaja', 'kortti', 'asetukset'].map((n) => ({ nimi: `${a}/${n}`, js: `setAge('${a}'); go('${n}')` })))] },
@@ -55,6 +57,9 @@ export const SOVELLUKSET = {
   fx_master: { tiedosto: 'TalentMaster_Master_v16.html', kysely: '', fx: ['valmentaja'], entry: '0', askeleet: NAV('setWs', ['koti', 'dev', 'inbox', 'pulse', 'season', 'cal']) },
   fx_vp: { tiedosto: 'TalentMaster_VP_v25.html', kysely: '', fx: ['vp'], entry: '0', askeleet: NAV('setWs', ['koti', 'tilanne', 'pelaajat', 'kalenteri', 'jaksofokus']) },
   fx_vp_lage: { tiedosto: 'TalentMaster_VP_v25.html', kysely: '', fx: ['vp', null, 'lage'], entry: '0', askeleet: NAV('setWs', ['tilanne']).concat([{ nimi: 'tilanne_kaikki', js: "setWs('tilanne'); setTimeout(function () { ['huomiot', 'ehdotukset', 'jaksot'].forEach(function (k) { _vpTilanneAuki(k); }); }, 400)" }]) },   // QG-1c: Läge oikean seuran tiloissa (sv_fixtuuri.mjs dokitLage)
+  /* Seura (PM 6.11.2026, savutestin pohja ennen rivikattojen S2a:ta): VP-rooli fixture-seurassa, päänäkymät renderoi():lla (ikkunan avaavat rekisteröinti/tuonti/massakutsu pois). Seuran sv-velka baselinessa [baseline] 6.11.; korjaus S4:n jälkeen omana kokonaisuutenaan. */
+  fx_seura: { tiedosto: 'TalentMaster_Seura.html', kysely: '', fx: ['vp'], entry: '0', askeleet: ['yhteenveto', 'kehitystilanne', 'pelaajat', 'joukkueet', 'talentit', 'henkilosto'].map((n) => ({ nimi: n,
+    js: `(async () => { vaihdaNakyma('${n}', null); const s = '${SEURA_VALMIS[n] || '#nakymaAlue'}'; for (let i = 0; i < 150 && !document.querySelector(s); i++) await new Promise((r) => setTimeout(r, 100)); })()` })) },
   fx_kehitystyopoyta: { tiedosto: 'TalentMaster_Kehitystyopoyta.html', kysely: '', fx: ['valmentaja'], entry: '0',
     askeleet: [...['tanaan', 'polku', 'profiili'].map((n) => ({ nimi: n, kysely: '#pelaaja/qp1/' + n, js: '0' })), { nimi: 'pelaajaraportti', kysely: '?avaa=raportti#pelaaja/qp1/profiili', js: '0' }, { nimi: 'utan_atagande/polku', kysely: '#pelaaja/qp2/polku', js: '0' }] },
 };

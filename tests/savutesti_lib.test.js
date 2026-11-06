@@ -67,7 +67,7 @@ describe('QG-3 · verkkoesto (kerros 2)', () => {
 });
 
 describe('QG-3 · kirjoitukset (kerros 2a + 3): ⚠ vain nimetyt polut, kaikki muu kaataa (PM 5.11.)', () => {
-  const T = SALLITUT.tunnetut_kirjoitukset, VP = 'TalentMaster_VP_v25.html', UID = 'vpUid123';
+  const T = SALLITUT.tunnetut_kirjoitukset, VP = 'TalentMaster_VP_v25.html', SEURA_SIVU = 'TalentMaster_Seura.html', UID = 'vpUid123';
   const AUTO_ID = 'AbCdEfGhIjKlMnOpQrSt';
   const kirj = (o) => Object.assign({ op: 'update', polku: 'seurat/qg_savu/kayttajat/' + UID, kentat: ['viimeisinKirjautuminen'], arvot: {}, uid: UID }, o);
   const tp = (o) => kirj(Object.assign({ op: 'set', polku: 'seurat/qg_savu/toimenpiteet/' + AUTO_ID,
@@ -75,15 +75,17 @@ describe('QG-3 · kirjoitukset (kerros 2a + 3): ⚠ vain nimetyt polut, kaikki m
     arvot: { tyyppi: 'automaattinen', signaali: 'suunta_lasku', joukkue: 'P13', teksti: 'x', tila: 'ehdotus', vp_teksti: null, kuitattu_pvm: null, kuitattu_uid: null } }, o));
   const tunnettu = (k, sivu) => luokitteleKirjoitus(k, sivu || VP, T).tunnettu;
 
-  it('sallittulistalla on täsmälleen kaksi nimettyä kirjoitusta, kumpikin ankkuroitu, kentät lueteltu, VP-sivulle rajattu', () => {
-    expect(T.map((k) => k.op + ' ' + k.polku)).toEqual(['update ^seurat/qg_savu/kayttajat/{oma_uid}$', 'set ^seurat/qg_savu/toimenpiteet/[A-Za-z0-9]{20}$']);
+  it('sallittulistalla on täsmälleen kolme nimettyä kirjoitusta (VP:n kaksi + Seuran aikaleima, PM 6.11.), jokainen ankkuroitu, kentät lueteltu, sivulle rajattu', () => {
+    expect(T.map((k) => k.op + ' ' + k.sivu + ' ' + k.polku)).toEqual(['update ' + VP + ' ^seurat/qg_savu/kayttajat/{oma_uid}$', 'set ' + VP + ' ^seurat/qg_savu/toimenpiteet/[A-Za-z0-9]{20}$',
+      'update ' + SEURA_SIVU + ' ^seurat/qg_savu/kayttajat/{oma_uid}$']);
     for (const k of T) {
-      expect(k.sivu).toBe(VP);
+      expect([VP, SEURA_SIVU]).toContain(k.sivu);
       expect(k.polku).toMatch(/^\^seurat\/qg_savu\/[a-z_]+\/[^/]+\$$/);
       expect(Array.isArray(k.kentat) && k.kentat.length > 0, k.polku).toBe(true);
       expect(k.op).toMatch(/^(set|update)$/);
     }
     expect(T[0].kentat).toEqual(['viimeisinKirjautuminen']);
+    expect(T[2]).toEqual(Object.assign({}, T[0], { sivu: SEURA_SIVU, perustelu: T[2].perustelu }));   // Seura = VP:n aikaleima samoin ehdoin (polku, kenttä, oma uid)
     expect(T[1].arvot).toMatchObject({ tyyppi: 'automaattinen', tila: 'ehdotus' });
   });
   it('nimetyt avauskirjoitukset → tunnettu (⚠, estetään)', () => {
@@ -115,6 +117,18 @@ describe('QG-3 · kirjoitukset (kerros 2a + 3): ⚠ vain nimetyt polut, kaikki m
     expect(tunnettu(tp({ op: 'update' }))).toBe(false);
     expect(tunnettu(tp({ op: 'delete', kentat: [] }))).toBe(false);
     expect(tunnettu(tp({ op: 'batch.set' }))).toBe(false);
+  });
+  it('Seura (PM 6.11.): oma viimeisinKirjautuminen tunnettu; toisen uid, muu kenttä, set, toimenpide tai muu sivu → kaataa', () => {
+    expect(tunnettu(kirj(), SEURA_SIVU)).toBe(true);
+    expect(tunnettu(kirj({ polku: 'seurat/qg_savu/kayttajat/toinenUid' }), SEURA_SIVU)).toBe(false);
+    expect(tunnettu(kirj({ uid: null }), SEURA_SIVU)).toBe(false);
+    expect(tunnettu(kirj({ kentat: ['viimeisinKirjautuminen', 'rooli'] }), SEURA_SIVU)).toBe(false);
+    expect(tunnettu(kirj({ kentat: ['aktiivinen'] }), SEURA_SIVU)).toBe(false);
+    expect(tunnettu(kirj({ op: 'set' }), SEURA_SIVU)).toBe(false);
+    expect(tunnettu(kirj({ polku: 'seurat/kpv/kayttajat/' + UID }), SEURA_SIVU)).toBe(false);
+    expect(tunnettu(tp(), SEURA_SIVU)).toBe(false);   // toimenpide-ehdotus vain VP:lle
+    expect(tunnettu(kirj({ op: 'set', polku: 'seurat/qg_savu/pelaajat/qp1', kentat: ['huoltajaEmail'] }), SEURA_SIVU)).toBe(false);
+    expect(tunnettu(kirj(), 'TalentMaster_Master_v16.html')).toBe(false);
   });
   it('toinen sivu, toinen seura tai muu kokoelma → kaataa', () => {
     expect(tunnettu(kirj(), 'TalentMaster_Kehitystyopoyta.html')).toBe(false);
@@ -180,6 +194,12 @@ describe('QG-3 · sv-löydökset ja konsoli', () => {
     const r = svLoydot(['Tallenna muutokset', 'Spara ändringar', 'Hidden Gem', 'harjoitus 1', 'Tallenna muutokset'], { sallitut: { tekstit: ['hidden gem'], alkavat: [] }, baseline: { tekstit: ['harjoitus 1'] } });
     expect(r.uudet).toEqual(['Tallenna muutokset']);
     expect(r.tunnetut).toEqual(['harjoitus 1']);
+  });
+  it('baseline-vertailu ilman numeroita (QG-1 kiinteä kello + fixture → tuotannon päivä ja luvut vaihtelevat); muu ero on uusi', () => {
+    const o = { sallitut: { tekstit: [], alkavat: [] }, baseline: { tekstit: ['kehitystilanne · koko vuosi 2026 · päivitetty 14.10.2026', '0 / 0 tavoitetta raiteilla.'] } };
+    const r = svLoydot(['Kehitystilanne · koko vuosi 2027 · päivitetty 06.11.2027', '3 / 12 tavoitetta raiteilla.', '3 / 12 tavoitetta myöhässä.'], o);
+    expect(r.tunnetut).toEqual(['Kehitystilanne · koko vuosi 2027 · päivitetty 06.11.2027', '3 / 12 tavoitetta raiteilla.']);
+    expect(r.uudet).toEqual(['3 / 12 tavoitetta myöhässä.']);
   });
   it('konsoli: savutestin oma esto ja estettyjen osoitteiden latausvirheet eivät ole löydöksiä; sallittulista regexillä', () => {
     const v = [{ tyyppi: 'console', teksti: 'FirebaseError: ' + ESTO_VIESTI + ' (set x)' }, { tyyppi: 'console', teksti: 'Failed to load resource: 403', url: CF + 'paivitaSeuranKooste' },
@@ -354,8 +374,16 @@ describe('QG-3 · tulos, yhteenveto ja ohitus', () => {
     expect(src).toMatch(/if \(!l\) koti\.lippu = \{ ok: false, syy: 'lippua ei luettu/);
     const i = src.indexOf('if (lippuPois)'), j = src.indexOf("if (!ohjasi) await p.goto");
     expect(i).toBeGreaterThan(0); expect(i).toBeLessThan(j);
-    expect(src.slice(i, j)).toMatch(/for \(const k of KTP_NAKYMAT\) ulos\.push\(ohitettu\(NAKYMAT\[k\], kieli, .*\)\); return;/);
+    expect(src.slice(i, j)).toMatch(/for \(const k of KTP_NAKYMAT\) ulos\.push\(ohitettu\(NAKYMAT\[k\], kieli, .*\)\); return true;/);   // true: Seura mitataan silti (lippu koskee vain Kehitystyöpöytää)
     expect(src).toMatch(/const KTP_NAKYMAT = \['ktTanaan', 'ktPolku', 'ktProfiili', 'ktRaportti'\]/);
+  });
+  it('Seura (PM 6.11.): kuusi päänäkymää samalla VP-istunnolla; kirjautumislomakkeen puuttuessa kaatuneina, ei hiljaa pois', () => {
+    const src = readFileSync(join(JUURI, 'tools/savutesti/savutesti.mjs'), 'utf8');
+    expect(src).toMatch(/const SEURA_NIMI = \{ yhteenveto: 'Yhteenveto', kehitystilanne: 'Kehitystilanne', pelaajat: 'Pelaajat', joukkueet: 'Joukkueet', talentit: 'Talentit', henkilosto: 'Henkilöstö' \}/);
+    expect(src).toMatch(/if \(kirjautui\) await seura\(ctx, url, kieli, tila, kerays, ulos\);\n\s*else for \(const k of SEURA_NAKYMAT\) ulos\.push\(kaatunut\(/);
+    expect(src).toContain("await p.goto(url + '/TalentMaster_Seura.html'");
+    expect(src).toContain("document.getElementById('nakymaAlue').innerHTML = ''; vaihdaNakyma(v, null);");   // ei edellisen näkymän jäännöstä valmis-ehtoon
+    expect(src).toContain("tila.aktiivNakyma === '${v}'");
   });
   it('kanavan URL: vain talentmaster-pilot--savutesti-*.web.app (tunnukset eivät lähde liveen eikä vieraalle)', () => {
     expect(kanavaUrl('https://talentmaster-pilot--savutesti-k3j2h1.web.app/').ok).toBe(true);
