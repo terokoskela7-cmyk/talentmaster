@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import vm from 'vm';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, poistaNimet, konsoliVirheet, ilmanQuerya, pyyntoRivi, epaonnistuneetPyynnot, liitaPyynnot, erotaListenKohina, onListenKohina, virheRivit, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
+import { REITITA_RE, SECRETIT, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, poistaNimet, konsoliVirheet, ilmanQuerya, pyyntoRivi, epaonnistuneetPyynnot, liitaPyynnot, erotaListenKohina, onListenKohina, erotaCspKohina, onCspGoogleKehysKohina, virheRivit, arvioi, onnistui, yhteenvetoMarkdown, issueRunko, ESTO_VIESTI } from '../tools/savutesti/savutesti_lib.mjs';
 import { aja } from '../tools/savutesti/savutesti.mjs';
 import { createRequire } from 'module';
 const { SALLITUT_NIMET } = createRequire(import.meta.url)('../scripts/savutesti_seura_luo.js');
@@ -274,7 +274,45 @@ describe('PM 6.11. · Listen-kanavan uusinta 400/404 sallittu vain valmistuneess
   it('savutesti.mjs erottelee kohinan vain kun näkymä ei kaatunut', () => {
     const src = readFileSync(join(JUURI, 'tools/savutesti/savutesti.mjs'), 'utf8');
     expect(src).toMatch(/erotaListenKohina\(liitaPyynnot\(konsoliVirheet\([^\n]*\), !n\.kaatui\)/);
-    expect(src).toMatch(/n\.virheet = lk\.virheet/);
+    expect(src).toMatch(/lk\.kohina\.length\) n\.listenKohina = lk\.kohina/);
+  });
+});
+
+describe('PM 6.11. · App Checkin reCAPTCHA-kehys report-only-CSP:ssä sallittu ⚠:na', () => {
+  const PERUS = { nimi: 'Seura', kieli: 'fi', lohkot: { ok: true, puuttuu: [] }, vartija: true, kirjoitukset: { tuntemattomat: [], tunnetut: [], verkko: [] } };
+  const k = (teksti) => ({ tyyppi: 'console', teksti });
+  const SALLITTU = "Framing 'https://www.google.com/' violates the following report-only Content Security Policy directive: \"frame-src 'self'\". The violation has been reported.";
+  it('vaatii molemmat: "report-only Content Security Policy" ja "Framing \'https://www.google.com/\'"', () => {
+    expect(onCspGoogleKehysKohina(k(SALLITTU))).toBe(true);
+    expect(onCspGoogleKehysKohina(k(SALLITTU.replace(/'https:\/\/www\.google\.com\/'/, '‘https://www.google.com/’')))).toBe(true);   // kaarevat lainausmerkit
+    // estävä CSP (ei report-only) kaataa
+    expect(onCspGoogleKehysKohina(k("Framing 'https://www.google.com/' violates the following Content Security Policy directive: \"frame-src 'self'\". The request has been blocked."))).toBe(false);
+    // report-only, mutta muu osoite tai muu direktiivi kaataa
+    expect(onCspGoogleKehysKohina(k("Framing 'https://evil.example/' violates the following report-only Content Security Policy directive: \"frame-src 'self'\"."))).toBe(false);
+    expect(onCspGoogleKehysKohina(k("Framing 'https://www.google.com.evil.example/' violates the following report-only Content Security Policy directive."))).toBe(false);
+    expect(onCspGoogleKehysKohina(k("Loading the script 'https://www.google.com/recaptcha/enterprise.js' violates the following report-only Content Security Policy directive: \"script-src 'self'\"."))).toBe(false);
+    expect(onCspGoogleKehysKohina(k('Refused to frame https://www.google.com/ because it violates the following Content Security Policy directive'))).toBe(false);
+    expect(onCspGoogleKehysKohina(null)).toBe(false);
+  });
+  it('sallittu → ⚠ (ei kaada); muut CSP-viestit jäävät virheiksi', () => {
+    const muu = k("Refused to connect to 'https://www.google.com/recaptcha/enterprise/clr' because it violates the following Content Security Policy directive: \"connect-src 'self'\".");
+    const ck = erotaCspKohina([k(SALLITTU), k(SALLITTU), muu]);
+    expect(ck.kohina.length).toBe(2); expect(ck.virheet).toEqual([muu]);
+    const ok = Object.assign({}, PERUS, { virheet: [], cspKohina: [k(SALLITTU), k(SALLITTU)] });
+    expect(arvioi(ok).virheet).toEqual({ tila: 'varoitus', tieto: 'report-only CSP (App Checkin reCAPTCHA-kehys www.google.com) sallittu ×2' });
+    expect(onnistui({ nakymat: [ok] })).toBe(true);
+    expect(yhteenvetoMarkdown({ nakymat: [ok] })).toContain('⚠ **Seura (fi)** · Ei virheitä: report-only CSP');
+    expect(onnistui({ nakymat: [Object.assign({}, ok, { virheet: ck.virheet })] })).toBe(false);
+  });
+  it('Listen-kohina ja CSP-kohina näkyvät yhdessä ⚠-tiedossa', () => {
+    const n = Object.assign({}, PERUS, { virheet: [], cspKohina: [k(SALLITTU)], listenKohina: [{ tyyppi: 'console', teksti: 'x', pyynto: { metodi: 'POST', url: FS + '/google.firestore.v1.Firestore/Listen/channel', status: 400 } }] });
+    const a = arvioi(n).virheet; expect(a.tila).toBe('varoitus');
+    expect(a.tieto).toContain('Listen-kanavan uusinta sallittu'); expect(a.tieto).toContain('report-only CSP');
+  });
+  it('savutesti.mjs erottelee CSP-kohinan Listen-erottelun jälkeen ja tallentaa sen näkymälle', () => {
+    const src = readFileSync(join(JUURI, 'tools/savutesti/savutesti.mjs'), 'utf8');
+    expect(src).toMatch(/const ck = erotaCspKohina\(lk\.virheet\)/);
+    expect(src).toMatch(/n\.virheet = ck\.virheet/); expect(src).toMatch(/n\.cspKohina = ck\.kohina/);
   });
 });
 

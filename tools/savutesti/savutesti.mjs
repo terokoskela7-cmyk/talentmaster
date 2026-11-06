@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { REITITA_RE, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, konsoliVirheet, epaonnistuneetPyynnot, liitaPyynnot, erotaListenKohina, yhteenvetoMarkdown, issueRunko, onnistui, SECRETIT, SEURA, ESTO_VIESTI } from './savutesti_lib.mjs';
+import { REITITA_RE, secretitPuuttuvat, kanavaUrl, luokittelePyynto, luokitteleKirjoitus, vartijaLahde, svLoydot, konsoliVirheet, epaonnistuneetPyynnot, liitaPyynnot, erotaListenKohina, erotaCspKohina, yhteenvetoMarkdown, issueRunko, onnistui, SECRETIT, SEURA, ESTO_VIESTI } from './savutesti_lib.mjs';
 
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SALLITUT = JSON.parse(readFileSync(join(JUURI, 'tools/savutesti/savutesti_sallitut.json'), 'utf8'));
@@ -103,7 +103,8 @@ export async function mittaa(p, def, kieli, tila, kerays) {
   }
   const pyynnot = kerays.pyynnot.splice(0);
   const lk = erotaListenKohina(liitaPyynnot(konsoliVirheet(kerays.viestit.splice(0), SALLITUT.konsoli, kerays.estetytUrlit), pyynnot), !n.kaatui);   // Listen-uusinta 400/404 vain valmistuneessa näkymässä
-  n.virheet = lk.virheet; if (lk.kohina.length) n.listenKohina = lk.kohina;
+  const ck = erotaCspKohina(lk.virheet);   // App Checkin reCAPTCHA-kehys report-only-CSP:ssä (⚠, ei kaada)
+  n.virheet = ck.virheet; if (lk.kohina.length) n.listenKohina = lk.kohina; if (ck.kohina.length) n.cspKohina = ck.kohina;
   n.pyynnot = epaonnistuneetPyynnot(pyynnot, kerays.estetytUrlit);
   n.firebaseVaroitukset = kerays.varoitukset.splice(0).slice(0, 20);
   return n;

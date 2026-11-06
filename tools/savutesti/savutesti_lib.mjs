@@ -196,6 +196,21 @@ export function erotaListenKohina(virheet, valmistui) {
   if (!valmistui) return { virheet: kaikki, kohina: [] };
   return { virheet: kaikki.filter((v) => !onListenKohina(v)), kohina: kaikki.filter(onListenKohina) };
 }
+/* App Checkin reCAPTCHA-iframe ja report-only-CSP (PM 6.11.): Chrome kirjaa "Framing 'https://www.google.com/' violates the
+   following report-only Content Security Policy directive …". Report-only ei estä mitään → sallitaan ⚠:na, kun viestissä on
+   MOLEMMAT: "report-only Content Security Policy" JA "Framing 'https://www.google.com/'". Muut CSP-viestit (myös estävät
+   google-kehykset ja muiden osoitteiden report-only-rikkeet) kaatavat edelleen. */
+export const CSP_RAPORTTI_RE = /report-only Content Security Policy/;
+export const CSP_GOOGLE_KEHYS_RE = /Framing ['‘’"]https:\/\/www\.google\.com\/['‘’"]/;
+export function onCspGoogleKehysKohina(v) {
+  const t = String((v && v.teksti) || '');
+  return CSP_RAPORTTI_RE.test(t) && CSP_GOOGLE_KEHYS_RE.test(t);
+}
+/* → { virheet (kaatavat), kohina (sallitut report-only-ilmoitukset, näkyvät ⚠:na) } */
+export function erotaCspKohina(virheet) {
+  const kaikki = virheet || [];
+  return { virheet: kaikki.filter((v) => !onCspGoogleKehysKohina(v)), kohina: kaikki.filter(onCspGoogleKehysKohina) };
+}
 
 /* Virheen näyttöteksti: pyyntö (status metodi URL) jos tiedossa, muuten konsolin teksti. Samat rivit kootaan (×n). */
 export function virheRivit(virheet) {
@@ -205,15 +220,22 @@ export function virheRivit(virheet) {
 }
 
 /* nakyma.ohitettu = syy (näkymää ei ajettu, esim. lippu pois) → kaikki tarkistukset '–', ei kaada yksinään.
-   nakyma = { nimi, kieli, sivu, virheet:[], listenKohina?:[], lohkot:{ ok, puuttuu:[] }, sv?:{uudet,tunnetut}, lippu?:{ ok, syy }, kirjoitukset:{ tuntemattomat:[], tunnetut:[], verkko:[] }, vartija:bool, kaatui? }
+   nakyma = { nimi, kieli, sivu, virheet:[], listenKohina?:[], cspKohina?:[], lohkot:{ ok, puuttuu:[] }, sv?:{uudet,tunnetut}, lippu?:{ ok, syy }, kirjoitukset:{ tuntemattomat:[], tunnetut:[], verkko:[] }, vartija:bool, kaatui? }
    → { virheet, lohkot, kieli, lippu, kirjoitukset }: kukin { tila: 'ok'|'varoitus'|'virhe'|'-', tieto } */
+/* Sallitut kohinat ⚠-tietona (ei kaada): Listen-uusinta ja App Checkin report-only-CSP. */
+function sallitutKohinat(n) {
+  const ulos = [];
+  if ((n.listenKohina || []).length) ulos.push('Listen-kanavan uusinta sallittu: ' + virheRivit(n.listenKohina).slice(0, 3).join(' | '));
+  if ((n.cspKohina || []).length) ulos.push('report-only CSP (App Checkin reCAPTCHA-kehys www.google.com) sallittu ×' + n.cspKohina.length);
+  return ulos;
+}
 export function arvioi(n) {
   const t = (tila, tieto) => ({ tila, tieto: tieto || '' });
   if (n.ohitettu) { const o = t('-', n.ohitettu); return { virheet: o, lohkot: o, kieli: o, lippu: o, kirjoitukset: o }; }   // syy näkyy omana löydöksenään (↷); ajon kaataa syy-tarkistus (esim. VP Kodin lippu ✗)
   if (n.kaatui) { const k = t('virhe', n.kaatui); return { virheet: k, lohkot: k, kieli: n.kieli === 'sv' ? k : t('-'), lippu: n.lippu ? k : t('-'), kirjoitukset: k }; }
   const kirj = n.kirjoitukset || { tuntemattomat: [], tunnetut: [], verkko: [] };
   return {
-    virheet: (n.virheet || []).length ? t('virhe', virheRivit(n.virheet).slice(0, 5).join(' | ')) : (n.listenKohina || []).length ? t('varoitus', 'Listen-kanavan uusinta sallittu: ' + virheRivit(n.listenKohina).slice(0, 3).join(' | ')) : t('ok'),
+    virheet: (n.virheet || []).length ? t('virhe', virheRivit(n.virheet).slice(0, 5).join(' | ')) : sallitutKohinat(n).length ? t('varoitus', sallitutKohinat(n).join(' · ')) : t('ok'),
     lohkot: n.lohkot && n.lohkot.ok ? t('ok') : t('virhe', 'puuttuu: ' + ((n.lohkot && n.lohkot.puuttuu) || []).join(', ')),
     kieli: n.kieli !== 'sv' ? t('-') : n.sv && n.sv.uudet.length ? t('virhe', n.sv.uudet.slice(0, 8).join(' | ')) : n.sv && n.sv.tunnetut.length ? t('varoitus', n.sv.tunnetut.length + ' tunnettua (sv-baseline)') : t('ok'),
     lippu: !n.lippu ? t('-') : n.lippu.ok ? t('ok') : t('virhe', n.lippu.syy),
