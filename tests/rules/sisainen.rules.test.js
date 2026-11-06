@@ -40,7 +40,7 @@ const staff = (uid, rooli, seuraId) => env.authenticatedContext(uid, { rooli, se
 const valm12 = () => staff('valm-12', 'valmentaja', A), valm14 = () => staff('valm-14', 'valmentaja', A), vp = () => staff('vp-a', 'vp', A), sihteeri = () => staff('sih-a', 'seurasihteeri', A);
 const valmB = () => staff('valm-b', 'valmentaja', B), sa = () => env.authenticatedContext('sa-1', { rooli: 'super_admin' }).firestore();
 const pelaaja = (pid) => env.authenticatedContext('pel_' + A + '_' + (pid || PID), { rooli: 'pelaaja', pelaajaSeuraId: A, pelaajaId: pid || PID, firebase: { sign_in_provider: 'custom' } }).firestore();
-const huoltaja = () => env.authenticatedContext('huolt-1', { email: 'huoltaja@test.fi' }).firestore();
+const huoltaja = () => env.authenticatedContext('huolt-1', { email: 'huoltaja@test.fi', email_verified: true }).firestore();
 const sis = (db, pid) => doc(db, 'seurat', A, 'pelaajat', pid || PID, 'sisainen', 'tiedot');
 const pel = (db, pid) => doc(db, 'seurat', A, 'pelaajat', pid || PID);
 const IT = (pisteet, extra) => Object.assign({ d3_itsearvio: Object.assign({ pisteet: pisteet || { inner_drive: 4, focus: 2 }, pvm: '2026-10-22' }, extra || {}) });

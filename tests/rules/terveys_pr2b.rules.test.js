@@ -115,7 +115,7 @@ describe('v3.73 · luku ennallaan', () => {
   it('pelaaja ja huoltaja eivät lue sisainen/terveys:iä; fysioterapeutti, vp ja oman joukkueen valmentaja lukevat', async () => {
     await env.withSecurityRulesDisabled(async (c) => { await setDoc(terv(c.firestore()), { terveysSeuraId: A, kaytettavyys: 'tauko' }); await updateDoc(pel(c.firestore()), { huoltajaEmail: 'h@test.fi' }); });
     const pelaaja = env.authenticatedContext('pel_' + A + '_' + PID, { rooli: 'pelaaja', pelaajaSeuraId: A, pelaajaId: PID, firebase: { sign_in_provider: 'custom' } }).firestore();
-    const huoltaja = env.authenticatedContext('h-1', { email: 'h@test.fi' }).firestore();
+    const huoltaja = env.authenticatedContext('h-1', { email: 'h@test.fi', email_verified: true }).firestore();
     for (const db of [pelaaja, huoltaja]) await assertFails(getDoc(terv(db)));
     for (const db of [fysio(), vp(), valm12()]) await assertSucceeds(getDoc(terv(db)));
   });

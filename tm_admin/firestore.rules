@@ -1,10 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.80
+// TalentMaster™ — firestore.rules v3.81
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.80 → v3.81 (email_verified PR c, PM 6.11.2026, KIRISTÄÄ; PR a #1210 tuotannossa, b ajettu 6.11. klo 16.40: vahvistuslinkit 14/14):
+//   huoltajan KAIKKI pääsy vaatii vahvistetun sähköpostin (token email_verified == true): onLapsenHuoltaja() (kaikki 16 kutsukohtaa: viestit, havainnot, kirjaukset
+//   + U12-kirjaus/kuittaus, notifikaatiot, testitulokset, idp_pelaaja, kehut, palautteet, testitapahtumien tulokset, lasnaolijat) ja pelaajadokumentin luvun inline-huoltajahaara.
+//   Ehto tarkistetaan ennen pelaajadokumentin get():iä (vahvistamattomalta ei lukua). huoltajaRsvp:n oma email_verified-rivi (v3.55) poistettu: tulee nyt onLapsenHuoltaja():sta.
+//   Sama tarkistus callablessa haeLapsiHuoltajalle (functions/index.js). Henkilökunta, pelaajatoken ja SA ennallaan.
 // Muutokset v3.79 → v3.80 (B9b, PM 3.11.2026 B9 päätös 4, KIRISTÄÄ; v3.79 = PR 2e): perutun suostumuksen pelaajalle (suostumusTila 'peruttu' tai suostumus.peruttu, sama ehto kuin lib/tm_suostumus.js)
 //   EI uusia dokumentteja mihinkään pelaajat/{pid}/<alikokoelma>-polkuun — kaikilta, myös SA:lta (palvelin/admin-SDK ohittaa). eiUuttaPerutulle() koskee vain create-metodia: olemassa olevan päivitys/poisto ja luku ennallaan.
 //   Pelaajadokumentin get() on sama luku kuin joukkuetarkistuksissa (ei lisäkustannusta niissä); puuttuva pelaajadokumentti ei estä (tuonnin batch).
@@ -914,6 +919,7 @@ service cloud.firestore {
     function onLapsenHuoltaja(seuraId, pelaajaId) {
       return onKirjautunut()
           && request.auth.token.email is string
+          && request.auth.token.get('email_verified', false) == true   // v3.81: vain vahvistettu sähköposti (ennen get():iä)
           && pelaajaData(seuraId, pelaajaId).huoltajaEmail is string
           && request.auth.token.email.lower()
              == pelaajaData(seuraId, pelaajaId).huoltajaEmail.lower();
@@ -922,8 +928,7 @@ service cloud.firestore {
     // v3.55 (B4) — huoltajan saatavuusvastaus (lasnaolijat): vahvistettu sähköposti + suostumus annettu (samalla linjalla kuin v3.51:n viestiluku); rooli pakotetaan 'huoltaja' (ei kirjoita pelaajana);
     // vain RSVP-arvot; kenttärajaus kutsujassa: create → keys().hasOnly, update → diff().affectedKeys().hasOnly (päivitys ei kosketa henkilökunnan `tila`-kenttää).
     function huoltajaRsvp(seuraId, pelaajaId) {
-      return onLapsenHuoltaja(seuraId, pelaajaId)
-          && request.auth.token.get('email_verified', false) == true
+      return onLapsenHuoltaja(seuraId, pelaajaId)   // v3.81: email_verified sisältyy onLapsenHuoltaja():an
           && pelaajaData(seuraId, pelaajaId).get('suostumusTila', '') == 'annettu'
           && request.resource.data.get('rooli', '') == 'huoltaja'
           && request.resource.data.get('saatavuus', '') in ['tulossa', 'estynyt'];
@@ -1470,6 +1475,7 @@ service cloud.firestore {
                       || onPelaajaItse(seuraId, pelaajaId)
                       || (onKirjautunut()
                           && request.auth.token.email is string
+                          && request.auth.token.get('email_verified', false) == true   // v3.81
                           && resource.data.huoltajaEmail is string
                           && request.auth.token.email.lower()
                              == resource.data.huoltajaEmail.lower());
