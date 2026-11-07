@@ -121,6 +121,7 @@ describe('rivikattojen purku · kuoren osatiedostot (seura/) tarjoillaan Hosting
     expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura.css');
     expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura_kutsut.js');
     expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura_tuonti.js');
+    expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura_pelaajahallinta.js');
   });
   it('jokainen osa on olemassa eikä ignoressa', () => {
     expect(osat.filter((o) => !existsSync(join(juuri, o.polku)) || ignoroitu(o.polku))).toEqual([]);
