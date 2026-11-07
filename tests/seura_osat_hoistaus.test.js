@@ -39,8 +39,11 @@ describe('S2a · Seuran JS-osat: ennen inline-lohkoa, vain määrittelyjä', () 
      ([], {}, null, '', 0 tai ei alkuarvoa). Muu ylätason lause (DOM-kutsu, kuuntelija, laskettu arvo) = pysähdy ja kysy PM:ltä. */
   const tyhja = (e) => !e || (e.type === 'ArrayExpression' && e.elements.length === 0) || (e.type === 'ObjectExpression' && e.properties.length === 0)
     || (e.type === 'Literal' && (e.value === null || e.value === '' || e.value === 0));
+  /* PM 7.11. (S3): const-vakio, jonka arvo on pelkkä merkkijono tai luku (template vain ilman ${}). Ei let/var, ei laskettua arvoa. */
+  const vakio = (e) => !!e && ((e.type === 'Literal' && (typeof e.value === 'string' || typeof e.value === 'number'))
+    || (e.type === 'TemplateLiteral' && e.expressions.length === 0));
   const sallittu = (n) => n.type === 'FunctionDeclaration'
-    || (n.type === 'VariableDeclaration' && n.declarations.every((d) => d.id.type === 'Identifier' && tyhja(d.init)))
+    || (n.type === 'VariableDeclaration' && n.declarations.every((d) => d.id.type === 'Identifier' && (tyhja(d.init) || (n.kind === 'const' && vakio(d.init)))))
     || (n.type === 'ExpressionStatement' && n.expression.type === 'AssignmentExpression'
       && n.expression.left.type === 'MemberExpression' && n.expression.left.object.name === 'window'
       && /FunctionExpression$/.test(n.expression.right.type));
@@ -54,10 +57,12 @@ describe('S2a · Seuran JS-osat: ennen inline-lohkoa, vain määrittelyjä', () 
   });
 
   it('vartija tunnistaa kielletyt: laskettu alkuarvo, DOM-kutsu, kuuntelija', () => {
-    for (const src of ['let a = [1];', 'const b = foo();', "document.getElementById('x');", "window.addEventListener('load', f);", 'var c = { x: 1 };', "let d = 'x';"]) {
+    for (const src of ['let a = [1];', 'const b = foo();', "document.getElementById('x');", "window.addEventListener('load', f);", 'var c = { x: 1 };', "let d = 'x';",
+      'var e = 10;', 'const f = `a${x}`;', 'const g = -1;', 'const h = 1 + 2;', "const i = 'a' + 'b';", 'const j = [1, 2];', 'const k = true;', 'const l = /x/;']) {
       expect(jasenna(src).body.every(sallittu), src).toBe(false);
     }
     expect(jasenna("let a = []; var b = {}; let c = null, d = '', e = 0, f; function g() {} window.h = async function () {};").body.every(sallittu)).toBe(true);
+    expect(jasenna("const m = 'teksti'; const n = 10; const o = `pohja ilman lausekkeita`; const p = 0.5;").body.every(sallittu)).toBe(true);
   });
 
   /* Sama ylätason nimi kahdessa tiedostossa: let/const → SyntaxError koko skriptille, function → myöhempi korvaa aiemman hiljaa.
@@ -75,6 +80,11 @@ describe('S2a · Seuran JS-osat: ennen inline-lohkoa, vain määrittelyjä', () 
     const tuplat = [...missa].filter(([, t]) => t.length > 1).map(([n, t]) => n + ': ' + t.join(' + '));
     expect(tuplat).toEqual([]);
     expect(missa.size).toBeGreaterThan(100);   // EI VACUOUS: inline-lohkon nimet ovat mukana
+  });
+
+  it('EI VACUOUS: S3:n vakiot ovat seura_pelaajahallinta.js:ssä ja kuuluvat tuplanimitarkistukseen', () => {
+    const n = nimet(jasenna(readFileSync(join(JUURI, 'seura/seura_pelaajahallinta.js'), 'utf8')));
+    expect(n).toEqual(expect.arrayContaining(['PIN_SUOSTUMUS_PUUTTUU', 'KORTTI_ERA']));
   });
 
   it('EI VACUOUS: S2b:n tyhjät tilamuuttujat ovat seura_tuonti.js:ssä', () => {
