@@ -1,6 +1,8 @@
 /* Rivikattojen purku F1 — functions/index.js:n lähde siirtomoduuleineen (scripts/functions_lahde.js).
    Vartioi: (1) jokainen siirtomoduuli on olemassa ja index.js lataa sen, (2) runko() löytää käsittelijän kummassakin muodossa,
-   (3) yksikään testi ei lue raakaa functions/index.js:ää ja viittaa siirrettyyn käsittelijään (vartija tyhjenisi hiljaa siirron jälkeen). */
+   (3) yksikään testi ei lue raakaa functions/index.js:ää ja viittaa siirrettyyn käsittelijään (vartija tyhjenisi hiljaa siirron jälkeen),
+   (4) sisältövartija (PM 7.11.): raakaa index.js:ää tekstinä lukeva testi ei sisällä literaalia, joka osuu siirrettyyn koodiin
+       mutta ei enää index.js:ään — myös ilman käsittelijän nimeä (F2: admin_auditloki). */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -9,7 +11,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..');
-const { SIIRTOMODUULIT, lueFunctionsLahde, runko } = require('../scripts/functions_lahde.js');
+const { SIIRTOMODUULIT, lueFunctionsLahde, runko, siirretytOsumat, LUKEE_INDEXIN } = require('../scripts/functions_lahde.js');
 const INDEX = readFileSync(join(JUURI, 'functions', 'index.js'), 'utf8');
 
 /* Moduulin tiedostonimi ja muuttuja, jolla index.js lataa sen (F1: kayttajahallinta, F2: suostumusVahvistus). */
@@ -47,5 +49,52 @@ describe('F1 · functions-lähde siirtomoduuleineen', () => {
       if (osumat.length) rikkojat.push(f + ': ' + osumat.join(', '));
     }
     expect(rikkojat).toEqual([]);
+  });
+
+  /* (4) Sisältövartija. Literaali = merkkijono, template ilman ${} tai regex (acorn); tunnisteet ja polut ohitetaan.
+     SALLITUT: literaali osuu siirrettyyn koodiin, mutta testi käyttää sitä TOISEEN lähteeseen tai rajattuun lohkoon,
+     mitä staattinen tarkistus ei näe. Jokainen rivi perustellaan, ja lista ei saa vanhentua (literaali on yhä tiedostossa). */
+  const SALLITUT = [
+    { f: 'tests/adar_tietosuoja.test.js', literaali: "'valmentaja'", miksi: 'storage.rules-lohko, ei functions' },
+    { f: 'tests/huoltajan_vahvistus_selain.test.js', literaali: '/console\\.\\w+\\([^)]*\\bemail\\b/', miksi: 'haeLapsiHuoltajalle-lohko (index.js), ei koko tiedosto' },
+    { f: 'tests/suostumus_kovennus_v333.test.js', literaali: 'const paivitys = {', miksi: 'Seuran tallennaMusokkausPelaaja-lohko, ei functions' },
+  ];
+  const INDEX_TEKSTI = INDEX;
+  const MODUULIT = SIIRTOMODUULIT.map((m) => [m, readFileSync(join(JUURI, m), 'utf8')]);
+  const tekstilukijat = () => ['tests', 'functions/test'].flatMap((d) => readdirSync(join(JUURI, d)).filter((x) => /\.(js|mjs)$/.test(x)).map((x) => d + '/' + x))
+    .filter((f) => f !== 'tests/functions_lahde.test.js')
+    .map((f) => [f, readFileSync(join(JUURI, f), 'utf8')])
+    .filter(([, s]) => !/lueFunctionsLahde/.test(s) && LUKEE_INDEXIN.test(s));
+
+  it('sisältövartija: index.js:ää tekstinä lukevat testit eivät etsi siirrettyä koodia (myös ilman käsittelijän nimeä)', () => {
+    const lukijat = tekstilukijat();
+    expect(lukijat.length).toBeGreaterThan(20);   // EI VACUOUS: raakaa index.js:ää lukevia testejä on yhä kymmeniä
+    const rikkojat = lukijat.flatMap(([f, s]) => siirretytOsumat(s, { index: INDEX_TEKSTI, moduulit: MODUULIT })
+      .filter((o) => !SALLITUT.some((x) => x.f === f && x.literaali === o.literaali))
+      .map((o) => f + ': ' + o.literaali + '  (löytyy ' + o.moduuli + ':sta, ei index.js:stä → käytä lueFunctionsLahde)'));
+    expect(rikkojat).toEqual([]);
+  });
+
+  it('sisältövartija: SALLITUT-lista ei vanhene (jokainen poikkeus osuu yhä)', () => {
+    for (const x of SALLITUT) {
+      const s = readFileSync(join(JUURI, x.f), 'utf8');
+      expect(siirretytOsumat(s, { index: INDEX_TEKSTI, moduulit: MODUULIT }).map((o) => o.literaali), x.f).toContain(x.literaali);
+    }
+  });
+
+  it('sisältövartija kaatuu tahalliseen rikkojaan (F2:n admin_auditloki-tapaus) eikä hälytä index.js:ssä olevasta tekstistä', () => {
+    const rikkoja = [
+      "import { readFileSync } from 'fs';",
+      "const CF = readFileSync('functions/index.js', 'utf8');",
+      "expect(CF).toMatch(/toiminto: 'suostumus_annettu', severity: kohde\\.poikkeama\\.length \\? 'warn' : 'info'/);",
+      "expect(CF).not.toContain('kirjBatch.update(pelRef, tmSisainen.tmSisainenRiisu(paivitys))');",
+      "expect(CF).toContain(`estaPaikkamerkkiOsoite(email);`);",
+    ].join('\n');
+    expect(LUKEE_INDEXIN.test(rikkoja)).toBe(true);
+    const o = siirretytOsumat(rikkoja, { index: INDEX_TEKSTI, moduulit: MODUULIT });
+    expect(o.map((x) => x.moduuli)).toEqual(['functions/suostumus_vahvistus.js', 'functions/suostumus_vahvistus.js', 'functions/kayttajahallinta.js']);
+    /* Kontrolli: index.js:ssä yhä oleva teksti, tunnisteet ja 'use strict' eivät hälytä. */
+    const puhdas = "'use strict';\nconst CF = lue('functions/index.js');\nexpect(CF).toContain(\"const suostumusVahvistus = require('./suostumus_vahvistus');\");\nexpect(CF).toContain('vahvistaSuostumus');";
+    expect(siirretytOsumat(puhdas, { index: INDEX_TEKSTI, moduulit: MODUULIT })).toEqual([]);
   });
 });
