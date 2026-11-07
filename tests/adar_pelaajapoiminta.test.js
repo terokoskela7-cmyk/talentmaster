@@ -299,6 +299,8 @@ describe('ADAR · offline-jonon synkronointi', () => {
       /* §26: synkka kirjoittaa havainnon + adar_*-pikakentät batchina (_phKirjoitaHavaintoJaPikakentat, oma testi
          tests/pikakentat_atomiset.test.js). Tässä mitataan JONON logiikkaa → kirjoitus tynkänä. */
       _phPelaajaRef: () => ({ collection: () => ({ doc: () => ({ id: 'x' }) }) }),
+      /* B9b-esitarkistus (ADAR b): suostumus kunnossa → jono kuten ennen. Peruttu-haara: tests/b9b_adar_kentta_esitarkistus.test.js. */
+      _adarPeruttuTuore: async () => false, _adarPeruttuTeksti: () => 'Suostumus peruttu',
       _phKirjoitaHavaintoJaPikakentat: async (ref, d, sid, pid) => {
         const v = (virheet || {})[pid];
         if (v) { const e = new Error('nope'); e.code = v; throw e; }
