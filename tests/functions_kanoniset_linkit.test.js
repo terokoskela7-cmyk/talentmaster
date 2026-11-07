@@ -17,11 +17,13 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (p) => lueKuori(p);
-const CF = lue('functions/index.js');
+const CF = lueFunctionsLahde(juuri);   // index.js + siirtomoduulit: kanoniset linkit koskevat myös siirrettyä koodia (F1/F2)
 
 describe('kanoninen base', () => {
   it('TM_BASE_URL määritelty TASAN KERRAN', () => {
