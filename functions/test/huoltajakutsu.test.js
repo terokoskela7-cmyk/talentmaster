@@ -98,9 +98,11 @@ test('pohjat: kutsulinkki esc():n kautta; suostumusviesti sanoo 7 pv kun kutsu, 
   assert.match(pohjaSuostumusLinkki({ resetLinkki: 'https://x', kutsu: true }), /7 p/); assert.match(pohjaSuostumusLinkki({ resetLinkki: 'https://x', kutsu: false }), /1 tunnin/);
 });
 test('index.js: callablet europe-west1 + enforceAppCheck; vahvistaSuostumus ja lahetaPelaajaSivuLinkki käyttävät huoltajaSalasanaLinkki-apuria (ei suoraa generatePasswordResetLinkiä niissä)', () => {
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.js'), 'utf8');
+  /* Rivikattojen purku F2: vahvistaSuostumus on functions/suostumus_vahvistus.js:ssä → lähde siirtomoduuleineen, runko() kumpaa tahansa muotoa. */
+  const { lueFunctionsLahde, runko } = require('../../scripts/functions_lahde.js');
+  const src = lueFunctionsLahde(require('path').join(__dirname, '..', '..'));
   for (const n of ['avaaHuoltajakutsu', 'pyydaUusiHuoltajakutsu']) { const i = src.indexOf('exports.' + n); assert.ok(i > 0, n); const l = src.slice(i, i + 260); assert.match(l, /region\('europe-west1'\)/); assert.match(l, /enforceAppCheck: true/); }
   assert.match(src.slice(src.indexOf('exports.pyydaUusiHuoltajakutsu'), src.indexOf('exports.pyydaUusiHuoltajakutsu') + 300), /SENDGRID_API_KEY/);
-  const lohko = (n) => { const a = src.indexOf('exports.' + n); const b = src.indexOf('\nexports.', a + 10); return src.slice(a, b < 0 ? undefined : b); };
+  const lohko = (n) => runko(src, n);
   for (const n of ['vahvistaSuostumus', 'lahetaPelaajaSivuLinkki']) { const l = lohko(n); assert.ok(l.includes('huoltajaSalasanaLinkki('), n); assert.ok(!l.includes('auth.generatePasswordResetLink('), n); }
 });

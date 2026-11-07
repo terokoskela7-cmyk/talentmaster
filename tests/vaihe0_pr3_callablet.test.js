@@ -14,17 +14,16 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { lisaaPaikkamerkki, onPaikkamerkkiOsoite } from './_paikkamerkkiCtx.mjs';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
-const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
+const CF = lueFunctionsLahde(ROOT);
 const { tunnisteTyyppi, kuittausPaatos } = require_(join(ROOT, 'functions', 'authz_paatos.js'));
 
 function cfRunko(nimi) {
-  const i = CF.indexOf('exports.' + nimi + ' = functions');
-  if (i < 0) throw new Error('ei löydy: ' + nimi);
-  const j = CF.indexOf('\n  });', i);
-  return CF.slice(i, j + 6);
+  return _fnRunko(CF, nimi);   // index.js- tai siirtomoduulimuoto (rivikattojen purku F1/F2); heittää, jos ei löydy
 }
 
 class HttpsError extends Error { constructor(code, msg) { super(msg); this.code = code; } }

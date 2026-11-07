@@ -10,6 +10,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const require_ = createRequire(import.meta.url);
@@ -204,7 +206,7 @@ describe('kirjautuminen ja palvelinlukijat', () => {
 });
 
 describe('uudelleensuostuminen (vahvistaSuostumus)', () => {
-  const CF = lue('functions/index.js');
+  const CF = lueFunctionsLahde(ROOT);
   it('korvaa koko suostumus-olion (peruttu poistuu) ja kirjaa edelliset audit-riville', () => {
     expect(CF).toMatch(/paivitys\.suostumus = \{/);
     expect(CF).toContain("await suostumusPeruminen.kirjaaHistoria(db, admin.firestore.FieldValue, seuraId, pelaajaId, snap.data());");

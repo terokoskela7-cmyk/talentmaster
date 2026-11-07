@@ -14,6 +14,8 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -211,9 +213,7 @@ describe('suostumus_tarkistus (puhdas, salliva täsmäys)', () => {
 /* ── vahvistaSuostumus (CF-runko vm:ssä) ── */
 class HttpsError extends Error { constructor(c, m, d) { super(m); this.code = c; this.details = d; } }
 function vahvista(pelaaja) {
-  const CF = lue('functions/index.js');
-  const i = CF.indexOf('exports.vahvistaSuostumus = functions');
-  const runko = CF.slice(i, CF.indexOf('\n  });', i) + 6);
+  const runko = _fnRunko(lueFunctionsLahde(ROOT), 'vahvistaSuostumus');
   const f = fakeDb({ 'seurat/kpv/pelaajat/m93': pelaaja });
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
   const ctx = {

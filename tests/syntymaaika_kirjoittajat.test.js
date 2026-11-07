@@ -32,7 +32,7 @@ function luokittele(rivi) {
 }
 /* Rekisteröidyt poikkeukset: arvo tulee apufunktiosta, jonka lähde varmennetaan erikseen (UTC-keskiyö). */
 const REKISTEROIDYT = [
-  { tiedosto: 'functions/index.js', rivi: 'paivitys.syntymaaika = admin.firestore.Timestamp.fromDate(tt.syntymaPaiva);', lahde: 'functions/suostumus_tarkistus.js', funktio: 'function lomakePaiva(' },
+  { tiedosto: 'functions/suostumus_vahvistus.js', rivi: 'paivitys.syntymaaika = admin.firestore.Timestamp.fromDate(tt.syntymaPaiva);', lahde: 'functions/suostumus_tarkistus.js', funktio: 'function lomakePaiva(' },
 ];
 
 const KOHTEET = [
@@ -46,7 +46,7 @@ describe('syntymaaika-kirjoittajien skanneri', () => {
   for (const f of KOHTEET) lue(f).split('\n').forEach((r, i) => { const k = luokittele(r); if (k) osumat.push({ f, n: i + 1, k, r: r.trim() }); });
   it('EI VACUOUS: löytää tunnetut kirjoittajat (Seura-lomake, vahvistaSuostumus, IDP-demo)', () => {
     expect(osumat.some((o) => o.f === 'lib/tm_syntymavuosi.js' && /Date\.UTC/.test(o.r))).toBe(true);   // Seura-lomakkeen kirjoittaja siirretty libiin (syntymävuosi-PR)
-    expect(osumat.some((o) => o.f === 'functions/index.js' && /syntymaPaiva/.test(o.r))).toBe(true);
+    expect(osumat.some((o) => o.f === 'functions/suostumus_vahvistus.js' && /syntymaPaiva/.test(o.r))).toBe(true);
     expect(KOHTEET.length).toBeGreaterThan(60);
   });
   it('jokainen kirjoittaja käyttää Date.UTC:tä tai on rekisteröity (arvo → apufunktio joka käyttää Date.UTC:tä)', () => {

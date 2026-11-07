@@ -12,6 +12,8 @@ import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { PEL_APU } from './helpers/pelaaja_t.mjs';
 import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const require_ = createRequire(import.meta.url);
@@ -19,7 +21,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const K = require_('../functions/pelaajakirjautuminen.js');
 const P = require_('../functions/pelaajapin.js');
 const { suostumusAnnettu } = require_('../functions/suostumus.js');
-const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
+const CF = lueFunctionsLahde(ROOT);
 const lue = (f) => lueKuori(f);
 
 class HttpsError extends Error { constructor(code, msg, details) { super(msg); this.code = code; this.details = details; } }
@@ -110,8 +112,7 @@ describe('PIN vain suostumuksen jälkeen', () => {
 });
 
 describe('vahvistaSuostumus luo PIN:n (best-effort) ja säilyttää olemassa olevan', () => {
-  const i = CF.indexOf('exports.vahvistaSuostumus');
-  const runko = CF.slice(i, CF.indexOf('\n  });', i));
+  const runko = _fnRunko(CF, 'vahvistaSuostumus', true);
   it('PIN luodaan suostumuksen tallennuksen JÄLKEEN vain jos puuttuu, samalla apurilla kuin luoPinitSeuralle; virhe ei kaada', () => {
     const tallennus = runko.indexOf('await kirjBatch.commit();');
     const pinLuonti = runko.indexOf("pelaajapin.lisaaPinKirjoitukset(db, b, { seuraId, pelaajaId, data: snap.data() || {}, pin: uusi, lahde: 'vahvistaSuostumus', TS });");

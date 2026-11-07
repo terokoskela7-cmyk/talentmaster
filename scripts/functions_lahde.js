@@ -15,7 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SIIRTOMODUULIT = ['functions/kayttajahallinta.js'];
+const SIIRTOMODUULIT = ['functions/kayttajahallinta.js', 'functions/suostumus_vahvistus.js'];
 
 function lueFunctionsLahde(juuri) {
   const j = juuri || path.join(__dirname, '..');

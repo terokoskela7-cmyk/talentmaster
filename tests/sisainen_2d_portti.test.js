@@ -8,6 +8,8 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const lue = (f) => lueKuori(f);
@@ -46,7 +48,7 @@ describe('grep-portti: ei A-avainta pelaajadokumenttiin, ei raakaa varapolkua', 
     expect(seura).not.toMatch(/talenttiTaso:\s+\(p\.talentti/); expect(seura).not.toMatch(/else await db\.collection\('seurat'\)\.doc\(tila\.seuraId\)\s*\n\s*\.collection\('pelaajat'\)\.doc\(pelaajaId\)\s*\n\s*\.update\(paivitys\)/);
     const t9 = lue('TalentMaster_Testaus_v9.html');
     expect(t9).toMatch(/b\.update\(baseRef, S4\.tmS4Riisu\(upd\)\)/); expect(t9).not.toMatch(/kirjoita\(false\)/);
-    const cf = lue('functions/index.js');
+    const cf = lueFunctionsLahde();
     expect(cf).toMatch(/kirjBatch\.update\(pelRef, tmSisainen\.tmSisainenRiisu\(paivitys\)\)/);
     const demo = lue('tm_admin/setup_demo_kehitys.js');
     expect(demo).toMatch(/kirjoita\(P, SIS\.tmSisainenRiisu\(pelaaja\)\)/); expect(demo).not.toMatch(/tallensiUid|tuojaUid/);
