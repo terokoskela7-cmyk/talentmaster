@@ -195,6 +195,14 @@ describe('Rivikattojen purku S1 · kuoren osatiedostot (seura/) kuuluvat versiot
     expect(VT.tarkistaJulkaisu(a)).toEqual([]);
     rmSync(t, { recursive: true, force: true });
   });
+  it('S2a: julkaisussa seura/seura_kutsut.js = ?v=<sha256 8 merkkiä sisällöstä>; repossa ei ?v:tä', () => {
+    expect(lue(JUURI, 'TalentMaster_Seura.html')).toMatch(/<script src="seura\/seura_kutsut\.js"><\/script>/);
+    const t = mkdtempSync(join(tmpdir(), 'qg2-js-')); const a = kopioiPuu(join(t, 'a'));
+    expect(VT.kirjoita(a).ok).toBe(true);
+    expect(lue(a, 'TalentMaster_Seura.html')).toContain('<script src="seura/seura_kutsut.js?v=' + sha8(lue(JUURI, 'seura/seura_kutsut.js')) + '"></script>');
+    expect(VT.tarkistaJulkaisu(a)).toEqual([]);
+    rmSync(t, { recursive: true, force: true });
+  });
   it('vartija huomaa käsin kirjoitetun ?v:n tyylilinkissä; manifest- ja ikonilinkit eivät ole latauksia', () => {
     const t = mkdtempSync(join(tmpdir(), 'qg2-cssv-'));
     writeFileSync(join(t, 'a.css'), '.a{}'); writeFileSync(join(t, 'sivu.html'), '<link rel="manifest" href="m.json"><link rel="icon" href="i.png"><link rel="stylesheet" href="a.css?v=3">');
