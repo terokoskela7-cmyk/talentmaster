@@ -59,7 +59,7 @@ describe('ADAR · _phKirjoitaHavaintoJaPikakentat kertoo pikakenttien tuloksen',
 
 describe('ADAR · _phTallenna ilmoittaa isännälle VASTA kuittauksen jälkeen', () => {
   function aja({ havaintoHylkaa, pikakentat, offline }) {
-    const viestit = [];
+    const viestit = [], merkinnat = [];
     let vapauta;
     const odota = new Promise((r) => { vapauta = r; });
     const kirjoitus = odota.then(() => { if (havaintoHylkaa) throw Object.assign(new Error('x'), { code: 'permission-denied' }); return pikakentat; });
@@ -74,12 +74,13 @@ describe('ADAR · _phTallenna ilmoittaa isännälle VASTA kuittauksen jälkeen',
       tmPaivaIso: () => '2026-10-04', _phDimit: () => ['A'], _nakArvo: () => 'valmentajat', _adarTekijaNimi: () => 'V', _adarPeruttu: () => false, _adarEstonSyy: () => 'syy',
       _showToast() {}, _phRender() {}, _phSeuraaKirjoitusta() {}, tmAdarBand: () => ['a'],
       _phJarjesta: (x) => x, _adarNakyvatPelaajat: () => ['p1'], _phIlmoita() {}, _phIlmSulje() {}, _phAvaaPelaaja() {},
-      _luonnosKeraa: () => ({}), _luonnosMerkitse() {}, _luonnosTyhjenna() {}, _luonnosAvaa() {},
+      _luonnosKeraa: () => ({}), _luonnosMerkitse: (pid, tila, lisa) => merkinnat.push([pid, tila, lisa && lisa.virhe]), _luonnosTyhjenna() {}, _luonnosAvaa() {},
       _phPelaajaRef: () => dok, _phKirjoitaHavaintoJaPikakentat: () => kirjoitus,
     });
     ctx.window.window = ctx.window; ctx.window.parent.parent = null;
-    vm.runInContext(pura(ADAR, 'async function _phTallenna(') + '\nthis.f = _phTallenna;', ctx);
-    return { ctx, viestit, vapauta, kirjoitus };
+    /* B9b (ADAR b): virhepolku kutsuu oikeaa _adarPeruttuTuore:a (tynkä-dokissa ei get:iä → lukuvirhe → false → syy ennallaan). */
+    vm.runInContext(pura(ADAR, 'async function _adarPeruttuTuore(') + '\n' + pura(ADAR, 'async function _phTallenna(') + '\nthis.f = _phTallenna;', ctx);
+    return { ctx, viestit, vapauta, kirjoitus, merkinnat };
   }
   it('EI VIESTIÄ ennen kuittausta (Master sulkisi iframen ja virhe jäisi näkymättömiin)', async () => {
     const y = aja({ pikakentat: { ok: true } });
@@ -97,6 +98,8 @@ describe('ADAR · _phTallenna ilmoittaa isännälle VASTA kuittauksen jälkeen',
     const y = aja({ havaintoHylkaa: true, pikakentat: { ok: true } });
     await y.ctx.f(); y.vapauta(); await tick(); await tick();
     expect(y.viestit).toEqual([{ type: 'tm:adar:failed', pelaajaId: 'p1', koodi: 'permission-denied' }]);
+    /* EI VACUOUS: virhepolku ajettiin loppuun (luonnos 'epaonnistui' + syy) — keskeytynyt catch jäisi muuten huomaamatta. */
+    expect(y.merkinnat.filter((m) => m[1] === 'epaonnistui')).toEqual([['p1', 'epaonnistui', 'syy']]);
   });
   it('offline → ilmoitus heti (jonossa:true), ei kuittausta jäädä odottamaan', async () => {
     const y = aja({ offline: true, pikakentat: { ok: true } });

@@ -1847,6 +1847,7 @@ describe('(18) luonnos säilyy puoliajan vaihdon yli', () => {
       ['function luonnosEtuliite() {', 'function luonnosAvain() {',
         'function keskeneraisetLuonnokset() {', 'function tallennaLuonnos() {',
         'function lataaLuonnos(avain) {', 'function poistaLuonnos() {',
+        'async function suostumusPeruttu() {', 'function naytaPeruttu() {',   // B9b-esitarkistus (ADAR b)
         'async function tallennaFirestoreen(opts) {', 'async function paataPuoliaika() {',
         'async function lopetaOttelu() {'],
       'return { tallenna: tallennaLuonnos, lataa: lataaLuonnos, avain: luonnosAvain,'

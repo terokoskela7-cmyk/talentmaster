@@ -409,6 +409,20 @@ function _adarTekijaNimi(user) {
 function _adarPeruttu(pelaajaId) { var p = (window._pelaajaMap || {})[pelaajaId]; return !!(p && window.TM_SUOSTUMUS && window.TM_SUOSTUMUS.tmSuostumusPeruttu(p)); }
 function _adarPeruttuTeksti() { return (typeof tmLibT === 'function' && tmLibT('kts_suostumus_peruttu')) || tmHT('Suostumus peruttu'); }   // fi = kts_suostumus_peruttu:n fi (lib/tm_kt_sivu.js)
 window._adarPeruttu = _adarPeruttu;
+/* B9b: tuore luku. Kartta haetaan latauksessa; jos suostumus perutaan kesken istunnon, Rules hylkää mutta kartta ei tiedä →
+   virhepolku näyttäisi väärän syyn ("vain oman joukkueesi"). Peruttu → kartta päivitetään, jolloin _adarEstonSyy ja seuraava
+   esitarkistus näkevät sen. Lukuvirhe → false (yleinen polku). */
+async function _adarPeruttuTuore(seuraId, pelaajaId) {
+  try {
+    var s = await _phPelaajaRef(seuraId, pelaajaId).get();
+    var d = s && s.exists ? s.data() : null;
+    if (!(d && window.TM_SUOSTUMUS && window.TM_SUOSTUMUS.tmSuostumusPeruttu(d))) return false;
+    var m = (window._pelaajaMap || {})[pelaajaId];
+    if (m) { m.suostumusTila = d.suostumusTila || 'peruttu'; m.suostumus = { peruttu: true }; }
+    return true;
+  } catch (e) { return false; }
+}
+window._adarPeruttuTuore = _adarPeruttuTuore;
 function _adarEstonSyy(pelaajaId) {
   if (pelaajaId && _adarPeruttu(pelaajaId)) return _adarPeruttuTeksti();
   if (!_adarNakeeKaikki() && !(window._omatJoukkueet || []).length) {
@@ -1499,11 +1513,12 @@ async function _phTallenna() {
   }).then(function (pk) {
     if (!_offline) _ilmoitaIsannalle({ type: 'tm:adar:saved', pelaajaId: pelaajaId,
       pikakentat: !!(pk && pk.ok), pikakenttaVirhe: (pk && pk.code) || null });
-  }).catch(function (err) {
+  }).catch(async function (err) {
     if (!_offline) _ilmoitaIsannalle({ type: 'tm:adar:failed', pelaajaId: pelaajaId, koodi: (err && err.code) || 'virhe' });
     console.error('[ADAR] Tallennusvirhe:', err && (err.message || err));
-    var syy = (err && (err.code === 'permission-denied' || (err.message || '').indexOf('permissions') >= 0))
-      ? _adarEstonSyy(pelaajaId) : '';
+    var _hylatty = !!(err && (err.code === 'permission-denied' || (err.message || '').indexOf('permissions') >= 0));
+    if (_hylatty && !_adarPeruttu(pelaajaId)) await _adarPeruttuTuore(seuraId, pelaajaId);   // B9b: peruttu kesken istunnon → oikea syy
+    var syy = _hylatty ? _adarEstonSyy(pelaajaId) : '';
     /* EI HILJAISTA KATOAMISTA: luonnos säilyy 'epaonnistui'-tilassa, lomake palautetaan ruudulle ja virhe näkyy pysyvänä
        bannerina (toast katoaa; kentällä konsolia ei ole). */
     _luonnosMerkitse(pelaajaId, 'epaonnistui', { virhe: syy }, luonnosTila);
@@ -1914,12 +1929,17 @@ async function _synkronoiOfflineJono() {
   /* `luotu` ON RAKENNETTAVA UUDELLEEN. Jonoon se päätyi joko ISO-merkkijonona tai
      serverTimestamp-sentinelinä, joka ei serialisoidu IndexedDB:hen kelvollisesti. Rules
      vaatii `luotu is timestamp` (A5), joten jonon merkintä hylättiin AINA. */
-  var synkattu = 0, ohitettu = 0;
+  var synkattu = 0, ohitettu = 0, peruttu = 0;
   for (var i = 0; i < merkinnat.length; i++) {
     var m = merkinnat[i];
     var localId = m.localId, luotu = m.luotu;
     var data = Object.assign({}, m);
     delete data.localId; delete data.luotu;
+    /* B9b: perutun suostumuksen pelaajalle ei uutta havaintoa (Rules hylkäisi aina) → pois jonosta ja nimettynä toastiin, ei "ei kelvannut". */
+    if (await _adarPeruttuTuore(m.seura_id, m.pelaaja_id)) {
+      try { await _idbPoista(localId); } catch (e) { /* jää jonoon, ohitetaan uudelleen */ }
+      peruttu++; continue;
+    }
     try {
       /* §26: synkka kirjoittaa havainnon JA adar_*-pikakentät samassa batchissa, kuten online-tallennus
          (ennen vain havainto → synkatut havainnot eivät päivittäneet pelaajan ADAR-pikakenttiä). */
@@ -1938,12 +1958,15 @@ async function _synkronoiOfflineJono() {
       ohitettu++;
     }
   }
+  var viesti = '';
   if (synkattu) {
-    _showToast(ohitettu ? tmHT('✓ {n} synkronoitu · {m} ei kelvannut').replace('{n}', synkattu).replace('{m}', ohitettu)
-                        : tmHT('✓ Offline-merkinnät synkronoitu'));
+    viesti = ohitettu ? tmHT('✓ {n} synkronoitu · {m} ei kelvannut').replace('{n}', synkattu).replace('{m}', ohitettu)
+                      : tmHT('✓ Offline-merkinnät synkronoitu');
   } else if (ohitettu) {
-    _showToast(tmHT('⚠ {n} offline-merkintää ei kelvannut — ota yhteys pääkäyttäjään').replace('{n}', ohitettu));
+    viesti = tmHT('⚠ {n} offline-merkintää ei kelvannut — ota yhteys pääkäyttäjään').replace('{n}', ohitettu);
   }
+  if (peruttu) viesti = (viesti ? viesti + ' · ' : '⚠ ') + _adarPeruttuTeksti() + ': ' + peruttu;   // B9b (kuten Testaus_v9)
+  if (viesti) _showToast(viesti);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
