@@ -1,6 +1,7 @@
-/* Gemini-erä 2 (docs/i18n/sv_kaannoserae_2.json) on ELÄVÄ: kattaa jokaisen sv-odotuslistan avaimen (fi/en tm_lang.js:stä) — uusi odotuslistan rivi ilman
- * pohjan päivitystä (node scripts/i18n_luo_gemini_era.cjs) kaatuu tähän, jotta yksikään uusi avain ei jää Geminiltä pyytämättä (takaraja 20.10.2026).
- * Code EI kirjoita ruotsia: sv-kentät ovat tyhjiä kunnes Gemini täyttää; täytetyt rivit säilyvät ajossa. */
+/* Gemini-erä 2 (docs/i18n/sv_kaannoserae_2.json) on palautettu ja suljettu (sv_era2_palautetaan.json). Vartija: jokainen sv-odotuslistan avain on erässä 2
+ * TAI uudemmassa erässä, joka on poissuljettu alla (ERA54/55/56/69-malli), jotta yksikään uusi avain ei jää PM:ltä pyytämättä.
+ * Uusi avain → uusi docs/i18n/sv_kaannoserae_N_gemini.json + poissulku tähän. ÄLÄ aja scripts/i18n_luo_gemini_era.cjs erälle 2: skripti kieltäytyy (B11).
+ * Code EI kirjoita ruotsia: sv-kentät ovat tyhjiä kunnes PM täyttää. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
@@ -19,14 +20,16 @@ const ERA69 = new Set(Object.keys(JSON.parse(require('fs').readFileSync(require(
 const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').filter((p) => !ERA54.has(p) && !ERA55.has(p) && !ERA56.has(p) && !ERA69.has(p));
 const hae = (kieli, polku) => polku.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L[kieli]);
 const rivit = ERA.osiot.tm_lang.rivit;
+// B11: erä 2 on suljettu → ohje osoittaa nykykäytäntöön, ei skriptin ajoon (skripti kieltäytyy palautetusta erästä)
+const UUSI_ERA = 'erä 2 on palautettu ja suljettu — lisää avaimet uuteen docs/i18n/sv_kaannoserae_N_gemini.json:iin ja poissulje erä tässä testissä (ERA54/55/56/69-malli); älä aja i18n_luo_gemini_era.cjs:ää';
 const ERA3 = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_3.json'), 'utf8'));
 
 describe('Gemini-erä 2 — tm_lang-osio', () => {
   it('jokainen sv-odotuslistan avain on erässä, fi/en täsmäävät tm_lang.js:ään', () => {
     const puuttuu = ODOTTAA.filter((p) => !rivit[p]);
-    expect(puuttuu, 'aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);
+    expect(puuttuu, UUSI_ERA).toEqual([]);
     const eroaa = ODOTTAA.filter((p) => rivit[p].fi !== hae('fi', p) || rivit[p].en !== hae('en', p));
-    expect(eroaa, 'fi/en muuttui — aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);
+    expect(eroaa, 'fi/en muuttui — ' + UUSI_ERA).toEqual([]);
   });
   it('erässä ei vanhentuneita rivejä: rivi joka ei ole odotuslistalla on täytetty (sv saapui)', () => {
     // erän 2 tyhjät tm_lang-rivit täyttyivät erässä 3 (vienti scripts/i18n_vie_sv_era3.cjs)
@@ -62,7 +65,7 @@ describe('Gemini-erä 2 — lib.rubriikit (kortin tasokuvaukset)', () => {
     for (let t = 1; t <= 5; t++) { const r = A.alyTaso(t); expect(E58[r.nimi], 'erä 58: nimi ' + r.nimi).toBeTruthy(); if (t < 5) expect(E58[r.nyt], 'erä 58: nyt ' + r.nyt).toBeTruthy(); }
     ['inner_drive', 'coachability', 'resilience', 'focus', 'emotional_control'].forEach((k) => kaikki.push(K.psyTaso(1, { [k]: 3 }).vahvuus));
     const puuttuu = kaikki.filter((fi) => !rub[fi]);
-    expect(puuttuu, 'aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);
+    expect(puuttuu, UUSI_ERA).toEqual([]);
     Object.entries(rub).forEach(([avain, r]) => expect(r.fi).toBe(avain));
   });
   it('Pelaaja_v7 ei näytä ADAR/FYS/PSY-tasokuvauksia pelaajalle (palaute-näkyvyys 0a, 19.10.2026): ei alyTaso/fysTaso/psyTaso-kutsuja eikä r.nyt-renderöintiä', () => {
