@@ -137,11 +137,15 @@ export function poistaNimet(teksti, nimet) {
 /* Baseline-vertailu ilman numeroita: QG-1 mittaa kiinteällä kellolla ja fixture-datalla, tuotannossa päivä ja luvut vaihtelevat
    ("Kehitystilanne · koko vuosi 2026 · päivitetty 14.10.2026", "0 / 0 tavoitetta raiteilla"). Sama teksti eri luvuilla = sama baselinen teksti. */
 export const ilmanLukuja = (s) => avain(s).replace(/\d+/g, '#');
+/* Sähköpostiosoite on tunnuksen dataa, ei käännettävää tekstiä (savutesti 6.11.: Seuran yläpalkin #topbarEmail = savutestitunnuksen osoite,
+   "savutesti@…" osui suomen tunnistimeen "testi"-vartalolla ja kaatoi kaikki Seuran sv-näkymät; lokissa GitHub peitti sen ***:ksi). */
+export const SAHKOPOSTI_RE = /[^\s@<>()"',;]+@[^\s@<>()"',;]+\.[a-z]{2,}/gi;
+export const poistaSahkopostit = (s) => String(s).replace(SAHKOPOSTI_RE, ' ');
 export function svLoydot(tekstit, opts) {
   const o = opts || {}, base = new Set(((o.baseline && o.baseline.tekstit) || []).map(ilmanLukuja)), uudet = [], tunnetut = [], nahty = new Set();
   for (const t0 of tekstit || []) {
     const t = norm(t0); if (!t || nahty.has(avain(t))) continue; nahty.add(avain(t));
-    if (onSallittu(t, o.sallitut) || !onkoSuomea(poistaNimet(t, o.nimet)).fi) continue;
+    if (onSallittu(t, o.sallitut) || !onkoSuomea(poistaNimet(poistaSahkopostit(t), o.nimet)).fi) continue;
     (base.has(ilmanLukuja(t)) ? tunnetut : uudet).push(t);
   }
   return { uudet, tunnetut };
