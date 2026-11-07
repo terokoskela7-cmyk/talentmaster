@@ -12,7 +12,7 @@ const MITTAUS = () => Object.fromEntries(K.KUORET.map((k) => [k, K.rivit(k)]));
 describe('kuorten kasvukatto', () => {
   it('KAIKKI kuoret ovat katon alla (mainissa läpi)', () => { const y = K.ylitykset(FIX, MITTAUS()); expect(y, K.ylitysViesti(y)).toEqual([]); });
   it('fixturessa on katto + perustelu jokaiselle kuorelle (VP, Master, Seura, Pelaaja, Admin, Excel_Tuonti, Vanhempi, functions/index.js, firestore.rules)', () => {
-    expect(K.KUORET).toEqual(['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Seura.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Admin.html', 'TalentMaster_Excel_Tuonti.html', 'TalentMaster_Vanhempi_v2.html', 'functions/index.js', 'tm_admin/firestore.rules', 'seura/seura.css', 'functions/kayttajahallinta.js', 'seura/seura_kutsut.js']);
+    expect(K.KUORET).toEqual(['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Seura.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Admin.html', 'TalentMaster_Excel_Tuonti.html', 'TalentMaster_Vanhempi_v2.html', 'functions/index.js', 'tm_admin/firestore.rules', 'seura/seura.css', 'functions/kayttajahallinta.js', 'seura/seura_kutsut.js', 'seura/seura_tuonti.js']);
     for (const k of K.KUORET) { expect(typeof FIX[k].katto, k).toBe('number'); expect(FIX[k].katto % 100, k).toBe(0); expect(FIX[k].perustelu, k).toMatch(/\S/); expect(typeof FIX[k].rivit, k).toBe('number'); }
   });
   it('katto = rivit + 2 % (Rules + 5 %) ylöspäin satoihin — alkukatot noudattavat sääntöä', () => {
