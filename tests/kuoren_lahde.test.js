@@ -68,8 +68,8 @@ describe('repon kuoret', () => {
 
 describe('vartija: Seura.html:n lähdettä ei lueta ohi kuoren_lahde.js:n', () => {
   /* Raakaa rakennetta tarvitsevat: kasvukatto laskee kuoren omat rivit, SDK-versioportti lukee head-tagit,
-     tämä tiedosto testaa laajennusta raakaa tekstiä vasten. */
-  const SALLITUT = new Set(['kuoret_kasvukatto.test.js', 'firebase_sdk_versio.test.js', 'kuoren_lahde.test.js']);
+     tämä tiedosto testaa laajennusta raakaa tekstiä vasten, hoistausvartija (S2a) tarkistaa osien tagien paikan. */
+  const SALLITUT = new Set(['kuoret_kasvukatto.test.js', 'firebase_sdk_versio.test.js', 'kuoren_lahde.test.js', 'seura_osat_hoistaus.test.js']);
   const SUORA = /readFileSync\([^)]*TalentMaster_Seura\.html/;
   it('testit lukevat Seuran lueKuori():lla tai lataaSivu():lla', () => {
     const rikkojat = readdirSync(join(juuri, 'tests')).filter((f) => /\.(test\.)?(js|mjs|cjs)$/.test(f) && !SALLITUT.has(f))
