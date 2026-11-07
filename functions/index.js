@@ -242,7 +242,7 @@ async function huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmail, jatkoUrl) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SÄHKÖPOSTIPOHJAT
 // ─────────────────────────────────────────────────────────────────────────────
-const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaVahvistusLinkki, pohjaHuoltajakutsu, pohjaSoloLupa } = require('./sahkoposti_pohjat');
+const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaVahvistusLinkki, pohjaHuoltajakutsu, pohjaSoloLupa } = require('./sahkoposti_pohjat');
 const { otsikkoPuhdas, rakennaKutsuLinkki, onYksiOsoite } = require('./sahkoposti_turva');
 const { muodostaPalauteNotif } = require('./palaute_notif');
 const { huomisenRajat } = require('./helsinki_paiva');
