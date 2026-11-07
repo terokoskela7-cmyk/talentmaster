@@ -14,6 +14,8 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -107,8 +109,7 @@ describe('Seura-kortti (ajettu) · haitallinen sisältö ei suoriudu', () => {
 /* ── vahvistaSuostumus (ajettu): antajan nimi + lomakekenttien siivous ── */
 class HttpsError extends Error { constructor(c, m, d) { super(m); this.code = c; this.details = d; } }
 function vahvista() {
-  const CF = lue('functions/index.js');
-  const i = CF.indexOf('exports.vahvistaSuostumus = functions');
+  const CF = lueFunctionsLahde(ROOT);
   const f = fakeDb({ 'seurat/kpv/pelaajat/m93': { etunimi: 'Topias', sukunimi: 'K', huoltajaEmail: 'h@x.fi', syntymaVuosi: 2013, suostumusTila: 'odottaa', pin: '591217' } });
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
   const ctx = {
@@ -118,7 +119,7 @@ function vahvista() {
     TM_BASE_URL: 'https://tm', sisainenLuku: require_(join(ROOT, 'functions', 'sisainen_luku.js')), tmSisainen: require_(join(ROOT, 'functions', 'tm_sisainen.js')), suostumusTarkistus: require_(join(ROOT, 'functions', 'suostumus_tarkistus.js')), suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, suostumusPeruminen: require_(join(ROOT, 'functions', 'suostumus_peruminen.js')), pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(CF.slice(i, CF.indexOf('\n  });', i) + 6), ctx);
+  vm.runInContext(_fnRunko(CF, 'vahvistaSuostumus'), ctx);
   return { f, fn: ctx.exports.vahvistaSuostumus };
 }
 const L = (o) => Object.assign({ seuraId: 'kpv', pelaajaId: 'm93', hEmail: 'h@x.fi', antaja: 'Tero Koskela', antajaRooli: 'huoltaja', etunimi: 'Topias', syntyma: '2013-03-15',

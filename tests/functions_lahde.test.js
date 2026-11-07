@@ -12,19 +12,21 @@ const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { SIIRTOMODUULIT, lueFunctionsLahde, runko } = require('../scripts/functions_lahde.js');
 const INDEX = readFileSync(join(JUURI, 'functions', 'index.js'), 'utf8');
 
+/* Moduulin tiedostonimi ja muuttuja, jolla index.js lataa sen (F1: kayttajahallinta, F2: suostumusVahvistus). */
+const tiedosto = (m) => m.replace(/^functions\//, '').replace(/\.js$/, '');
+const muuttuja = (m) => (INDEX.match(new RegExp("^const (\\w+) = require\\('\\./" + tiedosto(m) + "'\\);$", 'm')) || [])[1];
 const siirretyt = SIIRTOMODUULIT.flatMap((m) => [...readFileSync(join(JUURI, m), 'utf8').matchAll(/^exports\.(\w+) = \(async \(data, context\) => \{$/gm)].map((x) => ({ m, nimi: x[1] })));
 
 describe('F1 · functions-lähde siirtomoduuleineen', () => {
   it('jokainen siirtomoduuli on olemassa, index.js lataa sen ja vie sen käsittelijät ohuina vienteinä', () => {
-    expect(SIIRTOMODUULIT).toContain('functions/kayttajahallinta.js');
+    expect(SIIRTOMODUULIT).toEqual(['functions/kayttajahallinta.js', 'functions/suostumus_vahvistus.js']);
     for (const m of SIIRTOMODUULIT) {
       expect(existsSync(join(JUURI, m)), m).toBe(true);
-      const nimi = m.replace(/^functions\//, '').replace(/\.js$/, '');
-      expect(INDEX, m).toContain("require('./" + nimi + "')");
+      expect(INDEX, m).toMatch(new RegExp("^const \\w+ = require\\('\\./" + tiedosto(m) + "'\\);$", 'm'));
     }
-    expect(siirretyt.map((x) => x.nimi).sort()).toEqual(['aktivoiKayttaja', 'deaktivioiKayttaja', 'lahetaResetLinkki', 'luoKayttaja', 'poistaKayttaja', 'vaihdaKayttajanRooli']);
-    for (const { nimi } of siirretyt) {
-      expect(INDEX, nimi).toMatch(new RegExp('exports\\.' + nimi + ' = functions\\n(?:  \\.[a-zA-Z]+\\([^\\n]*\\)\\n)*  \\.https\\.onCall\\(kayttajahallinta\\.' + nimi + '\\);'));
+    expect(siirretyt.map((x) => x.nimi).sort()).toEqual(['aktivoiKayttaja', 'deaktivioiKayttaja', 'lahetaResetLinkki', 'luoKayttaja', 'poistaKayttaja', 'vahvistaSuostumus', 'vaihdaKayttajanRooli']);
+    for (const { m, nimi } of siirretyt) {
+      expect(INDEX, nimi).toMatch(new RegExp('exports\\.' + nimi + ' = functions\\n(?:  \\.[a-zA-Z]+\\([^\\n]*\\)[^\\n]*\\n)*  \\.https\\.onCall\\(' + muuttuja(m) + '\\.' + nimi + '\\);'));
       expect(INDEX, nimi + ': runko ei saa jäädä index.js:ään').not.toContain('exports.' + nimi + ' = functions\n  .region(\'europe-west1\')\n  .https.onCall(async');
     }
   });
@@ -32,6 +34,7 @@ describe('F1 · functions-lähde siirtomoduuleineen', () => {
     const L = lueFunctionsLahde(JUURI);
     expect(runko(L, 'luoKayttaja')).toMatch(/^exports\.luoKayttaja = \(async \(data, context\) => \{[\s\S]*estaPaikkamerkkiOsoite\(email\);[\s\S]*\n {2}\}\);$/);
     expect(runko(L, 'lahetaRekisteriKutsu')).toMatch(/^exports\.lahetaRekisteriKutsu = functions\n/);
+    expect(runko(L, 'vahvistaSuostumus')).toMatch(/^exports\.vahvistaSuostumus = \(async \(data, context\) => \{[\s\S]*antaja_puuttuu[\s\S]*\n {2}\}\);$/);
     expect(() => runko(L, 'eiOlemassa')).toThrow(/eiOlemassa/);
   });
   it('vartija: testit eivät lue raakaa functions/index.js:ää siirrettyjen käsittelijöiden osalta (käytä lueFunctionsLahde)', () => {

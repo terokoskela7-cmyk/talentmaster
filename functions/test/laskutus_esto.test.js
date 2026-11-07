@@ -353,7 +353,8 @@ describe('PM 3.11.: lahetaMuistutukset, pyydaUusiHuoltajakutsu, luoSuostumusKort
 });
 
 describe('lähdevartijat', () => {
-  const idx = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+  /* Rivikattojen purku F2: vahvistaSuostumus (laskutusEsto.luoEsto) on functions/suostumus_vahvistus.js:ssä → lähde siirtomoduuleineen. */
+  const idx = require('../../scripts/functions_lahde.js').lueFunctionsLahde(path.join(__dirname, '..', '..'));
   test('jokainen briiffin funktio käyttää laskutus_esto.js:ää (ei omaa joukkuetulkintaa)', () => {
     ['lahetaRekisteriKutsu', 'lahetaHuoltajaKutsu', 'lahetaPelaajaSivuLinkki'].forEach((f) => assert.match(idx, new RegExp("vaadiPelaaja(Doc)?Sallittu\\(_estoDeps\\(\\), \\{ funktio: '" + f + "'")));
     assert.match(idx, /laskutusEsto\.luoEsto\(db\)\.pelaajaEstetty\(seuraId, snap\.data\(\)/);

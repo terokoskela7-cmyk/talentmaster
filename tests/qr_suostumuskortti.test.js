@@ -11,6 +11,8 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -151,8 +153,7 @@ describe('Seura · QR-linkki ja kortit (ajettu)', () => {
 
 /* vahvistaSuostumus: väärä sähköposti hylätään syykoodilla, oikea tallentaa (lahde qr_kortti) + PIN syntyy. */
 function vahvista(alku) {
-  const CF = lue('functions/index.js');
-  const i = CF.indexOf('exports.vahvistaSuostumus = functions');
+  const CF = lueFunctionsLahde(ROOT);
   const f = fakeDb(alku);
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
   const ctx = {
@@ -164,7 +165,7 @@ function vahvista(alku) {
     pelaajapin: require_('../functions/pelaajapin.js'), laskutusEsto: require_('../functions/laskutus_esto.js'),   // L1c: oikea moduuli, pilottiseura (ei laskutus_asetuksia)
   };
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(CF.slice(i, CF.indexOf('\n  });', i) + 6), ctx);
+  vm.runInContext(_fnRunko(CF, 'vahvistaSuostumus'), ctx);
   const audit = () => [...f.D.entries()].filter(([k]) => k.startsWith('audit/')).map(([, v]) => v);
   return { f, fn: ctx.exports.vahvistaSuostumus, audit };
 }

@@ -10,6 +10,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -61,7 +63,7 @@ describe('suostumussivu: vanha linkki esitäyttää, uusi linkki toimii kirjoite
   it('vahvistaSuostumus saa osoitteen: parametri (vanha) TAI lomakkeelle kirjoitettu (uusi) — palvelin vertaa tallennettuun', () => {
     expect(LOM).toContain("var raporttiEmail = (val('h_email') || val('i_email') || '').toLowerCase();");
     expect(LOM).toContain("var hEmailParam = (_urlParams.hEmail || raporttiEmail || '').toLowerCase();");
-    expect(lue('functions/index.js')).toMatch(/hEmail[\s\S]{0,800}tallennettu|tallennettu[\s\S]{0,800}hEmail/);
+    expect(lueFunctionsLahde(juuri)).toMatch(/hEmail[\s\S]{0,800}tallennettu|tallennettu[\s\S]{0,800}hEmail/);
   });
   it('QR-suostumuskortti (kutsuId-linkki ilman esitäyttöä) on jo sama reitti: huoltaja kirjoittaa itse', () => {
     expect(lue('tests/qr_suostumuskortti.test.js')).toContain('expect(runko).not.toMatch(/hEmail|etunimi|sukunimi|palloid|joukkue/i);');   // QR-linkissä ei hEmailia/nimiä → huoltaja kirjoittaa itse

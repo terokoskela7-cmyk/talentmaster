@@ -14,7 +14,7 @@ const JUURI = path.join(__dirname, '..');
 const FIXTURE = path.join(JUURI, 'tests', 'fixtures', 'kuoret_kasvukatto.json');
 const KUORET = ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Seura.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Admin.html', 'TalentMaster_Excel_Tuonti.html', 'TalentMaster_Vanhempi_v2.html', 'functions/index.js', 'tm_admin/firestore.rules',
   /* Rivikattojen purku: kuorista siirretyt osat saavat oman katon, ettei kasvu siirry kuoresta osaan huomaamatta. */
-  'seura/seura.css', 'functions/kayttajahallinta.js', 'seura/seura_kutsut.js', 'seura/seura_tuonti.js', 'seura/seura_pelaajahallinta.js', 'seura/seura_hallinta.js'];
+  'seura/seura.css', 'functions/kayttajahallinta.js', 'seura/seura_kutsut.js', 'seura/seura_tuonti.js', 'seura/seura_pelaajahallinta.js', 'seura/seura_hallinta.js', 'functions/suostumus_vahvistus.js'];
 const PELIVARA = { 'tm_admin/firestore.rules': 0.05 }, PELIVARA_OLETUS = 0.02;
 
 function rivit(kuori) { const s = fs.readFileSync(path.join(JUURI, kuori), 'utf8'); let n = 0; for (let i = s.indexOf('\n'); i !== -1; i = s.indexOf('\n', i + 1)) n++; return n; }

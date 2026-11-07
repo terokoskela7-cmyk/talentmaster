@@ -8,10 +8,12 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
-const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
+const CF = lueFunctionsLahde(ROOT);
 const TS4 = require_(join(ROOT, 'functions', 'tm_sisainen.js')), LUKU = require_(join(ROOT, 'functions', 'sisainen_luku.js')), AH = require_(join(ROOT, 'functions', 'tm_arviointi_historia.js'));
 afterEach(() => { TS4.RYHMAT.s4.kirjoitus = false; });
 
@@ -54,7 +56,6 @@ describe('arviointikertaOnWrite (ajettu) — S4 dual-write', () => {
 
 /* ── vahvistaSuostumus ── */
 function ajaVahvistus(alku) {
-  const i = CF.indexOf('exports.vahvistaSuostumus = functions');
   const f = fakeDb(Object.assign({ [PEL]: { etunimi: 'Topias', sukunimi: 'K', huoltajaEmail: 'h@x.fi', syntymaVuosi: 2013, suostumusTila: 'odottaa', pin: '591217' } }, alku || {}));
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
   const ctx = {
@@ -65,7 +66,7 @@ function ajaVahvistus(alku) {
     pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
   ctx.tmHT = function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(CF.slice(i, CF.indexOf('\n  });', i) + 6), ctx);
+  vm.runInContext(_fnRunko(CF, 'vahvistaSuostumus'), ctx);
   return { f, fn: ctx.exports.vahvistaSuostumus };
 }
 const L = (o) => Object.assign({ seuraId: 'kpv', pelaajaId: 'm93', hEmail: 'h@x.fi', antaja: 'Tero Koskela', antajaRooli: 'huoltaja', etunimi: 'Topias', syntyma: '2013-03-15', suostumukset: ['rekisteri'], suostumusMap: { rekisteri: true }, aikaleima: '1.10.2026' }, o);
@@ -104,7 +105,7 @@ describe('CF-kirjoittajien rajaus (PR 1e-2)', () => {
   it('functions/index.js tuo tm_sisainen:n ja käyttää tmS4Lisaa:a VAIN arviointikertaOnWrite:ssa ja vahvistaSuostumus:ssa; terveyskirjoittajia (tmTerveys*) CF:ssä ei ole', () => {
     expect(CF).toContain("const tmSisainen = require('./tm_sisainen');"); expect((CF.match(/tmSisainen\.tmS4Lisaa\(/g) || []).length).toBe(2); expect(CF).not.toMatch(/tmTerveys/);
     const i = CF.indexOf('exports.arviointikertaOnWrite'); expect(CF.slice(i, CF.indexOf('\n  });', i))).toContain('tmSisainen.tmS4Lisaa(batch');
-    const j = CF.indexOf('exports.vahvistaSuostumus'); expect(CF.slice(j, CF.indexOf('\n  });', j))).toContain('tmSisainen.tmS4Lisaa(kirjBatch');
+    expect(_fnRunko(CF, 'vahvistaSuostumus', true)).toContain('tmSisainen.tmS4Lisaa(kirjBatch');
   });
   it('CF-lippu oletuksena PÄÄLLÄ (lähde); PR 2d: sisainen_luku.liputPaalla aina true (ei lippuriippuvuutta, ei omaa vakiota)', () => {
     expect(readFileSync(join(ROOT, 'functions', 'tm_sisainen.js'), 'utf8')).toMatch(/s4: \{ kytketty: false, kirjoitus: true,/); const _m = ['s4', 'jaksofokus_sisainen', 'henkilokunta'], _v = _m.map((n) => TS4.RYHMAT[n].kirjoitus); _m.forEach((n) => { TS4.RYHMAT[n].kirjoitus = false; }); expect(LUKU.liputPaalla()).toBe(true); _m.forEach((n, i) => { TS4.RYHMAT[n].kirjoitus = _v[i]; });
