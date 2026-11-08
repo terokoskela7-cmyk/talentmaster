@@ -27,9 +27,12 @@ describe('tmHT — henkilöstösivujen teksti-avainreititin', () => {
     const lisatyt = ['59', '60', '62', '63', '82', '86', '93', '94'].reduce((a, n) => a + Object.keys(JSON.parse(lue('docs/i18n/sv_kaannoserae_' + n + '_palautus.json')).osiot.henkilosto_kartta.rivit).length, 0);   // erät 59–63: uudet Pikakortin avaimet; erä 82: Seura-tuonti; erä 86: STATUS-merkit; erä 93: 8–9 v -esto; erä 94: B9 suostumuksen peruminen
     const lainat = (lue('lib/tm_henkilosto_i18n.js').match(/^\s*'(?:[^'\\]|\\.)*':\s*'(?:[^'\\]|\\.)*',\s*\/\/ laina:/gm) || []).length;   // B12: VP-/Master-kartasta sellaisenaan kopioidut rivit (tests/b12_seura_reititys.test.js)
     expect(lainat).toBe(9);
-    const s98 = lue('lib/tm_henkilosto_i18n.js'), a98 = s98.indexOf('// sv-käännöserä 98 '), era98 = (s98.slice(a98, s98.indexOf('\n  },', a98)).match(/^\s*'(?:[^'\\]|\\.)*':\s*'/gm) || []).length;   // erä 98 (B12 Seura): vienti scripts/i18n_vie_sv_era98.cjs (tests/i18n_era98_vienti.test.js)
-    expect(era98).toBe(57);
-    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length - poistetut + lisatyt + lainat + era98);
+    const s98 = lue('lib/tm_henkilosto_i18n.js'), a98 = s98.indexOf('// sv-käännöserä 98 '), a99 = s98.indexOf('// sv-käännöserä 99 '), era98 = (s98.slice(a98, a99).match(/^\s*'(?:[^'\\]|\\.)*':\s*'/gm) || []).length;   // erä 98 (B12 Seura): vienti scripts/i18n_vie_sv_era98.cjs (tests/i18n_era98_vienti.test.js)
+    const a100 = s98.indexOf('// sv-käännöserä 100 '), avain = /^\s*'(?:[^'\\]|\\.)*':\s*'/gm;
+    const era99 = (s98.slice(a99, a100).match(avain) || []).length;   // erä 99 (B12 Seuran muodot): scripts/i18n_vie_sv_era99.cjs (tests/i18n_era99_vienti.test.js)
+    const era100 = (s98.slice(a100, s98.indexOf('\n  },', a100)).match(avain) || []).length;   // erä 100 (B12 Kaikki luvut): scripts/i18n_vie_sv_era100.cjs (tests/i18n_era100_vienti.test.js)
+    expect(era98).toBe(57); expect(era99).toBe(121); expect(era100).toBe(127);
+    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length - poistetut + lisatyt + lainat + era98 + era99 + era100);
     expect(H.tmHT('Ei vielä pelaajia')).toBe('Ei vielä pelaajia');   // ilman kieltä (fi) teksti ennallaan
   });
   it('kolme henkilöstösivua lataa tmHT:n ennen ensimmäistä käyttöä', () => {

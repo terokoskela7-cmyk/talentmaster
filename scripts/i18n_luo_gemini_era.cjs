@@ -38,11 +38,12 @@ function tarkistaSvSailyy(ennenO, jalkeenO) {
    (node tools/i18n/sv_lapiajo.mjs --sovellus=fx_seura --sovellus=fx_seura_lage --ulos=<tulos.json>); --juuri=<puu> = lähderivit ja kartat
    samasta puusta, jossa mittaus ajettiin (oletus tämä repo). Ajo: node scripts/i18n_luo_gemini_era.cjs --osio=seura --lapiajo=… --tiedosto=docs/i18n/sv_kaannoserae_N_gemini.json
    Osio "seura_muodot" (scripts/i18n_era_seura_muodot.cjs, erä 99): tekstit, joita mittaus ei näe fixture-tiloista (lista skriptissä, jokainen
-   tarkistetaan koodista); --savutesti=<savutestin tulos.json> lisää tuotannon Seura-näkymien sv-löydökset. Ei vaadi --lapiajo:a. */
+   tarkistetaan koodista); --savutesti=<savutestin tulos.json> lisää tuotannon Seura-näkymien sv-löydökset. Ei vaadi --lapiajo:a.
+   Osio "seura_kaikki" (scripts/i18n_era_seura_kaikki.cjs, erä 100): Kehitystilanne › "Kaikki luvut ›" (Lohko 1–4 + selitteet), sama koneisto, ei savutestiä. */
 const OSIOT = process.argv.filter((x) => x.startsWith('--osio=')).flatMap((x) => x.slice(7).split(',')).map((s) => s.trim()).filter(Boolean);
 if (OSIOT.length) {
   const virhe = (s) => { console.error('i18n_luo_gemini_era: ' + s); process.exit(2); };
-  const RAKENTAJAT = { seura: 'scripts/i18n_era_seura.cjs', seura_muodot: 'scripts/i18n_era_seura_muodot.cjs' };
+  const RAKENTAJAT = { seura: 'scripts/i18n_era_seura.cjs', seura_muodot: 'scripts/i18n_era_seura_muodot.cjs', seura_kaikki: 'scripts/i18n_era_seura_kaikki.cjs' };
   const tuntemattomat = OSIOT.filter((o) => !RAKENTAJAT[o]);
   if (tuntemattomat.length) virhe('tuntematon --osio ' + tuntemattomat.join(', ') + ' (tunnetut: ' + Object.keys(RAKENTAJAT).join(', ') + ')');
   if (!process.argv.some((x) => x.startsWith('--tiedosto='))) virhe('--osio vaatii kohteen --tiedosto=docs/i18n/sv_kaannoserae_N_gemini.json (uusi erä; erää 2 ei rajata)');
@@ -56,10 +57,11 @@ if (OSIOT.length) {
   const osiot = {};
   for (const o of OSIOT) {
     const R = require(path.join(ROOT, RAKENTAJAT[o])), vanhat = (nyk && nyk.osiot && nyk.osiot[o] && nyk.osiot[o].rivit) || {};
-    if (o === 'seura_muodot') {
+    if (o === 'seura_muodot' || o === 'seura_kaikki') {   // listapohjaiset osiot (sama koneisto)
       const t = R.muotoRivit({ juuri, vanhat, savutesti });
-      if (t.virheet.length) virhe('osio seura_muodot:\n- ' + t.virheet.join('\n- '));
-      osiot[o] = { _konteksti: R.KONTEKSTI, _lahde: { lista: 'scripts/i18n_era_seura_muodot.cjs (MUODOT)', savutesti: savutesti ? (savutesti.url || 'annettu') : null, jo_kartassa_vain_reititys: t.reititettavat }, rivit: t.rivit };
+      if (t.virheet.length) virhe('osio ' + o + ':\n- ' + t.virheet.join('\n- '));
+      if (!Object.keys(t.rivit).length) virhe('osio ' + o + ': ei uusia rivejä (kaikki jo kartassa, josta Seura lukee; savutestistä ei löydöksiä)');
+      osiot[o] = { _konteksti: R.KONTEKSTI, _lahde: { lista: RAKENTAJAT[o] + (o === 'seura_kaikki' ? ' (KAIKKI)' : ' (MUODOT)'), savutesti: o === 'seura_muodot' && savutesti ? (savutesti.url || 'annettu') : null, jo_kartassa_vain_reititys: t.reititettavat }, rivit: t.rivit };
       continue;
     }
     const { rivit } = R.seuraRivit(tulos, { juuri, vanhat });

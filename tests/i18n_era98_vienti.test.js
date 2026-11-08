@@ -48,9 +48,9 @@ describe('sv-erä 98 — vienti', () => {
     expect(V.johda('{n} pelaajaa', '4 joukkuetta', '4 lag').virhe).toBeTruthy();
     expect(V.johda('{n} pelaajaa', '4 pelaajaa', 'fyra spelare').virhe).toMatch(/ei löydy/);
   });
-  it('rivit, joita erä ei kata, pysyvät suomeksi eivätkä saa keksittyä sv:tä (yksikkö "joukkueelle", "tavoite"-variantti, LAAJENNETTU)', () => {
-    expect(H).not.toHaveProperty('LAAJENNETTU');
-    expect(Object.keys(H).filter((k) => /^Kirjaa testikierros joukkueelle|kehittyy fyysisesti, tavoite/.test(k))).toEqual([]);
+  it('rivit, joita erä 98 ei kattanut (yksikkö "joukkueelle", "tavoite"-variantti, LAAJENNETTU), tulivat PM:n erästä 99 eivätkä erästä 98', () => {
+    const P99 = JSON.parse(teksti('docs/i18n/sv_kaannoserae_99_palautus.json')).osiot.seura_muodot.rivit;
+    for (const k of ['LAAJENNETTU', 'Kirjaa testikierros joukkueelle {joukkue} – fyysisen kehityksen luku tarkentuu.', '{p} pelaajista kehittyy fyysisesti, tavoite {t}.']) { expect(rivit, k).not.toHaveProperty([k]); expect(H[k], k).toBe(P99[k].sv); }
   });
 });
 
@@ -65,7 +65,8 @@ describe('B12: Seuran kieli auki (1.10.-linjaus purettu) ja kehitystilanteen rei
   const KT = require('../lib/tm_kehitystilanne.js');
   it('kirjaston erän tekstit kulkevat reitittimen kautta (fi-tulos tavutarkasti ennallaan: sv-läpiajon fi-dump = main 8 näkymässä)', () => {
     const src = teksti('lib/tm_kehitystilanne.js');
-    for (const k of ['Kehitystilanne', 'koko vuosi {v}', 'päivitetty {pvm}', '{a} / {b} tavoitetta raiteilla.', '{p} pelaajista kehittyy fyysisesti.', 'Kirjaa testikierros joukkueille {lista} ja {viim} – fyysisen kehityksen luku tarkentuu.', 'Ei tavoitetta', 'Avaa ›', 'Kaikki luvut ›']) expect(src.includes("T('" + k + "')"), k).toBe(true);   // T( tai _T( (kutsujan reititin)
+    for (const k of ['Kehitystilanne', 'koko vuosi {v}', 'päivitetty {pvm}', '{a} / {b} tavoitetta raiteilla.', '{p} pelaajista kehittyy fyysisesti.', 'Kirjaa testikierros joukkueille {lista} ja {viim} – fyysisen kehityksen luku tarkentuu.', 'Ei tavoitetta']) expect(src.includes("T('" + k + "')"), k).toBe(true);   // T( tai _T( (kutsujan reititin)
+    expect(src).toContain("T(auki ? 'Sulje ‹' : 'Avaa ›')"); expect(src).toContain("T(o.kaikki ? 'Piilota kaikki luvut ‹' : 'Kaikki luvut ›')");   // erä 99: avattu muoto samaan reitittimeen
     expect(typeof KT.ensinakymaMalli).toBe('function'); expect(KT.ensinakymaMalli.length).toBe(2);
   });
 });
