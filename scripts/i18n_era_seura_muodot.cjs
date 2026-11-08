@@ -173,7 +173,7 @@ function etsi(juuri, neula) {
 }
 const oletusNeula = (k) => { const p = k.split(/\{\w+\}/).map((x) => x.trim()).filter(Boolean).sort((a, b) => b.length - a.length)[0]; return p; };
 
-/* Palauttaa { rivit, reititettavat (jo kartassa, josta Seura lukee), virheet }. opts: juuri, vanhat, savutesti (tulos-objekti). */
+/* Palauttaa { rivit, reititettavat (jo kartassa, josta Seura lukee), virheet }. opts: juuri, vanhat, savutesti (tulos-objekti), lista (oletus MUODOT). */
 function muotoRivit(opts) {
   opts = opts || {};
   const juuri = opts.juuri || path.join(__dirname, '..'), vanhat = opts.vanhat || {}, virheet = [], reititettavat = [];
@@ -190,7 +190,8 @@ function muotoRivit(opts) {
     r.sv = (vanhat[fi] && typeof vanhat[fi].sv === 'string') ? vanhat[fi].sv : '';
     rivit[fi] = r;
   };
-  for (const [fi, nakyma, elementti, neula, huom] of MUODOT) {
+  for (const [fi, nakyma, elementti, neula, huom] of (opts.lista || MUODOT)) {   // opts.lista: toinen osio samalla koneistolla (erä 100: seura_kaikki)
+    if (seuranKartat.some((m) => typeof m[fi] === 'string' && m[fi])) { reititettavat.push(fi); continue; }   // jo viety (erä 99) tai kartassa → ei neulahakua
     const L = etsi(juuri, neula || oletusNeula(fi));
     if (!L) { virheet.push(fi + ': neulaa ' + JSON.stringify(neula || oletusNeula(fi)) + ' ei löydy lähteestä (' + tiedostot(juuri).join(', ') + ')'); continue; }
     lisaa(fi, nakyma, elementti, L, huom);
