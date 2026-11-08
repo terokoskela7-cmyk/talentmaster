@@ -1855,3 +1855,7 @@ exports.laskutusKuukausiVarapolku = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true, timeoutSeconds: 540, memory: '512MB' })
   .https.onCall(laskutusKuukausi.varapolkuKasittelija({ db, FieldValue: admin.firestore.FieldValue, HttpsError: functions.https.HttpsError, onSuperAdminUid }));
+
+/* Avauskirjoitukset palvelimelle, PR A (PM 8.11.2026 P2 = c2): henkilökunnan viimeisinKirjautuminen = max(Auth lastRefreshTime, lastSignInTime), kerran yössä. */
+exports.kirjautumisaikaYo = functions.region('europe-west1').runWith({ timeoutSeconds: 300, memory: '256MB' }).pubsub.schedule('30 3 * * *').timeZone('Europe/Helsinki')
+  .onRun(require('./kirjautumisaika').ajastettuKasittelija({ db, auth: admin.auth(), Timestamp: admin.firestore.Timestamp }));
