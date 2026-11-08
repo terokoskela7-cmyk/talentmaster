@@ -222,11 +222,13 @@ describe('QG-3 · sv-löydökset ja konsoli', () => {
     expect(r.uudet).toEqual(['testivalmentaja@seura.fi tallenna muutokset', 'Pelaajat']);
     expect(poistaSahkopostit('a b.c@d.fi c').replace(/\s+/g, ' ')).toBe('a c');
   });
-  it('Seuran tuotantotilat (savutesti 6.11. klo 16.54) ovat baselinessa ja fixturessa fx_seura_lage', () => {
+  it('Seuran tuotantotilat (savutesti 6.11. klo 16.54) ovat fixturessa fx_seura_lage; B12 (erä 98) poisti ne baselinesta → suomena ne kaatavat savutestin', () => {
     const base = JSON.parse(readFileSync(join(JUURI, 'tools/i18n/sv_lapiajo_baseline.json'), 'utf8'));
     const o = { sallitut: { tekstit: [], alkavat: [] }, baseline: base };
     const tuotanto = ['0 / 0 tavoitetta raiteilla. 6 % pelaajista kehittyy fyysisesti.', 'Kirjaa testikierros joukkueille QG P11 ja QG T15 – fyysisen kehityksen luku tarkentuu.', 'Ei tavoitetta', '🟡 Basprogram — 2 pelaajaa'];
-    expect(svLoydot(tuotanto, o).uudet).toEqual([]);
+    const r = svLoydot(tuotanto, o);
+    expect(r.tunnetut).toEqual([]);   // ei enää varoituksena baselinessa
+    expect(r.uudet.length).toBeGreaterThan(0); for (const t of r.uudet) expect(tuotanto).toContain(t);
     expect(readFileSync(join(JUURI, 'tools/i18n/sv_lapiajo.mjs'), 'utf8')).toMatch(/fx_seura_lage: \{ tiedosto: 'TalentMaster_Seura\.html', kysely: '', fx: \['vp', null, 'lage'\]/);
   });
   it('savutesti lukee nimet seed-skriptistä, ei omasta listasta', () => {

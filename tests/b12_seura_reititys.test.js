@@ -35,10 +35,10 @@ const LAINAT = { 'Talentit': [VP, 'Talentit'], 'aktiivista': [MA, 'aktiivista'],
   'Ikävaihe': [VP, 'Ikävaihe'], 'Seuraavaksi': [VP, 'Seuraavaksi'], 'Kaikki pelaajat': [VP, 'Kaikki pelaajat'], 'Synt.': [VP, 'synt.'] };
 
 describe('B12 vaihe 1: 40 reititystä olemassa oleviin sv-riveihin', () => {
-  it('lista on täsmälleen 40 tekstiä; "Rekisteröity" EI ole reititys (ainoa sv-rivi on VP:n monikko "registrerade" → PM-erään)', () => {
+  it('lista on täsmälleen 40 tekstiä; "Rekisteröity" EI ole reititys (ainoa sv-rivi oli VP:n monikko "registrerade") → sv tuli PM:n erästä 98', () => {
     expect(Object.keys(REITIT)).toHaveLength(40);
     expect(REITIT).not.toHaveProperty('Rekisteröity');
-    expect(H).not.toHaveProperty('Rekisteröity');
+    expect(H['Rekisteröity']).toBe(JSON.parse(req('fs').readFileSync(req('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_98_palautus.json'), 'utf8')).osiot.seura.rivit['Rekisteröity'].sv);
   });
   it('jokaisella reitillä on sv-rivi: tmHT → yhteinen tai henkilöstökartta; tm_lang-avain → fi vastaa tekstiä (isot kirjaimet = CSS) ja sv on täytetty', () => {
     for (const [fi, r] of Object.entries(REITIT)) {
@@ -66,7 +66,7 @@ describe('B12 vaihe 1: 40 reititystä olemassa oleviin sv-riveihin', () => {
   it('staattiset merkinnät: attribuutin arvo = elementin fi-teksti (fi-tila ei muutu)', () => {
     const d = [...KUORI.matchAll(/data-i18n="([^"]+)"[^>]*>\s*([^<]*?)\s*</g)];
     expect(d.length).toBeGreaterThan(5);
-    for (const [, a, t] of d) expect(t, a).toBe(a);
+    for (const [, a, t] of d) expect(t.replace(/\s+/g, ' '), a).toBe(a);   // monirivinen markup: välilyönnit tiivistettynä (kirjainkoko sama)
     for (const [, k, t] of KUORI.matchAll(/data-tm-t="([^"]+)"[^>]*>\s*([^<]*?)\s*</g)) expect(norm(hae(L.fi, k)), k).toBe(norm(t));
     for (const [, ph, k] of KUORI.matchAll(/placeholder="([^"]+)"\s+data-tm-t-ph="([^"]+)"/g)) expect(hae(L.fi, k), k).toBe(ph);
   });
@@ -94,7 +94,7 @@ describe('B12: seuraLokalisoi (ajettu oikeilla kirjastoilla)', () => {
     const el = (attrs, text) => ({ attrs: Object.assign({}, attrs), textContent: text, getAttribute(n) { return n in this.attrs ? this.attrs[n] : null; }, setAttribute(n, v) { this.attrs[n] = v; }, hasAttribute(n) { return n in this.attrs; } });
     const els = [el({ 'data-tm-t': 'nav.hallinta' }, 'HALLINTA'), el({ 'data-i18n': 'Kirjaudu ulos' }, 'Kirjaudu ulos'), el({ 'data-i18n': 'Talentit' }, 'Talentit'),
       el({ 'data-tm-t-ph': 'suostumus.rek_huoltaja_email_esim', placeholder: 'huoltaja@email.fi' }, '')];
-    const document = { querySelectorAll: (sel) => { const a = sel.match(/^\[([\w-]+)\]$/); return a ? els.filter((e) => e.hasAttribute(a[1])) : []; } };
+    const document = { querySelectorAll: (sel) => { const a = sel.match(/^\[([\w-]+)\]$/); return a ? els.filter((e) => e.hasAttribute(a[1])) : []; }, querySelector: (sel) => document.querySelectorAll(sel)[0] || null };
     const ls = new Map([['tm_kieli', kieli]]);
     const ctx = { console: { log() {}, warn() {} }, document, localStorage: { getItem: (k) => (ls.has(k) ? ls.get(k) : null), setItem: (k, v) => ls.set(k, v) }, navigator: { language: 'fi' } };
     ctx.window = ctx; vm.createContext(ctx);
@@ -112,6 +112,12 @@ describe('B12: seuraLokalisoi (ajettu oikeilla kirjastoilla)', () => {
     expect(els[1].textContent).toBe(C['Kirjaudu ulos']);
     expect(els[2].textContent).toBe(VP['Talentit']);
     expect(els[3].attrs.placeholder).toBe(L.sv.suostumus.rek_huoltaja_email_esim);
+  });
+  it('B12 vienti: sv → fi (SA vaihtaa ruotsinkielisestä seurasta suomenkieliseen) palauttaa alkuperäiset fi-tekstit', () => {
+    const { ctx, els } = dom('sv'); const fi = JSON.stringify(els.map((e) => [e.textContent, e.attrs.placeholder]));
+    ctx.seuraLokalisoi(); expect(els[0].textContent).toBe(L.sv.nav.hallinta);
+    ctx.tmAsetaKieli('fi', false); ctx.seuraLokalisoi();
+    expect(JSON.stringify(els.map((e) => [e.textContent, e.attrs.placeholder]))).toBe(fi);
   });
   it('kuori kutsuu seuraLokalisoi() inline-lohkon lopussa (staattinen markup on jo jäsennetty)', () => {
     const i = KUORI.lastIndexOf('</script>'); expect(KUORI.slice(i - 40, i)).toMatch(/\nseuraLokalisoi\(\);\n$/);
