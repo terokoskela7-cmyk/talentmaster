@@ -1,6 +1,7 @@
 /* B12 (PM 8.11.2026) — erä 100: --osio=seura_kaikki (scripts/i18n_era_seura_kaikki.cjs). Kehitystilanne › "Kaikki luvut ›" (renderNakyma: yläpalkki,
  * Lohko 1–4, selitteet) + erän 99 jäljelle jääneet (Alustava, Ei, Viimeisin testi, Kaikki ikävaiheet). Raportit (raporttiHTML) eivät kuulu erään.
- * Code EI kirjoita ruotsia (CLAUDE.md §0): testit tarkistavat rakenteen, eivät sv-sisältöä. */
+ * Erä lähetettiin PM:lle (127 riviä) ja palautus on viety (scripts/i18n_vie_sv_era100.cjs, tests/i18n_era100_vienti.test.js): rakentaja tuottaa
+ * nyt vain uudet rivit (kaikki listan rivit ovat kartassa). Code EI kirjoita ruotsia (CLAUDE.md §0): testit tarkistavat rakenteen, eivät sv-sisältöä. */
 import { describe, it, expect, afterAll } from 'vitest';
 import { spawnSync } from 'child_process';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'fs';
@@ -21,7 +22,7 @@ const O = ERA.osiot.seura_kaikki, R = O.rivit;
 const KT = readFileSync(join(juuri, 'lib/tm_kehitystilanne.js'), 'utf8');
 const kartat = () => [req('../lib/tm_henkilosto_i18n.js').TM_HENKILOSTO_I18N.sv, (() => { const m = req('../lib/tm_i18n_common.js'); return (m.TM_I18N_COMMON || global.TM_I18N_COMMON).sv; })()];
 
-describe('erä 100 (docs/i18n/sv_kaannoserae_100_gemini.json)', () => {
+describe('erä 100 (lähetetty PM:lle: docs/i18n/sv_kaannoserae_100_gemini.json)', () => {
   it('vain osio seura_kaikki; 127 riviä; sv tyhjä; konteksti; jokaisella rivillä näkymä, elementti ja koodirivi', () => {
     expect(Object.keys(ERA.osiot)).toEqual(['seura_kaikki']);
     expect(Object.keys(R)).toHaveLength(127); expect(ERA._rivit_yhteensa).toBe(127);
@@ -31,15 +32,9 @@ describe('erä 100 (docs/i18n/sv_kaannoserae_100_gemini.json)', () => {
       expect(r.lahde, k).toMatch(/^lib\/tm_kehitystilanne\.js:\d+$/);
     }
   });
-  it('erä = rakentajan tulos nyt (ei käsin muokattu): sama rivijoukko ja sama jo-kartassa-lista', () => {
-    const t = B.muotoRivit({ juuri, vanhat: R });
-    expect(t.virheet).toEqual([]); expect(t.rivit).toEqual(R);
-    expect(O._lahde.jo_kartassa_vain_reititys).toEqual(t.reititettavat);
-    expect([...Object.keys(R), ...t.reititettavat].sort()).toEqual(B.MUODOT.map((x) => x[0]).sort());
-  });
-  it('ei rivejä, joilla on jo sv kartassa, josta Seura lukee; ei päällekkäisyyttä erän 99 kanssa', () => {
-    const [H, C] = kartat();
-    for (const k of Object.keys(R)) { expect(H[k], k).toBeUndefined(); expect(C[k], k).toBeUndefined(); }
+  it('erä = rakentajan lista: 127 lähetettyä + 10 jo kartassa olevaa = KAIKKI; ei päällekkäisyyttä erän 99 kanssa', () => {
+    expect([...Object.keys(R), ...O._lahde.jo_kartassa_vain_reititys].sort()).toEqual(B.MUODOT.map((x) => x[0]).sort());
+    expect(O._lahde.jo_kartassa_vain_reititys.slice().sort()).toEqual(['Ikävaihe', 'Jakso', 'Joukkue', 'Kaikki', 'Kehityssuunnitelma', 'Pelaajia, joilla testi alle 12 kk', 'Sukupuoli', 'Talentit', 'Talenttiohjelma', 'Tila']);
     const E99 = JSON.parse(readFileSync(join(juuri, 'docs/i18n/sv_kaannoserae_99_gemini.json'), 'utf8')).osiot.seura_muodot.rivit;
     expect(Object.keys(R).filter((k) => E99[k])).toEqual([]);
   });
@@ -54,14 +49,21 @@ describe('erä 100 (docs/i18n/sv_kaannoserae_100_gemini.json)', () => {
   });
 });
 
+describe('seura_kaikki-rakentaja viennin jälkeen', () => {
+  it('ei uusia rivejä eikä virheitä: kaikki listan 137 tekstiä ovat kartassa, josta Seura lukee', () => {
+    const t = B.muotoRivit({ juuri });
+    expect(t.virheet).toEqual([]); expect(t.rivit).toEqual({}); expect(t.reititettavat).toHaveLength(B.MUODOT.length); expect(B.MUODOT).toHaveLength(137);
+    const [H, C] = kartat();
+    for (const k of [...Object.keys(R), ...O._lahde.jo_kartassa_vain_reititys]) expect(typeof H[k] === 'string' || typeof C[k] === 'string', k).toBe(true);
+  });
+});
+
 describe('i18n_luo_gemini_era.cjs --osio=seura_kaikki (CLI)', () => {
-  it('ei vaadi --lapiajo:a; tuottaa saman erän; uudelleenajo idempotentti; tunnetut osiot listattu', () => {
+  it('ei uusia rivejä → exit 2, ei kirjoitusta; tunnetut osiot listattu', () => {
     const kohde = join(tmp, 'sv_kaannoserae_9100_gemini.json');
-    expect(aja('--osio=seura_kaikki', '--tiedosto=' + kohde).status).toBe(0);
-    const a = readFileSync(kohde, 'utf8'); expect(JSON.parse(a).osiot.seura_kaikki.rivit).toEqual(R);
-    expect(aja('--osio=seura_kaikki', '--tiedosto=' + kohde).status).toBe(0); expect(readFileSync(kohde, 'utf8')).toBe(a);
-    const p = aja('--osio=x', '--tiedosto=' + join(tmp, 'sv_kaannoserae_9101_gemini.json'));
+    let p = aja('--osio=seura_kaikki', '--tiedosto=' + kohde);
+    expect(p.status).toBe(2); expect(p.stderr).toContain('ei uusia rivejä'); expect(existsSync(kohde)).toBe(false);
+    p = aja('--osio=x', '--tiedosto=' + kohde);
     expect(p.status).toBe(2); expect(p.stderr).toContain('tunnetut: seura, seura_muodot, seura_kaikki');
-    expect(existsSync(join(tmp, 'sv_kaannoserae_9101_gemini.json'))).toBe(false);
   });
 });
