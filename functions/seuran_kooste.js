@@ -140,7 +140,15 @@ async function laskeSeura(deps, sid, opts) {
   for (const era of _erat(kirjoitukset, 400)) {
     const b = db.batch(); era.forEach((w) => b.set(w.ref, w.data)); await b.commit();
   }
-  return { sid, vk: rajat.tunniste, joukkueita: joukkueDokt.length, pelaajia: pelaajat.length };
+  /* Projekti 03 / PR B: toimenpide-ehdotukset samassa ajossa (su 21, ma 06, callable). Vain oikea ajo (ei arvio/kuiva); ehdotusvirhe EI kaada koostetta. deps.ehdotukset injektoidaan index.js:stä. */
+  let ehdotukset = null;
+  if (typeof deps.ehdotukset === 'function' && !opts.arvio) {
+    try {
+      const rivit = pRivit.filter((d) => !_poissa(d.data || {}));
+      ehdotukset = await deps.ehdotukset(deps, sid, rivit, joukkueet.map((j) => ({ id: j.id, nimi: j.nimi })), rajat.tunniste, nytMs);
+    } catch (e) { (deps.loki || console).error('[seuran kooste] ehdotukset seura ' + sid + ' ' + rajat.tunniste + ': ' + (e && e.stack || e)); }
+  }
+  return { sid, vk: rajat.tunniste, joukkueita: joukkueDokt.length, pelaajia: pelaajat.length, ehdotukset };
 }
 
 /** Kaikki aktiiviset seurat; yhden seuran virhe ei kaada muita (loki → jatka). viikot: [rajat…]. */
@@ -157,12 +165,17 @@ async function laskeKaikki(deps, opts) {
   return { tulokset, virheet };
 }
 
+/** Ajastetun ajon KOOSTE-VIIKKO: 'sunnuntai' → kuluva viikko; 'maanantai' → edellinen. Su 21 ja seuraava ma 06 saavat siis saman tunnisteen (toimenpide-ehdotusten id ankkuroidaan tähän). */
+function koosteViikko(nytMs, tila) {
+  const kuluva = H.viikonRajat(nytMs);
+  return tila === 'maanantai' ? H.viikonRajat(kuluva.alkuMs - 1) : kuluva;
+}
+
 /** Ajastetut: 'sunnuntai' → kuluva viikko; 'maanantai' → edellinen viikko (sunnuntain myöhäiset vastaukset mukaan). */
 function ajastettuKasittelija(deps, tila) {
   return async () => {
     const nytMs = (deps.nyt ? deps.nyt() : Date.now());
-    const kuluva = H.viikonRajat(nytMs);
-    const rajat = tila === 'maanantai' ? H.viikonRajat(kuluva.alkuMs - 1) : kuluva;
+    const rajat = koosteViikko(nytMs, tila);
     const r = await laskeKaikki(deps, { viikot: [rajat], nytMs, arvio: false });
     (deps.loki || console).log('[seuran kooste] ' + tila + ' ' + rajat.tunniste + ': ' + r.tulokset.length + ' seuraa ok, ' + r.virheet.length + ' virhettä');
     return null;
@@ -215,4 +228,4 @@ function paivitaKasittelija(deps) {
   };
 }
 
-module.exports = { pelaajaPoissa: _poissa, RSVP_ROOLIT, TOIMINTO_LAHTEET, HARJOITE_TYYPIT, laskeSeura, laskeKaikki, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };
+module.exports = { pelaajaPoissa: _poissa, RSVP_ROOLIT, TOIMINTO_LAHTEET, HARJOITE_TYYPIT, laskeSeura, laskeKaikki, koosteViikko, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };

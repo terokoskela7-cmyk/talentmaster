@@ -1821,7 +1821,7 @@ exports.luoPinitSeuralle = functions
    · laskeSeuranKooste    su 21:00 Europe/Helsinki — kuluva viikko        · laskeSeuranKoosteMa  ma 06:00 — edellinen viikko uudelleen (sunnuntain klo 21–24 vastaukset mukaan; sama set → idempotentti)
    · paivitaSeuranKooste  callable (johto/SA oma seura, App Check) — kuluvan viikon "Päivitä nyt".  Takaisinlaskenta (3 vk, arvio:true): scripts/kooste_takaisinlasku.js (Tero ajaa). */
 const seuranKooste = require('./seuran_kooste');
-const _koosteDeps = { db, FieldValue: admin.firestore.FieldValue, FieldPath: admin.firestore.FieldPath, HttpsError: functions.https.HttpsError, tarkistaOikeus };
+const _koosteDeps = { db, FieldValue: admin.firestore.FieldValue, FieldPath: admin.firestore.FieldPath, HttpsError: functions.https.HttpsError, tarkistaOikeus, ehdotukset: require('./toimenpide_ehdotukset').luoEhdotukset };   // projekti 03 PR B: toimenpide-ehdotukset koosteen yhteydessä
 exports.laskeSeuranKooste = functions
   .region('europe-west1')
   .runWith({ timeoutSeconds: 540, memory: '512MB' })
