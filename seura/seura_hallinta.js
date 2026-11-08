@@ -41,7 +41,7 @@ async function renderHenkilosto(alue) {
 
     const rooliNimet = {
       vp:tmHT('Valmennuspäällikkö'), seurasihteeri:'Seurasihteeri', urheilutoimenjohtaja:'UTJ',
-      valmentaja:'Valmentaja', talenttivalmentaja:'Talent.val.',
+      valmentaja:tmHT('Valmentaja'), talenttivalmentaja:'Talent.val.',
       fysiikkavalmentaja:'Fysiikkaval.', testivastaava:'Testivastaava',
       fysioterapeutti:'Fysioterapeutti',
     };
@@ -61,7 +61,7 @@ async function renderHenkilosto(alue) {
     alueEl.innerHTML = `
       <table>
         <thead><tr>
-          <th>${tmHT('Nimi / Sähköposti')}</th><th>Rooli</th><th>${tmHT('Joukkue')}</th><th>Claims</th><th>${tmHT('Toiminnot')}</th>
+          <th>${tmHT('Nimi / Sähköposti')}</th><th>${_seuraT('henkilosto.rooli', 'Rooli')}</th><th>${tmHT('Joukkue')}</th><th>Claims</th><th>${tmHT('Toiminnot')}</th>
         </tr></thead>
         <tbody>
           ${henkilot.map((h, hi) => `
@@ -232,7 +232,7 @@ async function renderBrandi(alue) {
   html += '</div>';
 
   html += '<div style="margin-top:20px;">';
-  html += '<button class="nappi teal" style="width:auto;margin-top:0;padding:10px 22px;" onclick="_brandi' + tmHT('Tallenna') + '()">Tallenna</button>';
+  html += '<button class="nappi teal" style="width:auto;margin-top:0;padding:10px 22px;" onclick="_brandiTallenna()">' + tmHT('Tallenna') + '</button>';
   html += '</div>';
 
   html += '</div></div>';
@@ -894,10 +894,10 @@ function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin
           '<input class="kenttaInput" value="' + esc(email) + '" disabled style="opacity:.6;">' +
         '</div>' +
         '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
-          '<label class="kenttaLabel">Rooli</label>' +
+          '<label class="kenttaLabel">' + _seuraT('henkilosto.rooli', 'Rooli') + '</label>' +
           '<input type="hidden" id="hm_rooli_orig" value="' + esc(rooli) + '">' +
           '<select class="kenttaInput" id="muokkaus-rooli">' +
-            (function(){ var sallitut=['vp','valmentaja','talenttivalmentaja','urheilutoimenjohtaja','seurasihteeri','testivastaava']; var nimet={vp:tmHT('Valmennuspäällikkö (VP)'),valmentaja:'Valmentaja',talenttivalmentaja:'Talenttivalmentaja',urheilutoimenjohtaja:'Urheilutoimenjohtaja',seurasihteeri:'Seurasihteeri',testivastaava:'Testivastaava',seura_admin:tmHT('Seuran admin')}; var lista=sallitut.slice(); if(rooli && lista.indexOf(rooli)<0) lista.unshift(rooli); /* nykyinen rooli (esim. seura_admin) mukaan → ei vahinkomuutosta */ return lista.map(function(r){ return '<option value="'+r+'"'+(r===rooli?' selected':'')+'>'+(nimet[r]||r)+'</option>'; }).join(''); })() +
+            (function(){ var sallitut=['vp','valmentaja','talenttivalmentaja','urheilutoimenjohtaja','seurasihteeri','testivastaava']; var nimet={vp:tmHT('Valmennuspäällikkö (VP)'),valmentaja:tmHT('Valmentaja'),talenttivalmentaja:'Talenttivalmentaja',urheilutoimenjohtaja:'Urheilutoimenjohtaja',seurasihteeri:'Seurasihteeri',testivastaava:'Testivastaava',seura_admin:tmHT('Seuran admin')}; var lista=sallitut.slice(); if(rooli && lista.indexOf(rooli)<0) lista.unshift(rooli); /* nykyinen rooli (esim. seura_admin) mukaan → ei vahinkomuutosta */ return lista.map(function(r){ return '<option value="'+r+'"'+(r===rooli?' selected':'')+'>'+(nimet[r]||r)+'</option>'; }).join(''); })() +
           '</select>' +
           '<span style="font-size:11px;color:var(--ink3);">Roolinvaihto päivittää oikeudet (custom claims) ja vaatii käyttäjältä uudelleenkirjautumisen.</span>' +
         '</div>' +
