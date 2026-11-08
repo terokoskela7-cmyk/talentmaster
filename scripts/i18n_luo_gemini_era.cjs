@@ -36,24 +36,33 @@ function tarkistaSvSailyy(ennenO, jalkeenO) {
 /* B12 (8.11.2026): rajausvalinta --osio=<nimi>[,<nimi>] → erään VAIN nimetyt osiot (uusi erä N; erän 2 osioita ei rakenneta, kohde pakollinen).
    Osio "seura" (scripts/i18n_era_seura.cjs): Seurahallinnan suomenkieliset tekstit sv-läpiajon tuloksesta --lapiajo=<tulos.json>
    (node tools/i18n/sv_lapiajo.mjs --sovellus=fx_seura --sovellus=fx_seura_lage --ulos=<tulos.json>); --juuri=<puu> = lähderivit ja kartat
-   samasta puusta, jossa mittaus ajettiin (oletus tämä repo). Ajo: node scripts/i18n_luo_gemini_era.cjs --osio=seura --lapiajo=… --tiedosto=docs/i18n/sv_kaannoserae_N_gemini.json */
+   samasta puusta, jossa mittaus ajettiin (oletus tämä repo). Ajo: node scripts/i18n_luo_gemini_era.cjs --osio=seura --lapiajo=… --tiedosto=docs/i18n/sv_kaannoserae_N_gemini.json
+   Osio "seura_muodot" (scripts/i18n_era_seura_muodot.cjs, erä 99): tekstit, joita mittaus ei näe fixture-tiloista (lista skriptissä, jokainen
+   tarkistetaan koodista); --savutesti=<savutestin tulos.json> lisää tuotannon Seura-näkymien sv-löydökset. Ei vaadi --lapiajo:a. */
 const OSIOT = process.argv.filter((x) => x.startsWith('--osio=')).flatMap((x) => x.slice(7).split(',')).map((s) => s.trim()).filter(Boolean);
 if (OSIOT.length) {
   const virhe = (s) => { console.error('i18n_luo_gemini_era: ' + s); process.exit(2); };
-  const RAKENTAJAT = { seura: 'scripts/i18n_era_seura.cjs' };
+  const RAKENTAJAT = { seura: 'scripts/i18n_era_seura.cjs', seura_muodot: 'scripts/i18n_era_seura_muodot.cjs' };
   const tuntemattomat = OSIOT.filter((o) => !RAKENTAJAT[o]);
   if (tuntemattomat.length) virhe('tuntematon --osio ' + tuntemattomat.join(', ') + ' (tunnetut: ' + Object.keys(RAKENTAJAT).join(', ') + ')');
   if (!process.argv.some((x) => x.startsWith('--tiedosto='))) virhe('--osio vaatii kohteen --tiedosto=docs/i18n/sv_kaannoserae_N_gemini.json (uusi erä; erää 2 ei rajata)');
+  const lue = (nimi) => { const a = arg(nimi, null); if (!a) return null; try { return JSON.parse(fs.readFileSync(path.resolve(ROOT, a), 'utf8')); } catch (e) { return virhe('--' + nimi + ' ei luettavissa: ' + e.message); } };
   const lapiajo = arg('lapiajo', null);
-  if (!lapiajo) virhe('--osio=seura vaatii --lapiajo=<sv_lapiajo.mjs:n tulos.json> (--sovellus=fx_seura --sovellus=fx_seura_lage)');
-  let tulos; try { tulos = JSON.parse(fs.readFileSync(path.resolve(ROOT, lapiajo), 'utf8')); } catch (e) { virhe('--lapiajo ei luettavissa: ' + e.message); }
+  if (OSIOT.includes('seura') && !lapiajo) virhe('--osio=seura vaatii --lapiajo=<sv_lapiajo.mjs:n tulos.json> (--sovellus=fx_seura --sovellus=fx_seura_lage)');
+  const tulos = lue('lapiajo'), savutesti = lue('savutesti');
   const juuri = path.resolve(ROOT, arg('juuri', ROOT));
   let nyk = null; try { nyk = JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch (e) { /* uusi */ }
   const n = (path.basename(OUT).match(/^sv_kaannoserae_(.+?)(?:_gemini)?\.json$/) || [])[1] || '?';
   const osiot = {};
   for (const o of OSIOT) {
-    const R = require(path.join(ROOT, RAKENTAJAT[o]));
-    const { rivit } = R.seuraRivit(tulos, { juuri, vanhat: (nyk && nyk.osiot && nyk.osiot[o] && nyk.osiot[o].rivit) || {} });
+    const R = require(path.join(ROOT, RAKENTAJAT[o])), vanhat = (nyk && nyk.osiot && nyk.osiot[o] && nyk.osiot[o].rivit) || {};
+    if (o === 'seura_muodot') {
+      const t = R.muotoRivit({ juuri, vanhat, savutesti });
+      if (t.virheet.length) virhe('osio seura_muodot:\n- ' + t.virheet.join('\n- '));
+      osiot[o] = { _konteksti: R.KONTEKSTI, _lahde: { lista: 'scripts/i18n_era_seura_muodot.cjs (MUODOT)', savutesti: savutesti ? (savutesti.url || 'annettu') : null, jo_kartassa_vain_reititys: t.reititettavat }, rivit: t.rivit };
+      continue;
+    }
+    const { rivit } = R.seuraRivit(tulos, { juuri, vanhat });
     if (!Object.keys(rivit).length) virhe('osio ' + o + ': mittauksessa ei ole rivejä (' + R.SOVELLUKSET.join(', ') + ')');
     osiot[o] = { _konteksti: R.KONTEKSTI, _lahde: { mittaus: 'node tools/i18n/sv_lapiajo.mjs ' + R.SOVELLUKSET.map((s) => '--sovellus=' + s).join(' '), luotu: tulos.luotu || null, sovellukset: R.SOVELLUKSET }, rivit };
   }
