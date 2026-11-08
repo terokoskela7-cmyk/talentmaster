@@ -28,6 +28,7 @@
 <script src="lib/tm_pelihavainto.js"></script>           <!-- KANONINEN laskenta (§5.6). ?v = sisällön tiiviste deployssa (QG-2): uusi lib saa aina uuden URL:n. -->
 <script src="lib/tm_teknistaktiset.js"></script>         <!-- pelipaikkalista (TM_TT_PELIPAIKAT) asetuksissa. Konseptivalinta EI ole tässä työkalussa: se tehdään pikakortissa. -->
 <script src="lib/tm_joukkue.js"></script>                <!-- §18 joukkuejäsenyys -->
+<script src="lib/tm_suostumus.js"></script>              <!-- B9b: tmSuostumusPeruttu — perutulle ei uutta kenttätarkkailua (Rules v3.80) -->
 
 <style>
   /* Design-tokenit (CLAUDE.md §5). EI #3EC9A7, EI #4A7ED9, EI #06090F, EI Playfair Display. */
@@ -1741,6 +1742,20 @@ const _db = firebase.firestore();
      loppuu tai selain tappaa taustavälilehden. Ilman tätä 2. puoliaika alkoi tyhjästä uudella
      otteluAvaimella, koska luonnos oli juuri pyyhitty. Sama otteluAvain → sama dokumentti
      (tarkkailuId), joten jatkaminen päivittää eikä kahdenna. */
+  /* B9b: suostumus peruttu? Tuore luku (kartta voi olla vanha). Lukuvirhe → false (Rules ratkaisee, virhe näkyy yleisellä polulla). */
+  async function suostumusPeruttu() {
+    try {
+      var s = await _db.collection('seurat').doc(S.seuraId).collection('pelaajat').doc(S.pelaajaId).get();
+      return !!(s.exists && window.TM_SUOSTUMUS && window.TM_SUOSTUMUS.tmSuostumusPeruttu(s.data()));
+    } catch (e) { return false; }
+  }
+  /* Teksti = B9:n käännetyt avaimet (tm_henkilosto_i18n: 'Suostumus peruttu' → 'Samtycke återkallat'); ei uutta sv:tä. */
+  function naytaPeruttu() {
+    var _te = q('tallennusteksti');
+    if (_te) _te.textContent = phT('Suostumus peruttu') + ' — ' + phT('kirjaukset ovat tallessa laitteella');
+  }
+  window._phSuostumusPeruttu = suostumusPeruttu;
+
   async function tallennaFirestoreen(opts) {
     var btn = q('btnTallenna');
     if (btn) btn.disabled = true;
@@ -1753,6 +1768,9 @@ const _db = firebase.firestore();
       /* `luotu` VAIN luonnissa (A5 + Rules-vartija): uudelleentallennus ei saa nollata
          alkuperäistä aikaleimaa. */
       var snap = await ref.get();
+      /* B9b (Rules v3.80): perutun suostumuksen pelaajalle ei UUTTA tarkkailua (vain create estyy; jo luodun päivitys sallitaan).
+         Tuore pelaajadokumentti, koska suostumus voi perua kesken ottelun. Ei kirjoitusta, luonnos säilyy, syy näkyviin. */
+      if (!snap.exists && await suostumusPeruttu()) { naytaPeruttu(); return false; }
       if (!snap.exists) data.luotu = firebase.firestore.FieldValue.serverTimestamp();
       await ref.set(data, { merge: true });
       if (opts && opts.lopullinen) poistaLuonnos();              // vain ottelun lopetus siivoaa laitteen
@@ -1763,6 +1781,7 @@ const _db = firebase.firestore();
          tapa selvittaa syy. Kayttajalle naytetaan SYY, ei pelkka yleisteksti: aiempi
          "kirjaukset ovat tallessa laitteella" ei kertonut, onko kyse oikeuksista vai datasta. */
       console.error('[pelihavainto] tallennus epaonnistui', e);
+      if (e && e.code === 'permission-denied' && await suostumusPeruttu()) { naytaPeruttu(); return false; }   // B9b: oikea syy, ei "ei oikeutta"
       var _te = q('tallennusteksti');
       if (_te) {
         _te.textContent = (e && e.code === 'permission-denied')
