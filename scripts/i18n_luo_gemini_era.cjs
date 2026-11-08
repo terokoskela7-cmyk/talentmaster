@@ -2,13 +2,26 @@
 /* Gemini-erän 2 pohja (sv-läpiajo; docs/CODE_BRIEF_I18N_SV_LAPIAJO.md kohta 4). Code EI kirjoita ruotsia (CLAUDE.md §0): sv jää tyhjäksi, Gemini täyttää.
    Lähde: tests/tm_lang_sv_odotuslista.cjs (uudet fi+en-avaimet) → osio "tm_lang" (fi/en tm_lang.js:stä). Ohje + termistö kopioidaan 8.10. erästä sellaisenaan.
    Idempotentti: jo täytetty sv (aiempi ajo + Geminin paluu) säilyy; vain puuttuvat rivit lisätään; poistuneet (ei enää odotuslistalla) pudotetaan jos sv tyhjä.
+   B11 (7.11.2026): skripti kieltäytyy (exit 1, ei kirjoitusta), jos kohde-erällä on palautus (sv_kaannoserae_N_palautus.json tai sv_eraN_palautetaan.json
+   kohteen kansiossa tai docs/i18n/:ssä) tai jos yksikin kohteen täytetty sv katoaisi tai muuttuisi. Erä 2 on palautettu ja suljettu: uudet tekstit
+   menevät uuteen erään docs/i18n/sv_kaannoserae_N_gemini.json + poissulku tests/i18n_gemini_era2.test.js:ään (ERA54/55/56/69-malli).
    Ajo: node scripts/i18n_luo_gemini_era.cjs [--tiedosto=docs/i18n/sv_kaannoserae_2.json] */
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const arg = (n, d) => { const a = process.argv.find((x) => x.startsWith('--' + n + '=')); return a ? a.slice(n.length + 3) : d; };
-const OUT = path.join(ROOT, arg('tiedosto', 'docs/i18n/sv_kaannoserae_2.json'));
+const OUT = path.resolve(ROOT, arg('tiedosto', 'docs/i18n/sv_kaannoserae_2.json'));
+const kieltaydy = (syy) => { console.error('i18n_luo_gemini_era: EI KIRJOITETTU ' + path.relative(ROOT, OUT) + ' — ' + syy + '\nPalautettua erää ei luoda uudelleen. Uudet tekstit: uusi docs/i18n/sv_kaannoserae_N_gemini.json + poissulku tests/i18n_gemini_era2.test.js:ään (ERA54/55/56/69-malli).'); process.exit(1); };
+// (1) palautettu erä: kohteen numero tiedostonimestä → palautustiedosto kohteen kansiossa tai docs/i18n/:ssä
+{
+  const m = path.basename(OUT).match(/^sv_kaannoserae_(.+?)(?:_gemini)?\.json$/);
+  if (m) {
+    const nimet = ['sv_kaannoserae_' + m[1] + '_palautus.json', 'sv_era' + m[1] + '_palautetaan.json'];
+    const kansiot = [...new Set([path.dirname(OUT), path.join(ROOT, 'docs/i18n')])];
+    for (const k of kansiot) for (const n of nimet) if (fs.existsSync(path.join(k, n))) kieltaydy('erällä on palautus ' + path.relative(ROOT, path.join(k, n)));
+  }
+}
 const E1 = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/i18n/sv_kaannoserae_2026-10-08.json'), 'utf8'));
 const L = require('../lib/tm_lang.js').TM_LANG;
 const ODOTTAA = require('../tests/tm_lang_sv_odotuslista.cjs');
@@ -170,5 +183,12 @@ if (nyk && nyk.osiot && nyk.osiot.lib_adar_nimet) ulos.lib_adar_nimet = nyk.osio
 // lib_adar_nimet osioksi (samaan muotoon kuin muut osiot): osiot-objektiin
 ulos.osiot.lib_adar_nimet = ulos.lib_adar_nimet; delete ulos.lib_adar_nimet;
 ulos._rivit_yhteensa = Object.values(ulos.osiot).reduce((s, o) => s + Object.keys(o.rivit || {}).length, 0);
+// (2) täytetty sv ei saa kadota eikä muuttua: jokainen kohteen ei-tyhjä sv-kenttä (polku → arvo) on tulosteessa samana
+{
+  const svt = (o, pre, acc) => { if (o && typeof o === 'object') for (const k of Object.keys(o)) { const p = pre ? pre + ' › ' + k : k; if (k === 'sv' && typeof o[k] === 'string' && o[k] !== '') acc.set(p, o[k]); else svt(o[k], p, acc); } return acc; };
+  const ennen = svt(nyk, '', new Map()), jalkeen = svt(ulos, '', new Map());
+  const katoaa = [...ennen].filter(([p, v]) => jalkeen.get(p) !== v).map(([p]) => p);
+  if (katoaa.length) kieltaydy(katoaa.length + ' täytettyä sv-kenttää katoaisi tai muuttuisi, esim. ' + katoaa.slice(0, 3).join(' · '));
+}
 fs.writeFileSync(OUT, JSON.stringify(ulos, null, 1) + '\n');
 console.log('kirjoitettu ' + path.relative(ROOT, OUT) + ': tm_lang ' + Object.keys(rivit).length + ' riviä (uusia ' + uusia + '), yhteensä ' + ulos._rivit_yhteensa);
