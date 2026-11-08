@@ -464,7 +464,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
             <input type="checkbox" id="mp_talentti" ${onTalentti ? 'checked data-oli-talentti="1"' : ''}
               style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;"
               onchange="document.getElementById('mp_talenttiTasoRivi').style.display=this.checked?'block':'none'">
-            <span style="font-size:13px;color:var(--ink);">${onTalentti ? 'Aktiivinen' : tmHT('Ei aktiivinen')}</span>
+            <span style="font-size:13px;color:var(--ink);">${onTalentti ? tmHT('Aktiivinen') : tmHT('Ei aktiivinen')}</span>
           </label>
         </div>
         <div id="mp_talenttiTasoRivi" style="display:${onTalentti ? 'block' : 'none'};">
