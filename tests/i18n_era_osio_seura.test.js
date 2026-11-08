@@ -47,15 +47,16 @@ describe('i18n_era_seura.seuraRivit (puhdas)', () => {
     expect(rivit['AVAA NÄKYMÄ'].lahde).toMatch(/^TalentMaster_Seura\.html:\d+$/);
     expect(lue(rivit['AVAA NÄKYMÄ'].lahde)).toContain('AVAA NÄKYMÄ');
     expect(rivit['Sukupuoli'].lahde).toMatch(/^seura\/seura_pelaajahallinta\.js:\d+$/);
-    expect(lue(rivit['Sukupuoli'].lahde)).toContain('<label class="kenttaLabel">Sukupuoli</label>');
-    expect(lue(rivit['🟡 Basprogram — 2 pelaajaa'].lahde)).toMatch(/— \$\{[^}]+\} pelaajaa/);   // luvullinen teksti: rivi, jolla on myös "—"
+    expect(lue(rivit['Sukupuoli'].lahde)).toMatch(/<label class="kenttaLabel">(Sukupuoli|\$\{tmHT\('Sukupuoli'\)\})<\/label>/);   // erän 98 vienti reititti tmHT:llä
+    expect(lue(rivit['🟡 Basprogram — 2 pelaajaa'].lahde)).toMatch(/— (\$\{[^}]+\}|\{n\}) pelaajaa/);   // luvullinen teksti: rivi, jolla on myös "—" (erän 98 jälkeen malli '{otsikko} — {n} pelaajaa')
   });
   it('luvut → esimerkkidata-huomautus; data? → "ei käännetä" -ohje; viite_sv = olemassa oleva käännös samasta tekstistä', () => {
     expect(rivit['🟡 Basprogram — 2 pelaajaa'].huom.join(' ')).toMatch(/esimerkkidataa/);
     expect(rivit['Jo Strand'].lahde).toBeNull();
     expect(rivit['Jo Strand'].huom.join(' ')).toMatch(/ei käännetä/);
     const L = req('../lib/tm_lang.js').TM_LANG;
-    expect(rivit['Sukupuoli'].viite_sv).toEqual({ sv: L.sv.suostumus.rek_sukupuoli, lahde: 'tm_lang:suostumus.rek_sukupuoli' });
+    expect(rivit['Sukupuoli'].viite_sv.sv).toBe(L.sv.suostumus.rek_sukupuoli);   // lähde: tm_lang tai (erän 98 viennin jälkeen) henkilöstökartta, sama sv
+    expect(rivit['Sukupuoli'].viite_sv.lahde).toMatch(/^(tm_lang:suostumus\.rek_sukupuoli|TM_HENKILOSTO_I18N)$/);
   });
   it('vanha täytetty sv säilyy (idempotentti)', () => {
     const { rivit: r2 } = seuraRivit(TULOS, { juuri, vanhat: { 'Pelaajahallinta': { sv: 'X' } } });
@@ -111,10 +112,10 @@ describe('Erä 98 (B12, PM:lle)', () => {
     expect(E._rivit_yhteensa).toBe(61);
     for (const [k, v] of Object.entries(rivit)) expect(v.sv, k).toBe('');
   });
-  it('jokainen rivi on sv-läpiajon baselinessa (Seuran [baseline]-rivit 6.11.) ja sillä on konteksti', () => {
+  it('jokaisella rivillä on konteksti; viennin (B12 vaihe 3) jälkeen rivit ovat poissa baselinesta, paitsi testidatan nimi "Jo Strand"', () => {
     const base = new Set(JSON.parse(readFileSync(join(juuri, 'tools/i18n/sv_lapiajo_baseline.json'), 'utf8')).tekstit);
     for (const [k, v] of Object.entries(rivit)) {
-      expect(base.has(k.toLowerCase()), k).toBe(true);
+      expect(base.has(k.toLowerCase()), k).toBe(k === 'Jo Strand');
       expect(v.nakyma.length, k).toBeGreaterThan(0);
       expect(v.elementti, k).toBeTruthy();
       expect(v.lahde || (v.huom || []).length, k).toBeTruthy();   // lähde tai selitys miksi ei
