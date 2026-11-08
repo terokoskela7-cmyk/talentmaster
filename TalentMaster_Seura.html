@@ -2577,18 +2577,8 @@ document.addEventListener('keydown', e => {
   });
 });
 
-/* B12 (sv-reititys): staattisen markupin kieli. data-i18n / data-i18n-ph → tmHT (yhteinen kartta → henkilöstökartta);
-   data-tm-t / data-tm-t-ph → tm_lang-avain (nav.*, rekisterointi.*, seura.*, joukkueet.*). fi-tilassa DOMiin ei kosketa
-   (fi-renderöinti tavutarkasti ennallaan). Kieli = tmNykyinenKieli(); 1.10.-linjaus (ei tmKieliInitSeura) puretaan erän viennissä. */
-function _seuraKieli() { return (typeof tmNykyinenKieli === 'function' && tmNykyinenKieli()) || 'fi'; }
-function _seuraT(avain, fi) { const k = _seuraKieli(); return k === 'fi' ? fi : _tkKieli(avain, k, fi); }
-function seuraLokalisoi(juuri) {
-  if (_seuraKieli() === 'fi') return;
-  const r = juuri || document;
-  tmHTL(r);
-  r.querySelectorAll('[data-tm-t]').forEach((el) => { el.textContent = _seuraT(el.getAttribute('data-tm-t'), el.textContent.trim()); });
-  r.querySelectorAll('[data-tm-t-ph]').forEach((el) => { el.setAttribute('placeholder', _seuraT(el.getAttribute('data-tm-t-ph'), el.getAttribute('placeholder'))); });
-}
+function _seuraKieli() { return (typeof tmNykyinenKieli === 'function' && tmNykyinenKieli()) || 'fi'; } function _seuraT(avain, fi) { const k = _seuraKieli(); return k === 'fi' ? fi : _tkKieli(avain, k, fi); }   // B12 sv-reititys: _seuraT = tm_lang-avain; fi = DOMiin ei kosketa; 1.10.-linjaus (ei tmKieliInitSeura) puretaan erän viennissä
+function seuraLokalisoi(juuri) { if (_seuraKieli() === 'fi') return; const r = juuri || document; tmHTL(r); r.querySelectorAll('[data-tm-t]').forEach((el) => { el.textContent = _seuraT(el.getAttribute('data-tm-t'), el.textContent.trim()); }); r.querySelectorAll('[data-tm-t-ph]').forEach((el) => { el.setAttribute('placeholder', _seuraT(el.getAttribute('data-tm-t-ph'), el.getAttribute('placeholder'))); }); }   // data-i18n[-ph] → tmHT, data-tm-t[-ph] → tm_lang
 seuraLokalisoi();
 </script>
 </body>
