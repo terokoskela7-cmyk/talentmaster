@@ -155,7 +155,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
             ['Etunimi', p.etunimi || '—'],
             ['Sukunimi', p.sukunimi || '—'],
             [tmHT('Syntymävuosi'), syntVuosi],
-            ['Sukupuoli', p.sukupuoli || '—'],
+            [tmHT('Sukupuoli'), p.sukupuoli || '—'],
             ['Joukkue', p.joukkue || '—'],
             ['PalloID', p.palloID || p.palloId || '—'],
           ].map(([k,v]) => `
@@ -373,7 +373,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
 
       <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px;">
         <div class="kenttaRyhma">
-          <label class="kenttaLabel">Sukupuoli</label>
+          <label class="kenttaLabel">${tmHT('Sukupuoli')}</label>
           <select id="mp_sukupuoli" class="kenttaInput">
             <option value="">— valitse —</option>
             <option value="M" ${p.sukupuoli==='M'?'selected':''}>Poika / Mies</option>

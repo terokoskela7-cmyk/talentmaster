@@ -399,8 +399,8 @@ function _tkKieli(avain, kieli, fi, muuttujat) {
   Object.keys(muuttujat || {}).forEach((k) => { v = v.replace(new RegExp('\\{' + k + '\\}', 'g'), muuttujat[k]); });
   return v;
 }
-/* Seurahallinnan käyttöliittymä on AINA suomeksi (päätös 1.10.2026) — myös ruotsinkielisillä seuroilla. */
-function _tk(avain, fi, muuttujat) { return _tkKieli(avain, 'fi', fi, muuttujat); }
+/* Seurahallinnan käyttöliittymä sivun kielellä (B12, PM 8.11.2026: 1.10.-linjaus "aina suomeksi" purettu) — tm_kieli → seuran kieli → fi. */
+function _tk(avain, fi, muuttujat) { return _tkKieli(avain, (typeof tmNykyinenKieli === 'function' && tmNykyinenKieli()) || 'fi', fi, muuttujat); }
 /* Syntymävuosi Excelistä: tasan 4 numeroa, 1990…kuluva vuosi → numero, muuten null (1.10.2026). */
 function _tmSyntymaVuosi(v) {
   const s = String(v == null ? '' : v).trim();
