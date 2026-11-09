@@ -87,6 +87,7 @@ function rakenna(sovellus, { pelaaja, kentat = {}, rooli = 'valmentaja', sa = fa
   const nimet = master
     ? ['function _mAloitaJaksoRivi(', 'function _mAjPelaajaPp(', 'function _mPelaajaNimiAj(', 'async function _mJjLataaLiput(', 'async function _mAjHaeYhteinen(', 'async function _mAjHaeHavainnot(', 'async function _mAjHaeTuki(', 'window._mAloitaJaksoAvaa = async function', 'window._mAloitaJaksoSulje = function', 'window._mAloitaJaksoTallenna = async function', 'async function _mAjKirjoitaJakso(']
     : ['async function _vpJfKirjoita(', 'async function _vpLataaLiput(', 'async function _vpAjHaeTuki(', 'window._vpAloitaJaksoAvaa = async function', 'window._vpAloitaJaksoSulje = function', 'window._vpAloitaJaksoTallenna = async function'];
+  if (!master) { vm.createContext(c); require('./helpers/vp_kilpatila.cjs').alusta(c); }
   vm.runInContext('window._mJjLiput = {}; window._vpLiput = {};\n' + nimet.map((n) => pura(SRC, n)).join(';\n') + ';', c);
   const w = c.window;
   return { c, p, log, S, avaa: () => (master ? w._mAloitaJaksoAvaa(PID) : w._vpAloitaJaksoAvaa(PID)), tallenna: () => (master ? w._mAloitaJaksoTallenna(PID) : w._vpAloitaJaksoTallenna(PID)), muuttuneet: () => log.upd };

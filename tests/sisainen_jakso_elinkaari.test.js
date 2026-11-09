@@ -79,7 +79,7 @@ function viipale(src, alku, loppu) { const a = src.indexOf(alku), b = src.indexO
 function ctxPohja(fs, lisa) {
   const ctx = Object.assign({ console, Promise, JSON, Object, Array, String, Date, Error, _seuraId: SID, _isDemoMode: false, db: fs.db, _db: fs.db, firebase: { firestore: { FieldValue: FV }, auth: () => ({ currentUser: null }) },
     _ktPaivita() {}, _vpAloitusReRender() {}, _vpKehAskelReRender() {}, toast() {}, vpT: (x) => x, TM_VIRHEKOODI: { tmVirheTeksti: (t) => t } }, lisa || {});
-  ctx.window = ctx; ctx.TM_SISAINEN = S; ctx.TM_KEHITYSSILMUKKA = KS; return vm.createContext(ctx);
+  ctx.window = ctx; ctx.TM_SISAINEN = S; ctx.TM_KEHITYSSILMUKKA = KS; vm.createContext(ctx); if (ctx._seuraId) require('./helpers/vp_kilpatila.cjs').alusta(ctx); return ctx;
 }
 function masterAjuri(fs) {
   const src = lue('TalentMaster_Master_v16.html'), ctx = ctxPohja(fs, { _demo: false, _db: fs.db });
@@ -282,7 +282,7 @@ const SNAPSHOT_HASH = '83713add46d61b3c7292cf0fcc1ae086cf40bbe406f1b118c3580017b
 describe('kytkentä ja versiot', () => {
   it('Master, VP ja KT-libit kulkevat tmJaksofokusElinkaariKirjoita:n kautta; tm_sisainen.js ennen tm_kehitystyopoyta.js:ää; Pelaaja/Vanhempi eivät lataa lib:iä', () => {
     expect(lue('TalentMaster_Master_v16.html')).toMatch(/window\.TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(_db, _seuraId, pid \|\| p\.id, upd,/);
-    expect(lue('TalentMaster_VP_v25.html')).toMatch(/TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, pid, upd,/); expect(lue('TalentMaster_VP_v25.html')).toMatch(/S\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, p\.id, upd,/);
+    expect(lue('TalentMaster_VP_v25.html')).toMatch(/TM_SISAINEN\.tmJaksofokusElinkaariKirjoita\(db, _seura, pid, upd,/); expect(lue('TalentMaster_VP_v25.html')).toMatch(/S\.tmJaksofokusElinkaariKirjoita\(db, _seuraId, p\.id, upd,/);
     ['tm_kt_arviointi', 'tm_kt_hylkaa', 'tm_kt_jakso'].forEach((f) => expect(lue('lib/' + f + '.js'), f).toMatch(/tmJaksofokusElinkaariKirjoita/));
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect(lue(f), f).toMatch(/lib\/tm_sisainen\.js/);
     ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((f) => expect(lue(f)).not.toMatch(/<script[^>]+src="lib\/(tm_sisainen|tm_kehitystyopoyta)\.js/));

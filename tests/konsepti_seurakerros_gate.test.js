@@ -159,7 +159,13 @@ describe('C+D — sv-kerros ei käännä seuran vapaatekstiä (reunaehto A)', ()
 describe('E — lataus ennen renderiä + eristys seuranvaihdossa', () => {
   it('VP lataa kerroksen ENNEN muita latauksia ja tyhjentää sen SA-seuranvaihdossa', () => {
     expect(VP).toContain('await lataaKonseptikerros();   // TIER 1 ENNEN renderiä');
-    expect(VP).toContain("db.collection('seurat').doc(_seuraId).collection('konseptit').get()");
+    /* Kilpatilanne (projekti 03): kerros avainnetaan LUKUHETKEN seuralla (_seura = _seuraId ennen awaitia), ei await-hetken _seuraId:llä. */
+    const kerros = VP.slice(VP.indexOf('async function lataaKonseptikerros()'), VP.indexOf('window.lataaKonseptikerros = lataaKonseptikerros'));
+    expect(kerros).toContain('const _seura = _seuraId;');
+    expect(kerros.indexOf('const _seura = _seuraId;')).toBeLessThan(kerros.indexOf('await db.collection'));
+    expect(kerros).toContain("db.collection('seurat').doc(_seura).collection('konseptit').get()");
+    expect(kerros).toContain('tmKonseptiAsetaKerros(_seura, kartta);');
+    expect(kerros).not.toMatch(/tmKonseptiAsetaKerros\(_seuraId/);
     const vaihto = VP.indexOf('async function superAdminVaihdaSeura');
     const tyhjennys = VP.indexOf('tmKonseptiTyhjennaKerros()', vaihto);
     expect(vaihto).toBeGreaterThan(0);
@@ -170,9 +176,10 @@ describe('E — lataus ennen renderiä + eristys seuranvaihdossa', () => {
     expect(MASTER).toContain("_db.collection('seurat').doc(_seuraId).collection('konseptit').get()");
   });
   it('virhe/oikeuspuute → TYHJÄ kerros (ei toisen seuran jäänteitä)', () => {
-    for (const src of [VP, MASTER]) {
-      expect(src).toContain("tmKonseptiAsetaKerros(_seuraId, {});   // eristys: tyhjä kerros, EI toisen seuran jäänteitä");
-    }
+    expect(MASTER).toContain("tmKonseptiAsetaKerros(_seuraId, {});   // eristys: tyhjä kerros, EI toisen seuran jäänteitä");
+    /* VP: virhepolku asettaa tyhjän kerroksen lukuhetken seuralle (_seura) — ei toisen seuran jäänteitä eikä await-hetken _seuraId:tä. */
+    expect(VP).toContain("tmKonseptiAsetaKerros(_seura, {});   // eristys: tyhjä kerros, EI toisen seuran jäänteitä");
+    expect(VP).not.toMatch(/tmKonseptiAsetaKerros\(_seuraId, \{\}\)/);
   });
   it('demo/kirjautumaton ei lataa seurakerrosta', () => {
     expect(VP).toContain('if (_isDemoMode || !_seuraId)');
