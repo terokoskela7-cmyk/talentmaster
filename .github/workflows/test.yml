@@ -108,6 +108,9 @@ jobs:
 
   # Pakollinen tarkistus "sv-lapiajo (demo)": vihreä vain kun MOLEMMAT demo-osat ovat vihreitä. Matriisin kokonaistulos sisältää
   # myös fixtuurin, joten demo-osien tulos luetaan Actionsin API:sta (vain demo-1/demo-2), ei needs.result:sta.
+  # HUOM (korjaus 9.11.2026): tulos haetaan KAIKILTA ajokerroilta (filter=all) ja kustakin osasta otetaan VIIMEISIN ajokerta.
+  # Aiempi lukutapa (vain nykyinen run_attempt) kaatui "Re-run failed jobs" -uusinnassa: jo läpi menneet osat eivät kuulu uuteen
+  # ajokertaan, joten lista oli vajaa ("success" eikä "success success"). Tarkistus vaatii silti täsmälleen kaksi tulosta.
   sv-lapiajo-demo:
     name: sv-lapiajo (demo)
     runs-on: ubuntu-latest
@@ -120,9 +123,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tulos=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs?per_page=100" \
-            --jq '[.jobs[] | select(.name == "sv-lapiajo (demo-1)" or .name == "sv-lapiajo (demo-2)") | .conclusion] | join(" ")')
-          echo "demo-osat: $tulos"
+          tulos=$(gh api --paginate "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?filter=all&per_page=100" \
+            | jq -rs '[.[].jobs[] | select(.name == "sv-lapiajo (demo-1)" or .name == "sv-lapiajo (demo-2)")]
+                      | group_by(.name) | map(max_by(.run_attempt) | .conclusion) | join(" ")')
+          echo "demo-osat (viimeisin ajokerta per osa): $tulos"
           test "$tulos" = "success success"
 
   # #60 — ESLint no-undef -portti (defektiluokan vartija, esim. 'sp is not defined' -luokka).
