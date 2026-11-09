@@ -11,7 +11,7 @@ const NYT = Date.UTC(2026, 10, 9, 8, 0);
 const JOUKKUEET = [{ id: 'kpv_u13', nimi: 'KPV U13' }, { id: 'kpv_u14', nimi: 'KPV U14' }];
 function fakeDb() {
   const doks = new Map();
-  const kok = { where: () => ({ limit: () => ({ get: async () => ({ docs: [] }) }) }),
+  const kok = { where: () => ({ get: async () => ({ docs: [] }) }),
     doc: (id) => ({ create: async (d) => { if (doks.has(id)) { const e = new Error('6 ALREADY_EXISTS'); e.code = 6; throw e; } doks.set(id, d); } }) };
   return { doks, db: { collection: () => ({ doc: () => ({ collection: () => kok }) }) }, FieldValue: { serverTimestamp: () => 'TS' } };
 }
