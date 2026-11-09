@@ -6197,7 +6197,7 @@ function _vpFokusNimiNaytto(fokus) {
     var sv = _taksAvainNimi(avain);
     if (sv) return sv;
   }
-  return fokus.nimi || fokus.alue || '';
+  return vpT(fokus.nimi || fokus.alue || '');   // tallennettu nimi (fi) käännetään näyttöhetkellä
 }
 
 function _vpTaitoNimiNaytto(n) { if (!n || _vpTaksLang() === 'fi') return n; var X = (typeof ARVIOINTI_TAKSONOMIA !== 'undefined' && Array.isArray(ARVIOINTI_TAKSONOMIA)) ? ARVIOINTI_TAKSONOMIA : [], s = String(n).trim(), k = 'nimi_' + _vpTaksLang(); for (var i = 0; i < X.length; i++) if (X[i] && X[i].nimi_fi === s && X[i][k]) return X[i][k]; return n; }   // sv-aukot k13 (PM 28.10.): tallennettu taidon nimi (taksonomian nimi_fi, esim. tukiosa 'Lyhyt syöttö') → näyttökieli, tuntematon sellaisenaan  ·  alla C — jaksofokuksen konseptinimi: curriculum-sidecar (TM_TT_SV) tai fyysteemat nimi_sv → tallennettu fi.
@@ -6571,7 +6571,7 @@ function _vpArviointiHTML(p) {
   // R-selitteet — ⓘ-vihje: näyttää attribuutin kuvaus_fi:n (hover title = työpöytä; klik/tap = popover, kosketuslaitteet).
   const itag = function (item) {
     if (!item || !item.kuvaus_fi) return '';
-    return ' <span tabindex="0" role="button" aria-label="' + vpT('Selite:') + ' ' + _jsvEsc(_taksNimi(item)) + '" title="' + _jsvEsc(item.kuvaus_fi) + '"'
+    return ' <span tabindex="0" role="button" aria-label="' + vpT('Selite:') + ' ' + _jsvEsc(_taksNimi(item)) + '" title="' + _jsvEsc(vpT(item.kuvaus_fi)) + '"'
       + ' onclick="event.stopPropagation();_vpArvKuvaus(event,\'' + item.avain + '\')"'
       + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_vpArvKuvaus(event,\'' + item.avain + '\');}"'
       + ' style="cursor:help;color:var(--blue);font-size:11px;margin-left:3px;-webkit-user-select:none;user-select:none">ⓘ</span>';
@@ -6727,7 +6727,7 @@ function _vpArviointiHTML(p) {
 window._vpArvKuvaus = function (ev, avain) {
   if (ev && ev.stopPropagation) ev.stopPropagation();
   var it = (typeof tmTaksonomiaByAvain === 'function') ? tmTaksonomiaByAvain(avain) : null;
-  var teksti = (it && it.kuvaus_fi) || '';
+  var teksti = (it && it.kuvaus_fi) ? vpT(it.kuvaus_fi) : '';
   if (!teksti) return;
   var tip = document.getElementById('_vpArvTip');
   if (!tip) {
@@ -6806,7 +6806,7 @@ function _vpPotentiaaliHTML(p, opts) {
                    : '<div style="';
     h += wrap + 'display:flex;align-items:center;gap:12px;padding:6px 9px;border-radius:7px;' + rowStyle + ';flex-wrap:wrap">'
       + '<span style="font-family:var(--font-m);letter-spacing:2px;color:' + (on ? 'var(--gold)' : 'var(--ink3)') + '">' + tahtiStr + '</span>'
-      + '<span style="font-size:12.5px;color:' + (on ? 'var(--ink)' : 'var(--ink2)') + ';font-weight:' + (on ? '600' : '400') + '">' + _jsvEsc(r.lyhyt) + '</span>'
+      + '<span style="font-size:12.5px;color:' + (on ? 'var(--ink)' : 'var(--ink2)') + ';font-weight:' + (on ? '600' : '400') + '">' + _jsvEsc(vpT(r.lyhyt)) + '</span>'
       + '<span style="font-family:var(--font-m);font-size:10px;color:var(--ink3)">' + _jsvEsc(r.kuvaus) + '</span>'
       + (on ? '<span style="margin-left:auto;font-size:10px;color:var(--gold)">' + vpT('● valittu') + '</span>' : '')
       + '</div>';
@@ -7779,9 +7779,9 @@ function _vpKaksiPolkuaHTML(p, pid) {
     if (!t) return b + '<div style="font-size:12px;color:var(--ink3);margin-top:8px">' + vpT('Ei ehdotusta datasta — mittaa lisää tai valitse käsin.') + '</div></div>';
     const fokusNimi = (t.fokus && (t.fokus.nimi || t.fokus.alue)) || t.kuvaus || '—';
     const mit = t.mittari || {}, la = t.lahto ? t.lahto.arvo : null, tv = t.tavoitearvo;
-    b += '<div style="font-family:var(--font-serif);font-size:19px;line-height:1.15;color:var(--ink);margin:7px 0 6px">' + esc(fokusNimi) + '</div>';
+    b += '<div style="font-family:var(--font-serif);font-size:19px;line-height:1.15;color:var(--ink);margin:7px 0 6px">' + esc(vpT(fokusNimi)) + '</div>';
     if (la != null && tv != null) b += '<div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink3);margin-bottom:4px">' + esc(mit.testId || mit.yksikko || 'mittari') + ' · ' + esc(la) + ' → ' + esc(tv) + '</div>';
-    if (t.perustelu && t.perustelu.pelilause) b += '<div style="font-size:11px;color:var(--ink2);line-height:1.45;margin-bottom:10px">⚽ ' + esc(t.perustelu.pelilause) + '</div>';
+    if (t.perustelu && t.perustelu.pelilause) b += '<div style="font-size:11px;color:var(--ink2);line-height:1.45;margin-bottom:10px">' + esc(vpT('⚽ ' + t.perustelu.pelilause)) + '</div>';
     b += '<button onclick="event.stopPropagation();_vpAsetaModus(\'' + pid + '\',\'' + modus + '\')" style="font-family:var(--font-sans);font-size:11px;font-weight:500;padding:8px 13px;border-radius:6px;background:transparent;color:' + vari + ';border:.5px solid ' + reuna + ';cursor:pointer">' + vpT('→ Tee tästä tavoite') + '</button>';
     return b + '</div>';
   };
@@ -8329,7 +8329,7 @@ function _vpAloitusTavoiteHTML(p) {
   } else if (r0 && !r0.mittari) {
     h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px">' + vpT('◔ SMART-mittari puuttuu — lisää Kehityksessä (ei pakollinen).') + '</div>';
   }
-  if (t && t.perustelu && t.perustelu.pelilause) h += '<div style="font-size:11.5px;color:var(--ink2);line-height:1.45;margin-top:8px">⚽ ' + esc(t.perustelu.pelilause) + '</div>';
+  if (t && t.perustelu && t.perustelu.pelilause) h += '<div style="font-size:11.5px;color:var(--ink2);line-height:1.45;margin-top:8px">' + esc(vpT('⚽ ' + t.perustelu.pelilause)) + '</div>';
   return h + _link + '</div>';
 }
 // P1.1 — Aloituksen jaksofokus YHTENÄ RIVINÄ (konsepti + domeeni/dim/kesto + tukikonsepti + linkki). Iso lohko + ohjelma
@@ -8865,13 +8865,13 @@ function _vpKausitavoiteHTML(p) {
   const _lahdeSiru = (_lt && _lt.tyyppi === 'pelihavainto')
     ? '<span class="chip" style="color:var(--ink3);border-color:var(--border)">' + vpT('◎ Lähde: pelihavainto') + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>'
     : (_lt && _lt.tyyppi === 'havaittu') ? '<span class="chip" style="color:var(--blue)">' + vpT('◎ Lähde: havainto') + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>' : '';
-  h += '<div class="jsp-kt-chips"><span class="chip">' + vpT('🎯 Fokus: ') + '<b>' + _jsvEsc(f.nimi || f.alue || '—') + '</b></span>'
+  h += '<div class="jsp-kt-chips"><span class="chip">' + vpT('🎯 Fokus: ') + '<b>' + _jsvEsc(vpT(f.nimi || f.alue || '—')) + '</b></span>'
     + '<span class="chip" style="color:' + _tyc.c + ';border-color:' + _tyc.b + '">' + _jsvEsc(_vpTyyppiNaytto(_ty))
       + (_vpDimNimi(f.dim) ? ' · ' + _jsvEsc(_vpDimNimi(f.dim)) : '') + '</span>'
     + _lahdeSiru
     + (t.perustelu && t.perustelu.kultaikkuna ? '<span class="chip">' + vpT('Paras oppimisikkuna nyt') + '</span>' : '') + '</div>';
   // §7b — pelaaminen-linkitys: pelisovelluslause fokus-chippien alle (aikuisnäkymä; ei irrallinen testisuoritus)
-  if (t.perustelu && t.perustelu.pelilause) h += '<div class="jsp-kt-peli">' + vpT('Miltä se näyttää pelissä') + ' ' + _jsvEsc(t.perustelu.pelilause) + '</div>';
+  if (t.perustelu && t.perustelu.pelilause) h += '<div class="jsp-kt-peli">' + vpT('Miltä se näyttää pelissä') + ' ' + _jsvEsc(vpT(t.perustelu.pelilause)) + '</div>';
   // §4/§28 — kypsyysvahti: fyysinen fokus ilman PHV-dataa on epävarma (pre-PHV heikko fysiikka = neutraali)
   if (t.perustelu && t.perustelu.kypsyysvaroitus) h += '<div class="jsp-kt-varo">⚠️ ' + _jsvEsc(t.perustelu.kypsyysvaroitus) + '</div>';
   // lähtö → tavoite -palkki (vain mitattavalle)
@@ -9867,7 +9867,7 @@ function _jfLahdeBadge(lahde) {
   const b = _JF_LAHDE_BADGE[lahde];
   const vari = b ? (b.cls === 'vp' ? 'var(--blue)' : b.cls === 'tal' ? 'var(--amber)' : 'var(--teal)') : 'var(--ink3)';
   const bord = b ? (b.cls === 'vp' ? 'rgba(42,93,176,.4)' : b.cls === 'tal' ? 'rgba(224,160,64,.4)' : 'rgba(40,176,144,.35)') : 'var(--border)';
-  return '<span style="font-size:9.5px;border-radius:999px;padding:2px 8px;border:.5px solid ' + bord + ';color:' + vari + ';background:var(--ov-1)">' + (b ? b.lbl : (lahde || '—')) + '</span>';
+  return '<span style="font-size:9.5px;border-radius:999px;padding:2px 8px;border:.5px solid ' + bord + ';color:' + vari + ';background:var(--ov-1)">' + vpT(b ? b.lbl : (lahde || '—')) + '</span>';
 }
 
 function renderJaksofokus() {
@@ -11871,7 +11871,7 @@ function _vpAloitusHTML(p) {
     + '<h3 class="vpal-h3">' + _jsvEsc(_vpFokusNimiNaytto(fokus) || '—') + (fokus && fokus.dim ? ' · ' + fokus.dim : '') + '</h3>'
     + (tilaLbl ? '<div class="vpal-meta">' + tilaLbl + (t && t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' vk' : '') + '</div>' : '')
     + (_al && _al.tyyppi === 'pelihavainto' ? '<div class="vpal-meta" style="color:var(--ink3)">' + vpT('◎ Lähde: pelihavainto') + (_alPvm ? ' · ' + _jsvEsc(_alPvm) : '') + '</div>' : '')
-    + (pelilause ? '<div class="vpal-peli">' + vpT('⚽ Näkyy pelissä:') + ' ' + _jsvEsc(pelilause) + '</div>' : '') + '</div>';
+    + (pelilause ? '<div class="vpal-peli">' + vpT('⚽ Näkyy pelissä:') + ' ' + _jsvEsc(vpT(pelilause)) + '</div>' : '') + '</div>';
   // Jaksofokus (meso) — täyttyy valmentajan "Vie jakson treeniin" -pikakentästä (§26 jaksofokus, Vaihe 4a). Muuten placeholder.
   const _jf = p.jaksofokus || null;
   if (_jf && _jf.konsepti_nimi) {
@@ -11881,7 +11881,7 @@ function _vpAloitusHTML(p) {
     const _ump = (_jfLib && typeof _jfLib.tmJfUmpeutunut === 'function') ? _jfLib.tmJfUmpeutunut(_jf) : false;
     h += '<div class="vpal-fk jakso"><div class="vpal-k amber">📍 ' + vpT('Jakso') + ' <span class="vpal-pill">meso' + _jfVk + '</span>' + (_ump ? ' <span style="color:var(--amber)">🟠 ' + vpT('umpeutunut') + '</span>' : '') + '</div>'
       + '<h3 class="vpal-h3">' + _jsvEsc(_jf.konsepti_nimi) + '</h3>'
-      + '<div class="vpal-meta">' + vpT('viemä jakso') + (_jf.lahde ? ' · ' + _jsvEsc(_jf.lahde) : '') + '</div>'
+      + '<div class="vpal-meta">' + vpT('viemä jakso') + (_jf.lahde ? ' · ' + _jsvEsc(vpT(_jf.lahde)) : '') + '</div>'
       + (typeof _vpJfTukiHTML === 'function' ? _vpJfTukiHTML(_jf, { tight: true }) : '')   // JF-2: tukena + Opittu kun
       + (_ump ? '<div style="margin-top:8px"><button class="jsp-kt-btn primary" onclick="_vpSuljeJakso(\'' + _jsvEsc(p.id) + '\')">↻ ' + vpT('Tee jakson yhteenveto → seuraava fokus') + '</button></div>' : '') + '</div>';
   } else {
@@ -12902,12 +12902,12 @@ function tkVaadittuVuosivauhti(ika, sp, taso) {
 function _vpSelTip(k) {
   if (typeof TM_SELITTEET === 'undefined' || !TM_SELITTEET[k]) return '';
   // #89: escape title-teksti (lainausmerkki/&/<> rikkoisivat attribuutin → vuoto näkyväksi tekstiksi). Attribuutti, ei sisältö.
-  var t = String(TM_SELITTEET[k]).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  var t = String(vpT(TM_SELITTEET[k])).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return ' title="' + t + '" onclick="_vpSelInfo(\'' + k + '\')"';
 }
 // §7.17 IIFE-scope → onclick vaatii globaalin. Pitkä kesto (~6 s) jotta selite ehtii lukea.
 window._vpSelInfo = function(k) {
-  var t = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET[k]) ? TM_SELITTEET[k] : '';
+  var t = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET[k]) ? vpT(TM_SELITTEET[k]) : '';
   if (t && typeof toast === 'function') toast(t, 'ok', 6000);
 };
 function _jsvJoukkueIkaSp(joukkueNimi) {
@@ -13299,7 +13299,7 @@ function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
   const vajeet = (typeof kattavuusVajeet === 'function') ? kattavuusVajeet({ pelihavainto: kAdar, suostumus: kSuost, phv: kPhv }, n) : [];
   if (vajeet.length) {
     const META = {
-      pelihavainto: { lbl: 'Pelihavainto', cta: vpT('Avaa Pelihavainto'), fn: 'avaaAdarKenttatyokalu()' },
+      pelihavainto: { lbl: vpT('Pelihavainto'), cta: vpT('Avaa Pelihavainto'), fn: 'avaaAdarKenttatyokalu()' },
       suostumus:    { lbl: vpT('Suostumus'),    cta: vpT('Lähetä kutsut'), fn: 'avaaKutsut()' },
       phv:          { lbl: 'PHV',          cta: vpT('Kasvumittaus'), fn: '_jsvLuoTapahtuma(\'' + je + '\',\'kasvumittaus\')' }
     };
@@ -13757,7 +13757,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
 
   let h = radarHtml + '<div class="jsv-an-huom" style="margin:0 0 10px">' + vpT('Tavoite = ikäluokan keskitaso (taso 3) tai TKI ≥60. §28: pre-PHV matala fyysinen on biologisesti odotettua — kehityskieli, ei puute.') + '</div>';
   h += _omRivi(vpT('Nopeus (30 m)'), nopeus, vpT('30 m juoksu'), fysSuunta);
-  h += _omRivi('Suunnanmuutos', suunnanmuutos, vpT('suunnanmuutos (sm-juoksu)'), fysSuunta);
+  h += _omRivi(vpT('Suunnanmuutos'), suunnanmuutos, vpT('suunnanmuutos (sm-juoksu)'), fysSuunta);
 
   // Tekniikka — lähde-adaptiivinen. tki → TKI-asteikko (≥60), muu → taso 3.
   const _hhSm = (teknLahteet.hh || 0) + (teknLahteet.sm_pallo || 0) + (teknLahteet.sm || 0) + (teknLahteet.tk || 0);
@@ -17289,7 +17289,7 @@ function vpWeekSlotClick(pvm) { avaaKalenteriPaivaModal(pvm); }
 function _vpModalLbl(txt) {
   const l = document.createElement('label');
   l.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);';
-  l.textContent = txt;
+  l.textContent = vpT(txt);
   return l;
 }
 
@@ -19143,7 +19143,7 @@ function _mdtFaLista(p) {
     its.forEach(function (it) {
       n++;
       var v = hav[it.avain];
-      var itag = it.kuvaus_fi ? ' <span class="pdc-ii" role="button" tabindex="0" title="' + _jsvEsc(it.kuvaus_fi) + '" onclick="event.stopPropagation();_vpArvKuvaus(event,\'' + it.avain + '\')">ⓘ</span>' : '';
+      var itag = it.kuvaus_fi ? ' <span class="pdc-ii" role="button" tabindex="0" title="' + _jsvEsc(vpT(it.kuvaus_fi)) + '" onclick="event.stopPropagation();_vpArvKuvaus(event,\'' + it.avain + '\')">ⓘ</span>' : '';
       out += '<div class="pdc-fa-row"><span>' + _jsvEsc(_taksNimi(it)) + itag + '</span><b style="color:' + _mdtVari5(v) + '">' + v + '</b></div>';
     });
   });
@@ -22048,7 +22048,7 @@ function laskeD5Taso(p) {
   return n ? Math.round((summa / n) * 10) / 10 : null;           // ei D5-attribuutteja arvioitu → null (ei 0)
 }
 function _d2Lahde(p) { const r = (typeof laskeD2Tulos === 'function') ? laskeD2Tulos(p) : null; return r ? (r.lahde === 'sm_pallo' ? 'sm' : r.lahde) : null; }   // sama resolveri kuin laskeD2Taso (lajikohtainen ensin, TKI viimeisenä): lähde-label täsmää näytettyyn lukuun
-function _d2LahdeLbl(l) { return { tki:'TKI', sm:'SM-pohjainen', hh:vpT('H-H (syöttö/pujottelu)'), tk:'TK-lajit' }[l] || ''; }
+function _d2LahdeLbl(l) { return { tki:'TKI', sm:vpT('SM-pohjainen'), hh:vpT('H-H (syöttö/pujottelu)'), tk:'TK-lajit' }[l] || ''; }
 
 // ── Hidden Gem -luokitin (CLAUDE.md §28). Biologinen perusta: korkea D2 + matala D1 = aito gem VAIN pre-PHV.
 // D1=hh_taso · D2=laskeD2Taso · PHV=phv_tila · mitali=tekninen_varhaiskehitys (pikakenttä) · FLEI=flei_viimeisin.
