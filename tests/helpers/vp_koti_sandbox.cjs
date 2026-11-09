@@ -40,7 +40,7 @@ function luoYmparisto(src, o) {
   ctx._tapahtumat = o.tapahtumat || []; ctx._vpViestit = { rivit: o.viestit || [] }; ctx.TM_VP_NAVI = { tmNaviPikatoiminnot: () => [{ teksti: 'Uusi tapahtuma', fn: 'x' }] };   // PR D: Koti kulkee lib/tm_vp_koti.js:n kautta
   ctx.TM_ALOITA_JAKSO = require('../../lib/tm_aloita_jakso.js');
   ctx.TM_KAYTTOASTE = { tmKayttoasteLueKoosteet: async () => { if (o.lukuVirhe) throw new Error('permission-denied'); return o.koosteet || []; } };
-  vm.createContext(ctx);
+  vm.createContext(ctx); require('./vp_kilpatila.cjs').alusta(ctx);
   const nimet = ['_vpPaivitaToimenpideLaskuri', 'renderKotiVP', '_vpJaksoVk', '_vpSeuraavaKatselmus', '_vpKatselmusPv', '_vpPulssiLataa', '_renderKotiPulssi'].filter((n) => src.indexOf('function ' + n + '(') >= 0);
   vm.runInContext(nimet.map((n) => funktio(src, n)).join('\n'), ctx);
   const ikkunaFn = (nimi) => { const a = src.indexOf('window.' + nimi + ' = '); if (a < 0) return ''; let syv = 0, k = src.indexOf('{', src.indexOf(')', a)), l = -1; for (; k < src.length; k++) { if (src[k] === '{') syv++; else if (src[k] === '}') { syv--; if (syv === 0) { l = k + 1; break; } } } return src.slice(a, l) + ';'; };

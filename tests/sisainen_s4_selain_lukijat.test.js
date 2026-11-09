@@ -104,7 +104,7 @@ describe('(4) terveyslukijat roolin mukaan (tmTerveysLukuOpts)', () => {
   });
   it('kolme latauspaikkaa (VP, Master, Kehitystyöpöytä) välittävät roolin: tmTerveysLukuOpts(rooli, lista) — ei paljasta kutsua', () => {
     /* PR 2c: sama roolikohtainen opts + onVirhe (latausvirhe näkyviin) */
-    expect(lue('TalentMaster_VP_v25.html')).toContain('tmSisainenLataaJaYhdista(db, _seuraId, _pelaajat, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(window._vpSA ? "super_admin" : window._vpRooli, _pelaajat), { onVirhe: _sv }))');
+    expect(lue('TalentMaster_VP_v25.html')).toContain('tmSisainenLataaJaYhdista(db, _seura, _uudet, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(window._vpSA ? "super_admin" : window._vpRooli, _uudet), { onVirhe: _sv }))');
     expect(lue('TalentMaster_Master_v16.html')).toContain('tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajatData, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, _pelaajatData), { onVirhe: _mSisainenVirhe }))');
     expect(lue('TalentMaster_Kehitystyopoyta.html')).toContain('tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajat, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, _pelaajat), { onVirhe: _sv }))');
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect((lue(f).match(/tmSisainenLataaJaYhdista\(/g) || []).length, f).toBe(1);
@@ -143,7 +143,7 @@ describe('(5) signaalin lukijat yhdistetyn muodon kautta — tulos identtinen ku
   });
   it('Master ja VP: signaalin lukijat saavat yhdistetyn listan (lataus tmSisainenLataaJaYhdista-reittiä); VP:n lataus normalisoi signaali ennen yhdistystä (sisainen voittaa)', () => {
     expect(lue('TalentMaster_VP_v25.html')).toContain('signaali: data.signaali || null,');
-    expect(lue('TalentMaster_VP_v25.html').indexOf('signaali: data.signaali || null,')).toBeLessThan(lue('TalentMaster_VP_v25.html').indexOf('window.TM_SISAINEN.tmSisainenLataaJaYhdista(db, _seuraId, _pelaajat'));
+    expect(lue('TalentMaster_VP_v25.html').indexOf('signaali: data.signaali || null,')).toBeLessThan(lue('TalentMaster_VP_v25.html').indexOf('window.TM_SISAINEN.tmSisainenLataaJaYhdista(db, _seura, _uudet'));
     ['lib/tm_seuraava_askel.js', 'lib/tm_kehitystilanne.js', 'lib/tm_eerikkila_normit.js'].forEach((f) => expect(lue(f), f).not.toMatch(/sisainen\/tiedot|collectionGroup\(/));   // lukijat eivät lataa itse → eivät ohita yhdistystä
   });
 });

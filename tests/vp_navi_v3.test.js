@@ -112,7 +112,7 @@ describe('VP_v25-kytkentä vm-sandboxissa (oikeat funktiot, ympäristö tynkinä
     ctx.window = ctx; if (o.liput !== undefined) ctx._vpLiput = { 'demo-fc': o.liput };
     ctx.TM_VP_NAVI = N; ctx.TM_KT_KOMPONENTIT = { tmKtKomponentitLisaa() { o.css = true; } };
     ['a', 'b'].forEach((k, i) => nvItems.push({ dataset: { nv: ['koti', 'viestit', 'joukkueet'][i] }, classList: els.sidebar.classList }));   // yksinkertaistettu
-    vm.createContext(ctx);
+    vm.createContext(ctx); require('./helpers/vp_kilpatila.cjs').alusta(ctx);
     ['_vpNaviUusi', '_vpNaviAsenna', '_vpNaviAktiivinen', '_vpAvaaUrlWs', '_vpViestitNimi', '_vpViestitLataa', '_vpViestitPiirra', '_vpViestitNayta', 'setWs'].forEach((n) => vm.runInContext(funktio(VP, n), ctx));
     ['_vpViestiAvaa', '_vpPikaMentorointi', '_vpPikaTapahtuma'].forEach((n) => { const a = VP.indexOf('window.' + n + ' = '); let d = 0, k = VP.indexOf('{', VP.indexOf(')', a)), l = -1; for (; k < VP.length; k++) { if (VP[k] === '{') d++; else if (VP[k] === '}' && --d === 0) { l = k + 1; break; } } vm.runInContext(VP.slice(a, l) + ';', ctx); });
     vm.runInContext('var _vpViestit = { rivit: [], ladattu: 0, virhe: false };', ctx);

@@ -3503,6 +3503,7 @@ window.vpVaihdaKieli = vpVaihdaKieli; window.vpPaivitaKielivalitsin = vpPaivitaK
 // Super Admin — vaihda seura lennossa
 async function superAdminVaihdaSeura(uusiSeuraId) {
   _seuraId = uusiSeuraId;
+  _vpLatausSukupolvi++;   // mitätöi kaikki kesken olevat lataukset heti (kilpatilanne)
   localStorage.setItem('tm-sa-seura', uusiSeuraId);
 
   // Päivitä topbar-teksti
@@ -3517,6 +3518,8 @@ async function superAdminVaihdaSeura(uusiSeuraId) {
   // TIER 1 -ERISTYS: konseptikerros on seurakohtainen → tyhjennä edellisen seuran kerros ennen latausta.
   if (typeof tmKonseptiTyhjennaKerros === 'function') tmKonseptiTyhjennaKerros();
   _pelaajat = []; _valmentajat = []; _valmentajatKaikki = []; _tapahtumat = []; _idpJono = [];
+  _pelaajatSeura = null; _toimenpiteet = []; _toimenpiteetSeura = null; _seurantaKuittaukset = []; _seurantaKuittauksetSeura = null; _vpViestit = { rivit: [], ladattu: 0, virhe: false, seura: null };
+  if (window._vpPulssi) { window._vpPulssi.sid = null; window._vpPulssi.koosteet = null; }
   await lataaKaikki();
 
   // Harjoittelun laatu -dashboard: nollaa välimuisti seuravaihdossa + lataa uudelleen jos näkymä on auki
@@ -3572,9 +3575,25 @@ function getViikko() {
 }
 
 // ─── DATA LOADING ────────────────────────────────────────
+/* Seuranvaihdon kilpatilanne (projekti 03): jokainen lataaKaikki / seuranvaihto ottaa uuden sukupolvitunnisteen. Awaitin jälkeen
+   sijoittava kohta hylkää tuloksensa, jos tunniste TAI _seuraId on vaihtunut (A→B→A kattaa tunniste, A→B seura). Kirjoitukset sidotaan
+   siihen seuraan, jonka latauksesta kohde (pid, toimenpide, kooste…) tuli — _xxxSeura-muuttujat — eivät kirjoitushetken _seuraId:hen. */
+var _vpLatausSukupolvi = 0;
+var _pelaajatSeura = null, _toimenpiteetSeura = null, _seurantaKuittauksetSeura = null;
+function _vpLatausVanhentunut(sp, seura) { return sp !== _vpLatausSukupolvi || seura !== _seuraId; }
+/* true = kirjoitus ESTETTY (sidottu seura puuttuu tai ei ole nykyinen); virhe näkyy aina, ei hiljaista kirjoitusta väärään seuraan. */
+function _vpKirjoitusEstetty(sidottuSeura, virheteksti) {
+  if (sidottuSeura && sidottuSeura === _seuraId) return false;
+  console.warn('[seurakirjoitus estetty] sidottu=' + sidottuSeura + ' nykyinen=' + _seuraId);
+  if (typeof toast === 'function') toast(virheteksti || vpT('Tallennus epäonnistui'), 'virhe');
+  return true;
+}
 async function lataaKaikki() {
+  const _sp = ++_vpLatausSukupolvi, _seura = _seuraId;
   await lataaKonseptikerros();   // TIER 1 ENNEN renderiä: konseptit resolvoidaan kerroksen kanssa (muuten ensirender näyttäisi kaanonin)
+  if (_vpLatausVanhentunut(_sp, _seura)) return;   // seura vaihtui konseptikerroksen latauksen aikana → uusi lataaKaikki hoitaa
   await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaJoukkueNimet(), lataaKalenteriTapahtumat(), lataaSeurantaKuittaukset(), _vpLataaLiput().catch(function () { return {}; })]);   // S2: Kenttä-lippu (D67) tiedossa ennen Kodin ja Tilanteen ensirenderiä
+  if (_vpLatausVanhentunut(_sp, _seura)) return;   // vanha lataus valmistui vaihdon jälkeen: ei renderiä eikä toimenpiteiden alustusta vanhalla datalla
   renderTilanne();
   renderTeamPulse();
   renderValmentajat();
@@ -3622,13 +3641,14 @@ async function lataaKonseptikerros() {
   if (typeof tmKonseptiAsetaKerros !== 'function') return;
   if (_isDemoMode || !_seuraId) { tmKonseptiAsetaKerros('__demo__', {}); return; }
   if (typeof tmKonseptiKerrosLadattu === 'function' && tmKonseptiKerrosLadattu(_seuraId)) return;
+  const _seura = _seuraId;   // kilpatilanne: kerros avainnetaan lukuhetken seuralla, ei await-hetken _seuraId:llä
   try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('konseptit').get();
+    const snap = await db.collection('seurat').doc(_seura).collection('konseptit').get();
     const kartta = {};
     snap.forEach(function (d) { const o = d.data() || {}; o.avain = d.id; kartta[d.id] = o; });
-    tmKonseptiAsetaKerros(_seuraId, kartta);
+    tmKonseptiAsetaKerros(_seura, kartta);
   } catch (e) {
-    tmKonseptiAsetaKerros(_seuraId, {});   // eristys: tyhjä kerros, EI toisen seuran jäänteitä
+    tmKonseptiAsetaKerros(_seura, {});   // eristys: tyhjä kerros, EI toisen seuran jäänteitä
     console.warn('[konseptikerros]', e && e.message);
   }
 }
@@ -3972,9 +3992,11 @@ function normalisioiJoukkue(joukkue) {
 }
 
 async function lataaPelaajat() {
+  const _sp = _vpLatausSukupolvi, _seura = _seuraId;
   try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
-    _pelaajat = snap.docs.map(d => {
+    const snap = await db.collection('seurat').doc(_seura).collection('pelaajat').get();
+    if (_vpLatausVanhentunut(_sp, _seura)) return;   // seura vaihtui kesken latauksen → hylkää (ei vanhaa dataa uuden seuran listaan)
+    const _uudet = snap.docs.map(d => {
       const data = d.data();
       return {
         id: d.id,
@@ -4001,13 +4023,18 @@ async function lataaPelaajat() {
       };
     });
     // Lajittele sukunimen mukaan
-    _pelaajat.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
-    { const _sv = (v) => toast(vpT('Lataus epäonnistui:') + ' ' + v, 'err'); if (!window.TM_SISAINEN) _sv('TM_SISAINEN'); else _pelaajat = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(db, _seuraId, _pelaajat, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(window._vpSA ? "super_admin" : window._vpRooli, _pelaajat), { onVirhe: _sv })); }   // 2c: virhe näkyviin   // Vaihe 1 (1d): sisainen/tiedot yhdistetään (D3); virhe → vanhat kentät
+    _uudet.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
+    let _yhd = _uudet;
+    { const _sv = (v) => { if (!_vpLatausVanhentunut(_sp, _seura)) toast(vpT('Lataus epäonnistui:') + ' ' + v, 'err'); }; if (!window.TM_SISAINEN) _sv('TM_SISAINEN'); else _yhd = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(db, _seura, _uudet, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(window._vpSA ? "super_admin" : window._vpRooli, _uudet), { onVirhe: _sv })); }
+    if (_vpLatausVanhentunut(_sp, _seura)) return;   // sisainen/tiedot-luku ehti vanhentua → hylkää
+    _pelaajat = _yhd; _pelaajatSeura = _seura;   // sijoitus vasta tarkistuksen jälkeen; _pelaajatSeura = seura, johon pelaajien id:t kuuluvat   // 2c: virhe näkyviin   // Vaihe 1 (1d): sisainen/tiedot yhdistetään (D3); virhe → vanhat kentät
     _vpJasenyydet();
     if (typeof _ktKaynnista === 'function') _ktKaynnista();   // V4a: lippu + hash-reititin (vain lipulla)
   } catch(e) {
     console.warn('lataaPelaajat:', e.message);
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     // Demo fallback
+    _pelaajatSeura = _seura;
     _pelaajat = [
       { id:'p1', etunimi:'Topias', sukunimi:'Koskela', joukkue:'KPV U13', flei_viimeisin:62, phv_tila:'PRE', biologinenIka_viimeisin:{ phv_tila_koodi:'PRE', mittauspaiva:'2026-08-20' }, signaali:'hidden', hh_viimeisin:{lin30m:4.6,cmj:33,mas:14.5}, hh_taso:4.3 },
       { id:'p2', etunimi:'Matias', sukunimi:'Leinonen', joukkue:'KPV U15', flei_viimeisin:74, phv_tila:'PH', biologinenIka_viimeisin:{ phv_tila_koodi:'PH', mittauspaiva:'2026-08-20' }, signaali:'xfactor', hh_viimeisin:{lin30m:4.4,cmj:36,mas:15.2}, hh_taso:3.7 },
@@ -4024,8 +4051,10 @@ function _vpOnHaamuprofiili(v) {
   return !!v && (!t(v.nimi) || v.nimi === 'Nimetön') && !t(v.etunimi) && !t(v.sukunimi) && !t(v.email) && !t(v._rooliAlkuperainen);
 }
 async function lataaValmentajat() {
+  const _sp = _vpLatausSukupolvi, _seura = _seuraId;
   try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('kayttajat').get();
+    const snap = await db.collection('seurat').doc(_seura).collection('kayttajat').get();
+    if (_vpLatausVanhentunut(_sp, _seura)) return;   // seura vaihtui kesken latauksen
     // Normalisoi kentät — Firestore käyttää etunimi/sukunimi, ei nimi
     _valmentajat = snap.docs.map(d => {
       const data = d.data();
@@ -4054,9 +4083,10 @@ async function lataaValmentajat() {
 
     // Hae KAIKKI mentoroinnit kerran (ei composite indexiä), ryhmittele clientissa
     try {
-      const mAllSnap = await db.collection('seurat').doc(_seuraId)
+      const mAllSnap = await db.collection('seurat').doc(_seura)
         .collection('mentoroinnit')
         .orderBy('aika','desc').limit(100).get();
+      if (_vpLatausVanhentunut(_sp, _seura)) return;
       // Ryhmittele per valmentaja — ensimmäinen = viimeisin
       var mentorMap = {};
       mAllSnap.docs.forEach(function(d) {
@@ -4076,6 +4106,7 @@ async function lataaValmentajat() {
         }
       });
     } catch(e) {
+      if (_vpLatausVanhentunut(_sp, _seura)) return;
       _valmentajat.forEach(function(v) { v.mentorointiPvt = 999; });
     }
 
@@ -4083,37 +4114,46 @@ async function lataaValmentajat() {
     await lataaVAIArvot();
   } catch(e) {
     console.warn('lataaValmentajat:', e.message);
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     _valmentajat = [];
   }
 }
 
 async function lataaTapahtumat() {
   _vpaTapahtumatLadattu = Date.now();
+  const _sp = _vpLatausSukupolvi, _seura = _seuraId;
   try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('testitapahtumat')
+    const snap = await db.collection('seurat').doc(_seura).collection('testitapahtumat')
       .orderBy('pvm').get();
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     _tapahtumat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) {
     /* Ei esimerkkitapahtumia kirjautuneelle seuralle: tynkädata ilmestyi oikean seuran Tilanteeseen ja kuittasi aloitusoppaan testivaiheen
        (demo-vuoto). Epäonnistunut luku = tyhjä lista + varoitus; demo asettaa omat tapahtumansa demoMode()-polussa. */
     console.warn('[lataaTapahtumat]', e.message);
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     _tapahtumat = [];
   }
 }
 
 async function lataaIdpJono() {
   // Sprint 3: tila in ['odottaa','ehdotettu'] — yhteensopivuus uuden + vanhan kanssa
+  const _sp = _vpLatausSukupolvi, _seura = _seuraId;
   try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('idp_jono')
+    const snap = await db.collection('seurat').doc(_seura).collection('idp_jono')
       .where('tila','in',['odottaa','ehdotettu']).get();
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     _idpJono = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) {
     console.warn('[lataaIdpJono] in-clause epäonnistui, kokeile yksittäistä:', e.message);
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     try {
-      const snap = await db.collection('seurat').doc(_seuraId).collection('idp_jono')
+      const snap = await db.collection('seurat').doc(_seura).collection('idp_jono')
         .where('tila','==','odottaa').get();
+      if (_vpLatausVanhentunut(_sp, _seura)) return;
       _idpJono = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch(e2) {
+      if (_vpLatausVanhentunut(_sp, _seura)) return;
       _idpJono = [
         { id:'i1', pelaajaNimi:'Topias Koskela', pelaajaId:'p1', joukkue:'KPV U13', tavoite:'Vertikaalinen syöttö alta ulos', valmentaja:'Matti Korhonen', perustelu:'Kehon valmius 62 → tekniikkatyö', tila:'odottaa' },
       ];
@@ -8671,15 +8711,16 @@ window._vpLiput = window._vpLiput || {};
 async function _vpLataaLiput() {
   if (!_seuraId || _isDemoMode) return {};
   if (window._vpLiput[_seuraId]) return window._vpLiput[_seuraId];
+  const _seuraLiput = _seuraId;   // kilpatilanne: avain = seura jonka liput luettiin, ei await-hetken _seuraId
   let l = {};
   try {
-    const ref = db.collection('seurat').doc(_seuraId), L = window.TM_LIPUT;
+    const ref = db.collection('seurat').doc(_seuraLiput), L = window.TM_LIPUT;
     // liput/julkiset-luvun virhe (myös synkroninen) tai puuttuva dokumentti → null → fallback vanhaan seurat.liput.kentta; lipun luku EI saa jumittaa eikä kaataa UI:ta
     const lueJulkiset = async function () { let ajastin = null; try { const jd = await Promise.race([ref.collection('liput').doc('julkiset').get(), new Promise(function (r) { ajastin = setTimeout(function () { r(null); }, 4000); })]); return jd && jd.exists ? jd.data() : null; } catch (e) { return null; } finally { if (ajastin) clearTimeout(ajastin); } };   // 4 s yläraja: roikkuva luku → fallback
     const [sd, jul] = await Promise.all([ref.get(), lueJulkiset()]); const seura = sd.exists ? sd.data() : null; l = L ? L.tmLiput(jul, seura) : ((seura && seura.liput) || {});
   }   // K1 osa 2: liput/julkiset voittaa, vanha seurat.liput.kentta fallback (K7:ään)
   catch (e) { console.warn('[V1] liput:', e && e.message); }
-  window._vpLiput[_seuraId] = l; return l;
+  if (_seuraLiput === _seuraId) window._vpLiput[_seuraLiput] = l; return l;
 }
 async function _vpAjHaeTuki(p) {
   const AJ = window.TM_ALOITA_JAKSO, jid = AJ.tmAjJoukkueId(p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : '')), seura = db.collection('seurat').doc(_seuraId);
@@ -9727,12 +9768,15 @@ function _vpJaksoNapitHTML(p) {
 }
 async function _vpJfKirjoita(pid, upd, viesti, paivita, elinkaari) {   // elinkaari (PR 1b-3) = { jaksofokus, historiaLisays } kun upd sisältää kokonaisen jaksofokus-olion; { ..., taydenna(batch) } lisäoperaatioille
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); if (paivita) paivita(); return true; }
+  const _seura = _pelaajatSeura;   // seura, jonka latauksesta pid tuli
+  if (_vpKirjoitusEstetty(_seura)) return false;   // false → kutsuja jättää modaalin auki (D53)
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    if (_vpKirjoitusEstetty(_seura)) return false;
     /* PR 1b-2: osapäivitykset (linkitetyt, tavoite_tarkenteet, onnistumiskriteeri … dot-polut) kulkevat tm_sisainen.js:n kautta → dual-write sisainen/tiedot:iin kun lippu on päällä (oletus pois = ennallaan). Kokonaisen jaksofokus-olion kirjoitukset ennallaan (1b-3). */
     /* PR 1b-3: kokonaisen jaksofokus-olion kirjoitukset (aloitus/vaihto/sulku) → tmJaksofokusElinkaariKirjoita (jaksofokus_sisainen korvataan, historia_sisainen.<avain> lisätään; sama lippu). */
-    if (elinkaari) await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(db, _seuraId, pid, upd, { jaksofokus: elinkaari.jaksofokus, historiaLisays: elinkaari.historiaLisays }, { FV: firebase.firestore.FieldValue, taydenna: elinkaari.taydenna });
-    else await window.TM_SISAINEN.tmJaksofokusKirjoita(db, _seuraId, pid, upd, {});
+    if (elinkaari) await window.TM_SISAINEN.tmJaksofokusElinkaariKirjoita(db, _seura, pid, upd, { jaksofokus: elinkaari.jaksofokus, historiaLisays: elinkaari.historiaLisays }, { FV: firebase.firestore.FieldValue, taydenna: elinkaari.taydenna });
+    else await window.TM_SISAINEN.tmJaksofokusKirjoita(db, _seura, pid, upd, {});
     /* PR 2d: fail-closed — ei raakaa update(upd)-varapolkua (se kirjoittaisi jaksofokuksen A-osat pelaajadokumenttiin); lib puuttuu → virhe näkyy toastina. */
     if (paivita) paivita();
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
@@ -9763,9 +9807,12 @@ function _vpJfPolut(polut) {
 }
 async function _vpTtKirjoita(pid, data, viesti) {
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); return; }
+  const _seura = _pelaajatSeura;   // seura, jonka latauksesta pid tuli
+  if (_vpKirjoitusEstetty(_seura)) return;
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
-    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set(data, { merge: true });
+    if (_vpKirjoitusEstetty(_seura)) return;   // vaihto token-haun aikana
+    await db.collection('seurat').doc(_seura).collection('pelaajat').doc(pid).set(data, { merge: true });
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
     /* K1 — tama on KAIKKIEN jaksofokus-kirjoitusten jaettu polku: 'ei_jaksofokusta' poistuu heti kun
        jakso on asetettu, joten Seuraava askel on paivitettava myos taalla (ei kulje kausitavoitteen
@@ -16330,11 +16377,14 @@ function renderValmentajat() {
 // Read-only oversight paitsi hälytyskuittaus (VP/johto). Koontilogiikka lib/tm_vp_seuranta.js.
 // ════════════════════════════════════════════════════════════════════════
 async function lataaSeurantaKuittaukset() {
-  _seurantaKuittaukset = [];
+  const _sp = _vpLatausSukupolvi, _seura = _seuraId;
+  _seurantaKuittaukset = []; _seurantaKuittauksetSeura = null;
   if (_isDemoMode || !_seuraId || typeof db === 'undefined') return;
   try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('seuranta_kuittaukset').get();
+    const snap = await db.collection('seurat').doc(_seura).collection('seuranta_kuittaukset').get();
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     _seurantaKuittaukset = snap.docs.map(d => Object.assign({ _id: d.id }, d.data()));
+    _seurantaKuittauksetSeura = _seura;
   } catch (e) { console.warn('[seuranta_kuittaukset]', e.message); }
 }
 
@@ -16419,10 +16469,13 @@ window.vpKuittaaHalytys = async function (valmentajaUid, tyyppi) {
   if (!_vpSeurantaOnJohto()) { if (typeof toast === 'function') toast(vpT('Kuittaus on VP:n/johdon oikeus'), 'virhe'); return; }
   if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast(vpT('Kuittaus ei onnistunut (ei yhteyttä)'), 'virhe'); return; }
   const avain = tmSeurantaKuittausAvain(valmentajaUid, tyyppi);
+  const _seura = _seurantaKuittauksetSeura;   // seura, jonka latauksesta hälytys tuli
+  if (_vpKirjoitusEstetty(_seura, vpT('Kuittaus epäonnistui'))) return;
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    if (_vpKirjoitusEstetty(_seura, vpT('Kuittaus epäonnistui'))) return;
     const dokki = { tyyppi: tyyppi, valmentaja_uid: valmentajaUid, kuittaaja_uid: _uid || null, pvm: new Date().toISOString() };
-    await db.collection('seurat').doc(_seuraId).collection('seuranta_kuittaukset').doc(avain).set(dokki, { merge: true });
+    await db.collection('seurat').doc(_seura).collection('seuranta_kuittaukset').doc(avain).set(dokki, { merge: true });
     _seurantaKuittaukset = _seurantaKuittaukset.filter(function (k) { return k._id !== avain; });
     _seurantaKuittaukset.push(Object.assign({ _id: avain, avain: avain }, dokki));
     renderVpSeuranta();
@@ -17088,8 +17141,10 @@ function _onTestitapahtuma(t) {
 
 async function lataaJoukkueNimet() {
   if (!_seuraId) { _joukkueNimet = {}; return; }
+  const _sp = _vpLatausSukupolvi, _seura = _seuraId;
   try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('joukkueet').get();
+    const snap = await db.collection('seurat').doc(_seura).collection('joukkueet').get();
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     const m = {};
     snap.docs.forEach(d => { m[d.id] = (d.data().nimi) || d.id; });
     _joukkueNimet = m;
@@ -17097,7 +17152,7 @@ async function lataaJoukkueNimet() {
     _vpJasenyydet();   // joukkue-docit voivat saapua pelaajia myöhemmin → johdetaan jäsenyydet (uudelleen)
     snap.docs.forEach(d => { if (window.TM_KEVYT_KATSELMUS) window._kvkProfiilit[d.id] = window.TM_KEVYT_KATSELMUS.tmProfiili(d.data()); });   // V4b-2: valmentajaprofiili samasta luvusta (0 lisälukua)
     _vpPaivitaOmatJoukkueet(snap.docs);   // R1 — kirjaa nykyisen valmentajan omat joukkueet (omistajuusportti)
-  } catch(e) { console.warn('lataaJoukkueNimet:', e.message); _joukkueNimet = {}; _vpJoukkueDocs = []; }
+  } catch(e) { console.warn('lataaJoukkueNimet:', e.message); if (_vpLatausVanhentunut(_sp, _seura)) return; _joukkueNimet = {}; _vpJoukkueDocs = []; }
 }
 /* ── TAKTIIKKATAULUN KOHDISTUSLISTAT (A+B) ──────────────────────────────────────────────
    Kaavion kohteen valinta (kenelle kuva on) vaatii rosterin, jota jaetulla UI-libillä ei voi
@@ -17409,12 +17464,14 @@ let _kalenteriTapahtumat = [];
 
 async function lataaKalenteriTapahtumat() {
   if (!_seuraId) { _kalenteriTapahtumat = []; return; }
+  const _sp = _vpLatausSukupolvi, _seura = _seuraId;
   try {
-    var snap = await db.collection('seurat').doc(_seuraId)
+    var snap = await db.collection('seurat').doc(_seura)
       .collection('kalenteri')
       .where('poistettu', '==', false)
       .limit(300)
       .get();
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     _kalenteriTapahtumat = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
     // Lajittele client-puolella (vältetään composite-indeksin vaatimus)
     _kalenteriTapahtumat.sort(function(a, b) {
@@ -17424,6 +17481,7 @@ async function lataaKalenteriTapahtumat() {
     });
   } catch(e) {
     console.warn('lataaKalenteriTapahtumat:', e.message);
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     _kalenteriTapahtumat = [];
   }
 }
@@ -21324,7 +21382,8 @@ function _renderKotiPulssi(el) {
   };
   if (S.sid === _seuraId && S.koosteet && Date.now() - S.ladattu < 60000) { piirra(); return; }
   el.innerHTML = '<div id="vpAloitaKortti"></div><div class="tmp"><div class="ev sig n"><div class="why">' + _jsvEsc(vpT('Ladataan pulssia…')) + '</div></div></div>';
-  _vpPulssiLataa().then(function (r) { S.sid = _seuraId; S.koosteet = r.koosteet; S.ensin = r.ensin; S.kuittaukset = r.kuittaukset; S.ladattu = Date.now(); piirra(); })
+  const _sp = _vpLatausSukupolvi, _se = _seuraId;
+  _vpPulssiLataa().then(function (r) { if (_vpLatausVanhentunut(_sp, _se)) return; S.sid = _se; S.koosteet = r.koosteet; S.ensin = r.ensin; S.kuittaukset = r.kuittaukset; S.ladattu = Date.now(); piirra(); })
     .catch(function (e) { console.warn('[pulssi]', e && e.message); (window._vpPulssiVirhe = window._vpPulssiVirhe || {})[_seuraId] = true; renderKotiVP(); });   // ei lukuoikeutta (esim. valmentaja) → Koti ennallaan
 }
 /* PR B (D164–D167) Kodin Käynnistys-vaiheen toiminnot — olemassa olevia polkuja, ei uusia kirjoituksia */
@@ -21357,7 +21416,8 @@ function _vpTilanneKausi() {
   };
   if (S.sid === _seuraId && S.koosteet && Date.now() - S.ladattu < 60000) { piirra(); return; }
   el.innerHTML = '<div class="tt"><div class="kt-sig n"><div class="kt-sig-why">' + _jsvEsc(vpT('Ladataan pulssia…')) + '</div></div></div>';
-  _vpPulssiLataa().then(function (r) { S.sid = _seuraId; S.koosteet = r.koosteet; S.ensin = r.ensin; S.kuittaukset = r.kuittaukset; S.ladattu = Date.now(); piirra(); })
+  const _sp = _vpLatausSukupolvi, _se = _seuraId;
+  _vpPulssiLataa().then(function (r) { if (_vpLatausVanhentunut(_sp, _se)) return; S.sid = _se; S.koosteet = r.koosteet; S.ensin = r.ensin; S.kuittaukset = r.kuittaukset; S.ladattu = Date.now(); piirra(); })
     .catch(function (e) { console.warn('[tilanne]', e && e.message); window._vpPulssiVirhe_t = true; ws.classList.remove('tt-uusi'); _tilanneRenderKerrokset(); });   // ei lukuoikeutta → vanha Tilanne
 }
 function _vpTilanneSiirraTyotilat() {   // Raportointi, Seuranta ja Jaksofokus siirretään (appendChild, ei uudelleenrenderöintiä) esityslistan liitteiksi — mikään toiminto ei katoa
@@ -21413,11 +21473,13 @@ let _vpViestit = { rivit: [], ladattu: 0, virhe: false };
 function _vpViestitNimi(uid) { const v = (_valmentajat || []).concat(_valmentajatKaikki || []).filter(function (x) { return x && x.id === uid; })[0]; return v ? (((v.etunimi || '') + ' ' + (v.sukunimi || '')).trim() || v.nimi || null) : null; }
 async function _vpViestitLataa() {   // VP:n henkilökuntaviestit: lähettäjänä JA vastaanottajana (Rules v3.39; yhtäsuuruussuodattimet, ei indeksiä)
   if (!_seuraId || !_uid || _isDemoMode) return;
+  const _sp = _vpLatausSukupolvi, _seura = _seuraId;
   try {
-    const col = db.collection('seurat').doc(_seuraId).collection('viestit');
+    const col = db.collection('seurat').doc(_seura).collection('viestit');
     const r = await Promise.all([col.where('vastaanottajaUid', '==', _uid).limit(100).get(), col.where('lahettajaUid', '==', _uid).limit(100).get()]);
-    _vpViestit = { rivit: window.TM_VP_NAVI.tmViestitRivit(r[0].docs.concat(r[1].docs).map(function (d) { return Object.assign({ id: d.id }, d.data()); }), _uid, _vpViestitNimi), ladattu: Date.now(), virhe: false };
-  } catch (e) { console.warn('[viestit]', e && e.message); _vpViestit.virhe = true; }
+    if (_vpLatausVanhentunut(_sp, _seura)) return;   // vanha seura ei saa täyttää uuden seuran viestilistaa
+    _vpViestit = { seura: _seura, rivit: window.TM_VP_NAVI.tmViestitRivit(r[0].docs.concat(r[1].docs).map(function (d) { return Object.assign({ id: d.id }, d.data()); }), _uid, _vpViestitNimi), ladattu: Date.now(), virhe: false };
+  } catch (e) { console.warn('[viestit]', e && e.message); if (_vpLatausVanhentunut(_sp, _seura)) return; _vpViestit.virhe = true; }
   const n = window.TM_VP_NAVI.tmViestitLukemattomat(_vpViestit.rivit), b = document.getElementById('nv-badge-viestit'); if (b) { b.textContent = n; b.style.display = n > 0 ? '' : 'none'; }
   if (_currentWs === 'viestit') _vpViestitPiirra();
 }
@@ -21430,7 +21492,9 @@ function _vpViestitNayta() { _vpViestitPiirra(); if (Date.now() - _vpViestit.lad
 window._vpViestiAvaa = async function (uid, id) {   // avaa nykyisen viestiketjun (Valmentajat → valmentajapaneeli + vastaus) ja merkitsee saapuneen luetuksi
   const r = (_vpViestit.rivit || []).filter(function (x) { return x.id === id; })[0];
   if (r && r.lukematon && id) {
-    try { const u = firebase.auth().currentUser; if (u) await u.getIdToken(true); await db.collection('seurat').doc(_seuraId).collection('viestit').doc(id).update({ luettu: true }); r.lukematon = false; _vpViestitLataa(); }
+    const _seura = _vpViestit.seura;   // seura, jonka latauksesta viesti tuli
+    if (_vpKirjoitusEstetty(_seura, vpT('Lukukuittaus ei tallentunut — viesti pysyy lukemattomana.'))) return;
+    try { const u = firebase.auth().currentUser; if (u) await u.getIdToken(true); if (_vpKirjoitusEstetty(_seura, vpT('Lukukuittaus ei tallentunut — viesti pysyy lukemattomana.'))) return; await db.collection('seurat').doc(_seura).collection('viestit').doc(id).update({ luettu: true }); r.lukematon = false; _vpViestitLataa(); }
     catch (e) { console.warn('[viesti luettu]', e && e.message); toast(vpT('Lukukuittaus ei tallentunut — viesti pysyy lukemattomana.'), 'virhe'); }
   }
   setWs('valmentajat'); if (typeof avaaCoachPanel === 'function' && uid) avaaCoachPanel(uid);
@@ -21443,9 +21507,12 @@ window._vpPulssiKuittaa = async function (avain, tila) {   // PR 2 (D124): Kuitt
   const T = window.TM_SEURAN_PULSSI, S = window._vpPulssi, s = S && S.malli && S.malli.signaalitKaikki ? S.malli.signaalitKaikki.filter(function (x) { return x.avain === avain; })[0] : null;
   if (!s) return;
   const data = T.tmPulssiKuittausDoc(s, tila, S.malli.vk);
+  const _seura = S.sid;   // seura, jonka koosteesta signaali tuli
+  if (_vpKirjoitusEstetty(_seura, vpT('Kuittaus ei tallentunut — tarkista yhteys ja yritä uudelleen.'))) return;
   try {
     const u = firebase.auth().currentUser; if (u) await u.getIdToken(true);   // §7.2
-    await db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(T.tmPulssiKuittausId(s)).set(Object.assign({}, data, { kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null, luotu: firebase.firestore.FieldValue.serverTimestamp() }));
+    if (_vpKirjoitusEstetty(_seura, vpT('Kuittaus ei tallentunut — tarkista yhteys ja yritä uudelleen.'))) return;
+    await db.collection('seurat').doc(_seura).collection('toimenpiteet').doc(T.tmPulssiKuittausId(s)).set(Object.assign({}, data, { kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null, luotu: firebase.firestore.FieldValue.serverTimestamp() }));
     S.kuittaukset = (S.kuittaukset || []).filter(function (k) { return !(k.signaali === data.signaali && k.joukkue === data.joukkue); }).concat([Object.assign({}, data, { kuitattu_pvm: Date.now() })]);
     renderKotiVP();
     toast(vpT(tila === 'siirretty' ? 'Siirretty ensi viikolle' : 'Kuitattu'), 'ok');
@@ -21762,7 +21829,7 @@ function demoMode() {
   var _cu = (typeof auth !== 'undefined' && auth.currentUser) || (typeof firebase !== 'undefined' && firebase.auth().currentUser) || null;
   if (_cu && !_cu.isAnonymous) { console.warn('[demo] estetty — kirjautunut ei-anonyymi käyttäjä (ei demo-vuotoa)'); return; }
   _isDemoMode = true;
-  _seuraId = 'demo'; _uid = 'demo';
+  _seuraId = 'demo'; _uid = 'demo'; _pelaajatSeura = 'demo';   // demon pelaajat kuuluvat demoseuraan (kirjoitusvartija)
   document.getElementById('tbEmail').textContent = 'demo@talentmaster.fi';
   document.getElementById('tbSeura').textContent = vpT('FC Demo');
   document.getElementById('tbRooli').textContent = vpT('Demo VP');
@@ -22806,7 +22873,9 @@ let _toimenpiteet = [];
 async function _tpTuoreToken() { const u = firebase.auth().currentUser; if (u) await u.getIdToken(true); return u; }
 
 async function tallennaToimenpide(seuraId, d) {
+  if (_vpKirjoitusEstetty(seuraId === _seuraId ? seuraId : null)) throw new Error('stale-seura');   // seura ajon alusta (parametri); ei kirjoiteta jos vaihtunut
   await _tpTuoreToken();
+  if (seuraId !== _seuraId) throw new Error('stale-seura');   // vaihto token-haun aikana
   const ref = db.collection('seurat').doc(seuraId).collection('toimenpiteet').doc();
   await ref.set({
     tyyppi: d.tyyppi || 'automaattinen', signaali: d.signaali || null, joukkue: d.joukkue || null,
@@ -22871,9 +22940,11 @@ async function lataaAvoimetToimenpiteet(seuraId) {
 }
 
 // Generoi ehdotukset + tallenna Firestoreen VAIN jos samaa avointa (signaali+joukkue) ei jo ole (dedup)
-async function generoimToimenpideEhdotukset(pelaajat) {
-  if (!_seuraId || _seuraId === 'demo') return 0;
-  const avoimet = await lataaAvoimetToimenpiteet(_seuraId);
+async function generoimToimenpideEhdotukset(pelaajat, sp, seura) {
+  if (!seura || seura === 'demo') return 0;
+  if (_vpLatausVanhentunut(sp, seura)) return 0;
+  const avoimet = await lataaAvoimetToimenpiteet(seura);
+  if (_vpLatausVanhentunut(sp, seura)) return 0;   // seura vaihtui haun aikana: ei ehdotuksia (eikä kirjoituksia) vanhalla pelaajalistalla
   const LU = window.TM_KOTI_LUVUT, nytMs = Date.now();
   const este = LU.ehdotusEste(avoimet, nytMs);   // D134: tuore estää signaali+joukkue; vanhentunut vain saman tekstin
   const joukkueet = [];
@@ -22886,7 +22957,8 @@ async function generoimToimenpideEhdotukset(pelaajat) {
     });
   });
   for (let i = 0; i < uudet.length; i++) {
-    await tallennaToimenpide(_seuraId, { tyyppi: 'automaattinen', signaali: uudet[i].signaali, joukkue: uudet[i].joukkue, teksti: uudet[i].teksti });
+    if (_vpLatausVanhentunut(sp, seura)) return i;   // kesken kirjoitusten vaihto → loput jätetään kirjoittamatta
+    await tallennaToimenpide(seura, { tyyppi: 'automaattinen', signaali: uudet[i].signaali, joukkue: uudet[i].joukkue, teksti: uudet[i].teksti });
   }
   return uudet.length;
 }
@@ -22994,12 +23066,18 @@ async function _alustaToimenpiteet() {
   const cont = document.getElementById('toimenpiteet-lista');
   if (!cont) return;
   if (_seuraId === 'demo' || _isDemoMode) { cont.innerHTML = '<div class="tp-tyhja">' + vpT('Toimenpiteet näkyvät kirjautuneessa seurassa.') + '</div>'; return; }
+  const _sp = _vpLatausSukupolvi, _seura = _seuraId;
+  if (_pelaajatSeura !== _seura) return;   // pelaajalista ei ole tämän seuran → ei generointia (uusi lataaKaikki kutsuu uudelleen)
   try {
-    await generoimToimenpideEhdotukset(_pelaajat);
-    _toimenpiteet = await lataaAvoimetToimenpiteet(_seuraId);
+    await generoimToimenpideEhdotukset(_pelaajat, _sp, _seura);
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
+    const _ladatut = await lataaAvoimetToimenpiteet(_seura);
+    if (_vpLatausVanhentunut(_sp, _seura)) return;   // hylkää: ei vanhan seuran toimenpiteitä uuden näkymään
+    _toimenpiteet = _ladatut; _toimenpiteetSeura = _seura;
     renderToimenpiteet();
   } catch (e) {
     console.warn('[toimenpiteet]', e.message);
+    if (_vpLatausVanhentunut(_sp, _seura)) return;
     cont.innerHTML = '<div class="tp-tyhja">' + vpT('Toimenpiteitä ei voitu ladata — tarkista että Rules v3.1 on deployattu.') + '</div>';
   }
 }
@@ -23008,11 +23086,14 @@ async function _alustaToimenpiteet() {
 window._kuittaaToimenpide = async function(id) {
   const ids = String(id).split(',').filter(Boolean);
   if (!ids.length) return;
+  const _seura = _toimenpiteetSeura;   // seura josta ehdotukset on ladattu
+  if (_vpKirjoitusEstetty(_seura, vpT('Kuittaus epäonnistui'))) return;
   try {
     const u = await _tpTuoreToken();   // getIdToken(true) ennen kirjoitusta
+    if (_vpKirjoitusEstetty(_seura, vpT('Kuittaus epäonnistui'))) return;
     const batch = db.batch();
     ids.forEach(function(i){
-      batch.update(db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(i),
+      batch.update(db.collection('seurat').doc(_seura).collection('toimenpiteet').doc(i),
         { tila: 'kuitattu', kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null });
     });
     await batch.commit();
@@ -23025,10 +23106,13 @@ window._kuittaaToimenpide = async function(id) {
 window._hylkaaToimenpide = async function(id) {
   const ids = String(id).split(',').filter(Boolean);
   if (!ids.length) return;
+  const _seura = _toimenpiteetSeura;
+  if (_vpKirjoitusEstetty(_seura, vpT('Hylkäys epäonnistui'))) return;
   try {
     await _tpTuoreToken();
+    if (_vpKirjoitusEstetty(_seura, vpT('Hylkäys epäonnistui'))) return;
     const batch = db.batch();
-    ids.forEach(function(i){ batch.update(db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(i), { tila: 'hylatty' }); });
+    ids.forEach(function(i){ batch.update(db.collection('seurat').doc(_seura).collection('toimenpiteet').doc(i), { tila: 'hylatty' }); });
     await batch.commit();
     _toimenpiteet = _toimenpiteet.filter(function(t){ return ids.indexOf(t.id) < 0; });
     renderToimenpiteet();
@@ -23069,11 +23153,14 @@ window._tallennaVpToimenpide = async function(id) {
   if (!teksti) return;
   const ids = String(id).split(',').filter(Boolean);
   if (!ids.length) return;
+  const _seura = _toimenpiteetSeura;
+  if (_vpKirjoitusEstetty(_seura)) return;
   try {
     const u = await _tpTuoreToken();
+    if (_vpKirjoitusEstetty(_seura)) return;
     const batch = db.batch();
     ids.forEach(function(i){
-      batch.update(db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(i),
+      batch.update(db.collection('seurat').doc(_seura).collection('toimenpiteet').doc(i),
         { tila: 'muokattu', vp_teksti: teksti, kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null });
     });
     await batch.commit();
@@ -23274,7 +23361,9 @@ async function _vpPelSiirraValitut(tapa) {
   if (!confirm(kysymys)) return;
 
   var onnistui = 0, epaonnistui = 0, viimVirhe = '';
+  var _seura = _pelaajatSeura;   // seura, jonka latauksesta pelaajat tulivat
   for (var i = 0; i < idt.length; i++) {
+    if (_vpKirjoitusEstetty(_seura)) { epaonnistui += idt.length - i; break; }   // seura vaihtui kesken erän → loput estetään näkyvästi
     var pid = idt[i];
     var p = (_pelaajat || []).find(function (x) { return x.id === pid; }) || {};
     var vanhat = Array.isArray(p.joukkueet) ? p.joukkueet : [];
@@ -23283,7 +23372,7 @@ async function _vpPelSiirraValitut(tapa) {
       : (vanhat.indexOf(kohdeId) >= 0 ? vanhat.slice() : vanhat.concat([kohdeId]));
     var nimet = uudet.map(function (id) { return (_joukkueNimet || {})[id] || id; });
     try {
-      await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update({
+      await db.collection('seurat').doc(_seura).collection('pelaajat').doc(pid).update({
         joukkueet: uudet,
         joukkueetNimet: nimet,
         joukkue: nimet[0] || '',        // LEGACY — valmentajan näkymä kyselee tällä (§18)
