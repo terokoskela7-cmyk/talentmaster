@@ -1,0 +1,116 @@
+# Deploy: STAGING (talentmaster-staging) — projekti 06 (staging ja kuormamittaus), PM 9.11.2026 P1–P5, P9.
+#
+# KÄSIN (workflow_dispatch), EI joka mainin pushista (P3). Ei koske tuotantoon: oma projekti, oma GitHub Environment `staging`,
+# oma Workload Identity Federation -kirjautuminen (EI avaimia, P9) ja EI tuotannon secretejä (FIREBASE_SA_KEY / FIREBASE_SERVICE_ACCOUNT*).
+# Tero-askeleet ennen ensiajoa: docs/STAGING_ASENNUS.md. Vartijat: tests/deploy_staging_workflow.test.js + scripts/staging_konfiguraatio.js (P2).
+#
+# Sisältö: Rules + indexes + storage-säännöt (aina samat kuin tuotannossa: tm_admin/firestore.rules), Functions (+ ajastukset PAUSELLE), Hosting
+# (konfiguraatio korvataan CI-työtilassa; repo ei muutu). Sentry pois (P5), SendGrid estetty koodissa (functions/sahkoposti_esto.js, PR 0) + dummy-avain.
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      rules:
+        description: 'Rules + indexes + storage-säännöt (indeksit ENNEN datalatausta)'
+        type: boolean
+        default: true
+      functions:
+        description: 'Functions (+ ajastukset pauselle)'
+        type: boolean
+        default: true
+      hosting:
+        description: 'Hosting (konfiguraatio korvataan työtilassa)'
+        type: boolean
+        default: true
+      kanava:
+        description: 'Hosting-kanava: live = talentmaster-staging.web.app · kuorma = esikatselukanava (App Check -debug-token toimii vain *--*.web.app-hosteilla, P4)'
+        type: choice
+        options: [live, kuorma]
+        default: live
+
+permissions:
+  contents: read
+  id-token: write   # Workload Identity Federation (OIDC), ei avaimia
+
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
+env:
+  STAGING_PROJEKTI: talentmaster-staging
+  ALUE: europe-west1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      # Kohdelukitus: kaatuu, jos kohde ei ole täsmälleen staging tai ajo tulee väärästä repositoriosta. Kaikki komennot käyttävät tätä muuttujaa.
+      - name: Kohde on staging
+        run: |
+          test "$STAGING_PROJEKTI" = "talentmaster-staging"
+          test "${{ github.repository }}" = "terokoskela7-cmyk/talentmaster"
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Kirjautuminen (Workload Identity Federation, ei avaimia)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.STAGING_WIF_PROVIDER }}
+          service_account: ${{ vars.STAGING_DEPLOY_SA }}
+          project_id: ${{ env.STAGING_PROJEKTI }}
+      - name: Varmista että kirjautunut projekti on staging
+        run: |
+          p=$(gcloud config get-value project 2>/dev/null)
+          echo "gcloud-projekti: $p"
+          test "$p" = "talentmaster-staging"
+
+      - name: Rules + indexes + storage
+        if: ${{ inputs.rules }}
+        run: npx firebase deploy --only firestore:rules,firestore:indexes,storage --project "$STAGING_PROJEKTI" --non-interactive
+
+      - name: Functions-riippuvuudet ja testit (portti ennen deployta)
+        if: ${{ inputs.functions }}
+        working-directory: functions
+        run: |
+          npm ci
+          npm test
+      - name: Functions-ympäristö (ei-salaiset arvot; CI-deploy ei lue muuta .env:iä)
+        if: ${{ inputs.functions }}
+        run: |
+          printf 'TM_BASE_URL=https://%s.web.app\n' "$STAGING_PROJEKTI" > "functions/.env.$STAGING_PROJEKTI"
+      - name: Deploy Functions
+        if: ${{ inputs.functions }}
+        run: npx firebase deploy --only functions --project "$STAGING_PROJEKTI" --non-interactive
+      # Ajastukset pauselle heti deployn jälkeen (P3/VAIHE0 1.2 #6): notif*-ajot eivät kuluta turhaan; mittauksessa ne ajetaan käsin (gcloud scheduler jobs run).
+      - name: Ajastukset pauselle
+        if: ${{ inputs.functions }}
+        run: |
+          set -e
+          nimet=$(gcloud scheduler jobs list --project "$STAGING_PROJEKTI" --location "$ALUE" --format='value(name)' | grep '/firebase-schedule-' || true)
+          n=0
+          for j in $nimet; do gcloud scheduler jobs pause "${j##*/}" --project "$STAGING_PROJEKTI" --location "$ALUE" --quiet; n=$((n+1)); done
+          echo "Pausetettu ajastuksia: $n"
+
+      - name: Konfiguraation korvaus (staging, Sentry pois) — vain työtilassa
+        if: ${{ inputs.hosting }}
+        env:
+          STAGING_PROJEKTI: ${{ env.STAGING_PROJEKTI }}
+          STAGING_API_KEY: ${{ vars.STAGING_API_KEY }}
+          STAGING_APP_ID: ${{ vars.STAGING_APP_ID }}
+          STAGING_SENDER_ID: ${{ vars.STAGING_SENDER_ID }}
+          STAGING_APPCHECK_SITE_KEY: ${{ vars.STAGING_APPCHECK_SITE_KEY }}
+        run: node scripts/staging_konfiguraatio.js
+      # Tiivisteet lasketaan KORVAUKSEN JÄLKEEN → ?v ja SW-cache vastaavat julkaistavaa sisältöä.
+      - name: Versiotiivisteet
+        if: ${{ inputs.hosting }}
+        run: node scripts/versiotiiviste.js --kirjoita
+      - name: Deploy Hosting (live)
+        if: ${{ inputs.hosting && inputs.kanava == 'live' }}
+        run: npx firebase deploy --only hosting --project "$STAGING_PROJEKTI" --non-interactive
+      - name: Deploy Hosting (esikatselukanava kuorma)
+        if: ${{ inputs.hosting && inputs.kanava == 'kuorma' }}
+        run: npx firebase hosting:channel:deploy kuorma --expires 30d --project "$STAGING_PROJEKTI" --non-interactive
