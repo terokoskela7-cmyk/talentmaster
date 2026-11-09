@@ -20,6 +20,7 @@ const { rakennaPaivitys } = require('./testipvm_korjaus');   // korjaaJoukkueenT
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
 const pelaajapin = require('./pelaajapin');
 const { rakennaSendGridPayload } = require('./sahkoposti_payload');   // SendGrid-seuranta pois (§39)
+const sahkopostiEsto = require('./sahkoposti_esto');   // projekti 06 P6: ei oikeaa sähköpostia muissa kuin tuotantoprojektissa
 const huoltajaemail = require('./huoltajaemail');   // Rules v3.33: huoltajaEmail vain palvelimella
 const suostumuskortit = require('./suostumuskortit');   // PR B: QR-suostumuskortit   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
 const { suostumusAnnettu, suostumusTilaKutsunJalkeen } = require('./suostumus'); const suostumusPeruminen = require('./suostumus_peruminen');   // B9   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
@@ -53,6 +54,11 @@ const TM_BASE_URL = (process.env.TM_BASE_URL || 'https://talentmasterid.com').re
 // APUFUNKTIO: Lähetä sähköposti SendGridin HTTP API:n kautta
 // ─────────────────────────────────────────────────────────────────────────────
 async function lahetaSahkoposti({ to, subject, html, fromName }) {
+  // Projekti 06 P6: muu kuin tuotantoprojekti (esim. staging) ei lähetä oikeaa sähköpostia. Tämä on ENSIMMÄINEN tarkistus (ennen avainta),
+  // jotta staging ei kaadu puuttuvaan avaimeen. Lokiin vain projekti (ei vastaanottajaa/otsikkoa). Vartija: tests/sahkoposti_esto_kytkenta.test.js.
+  const _esto = sahkopostiEsto.sahkopostiEsto(process.env);
+  console.log('[SendGrid] projekti=' + (_esto.projekti || 'tuntematon') + (_esto.estetty ? ' — lähetys ESTETTY (ei tuotantoprojekti)' : ''));
+  if (_esto.estetty) return { ok: true, estetty: true };
   const apiKey    = process.env.SENDGRID_API_KEY;
   // Ei salainen → oletus koodissa: CI-deploy (deploy-functions.yml) ei luo functions/.env-tiedostoa,
   // joten ilman oletusta lähettäjä oli tyhjä ja jokainen lähetys kaatui "SendGrid-credentiaalit puuttuvat".
