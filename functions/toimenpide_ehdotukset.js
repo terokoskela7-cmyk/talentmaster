@@ -61,7 +61,8 @@ const jasenNimet = (p) => ((p && p._jNimet && p._jNimet.length) ? p._jNimet : ((
 async function luoEhdotukset(deps, sid, pelaajaRivit, joukkueDokt, viikko, nytMs) {
   const seuraRef = deps.db.collection('seurat').doc(sid), kokoelma = seuraRef.collection('toimenpiteet');
   const pelaajat = valmistelePelaajat(pelaajaRivit, joukkueDokt);
-  const snap = await kokoelma.where('tila', '==', 'ehdotus').limit(50).get();
+  // KAIKKI avoimet (ei limit): este (D134) lasketaan koko joukosta — limit(50) päästi vanhan VP:n tuplakasan (1 007 kpl) takia läpi tuplia
+  const snap = await kokoelma.where('tila', '==', 'ehdotus').get();
   const avoimet = (snap && snap.docs ? snap.docs : []).map((d) => Object.assign({ id: d.id }, d.data()));
   const este = LU.ehdotusEste(avoimet, nytMs);
   const ctx = { nytMs, onJoukkueessa: (p, j) => jasenNimet(p).indexOf(j) >= 0, jasenNimet, fysinen: FYS, tekniikka: TEK };

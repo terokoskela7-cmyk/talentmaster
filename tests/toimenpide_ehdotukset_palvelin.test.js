@@ -54,7 +54,10 @@ describe('pariteetti: VP:n inline TP_SIGNAALIT ≡ lib', () => {
 function fakeDb(tallessa) {
   const doks = tallessa || new Map();
   const kok = {
-    where: (k, _o, v) => ({ limit: () => ({ get: async () => ({ docs: [...doks.entries()].filter(([, d]) => d[k] === v).map(([id, d]) => ({ id, data: () => d })) }) }) }),
+    where: (k, _o, v) => {
+      const hae = (raja) => ({ get: async () => ({ docs: [...doks.entries()].filter(([, d]) => d[k] === v).slice(0, raja).map(([id, d]) => ({ id, data: () => d })) }) });
+      return Object.assign(hae(Infinity), { limit: (n) => hae(n) });   // limit() noudatetaan, jotta limit-regressio paljastuu
+    },
     doc: (id) => ({ create: async (d) => { await Promise.resolve(); if (doks.has(id)) { const e = new Error('6 ALREADY_EXISTS'); e.code = 6; throw e; } doks.set(id, d); } }),
   };
   return { doks, db: { collection: () => ({ doc: () => ({ collection: () => kok }) }) }, FieldValue: { serverTimestamp: () => 'TS' } };
@@ -83,6 +86,15 @@ describe('deterministinen id + aikaikkuna', () => {
     const f = fakeDb(); await E.luoEhdotukset(f, 's', RIVIT, JOUKKUEET, '2026-W45', NYT);
     const n = f.doks.size; const r = await E.luoEhdotukset(f, 's', RIVIT, JOUKKUEET, '2026-W45', NYT + 10 * 3600e3);
     expect(r.luotu).toBe(0); expect(f.doks.size).toBe(n);
+  });
+  it('yli 50 avointa (vanhan VP:n tuplat) → este lasketaan koko joukosta, ei uutta tuplaa', async () => {
+    const f = fakeDb(); await E.luoEhdotukset(f, 's', RIVIT, JOUKKUEET, '2026-W45', NYT);
+    const kohde = [...f.doks.values()][0];
+    for (let i = 0; i < 60; i++) f.doks.set('vanha_' + i, { tyyppi: 'automaattinen', signaali: 'muu_signaali', joukkue: 'KPV U99', teksti: 'x' + i, tila: 'ehdotus', luotu: { seconds: 1 } });   // täyttää 50 ensimmäistä
+    const jarj = new Map([...f.doks.entries()].sort(([a], [b]) => (a.startsWith('vanha_') ? -1 : 1) - (b.startsWith('vanha_') ? -1 : 1)));   // vanhat ensin → kohde jäisi limit(50):n ulkopuolelle
+    const n = jarj.size; const g = fakeDb(jarj);
+    const r = await E.luoEhdotukset(g, 's', RIVIT, JOUKKUEET, '2026-W46', NYT + 7 * 86400e3);   // uusi viikko → uusi id; vain este voi estää
+    expect(kohde.tila).toBe('ehdotus'); expect(r.luotu).toBe(0); expect(g.doks.size).toBe(n);
   });
   it('rinnakkaiset ajot (kaksi callablea / su + ma yhtä aikaa) → yksi dokumentti per ehdotus, ALREADY_EXISTS ohitetaan', async () => {
     const f = fakeDb(); const [a, b] = await Promise.all([E.luoEhdotukset(f, 's', RIVIT, JOUKKUEET, '2026-W45', NYT), E.luoEhdotukset(f, 's', RIVIT, JOUKKUEET, '2026-W45', NYT)]);
