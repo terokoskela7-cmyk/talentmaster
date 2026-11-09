@@ -88,6 +88,11 @@ const TOIMINTO_LAHTEET = ['viikkokatsaukset', 'ydinvahvuus_valinta', 'klippi_vas
 /** Arviointihetki: ei myöhemmin kuin su klo 21 Helsingin aikaa (voimassa oleva jakso = käynnissä sunnuntaina klo 21), ei tulevaisuudessa. */
 function arvioHetki(nytMs, rajat) { return Math.min(nytMs, rajat.su21Ms); }
 
+/** PR B2: näkyvyys lokiin — vain luvut + seura-id (ei pelaaja-/käyttäjätunnuksia). Ilman tätä "0 ehdotusta" ja "ei ajettu" näyttävät samalta. */
+function _lokitaEhdotukset(deps, sid, vk, e, pelaajia) {
+  (deps.loki || console).log('[toimenpide-ehdotukset] ' + JSON.stringify({ sid, vk, ehdokkaita: e.ehdokkaita, luotu: e.luotu, ohitettu: e.ohitettu, pelaajia }));
+}
+
 async function laskeSeura(deps, sid, opts) {
   const { db, FieldValue, FieldPath } = deps; const rajat = opts.rajat, nytMs = opts.nytMs, arvioMs = arvioHetki(nytMs, rajat);
   const seuraRef = db.collection('seurat').doc(sid);
@@ -146,6 +151,7 @@ async function laskeSeura(deps, sid, opts) {
     try {
       const rivit = pRivit.filter((d) => !_poissa(d.data || {}));
       ehdotukset = await deps.ehdotukset(deps, sid, rivit, joukkueet.map((j) => ({ id: j.id, nimi: j.nimi })), rajat.tunniste, nytMs);
+      _lokitaEhdotukset(deps, sid, rajat.tunniste, ehdotukset, rivit.length);
     } catch (e) { (deps.loki || console).error('[seuran kooste] ehdotukset seura ' + sid + ' ' + rajat.tunniste + ': ' + (e && e.stack || e)); }
   }
   return { sid, vk: rajat.tunniste, joukkueita: joukkueDokt.length, pelaajia: pelaajat.length, ehdotukset };
