@@ -104,7 +104,7 @@ describe('VP · lataaValmentajat (ajettu)', () => {
     const ctx = { db: f.db, _seuraId: 'kpv', console: { warn() {}, error() {} }, String, Object, Array, Promise,
       lataaVAIArvot: async () => {}, _tmHenkiloNimi: (x) => [x.etunimi, x.sukunimi].filter(Boolean).join(' ') || x.email || 'Nimetön' };
     vm.createContext(ctx);
-    vm.runInContext('var _valmentajat = [], _valmentajatKaikki = [];\n' + pura('function _vpOnHaamuprofiili(v) {') + '\n' + pura('async function lataaValmentajat() {')
+    vm.runInContext('var _valmentajat = [], _valmentajatKaikki = [], _vpLatausSukupolvi = 0;\nfunction _vpLatausVanhentunut(sp, seura) { return sp !== _vpLatausSukupolvi || seura !== _seuraId; }\n' + pura('function _vpOnHaamuprofiili(v) {') + '\n' + pura('async function lataaValmentajat() {')
       + '\nthis.aja = lataaValmentajat; this.hae = () => ({ v: _valmentajat, k: _valmentajatKaikki });', ctx);
     await ctx.aja();
     const r = ctx.hae();
