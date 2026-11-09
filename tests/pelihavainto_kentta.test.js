@@ -593,6 +593,7 @@ describe('(9) tallennus — oma kokoelma, kielletyt kentät, idempotenssi', () =
         return { get: async () => ({ docs: osumat }) };
       },
       limit() { kyselyt.push('limit'); return { get: async () => ({ docs: [] }) }; },
+      get: async () => { kyselyt.push('get-kaikki'); return { docs: [doc('p1', { sukunimi: 'A' }), doc('p2', { sukunimi: 'B' })] }; },
     };
     const hae = aja(
       ['async function haeJoukkueenPelaajat(joukkueNimi, joukkueId) {'],
@@ -624,9 +625,11 @@ describe('(9) tallennus — oma kokoelma, kielletyt kentät, idempotenssi', () =
     expect(tulos.some((p) => p.id === 'b'), 'joukkueet[]-pelaaja puuttuu').toBe(true);
   });
 
-  it('ilman joukkuetietoa haetaan seuran pelaajat rajatusti', async () => {
-    const { kyselyt } = await ajaHaku(null, null);
-    expect(kyselyt).toEqual(['limit']);
+  it('ilman joukkuetietoa haetaan KAIKKI seuran pelaajat ilman limit()iä (projekti 06: limit(300) pudotti hiljaa pelaajia suurissa seuroissa)', async () => {
+    const { kyselyt, tulos } = await ajaHaku(null, null);
+    expect(kyselyt).toEqual(['get-kaikki']);
+    expect(tulos.map((p) => p.id).sort()).toEqual(['p1', 'p2']);
+    expect(SIVU.slice(SIVU.indexOf('async function haeJoukkueenPelaajat'), SIVU.indexOf('window._phHaeJoukkueenPelaajat'))).not.toMatch(/\.limit\(/);
   });
 });
 

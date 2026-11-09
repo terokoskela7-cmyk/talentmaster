@@ -33,7 +33,7 @@ function ymparisto() {
   const db = {
     collection: (c) => ({ doc: (seura) => ({ collection: (k) => ({
       get: async () => { const avain = seura + '/' + k; await portti(avain).p; return snap(data[avain] || []); },
-      where: () => ({ limit: () => ({ get: async () => { const avain = seura + '/' + k; await portti(avain).p; return snap(data[avain] || []); } }) }),
+      where: () => { const hae = async () => { const avain = seura + '/' + k; await portti(avain).p; return snap(data[avain] || []); }; return { get: hae, limit: () => ({ get: hae }) }; },   // projekti 06: avoimet ehdotukset haetaan ilman limit()iä
       doc: (id) => ({ set: async (d) => { kirjoitukset.push({ seura, k, id: id || 'auto', op: 'set', d }); }, update: async (d) => { kirjoitukset.push({ seura, k, id, op: 'update', d }); } }),
     }) }) }),
   };
@@ -43,7 +43,7 @@ function ymparisto() {
     normalisioiJoukkue: (x) => x, tmPhvKoodi: () => null, tmPhvIlmoitettuPH: () => false, tmPhvEiMitattu: () => false,
     _vpJasenyydet() {}, _ktKaynnista: undefined, _isDemoMode: false, _seuraId: 'A', _uid: 'u',
     _pJNimet: (p) => [p.joukkue], _tpTuoreToken: async () => ({ uid: 'u' }), renderToimenpiteet() {}, _vpKehAskelReRender() {},
-    document: { getElementById: () => ({ innerHTML: '' }) }, firebase: { firestore: { FieldValue: { serverTimestamp: () => 'ts' } }, auth: () => ({ currentUser: { getIdToken: async () => 't' } }) },
+    document: { getElementById: () => ({ innerHTML: '' }) }, firebase: { firestore: { FieldValue: { serverTimestamp: () => 'ts' }, Timestamp: { fromMillis: (ms) => ({ ms }) } }, auth: () => ({ currentUser: { getIdToken: async () => 't' } }) },
     TP_SIGNAALIT: [{ id: 's', tarkista: (j) => ({ joukkue: j, signaali: 's', teksti: j + ' teksti' }) }],
     lataaAvoimetToimenpiteet: undefined,
   };

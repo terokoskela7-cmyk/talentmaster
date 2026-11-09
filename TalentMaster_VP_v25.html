@@ -5256,7 +5256,8 @@ async function laskeVAI(valmentajaUid) {
     var res = await Promise.all([
       base.collection('havainnot').where('valmentajaUid', '==', valmentajaUid).limit(200).get().catch(tyhja),
       base.collection('harjoitusarvioinnit').where('valmentajaUid', '==', valmentajaUid).limit(200).get().catch(tyhja),
-      base.collection('mentoroinnit').orderBy('aika', 'desc').limit(200).get().catch(tyhja),
+      /* Valmentajan omat mentoroinnit kauden/30 pv ikkunassa (palvelinpuolella, ei koko seuran uusimpia clientissa); käyttää indeksiä valmentajaId + aika DESC. */
+      base.collection('mentoroinnit').where('valmentajaId', '==', valmentajaUid).where('aika', '>=', firebase.firestore.Timestamp.fromMillis(Math.min(kausiMs, rajaMs))).orderBy('aika', 'desc').get().catch(tyhja),
       base.collection('ohjelmat').where('laatija_uid', '==', valmentajaUid).limit(200).get().catch(tyhja),
       base.collection('kayttajat').doc(valmentajaUid).get().catch(function () { return null; })
     ]);
@@ -16880,12 +16881,12 @@ async function _lataaCoachHistoria(valmentajaId) {
   const el = document.getElementById('mentorHistoria');
   if (!el) return;
   try {
-    // Yksinkertaistettu query — ei vaadi composite indexiä.
-    // Hae kaikki mentoroinnit ja suodata clientissa per valmentaja.
+    // Valmentajan 10 uusinta mentorointia palvelinpuolella (indeksi valmentajaId + aika DESC, firestore.indexes.json) — ei koko seuran uusimpia clientissa (projekti 06).
     const snap = await db.collection('seurat').doc(_seuraId)
       .collection('mentoroinnit')
-      .orderBy('aika','desc').limit(50).get();
-    const docs = snap.docs.filter(function(d) { return d.data().valmentajaId === valmentajaId; }).slice(0, 10);
+      .where('valmentajaId', '==', valmentajaId)
+      .orderBy('aika','desc').limit(10).get();
+    const docs = snap.docs;
 
     if (docs.length === 0) {
       el.innerHTML = '<div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px;">' + vpT('Ei mentorointihistoriaa — tee ensimmäinen kenttäkäynti tai lähetä viesti') + '</div>';
@@ -22866,9 +22867,10 @@ let _toimenpiteet = [];
 async function _tpTuoreToken() { const u = firebase.auth().currentUser; if (u) await u.getIdToken(true); return u; }
 
 // Lataa avoimet ehdotukset. Lajittelu client-puolella → ei tarvita komposiitti-indeksiä (tila + luotu).
+// EI limit()iä (projekti 06, hiljaiset rajat): avointen määrä on rajattu rakenteesta (joukkueet × signaalit), ja leikkaus ennen lajittelua pudotti uusimpia (Sibbo 73 > 50).
 async function lataaAvoimetToimenpiteet(seuraId) {
   const snap = await db.collection('seurat').doc(seuraId).collection('toimenpiteet')
-    .where('tila', '==', 'ehdotus').limit(50).get();
+    .where('tila', '==', 'ehdotus').get();
   const arr = snap.docs.map(function(d){ const o = d.data(); o.id = d.id; return o; });
   arr.sort(function(a,b){ const ta = (a.luotu && a.luotu.seconds) || 0, tb = (b.luotu && b.luotu.seconds) || 0; return tb - ta; });
   /* D134: palautetaan KAIKKI haetut (myös yli 14 pv vanhat) — vanhentuneet piilotetaan vasta renderöinnissä (renderToimenpiteet),

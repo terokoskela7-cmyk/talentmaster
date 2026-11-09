@@ -30,23 +30,22 @@ const REKISTERI = [
   // ── lib ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   { tiedosto: 'lib/tm_reflektio.js', n: 1, kohdat: [{ haku: 'kayttajat/{uid}/reflektiot (EI järjestystä)', raja: 100, luokka: 'LEIKKAA', mittaa: 'reflektiot_kayttaja', huom: 'yli 100 reflektiota → mielivaltaiset 100' }] },
   // ── VP ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  { tiedosto: 'TalentMaster_VP_v25.html', n: 16, kohdat: [
-    { haku: 'mentoroinnit orderBy aika desc (lataaPelaajat-vaihe)', raja: 100, luokka: 'LEIKKAA', mittaa: 'mentoroinnit', huom: 'uusimmat 100 koko seuralta; vanhemmat puuttuvat' },
+  { tiedosto: 'TalentMaster_VP_v25.html', n: 14, kohdat: [
+    { haku: 'mentoroinnit orderBy aika desc (lataaPelaajat-vaihe: valmentajan viimeisin mentorointi)', raja: 100, luokka: 'LEIKKAA', mittaa: 'mentoroinnit', huom: 'uusimmat 100 koko seuralta → valmentaja, jonka viimeisin on vanhempi, näkyy ”ei mentorointia” (AVOIN, ei korjattu: ei kuulunut toimeksiantoon)' },
     { haku: 'valmentajan havainnot where valmentajaUid', raja: 200, luokka: 'LEIKKAA', mittaa: 'havainnot_valmentaja', huom: 'valmentajan profiili' },
     { haku: 'valmentajan harjoitusarvioinnit where valmentajaUid', raja: 200, luokka: 'LEIKKAA', mittaa: 'harjoitusarvioinnit_valmentaja', huom: 'valmentajan profiili (rivi ~5258); EI järjestystä' },
-    { haku: 'mentoroinnit orderBy aika desc (valmentajan profiili)', raja: 200, luokka: 'LEIKKAA', mittaa: 'mentoroinnit', huom: 'koko seura, suodatus valmentajaan clientissa → leikkaa ennen suodatusta' },
     { haku: 'ohjelmat where laatija_uid', raja: 200, luokka: 'LEIKKAA', mittaa: 'ohjelmat_laatija', huom: 'EI järjestystä' },
     { haku: 'pelaaja/vp_muistiinpanot orderBy luotu desc', raja: 20, luokka: 'UUSIMMAT', huom: '' },
     { haku: 'pelaaja/viikkokatsaukset where jakso_alkoi', raja: 6, luokka: 'RAJATTU', huom: 'enintään yksi per viikko jaksossa' },
     { haku: 'harjoitusarvioinnit where valmentajaUid (palaute)', raja: 100, luokka: 'LEIKKAA', mittaa: 'harjoitusarvioinnit_valmentaja', huom: 'EI järjestystä' },
-    { haku: 'mentoroinnit orderBy aika desc, suodatus valmentajaId clientissa, slice(0,10)', raja: 50, luokka: 'LEIKKAA', mittaa: 'mentoroinnit', huom: 'uusimmat 50 KOKO seuralta → yksittäisen valmentajan rivit voivat puuttua' },
+    { haku: 'mentoroinnit where valmentajaId orderBy aika desc (valmentajan historia, näytetään 10)', raja: 10, luokka: 'UUSIMMAT', huom: 'KORJATTU (projekti 06): suodatus palvelimella, indeksi valmentajaId + aika DESC' },
     { haku: 'kalenteri where poistettu == false (EI järjestystä)', raja: 300, luokka: 'LEIKKAA', mittaa: 'kalenteri_ei_poistettu', huom: 'yli 300 → mielivaltaiset 300' },
     { haku: 'notifikaatiot orderBy luotu desc', raja: 50, luokka: 'UUSIMMAT', huom: '' },
     { haku: 'harjoitusarvioinnit orderBy pvm desc (seuran koko)', raja: 500, luokka: 'LEIKKAA', mittaa: 'harjoitusarvioinnit', huom: 'uusimmat 500; vanhemmat puuttuvat tilastosta' },
     { haku: 'toimenpiteet where tyyppi == pulssi (EI järjestystä)', raja: 300, luokka: 'LEIKKAA', mittaa: 'toimenpiteet_pulssi', huom: 'pulssikuittaukset' },
     { haku: 'viestit where vastaanottajaUid (EI järjestystä)', raja: 100, luokka: 'LEIKKAA', mittaa: 'viestit_kayttaja', huom: 'samalla rivillä kaksi kyselyä' },
     { haku: 'viestit where lahettajaUid (EI järjestystä)', raja: 100, luokka: 'LEIKKAA', mittaa: 'viestit_kayttaja', huom: '' },
-    { haku: 'toimenpiteet where tila == ehdotus (EI järjestystä)', raja: 50, luokka: 'LEIKKAA', mittaa: 'toimenpiteet_ehdotus', huom: 'avoimet ehdotukset; lajittelu clientissa leikkauksen JÄLKEEN' } ] },
+  ] },
   // ── Master ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   { tiedosto: 'TalentMaster_Master_v16.html', n: 9, kohdat: [
     { haku: 'testitapahtumat orderBy luotu desc', raja: 50, luokka: 'LEIKKAA', mittaa: 'testitapahtumat', huom: 'lista näytetään täydellisenä; vanhemmat tapahtumat puuttuvat' },
@@ -60,7 +59,6 @@ const REKISTERI = [
     { haku: 'pelaaja/kenttatarkkailut orderBy luotu desc', raja: 20, luokka: 'UUSIMMAT', huom: '' } ] },
   { tiedosto: 'TalentMaster_Kehitystyopoyta.html', n: 1, kohdat: [{ haku: 'pelaaja/viikkokatsaukset where jakso_alkoi', raja: 6, luokka: 'RAJATTU', huom: '' }] },
   { tiedosto: 'TalentMaster_Testaus_v9.html', n: 1, kohdat: [{ haku: 'testitapahtumat orderBy pvm desc', raja: 50, luokka: 'LEIKKAA', mittaa: 'testitapahtumat', huom: 'vanhemmat testitapahtumat eivät valittavissa' }] },
-  { tiedosto: 'TalentMaster_Pelihavainto_Kentta.html', n: 1, kohdat: [{ haku: 'pelaajat ilman joukkuerajausta (EI järjestystä)', raja: 300, luokka: 'LEIKKAA', mittaa: 'pelaajat', huom: 'varapolku kun joukkuetta ei ole; yli 300 pelaajaa → mielivaltaiset 300' }] },
   // ── Pelaaja / Vanhempi ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   { tiedosto: 'TalentMaster_Pelaaja_v7.html', n: 6, kohdat: [
     { haku: 'notifikaatiot orderBy luotu desc', raja: 20, luokka: 'UUSIMMAT', huom: '' },
@@ -121,12 +119,10 @@ async function ajaMain() {
     lisaa(sid, 'kalenteri_ikkuna (pvm ≥ ' + alku + ')', 500, await luku(S.collection('kalenteri').where('pvm', '>=', alku)));
     lisaa(sid, 'kalenteri_ei_poistettu', 300, await luku(S.collection('kalenteri').where('poistettu', '==', false)));
     for (const t of ['klippi_vastaus', 'klippi_kuittaus']) lisaa(sid, 'viestit ' + t, 2000, await luku(S.collection('viestit').where('tyyppi', '==', t)));
-    lisaa(sid, 'mentoroinnit (rajat 50/100/200)', 50, await luku(S.collection('mentoroinnit')));
+    lisaa(sid, 'mentoroinnit (VP lataaPelaajat, raja 100)', 100, await luku(S.collection('mentoroinnit')));
     lisaa(sid, 'harjoitusarvioinnit (raja 500)', 500, await luku(S.collection('harjoitusarvioinnit')));
     lisaa(sid, 'testitapahtumat (raja 50)', 50, await luku(S.collection('testitapahtumat')));
-    lisaa(sid, 'toimenpiteet tila=ehdotus', 50, await luku(S.collection('toimenpiteet').where('tila', '==', 'ehdotus')));
     lisaa(sid, 'toimenpiteet tyyppi=pulssi', 300, await luku(S.collection('toimenpiteet').where('tyyppi', '==', 'pulssi')));
-    lisaa(sid, 'pelaajat (Pelihavainto-varapolku)', 300, await luku(S.collection('pelaajat')));
     lisaaRyhma(sid, 'harjoitusarvioinnit per valmentajaUid (raja 100)', 100, await ryhmittele(S.collection('harjoitusarvioinnit'), 'valmentajaUid'));
     lisaaRyhma(sid, 'havainnot per valmentajaUid (raja 200)', 200, await ryhmittele(S.collection('havainnot'), 'valmentajaUid'));
     lisaaRyhma(sid, 'ohjelmat per laatija_uid (raja 200)', 200, await ryhmittele(S.collection('ohjelmat'), 'laatija_uid'));
