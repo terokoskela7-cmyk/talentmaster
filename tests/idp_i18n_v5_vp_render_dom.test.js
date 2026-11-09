@@ -69,8 +69,8 @@ const _vpLohko = (alkuEhto, sulku) => {
   return null;
 };
 const SISALTO_POIKKEUKSET = [
-  _vpLohko((l) => l.includes('window.TM_TESTI_OHJEET = {'), '};'),
-  _vpLohko((l) => l.startsWith('const TP_SIGNAALIT = ['), '];')
+  _vpLohko((l) => l.includes('window.TM_TESTI_OHJEET = {'), '};')
+  // TP_SIGNAALIT-poikkeus poistui (projekti 03 PR C): signaalit + niiden fi-tekstit siirtyivät palvelimelle (lib/tm_toimenpide_signaalit.js); VP ei generoi ehdotuksia
   // dedupToimenpiteet-poikkeus poistui (tekniikan määritelmä PR 2): sen ainoa vuoto oli tki_alhainen-häntä "pelaajia alle pronssitason (TKI < 40)"; uusi häntä ei ole vuoto → kuollut poikkeus
 ].filter(Boolean);
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
@@ -468,12 +468,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
 
   it('LUKKO: sisältöpoikkeukset ovat ANKKUROITUJA (eivät ajautuneet)', () => {
     const lines = HTML.split('\n');
-    expect(SISALTO_POIKKEUKSET.length).toBe(2);   // ei-vacuous: jokainen lohko LÖYTYI lähteestä
-    const [[a1, b1], [a2, b2]] = SISALTO_POIKKEUKSET;
+    expect(SISALTO_POIKKEUKSET.length).toBe(1);   // ei-vacuous: jokainen lohko LÖYTYI lähteestä
+    const [[a1, b1]] = SISALTO_POIKKEUKSET;
     expect(lines[a1 - 1]).toContain('window.TM_TESTI_OHJEET = {');
     expect(lines[b1 - 1].trim()).toBe('};');
-    expect(lines[a2 - 1]).toContain('const TP_SIGNAALIT = [');
-    expect(lines[b2 - 1].trim()).toBe('];');
+    expect(HTML).not.toContain('const TP_SIGNAALIT = [');   // PR C: poikkeus poistettu → lohko ei saa palata
   });
 
   it('LUKKO: jokainen sisältöpoikkeus on EI-TYHJÄ (kuollut poikkeus = poistettava)', () => {

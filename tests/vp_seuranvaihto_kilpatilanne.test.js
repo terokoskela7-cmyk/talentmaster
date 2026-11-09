@@ -51,7 +51,7 @@ function ymparisto() {
   vm.runInContext([
     'var _vpLatausSukupolvi = 0; var _pelaajatSeura = null, _toimenpiteetSeura = null; var _pelaajat = []; var _toimenpiteet = [];',
     pura('function _vpLatausVanhentunut('), pura('function _vpKirjoitusEstetty('), pura('async function lataaPelaajat('),
-    pura('async function lataaAvoimetToimenpiteet('), pura('async function tallennaToimenpide('), pura('async function generoimToimenpideEhdotukset('),
+    pura('async function lataaAvoimetToimenpiteet('),
     pura('async function _alustaToimenpiteet('), pura('async function _vpTtKirjoita('),
   ].join('\n'), c);
   return { c, portti, kirjoitukset, toastit };
@@ -75,28 +75,22 @@ describe('VP seuranvaihto kesken latauksen', () => {
     expect(vm.runInContext('_pelaajatSeura', c)).toBe('B');
     expect(t.kirjoitukset).toEqual([]);
   });
-  it('generointi: seura vaihtuu haun aikana → mitään ei kirjoiteta (ei A:n pelaajista johdettuja ehdotuksia B:hen)', async () => {
+  it('toimenpiteiden lataus: seura vaihtuu haun aikana → tulosta ei sijoiteta (ei vanhan seuran ehdotuksia uuden näkymään), ei kirjoituksia', async () => {
     const t = ymparisto(), { c } = t;
     uusiLataus(c);
     await (async () => { const l = c.lataaPelaajat(); t.portti('A/pelaajat').auki(); await l; })();
     const ajo = c._alustaToimenpiteet();     // A: lataaAvoimet odottaa A/toimenpiteet
     await tyhjenna();
-    aseta(c, 'B'); uusiLataus(c);            // vaihto kesken generoinnin
+    aseta(c, 'B'); uusiLataus(c);            // vaihto kesken latauksen
     t.portti('A/toimenpiteet').auki(); await ajo;
     expect(t.kirjoitukset).toEqual([]);
     expect(vm.runInContext('_toimenpiteetSeura', c)).toBe(null);
-  });
-  it('tallennaToimenpide: seura ajon alusta; vaihtuneelle seuralle ei kirjoiteta', async () => {
-    const t = ymparisto(), { c } = t;
-    aseta(c, 'B');
-    await expect(c.tallennaToimenpide('A', { teksti: 'x' })).rejects.toThrow();
-    expect(t.kirjoitukset).toEqual([]);
-    expect(t.toastit.length).toBe(1);
+    expect(vm.runInContext('_toimenpiteet.length', c)).toBe(0);
   });
 });
 
 describe('VP normaali lataus ilman vaihtoa', () => {
-  it('pelaajat sijoittuvat, generointi kirjoittaa oikeaan seuraan (parametrina), toimenpiteet ladataan', async () => {
+  it('pelaajat sijoittuvat ja toimenpiteet ladataan oikeaan seuraan; VP vain lukee (PR C: ei generointia, ei kirjoituksia avauksessa)', async () => {
     const t = ymparisto(), { c } = t;
     uusiLataus(c);
     const l = c.lataaPelaajat(); t.portti('A/pelaajat').auki(); await l;
@@ -104,8 +98,7 @@ describe('VP normaali lataus ilman vaihtoa', () => {
     expect(vm.runInContext('_pelaajatSeura', c)).toBe('A');
     t.portti('A/toimenpiteet').auki();
     await c._alustaToimenpiteet();
-    expect(t.kirjoitukset.length).toBe(1);
-    expect(t.kirjoitukset[0]).toMatchObject({ seura: 'A', k: 'toimenpiteet', op: 'set' });
+    expect(t.kirjoitukset).toEqual([]);   // PR C: avaus ei kirjoita mitään
     expect(vm.runInContext('_toimenpiteetSeura', c)).toBe('A');
   });
 });

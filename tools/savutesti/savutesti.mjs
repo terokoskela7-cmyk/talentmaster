@@ -7,8 +7,8 @@
      P7 = oma PalloID-kenttä (#pinTunnus) + _kirjaudu(pin) → pelaajaKirjaudu → custom token (sama reitti kuin oikeilla pelaajilla). Pelaaja omassa kontekstissaan.
    KIRJOITUSESTO (vaihe 0 S3): kerros 1 = Rules-eristys (tunnukset vain qg_savu) · kerros 2 = (a) sivun Firestore-vartija hylkää set/update/delete/add/batch/transaktion
      ennen verkkoa ja kirjaa polun, (b) verkkoesto (luokittelePyynto) katkaisee Write-kanavan, REST-commitin, Storage-uploadit ja callablet sallittulistan ulkopuolelta ·
-     kerros 3 = jokainen tuntematon kirjoitusyritys kaataa näkymän. ⚠ vain kolme nimettyä avauskirjoitusta (savutesti_sallitut.json: VP:n oma viimeisinKirjautuminen +
-     automaattinen toimenpide-ehdotus, Seuran oma viimeisinKirjautuminen; sivu + polku + kentät + arvot täsmälleen); ne estetään silti. Siirto palvelimelle: docs/BACKLOG_SAVUTESTI.md.
+     kerros 3 = jokainen tuntematon kirjoitusyritys kaataa näkymän. ⚠-mekanismi jää geneeriseksi, mutta sallittulista on TYHJÄ (projekti 03: avaus ei kirjoita mitään; savutesti_sallitut.json tunnetut_kirjoitukset: []),
+     joten mikä tahansa kirjoitusyritys (myös entinen viimeisinKirjautuminen ja toimenpide-ehdotus) kaataa näkymän. Historia: docs/BACKLOG_SAVUTESTI.md rivi 1 (valmis).
    SALAISUUDET: vain env (GitHub Secrets). Ei koskaan lokiin: PIN välitetään sivulle funktion argumenttina, CI:ssä lisäksi ::add-mask::.
    Ajo:  TM_SAVU_URL=https://talentmaster-pilot--savutesti-xxxx.web.app TM_SAVU_EMAIL=… TM_SAVU_SALASANA=… TM_SAVU_PELAAJA_TUNNISTE=… TM_SAVU_PELAAJA_PIN=… TM_SAVU_APPCHECK_DEBUG=…
            node tools/savutesti/savutesti.mjs [--tulos=savutesti-tulos/tulos.json] [--issue=savutesti-tulos/issue.md] [--kielet=fi,sv]

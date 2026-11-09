@@ -16,14 +16,15 @@ const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const NYT = Date.UTC(2026, 9, 10, 12), DAY = 86400000;
 
 /* VP_v25:n TP_SIGNAALIT oikeasta lähteestä: sama koodi kuin selaimessa (tki_alhainen.tarkista(joukkueenNimi, pelaajat)) */
+/* Projekti 03 PR C: VP:n inline TP_SIGNAALIT poistettu → ehdotuksen laskee lib/tm_toimenpide_signaalit.js (palvelin; sama koodi sanasta sanaan,
+   testit: tests/toimenpide_ehdotukset_palvelin.test.js). Jäsenyys = VP:n _pOnJoukkueessa (puretaan VP:stä), kello = testin Date.now(). */
 function lataaTP() {
-  const alku = VP.indexOf('const TP_SIGNAALIT = ['), lines = VP.slice(alku).split('\n'), loppu = lines.findIndex((l) => l.trim() === '];');
-  const lohko = lines.slice(0, loppu + 1).join('\n');
-  const ctx = { Date, window: { TM_TEKNIIKKA: T }, console };
+  const SIG = require('../lib/tm_toimenpide_signaalit.js');
+  const ctx = { console };
   vm.createContext(ctx);
-  vm.runInContext(funktio(VP, '_pJNimet') + '\n' + funktio(VP, '_pOnJoukkueessa') + '\n' + lohko + '\nthis.TP = TP_SIGNAALIT;', ctx);
-  ctx.Date = Date;   // tarkista käyttää Date.now() → pakotetaan testin kello alla
-  return ctx.TP.find((x) => x.id === 'tki_alhainen');
+  vm.runInContext(funktio(VP, '_pJNimet') + '\n' + funktio(VP, '_pOnJoukkueessa') + '\nthis.onJ = _pOnJoukkueessa;', ctx);
+  const sig = SIG.TP_SIGNAALIT.find((x) => x.id === 'tki_alhainen');
+  return { tarkista: (j, pp) => sig.tarkista(j, pp, { nytMs: Date.now(), onJoukkueessa: ctx.onJ, tekniikka: T }) };
 }
 function nimetPelaajille(d) {   // kuten VP_v25: _jNimet = tmPelaajanJoukkueet-id:t nimiksi
   const nimet = {}; d.joukkueDocs.forEach((j) => { nimet[j.id] = j.nimi; });
@@ -122,7 +123,8 @@ describe('Kodin pulssi: tekniikka kehityskohteena EI kuulu Kotiin (D171: D118 + 
 });
 
 describe('VP_v25 on kytketty libiin (lähdevartijat)', () => {
-  const tpLohko = VP.slice(VP.indexOf('const TP_SIGNAALIT = ['), VP.indexOf('async function lataaAvoimetToimenpiteet'));
+  const LIBSRC = readFileSync(join(juuri, 'lib/tm_toimenpide_signaalit.js'), 'utf8');   // PR C: signaalit siirretty VP:stä libiin (palvelin)
+  const tpLohko = LIBSRC.slice(LIBSRC.indexOf('var TP_SIGNAALIT = ['), LIBSRC.indexOf('function joukkueNimet('));
   const tki = tpLohko.slice(tpLohko.indexOf("{ id: 'tki_alhainen'"), tpLohko.indexOf("{ id: 'tki_lahella_merkkia'"));
   it('tki_alhainen: tunniste säilyy + kommentti että kattaa koko ketjun; käyttää tmTekniikkaJoukkueLuokka; ei omaa mittaria eikä rajaa (TKI < 40)', () => {
     expect(tpLohko).toContain("id: 'tki_alhainen'"); expect(tpLohko).toMatch(/TUNNISTE `tki_alhainen` SÄILYY[\s\S]{0,200}KOKO tekniikkaketjun TKI → SM-tasot/);
@@ -130,7 +132,7 @@ describe('VP_v25 on kytketty libiin (lähdevartijat)', () => {
   });
   it('huomion, poikkeamalistan ja joukkuekortin status käyttävät samaa libiä; vanha D2-tekniikka suodatetaan pois', () => {
     expect(VP).toContain('<script src="lib/tm_tekniikka.js"'); expect(VP.indexOf('lib/tm_tekniikka.js')).toBeLessThan(VP.indexOf('lib/tm_vp_tilanne.js'));
-    expect((VP.match(/tmTekniikkaJoukkueLuokka\(/g) || []).length).toBeGreaterThanOrEqual(3);                      // TP-ehdotus + poikkeamalista + joukkuekortin status
+    expect((VP.match(/tmTekniikkaJoukkueLuokka\(/g) || []).length).toBeGreaterThanOrEqual(2);                      // poikkeamalista + joukkuekortin status (TP-ehdotus siirretty palvelimelle, PR C)
     expect((VP.match(/w\.osaAlue !== 'tekniikka'|x\.osaAlue === 'tekniikka'/g) || []).length).toBeGreaterThanOrEqual(2);
     expect(VP).not.toContain('_vpTekniikkaYhteenveto');   // D171: tekniikka kehityskohteena ei ole Kodissa (vain Tilanne)
     const tilanne = readFileSync(join(juuri, 'lib/tm_vp_tilanne.js'), 'utf8'); expect(tilanne).toContain('tmJoukkueTekniikka('); expect(tilanne).not.toMatch(/Tekniikka alle ikätason/);

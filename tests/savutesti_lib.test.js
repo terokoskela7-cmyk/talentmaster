@@ -66,8 +66,82 @@ describe('QG-3 · verkkoesto (kerros 2)', () => {
   });
 });
 
-describe('QG-3 · kirjoitukset (kerros 2a + 3): ⚠ vain nimetyt polut, kaikki muu kaataa (PM 5.11.)', () => {
-  const T = SALLITUT.tunnetut_kirjoitukset, VP = 'TalentMaster_VP_v25.html', SEURA_SIVU = 'TalentMaster_Seura.html', UID = 'vpUid123';
+describe('QG-3 · kirjoitukset (projekti 03): sallittulista on TYHJÄ — mikä tahansa avauskirjoitus kaataa näkymän', () => {
+  const VP = 'TalentMaster_VP_v25.html', SEURA_SIVU = 'TalentMaster_Seura.html', UID = 'vpUid123', AUTO_ID = 'AbCdEfGhIjKlMnOpQrSt';
+  const T = SALLITUT.tunnetut_kirjoitukset;
+  it('LUKITUS: tunnetut_kirjoitukset on tyhjä (avain säilyy) — avaus ei kirjoita mitään', () => {
+    expect(Array.isArray(T)).toBe(true);
+    expect(SALLITUT.tunnetut_kirjoitukset).toEqual([]);
+    expect(SALLITUT._tunnetut_ohje).toMatch(/^tyhjä — avaus ei kirjoita mitään \(projekti 03\)/);
+  });
+  it('KÄÄNNETYT tapaukset: entinen VP:n ja Seuran viimeisinKirjautuminen sekä VP:n automaattinen toimenpide-ehdotus ovat nyt TUNTEMATTOMIA (kaatavat näkymän)', () => {
+    const aikaleima = { op: 'update', polku: 'seurat/qg_savu/kayttajat/' + UID, kentat: ['viimeisinKirjautuminen'], arvot: {}, uid: UID };
+    const ehdotus = { op: 'set', polku: 'seurat/qg_savu/toimenpiteet/' + AUTO_ID, uid: UID,
+      kentat: ['tyyppi', 'signaali', 'joukkue', 'teksti', 'tila', 'vp_teksti', 'luotu', 'kuitattu_pvm', 'kuitattu_uid'],
+      arvot: { tyyppi: 'automaattinen', signaali: 'suunta_lasku', joukkue: 'P13', teksti: 'x', tila: 'ehdotus', vp_teksti: null, kuitattu_pvm: null, kuitattu_uid: null } };
+    for (const [k, sivu] of [[aikaleima, VP], [aikaleima, SEURA_SIVU], [ehdotus, VP]]) {
+      const r = luokitteleKirjoitus(k, sivu, T);
+      expect(r.tunnettu, sivu + ' ' + k.polku).toBe(false);
+      expect(r.syy).toMatch(/^tuntematon kirjoitus /);
+    }
+  });
+  it('mikä tahansa muukin kirjoitus (set/update/add/batch, mikä tahansa sivu) on tuntematon', () => {
+    for (const op of ['set', 'update', 'add', 'batch.set', 'tx.set', 'delete']) {
+      for (const sivu of [VP, SEURA_SIVU, 'TalentMaster_Master_v16.html']) {
+        expect(luokitteleKirjoitus({ op, polku: 'seurat/qg_savu/kayttajat/' + UID, kentat: ['x'], arvot: {}, uid: UID }, sivu, T).tunnettu, op + ' ' + sivu).toBe(false);
+      }
+    }
+  });
+});
+
+/* ⚠-mekanismi on geneerinen: tyhjällä listalla se ei tee mitään, mutta luokittelija pitää testata esimerkkilistalla (entiset kolme nimettyä riviä),
+   jotta lista voidaan palauttaa PM:n päätöksellä ilman että täsmäyslogiikka on rapautunut. */
+describe('QG-3 · kirjoitusluokittelijan ⚠-mekanismi (esimerkkilista, EI tuotannon sallittulista)', () => {
+  const ESIM = [
+    {
+      "op": "update",
+      "sivu": "TalentMaster_VP_v25.html",
+      "polku": "^seurat/qg_savu/kayttajat/{oma_uid}$",
+      "kentat": [
+        "viimeisinKirjautuminen"
+      ],
+      "perustelu": "VP kirjaa avauksessa oman viimeisinKirjautuminen-aikaleimansa (lib/tm_aktiivisuus.js merkitseKirjautuminen, vain oma uid, vain tämä kenttä). Estetään, ei kaada."
+    },
+    {
+      "op": "set",
+      "sivu": "TalentMaster_VP_v25.html",
+      "polku": "^seurat/qg_savu/toimenpiteet/[A-Za-z0-9]{20}$",
+      "kentat": [
+        "joukkue",
+        "kuitattu_pvm",
+        "kuitattu_uid",
+        "luotu",
+        "signaali",
+        "teksti",
+        "tila",
+        "tyyppi",
+        "vp_teksti"
+      ],
+      "arvot": {
+        "tyyppi": "automaattinen",
+        "tila": "ehdotus",
+        "vp_teksti": null,
+        "kuitattu_pvm": null,
+        "kuitattu_uid": null
+      },
+      "perustelu": "VP luo avauksessa automaattiset toimenpide-ehdotukset (tallennaToimenpide, TP_SIGNAALIT: uusi automaattinen auto-id-dokumentti tilassa ehdotus). Koska kirjoitus estetään, ehdotus syntyy joka ajossa uudelleen. Estetään, ei kaada."
+    },
+    {
+      "op": "update",
+      "sivu": "TalentMaster_Seura.html",
+      "polku": "^seurat/qg_savu/kayttajat/{oma_uid}$",
+      "kentat": [
+        "viimeisinKirjautuminen"
+      ],
+      "perustelu": "Seura kirjaa avauksessa oman viimeisinKirjautuminen-aikaleimansa (lib/tm_aktiivisuus.js merkitseKirjautuminen, sama kirjoituspiste kuin VP:llä; vain oma uid, vain tämä kenttä; PM 6.11.2026). Estetään, ei kaada."
+    }
+  ];
+  const T = ESIM, VP = 'TalentMaster_VP_v25.html', SEURA_SIVU = 'TalentMaster_Seura.html', UID = 'vpUid123';
   const AUTO_ID = 'AbCdEfGhIjKlMnOpQrSt';
   const kirj = (o) => Object.assign({ op: 'update', polku: 'seurat/qg_savu/kayttajat/' + UID, kentat: ['viimeisinKirjautuminen'], arvot: {}, uid: UID }, o);
   const tp = (o) => kirj(Object.assign({ op: 'set', polku: 'seurat/qg_savu/toimenpiteet/' + AUTO_ID,
@@ -168,7 +242,7 @@ describe('QG-3 · sivun kirjoitusvartija kirjaa kentät, arvot ja uid:n', () => 
     expect(b.kentat).toEqual(['luotu', 'n', 'teksti', 'tila', 'tyyppi', 'vp_teksti']);
     expect(b.arvot).toEqual({ tyyppi: 'automaattinen', tila: 'ehdotus', vp_teksti: null, teksti: 'x'.repeat(80), n: 3 });
     // luokittelija: vartijan oma kirjaus viimeisinKirjautumisesta tunnistetaan, rooli-kenttä ei
-    expect(luokitteleKirjoitus(a, 'TalentMaster_VP_v25.html', SALLITUT.tunnetut_kirjoitukset).tunnettu).toBe(true);
+    expect(luokitteleKirjoitus(a, 'TalentMaster_VP_v25.html', SALLITUT.tunnetut_kirjoitukset).tunnettu).toBe(false);   // projekti 03: sallittulista tyhjä → oma aikaleimakin kaataa
   });
   it('update(kenttä, arvo, …) ja FieldPath-muoto → kentät argumenteista; ei kirjautunutta → uid null → kaataa', async () => {
     const { w, app, DR, FieldPath } = ymparisto(null);
