@@ -127,6 +127,28 @@ export function dokitLage() {
   return D;
 }
 
+/* Kenttä-muunnelma (9.11.2026: Sibbon kentta-lippu päällä tuotannossa → VP:n uusi näkymä: navi v3, Koti + pulssi, Tilanne, Viestit, Kenttä-komponentit).
+   = Läge-data + (a) PALVELIMEN luomat ehdotustekstit sellaisinaan (functions/tm_toimenpide_signaalit.js: kuusi signaalia, fi-teksti Firestoressa, käännös vasta
+   näyttöhetkellä vpTToimenpide:llä) — Läge-muunnelman te1/te2 ovat synteettisiä (joukkuelista tekstinä) eivätkä ohjaa käännöspolkua; (b) VP:n henkilökuntaviestit
+   (Viestit-näkymä: saapunut lukematon + lähetetty). Nimet ja arvot keksittyjä (repo on julkinen). */
+export function dokitKentta() {
+  const D = dokitLage();
+  delete D[SP + '/toimenpiteet/te1']; delete D[SP + '/toimenpiteet/te2'];
+  const ehd = (id, signaali, joukkue, teksti) => { D[SP + '/toimenpiteet/' + id] = { tila: 'ehdotus', tyyppi: 'automaattinen', signaali, joukkue, teksti, vp_teksti: null, luotu: ts(NYT - 2 * PV) }; };
+  ehd('ka1', 'hh_taso_alhainen', 'QG P12', 'QG P12 — fyysiset testit kehityskohteena: 4 pelaajaa. Aloita yksilöllinen harjoitusohjelma.');
+  ehd('ka2', 'hh_taso_alhainen', 'QG T13', 'QG T13 — fyysiset testit kehityskohteena: 3 pelaajaa. Aloita yksilöllinen harjoitusohjelma.');
+  ehd('ka3', 'suunta_lasku', 'QG P14', 'QG P14 — H-H taso laskussa 3 pelaajalla. Tarkista kuormitus.');
+  ehd('ka4', 'tki_alhainen', 'QG P11', 'QG P11 — tekniikka kehityskohteena: 4 pelaajaa, pallo hidastaa suunnanmuutoksissa. Fokusoi tekniikkaharjoittelu.');
+  ehd('ka5', 'tkk_puuttuu', 'QG P11', 'QG P11 — tekniikkamittaukset puuttuvat kaikilta pelaajilta. Suunnittele tekniikkakilpailu.');
+  ehd('ka6', 'tkk_puuttuu', 'QG T15', 'QG T15 — tekniikkamittaukset puuttuvat kaikilta pelaajilta. Suunnittele tekniikkakilpailu.');
+  ehd('ka7', 'tki_lahella_merkkia', 'QG T15', 'QG T15 — 3 pelaajaa lähellä pronssia (TKI 35–54). Kohdenna omatoimiharjoittelu — merkki on saavutettavissa seuraavassa kilpailussa.');
+  ehd('ka8', 'flei_kartoitus_puuttuu', 'QG P12', 'QG P12 — harjoitettavuuskartoitus (kehon valmius) tekemättä. Varaa kartoituspäivä, jotta harjoittelua voi yksilöllistää.');
+  const viesti = (id, o) => { D[SP + '/viestit/' + id] = Object.assign({ tyyppi: 'viesti', nakyvyys: 'henkilokunta' }, o); };
+  viesti('hv1', { lahettajaUid: 'fxv', vastaanottajaUid: 'fxvp', teksti: 'Can we talk about the U13 plan?', aika: NYT - 3600000, luotu: ts(NYT - 3600000), luettu: false });
+  viesti('hv2', { lahettajaUid: 'fxvp', vastaanottajaUid: 'fxv', teksti: 'Yes, Thursday works.', aika: NYT - 2 * PV, luotu: ts(NYT - 2 * PV), luettu: true });
+  return D;
+}
+
 export const CALLABLET = {
   haePelaajanKertyma: { kertyma },
   haePelaajanKalenteri: { tapahtumat: TAPAHTUMAT, laskettu: NYT },
@@ -142,7 +164,7 @@ export const ROOLIT = {
   valmentaja: () => ({ claims: { seuraId: S, rooli: 'valmentaja' }, kayttaja: { uid: 'fxv', email: 'coach@example.test' } }),
   vp: () => ({ claims: { seuraId: S, rooli: 'vp' }, kayttaja: { uid: 'fxvp', email: 'vp@example.test' } }),
 };
-export const fxKonfiguraatio = (rooli, pid, muunnelma) => Object.assign({ dokit: muunnelma === 'lage' ? dokitLage() : dokit(), callablet: CALLABLET }, ROOLIT[rooli](pid));   // QG-1c: muunnelma 'lage' = VP Läge -tilat
+export const fxKonfiguraatio = (rooli, pid, muunnelma) => Object.assign({ dokit: muunnelma === 'kentta' ? dokitKentta() : muunnelma === 'lage' ? dokitLage() : dokit(), callablet: CALLABLET }, ROOLIT[rooli](pid));   // QG-1c: muunnelma 'lage' = VP Läge -tilat
 
 /* Sivun valmistelu fixture-ajoon (Playwright page): data window.__FX:ään ennen sivun skriptejä, gstatic-SDK → tynkä,
    Firebase-taustapalvelut, Sentry ja kaikki muu ulkoverkko estetään (ei kirjoituksia minnekään, ei tuotantoa). Paikalliset tiedostot ja

@@ -57,6 +57,21 @@ export const SOVELLUKSET = {
   fx_master: { tiedosto: 'TalentMaster_Master_v16.html', kysely: '', fx: ['valmentaja'], entry: '0', askeleet: NAV('setWs', ['koti', 'dev', 'inbox', 'pulse', 'season', 'cal']) },
   fx_vp: { tiedosto: 'TalentMaster_VP_v25.html', kysely: '', fx: ['vp'], entry: '0', askeleet: NAV('setWs', ['koti', 'tilanne', 'pelaajat', 'kalenteri', 'jaksofokus']) },
   fx_vp_lage: { tiedosto: 'TalentMaster_VP_v25.html', kysely: '', fx: ['vp', null, 'lage'], entry: '0', askeleet: NAV('setWs', ['tilanne']).concat([{ nimi: 'tilanne_kaikki', js: "setWs('tilanne'); setTimeout(function () { ['huomiot', 'ehdotukset', 'jaksot'].forEach(function (k) { _vpTilanneAuki(k); }); }, 400)" }]) },   // QG-1c: Läge oikean seuran tiloissa (sv_fixtuuri.mjs dokitLage)
+  /* Kenttä-lippu päällä (9.11.2026: Sibbo tuotannossa → VP:n uusi näkymä). fixtuuri 'kentta' = Läge-data + palvelimen ehdotustekstit sellaisinaan + henkilökuntaviestit (sv_fixtuuri.mjs dokitKentta).
+     Kattaa: navi v3 (kaikki sivupalkin kohdat + Joukkueet-välilehdet + Työkalut), Koti + pulssi, Tilanne (kausi, kaikki ryhmät, esityslista, syvennys joukkueeseen, Seuranta/Jaksofokus/Raportointi),
+     Viestit, Kenttä-komponentit (Kehitystyöpöytä-hash: Tänään/Polku/Profiili/Näyttö, pelaajaraportti, Aloita jakso -modaali). vpTToimenpide: ehdotustekstit renderöityvät Tilanteessa. */
+  fx_vp_kentta: { tiedosto: 'TalentMaster_VP_v25.html', kysely: '', fx: ['vp', null, 'kentta'], entry: '0',
+    askeleet: [...NAV('setWs', ['koti', 'viestit', 'kalenteri', 'tilanne', 'joukkueet', 'valmentajat', 'testit', 'asetukset']),
+      { nimi: 'joukkueet/ryhmat', js: "setWs('joukkueet', 'ryhmat')" },
+      { nimi: 'tilanne_kaikki', js: "setWs('tilanne'); setTimeout(function () { ['huomiot', 'ehdotukset', 'jaksot', 'ok', 'w', 'n', 'kaista', 'e_w', 'e_n'].forEach(function (k) { _vpTilanneAuki(k); }); }, 400)" },
+      { nimi: 'tilanne_esityslista', js: "(async () => { setWs('tilanne'); for (let i = 0; i < 50 && !(typeof _toimenpiteet !== 'undefined' && _toimenpiteet.length); i++) await new Promise((r) => setTimeout(r, 100)); _vpTilanneKausi(); _vpTilanneEsityslista(); })()" },   // ehdotukset (toimenpiteet) latautuvat asynkronisesti → odota ennen esityslistaa
+      ...['reviewit', 'jaksofokus', 'raportointi'].map((n) => ({ nimi: 'tilanne/' + n, js: `setWs('${n}')` })),
+      { nimi: 'tilanne/joukkue', js: "setWs('tilanne'); setTimeout(function () { avaaJoukkueSyvanakyma('QG U13'); }, 500)" },
+      { nimi: 'tilanne/valmentajat', js: "setWs('tilanne'); setTimeout(function () { _vpPulssiValmentajat(); }, 500)" },
+      ...['tanaan', 'polku', 'profiili', 'naytto'].map((n) => ({ nimi: 'kt/' + n, kysely: '#pelaaja/qp1/' + n, js: '0' })),
+      { nimi: 'kt/utan_atagande', kysely: '#pelaaja/qp2/polku', js: '0' },
+      { nimi: 'kt/pelaajaraportti', kysely: '?avaa=raportti#pelaaja/qp1/profiili', js: '0' },
+      ...['avaaAdarKenttatyokalu()', 'avaaBioBanding()', 'avaaKaaviopankki()', "_vpOhjKirjastoModal('','')", "_vpAloitaJaksoAvaa('qp3')"].map((j) => ({ nimi: j, js: j }))] },
   /* Seura (PM 6.11.2026, savutestin pohja ennen rivikattojen S2a:ta): VP-rooli fixture-seurassa, päänäkymät renderoi():lla (ikkunan avaavat rekisteröinti/tuonti/massakutsu pois). Seuran sv-velka baselinessa [baseline] 6.11.; korjaus S4:n jälkeen omana kokonaisuutenaan. */
   fx_seura: { tiedosto: 'TalentMaster_Seura.html', kysely: '', fx: ['vp'], entry: '0', askeleet: ['yhteenveto', 'kehitystilanne', 'pelaajat', 'joukkueet', 'talentit', 'henkilosto'].map((n) => ({ nimi: n,
     js: `(async () => { vaihdaNakyma('${n}', null); const s = '${SEURA_VALMIS[n] || '#nakymaAlue'}'; for (let i = 0; i < 150 && !document.querySelector(s); i++) await new Promise((r) => setTimeout(r, 100)); })()` })) },
