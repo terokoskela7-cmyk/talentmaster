@@ -4074,21 +4074,19 @@ async function lataaValmentajat() {
       return (rOrder[a.rooli]??5) - (rOrder[b.rooli]??5);
     });
 
-    // Hae KAIKKI mentoroinnit kerran (ei composite indexiä), ryhmittele clientissa
+    /* Valmentajan viimeisin mentorointi VALMENTAJITTAIN: where valmentajaId + orderBy aika desc + limit(1), rinnakkain (indeksi valmentajaId + aika DESC,
+       firestore.indexes.json). Aiempi koko seuran uusimmat 100 + ryhmittely clientissa antoi 999 pv ("ei mentorointia") valmentajalle, jonka viimeisin
+       mentorointi oli 100 uusimman ulkopuolella (projekti 06, hiljaiset rajat). Yhden kyselyn virhe → vain sen valmentajan 999, ei muiden. */
     try {
-      const mAllSnap = await db.collection('seurat').doc(_seura)
-        .collection('mentoroinnit')
-        .orderBy('aika','desc').limit(100).get();
+      const mBase = db.collection('seurat').doc(_seura).collection('mentoroinnit');
+      const mTulokset = await Promise.all(_valmentajat.map(function (v) {
+        return mBase.where('valmentajaId', '==', v.id).orderBy('aika', 'desc').limit(1).get()
+          .then(function (sn) { return sn.docs.length ? sn.docs[0].data() : null; })
+          .catch(function () { return null; });
+      }));
       if (_vpLatausVanhentunut(_sp, _seura)) return;
-      // Ryhmittele per valmentaja — ensimmäinen = viimeisin
-      var mentorMap = {};
-      mAllSnap.docs.forEach(function(d) {
-        var data = d.data();
-        var vid = data.valmentajaId;
-        if (vid && !mentorMap[vid]) mentorMap[vid] = data;
-      });
-      _valmentajat.forEach(function(v) {
-        var m = mentorMap[v.id];
+      _valmentajat.forEach(function (v, i) {
+        var m = mTulokset[i];
         if (m) {
           v.viimMentorointi = m.aika?.toDate ? m.aika.toDate() : new Date(m.aika);
           v.viimMentorointiPvm = v.viimMentorointi.toLocaleDateString('fi-FI');
