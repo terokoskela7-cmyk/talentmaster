@@ -163,6 +163,7 @@ const https = require('https');
 const lahetetyt = [];
 https.request = (opts, cb) => ({ on() {}, write(p) { lahetetyt.push(JSON.parse(p)); }, end() { cb({ statusCode: 202, on(ev, f) { if (ev === 'end') f(); } }); } });
 process.env.SENDGRID_API_KEY = 'SG.testikey123';
+process.env.GCLOUD_PROJECT = 'talentmaster-pilot';   // projekti 06 P6: tuotantoprojekti → sähköpostiesto ei estä (testi tarkistaa lähtevän viestin)
 const vp = { auth: { uid: 'vp1', token: {} } };
 const SIVU = 'https://talentmasterid.com/TalentMaster_Rekisterointi_Suostumus.html';
 const sisalto = (m) => JSON.stringify(m.content || m);

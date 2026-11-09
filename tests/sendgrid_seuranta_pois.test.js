@@ -49,7 +49,8 @@ describe('lahetaSahkoposti (ajettu, https-tynkä)', () => {
     const https = { request: (o, cb) => { optiot = o; return { on() {}, write(b) { runko = b; },
       end() { const kuuntelijat = {}; cb({ statusCode: 202, on: (e, f) => { kuuntelijat[e] = f; if (e === 'end') { (kuuntelijat.data || (() => {}))(''); f(); } } }); } }; } };
     const ctx = { https, Buffer, JSON, console: { log() {}, error() {} }, Promise, Error,
-      process: { env: { SENDGRID_API_KEY: 'SG.testi12345' } }, rakennaSendGridPayload: SP.rakennaSendGridPayload };
+      process: { env: { SENDGRID_API_KEY: 'SG.testi12345', GCLOUD_PROJECT: 'talentmaster-pilot' } }, rakennaSendGridPayload: SP.rakennaSendGridPayload,
+      sahkopostiEsto: require('../functions/sahkoposti_esto') };   // projekti 06 P6: tuotantoprojekti → lähetys etenee
     vm.createContext(ctx);
     vm.runInContext(lahde + '\nthis.laheta = lahetaSahkoposti;', ctx);
     const linkki = 'https://talentmasterid.com/TalentMaster_Rekisterointi_Suostumus.html?pelaajaId=p1&kutsuId=k1';
