@@ -22,9 +22,15 @@ describe('siivoa_toimenpide_tuplat', () => {
   it('luotuMs: Timestamp / {seconds} / puuttuva', () => {
     expect(S.luotuMs({ toMillis: () => 5 })).toBe(5); expect(S.luotuMs({ seconds: 2 })).toBe(2000); expect(S.luotuMs(null)).toBe(0);
   });
+  it('--vieraat: normalisointi (kirjainkoko, - ja _), tyhjä/tuntematon ei vieras', () => {
+    const omat = new Set(['kpv u12', 'kpv p11']);
+    expect(S.normJoukkue('SIBBO-VARGARNA P11')).toBe(S.normJoukkue('Sibbo-Vargarna P11'));
+    expect(S.onVieras('SIBBO-VARGARNA P11', omat)).toBe(true); expect(S.onVieras('KPV_U12', omat)).toBe(false); expect(S.onVieras('kpv  P11', omat)).toBe(false);
+    expect(S.onVieras(null, omat)).toBe(false); expect(S.onVieras('Tuntematon', omat)).toBe(false);
+  });
   it('lähde: vain automaattinen+ehdotus, ei delete(), dry-run oletus, require.main-vartija', () => {
     const s = readFileSync(new URL('../scripts/siivoa_toimenpide_tuplat.js', import.meta.url), 'utf8');
     expect(s).toMatch(/tyyppi === 'automaattinen'/); expect(s).toMatch(/where\('tila', '==', 'ehdotus'\)/);
-    expect(s).not.toMatch(/\.delete\(/); expect(s).toMatch(/argv\.indexOf\('--aja'\)/); expect(s).toMatch(/require\.main === module/);
+    expect(s).not.toMatch(/\.delete\(/); expect(s).toMatch(/argv\.indexOf\('--aja'\)/); expect(s).toMatch(/require\.main === module/); expect(s).toMatch(/--vieraat/);
   });
 });
