@@ -98,3 +98,59 @@ describe('indeksi', () => {
     expect(funktio('async function laskeVAI(')).not.toMatch(/mentoroinnit'\)[^\n]*\.limit\(/);
   });
 });
+
+describe('viimeisin mentorointi valmentajittain (lataaValmentajat)', () => {
+  const lataa = funktio('async function lataaValmentajat(');
+  /** Fixture: 130 mentorointia, joista 100 uusinta kuuluvat valmentajille a/b; valmentaja c:n ainoa mentorointi on 200 pv sitten (100 uusimman ulkopuolella). */
+  const pv = (n) => new Date(Date.now() - n * 86400000);
+  const mentoroinnit = [];
+  for (let i = 0; i < 130; i++) mentoroinnit.push({ id: 'm' + i, valmentajaId: i % 2 ? 'a' : 'b', aika: { toDate: () => pv(1 + i * 0.1) } });
+  mentoroinnit.push({ id: 'vanha', valmentajaId: 'c', aika: { toDate: () => pv(200) } });
+
+  function aja(poikkeus) {
+    const lokit = [];
+    const kayttajat = ['a', 'b', 'c', 'd'].map((id) => ({ id, data: () => ({ etunimi: id, sukunimi: 'X', rooli: 'valmentaja', aktiivinen: true, joukkue: 'T' }) }));
+    /* Firestore-kyselyt ovat muuttumattomia: jokainen where/orderBy/limit palauttaa UUDEN kyselyn (jaettu mBase.where(...) ei saa vuotaa muihin). */
+    const kysely = (osat, id, n) => ({
+      where(k, op, v) { return kysely(osat.concat('where ' + k + ' ' + op + ' ' + v), k === 'valmentajaId' ? v : id, n); },
+      orderBy(k, d) { return kysely(osat.concat('orderBy ' + k + ' ' + d), id, n); },
+      limit(x) { return kysely(osat.concat('limit ' + x), id, x); },
+      async get() {
+        lokit.push(osat.join('|'));
+        if (poikkeus && id === poikkeus) throw new Error('verkko');
+        // Ilman valmentajaId-suodatinta + limit 100 palautuisi vain koko seuran 100 uusinta (ei c:tä)
+        const rivit = (id ? mentoroinnit.filter((m) => m.valmentajaId === id) : mentoroinnit.slice(0, n || 9999)).slice().sort((x, y) => y.aika.toDate() - x.aika.toDate()).slice(0, n || 9999);
+        return { docs: rivit.map((m) => ({ id: m.id, data: () => m })) };
+      },
+    });
+    const mentorKokoelma = () => kysely(['mentoroinnit'], null, null);
+    const muu = { get: async () => ({ docs: kayttajat }), where: () => muu, orderBy: () => muu, limit: () => muu };
+    const db = { collection: () => ({ doc: () => ({ collection: (k) => (k === 'mentoroinnit' ? mentorKokoelma() : muu) }) }) };
+    const ctx = vm.createContext({ db, _seura: 's', _seuraId: 's', Promise, Math, Date, console: { warn() {}, log() {} }, _valmentajat: [], _valmentajatKaikki: [], _vpLatausSukupolvi: 1,
+      _vpLatausVanhentunut: () => false, _tmHenkiloNimi: (d) => d.etunimi, tmHenkiloJoukkueTeksti: undefined, _vpOnHaamuprofiili: () => false, lataaVAIArvot: async () => {}, vpT: (s) => s });
+    vm.runInContext(lataa, ctx);
+    return vm.runInContext('(async () => { await lataaValmentajat(); return { v: _valmentajat, }; })()', ctx).then((r) => ({ v: r.v, lokit }));
+  }
+
+  it('c (viimeisin 100 uusimman ulkopuolella) saa oikean päivämäärän ~200 pv, EI 999; yksi limit(1)-kysely per valmentaja', async () => {
+    const { v, lokit } = await aja(null);
+    const c = v.find((x) => x.id === 'c');
+    expect(c.mentorointiPvt, 'c sai 999 vaikka hänellä on mentorointi').not.toBe(999);
+    expect(c.mentorointiPvt).toBeGreaterThanOrEqual(199); expect(c.mentorointiPvt).toBeLessThanOrEqual(201);
+    expect(c.viimMentorointiPvm).toBeTruthy();
+    expect(v.find((x) => x.id === 'd').mentorointiPvt).toBe(999);   // ei mentorointeja → 999
+    expect(v.find((x) => x.id === 'a').mentorointiPvt).toBeLessThan(10);
+    expect(lokit.sort()).toEqual(['a', 'b', 'c', 'd'].map((id) => 'mentoroinnit|where valmentajaId == ' + id + '|orderBy aika desc|limit 1'));
+  });
+  it('yhden valmentajan kyselyvirhe antaa vain hänelle 999, muille oikeat arvot', async () => {
+    const { v } = await aja('a');
+    expect(v.find((x) => x.id === 'a').mentorointiPvt).toBe(999);
+    expect(v.find((x) => x.id === 'b').mentorointiPvt).toBeLessThan(10);
+    expect(v.find((x) => x.id === 'c').mentorointiPvt).toBeGreaterThanOrEqual(199);
+  });
+  it('lähdekoodissa ei koko seuran mentorointilistaa limit(100):lla', () => {
+    expect(lataa).not.toMatch(/orderBy\('aika','desc'\)\.limit\(100\)/);
+    expect(lataa).toContain("where('valmentajaId', '==', v.id).orderBy('aika', 'desc').limit(1)");
+    expect(lataa).toContain('Promise.all(_valmentajat.map');
+  });
+});

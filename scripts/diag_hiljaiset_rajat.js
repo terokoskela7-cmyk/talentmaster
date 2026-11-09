@@ -11,7 +11,7 @@
  *   UUSIMMAT = tarkoituksellinen "uusimmat N" (orderBy desc + limit) → ei hiljainen virhe, ei mitata
  *   RAJATTU  = ylärajattu rakenteesta (esim. 6 per jakso, 14 pv, 31 pv) tai haku, jossa N on varmuusmarginaali
  *   HAKU     = avainhaku (limit 10 / 5), tulos ei ole lista
- * limit(1) (olemassaolo- ja avainhaut) ei ole rekisterissä.
+ * limit(1) (olemassaolo- ja avainhaut) ei ole rekisterissä. Esim. VP:n mentoroinnin viimeisin pvm haetaan valmentajittain limit(1) (projekti 06, korjattu) → ei rekisterissä.
  *
  * TULOSTE: vain LUKUMÄÄRÄT seuroittain (ei nimiä, ei uid:eja, ei sisältöä). Ryhmittäin (valmentaja, käyttäjä) vain suurin ryhmäkoko ja montako ryhmää ylittää rajan.
  * Tila: OK < 70 % rajasta · LÄHELLÄ 70–99 % · YLITTYY ≥ 100 % (data jo leikkautuu).
@@ -30,8 +30,7 @@ const REKISTERI = [
   // ── lib ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   { tiedosto: 'lib/tm_reflektio.js', n: 1, kohdat: [{ haku: 'kayttajat/{uid}/reflektiot (EI järjestystä)', raja: 100, luokka: 'LEIKKAA', mittaa: 'reflektiot_kayttaja', huom: 'yli 100 reflektiota → mielivaltaiset 100' }] },
   // ── VP ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  { tiedosto: 'TalentMaster_VP_v25.html', n: 14, kohdat: [
-    { haku: 'mentoroinnit orderBy aika desc (lataaPelaajat-vaihe: valmentajan viimeisin mentorointi)', raja: 100, luokka: 'LEIKKAA', mittaa: 'mentoroinnit', huom: 'uusimmat 100 koko seuralta → valmentaja, jonka viimeisin on vanhempi, näkyy ”ei mentorointia” (AVOIN, ei korjattu: ei kuulunut toimeksiantoon)' },
+  { tiedosto: 'TalentMaster_VP_v25.html', n: 13, kohdat: [
     { haku: 'valmentajan havainnot where valmentajaUid', raja: 200, luokka: 'LEIKKAA', mittaa: 'havainnot_valmentaja', huom: 'valmentajan profiili' },
     { haku: 'valmentajan harjoitusarvioinnit where valmentajaUid', raja: 200, luokka: 'LEIKKAA', mittaa: 'harjoitusarvioinnit_valmentaja', huom: 'valmentajan profiili (rivi ~5258); EI järjestystä' },
     { haku: 'ohjelmat where laatija_uid', raja: 200, luokka: 'LEIKKAA', mittaa: 'ohjelmat_laatija', huom: 'EI järjestystä' },
@@ -119,7 +118,6 @@ async function ajaMain() {
     lisaa(sid, 'kalenteri_ikkuna (pvm ≥ ' + alku + ')', 500, await luku(S.collection('kalenteri').where('pvm', '>=', alku)));
     lisaa(sid, 'kalenteri_ei_poistettu', 300, await luku(S.collection('kalenteri').where('poistettu', '==', false)));
     for (const t of ['klippi_vastaus', 'klippi_kuittaus']) lisaa(sid, 'viestit ' + t, 2000, await luku(S.collection('viestit').where('tyyppi', '==', t)));
-    lisaa(sid, 'mentoroinnit (VP lataaPelaajat, raja 100)', 100, await luku(S.collection('mentoroinnit')));
     lisaa(sid, 'harjoitusarvioinnit (raja 500)', 500, await luku(S.collection('harjoitusarvioinnit')));
     lisaa(sid, 'testitapahtumat (raja 50)', 50, await luku(S.collection('testitapahtumat')));
     lisaa(sid, 'toimenpiteet tyyppi=pulssi', 300, await luku(S.collection('toimenpiteet').where('tyyppi', '==', 'pulssi')));
