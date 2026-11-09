@@ -2400,7 +2400,9 @@ const _db = firebase.firestore();
     var kyselyt = [];
     if (joukkueNimi) kyselyt.push(col.where('joukkue', '==', joukkueNimi).get());
     if (joukkueId) kyselyt.push(col.where('joukkueet', 'array-contains', joukkueId).get());
-    if (!kyselyt.length) kyselyt.push(col.limit(300).get());
+    /* Varapolku (ei joukkuerajausta): koko seuran pelaajat ilman limit()iä. Aiempi limit(300) pudotti hiljaa pelaajia suurissa seuroissa (projekti 06, hiljaiset rajat).
+       Määrä on rajattu seuran rosterilla (suurin ~500), kerta-luku valitsimeen, lajittelu naytaPelaajaValitsin:ssa. */
+    if (!kyselyt.length) kyselyt.push(col.get());
     var tulokset = await Promise.all(kyselyt);
     var kartta = new Map();
     tulokset.forEach(function (s) {

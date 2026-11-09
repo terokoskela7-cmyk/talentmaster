@@ -67,14 +67,20 @@ function viimeisinYoajonAlku(nytMs) {
   return paras;
 }
 
-/* PURE: viimeisinKirjautuminen-arvo → { ei_dataa, ei_authia, yoajonJalkeen, authiaUudempi, vanha } */
-function luokitteleKirjautuminen(arvo, authMs, yoajoMs, toleranssi) {
+/* PURE: viimeisinKirjautuminen-arvo → { ei_dataa, ei_authia, yoajonJalkeen, authiaUudempi, vanha }
+ * RAJAUS (PM 9.11.2026): vain PR C:n deployn JÄLKEEN tehdyt kirjoitukset voivat olla "vanhan clientin" merkki — vanha client sai kirjoittaa ennen deployta.
+ *   2a yoajonJalkeen  = arvo > max(yöajon alku, deploy-aika)   (aiemmin vain yöajon alku → deployta edeltävät kirjoitukset antoivat väärän "älä mergeä" -päätöksen)
+ *   2b authiaUudempi  = arvo > Auth-aktiivisuus + toleranssi  JA arvo > deploy-aika   (sama peruste: deployta edeltävä ei lasketa)
+ * deployMs oletus = DEPLOY_ISO. */
+function luokitteleKirjautuminen(arvo, authMs, yoajoMs, toleranssi, deployMs) {
   const t = toleranssi == null ? TOLERANSSI_MS : toleranssi;
+  const dMs = deployMs == null ? aikaMs(DEPLOY_ISO) : deployMs;
   const ms = aikaMs(arvo);
   const r = { ei_dataa: false, ei_authia: false, yoajonJalkeen: false, authiaUudempi: false, vanha: false };
   if (ms == null) { r.ei_dataa = true; return r; }
-  if (yoajoMs != null && ms > yoajoMs) r.yoajonJalkeen = true;
-  if (authMs == null) r.ei_authia = true; else if (ms > authMs + t) r.authiaUudempi = true;
+  const raja = yoajoMs == null ? dMs : Math.max(yoajoMs, dMs);
+  if (ms > raja) r.yoajonJalkeen = true;
+  if (authMs == null) r.ei_authia = true; else if (ms > authMs + t && ms > dMs) r.authiaUudempi = true;
   r.vanha = r.yoajonJalkeen || r.authiaUudempi;
   return r;
 }
@@ -105,7 +111,7 @@ async function aja(argv) {
       const am = {};
       tulos.users.forEach((u) => { am[u.uid] = authAktiivisuusMs(u); });
       osa.forEach((d) => {
-        const r = luokitteleKirjautuminen(d.get('viimeisinKirjautuminen'), am[d.id] == null ? null : am[d.id], yoajoMs);
+        const r = luokitteleKirjautuminen(d.get('viimeisinKirjautuminen'), am[d.id] == null ? null : am[d.id], yoajoMs, null, deployMs);
         if (r.ei_authia) lisaa(eiAuthia, sid);
         if (r.yoajonJalkeen) lisaa(yoajonJalkeen, sid);
         if (r.authiaUudempi) lisaa(authiaUudempi, sid);
@@ -117,8 +123,8 @@ async function aja(argv) {
   const tulosta = (otsikko, k) => { console.log(otsikko); const ks = Object.keys(k).sort(); if (!ks.length) console.log('  (ei yhtään)'); ks.forEach((x) => console.log('  ' + x + ': ' + k[x])); console.log('  YHTEENSÄ: ' + summa(k)); };
   console.log('Projekti ' + projekti + ' · seuroja ' + seurat.size + ' · deploy ' + DEPLOY_ISO + ' · yöajon alku ' + new Date(yoajoMs).toISOString() + ' · vain lukumäärät');
   tulosta('1) toimenpiteet: tyyppi=automaattinen, id ei auto_, luotu > deploy', tpVanha);
-  tulosta('2a) viimeisinKirjautuminen > yöajon alku (palvelin ei voi kirjoittaa)', yoajonJalkeen);
-  tulosta('2b) viimeisinKirjautuminen > Auth-aktiivisuus + ' + (TOLERANSSI_MS / 1000) + ' s', authiaUudempi);
+  tulosta('2a) viimeisinKirjautuminen > max(yöajon alku, deploy) (palvelin ei voi kirjoittaa)', yoajonJalkeen);
+  tulosta('2b) viimeisinKirjautuminen > Auth-aktiivisuus + ' + (TOLERANSSI_MS / 1000) + ' s ja > deploy', authiaUudempi);
   tulosta('2) yhteensä (a TAI b), kukin dokumentti kerran', vanhaYht);
   if (summa(eiAuthia)) tulosta('huom: ei Auth-tiliä (2b ohitettu näille)', eiAuthia);
   const tulos = summa(tpVanha) + summa(vanhaYht);

@@ -42,6 +42,19 @@ describe('2) viimeisinKirjautuminen', () => {
     const b = M.luokitteleKirjautuminen(ts('2026-11-10T12:00:00Z'), AUTH, YO);   // ennen ajoa mutta Authia uudempi
     expect(b.authiaUudempi).toBe(true); expect(b.yoajonJalkeen).toBe(false); expect(b.vanha).toBe(true);
   });
+  it('RAJAUS: deployta edeltävä kirjoitus ei laske (2a eikä 2b), vaikka se on yöajon alun jälkeen / Authia uudempi', () => {
+    // yöajon alku 9.11. 01:30Z on ENNEN deployta (9.11. 16:27:35Z): arvo välissä = deployta edeltävä vanha client
+    const YO0 = Date.parse('2026-11-09T01:30:00Z');
+    const valissa = M.luokitteleKirjautuminen(ts('2026-11-09T09:00:00Z'), Date.parse('2026-11-09T08:00:00Z'), YO0);
+    expect(valissa.yoajonJalkeen).toBe(false); expect(valissa.authiaUudempi).toBe(false); expect(valissa.vanha).toBe(false);
+    // deployn jälkeinen sama arvo laskee
+    const jalkeen = M.luokitteleKirjautuminen(ts('2026-11-09T16:30:00Z'), Date.parse('2026-11-09T08:00:00Z'), YO0);
+    expect(jalkeen.yoajonJalkeen).toBe(true); expect(jalkeen.authiaUudempi).toBe(true); expect(jalkeen.vanha).toBe(true);
+    // täsmälleen deploy-hetki ei laske (raja on aito >)
+    expect(M.luokitteleKirjautuminen(ts('2026-11-09T16:27:35Z'), null, YO0).vanha).toBe(false);
+    // yöajon alku deployn jälkeen voittaa (max)
+    expect(M.luokitteleKirjautuminen(ts('2026-11-10T00:00:00Z'), null, Date.parse('2026-11-10T01:30:00Z')).vanha).toBe(false);
+  });
   it('ei Auth-tiliä: vain yöajokriteeri; ei dataa → ei lasketa', () => {
     const r = M.luokitteleKirjautuminen(ts('2026-11-10T09:00:00Z'), null, YO);
     expect(r.ei_authia).toBe(true); expect(r.vanha).toBe(false);
