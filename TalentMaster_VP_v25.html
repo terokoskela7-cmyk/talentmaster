@@ -3460,13 +3460,6 @@ auth.onAuthStateChanged(async user => {
 
   if (!_seuraId) { naytaLogin(); return; }
 
-  /* Kirjautumisaikaleima omaan kayttajat-dokkiin (§0). laskeVAI n4 lukee tätä;
-     ilman kirjoituspistettä Kontakti oli 0 kaikilla. SA ohitetaan: ei
-     kayttajat-dokkia seuran alla (§3). Best-effort, ei awaitia. */
-  if (!isSuperAdmin && typeof tmMerkitseKirjautuminen === 'function') {
-    tmMerkitseKirjautuminen(db, _seuraId, _uid);
-  }
-
   // Vaihe B — rooli + SA-lippu globaaleiksi (ristiinarvio-gate + tekija_rooli pikakortti-embedille).
   window._vpRooli = token.claims.rooli || null;
   window._vpSA = isSuperAdmin;
@@ -3604,7 +3597,7 @@ async function lataaKaikki() {
   renderRaportointi();
   renderKotiVP();   // §IA — sis. renderVpAloitaKortti (inline 5-kohdan checklist = ainoa onboarding-pinta, #89)
   // #89: 3-vaiheinen modaali POISTETTU navin/ensikäynnin oletuksesta → inline-checklist (Master-pattern) on yksi totuuslähde.
-  _alustaToimenpiteet();   // OSA 3 — generoi + lataa toimenpiteet (async, try/catch sisällä; demossa placeholder)
+  _alustaToimenpiteet();   // OSA 3 — lataa toimenpiteet (async, try/catch sisällä; demossa placeholder; ei generointia — palvelin luo ehdotukset)
   _vpNaviAsenna();   // S2c PR 2: navigaatio v3 (Kenttä-lippu tiedossa; ilman lippua vanha navigaatio ennallaan)
   _vpAvaaUrlWs();    // ?ws=<avain> (vanhat avaimet ohjautuvat uuteen paikkaan)
   _vpAvaaUrlSyvalinkki();  // ?seura=&pelaaja=&nakyma=kehitys (Seurahallinnan IDP-nappi) → pelaajan työpöytä
@@ -22872,62 +22865,6 @@ let _toimenpiteet = [];
 // §12 — tuore token ennen JOKAISTA kirjoitusta
 async function _tpTuoreToken() { const u = firebase.auth().currentUser; if (u) await u.getIdToken(true); return u; }
 
-async function tallennaToimenpide(seuraId, d) {
-  if (_vpKirjoitusEstetty(seuraId === _seuraId ? seuraId : null)) throw new Error('stale-seura');   // seura ajon alusta (parametri); ei kirjoiteta jos vaihtunut
-  await _tpTuoreToken();
-  if (seuraId !== _seuraId) throw new Error('stale-seura');   // vaihto token-haun aikana
-  const ref = db.collection('seurat').doc(seuraId).collection('toimenpiteet').doc();
-  await ref.set({
-    tyyppi: d.tyyppi || 'automaattinen', signaali: d.signaali || null, joukkue: d.joukkue || null,
-    teksti: d.teksti, tila: 'ehdotus', vp_teksti: null,
-    luotu: firebase.firestore.FieldValue.serverTimestamp(),   // ei array → serverTimestamp OK
-    kuitattu_pvm: null, kuitattu_uid: null
-  });
-  return ref.id;
-}
-
-// Automaattiset signaalit (joukkue, kaikki pelaajat) → {joukkue, signaali, teksti} tai null
-const TP_SIGNAALIT = [
-  /* TUNNISTE `hh_taso_alhainen` SÄILYY (historia, dedup D134, sv-käännökset), mutta se kattaa nyt KOKO fyysisen ketjun = "fyysiset testit kehityskohteena"
-     (lib/tm_fyysinen.js: raakatulokset, normiIka, §28; docs/KARKI_JA_YKSILOLLINEN_KARTOITUS.md). YKSI määritelmä: sama funktio kuin Tilanteen huomio — älä lisää tähän omaa mittaria tai rajaa. */
-  { id: 'hh_taso_alhainen', tarkista: function(j, pp){
-      const r = window.TM_FYSINEN ? window.TM_FYSINEN.tmFyysinenJoukkueLuokka(pp.filter(function(p){ return _pOnJoukkueessa(p, j); }), Date.now(), { joukkueNimi: j }) : null;
-      return (r && r.luokka === 'kehityskohde') ? { joukkue: j, signaali: 'hh_taso_alhainen',
-        teksti: j + ' — fyysiset testit kehityskohteena: ' + r.kehityskohteita + ' pelaajaa. Aloita yksilöllinen harjoitusohjelma.' } : null;   // kiinteä häntä + {n} (kääntyy näyttöhetkellä, ks. TP_TOIMENPIDE_HANNAT)
-    } },
-  { id: 'suunta_lasku', tarkista: function(j, pp){
-      const l = pp.filter(function(p){ return _pOnJoukkueessa(p, j) && p.hh_taso != null && p.hh_taso_edellinen != null && (p.hh_taso - p.hh_taso_edellinen) < -0.3; });
-      return l.length >= 2 ? { joukkue: j, signaali: 'suunta_lasku',
-        teksti: j + ' — H-H taso laskussa ' + l.length + ' pelaajalla. Tarkista kuormitus.' } : null;
-    } },
-  { id: 'tkk_puuttuu', tarkista: function(j, pp){
-      const kaikki = pp.filter(function(p){ return _pOnJoukkueessa(p, j); });
-      const ilman = kaikki.filter(function(p){ return p.tki_viimeisin == null; });
-      return (kaikki.length > 0 && ilman.length === kaikki.length) ? { joukkue: j, signaali: 'tkk_puuttuu',
-        teksti: j + ' — tekniikkamittaukset puuttuvat kaikilta pelaajilta. Suunnittele tekniikkakilpailu.' } : null;
-    } },
-  // TKI-pohjaiset toimenpiteet — antavat TKI-only-seuroille (esim. Sibbo) konstruktiivisen "mitä tehdä",
-  // samalla tavalla kuin H-H-data tuottaa toimenpiteitä SJK:lle. Tasapainottaa kriittiset signaalit toiminnalla.
-  /* TUNNISTE `tki_alhainen` SÄILYY (historia, dedup D134, sv-käännökset), mutta se kattaa nyt KOKO tekniikkaketjun TKI → SM-tasot = "tekniikka kehityskohteena"
-     (lib/tm_tekniikka.js, docs/TEKNIIKKA_MAARITELMA.md). YKSI määritelmä: sama funktio kuin Tilanteen huomio ja Kodin pulssi — älä lisää tähän omaa mittaria tai rajaa. */
-  { id: 'tki_alhainen', tarkista: function(j, pp){
-      const r = window.TM_TEKNIIKKA ? window.TM_TEKNIIKKA.tmTekniikkaJoukkueLuokka(pp.filter(function(p){ return _pOnJoukkueessa(p, j); }), Date.now(), { joukkueNimi: j }) : null;
-      return (r && r.luokka === 'kehityskohde') ? { joukkue: j, signaali: 'tki_alhainen',
-        teksti: j + ' — tekniikka kehityskohteena: ' + r.kehityskohteita + (r.syy === 'pallo_hidastaa' ? ' pelaajaa, pallo hidastaa suunnanmuutoksissa' : ' pelaajaa alle ikätason') + '. Fokusoi tekniikkaharjoittelu.' } : null;   // kiinteä häntä + {n} (kääntyy näyttöhetkellä, ks. TP_TOIMENPIDE_HANNAT)
-    } },
-  { id: 'tki_lahella_merkkia', tarkista: function(j, pp){
-      const a = pp.filter(function(p){ return _pOnJoukkueessa(p, j) && p.tki_viimeisin != null && p.tki_viimeisin >= 35 && p.tki_viimeisin < 55 && !p.tki_merkki; });
-      return a.length >= 2 ? { joukkue: j, signaali: 'tki_lahella_merkkia',
-        teksti: j + ' — ' + a.length + ' pelaajaa lähellä pronssia (TKI 35–54). Kohdenna omatoimiharjoittelu — merkki on saavutettavissa seuraavassa kilpailussa.' } : null;
-    } },
-  { id: 'flei_kartoitus_puuttuu', tarkista: function(j, pp){
-      const kaikki = pp.filter(function(p){ return _pOnJoukkueessa(p, j); });
-      const ilman = kaikki.filter(function(p){ return p.flei_viimeisin == null; });
-      return (kaikki.length >= 3 && ilman.length === kaikki.length) ? { joukkue: j, signaali: 'flei_kartoitus_puuttuu',
-        teksti: j + ' — harjoitettavuuskartoitus (kehon valmius) tekemättä. Varaa kartoituspäivä, jotta harjoittelua voi yksilöllistää.' } : null;
-    } }
-];
-
 // Lataa avoimet ehdotukset. Lajittelu client-puolella → ei tarvita komposiitti-indeksiä (tila + luotu).
 async function lataaAvoimetToimenpiteet(seuraId) {
   const snap = await db.collection('seurat').doc(seuraId).collection('toimenpiteet')
@@ -22935,32 +22872,8 @@ async function lataaAvoimetToimenpiteet(seuraId) {
   const arr = snap.docs.map(function(d){ const o = d.data(); o.id = d.id; return o; });
   arr.sort(function(a,b){ const ta = (a.luotu && a.luotu.seconds) || 0, tb = (b.luotu && b.luotu.seconds) || 0; return tb - ta; });
   /* D134: palautetaan KAIKKI haetut (myös yli 14 pv vanhat) — vanhentuneet piilotetaan vasta renderöinnissä (renderToimenpiteet),
-     mutta ne pidetään mukana generoinnin estossa, jottei samaa ehdotusta tuoteta uudelleen ennen kuin data (= teksti) muuttuu. */
+     (generointi on siirretty palvelimelle, projekti 03). */
   return arr;
-}
-
-// Generoi ehdotukset + tallenna Firestoreen VAIN jos samaa avointa (signaali+joukkue) ei jo ole (dedup)
-async function generoimToimenpideEhdotukset(pelaajat, sp, seura) {
-  if (!seura || seura === 'demo') return 0;
-  if (_vpLatausVanhentunut(sp, seura)) return 0;
-  const avoimet = await lataaAvoimetToimenpiteet(seura);
-  if (_vpLatausVanhentunut(sp, seura)) return 0;   // seura vaihtui haun aikana: ei ehdotuksia (eikä kirjoituksia) vanhalla pelaajalistalla
-  const LU = window.TM_KOTI_LUVUT, nytMs = Date.now();
-  const este = LU.ehdotusEste(avoimet, nytMs);   // D134: tuore estää signaali+joukkue; vanhentunut vain saman tekstin
-  const joukkueet = [];
-  pelaajat.forEach(function(p){ (_pJNimet(p).length ? _pJNimet(p) : ['Tuntematon']).forEach(function(j){ if (joukkueet.indexOf(j) < 0) joukkueet.push(j); }); });
-  const uudet = [];
-  joukkueet.forEach(function(j){
-    TP_SIGNAALIT.forEach(function(sig){
-      const r = sig.tarkista(j, pelaajat);
-      if (r && !LU.ehdotusEstetty(este, r)) { este[r.signaali + '|' + r.joukkue] = true; uudet.push(r); }
-    });
-  });
-  for (let i = 0; i < uudet.length; i++) {
-    if (_vpLatausVanhentunut(sp, seura)) return i;   // kesken kirjoitusten vaihto → loput jätetään kirjoittamatta
-    await tallennaToimenpide(seura, { tyyppi: 'automaattinen', signaali: uudet[i].signaali, joukkue: uudet[i].joukkue, teksti: uudet[i].teksti });
-  }
-  return uudet.length;
 }
 
 function _tpPvm(ts) {
@@ -23067,10 +22980,8 @@ async function _alustaToimenpiteet() {
   if (!cont) return;
   if (_seuraId === 'demo' || _isDemoMode) { cont.innerHTML = '<div class="tp-tyhja">' + vpT('Toimenpiteet näkyvät kirjautuneessa seurassa.') + '</div>'; return; }
   const _sp = _vpLatausSukupolvi, _seura = _seuraId;
-  if (_pelaajatSeura !== _seura) return;   // pelaajalista ei ole tämän seuran → ei generointia (uusi lataaKaikki kutsuu uudelleen)
   try {
-    await generoimToimenpideEhdotukset(_pelaajat, _sp, _seura);
-    if (_vpLatausVanhentunut(_sp, _seura)) return;
+    /* Projekti 03 PR C: VP vain LUKEE toimenpiteet. Ehdotukset syntyvät palvelimella (viikkokooste, deterministinen id). */
     const _ladatut = await lataaAvoimetToimenpiteet(_seura);
     if (_vpLatausVanhentunut(_sp, _seura)) return;   // hylkää: ei vanhan seuran toimenpiteitä uuden näkymään
     _toimenpiteet = _ladatut; _toimenpiteetSeura = _seura;

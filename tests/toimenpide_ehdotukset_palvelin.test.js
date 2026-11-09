@@ -1,6 +1,6 @@
 /**
  * Avauskirjoitukset palvelimelle, PR B — toimenpide-ehdotukset viikkokoosteessa (VAIHE0.md §2; PM 8.11.2026 P3/P4 + id-korjaus).
- *  · PARITEETTI: VP:n inline TP_SIGNAALIT (vielä VP:ssä) ja lib/tm_toimenpide_signaalit.js antavat saman tuloksen samalla datalla (vm-sandbox).
+ *  · SIGNAALIT: lib/tm_toimenpide_signaalit.js on ainoa määritelmä (VP:n inline-kopio ja pariteettilohko poistettu PR C:ssä).
  *  · ID: auto_{signaali}_{joukkueId}_{vvvv-Www}_{sha1[:10]}; su 21 + seuraava ma 06 = sama kooste-viikko → sama id.
  *  · kuitattu → sama viikko ei uutta (ALREADY_EXISTS) → seuraava viikko → uusi ehdotus.
  *  · rinnakkaiset ajot: vain yksi dokumentti.
@@ -19,7 +19,6 @@ const H = require('../functions/helsinki_paiva.js');
 const NYT = Date.UTC(2026, 10, 9, 8, 0);
 
 const VP = readFileSync(new URL('../TalentMaster_VP_v25.html', import.meta.url), 'utf8');
-const alku = VP.indexOf('const TP_SIGNAALIT = ['), loppu = VP.indexOf('// Lataa avoimet ehdotukset', alku);
 
 /* fixtuurit: jokainen kuudesta signaalista laukeaa jollain joukkueella */
 const hh = (v) => ({ lin30m: v, cmj: 14, lin10m: 2.4 });
@@ -33,20 +32,17 @@ const FIX = [
 for (const p of FIX) p._jNimet = [p.joukkue];
 const ctxLib = { nytMs: NYT, onJoukkueessa: (p, j) => p._jNimet.indexOf(j) >= 0, jasenNimet: (p) => p._jNimet, fysinen: FYS, tekniikka: TEK };
 
-describe('pariteetti: VP:n inline TP_SIGNAALIT ≡ lib', () => {
-  it('VP:n lähde löytyy (poistuu PR C:ssä; silloin tämä lohko poistetaan)', () => { expect(alku).toBeGreaterThan(0); expect(loppu).toBeGreaterThan(alku); });
-  it('sama {joukkue, signaali, teksti} kaikille joukkueille ja signaaleille', () => {
-    const sb = { window: { TM_FYSINEN: FYS, TM_TEKNIIKKA: TEK }, Date: { now: () => NYT }, _pOnJoukkueessa: (p, j) => p._jNimet.indexOf(j) >= 0 };
-    vm.createContext(sb);
-    const vpSig = vm.runInContext(VP.slice(alku, loppu).replace(/^const TP_SIGNAALIT = /, '(') .replace(/\];\s*$/, '])'), sb);
-    expect(vpSig.map((s) => s.id)).toEqual(SIG.TP_SIGNAALIT.map((s) => s.id));
-    const nimet = ['KPV U14', 'KPV U13', 'KPV U12', 'KPV U15', 'Tuntematon'];
+describe('signaalit (lib) — VP:n kopio poistettu PR C:ssä, lib on ainoa määritelmä', () => {
+  it('VP ei enää sisällä TP_SIGNAALIT / generointia / auto-id-kirjoitusta (pariteettilohko poistettu; vartija: tests/avauskirjoitukset_vartija.test.js)', () => {
+    expect(VP).not.toContain('const TP_SIGNAALIT');
+    expect(VP).not.toContain('generoimToimenpideEhdotukset');
+    expect(VP).not.toContain('async function tallennaToimenpide');
+  });
+  it('kuusi signaalia, tunnisteet säilyvät (historia, dedup D134, sv-käännökset) ja fixtuuri laukaisee jokaisen joukkuekombinaation', () => {
+    expect(SIG.TP_SIGNAALIT.map((s) => s.id)).toEqual(['hh_taso_alhainen', 'suunta_lasku', 'tkk_puuttuu', 'tki_alhainen', 'tki_lahella_merkkia', 'flei_kartoitus_puuttuu']);
     let osumia = 0;
-    for (const j of nimet) vpSig.forEach((s, i) => {
-      const vp = s.tarkista(j, FIX), lib = SIG.TP_SIGNAALIT[i].tarkista(j, FIX, ctxLib);
-      expect(lib, s.id + ' ' + j).toEqual(vp); if (vp) osumia++;
-    });
-    expect(osumia).toBeGreaterThanOrEqual(5);   // fixtuuri todella laukaisee signaaleja (ei vain null ≡ null)
+    for (const j of ['KPV U14', 'KPV U13', 'KPV U12', 'KPV U15', 'Tuntematon']) SIG.TP_SIGNAALIT.forEach((s) => { if (s.tarkista(j, FIX, ctxLib)) osumia++; });
+    expect(osumia).toBeGreaterThanOrEqual(5);   // fixtuuri todella laukaisee signaaleja (ei vain null)
   });
 });
 

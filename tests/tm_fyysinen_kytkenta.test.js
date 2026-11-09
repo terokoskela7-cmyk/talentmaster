@@ -15,13 +15,15 @@ const F = require('./helpers/vp_fixture.cjs'), { funktio } = require('./helpers/
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8'), MA = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
 const NYT = Date.UTC(2026, 9, 10, 12), DAY = 86400000;
 
+/* Projekti 03 PR C: VP:n inline TP_SIGNAALIT poistettu. Ehdotuksen laskee nyt lib/tm_toimenpide_signaalit.js (palvelin; signaalit siirretty sanasta sanaan,
+   testit: tests/toimenpide_ehdotukset_palvelin.test.js). Jäsenyys = VP:n _pJNimet/_pOnJoukkueessa-sääntö (puretaan VP:stä), kello = testin Date.now(). */
 function lataaTP() {
-  const alku = VP.indexOf('const TP_SIGNAALIT = ['), lines = VP.slice(alku).split('\n'), loppu = lines.findIndex((l) => l.trim() === '];');
-  const ctx = { Date, window: { TM_FYSINEN: FY }, console };
+  const SIG = require('../lib/tm_toimenpide_signaalit.js');
+  const ctx = { console };
   vm.createContext(ctx);
-  vm.runInContext(funktio(VP, '_pJNimet') + '\n' + funktio(VP, '_pOnJoukkueessa') + '\n' + lines.slice(0, loppu + 1).join('\n') + '\nthis.TP = TP_SIGNAALIT;', ctx);
-  ctx.Date = Date;
-  return ctx.TP.find((x) => x.id === 'hh_taso_alhainen');
+  vm.runInContext(funktio(VP, '_pJNimet') + '\n' + funktio(VP, '_pOnJoukkueessa') + '\nthis.onJ = _pOnJoukkueessa;', ctx);
+  const sig = SIG.TP_SIGNAALIT.find((x) => x.id === 'hh_taso_alhainen');
+  return { tarkista: (j, pp) => sig.tarkista(j, pp, { nytMs: Date.now(), onJoukkueessa: ctx.onJ, fysinen: FY }) };
 }
 function nimetPelaajille(d) {
   const nimet = {}; d.joukkueDocs.forEach((j) => { nimet[j.id] = j.nimi; });
@@ -101,9 +103,10 @@ describe('Tilanne: huomio, "Ei fyysistä dataa" ja "Kypsyys mittaamatta" (aina n
 describe('VP_v25 ja Master on kytketty libiin (lähdevartijat)', () => {
   it('VP: huomion, ehdotuksen, poikkeamalistan ja joukkuekortin status käyttävät tmFyysinenJoukkueLuokka:a; Kärkipelaajat poissa; vanha alle_normin suodatetaan', () => {
     expect(VP).toContain('<script src="lib/tm_fyysinen.js"'); expect(VP.indexOf('lib/tm_joukkuesaanto.js')).toBeLessThan(VP.indexOf('lib/tm_tekniikka.js')); expect(VP.indexOf('lib/tm_fyysinen.js')).toBeLessThan(VP.indexOf('lib/tm_vp_tilanne.js'));
-    expect((VP.match(/tmFyysinenJoukkueLuokka\(/g) || []).length).toBeGreaterThanOrEqual(3);
+    expect((VP.match(/tmFyysinenJoukkueLuokka\(/g) || []).length).toBeGreaterThanOrEqual(2);   // huomio + poikkeamalista/joukkuekortti (TP-ehdotus siirretty palvelimelle, PR C)
     expect(VP).not.toContain("Talenttiydin alle normin"); expect(VP).not.toContain('talent-ID-huoli');
-    const tp = VP.slice(VP.indexOf("id: 'hh_taso_alhainen'"), VP.indexOf("id: 'suunta_lasku'")); expect(tp).not.toMatch(/hh_taso\b(?!_alhainen)|< ?2\.5|Eerikkilä/);
+    const LIBSRC = readFileSync(join(juuri, 'lib/tm_toimenpide_signaalit.js'), 'utf8');
+    const tp = LIBSRC.slice(LIBSRC.indexOf("id: 'hh_taso_alhainen'"), LIBSRC.indexOf("id: 'suunta_lasku'")); expect(tp.length).toBeGreaterThan(50); expect(tp).not.toMatch(/hh_taso\b(?!_alhainen)|< ?2\.5|Eerikkilä/);
   });
   it('Master: D2 komposiittiin ei Eerikkilän tekniikkatestejä (d2KomposiittiTaso), D1/D2-kortti käyttää tm_fyysinen/tm_tekniikka-luokitusta', () => {
     expect(MA).toContain('lib/tm_fyysinen.js"'); expect(MA).toContain('lib/tm_tekniikka.js"'); expect(MA).toContain('lib/tm_nakyma_ryhmat.js"'); expect(MA).toContain("tmRyhmat(dim, P"); expect(MA).toContain('tmNakymaYhteenveto(P');   // YKSI TOTUUS: kortti/ponnahdus libistä (tm_nakyma_ryhmat → tm_fyysinen/tm_tekniikka)

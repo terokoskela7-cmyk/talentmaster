@@ -240,7 +240,7 @@ describe('8 · D134 ehdotusten rajaus', () => {
     expect(VP).toContain('LU.rajaaEhdotukset(_sig.kortit, LU.KOTI_MAX_SIGNAALIT)');
     expect(VP).toContain('LU.rajaaEhdotukset(dedupKaikki, LU.TILANNE_MAX_EHDOTUKSET)');
     expect(VP).toContain('LU.ehdotusVanhentunut(t.luotu, nytMs)');
-    expect(VP).toContain('LU.ehdotusEste(avoimet, nytMs)');
+    expect(VP).not.toContain('LU.ehdotusEste(avoimet, nytMs)');   // projekti 03 PR C: VP ei generoi ehdotuksia (palvelin: functions/toimenpide_ehdotukset.js käyttää ehdotusEste)
   });
 });
 
