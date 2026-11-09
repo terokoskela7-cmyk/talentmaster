@@ -56,7 +56,7 @@ describe('aja', () => {
 
 describe('Rules v3.78 (lähdetaso; emulaattoritesti tests/rules/firestore.rules.test.js)', () => {
   it('versio + changelog; liput/{id} kirjoitus vain SA; seura-dokin liput-kenttä pois johdolta', () => {
-    expect(R).toMatch(/firestore\.rules v3\.(78|79|80|81)/); expect(R).toContain('Muutokset v3.77 → v3.78 (D1');
+    expect(R).toMatch(/firestore\.rules v3\.(78|79|80|81|82)/); expect(R).toContain('Muutokset v3.77 → v3.78 (D1');
     expect(R).toMatch(/match \/liput\/\{lippuId\} \{\s*allow read:\s+if onLiputLuku\(seuraId\);\s*allow create, update, delete: if onSuperAdmin\(\);\s*\}/);
     expect(R).toContain("!('laskutus_sopimus' in request.resource.data) && !('liput' in request.resource.data)");
     expect(R).toContain("affectedKeys().hasAny(['laskutus_sopimus', 'liput'])");

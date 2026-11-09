@@ -1,10 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.81
+// TalentMaster™ — firestore.rules v3.82
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.81 → v3.82 (projekti 03 PR D, KIRISTÄÄ; PR A/B/C tuotannossa; Tero ajaa scripts/tarkista_vanhat_kirjoittajat.js ennen mergeä, merge vain tuloksella 0):
+//   (1) kayttajat/{uid}.viimeisinKirjautuminen muuttumattomana clientiltä KAIKILLE (myös SA, oma uid, johto) — kirjoittaa vain palvelin (functions/kirjautumisaika.js, yöajo).
+//   (2) toimenpiteet create vain pulssin kuittaukselle: tid ^pulssi_.+ ja tyyppi == 'pulssi' (auto-id- ja 'automaattinen'-ehdotukset luo vain palvelin, id auto_…).
+//   (3) toimenpiteet update: automaattisilla (tyyppi == 'automaattinen') clientiltä vain kentät tila, vp_teksti, kuitattu_pvm, kuitattu_uid (kuittaus/hylkäys/muokkaus). Pulssin set() olemassa olevaan ennallaan.
 // Muutokset v3.80 → v3.81 (email_verified PR c, PM 6.11.2026, KIRISTÄÄ; PR a #1210 tuotannossa, b ajettu 6.11. klo 16.40: vahvistuslinkit 14/14):
 //   huoltajan KAIKKI pääsy vaatii vahvistetun sähköpostin (token email_verified == true): onLapsenHuoltaja() (kaikki 16 kutsukohtaa: viestit, havainnot, kirjaukset
 //   + U12-kirjaus/kuittaus, notifikaatiot, testitulokset, idp_pelaaja, kehut, palautteet, testitapahtumien tulokset, lasnaolijat) ja pelaajadokumentin luvun inline-huoltajahaara.
@@ -916,6 +920,16 @@ service cloud.firestore {
         'rooli', 'seuraId', 'aktiivinen', 'deaktivoitu', 'deaktivoija_uid', 'aktivoitu', 'aktivoija_uid', 'claimsAsetettu']);
     }
 
+    // v3.82 (projekti 03): kirjautumisaikaleiman kirjoittaa vain palvelin (yöajo) — muuttumattomana kaikille clienteille, myös SA:lle.
+    function kayttajaAikaleimaEnnallaan() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['viimeisinKirjautuminen']);
+    }
+    // v3.82: automaattisia toimenpide-ehdotuksia client kuittaa/hylkää/muokkaa vain näillä kentillä; muut tyypit (pulssi) ennallaan.
+    function toimenpideMuutosSallittu() {
+      return resource.data.get('tyyppi', '') != 'automaattinen'
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tila', 'vp_teksti', 'kuitattu_pvm', 'kuitattu_uid']);
+    }
+
     function onLapsenHuoltaja(seuraId, pelaajaId) {
       return onKirjautunut()
           && request.auth.token.email is string
@@ -1306,8 +1320,9 @@ service cloud.firestore {
       // säilyy aina (tila ehdotus|kuitattu|muokattu|hylatty). VP/SA luo + päivittää.
       match /toimenpiteet/{tid} {
         allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
-        allow create: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
-        allow update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        // v3.82 (projekti 03): create vain pulssin kuittaukselle (VP _vpPulssiKuittaa); ehdotukset (auto_…) luo palvelin. Update: automaattisilla vain kuittauskentät.
+        allow create: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())) && tid.matches('^pulssi_.+') && request.resource.data.tyyppi == 'pulssi';
+        allow update: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())) && toimenpideMuutosSallittu();
       }
 
       // ── KONSEPTIT (v3.13) — SEURAKERROS TIER 1 ──────────────────────────────────────
@@ -1941,7 +1956,7 @@ service cloud.firestore {
         // v3.32: luonti VAIN palvelimella (luoKayttaja kirjoittaa koko dokumentin; ei SA-tunnuksille).
         allow create: if false;
         allow update: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || request.auth.uid == uid)
-                      && kayttajaPaasyKentatEnnallaan();
+                      && kayttajaPaasyKentatEnnallaan() && kayttajaAikaleimaEnnallaan();   // v3.82
         allow delete: if false;
 
         // ── REFLEKTIOT (Vaihe 2.3b-1) — valmentajan OMA yksityinen kasvupäiväkirja (standalone-merkinnät + ääni).
