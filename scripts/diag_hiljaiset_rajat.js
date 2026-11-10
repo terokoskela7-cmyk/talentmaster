@@ -72,21 +72,9 @@ const REKISTERI = [
     { haku: 'havainnot where nakyvyys == pelaaja (EI järjestystä)', raja: 50, luokka: 'LEIKKAA', mittaa: 'havainnot_pelaajalle', huom: 'yli 50 → mielivaltaiset 50' } ] },
 ];
 
-/* PURE: osuus rajasta → tila. raja ei-numeerinen → null. */
-function tila(maara, raja) {
-  if (typeof raja !== 'number' || raja <= 0) return null;
-  const o = maara / raja;
-  return o >= 1 ? 'YLITTYY' : (o >= 0.7 ? 'LÄHELLÄ' : 'OK');
-}
-
-/* PURE: ryhmälaskuri {avain: n} → { ryhmia, suurin, ylittaa (ryhmiä joiden n ≥ raja), lahella (≥ 70 % ja < raja) } */
-function ryhmaYhteenveto(kartta, raja) {
-  const arvot = Object.keys(kartta || {}).map((k) => kartta[k]);
-  return { ryhmia: arvot.length, suurin: arvot.reduce((a, b) => Math.max(a, b), 0), ylittaa: arvot.filter((n) => n >= raja).length, lahella: arvot.filter((n) => n >= raja * 0.7 && n < raja).length };
-}
-
-/* Kooste-ikkunan alku: sama laskenta kuin seuran_kooste.js (arvioMs − 29 pv), UTC-päivänä (Helsingin päivän raja ei vaikuta tulokseen kuin ±1 pv). */
-function ikkunanAlku(nytMs) { return new Date(nytMs - 29 * 86400000).toISOString().slice(0, 10); }
+/* tila / ryhmaYhteenveto / ikkunanAlku / mittaritaulukko: yksi totuus lib/tm_valvonta.js (projekti 07 / PR 1). REKISTERI jää tähän: se kuvaa lähdekoodin .limit-kohdat, ei dataa. */
+const V = require('../lib/tm_valvonta.js');
+const { ryhmaYhteenveto, ikkunanAlku } = V, tila = V.tmVTila;
 
 module.exports = { REKISTERI, tila, ryhmaYhteenveto, ikkunanAlku };
 
@@ -115,30 +103,28 @@ async function ajaMain() {
   const seurat = (await db.collection('seurat').select().get()).docs.map((d) => d.id).filter((id) => !vainSeura || id === vainSeura);
   for (const sid of seurat) {
     const S = db.collection('seurat').doc(sid);
-    lisaa(sid, 'kalenteri_ikkuna (pvm ≥ ' + alku + ')', 500, await luku(S.collection('kalenteri').where('pvm', '>=', alku)));
-    lisaa(sid, 'kalenteri_ei_poistettu', 300, await luku(S.collection('kalenteri').where('poistettu', '==', false)));
-    for (const t of ['klippi_vastaus', 'klippi_kuittaus']) lisaa(sid, 'viestit ' + t, 2000, await luku(S.collection('viestit').where('tyyppi', '==', t)));
-    lisaa(sid, 'harjoitusarvioinnit (raja 500)', 500, await luku(S.collection('harjoitusarvioinnit')));
-    lisaa(sid, 'testitapahtumat (raja 50)', 50, await luku(S.collection('testitapahtumat')));
-    lisaa(sid, 'toimenpiteet tyyppi=pulssi', 300, await luku(S.collection('toimenpiteet').where('tyyppi', '==', 'pulssi')));
-    lisaaRyhma(sid, 'harjoitusarvioinnit per valmentajaUid (raja 100)', 100, await ryhmittele(S.collection('harjoitusarvioinnit'), 'valmentajaUid'));
-    lisaaRyhma(sid, 'havainnot per valmentajaUid (raja 200)', 200, await ryhmittele(S.collection('havainnot'), 'valmentajaUid'));
-    lisaaRyhma(sid, 'ohjelmat per laatija_uid (raja 200)', 200, await ryhmittele(S.collection('ohjelmat'), 'laatija_uid'));
-    const klippiTyypit = ['klippi', 'klippi_vastaus', 'klippi_kuittaus'];
-    lisaaRyhma(sid, 'viestit klippi* per vastaanottajaUid (Master, raja 600)', 600, await ryhmittele(S.collection('viestit').where('tyyppi', 'in', klippiTyypit), 'vastaanottajaUid'));
-    lisaaRyhma(sid, 'viestit per vastaanottajaUid (VP, raja 100)', 100, await ryhmittele(S.collection('viestit'), 'vastaanottajaUid'));
-    lisaaRyhma(sid, 'viestit per lahettajaUid (VP, raja 100)', 100, await ryhmittele(S.collection('viestit'), 'lahettajaUid'));
-    const kayt = await S.collection('kayttajat').select().get(), refl = {};
-    for (const k of kayt.docs) { const n = await luku(k.ref.collection('reflektiot')); if (n) refl[k.id] = n; }
-    lisaaRyhma(sid, 'reflektiot per käyttäjä (raja 100)', 100, refl);
-    if (pelaajat) {
-      const ps = await S.collection('pelaajat').select().get(), kir = {}, hav = {};
-      for (const p of ps.docs) {
-        kir[p.id] = await luku(p.ref.collection('kirjaukset'));
-        hav[p.id] = await luku(p.ref.collection('havainnot').where('nakyvyys', '==', 'pelaaja'));
+    for (const m of V.MITTARIT) {
+      const nimi = V.mittarinNimi(m, alku);
+      if (m.tyyppi === 'alikokoelma_ryhma') {
+        const kayt = await S.collection(m.kokoelma).select().get(), kartta = {};
+        for (const k of kayt.docs) { const n = await luku(k.ref.collection(m.alikokoelma)); if (n) kartta[k.id] = n; }
+        lisaaRyhma(sid, nimi, m.raja, kartta);
+        continue;
       }
-      lisaaRyhma(sid, 'kirjaukset per pelaaja (Pelaaja-laskuri, raja 60)', 60, kir);
-      lisaaRyhma(sid, 'havainnot nakyvyys=pelaaja per pelaaja (raja 50)', 50, hav);
+      let q = S.collection(m.kokoelma);
+      V.mittarinEhto(m, alku).forEach((e) => { q = q.where(e[0], e[1], e[2]); });
+      if (m.tyyppi === 'maara') lisaa(sid, nimi, m.raja, await luku(q)); else lisaaRyhma(sid, nimi, m.raja, await ryhmittele(q, m.ryhmaKentta));
+    }
+    if (pelaajat) {
+      const ps = await S.collection('pelaajat').select().get(), kartat = V.PELAAJAMITTARIT.map(() => ({}));
+      for (const p of ps.docs) {
+        for (let i = 0; i < V.PELAAJAMITTARIT.length; i++) {
+          let q = p.ref.collection(V.PELAAJAMITTARIT[i].alikokoelma);
+          V.mittarinEhto(V.PELAAJAMITTARIT[i], alku).forEach((e) => { q = q.where(e[0], e[1], e[2]); });
+          kartat[i][p.id] = await luku(q);
+        }
+      }
+      V.PELAAJAMITTARIT.forEach((m, i) => lisaaRyhma(sid, m.nimi, m.raja, kartat[i]));
     }
   }
 

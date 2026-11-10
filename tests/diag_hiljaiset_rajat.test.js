@@ -39,13 +39,17 @@ describe('rekisteri vs. koodi', () => {
       });
     });
   });
-  it('jokaiselle LEIKKAA-mittarille on laskenta skriptissä (mittaa-avaimen aihe esiintyy mittausosassa)', () => {
+  it('jokaiselle LEIKKAA-mittarille on laskenta: mittaa-avaimen aihe esiintyy deklaratiivisessa mittaritaulukossa (lib/tm_valvonta.js MITTARIT/PELAAJAMITTARIT, PR 1) ja skripti ajaa taulukon', () => {
+    const V = require('../lib/tm_valvonta.js');
+    const kokoelmat = new Set(V.MITTARIT.map((m) => m.alikokoelma || m.kokoelma).concat(V.MITTARIT.map((m) => m.kokoelma), V.PELAAJAMITTARIT.map((m) => m.alikokoelma)));
     const avaimet = ['kalenteri', 'viestit', 'reflektiot', 'mentoroinnit', 'havainnot', 'harjoitusarvioinnit', 'ohjelmat', 'toimenpiteet', 'testitapahtumat', 'pelaajat', 'kirjaukset'];
     M.REKISTERI.forEach((t) => t.kohdat.filter((k) => k.luokka === 'LEIKKAA').forEach((k) => {
       const a = avaimet.find((x) => k.mittaa.indexOf(x) === 0);
       expect(a, k.mittaa).toBeTruthy();
-      expect(SRC.indexOf("collection('" + a + "')"), k.mittaa).toBeGreaterThan(SRC.indexOf('async function ajaMain'));
+      expect(kokoelmat.has(a), k.mittaa + ': ei mittaria kokoelmalle ' + a).toBe(true);
     }));
+    expect(SRC.indexOf('V.MITTARIT'), 'skripti ajaa mittaritaulukon').toBeGreaterThan(SRC.indexOf('async function ajaMain'));
+    expect(SRC.indexOf('V.PELAAJAMITTARIT')).toBeGreaterThan(SRC.indexOf('async function ajaMain'));
   });
 });
 
