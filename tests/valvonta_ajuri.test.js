@@ -67,20 +67,38 @@ describe('PR 2b: todelliset kenttämuodot ja luonnediagnostiikka', () => {
   function diag(env) { const r = spawnSync('node', ['-r', join(FIX, 'fake_admin.cjs'), DIAG, NYT, '--kaikki'], { cwd: ROOT, encoding: 'utf8', env: Object.assign({}, process.env, env || {}) }); return { ulos: r.stdout, virhe: r.stderr, status: r.status }; }
   it('FAKE_PR2B: alfan kalenteri/viestit/kooste/toimenpiteet antavat täsmälleen odotetut E1-luvut (0 väärää orpoa vanhentuneesta nimestä, "A · B"-nimestä tai seuratason tapahtumasta)', () => {
     const { ulos } = aja([], { FAKE_PR2B: '1' });
-    expect(rivi(ulos, 'E1a', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 608$/); expect(rivi(ulos, 'E1b', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 608$/);   // p7 toisen seuran, p4 haamu-id; p1/p2/p3/p5/p6 puhtaita
+    expect(rivi(ulos, 'E1a', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 609$/); expect(rivi(ulos, 'E1b', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 609$/);   // p7 toisen seuran, p4 haamu-id; p1/p2/p3/p5/p6 puhtaita
+    expect(rivi(ulos, 'E1c', 'alfa', 'kalenteri')).toMatch(/^WARN  E1c .* 1 \/ 609$/);   // kirjoitusasu 'Alfa-U13!' = WARN, ei ERROR
+    expect(rivi(ulos, 'E1b', 'alfa', 'kalenteri')).toMatch(/^WARN  E1b/);
     expect(rivi(ulos, 'E1a', 'alfa', 'viestit')).toMatch(/ 1 \/ 703$/); expect(rivi(ulos, 'E1b', 'alfa', 'viestit')).toMatch(/ 1 \/ 703$/);
     expect(rivi(ulos, 'E1a', 'alfa', 'kooste_joukkue')).toMatch(/ 1 \/ 3$/); expect(rivi(ulos, 'E1b', 'alfa', 'kooste_joukkue')).toMatch(/ 1 \/ 3$/);
     expect(rivi(ulos, 'E1a', 'alfa', 'mentoroinnit')).toBeUndefined(); expect(rivi(ulos, 'E1b', 'alfa', 'mentoroinnit')).toBeUndefined();
-    expect(rivi(ulos, 'E1a', 'alfa', 'toimenpiteet')).toBeDefined(); expect(ulos).toMatch(/kalenteri +6 +83\.3 %/);   // F1-populaatio: 6 joukkuetapahtumaa, 5:llä kenttä
+    expect(rivi(ulos, 'E1a', 'alfa', 'toimenpiteet')).toBeDefined(); expect(ulos).toMatch(/kalenteri +7 +85\.7 %/);   // F1-populaatio: 6 joukkuetapahtumaa, 5:llä kenttä
     expect(ulos).not.toMatch(/ K2 /);
   });
   it('diag_valvonta_luonne: E6-ryhmät ja orpojen luonne lukumäärinä; ei nimiä, tunnisteita eikä id:itä; vain luku', () => {
     const r = diag({ FAKE_PR2B: '1' }); expect(r.status, r.virhe).toBe(0);
     expect(r.ulos).toContain('## E6: samaa tunnistetta käyttävät pelaajadokumentit — ryhmiä 35'); expect(r.ulos).toMatch(/alfa:1 beta:1 delta:1 gamma:1 +ei +0 \/ 4 +0 \/ 4 +ei +numeerinen_muu +kyllä/);
     expect(r.ulos).toMatch(/yhteenveto: ryhmää, joissa KAIKKI dokumentit ovat §10-testipelaajia: 0 \/ 35/);
-    expect(r.ulos).toMatch(/alfa +kalenteri +1 +0 +0 +0 +1 +0/); expect(r.ulos).toMatch(/alfa +kooste_joukkue +1 +0 +0 +0 +1 +0/);
-    ['Kadonnut', 'Vieras', 'alfa_p', 'Alfa U13', 'roikkuva', 'Topias', 'm93GB', '1005'].forEach((k) => expect(r.ulos + r.virhe, k).not.toContain(k));
+    expect(r.ulos).toMatch(/alfa +kalenteri +2 +1 +0 +0 +1 +0/); expect(r.ulos).toMatch(/alfa +kooste_joukkue +1 +0 +0 +0 +1 +0/);
+    ['alfa_p', 'Topias', 'm93GB', '1005'].forEach((k) => expect(r.ulos + r.virhe, k).not.toContain(k));
     expect(readFileSync(DIAG, 'utf8')).toContain('admin.initializeApp({ projectId: projekti })'); expect(readFileSync(DIAG, 'utf8')).toContain('if (require.main !== module) throw');
+  });
+  it('PR 2c: paikallinen diagnostiikka näyttää orpo → lähin oma joukkue -parit (nimet vain tässä tulosteessa), K1-erittelyn ja kalenterin F1-erittelyn', () => {
+    const r = diag({ FAKE_PR2B: '1' }); expect(r.status, r.virhe).toBe(0);
+    expect(r.ulos).toContain('## E1b/E1c: orpo viite → lähin oma joukkue (PAIKALLINEN'); expect(r.ulos).toMatch(/alfa +kalenteri +1 +"Alfa-U13!" +"Alfa U13" +kirjoitusasu +0/);
+    expect(r.ulos).toMatch(/alfa +kalenteri +2 +"roikkuva_j9" +"alfa_j0" +etäisyys/);
+    expect(r.ulos).toContain('## K1-erittely'); expect(r.ulos).toMatch(/alfa +avoimia 60 · ryhmiä 5 · suurin 26/); expect(r.ulos).toContain('raaka-arvot "Alfa U12" ×26');
+    expect(r.ulos).toContain('## Kalenterin F1: harjoitukset/ottelut, joilta joukkueviite puuttuu (1 / 7)'); expect(r.ulos).toContain('  tyyppi: harjoitus 1'); expect(r.ulos).toContain('  kohde.tyyppi: joukkue 1');
+  });
+  it('PR 2c: --alias-luonnos tulostaa vain kirjoitusasu-parit JSON:ina (perustelu tyhjä → ei läpäise validointia ennen PM:n täyttöä)', () => {
+    const r = spawnSync('node', ['-r', join(FIX, 'fake_admin.cjs'), DIAG, NYT, '--kaikki', '--alias-luonnos'], { cwd: ROOT, encoding: 'utf8', env: Object.assign({}, process.env, { FAKE_PR2B: '1' }) });
+    const l = JSON.parse(r.stdout); expect(l).toEqual([{ seura: 'alfa', alias: 'Alfa-U13!', joukkue: 'alfa_j0', perustelu: '', paiva: '2026-11-10' }]);
+    expect(V.tmVAliasVirheet(l)).toEqual(['rivi 1: perustelu puuttuu']); expect(V.tmVAliasVirheet(l.map((x) => Object.assign(x, { perustelu: 'vanha kirjoitusasu, PM hyväksynyt' })))).toEqual([]);
+  });
+  it('aliaslista-tiedosto on kelvollinen eikä sisällä sähköpostia', () => {
+    const j = JSON.parse(readFileSync(join(ROOT, 'functions/valvonta_aliakset.json'), 'utf8')); expect(j.versio).toBe(1); expect(V.tmVAliasVirheet(j.rivit)).toEqual([]);
+    expect(require('../lib/tm_valvonta_raportti.js').tmVOnkoPii(j, []).ok).toBe(true);
   });
   it('sallittujen lista: KPV:n 12 kuitattua/hylättyä vierasta ehdotusta (9.11. seuranvaihtovika), perustelu ja päivä mukana; yli 12 hälyttää uudelleen', () => {
     const j = JSON.parse(readFileSync(join(ROOT, 'functions/valvonta_sallitut.json'), 'utf8'));

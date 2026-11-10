@@ -6,7 +6,7 @@
    TARKISTUKSET  · tmVTarkistaSeura(syote) → [{seura,koodi,kokoelma,lkm,kokonais,taso}]   · tmVTarkistaGlobaali(indeksit, auditRivit, nytMs)   · tmVIndeksit(seurat)
    KYNNYS        · tmVKynnys(koodi, luku, raja?, kokonais?) → 'ok'|'varoitus'|'virhe'   · tmVKasvuTaso(nyt, edellinen, ennen)   · tmVTila(maara, raja)
    MITTARIT      · MITTARIT / PELAAJAMITTARIT (deklaratiivinen H1/H2-lista {nimi,tyyppi,kokoelma,ehto,raja}) — diag_hiljaiset_rajat.js ajaa ne
-   Koodit: E1a toisen seuran joukkue · E1b orpo joukkue · E2 sama pelaaja-id usealla seuralla (aktiivinen/arkistoitu E2b) · E3 seuraId≠polku · E4 osittainen pelaajadoc · E5 kuittauksen uid (toisen seuran / E5b ei missään)
+   Koodit: E1a toisen seuran joukkue · E1b orpo joukkue · E1c orpo joukkue, joka on oman joukkueen kirjoitusasu (varoitus; aliaslista tekee siitä ok) · E2 sama pelaaja-id usealla seuralla (aktiivinen/arkistoitu E2b) · E3 seuraId≠polku · E4 osittainen pelaajadoc · E5 kuittauksen uid (toisen seuran / E5b ei missään)
            E6 PalloID-törmäys · E7 audit-estot 7 pv · H1 hiljainen raja · K1 avoimia ehdotuksia/joukkue (K2 poistui PR 2b:ssä: VP:n avoimet ehdotukset eivät ole enää rajattuja, #1242) · K3 kasvu · M1 dokumenttikoko · M2 orpo pelaajaviite
            F1 KENTTÄVAHTI (PR 2): kokoelmassa on dokumentteja, mutta alle 50 %:lla on yhtään oletetuista joukkuekentistä → VAROITUS (ei hiljaista nollaa; E1 voisi muuten näyttää 0, vaikka kenttä on arvattu väärin) */
 (function (root) {
@@ -47,6 +47,7 @@
     var n = normJoukkue(viite);
     if (!n || n === 'tuntematon' || n === '—') return 'tyhja';
     if (ctx.omatNimet.has(n) || ctx.omatIdt.has(String(viite)) || ctx.omatIdt.has(n)) return 'oma';
+    if (ctx.aliakset && ctx.aliakset.indexOf(n) >= 0) return 'oma';   // seurakohtainen aliaslista (functions/valvonta_aliakset.json)
     if (onMuussa(haeSetti(ctx.nimiSeurat, n), ctx.sid) || onMuussa(haeSetti(ctx.idSeurat, String(viite)), ctx.sid)) return 'toisen_seuran';
     return 'orpo';
   }
@@ -96,7 +97,7 @@
 
   /* ── Kynnykset (P4, VAIHE0 §3.2) ── */
   var KYNNYS = {   // absoluuttinen luku → taso: [varoitus-alaraja, virhe-alaraja] (null = ei kyseistä tasoa)
-    E1a: [null, 1], E1b: [1, null], E2: [null, 1], E2b: [1, null], E3: [null, 1], E4: [1, null], E5: [null, 1], E5b: [1, null], E6: [null, 1], E7: [1, null], K1: [7, 12], M2: [1, null] };
+    E1a: [null, 1], E1b: [1, null], E1c: [1, null], E2: [null, 1], E2b: [1, null], E3: [null, 1], E4: [1, null], E5: [null, 1], E5b: [1, null], E6: [null, 1], E7: [1, null], K1: [7, 12], M2: [1, null] };
   var OSUUSKYNNYS = { H1: [0.7, 1], M1: [0.7, 0.9] };   // luku/raja → [varoitus, virhe]
   var KENTTAVAHTI_RAJA = 50;   // F1: alle 50 % dokumenteista sisältää oletetun joukkuekentän → varoitus
   var E1B_MASSA = 0.1;   // E1b: yli 10 % seuran dokumenteista kokoelmassa → virhe
@@ -151,20 +152,31 @@
     });
     return { p: p, t: t };
   }
-  function viiteluokat(kok, d, ctx) { var v = viitteet(kok, d); return (v.p.length ? v.p : v.t).map(function (x) { return tmVJoukkueviite(x, ctx); }); }
+  function viiteluokat(kok, d, ctx) {
+    var v = viitteet(kok, d);
+    return (v.p.length ? v.p : v.t).map(function (x) { var l = tmVJoukkueviite(x, ctx); return l === 'orpo' && ctx.omatAvaimet && ctx.omatAvaimet.indexOf(nimiAvain(x)) >= 0 && nimiAvain(x) ? 'kirjoitusasu' : l; });   // kirjoitusasu = sama joukkue kirjoitettuna eri tavalla (E1c, varoitus)
+  }
+  function omatAvaimet(joukkueet) { var a = []; arr(joukkueet).forEach(function (j) { a.push(nimiAvain(j.nimi || j.id), nimiAvain(j.id)); }); return a.filter(Boolean); }
+  function nimiIdKartta(joukkueet) { var k = tyhja(); arr(joukkueet).forEach(function (j) { k[normJoukkue(j.nimi || j.id)] = String(j.id); }); return k; }
+  /** K1-ryhmän avain: oman joukkueen id ja nimi (myös kirjoitusasuvariantti) ovat sama ryhmä; muut normalisoituna merkkijonona. */
+  function k1Avain(v, ctx) {
+    var n = normJoukkue(v), id = ctx.omatIdt.has(String(v)) ? String(v) : (ctx.nimiId[n] || null);
+    if (!id && ctx.omatAvaimet.indexOf(nimiAvain(v)) >= 0 && nimiAvain(v)) { arr(ctx.joukkueetLista).forEach(function (j) { if (nimiAvain(j.nimi || j.id) === nimiAvain(v) || nimiAvain(j.id) === nimiAvain(v)) id = String(j.id); }); }
+    return id ? 'id:' + id : n;
+  }
   /** Seurakohtaiset tarkistukset. syote: { sid, joukkueet:[{id,nimi}], kokoelmat:{ nimi: [doc+_id] }, kayttajat:Set(uid), indeksit } → rivit (myös lkm 0, jotta "edellinen" säilyy). */
   function tmVTarkistaSeura(syote) {
     var sid = syote.sid, K = syote.kokoelmat || {}, I = syote.indeksit || tmVIndeksit([]), out = [];
     var omatNimet = new Set(arr(syote.joukkueet).map(function (j) { return normJoukkue(j.nimi || j.id); })), omatIdt = new Set(arr(syote.joukkueet).map(function (j) { return String(j.id); }));
-    var ctx = { sid: sid, omatNimet: omatNimet, omatIdt: omatIdt, nimiSeurat: I.nimiSeurat, idSeurat: I.idSeurat };
+    var ctx = { sid: sid, omatNimet: omatNimet, omatIdt: omatIdt, nimiSeurat: I.nimiSeurat, idSeurat: I.idSeurat, aliakset: tmVAliakset(syote.aliasRivit, sid, syote.joukkueet), omatAvaimet: omatAvaimet(syote.joukkueet), nimiId: nimiIdKartta(syote.joukkueet), joukkueetLista: arr(syote.joukkueet) };
     Object.keys(VIITEKENTAT).forEach(function (kok) {   // E1a / E1b
-      var docs = arr(K[kok]), a = 0, b = 0;
+      var docs = arr(K[kok]), a = 0, b = 0, c = 0;
       docs.forEach(function (d) {
         if (kok === 'toimenpiteet' && d.tila === 'korvattu') return;   // korvattu ehdotus on historiaa, ei elävä viite
         var luokat = viiteluokat(kok, d, ctx);
-        if (luokat.indexOf('toisen_seuran') >= 0) a++; else if (luokat.indexOf('orpo') >= 0) b++;
+        if (luokat.indexOf('toisen_seuran') >= 0) a++; else if (luokat.indexOf('orpo') >= 0) b++; else if (luokat.indexOf('kirjoitusasu') >= 0) c++;
       });
-      if (K[kok]) { out.push(rivi(sid, 'E1a', kok, a, docs.length)); out.push(rivi(sid, 'E1b', kok, b, docs.length)); }
+      if (K[kok]) { out.push(rivi(sid, 'E1a', kok, a, docs.length)); out.push(rivi(sid, 'E1b', kok, b, docs.length)); out.push(rivi(sid, 'E1c', kok, c, docs.length)); }
       var f1 = tmVKenttavahti(sid, kok, docs); if (f1) out.push(f1);
     });
     SEURAID_KOKOELMAT.forEach(function (kok) {   // E3
@@ -185,7 +197,7 @@
     }
     if (K.toimenpiteet) {   // K1: avoimet ehdotukset joukkueittain
       var ryhmat = {}, yht = 0;
-      K.toimenpiteet.forEach(function (t) { if (t.tila !== 'ehdotus') return; yht++; var n = normJoukkue(t.joukkue); ryhmat[n] = (ryhmat[n] || 0) + 1; });
+      K.toimenpiteet.forEach(function (t) { if (t.tila !== 'ehdotus') return; yht++; var n = k1Avain(t.joukkue, ctx); ryhmat[n] = (ryhmat[n] || 0) + 1; });
       out.push(rivi(sid, 'K1', 'toimenpiteet', Object.keys(ryhmat).reduce(function (a, k) { return Math.max(a, ryhmat[k]); }, 0), yht));
     }
     return out;
@@ -258,12 +270,22 @@
     });
     return ulos;
   }
+  /** SISÄINEN (vain paikallisiin diagnostiikkaskripteihin, ei raportteihin): samaa tunnistetta käyttävät pelaajadokumentit jäseninä { sid, pid, nimi (normalisoitu), aktiivinen }. */
+  function tmVE6Jasenet(seurat) {
+    var kartta = tyhja(), ulos = [];
+    arr(seurat).forEach(function (s) { arr((s.kokoelmat || {}).pelaajat).forEach(function (p) {
+      var t = p.tunniste != null && p.tunniste !== '' ? p.tunniste : (p.palloId != null && p.palloId !== '' ? p.palloId : p.palloID); if (t == null || t === '') return;
+      (kartta[String(t)] = kartta[String(t)] || []).push({ sid: s.sid, pid: String(p._id), nimi: nimiAvain(p.nimi || ((p.etunimi || '') + ' ' + (p.sukunimi || ''))), aktiivinen: onAktiivinen(p) });
+    }); });
+    Object.keys(kartta).sort().forEach(function (t) { var m = kartta[t], pidit = []; m.forEach(function (x) { if (pidit.indexOf(x.pid) < 0) pidit.push(x.pid); }); if (pidit.length >= 2) ulos.push({ tunniste: t, jasenet: m }); });
+    return ulos;
+  }
   var AVAINSANAT = ['kokoseura', 'koko', 'kaikki', 'seura', 'all', 'muu', 'henkilokunta', 'valmennus', 'valmentajat'];
   /** Orpojen viitteiden (E1b) luonne seurassa: { seura, kokoelma, orpoja, luokat:{kirjoitusasu, osittainen, avainsana, id_muotoinen, muu} } (dokumentteja per luokka). Ei arvoja. */
-  function tmVOrpojenLuonne(sid, kok, docs, joukkueet, indeksit) {
+  function tmVOrpojenLuonne(sid, kok, docs, joukkueet, indeksit, aliasRivit) {
     var I = indeksit || tmVIndeksit([]), omat = arr(joukkueet), omatAvaimet = [];
     omat.forEach(function (j) { omatAvaimet.push(nimiAvain(j.nimi || j.id), nimiAvain(j.id)); });
-    var ctx = { sid: sid, omatNimet: new Set(omat.map(function (j) { return normJoukkue(j.nimi || j.id); })), omatIdt: new Set(omat.map(function (j) { return String(j.id); })), nimiSeurat: I.nimiSeurat, idSeurat: I.idSeurat };
+    var ctx = { sid: sid, omatNimet: new Set(omat.map(function (j) { return normJoukkue(j.nimi || j.id); })), omatIdt: new Set(omat.map(function (j) { return String(j.id); })), nimiSeurat: I.nimiSeurat, idSeurat: I.idSeurat, aliakset: tmVAliakset(aliasRivit, sid, joukkueet) };
     var luokat = { kirjoitusasu: 0, osittainen: 0, avainsana: 0, id_muotoinen: 0, muu: 0 }, orpoja = 0;
     arr(docs).forEach(function (d) {
       if (kok === 'toimenpiteet' && d.tila === 'korvattu') return;
@@ -280,8 +302,30 @@
     return { seura: sid, kokoelma: kok, orpoja: orpoja, luokat: luokat };
   }
 
+  /* ── Aliaslista (PR 2c): seurakohtainen { seura, alias, joukkue (joukkueen id), perustelu, paiva }; aliaksella löytyvä viite on 'oma'. Kasvaa vain PR:llä, jonka PM hyväksyy. ── */
+  /** Lista → virheilmoitukset (tyhjä = kelvollinen). Alias: 1–80 merkkiä, ei sähköpostia; joukkue: id; perustelu ≥ 10 merkkiä; paiva YYYY-MM-DD; ei kaksoiskappaleita (seura + normalisoitu alias). */
+  function tmVAliasVirheet(rivit) {
+    var virheet = [], nahty = {};
+    arr(rivit).forEach(function (r, i) {
+      var p = 'rivi ' + (i + 1) + ': ';
+      if (!r || typeof r !== 'object') { virheet.push(p + 'ei olio'); return; }
+      if (!/^[a-z0-9_-]{1,40}$/.test(String(r.seura))) virheet.push(p + 'seura');
+      if (typeof r.alias !== 'string' || !r.alias.trim() || r.alias.length > 80 || r.alias.indexOf('@') >= 0) virheet.push(p + 'alias');
+      if (typeof r.joukkue !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(r.joukkue)) virheet.push(p + 'joukkue');
+      if (typeof r.perustelu !== 'string' || r.perustelu.trim().length < 10) virheet.push(p + 'perustelu puuttuu');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.paiva)) || isNaN(Date.parse(r.paiva))) virheet.push(p + 'paiva');
+      var a = r.seura + '|' + normJoukkue(r.alias); if (nahty[a]) virheet.push(p + 'kaksoiskappale'); nahty[a] = 1;
+    });
+    return virheet;
+  }
+  /** Seuran voimassa olevat aliakset (normJoukkue-muodossa): vain ne, joiden kohdejoukkue on olemassa seurassa (poistetun joukkueen alias ei piilota orpoa). */
+  function tmVAliakset(rivit, sid, joukkueet) {
+    var idt = arr(joukkueet).map(function (j) { return String(j.id); });
+    return arr(rivit).filter(function (r) { return r && r.seura === sid && idt.indexOf(String(r.joukkue)) >= 0; }).map(function (r) { return normJoukkue(r.alias); });
+  }
+
   /* ── Sallittujen lista (P11): { seura, koodi, kokoelma, enimmaismaara, perustelu, paiva }; lista kasvaa vain PR:llä, jonka PM hyväksyy ── */
-  var SALLITTU_SEURA_RE = /^[a-z0-9_-]{1,40}$/, SALLITTU_KOODI_RE = /^[EFHKM]\d[ab]?$/, SALLITTU_KOK_RE = /^[a-z_]{1,40}$/;
+  var SALLITTU_SEURA_RE = /^[a-z0-9_-]{1,40}$/, SALLITTU_KOODI_RE = /^[EFHKM]\d[a-c]?$/, SALLITTU_KOK_RE = /^[a-z_]{1,40}$/;
   /** Lista → virheilmoitukset (tyhjä taulukko = kelvollinen). Jokaisella rivillä pitää olla perustelu (≥ 10 merkkiä) ja päivä (YYYY-MM-DD). */
   function tmVSallitutVirheet(rivit) {
     var virheet = [], nahty = {};
@@ -313,7 +357,7 @@
     var seurat = arr(syote.seurat), ohi = syote.ohitetut || OHITETUT_SEURAT;
     var I = tmVIndeksit(seurat.map(function (s) { return { sid: s.sid, joukkueet: s.joukkueet, pelaajat: (s.kokoelmat || {}).pelaajat, kayttajat: s.kayttajat }; }));
     var out = [];
-    seurat.forEach(function (s) { if (ohi.indexOf(s.sid) < 0) out = out.concat(tmVTarkistaSeura({ sid: s.sid, joukkueet: s.joukkueet, kokoelmat: s.kokoelmat, kayttajat: new Set(arr(s.kayttajat)), indeksit: I })); });
+    seurat.forEach(function (s) { if (ohi.indexOf(s.sid) < 0) out = out.concat(tmVTarkistaSeura({ sid: s.sid, joukkueet: s.joukkueet, kokoelmat: s.kokoelmat, kayttajat: new Set(arr(s.kayttajat)), indeksit: I, aliasRivit: syote.aliakset })); });
     out = out.concat(tmVTarkistaGlobaali(I, syote.auditRivit, syote.nytMs).filter(function (r) { return ohi.indexOf(r.seura) < 0; }));
     return syote.sallitut ? tmVSovellaSallitut(out, syote.sallitut) : out;
   }
@@ -322,6 +366,6 @@
     ohitetaanko: ohitetaanko, normJoukkue: normJoukkue, onVieras: onVieras, onNimi: onNimi, onSyntyma: onSyntyma, onOsittainen: onOsittainen, onAktiivinen: onAktiivinen, vieraatViitteet: vieraatViitteet,
     onToisenSeuranNimi: onToisenSeuranNimi, kuittausVieras: kuittausVieras, ryhmaYhteenveto: ryhmaYhteenveto, ikkunanAlku: ikkunanAlku, mittarinEhto: mittarinEhto, mittarinNimi: mittarinNimi,
     tmVTila: tmVTila, tmVJoukkueviite: tmVJoukkueviite, tmVKynnys: tmVKynnys, tmVKasvuTaso: tmVKasvuTaso, tmVKasvuLuvut: tmVKasvuLuvut, tmVIndeksit: tmVIndeksit, tmVTarkistaSeura: tmVTarkistaSeura, tmVTarkistaGlobaali: tmVTarkistaGlobaali,
-    tmVKenttavahti: tmVKenttavahti, tmVE6Luonne: tmVE6Luonne, tmVOrpojenLuonne: tmVOrpojenLuonne, viitteet: viitteet, tmVJoukkuekentat: tmVJoukkuekentat, tmVSallitutVirheet: tmVSallitutVirheet, tmVSovellaSallitut: tmVSovellaSallitut, tmVAjaKaikki: tmVAjaKaikki, KENTTAVAHTI_RAJA: KENTTAVAHTI_RAJA };
+    tmVKenttavahti: tmVKenttavahti, F1_POPULAATIO: F1_POPULAATIO, tmVE6Luonne: tmVE6Luonne, tmVE6Jasenet: tmVE6Jasenet, tmVOnTestiarvo: onTestiarvo, tmVAliasVirheet: tmVAliasVirheet, tmVAliakset: tmVAliakset, nimiAvain: nimiAvain, tmVOrpojenLuonne: tmVOrpojenLuonne, viitteet: viitteet, tmVJoukkuekentat: tmVJoukkuekentat, tmVSallitutVirheet: tmVSallitutVirheet, tmVSovellaSallitut: tmVSovellaSallitut, tmVAjaKaikki: tmVAjaKaikki, KENTTAVAHTI_RAJA: KENTTAVAHTI_RAJA };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.TM_VALVONTA = API;
 })(typeof window !== 'undefined' ? window : this);

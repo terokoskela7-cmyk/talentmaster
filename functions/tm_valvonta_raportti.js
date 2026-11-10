@@ -7,7 +7,7 @@
    · tmVOnkoPii(kohde, kielletyt) → { ok, rikkomukset:[{tyyppi}] }  (rikkomus ei koskaan sisällä löydettyä arvoa)   · tmVTurvallinenVirhe(e) → { koodi }   · tmVRiviTeksti(r) */
 (function (root) {
   'use strict';
-  var SEURA_RE = /^[a-z0-9_-]{1,40}$/, KOODI_RE = /^[EFHKM]\d[ab]?$/, KOKOELMA_RE = /^[a-z_]{1,40}$/, TASOT = ['ok', 'varoitus', 'virhe'];
+  var SEURA_RE = /^[a-z0-9_-]{1,40}$/, KOODI_RE = /^[EFHKM]\d[a-c]?$/, KOKOELMA_RE = /^[a-z_]{1,40}$/, TASOT = ['ok', 'varoitus', 'virhe'];
   var SEVERITY = { ok: 'info', varoitus: 'warn', virhe: 'alert' }, JARJESTYS = { ok: 0, varoitus: 1, virhe: 2 };
   function arr(v) { return Array.isArray(v) ? v : []; }
   function avain(r) { return r.seura + '|' + r.koodi + '|' + r.kokoelma; }

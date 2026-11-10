@@ -23,6 +23,11 @@ function sallitut() {
   if (virheet.length) throw new Error('functions/valvonta_sallitut.json virheellinen: ' + virheet.join('; '));
   return j.rivit;
 }
+function aliakset() {
+  const j = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'functions', 'valvonta_aliakset.json'), 'utf8')), virheet = V.tmVAliasVirheet(j.rivit);
+  if (virheet.length) throw new Error('functions/valvonta_aliakset.json virheellinen: ' + virheet.join('; '));
+  return j.rivit;
+}
 const MERKKI = { virhe: 'ERROR', varoitus: 'WARN ', ok: 'INFO ' };
 const pad = (s, n) => String(s).padEnd(n), lpad = (s, n) => String(s).padStart(n);
 
@@ -76,7 +81,7 @@ async function ajaMain() {
   admin.initializeApp({ projectId: projekti });
   const t0 = Date.now(), aineisto = await L.kerayAineisto(admin.firestore(), { nytMs });
   const ohitetut = lippu('kaikki') ? [] : V.OHITETUT_SEURAT;
-  const tulokset = V.tmVAjaKaikki({ seurat: aineisto.seurat, auditRivit: aineisto.auditRivit, nytMs, ohitetut, sallitut: lippu('raaka') ? null : sallitut() });
+  const tulokset = V.tmVAjaKaikki({ seurat: aineisto.seurat, auditRivit: aineisto.auditRivit, nytMs, ohitetut, sallitut: lippu('raaka') ? null : sallitut(), aliakset: aliakset() });
   const ulos = lippu('sallitut-luonnos') ? luonnos(tulokset, nytMs) : muotoile(aineisto, tulokset, { ohitetut, projekti });
   const pii = R.tmVOnkoPii(ulos, []);   // viimeinen vartija: tuloste ei saa sisältää sähköpostiosoitetta
   if (!pii.ok) throw new Error('tuloste hylätty: PII-vartija (' + pii.rikkomukset.map((r) => r.tyyppi).join(',') + ')');
