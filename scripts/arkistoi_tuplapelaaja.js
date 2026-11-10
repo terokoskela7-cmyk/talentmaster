@@ -8,6 +8,8 @@
  * EI POISTOA. Mitään muuta ei kosketa; arkistoitu dokumentti ei ole enää aktiivinen (valvonta: onAktiivinen).
  * HUOM: valvonnan E6 (tmVTarkistaGlobaali) laskee TÄLLÄ HETKELLÄ myös arkistoidut dokumentit törmäykseen → E6-rivi ei nollaudu arkistoinnilla ennen kuin E6 rajataan aktiivisiin (erillinen päätös).
  *
+ * RYHMITTELY: JAETTU diag_e6_vertailu.js:n kanssa (e6_datamaara.ryhmittele): sama seura + sama normalisoitu nimi + sama tunniste, vain aktiiviset.
+ * TERVEYS-ESTO: jos B:n terveys/-alikokoelmassa on count() > 0 → EI kirjoiteta (raportoidaan vain lukuna; sisältöä ei lueta).
  * EHDOKAS (kaikki ehdot):  ryhmässä täsmälleen 2 dokumenttia · molemmat aktiivisia · sama normalisoitu nimi · ei KPV:n §10-testipelaajaa (niille on korjaa_testitunniste.js)
  *   · A:lla > 0 ja B:llä 0 alikokoelmadokumenttia. Epäselvät ryhmät (muu koko, eri nimi, molemmilla dataa, ei kumallakaan dataa) raportoidaan lukuna eikä niihin kosketa.
  * KIRJOITUS: vain jos ehdokkaita on TÄSMÄLLEEN 1 (muuten ei kirjoiteta, vaikka --aja). Ennen kirjoitusta B:n alikokoelmat luetaan UUDELLEEN ja transaktiossa varmistetaan,
@@ -19,10 +21,9 @@
 const path = require('path');
 const V = require(path.join(__dirname, '..', 'lib', 'tm_valvonta.js'));
 const R = require(path.join(__dirname, '..', 'lib', 'tm_valvonta_raportti.js'));
-const KENTAT = ['tunniste', 'palloId', 'palloID'];
+const D = require(path.join(__dirname, 'e6_datamaara.js'));   // JAETTU laskenta diag_e6_vertailu.js:n kanssa
 const turva = (m) => Object.assign(new Error(m), { turva: true });
-const tunnisteArvo = (d) => { for (const k of KENTAT) if (d && d[k] != null && d[k] !== '') return String(d[k]); return null; };
-const nimiAvain = (d) => V.nimiAvain((d && d.nimi) || (((d && d.etunimi) || '') + ' ' + ((d && d.sukunimi) || '')));
+const { tunnisteArvo, nimiAvain } = D;
 const aktiivinen = (d) => V.onAktiivinen(d || {});
 
 /** Lukee pelaajat (vain tarvittavat kentät) → [{ sid, pid, d }]. */
@@ -34,26 +35,22 @@ async function lue(db) {
   }
   return ulos;
 }
-/** Alikokoelmadokumenttien lukumäärä yhdelle pelaajalle (kaikki alikokoelmat). */
-async function alikokoelmat(db, sid, pid) {
-  const ref = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), kols = await ref.listCollections();
-  let yht = 0; for (const k of kols) yht += (await k.select().get()).size;
-  return yht;
-}
+/** Pelaajan dokumenttimäärä (alikokoelmat + testitapahtumat/TID/tulokset/PID) — sama laskenta kuin diag_e6_vertailu.js (e6_datamaara.js). */
+async function alikokoelmat(db, sid, pid, valimuisti) { return (await D.datamaara(db, sid, pid, valimuisti)).yht; }
 /** Suunnitelman puhdas ydin: ryhmat = E6-ryhmät [{ jasenet:[{sid,pid,d,alikok}] }]; testi(pid,d) → bool. → { ehdokkaat:[{A,B}], epaselvat:{muuKoko, eriNimi, testipelaaja, eiAktiivisia, ilmanEroa} } */
 function suunnittele(ryhmat, testi) {
-  const ehdokkaat = [], ep = { muuKoko: 0, eriNimi: 0, testipelaaja: 0, eiAktiivisia: 0, ilmanEroa: 0 };
+  const ehdokkaat = [], erittelyt = [], ep = { muuKoko: 0, eriNimi: 0, testipelaaja: 0, eiAktiivisia: 0, ilmanEroa: 0 };
   ryhmat.forEach((r) => {
-    const j = r.jasenet;
-    if (j.length !== 2) { ep.muuKoko++; return; }
-    if (!j.every((x) => aktiivinen(x.d))) { ep.eiAktiivisia++; return; }
-    if (j.some((x) => testi && testi(x.pid, x.d))) { ep.testipelaaja++; return; }
-    const n0 = nimiAvain(j[0].d); if (!n0 || n0 !== nimiAvain(j[1].d)) { ep.eriNimi++; return; }
+    const j = r.jasenet, erit = (tulos) => erittelyt.push({ tulos, jasenet: j.slice().sort((a, b) => b.alikok - a.alikok) });
+    if (j.length !== 2) { ep.muuKoko++; erit('muu ryhmäkoko'); return; }
+    if (!j.every((x) => aktiivinen(x.d))) { ep.eiAktiivisia++; erit('ei-aktiivinen'); return; }
+    if (j.some((x) => testi && testi(x.pid, x.d))) { ep.testipelaaja++; erit('§10-testipelaaja'); return; }
+    const n0 = nimiAvain(j[0].d); if (!n0 || n0 !== nimiAvain(j[1].d)) { ep.eriNimi++; erit('eri nimi'); return; }
     const sorted = j.slice().sort((a, b) => b.alikok - a.alikok), A = sorted[0], B = sorted[1];
-    if (!(A.alikok > 0 && B.alikok === 0)) { ep.ilmanEroa++; return; }
-    ehdokkaat.push({ A, B });
+    if (!(A.alikok > 0 && B.alikok === 0)) { ep.ilmanEroa++; erit('ei dataeroa'); return; }
+    erit('ehdokas'); ehdokkaat.push({ A, B });
   });
-  return { ehdokkaat, epaselvat: ep };
+  return { ehdokkaat, erittelyt, epaselvat: ep };
 }
 async function kutsuLuvut(db, sid, pid) {
   const k = (await db.collection('seurat').doc(sid).collection('kutsut').where('pelaajaId', '==', pid).get()).size;
@@ -62,12 +59,10 @@ async function kutsuLuvut(db, sid, pid) {
   return { kutsut: k, huoltajakutsut: h, pin: p };
 }
 async function ryhmat(db, pelaajat) {
-  const kartta = {};
-  pelaajat.forEach((p) => { const t = tunnisteArvo(p.d); if (t != null && aktiivinen(p.d)) (kartta[t] = kartta[t] || []).push(p); });
-  const ulos = [];
-  for (const t of Object.keys(kartta).sort()) {
-    if (kartta[t].length < 2) continue;
-    const jasenet = []; for (const p of kartta[t]) jasenet.push({ sid: p.sid, pid: p.pid, d: p.d, alikok: await alikokoelmat(db, p.sid, p.pid), tunniste: t });
+  const valimuisti = {}, ulos = [];
+  for (const g of D.ryhmittele(pelaajat)) {
+    const jasenet = [];
+    for (const m of g.jasenet) { const dm = await D.datamaara(db, m.sid, m.pid, valimuisti); jasenet.push({ sid: m.sid, pid: m.pid, d: m.d, alikok: dm.yht, alik: dm.alik, terveys: await D.terveysLkm(db, m.sid, m.pid), tunniste: m.tunniste }); }
     ulos.push({ jasenet });
   }
   return ulos;
@@ -76,6 +71,8 @@ async function ryhmat(db, pelaajat) {
 async function kirjoita(db, FV, e) {
   const nyt = await alikokoelmat(db, e.B.sid, e.B.pid);
   if (nyt !== 0) throw turva('B:ssä on nyt ' + nyt + ' alikokoelmadokumenttia — ei kirjoiteta');
+  const th = await D.terveysLkm(db, e.B.sid, e.B.pid);
+  if (th > 0) throw turva('B:llä on terveys-dokumentteja (' + th + ') — ei kirjoiteta');
   const ref = db.collection('seurat').doc(e.B.sid).collection('pelaajat').doc(e.B.pid);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref); if (!snap.exists) throw turva('dokumenttia ei enää ole');
@@ -94,6 +91,12 @@ function raportti(s, aja, kirjoitettu, kutsut) {
       + (kutsut && kutsut[i] ? ' · B:n kutsuja ' + kutsut[i].kutsut + ', huoltajakutsuja ' + kutsut[i].huoltajakutsut + ', PIN-linkkejä ' + kutsut[i].pin : ''));
   });
   if (!s.ehdokkaat.length) r.push('  (ei arkistoitavaa)');
+  const nm = (k) => (/^[A-Za-z0-9_*\/]{1,40}$/.test(k) ? k : '(muu)');
+  (s.erittelyt || []).forEach((g, i) => {
+    r.push('  ryhmä ' + (i + 1) + ' [' + g.tulos + ']:');
+    g.jasenet.forEach((m, j) => r.push('    ' + String.fromCharCode(65 + j) + ' (seura ' + m.sid + '): yht. ' + m.alikok + ' · ' + (Object.keys(m.alik || {}).sort().map((k) => nm(k) + ' ' + m.alik[k]).join(', ') || '(ei alikokoelmia)') + ' · terveys ' + (m.terveys == null ? '?' : m.terveys)));
+  });
+  if (s.ehdokkaat.some((c) => c.B.terveys > 0)) r.push('HUOM: B:llä on terveys-dokumentteja → --aja ei kirjoita (terveys-esto).');
   if (s.ehdokkaat.length > 1) r.push('HUOM: ehdokkaita > 1 → --aja ei kirjoita mitään (tarkista ryhmät ensin).');
   if (kirjoitettu != null) r.push('arkistoitu ' + kirjoitettu + ' dokumenttia');
   return r.join('\n') + '\n';
@@ -106,11 +109,11 @@ async function ajaMain() {
   const pel = await lue(db), rr = await ryhmat(db, pel), s = suunnittele(rr, K.onTestipelaaja); s.ryhmia = rr.length;
   const kutsut = []; for (const c of s.ehdokkaat) kutsut.push(await kutsuLuvut(db, c.B.sid, c.B.pid));
   let kirjoitettu = null;
-  if (aja && s.ehdokkaat.length === 1) { await kirjoita(db, admin.firestore.FieldValue, s.ehdokkaat[0]); kirjoitettu = 1; }
+  if (aja && s.ehdokkaat.length === 1 && !(s.ehdokkaat[0].B.terveys > 0)) { await kirjoita(db, admin.firestore.FieldValue, s.ehdokkaat[0]); kirjoitettu = 1; }
   else if (aja) kirjoitettu = 0;
   const ulos = raportti(s, aja, kirjoitettu, kutsut), pii = R.tmVOnkoPii(ulos, []);
   if (!pii.ok) throw turva('tuloste hylätty: PII-vartija');
   process.stdout.write(ulos);
 }
-module.exports = { suunnittele, kirjoita, raportti, alikokoelmat, tunnisteArvo };
+module.exports = { suunnittele, kirjoita, raportti, alikokoelmat, ryhmat, tunnisteArvo };
 if (require.main === module) ajaMain().catch((e) => { console.error('Virhe: ' + (e && e.turva ? e.message : R.tmVTurvallinenVirhe(e).koodi)); process.exit(2); });

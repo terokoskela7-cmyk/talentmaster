@@ -7,7 +7,7 @@ function luo(store) {
     const docs = () => Object.keys(store[path] || {}).filter((id) => filt.every((f) => (store[path][id])[f[0]] === f[2])).sort().map((id) => snap(path, id));
     return { where: (a, b, c) => query(path, filt.concat([[a, b, c]])), select: () => query(path, filt), get: async () => ({ docs: docs(), size: docs().length }) };
   };
-  const ref = (path, id) => ({ id, path: path + '/' + id, get: async () => snap(path, id), collection: (k) => query(path + '/' + id + '/' + k, []), update: async (u) => { kirjoitukset.push({ polku: path + '/' + id, kentat: Object.keys(u) }); Object.assign(store[path][id], u); } });
+  const ref = (path, id) => ({ id, path: path + '/' + id, get: async () => snap(path, id), collection: (k) => query(path + '/' + id + '/' + k, []), listCollections: async () => { const pre = path + '/' + id + '/'; return Array.from(new Set(Object.keys(store).filter((k) => k.indexOf(pre) === 0).map((k) => k.slice(pre.length).split('/')[0]))).map((n) => Object.assign({ id: n }, query(pre + n, []))); }, update: async (u) => { kirjoitukset.push({ polku: path + '/' + id, kentat: Object.keys(u) }); Object.assign(store[path][id], u); } });
   const db = {
     kirjoitukset, store,
     collection: (p) => Object.assign(query(p, []), { doc: (id) => Object.assign(ref(p, id), { collection: (k) => Object.assign(query(p + '/' + id + '/' + k, []), { doc: (i2) => ref(p + '/' + id + '/' + k, i2) }) }) }),
