@@ -189,3 +189,78 @@ describe('P10, mittaritaulukko ja siirretyt apurit', () => {
     expect(() => aja(ss, { a: { toimenpiteet: [{ _id: '1', joukkue: 'constructor' }, { _id: '2', joukkue: 'toString' }] } })).not.toThrow();
   });
 });
+
+describe('F1 kenttävahti (PR 2): ei hiljaista nollaa, kun oletettu joukkuekenttä on arvattu väärin', () => {
+  const ss = [seuraA('a', ['A U13']), seuraA('b', ['B U13'])];
+  const f1 = (kok, docs) => hae(aja(ss, { a: { [kok]: docs } }).tulos.a, 'F1', kok);
+  it('0 %: dokumentteja on, mutta yhdelläkään ei ole oletettua kenttää → VAROITUS, joka kertoo kokoelman ja osuuden', () => {
+    const r = f1('toimenpiteet', lista(10, (i) => ({ _id: 't' + i, joukkueNimi: 'B U13' })));   // oikea kenttä on "joukkueNimi", oletettu "joukkue"
+    expect(r.taso).toBe('varoitus'); expect(r.kokoelma).toBe('toimenpiteet'); expect(r.osuus).toBe(0); expect(r.lkm).toBe(10); expect(r.kokonais).toBe(10); expect(r.kentat).toEqual({ joukkue: 0 });
+  });
+  it('MUTAATIO: sama aineisto näyttää E1a = 0 (hiljainen nolla), mutta F1 paljastaa sen; oikealla kentällä E1a löytyy ja F1 on ok', () => {
+    const vaarin = aja(ss, { a: { toimenpiteet: [{ _id: '1', joukkueNimi: 'B U13' }] } }).tulos.a;
+    expect(hae(vaarin, 'E1a', 'toimenpiteet').lkm).toBe(0); expect(hae(vaarin, 'F1', 'toimenpiteet').taso).toBe('varoitus');
+    const oikein = aja(ss, { a: { toimenpiteet: [{ _id: '1', joukkue: 'B U13' }] } }).tulos.a;
+    expect(hae(oikein, 'E1a', 'toimenpiteet').lkm).toBe(1); expect(hae(oikein, 'F1', 'toimenpiteet').taso).toBe('ok');
+  });
+  it('raja 50 %: 49 % varoitus · 50 % ok · 100 % ok (alle 50 %, ei "enintään")', () => {
+    const osuus = (n, kaikki) => f1('toimenpiteet', lista(kaikki, (i) => (i < n ? { _id: 'x' + i, joukkue: 'A U13' } : { _id: 'x' + i })));
+    expect([osuus(49, 100).taso, osuus(50, 100).taso, osuus(100, 100).taso, osuus(0, 100).taso]).toEqual(['varoitus', 'ok', 'ok', 'varoitus']);
+    expect(osuus(1, 3).taso).toBe('varoitus'); expect(osuus(2, 3).taso).toBe('ok'); expect(osuus(49, 100).osuus).toBe(49); expect(osuus(1, 3).osuus).toBe(33.3);
+    expect(V.tmVKynnys('F1', 49.9)).toBe('varoitus'); expect(V.tmVKynnys('F1', 50)).toBe('ok'); expect(V.KENTTAVAHTI_RAJA).toBe(50);
+  });
+  it('tyhjä kokoelma ei tuota riviä (ei dataa); kokoelmaa jota ei ole luettu ei tarkisteta', () => {
+    expect(aja(ss, { a: { toimenpiteet: [] } }).tulos.a.filter((r) => r.koodi === 'F1')).toEqual([]);
+    expect(V.tmVKenttavahti('a', 'toimenpiteet', [])).toBe(null);
+    expect(aja(ss, { a: {} }).tulos.a.filter((r) => r.koodi === 'F1')).toEqual([]);
+  });
+  it('tyhjä merkkijono, null ja tyhjä taulukko eivät ole kenttä; kukin oletettu kenttä raportoidaan erikseen', () => {
+    const r = f1('pelaajat', [{ _id: '1', etunimi: 'E', joukkue: '', joukkueNimi: null, joukkueet: [] }, { _id: '2', etunimi: 'E', joukkue: 'A U13', joukkueet: ['a_j0'] }, { _id: '3', etunimi: 'E', joukkueId: 'a_j0' }]);
+    expect(r.osuus).toBe(66.7); expect(r.kentat).toEqual({ joukkue: 33.3, joukkueNimi: 0, joukkueId: 33.3, joukkueet: 33.3 }); expect(r.taso).toBe('ok');
+  });
+  it('jokainen VIITEKENTAT-kokoelma saa F1-rivin; F1 läpäisee raportin muotovaatimukset ja lasketaan varoitukseksi', () => {
+    const R = require('../lib/tm_valvonta_raportti.js');
+    const kok = {}; Object.keys(V.VIITEKENTAT).forEach((k) => { kok[k] = [{ _id: '1', muu: 'x' }]; });
+    const tulokset = aja(ss, { a: kok }).tulos.a;
+    expect(tulokset.filter((r) => r.koodi === 'F1').map((r) => r.kokoelma).sort()).toEqual(Object.keys(V.VIITEKENTAT).sort());
+    const raportti = R.tmVRaportti({ tulokset, ajettu: 'x', tyyppi: 'viikko' });
+    expect(raportti.yhteenveto.hylatty).toBe(0); expect(raportti.rivit.filter((r) => r.koodi === 'F1').length).toBe(Object.keys(V.VIITEKENTAT).length);
+    expect(R.tmVAuditRivi(raportti).severity).toBe('warn');
+  });
+  it('tmVJoukkuekentat: löytää joukkue-/team-nimiset kentät (vain nimet, turvallisessa muodossa), ei muita', () => {
+    const docs = [{ joukkue: 'A', joukkueId: 'x', nimi: 'N', teamName: 'T' }, { joukkue: 'B', 'joukkue nimi': 'v', 'Matti joukkue': 'v' }, { joukkue: '', joukkueet: [] }];
+    expect(V.tmVJoukkuekentat(docs)).toEqual({ joukkue: 66.7, joukkueId: 33.3, teamName: 33.3 });
+    expect(V.tmVJoukkuekentat([])).toEqual({});
+  });
+});
+
+describe('sallittujen lista (P11)', () => {
+  const hyva = { seura: 'kpv', koodi: 'E1b', kokoelma: 'toimenpiteet', enimmaismaara: 5, perustelu: 'Vanhoja nimiä, joukkue nimetty uudelleen 2025', paiva: '2026-11-11' };
+  it('kelvollinen rivi läpäisee; jokaisella rivillä pitää olla perustelu ja päivä', () => {
+    expect(V.tmVSallitutVirheet([hyva])).toEqual([]); expect(V.tmVSallitutVirheet([])).toEqual([]);
+    expect(V.tmVSallitutVirheet([Object.assign({}, hyva, { perustelu: '' })])).toEqual(['rivi 1: perustelu puuttuu']);
+    expect(V.tmVSallitutVirheet([Object.assign({}, hyva, { perustelu: 'lyhyt' })]).length).toBe(1);
+    expect(V.tmVSallitutVirheet([Object.assign({}, hyva, { paiva: undefined })])).toEqual(['rivi 1: paiva']);
+    expect(V.tmVSallitutVirheet([Object.assign({}, hyva, { paiva: '11.11.2026' })])).toEqual(['rivi 1: paiva']);
+    expect(V.tmVSallitutVirheet([Object.assign({}, hyva, { enimmaismaara: -1 })])).toEqual(['rivi 1: enimmaismaara']);
+    expect(V.tmVSallitutVirheet([Object.assign({}, hyva, { enimmaismaara: '5' })])).toEqual(['rivi 1: enimmaismaara']);
+    expect(V.tmVSallitutVirheet([Object.assign({}, hyva, { koodi: 'X9' })])).toEqual(['rivi 1: koodi']);
+    expect(V.tmVSallitutVirheet([hyva, hyva])).toEqual(['rivi 2: kaksoiskappale']); expect(V.tmVSallitutVirheet([null])).toEqual(['rivi 1: ei olio']);
+  });
+  it('sovellus: enimmäismäärän sisällä → ok (sallittu), ylitys → alkuperäinen taso + ylittaaSallitun; muut rivit koskemattomia', () => {
+    const t = [{ seura: 'kpv', koodi: 'E1b', kokoelma: 'toimenpiteet', lkm: 5, taso: 'varoitus' }, { seura: 'kpv', koodi: 'E1b', kokoelma: 'pelaajat', lkm: 2, taso: 'varoitus' }, { seura: 'sjk', koodi: 'E1b', kokoelma: 'toimenpiteet', lkm: 2, taso: 'varoitus' }];
+    const a = V.tmVSovellaSallitut(t, [hyva]);
+    expect(a[0]).toMatchObject({ taso: 'ok', sallittu: true, sallittuMax: 5 }); expect(a[1]).toEqual(t[1]); expect(a[2]).toEqual(t[2]);
+    const b = V.tmVSovellaSallitut([Object.assign({}, t[0], { lkm: 6 })], [hyva]);
+    expect(b[0]).toMatchObject({ taso: 'varoitus', ylittaaSallitun: true, sallittuMax: 5 });
+    expect(V.tmVSovellaSallitut(t, [])).toEqual(t);
+  });
+  it('tmVAjaKaikki soveltaa sallitut, ohittaa demo-seurat (P10) mutta pitää ne indeksissä', () => {
+    const seurat = [Object.assign(seuraA('kpv', ['K U13']), { kokoelmat: { toimenpiteet: [{ _id: '1', joukkue: 'Demo U13' }] } }), Object.assign(seuraA('demo', ['Demo U13']), { kokoelmat: { toimenpiteet: [{ _id: '2', joukkue: 'K U13' }] } })];
+    const t = V.tmVAjaKaikki({ seurat, auditRivit: [], nytMs: 0 });
+    expect(t.some((r) => r.seura === 'demo')).toBe(false);
+    expect(t.find((r) => r.seura === 'kpv' && r.koodi === 'E1a' && r.kokoelma === 'toimenpiteet').lkm).toBe(1);   // viite demo-seuran joukkueeseen näkyy
+    const s = V.tmVAjaKaikki({ seurat, auditRivit: [], nytMs: 0, sallitut: [{ seura: 'kpv', koodi: 'E1a', kokoelma: 'toimenpiteet', enimmaismaara: 1, perustelu: 'testi: tunnettu poikkeama', paiva: '2026-11-11' }] });
+    expect(s.find((r) => r.seura === 'kpv' && r.koodi === 'E1a' && r.kokoelma === 'toimenpiteet')).toMatchObject({ taso: 'ok', sallittu: true });
+  });
+});
