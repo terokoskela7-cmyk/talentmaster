@@ -82,6 +82,10 @@ jobs:
         if: ${{ inputs.functions }}
         run: |
           printf 'TM_BASE_URL=https://%s.web.app\n' "$STAGING_PROJEKTI" > "functions/.env.$STAGING_PROJEKTI"
+      # Salaisuudet ennen deployta (staging: DUMMY-arvot, docs/STAGING_ASENNUS.md B): puuttuva salaisuus kaataa firebase deployn; tämä kaatuu selkeästi nimen ja komennon kanssa.
+      - name: Tarkista Secret Manager -salaisuudet (portti ennen deployta)
+        if: ${{ inputs.functions }}
+        run: node scripts/tarkista_salaisuudet.js --projekti="$STAGING_PROJEKTI"
       - name: Deploy Functions
         if: ${{ inputs.functions }}
         run: npx firebase deploy --only functions --project "$STAGING_PROJEKTI" --non-interactive

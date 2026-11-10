@@ -59,6 +59,10 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SA_KEY }}
+      # SALAISUUDET ENNEN DEPLOYTA: jokaisen runWith({secrets}) -salaisuuden pitää olla olemassa ja sillä versio, muuten firebase deploy kaatuu eikä yksikään
+      # functions-muutos mene läpi (10.11.2026 VALVONTA_VASTAANOTTAJA). Kaatuu selkeällä viestillä: nimi + luontikomento. scripts/tarkista_salaisuudet.js
+      - name: Tarkista Secret Manager -salaisuudet (portti ennen deployta)
+        run: node scripts/tarkista_salaisuudet.js --projekti=talentmaster-pilot
       - name: Asenna firebase-tools (juuren riippuvuudet)
         run: npm ci
       - name: Deploy Cloud Functions
