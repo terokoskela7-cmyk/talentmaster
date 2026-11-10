@@ -1866,6 +1866,6 @@ exports.laskutusKuukausiVarapolku = functions
 exports.kirjautumisaikaYo = functions.region('europe-west1').runWith({ timeoutSeconds: 300, memory: '256MB' }).pubsub.schedule('30 3 * * *').timeZone('Europe/Helsinki')
   .onRun(require('./kirjautumisaika').ajastettuKasittelija({ db, auth: admin.auth(), Timestamp: admin.firestore.Timestamp }));
 
-/* Projekti 07 / PR 3: erottelun valvonta (functions/valvonta.js; P1). Kuiva-ajo kunnes VALVONTA_KUIVA=0; kirjoittaa vain audit-rivin (kirjaaAudit). */
+/* Projekti 07 / PR 3: erottelun valvonta (functions/valvonta.js; P1). Kuiva-ajo ennen VALVONTA_KIRJOITUS_ALKAA (koodivakio, 17.11.2026); kirjoittaa vain audit-rivin (kirjaaAudit). */
 exports.valvontaPaivittain = functions.region('europe-west1').runWith({ timeoutSeconds: 540, memory: '1GB' }).pubsub.schedule('30 5 * * *').timeZone('Europe/Helsinki').onRun(require('./valvonta').ajastettuKasittelija({ db, FieldValue: admin.firestore.FieldValue }, 'paivittain'));
 exports.valvontaViikko = functions.region('europe-west1').runWith({ timeoutSeconds: 540, memory: '1GB' }).pubsub.schedule('0 5 * * 1').timeZone('Europe/Helsinki').onRun(require('./valvonta').ajastettuKasittelija({ db, FieldValue: admin.firestore.FieldValue }, 'viikko'));

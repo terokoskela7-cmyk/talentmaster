@@ -5,8 +5,9 @@
  *  · valvontaViikko      — maanantaisin 05:00, TÄYSI: kaikki mittarit (E, F, H, K, M) + K3-kasvu edellisiin viikkoajoihin verrattuna
  * Sama lukukerros (valvonta_luku.js) ja sama logiikka (tm_valvonta.js) kuin käsiajurissa scripts/valvonta_aja.js. P10: demo-seurat ohitetaan (OHITETUT_SEURAT); P11: sallitut (valvonta_sallitut.json).
  *
- * KUIVA-AJO (VALVONTA_KUIVA): ajo on KUIVA, ellei VALVONTA_KUIVA ole täsmälleen '0' → ei mitään kirjoitusta, vain lokirivit (seura, koodi, kokoelma, lukumäärät). Ensimmäinen viikko ajetaan kuivana.
- *   Fail-safe: ympäristömuuttujan puuttuminen (CI-deploy ei lue functions/.env, CLAUDE.md §39) = kuiva. Tuotantoon siirto: aseta VALVONTA_KUIVA=0 palvelulle (Teron päätös viikon jälkeen).
+ * KUIVA-AJO: koodin vakio VALVONTA_KIRJOITUS_ALKAA (Helsingin päivä 'YYYY-MM-DD'). Ennen sitä ajo on KUIVA: ei mitään kirjoitusta, vain lokirivit (seura, koodi, kokoelma, lukumäärät).
+ *   Alkupäivästä lähtien (Helsingin päivä >= vakio) ajo kirjoittaa audit-rivin. Ei ympäristömuuttujaa: CI-deploy ei lue functions/.env (CLAUDE.md §39) ja käsin asetettu muuttuja
+ *   nollautuisi seuraavassa functions-deployssa. Alkupäivän siirto = koodimuutos PR:llä.
  * KIRJOITUS (P3/P5): vain `kirjaaAudit` → audit-kokoelma, toiminto 'valvonta_ajo'. Ei muita kirjoituksia (tests/valvonta_kirjoitusvartija.test.js). Ei Rules-muutosta.
  * Sähköposti (P4/P6) tulee PR 4:ssä (Secret Manager VALVONTA_VASTAANOTTAJA); tämä PR ei lähetä mitään.
  * PII (P4/VAIHE0 §3.3): audit-rivi ja loki sisältävät vain seura-id:t, tarkistuskoodit, kokoelmien nimet ja lukumäärät; tmVOnkoPii ennen kirjoitusta; virheestä vain koodi.
@@ -18,7 +19,11 @@ const L = require('./valvonta_luku.js');
 const TOIMINTO = 'valvonta_ajo';
 const SEURA_RE = /^[a-z0-9_-]{1,40}$/, KOK_RE = /^[a-z_]{1,40}$/;
 
-const onKuiva = (env) => (env || process.env).VALVONTA_KUIVA !== '0';
+const VALVONTA_KIRJOITUS_ALKAA = '2026-11-17';   // Helsingin päivä; ennen sitä kuiva-ajo (ks. ylhäältä)
+/** Helsingin kalenteripäivä 'YYYY-MM-DD' hetkelle ms (en-CA antaa ISO-muodon). */
+const helsinginPaiva = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Helsinki', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+/** Kuiva = Helsingin päivä on ennen kirjoituksen alkupäivää. */
+const onKuiva = (nytMs) => helsinginPaiva(nytMs) < VALVONTA_KIRJOITUS_ALKAA;
 function sallitutRivit() { const j = require('./valvonta_sallitut.json'), v = V.tmVSallitutVirheet(j.rivit); if (v.length) throw new Error('valvonta_sallitut.json virheellinen: ' + v.join('; ')); return j.rivit; }
 function aliasRivit() { const j = require('./valvonta_aliakset.json'), v = V.tmVAliasVirheet(j.rivit); if (v.length) throw new Error('valvonta_aliakset.json virheellinen: ' + v.join('; ')); return j.rivit; }
 
@@ -53,9 +58,9 @@ async function kirjaaAudit(deps, rivi) {
   await deps.db.collection('audit').add(Object.assign({}, rivi, { lahde: 'valvonta', aikaleima: deps.FieldValue.serverTimestamp() }));
 }
 
-/** Koko ajo (testattava): deps = { db, FieldValue, loki?, nytMs?, env? }, tyyppi 'paivittain'|'viikko'. → { kuiva, raportti, audit, kirjattu }. */
+/** Koko ajo (testattava): deps = { db, FieldValue, loki?, nytMs? }, tyyppi 'paivittain'|'viikko'. → { kuiva, raportti, audit, kirjattu }. */
 async function aja(deps, tyyppi) {
-  const loki = deps.loki || console, kuiva = onKuiva(deps.env), nytMs = deps.nytMs || Date.now(), ohitetut = V.OHITETUT_SEURAT;
+  const loki = deps.loki || console, nytMs = deps.nytMs || Date.now(), kuiva = onKuiva(nytMs), ohitetut = V.OHITETUT_SEURAT;
   const aineisto = await L.kerayAineisto(deps.db, { nytMs });
   const kaikki = V.tmVAjaKaikki({ seurat: aineisto.seurat, auditRivit: aineisto.auditRivit, nytMs, ohitetut, sallitut: sallitutRivit(), aliakset: aliasRivit() });
   let tulokset = suodataTyypille(kaikki, tyyppi), edellinen = [], kasvu = null;
@@ -80,4 +85,4 @@ function ajastettuKasittelija(deps, tyyppi) {
     return null;
   };
 }
-module.exports = { aja, ajastettuKasittelija, onKuiva, suodataTyypille, k3Tulokset, kasvuLuvut, kirjaaAudit, edellisetAjot, TOIMINTO };
+module.exports = { aja, ajastettuKasittelija, onKuiva, helsinginPaiva, VALVONTA_KIRJOITUS_ALKAA, suodataTyypille, k3Tulokset, kasvuLuvut, kirjaaAudit, edellisetAjot, TOIMINTO };
