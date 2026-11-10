@@ -102,9 +102,26 @@ describe('PR 2b: todelliset kenttämuodot ja luonnediagnostiikka', () => {
   });
   it('sallittujen lista: KPV:n 12 kuitattua/hylättyä vierasta ehdotusta (9.11. seuranvaihtovika), perustelu ja päivä mukana; yli 12 hälyttää uudelleen', () => {
     const j = JSON.parse(readFileSync(join(ROOT, 'functions/valvonta_sallitut.json'), 'utf8'));
-    expect(j.rivit).toEqual([{ seura: 'kpv', koodi: 'E1a', kokoelma: 'toimenpiteet', enimmaismaara: 12, perustelu: '9.11. seuranvaihtovika #1234, siivottu, säilytetään historiana', paiva: '2026-11-10' }]);
+    expect(j.rivit[0]).toEqual({ seura: 'kpv', koodi: 'E1a', kokoelma: 'toimenpiteet', enimmaismaara: 12, perustelu: '9.11. seuranvaihtovika #1234, siivottu, säilytetään historiana', paiva: '2026-11-10' });
     const t = (lkm) => V.tmVSovellaSallitut([{ seura: 'kpv', koodi: 'E1a', kokoelma: 'toimenpiteet', lkm, taso: 'virhe' }], j.rivit)[0];
     expect(t(12)).toMatchObject({ taso: 'ok', sallittu: true }); expect(t(13)).toMatchObject({ taso: 'virhe', ylittaaSallitun: true });
+  });
+});
+
+describe('baseline 4 (PM 10.11.2026): kolme WARN-riviä sallittujen listassa', () => {
+  const j = JSON.parse(readFileSync(join(ROOT, 'functions/valvonta_sallitut.json'), 'utf8'));
+  const rivit = [['kpv', 'E6b', 'pelaajat', 2], ['kpv', 'E5b', 'seuranta_kuittaukset', 3], ['sibbovargarna', 'E5b', 'seuranta_kuittaukset', 2]];
+  it('jokaisella perustelu + päivä 2026-11-10; enimmäismäärä = baseline-luku; ei nimiä', () => {
+    rivit.forEach(([seura, koodi, kokoelma, n]) => {
+      const r = j.rivit.find((x) => x.seura === seura && x.koodi === koodi && x.kokoelma === kokoelma);
+      expect(r, seura + koodi).toBeTruthy(); expect(r.enimmaismaara).toBe(n); expect(r.paiva).toBe('2026-11-10'); expect(r.perustelu).toMatch(/PM 10\.11\.2026/);
+    });
+  });
+  it('baseline-luvuilla rivit muuttuvat tasolle ok (ERROR 0, WARN 0); yksikin lisää → WARN palaa', () => {
+    rivit.forEach(([seura, koodi, kokoelma, n]) => {
+      const t = (lkm) => V.tmVSovellaSallitut([{ seura, koodi, kokoelma, lkm, taso: 'varoitus' }], j.rivit)[0];
+      expect(t(n)).toMatchObject({ taso: 'ok', sallittu: true }); expect(t(n + 1)).toMatchObject({ taso: 'varoitus', ylittaaSallitun: true });
+    });
   });
 });
 
