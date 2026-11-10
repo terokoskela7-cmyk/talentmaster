@@ -24,10 +24,8 @@ function suunnittele(rivit) {
   });
   return { ryhmat: ulos, korvattavat: kaikki };
 }
-/** Joukkuenimen vertailumuoto: kirjainkoko, _/- → väli, tyhjät yhteen. */
-const normJoukkue = (j) => String(j == null ? '' : j).toLowerCase().replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
-/** Vieras = joukkue annettu (ei tyhjä/'tuntematon'/'—') eikä kuulu seuran omiin (omat = Set normalisoituja nimiä). */
-function onVieras(joukkue, omat) { const n = normJoukkue(joukkue); return !!n && n !== 'tuntematon' && n !== '—' && !omat.has(n); }
+/* normJoukkue / onVieras: yksi totuus lib/tm_valvonta.js (projekti 07 / PR 1); skripti re-exporttaa ne (testit + laajuusskripti). */
+const { normJoukkue, onVieras } = require('../lib/tm_valvonta.js');
 const luotuMs = (v) => (v && typeof v.toMillis === 'function') ? v.toMillis() : (v && v.seconds ? v.seconds * 1000 : 0);
 
 async function main(argv) {

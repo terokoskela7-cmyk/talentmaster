@@ -1,0 +1,145 @@
+# Rekisteri: kaikki .limit(N≠1) -kohdat (40 kpl, 11 tiedostoa)
+functions/seuran_kooste.js (3)
+  [RAJATTU] IKKUNA_PV+1 (31)pelaajat/{p}/kirjaukset|viikkokatsaukset documentId-väli — id = päivä, 30 pv ikkuna → enintään 30 dokumenttia
+  [LEIKKAA] 500   kalenteri where pvm >= ikkunan alku (EI järjestystä) — kooste: RSVP-kattavuus; yli 500 → mielivaltaiset 500 mukana
+  [LEIKKAA] 2000  viestit where tyyppi == klippi_vastaus | klippi_kuittaus (EI järjestystä) — kaksi kyselyä, kumpi omalla rajallaan
+functions/index.js (1)
+  [HAKU] 10    collectionGroup(pelaajat) where huoltajaEmail == email — huoltajan lasten haku; >10 lasta ei realistinen
+functions/pelaajakirjautuminen.js (1)
+  [HAKU] 10    collectionGroup(pelaajat) where tunniste|palloID == tunnus — törmäystunnistus
+functions/auditloki.js (1)
+  [RAJATTU] ERA   auditloki-erä (ERA), sivutettu — silmukka jatkuu kunnes tyhjä
+lib/tm_reflektio.js (1)
+  [LEIKKAA] 100   kayttajat/{uid}/reflektiot (EI järjestystä) — yli 100 reflektiota → mielivaltaiset 100
+TalentMaster_VP_v25.html (13)
+  [LEIKKAA] 200   valmentajan havainnot where valmentajaUid — valmentajan profiili
+  [LEIKKAA] 200   valmentajan harjoitusarvioinnit where valmentajaUid — valmentajan profiili (rivi ~5258); EI järjestystä
+  [LEIKKAA] 200   ohjelmat where laatija_uid — EI järjestystä
+  [UUSIMMAT] 20    pelaaja/vp_muistiinpanot orderBy luotu desc
+  [RAJATTU] 6     pelaaja/viikkokatsaukset where jakso_alkoi — enintään yksi per viikko jaksossa
+  [LEIKKAA] 100   harjoitusarvioinnit where valmentajaUid (palaute) — EI järjestystä
+  [UUSIMMAT] 10    mentoroinnit where valmentajaId orderBy aika desc (valmentajan historia, näytetään 10) — KORJATTU (projekti 06): suodatus palvelimella, indeksi valmentajaId + aika DESC
+  [LEIKKAA] 300   kalenteri where poistettu == false (EI järjestystä) — yli 300 → mielivaltaiset 300
+  [UUSIMMAT] 50    notifikaatiot orderBy luotu desc
+  [LEIKKAA] 500   harjoitusarvioinnit orderBy pvm desc (seuran koko) — uusimmat 500; vanhemmat puuttuvat tilastosta
+  [LEIKKAA] 300   toimenpiteet where tyyppi == pulssi (EI järjestystä) — pulssikuittaukset
+  [LEIKKAA] 100   viestit where vastaanottajaUid (EI järjestystä) — samalla rivillä kaksi kyselyä
+  [LEIKKAA] 100   viestit where lahettajaUid (EI järjestystä)
+TalentMaster_Master_v16.html (9)
+  [LEIKKAA] 50    testitapahtumat orderBy luotu desc — lista näytetään täydellisenä; vanhemmat tapahtumat puuttuvat
+  [UUSIMMAT] 7     pelaaja/kirjaukset orderBy paivitetty desc
+  [UUSIMMAT] 20    viestit/notifikaatiot orderBy aika|luotu desc — vastaanottajan viimeisimmät
+  [RAJATTU] 6     pelaaja/viikkokatsaukset where jakso_alkoi
+  [LEIKKAA] 600   viestit where vastaanottajaUid ja tyyppi in klippi* (onSnapshot) — EI järjestystä
+  [LEIKKAA] 100   harjoitusarvioinnit where valmentajaUid — EI järjestystä
+  [LEIKKAA] 100   kayttajat/{uid}/reflektiot — EI järjestystä
+  [UUSIMMAT] 50    notifikaatiot orderBy luotu desc
+  [UUSIMMAT] 20    pelaaja/kenttatarkkailut orderBy luotu desc
+TalentMaster_Kehitystyopoyta.html (1)
+  [RAJATTU] 6     pelaaja/viikkokatsaukset where jakso_alkoi
+TalentMaster_Testaus_v9.html (1)
+  [LEIKKAA] 50    testitapahtumat orderBy pvm desc — vanhemmat testitapahtumat eivät valittavissa
+TalentMaster_Pelaaja_v7.html (6)
+  [UUSIMMAT] 20    notifikaatiot orderBy luotu desc
+  [UUSIMMAT] 10    kehut orderBy luotu desc
+  [LEIKKAA] 60    kirjaukset (EI järjestystä) → snap.size — laskuri katkeaa 60:een; yli 60 kirjausta → luku aina 60
+  [UUSIMMAT] 60    kirjaukset orderBy paivitetty desc
+  [UUSIMMAT] 30    kirjaukset orderBy paivitetty desc
+  [LEIKKAA] 50    havainnot where tila == valmis, nakyvyys == pelaaja (onSnapshot) — EI järjestystä; yli 50 → mielivaltaiset 50
+TalentMaster_Vanhempi_v2.html (3)
+  [UUSIMMAT] 20    notifikaatiot orderBy luotu desc
+  [RAJATTU] 14    kirjaukset where luotu >= viikko sitten — 7 pv ikkuna
+  [LEIKKAA] 50    havainnot where nakyvyys == pelaaja (EI järjestystä) — yli 50 → mielivaltaiset 50
+
+# Mittaus (projekti talentmaster-pilot, 4 seuraa) — vain lukumäärät
+alfa
+  OK            300 / 500   kalenteri_ikkuna (pvm ≥ 2026-10-12)
+  ‼ YLITTYY     400 / 300   kalenteri_ei_poistettu
+  OK            175 / 2000  viestit klippi_vastaus
+  OK            175 / 2000  viestit klippi_kuittaus
+  OK            130 / 500   harjoitusarvioinnit (raja 500)
+  ‼ YLITTYY      60 / 50    testitapahtumat (raja 50)
+  OK              9 / 300   toimenpiteet tyyppi=pulssi
+  OK             65 / 100   harjoitusarvioinnit per valmentajaUid (raja 100) (suurin ryhmä; ryhmiä 2, rajan ylittäviä 0, lähellä 0)
+  OK              0 / 200   havainnot per valmentajaUid (raja 200) (suurin ryhmä; ryhmiä 0, rajan ylittäviä 0, lähellä 0)
+  ‼ YLITTYY     210 / 200   ohjelmat per laatija_uid (raja 200) (suurin ryhmä; ryhmiä 1, rajan ylittäviä 1, lähellä 0)
+  OK            175 / 600   viestit klippi* per vastaanottajaUid (Master, raja 600) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 0, lähellä 0)
+  ‼ YLITTYY     234 / 100   viestit per vastaanottajaUid (VP, raja 100) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 3, lähellä 0)
+  ‼ YLITTYY     350 / 100   viestit per lahettajaUid (VP, raja 100) (suurin ryhmä; ryhmiä 2, rajan ylittäviä 2, lähellä 0)
+  ! LÄHELLÄ      90 / 100   reflektiot per käyttäjä (raja 100) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 0, lähellä 1)
+  OK              4 / 60    kirjaukset per pelaaja (Pelaaja-laskuri, raja 60) (suurin ryhmä; ryhmiä 40, rajan ylittäviä 0, lähellä 0)
+  OK              3 / 50    havainnot nakyvyys=pelaaja per pelaaja (raja 50) (suurin ryhmä; ryhmiä 40, rajan ylittäviä 0, lähellä 0)
+beta
+  OK            300 / 500   kalenteri_ikkuna (pvm ≥ 2026-10-12)
+  ‼ YLITTYY     400 / 300   kalenteri_ei_poistettu
+  OK            175 / 2000  viestit klippi_vastaus
+  OK            175 / 2000  viestit klippi_kuittaus
+  OK            130 / 500   harjoitusarvioinnit (raja 500)
+  ‼ YLITTYY      60 / 50    testitapahtumat (raja 50)
+  OK              9 / 300   toimenpiteet tyyppi=pulssi
+  OK             65 / 100   harjoitusarvioinnit per valmentajaUid (raja 100) (suurin ryhmä; ryhmiä 2, rajan ylittäviä 0, lähellä 0)
+  OK              0 / 200   havainnot per valmentajaUid (raja 200) (suurin ryhmä; ryhmiä 0, rajan ylittäviä 0, lähellä 0)
+  ‼ YLITTYY     210 / 200   ohjelmat per laatija_uid (raja 200) (suurin ryhmä; ryhmiä 1, rajan ylittäviä 1, lähellä 0)
+  OK            175 / 600   viestit klippi* per vastaanottajaUid (Master, raja 600) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 0, lähellä 0)
+  ‼ YLITTYY     234 / 100   viestit per vastaanottajaUid (VP, raja 100) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 3, lähellä 0)
+  ‼ YLITTYY     350 / 100   viestit per lahettajaUid (VP, raja 100) (suurin ryhmä; ryhmiä 2, rajan ylittäviä 2, lähellä 0)
+  ! LÄHELLÄ      90 / 100   reflektiot per käyttäjä (raja 100) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 0, lähellä 1)
+  OK              4 / 60    kirjaukset per pelaaja (Pelaaja-laskuri, raja 60) (suurin ryhmä; ryhmiä 40, rajan ylittäviä 0, lähellä 0)
+  OK              3 / 50    havainnot nakyvyys=pelaaja per pelaaja (raja 50) (suurin ryhmä; ryhmiä 40, rajan ylittäviä 0, lähellä 0)
+delta
+  OK            300 / 500   kalenteri_ikkuna (pvm ≥ 2026-10-12)
+  ‼ YLITTYY     400 / 300   kalenteri_ei_poistettu
+  OK            175 / 2000  viestit klippi_vastaus
+  OK            175 / 2000  viestit klippi_kuittaus
+  OK            130 / 500   harjoitusarvioinnit (raja 500)
+  ‼ YLITTYY      60 / 50    testitapahtumat (raja 50)
+  OK              9 / 300   toimenpiteet tyyppi=pulssi
+  OK             65 / 100   harjoitusarvioinnit per valmentajaUid (raja 100) (suurin ryhmä; ryhmiä 2, rajan ylittäviä 0, lähellä 0)
+  OK              0 / 200   havainnot per valmentajaUid (raja 200) (suurin ryhmä; ryhmiä 0, rajan ylittäviä 0, lähellä 0)
+  ‼ YLITTYY     210 / 200   ohjelmat per laatija_uid (raja 200) (suurin ryhmä; ryhmiä 1, rajan ylittäviä 1, lähellä 0)
+  OK            175 / 600   viestit klippi* per vastaanottajaUid (Master, raja 600) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 0, lähellä 0)
+  ‼ YLITTYY     234 / 100   viestit per vastaanottajaUid (VP, raja 100) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 3, lähellä 0)
+  ‼ YLITTYY     350 / 100   viestit per lahettajaUid (VP, raja 100) (suurin ryhmä; ryhmiä 2, rajan ylittäviä 2, lähellä 0)
+  ! LÄHELLÄ      90 / 100   reflektiot per käyttäjä (raja 100) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 0, lähellä 1)
+  OK              4 / 60    kirjaukset per pelaaja (Pelaaja-laskuri, raja 60) (suurin ryhmä; ryhmiä 40, rajan ylittäviä 0, lähellä 0)
+  OK              3 / 50    havainnot nakyvyys=pelaaja per pelaaja (raja 50) (suurin ryhmä; ryhmiä 40, rajan ylittäviä 0, lähellä 0)
+gamma
+  OK            300 / 500   kalenteri_ikkuna (pvm ≥ 2026-10-12)
+  ‼ YLITTYY     400 / 300   kalenteri_ei_poistettu
+  OK            175 / 2000  viestit klippi_vastaus
+  OK            175 / 2000  viestit klippi_kuittaus
+  OK            130 / 500   harjoitusarvioinnit (raja 500)
+  ‼ YLITTYY      60 / 50    testitapahtumat (raja 50)
+  OK              9 / 300   toimenpiteet tyyppi=pulssi
+  OK             65 / 100   harjoitusarvioinnit per valmentajaUid (raja 100) (suurin ryhmä; ryhmiä 2, rajan ylittäviä 0, lähellä 0)
+  OK              0 / 200   havainnot per valmentajaUid (raja 200) (suurin ryhmä; ryhmiä 0, rajan ylittäviä 0, lähellä 0)
+  ‼ YLITTYY     210 / 200   ohjelmat per laatija_uid (raja 200) (suurin ryhmä; ryhmiä 1, rajan ylittäviä 1, lähellä 0)
+  OK            175 / 600   viestit klippi* per vastaanottajaUid (Master, raja 600) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 0, lähellä 0)
+  ‼ YLITTYY     234 / 100   viestit per vastaanottajaUid (VP, raja 100) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 3, lähellä 0)
+  ‼ YLITTYY     350 / 100   viestit per lahettajaUid (VP, raja 100) (suurin ryhmä; ryhmiä 2, rajan ylittäviä 2, lähellä 0)
+  ! LÄHELLÄ      90 / 100   reflektiot per käyttäjä (raja 100) (suurin ryhmä; ryhmiä 3, rajan ylittäviä 0, lähellä 1)
+  OK              4 / 60    kirjaukset per pelaaja (Pelaaja-laskuri, raja 60) (suurin ryhmä; ryhmiä 40, rajan ylittäviä 0, lähellä 0)
+  OK              3 / 50    havainnot nakyvyys=pelaaja per pelaaja (raja 50) (suurin ryhmä; ryhmiä 40, rajan ylittäviä 0, lähellä 0)
+
+YHTEENVETO: YLITTYY 20 · LÄHELLÄ 4 · OK 40 (mittaria 64)
+Raja ylittyy → data leikkautuu jo nyt:
+  alfa: kalenteri_ei_poistettu = 400 / 300
+  alfa: testitapahtumat (raja 50) = 60 / 50
+  alfa: ohjelmat per laatija_uid (raja 200) = 210 / 200
+  alfa: viestit per vastaanottajaUid (VP, raja 100) = 234 / 100
+  alfa: viestit per lahettajaUid (VP, raja 100) = 350 / 100
+  beta: kalenteri_ei_poistettu = 400 / 300
+  beta: testitapahtumat (raja 50) = 60 / 50
+  beta: ohjelmat per laatija_uid (raja 200) = 210 / 200
+  beta: viestit per vastaanottajaUid (VP, raja 100) = 234 / 100
+  beta: viestit per lahettajaUid (VP, raja 100) = 350 / 100
+  delta: kalenteri_ei_poistettu = 400 / 300
+  delta: testitapahtumat (raja 50) = 60 / 50
+  delta: ohjelmat per laatija_uid (raja 200) = 210 / 200
+  delta: viestit per vastaanottajaUid (VP, raja 100) = 234 / 100
+  delta: viestit per lahettajaUid (VP, raja 100) = 350 / 100
+  gamma: kalenteri_ei_poistettu = 400 / 300
+  gamma: testitapahtumat (raja 50) = 60 / 50
+  gamma: ohjelmat per laatija_uid (raja 200) = 210 / 200
+  gamma: viestit per vastaanottajaUid (VP, raja 100) = 234 / 100
+  gamma: viestit per lahettajaUid (VP, raja 100) = 350 / 100

@@ -10,17 +10,10 @@
 if (require.main !== module) throw new Error('käsittelee tuotantodataa — aja suoraan: node scripts/laajuus_vieraat_toimenpiteet.js');
 const path = require('path');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
-const { normJoukkue, onVieras } = require('./siivoa_toimenpide_tuplat.js');
-const arr = (v) => (Array.isArray(v) ? v : []);
+const V = require('../lib/tm_valvonta.js');   // projekti 07 / PR 1: luokittelu puhtaassa libissä; skripti on vain I/O-kuori
+const { normJoukkue, onVieras, vieraatViitteet } = V;
 const pelaajanNimi = (x) => ((x.etunimi || '') + ' ' + (x.sukunimi || '')).trim().toLowerCase();
-const onNimi = (x) => !!(x.etunimi || x.sukunimi || x.nimi);
-const onSyntyma = (x) => x.syntymaVuosi != null || x.syntymavuosi != null || x.syntymaaika != null || x.syntymapaiva != null;
 const kasvata = (o, k) => { o[k] = (o[k] || 0) + 1; };
-/** Pelaajan joukkueviitteet (nimet ja id:t) → omat vs. vieraat. omatNimet/omatIdt = Set. */
-function vieraatViitteet(x, omatNimet, omatIdt) {
-  const viitteet = [x.joukkue, x.joukkueNimi, x.joukkueId].concat(arr(x.joukkueet)).filter((v) => v != null && v !== '');
-  return viitteet.filter((v) => { const n = normJoukkue(v); return onVieras(v, omatNimet) && !omatIdt.has(String(v)) && !omatIdt.has(n); });
-}
 (async () => {
   admin.initializeApp({ projectId: 'talentmaster-pilot' }); const db = admin.firestore();
   const seurat = (await db.collection('seurat').get()).docs.map((d) => d.id);
@@ -49,14 +42,14 @@ function vieraatViitteet(x, omatNimet, omatIdt) {
     let vierasP = 0, toisenSeuran = 0, tupla = 0, osittainen = 0;
     d.ps.forEach((x) => {
       const v = vieraatViitteet(x, d.omatNimet, d.omatIdt);
-      if (v.length) { vierasP++; if (v.some((j) => { const s = kaikkiJoukkueNimet[normJoukkue(j)]; return s && [...s].some((sid) => sid !== d.sid); })) toisenSeuran++; }
+      if (v.length) { vierasP++; if (v.some((j) => { return V.onToisenSeuranNimi(j, d.sid, kaikkiJoukkueNimet); })) toisenSeuran++; }
       if ((pelaajanSeurat[x._id] || []).length > 1) tupla++;
-      if (!onNimi(x) && !onSyntyma(x)) osittainen++;
+      if (V.onOsittainen(x)) osittainen++;
     });
     yht.pelaajaVieras += vierasP; yht.pelaajaToisenSeuranJoukkue += toisenSeuran; yht.pelaajaTuplaId += tupla; yht.pelaajaOsittainen += osittainen;
     console.log('seura ' + d.sid + ' · pelaajat: ' + d.ps.length + ' dokumenttia · viite ei-omaan joukkueeseen ' + vierasP + ' (joista toisen seuran joukkue ' + toisenSeuran + ') · sama id usealla seuralla ' + tupla + ' · osittaisia (ei nimeä eikä syntymävuotta) ' + osittainen);
     // seuranta_kuittaukset
-    const kv = d.ks.filter((k) => (k.joukkue != null && onVieras(k.joukkue, d.omatNimet)) || (k.valmentaja_uid && !d.kayttajat.has(String(k.valmentaja_uid)))).length;
+    const kv = d.ks.filter((k) => V.kuittausVieras(k, d.omatNimet, d.kayttajat)).length;
     yht.kuittausVieras += kv;
     console.log('seura ' + d.sid + ' · seuranta_kuittaukset: ' + d.ks.length + ' dokumenttia · vieras joukkue tai tuntematon valmentaja ' + kv);
   });
