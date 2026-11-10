@@ -24,6 +24,7 @@ const REKISTERI = [
     { haku: 'pelaajat/{p}/kirjaukset|viikkokatsaukset documentId-väli', raja: 'IKKUNA_PV+1 (31)', luokka: 'RAJATTU', huom: 'id = päivä, 30 pv ikkuna → enintään 30 dokumenttia' },
     { haku: 'kalenteri where pvm >= ikkunan alku (EI järjestystä)', raja: 500, luokka: 'LEIKKAA', mittaa: 'kalenteri_ikkuna', huom: 'kooste: RSVP-kattavuus; yli 500 → mielivaltaiset 500 mukana' },
     { haku: 'viestit where tyyppi == klippi_vastaus | klippi_kuittaus (EI järjestystä)', raja: 2000, luokka: 'LEIKKAA', mittaa: 'viestit_klippi', huom: 'kaksi kyselyä, kumpi omalla rajallaan' } ] },
+  { tiedosto: 'functions/valvonta.js', n: 1, kohdat: [{ haku: 'audit where toiminto == valvonta_ajo orderBy aikaleima desc (edelliset ajot)', raja: 40, luokka: 'UUSIMMAT', huom: 'tarkoituksellinen "uusimmat 40": tarvitaan vain 2 viimeisintä viikko- ja 1 päivittäinen ajo' }] },
   { tiedosto: 'functions/index.js', n: 1, kohdat: [{ haku: 'collectionGroup(pelaajat) where huoltajaEmail == email', raja: 10, luokka: 'HAKU', huom: 'huoltajan lasten haku; >10 lasta ei realistinen' }] },
   { tiedosto: 'functions/pelaajakirjautuminen.js', n: 1, kohdat: [{ haku: 'collectionGroup(pelaajat) where tunniste|palloID == tunnus', raja: 10, luokka: 'HAKU', huom: 'törmäystunnistus' }] },
   { tiedosto: 'functions/auditloki.js', n: 1, kohdat: [{ haku: 'auditloki-erä (ERA), sivutettu', raja: 'ERA', luokka: 'RAJATTU', huom: 'silmukka jatkuu kunnes tyhjä' }] },
