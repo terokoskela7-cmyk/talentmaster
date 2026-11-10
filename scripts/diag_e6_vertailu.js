@@ -5,7 +5,6 @@
  * Tuloste: vain lukumäärät ja kyllä/ei-merkinnät; dokumentit nimetään A (enemmän dataa) ja B; ei nimiä, tunnisteita eikä id:itä. EI KORJAUSTA ennen PM:n päätöstä. */
 'use strict';
 const path = require('path');
-const V = require(path.join(__dirname, '..', 'lib', 'tm_valvonta.js'));
 const R = require(path.join(__dirname, '..', 'lib', 'tm_valvonta_raportti.js'));
 const L = require(path.join(__dirname, '..', 'functions', 'valvonta_luku.js'));
 const D = require(path.join(__dirname, 'e6_datamaara.js'));   // JAETTU laskenta arkistoi_tuplapelaaja.js:n kanssa (terveys/ jätetään kokonaan lukematta, GDPR Art. 9)
@@ -22,14 +21,10 @@ async function tiivista(db, sid, pid, d, valimuisti) {
 }
 function score(alik, kentat) { return Object.keys(alik).reduce((a, k) => a + alik[k], 0) * 10 + kentat; }
 
-/** Ryhmät: sama seura + sama normalisoitu nimi + sama tunniste. → [{ sid, jasenet:[{pid, d}] }] (sisäinen, id:t vain muistissa) */
+/** Ryhmät: JAETTU ryhmittely (e6_datamaara.ryhmittele): sama seura + sama normalisoitu nimi + sama tunniste, aktiiviset. → [{ sid, jasenet:[{pid, d}] }] (id:t vain muistissa) */
 function ryhmat(aineisto) {
-  const out = [];
-  V.tmVE6Jasenet(aineisto.seurat).forEach((g) => {
-    const per = {}; g.jasenet.forEach((m) => { const k = m.sid + '|' + m.nimi; (per[k] = per[k] || []).push(m); });
-    Object.keys(per).forEach((k) => { if (per[k].length >= 2 && per[k][0].nimi) out.push({ sid: per[k][0].sid, jasenet: per[k] }); });
-  });
-  return out;
+  const pel = []; (aineisto.seurat || []).forEach((s) => ((s.kokoelmat || {}).pelaajat || []).forEach((p) => pel.push({ sid: s.sid, pid: p._id, d: p })));
+  return D.ryhmittele(pel);
 }
 async function vertaa(db, aineisto) {
   const rivit = [], haettu = {}, valimuisti = {};

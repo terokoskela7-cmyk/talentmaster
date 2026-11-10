@@ -3,6 +3,8 @@
  * (mukaan lukien terveys/), eikä kumpikaan katsonut testitapahtumat/TID/tulokset/PID -polkua, johon Testaus/Testituonti kirjoittavat testitulokset.
  * Nyt: (1) pelaajan KAIKKI alikokoelmat paitsi terveys/ (GDPR Art. 9: ei lueta), (2) seurat/SID/testitapahtumat/TID/tulokset/PID -dokumentit. Lukuja vain; select() ei hae kenttiä. */
 'use strict';
+const path = require('path');
+const V = require(path.join(__dirname, '..', 'lib', 'tm_valvonta.js'));
 const POIS = ['terveys'];
 const TULOKSET = 'testitapahtumat/*/tulokset';
 
@@ -21,4 +23,25 @@ async function datamaara(db, sid, pid, valimuisti) {
   alik[TULOKSET] = tul;
   return { alik, yht: Object.keys(alik).reduce((a, k) => a + alik[k], 0) };
 }
-module.exports = { datamaara, TULOKSET, POIS };
+
+/** terveys/-alikokoelman dokumenttimäärä (vain count(), ei sisältöä). >0 → arkistointi ei kirjoita. */
+async function terveysLkm(db, sid, pid) {
+  const r = await db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).collection('terveys').count().get();
+  return Number(r.data().count) || 0;
+}
+const KENTAT = ['tunniste', 'palloId', 'palloID'];
+const tunnisteArvo = (d) => { for (const k of KENTAT) if (d && d[k] != null && d[k] !== '') return String(d[k]); return null; };
+const nimiAvain = (d) => V.nimiAvain((d && d.nimi) || (((d && d.etunimi) || '') + ' ' + ((d && d.sukunimi) || '')));
+/** JAETTU E6-ryhmittely: sama seura + sama normalisoitu nimi + sama tunniste, vain AKTIIVISET dokumentit, ≥ 2 eri pid:ää.
+ *  pelaajat = [{ sid, pid, d }] → [{ sid, tunniste, jasenet:[{ sid, pid, d, tunniste, nimi }] }] (järjestys deterministinen). */
+function ryhmittele(pelaajat) {
+  const kartta = {};
+  (pelaajat || []).forEach((p) => {
+    const d = p.d || {}, t = tunnisteArvo(d), n = nimiAvain(d);
+    if (t == null || !n || !V.onAktiivinen(d)) return;
+    const k = JSON.stringify([p.sid, t, n]); const g = (kartta[k] = kartta[k] || { sid: p.sid, tunniste: t, jasenet: [] });
+    if (!g.jasenet.some((x) => x.pid === String(p.pid))) g.jasenet.push({ sid: p.sid, pid: String(p.pid), d, tunniste: t, nimi: n });
+  });
+  return Object.keys(kartta).sort().map((k) => kartta[k]).filter((g) => g.jasenet.length >= 2);
+}
+module.exports = { datamaara, terveysLkm, ryhmittele, tunnisteArvo, nimiAvain, TULOKSET, POIS };
