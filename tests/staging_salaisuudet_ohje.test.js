@@ -35,30 +35,68 @@ describe('koodin salaisuudet vs. STAGING_ASENNUS.md dummy-lista', () => {
   });
 });
 
-describe('esitarkistus: tarkista()', () => {
-  const ok = () => ({ status: 0, stderr: '' });
-  it('kaikki olemassa → ok, kutsu = versions describe latest kohdeprojektissa', () => {
-    const kutsut = []; const r = T.tarkista(['A', 'B'], 'proj-x', (a) => { kutsut.push(a); return ok(); });
-    expect(r.ok).toBe(true); expect(kutsut[0]).toEqual(['secrets', 'versions', 'describe', 'latest', '--secret=A', '--project=proj-x', '--format=value(name)']);
+/** Vale-gcloud: versions describe → olemassa/puuttuu; get-iam-policy → JSON, jossa ajotilillä on secretAccessor (paitsi ilmanOikeutta-listan salaisuuksilla). */
+const POLKU_OK = (proj) => JSON.stringify({ bindings: [{ role: 'roles/secretmanager.secretAccessor', members: ['serviceAccount:' + proj + '@appspot.gserviceaccount.com'] }] });
+function vale(proj, o) {
+  const x = o || {}, kutsut = [];
+  const aja = (a) => {
+    kutsut.push(a); const nimi = (a.find((t) => t.indexOf('--secret=') === 0) || '').slice(9) || a[2];
+    if (a[1] === 'versions') return (x.puuttuu || []).indexOf(nimi) >= 0 ? { status: 1, stdout: '', stderr: 'ERROR: NOT_FOUND: Secret [x] not found or has no versions.' } : { status: 0, stdout: 'v1', stderr: '' };
+    if ((x.iamVirhe || []).indexOf(nimi) >= 0) return { status: 1, stdout: '', stderr: 'ERROR: PERMISSION_DENIED: getIamPolicy' };
+    if ((x.ilmanOikeutta || []).indexOf(nimi) >= 0) return { status: 0, stdout: JSON.stringify({ bindings: [{ role: 'roles/secretmanager.secretAccessor', members: ['serviceAccount:muu@appspot.gserviceaccount.com'] }, { role: 'roles/secretmanager.viewer', members: ['serviceAccount:' + proj + '@appspot.gserviceaccount.com'] }] }), stderr: '' };
+    return { status: 0, stdout: POLKU_OK(proj), stderr: '' };
+  };
+  return { aja, kutsut };
+}
+const ok = (proj) => vale(proj).aja;
+
+describe('esitarkistus: tarkista() — salaisuus + secretAccessor', () => {
+  it('kaikki kunnossa → ok; kutsut: versions describe latest + get-iam-policy kohdeprojektissa', () => {
+    const v = vale('proj-x'); const r = T.tarkista(['A', 'B'], 'proj-x', v.aja);
+    expect(r.ok).toBe(true); expect(v.kutsut[0]).toEqual(['secrets', 'versions', 'describe', 'latest', '--secret=A', '--project=proj-x', '--format=value(name)']);
+    expect(v.kutsut[1]).toEqual(['secrets', 'get-iam-policy', 'A', '--project=proj-x', '--format=json']);
   });
-  it('puuttuva → viesti nimi + projekti + gcloud-luontikomento; muut eivät', () => {
-    const r = T.tarkista(['A', 'VALVONTA_VASTAANOTTAJA'], 'talentmaster-pilot', (a) => (a[4] === '--secret=VALVONTA_VASTAANOTTAJA' ? { status: 1, stderr: 'ERROR: NOT_FOUND: Secret [x] not found or has no versions.' } : ok()));
-    expect(r.ok).toBe(false); expect(r.puuttuu).toEqual(['VALVONTA_VASTAANOTTAJA']);
-    expect(r.viesti).toContain('PUUTTUU: salaisuus VALVONTA_VASTAANOTTAJA'); expect(r.viesti).toContain('gcloud secrets create VALVONTA_VASTAANOTTAJA --project=talentmaster-pilot'); expect(r.viesti).toContain('read -s');
-    expect(r.viesti).not.toMatch(/PUUTTUU: salaisuus A\b/);
+  it('puuttuva salaisuus → viesti sisältää luonti- JA oikeuskomennon yhdessä; get-iam-policyä ei kutsuta puuttuvalle', () => {
+    const v = vale('talentmaster-pilot', { puuttuu: ['VALVONTA_VASTAANOTTAJA'] }); const r = T.tarkista(['A', 'VALVONTA_VASTAANOTTAJA'], 'talentmaster-pilot', v.aja);
+    expect(r.ok).toBe(false); expect(r.puuttuu).toEqual(['VALVONTA_VASTAANOTTAJA']); expect(r.ilmanOikeutta).toEqual([]);
+    expect(r.viesti).toContain('gcloud secrets create VALVONTA_VASTAANOTTAJA --project=talentmaster-pilot'); expect(r.viesti).toContain('read -s');
+    expect(r.viesti).toContain('gcloud secrets add-iam-policy-binding VALVONTA_VASTAANOTTAJA --project=talentmaster-pilot --member=serviceAccount:talentmaster-pilot@appspot.gserviceaccount.com --role=roles/secretmanager.secretAccessor');
+    expect(v.kutsut.filter((k) => k[1] === 'get-iam-policy').map((k) => k[2])).toEqual(['A']);
   });
-  it('muu virhe (oikeus) erotetaan puuttumisesta', () => {
-    const r = T.tarkista(['A'], 'p-abcde', () => ({ status: 1, stderr: 'ERROR: PERMISSION_DENIED: Permission denied' }));
-    expect(r.ok).toBe(false); expect(r.puuttuu).toEqual([]); expect(r.viesti).toContain('TARKISTUS EPÄONNISTUI: A'); expect(r.viesti).toContain('secretmanager.versions.get');
+  it('salaisuus olemassa mutta ajotililtä puuttuu secretAccessor (toisella tilillä/toisella roolilla ei kelpaa) → EI OIKEUTTA + oikeuskomento; luontikomentoa ei', () => {
+    const r = T.tarkista(['A', 'B'], 'talentmaster-pilot', vale('talentmaster-pilot', { ilmanOikeutta: ['B'] }).aja);
+    expect(r.ok).toBe(false); expect(r.ilmanOikeutta).toEqual(['B']); expect(r.puuttuu).toEqual([]);
+    expect(r.viesti).toContain('EI OIKEUTTA: ajotilillä talentmaster-pilot@appspot.gserviceaccount.com'); expect(r.viesti).toContain('gcloud secrets add-iam-policy-binding B --project=talentmaster-pilot --member=serviceAccount:talentmaster-pilot@appspot.gserviceaccount.com --role=roles/secretmanager.secretAccessor');
+    expect(r.viesti).toContain('setIamPolicy 403'); expect(r.viesti).not.toContain('gcloud secrets create'); expect(r.viesti).not.toMatch(/salaisuuteen A\b/);
   });
-  it('main: puuttuva salaisuus → exit 1 + virhe stderriin nimen kanssa; kaikki ok → 0; virheellinen projekti → 2', () => {
+  it('kaikki puutteet kerralla (ei pysähdy ensimmäiseen)', () => {
+    const r = T.tarkista(['A', 'B', 'C'], 'p-abcde', vale('p-abcde', { puuttuu: ['A'], ilmanOikeutta: ['B'], iamVirhe: ['C'] }).aja);
+    expect(r.puuttuu).toEqual(['A']); expect(r.ilmanOikeutta).toEqual(['B']); expect(r.virheet.map((x) => x.nimi)).toEqual(['C']);
+  });
+  it('lukuoikeusvirhe (versions tai get-iam-policy) erotetaan puuttumisesta; CI:lle ei ehdoteta kirjoitusoikeutta', () => {
+    const r = T.tarkista(['A'], 'p-abcde', () => ({ status: 1, stdout: '', stderr: 'ERROR: PERMISSION_DENIED: Permission denied' }));
+    expect(r.ok).toBe(false); expect(r.puuttuu).toEqual([]); expect(r.viesti).toContain('TARKISTUS EPÄONNISTUI: A'); expect(r.viesti).toContain('getIamPolicy'); expect(r.viesti).not.toContain('setIamPolicy 403');
+    const i = T.tarkista(['A'], 'p-abcde', vale('p-abcde', { iamVirhe: ['A'] }).aja); expect(i.virheet[0].syy).toContain('get-iam-policy');
+  });
+  it('onAccessor: oikea rooli + oikea ajotili vaaditaan; roskaa → null', () => {
+    expect(T.onAccessor(POLKU_OK('p'), 'p')).toBe(true); expect(T.onAccessor(POLKU_OK('p'), 'q')).toBe(false); expect(T.onAccessor('{}', 'p')).toBe(false); expect(T.onAccessor('ei json', 'p')).toBeNull();
+    expect(T.onAccessor(JSON.stringify({ bindings: [{ role: 'roles/secretmanager.viewer', members: ['serviceAccount:p@appspot.gserviceaccount.com'] }] }), 'p')).toBe(false);
+  });
+  it('main: puute → exit 1 + virhe stderriin (nimi + komennot); kaikki ok → 0; virheellinen projekti → 2; ei kirjoituskutsuja gcloudiin', () => {
     const virheet = [], lokit = []; const e = console.error, l = console.log; console.error = (m) => virheet.push(m); console.log = (m) => lokit.push(m);
     try {
-      expect(T.main(['--projekti=talentmaster-pilot'], (a) => (a[4] === '--secret=SENDGRID_API_KEY' ? { status: 1, stderr: 'NOT_FOUND' } : ok()))).toBe(1);
-      expect(virheet.join('\n')).toContain('SENDGRID_API_KEY'); expect(virheet.join('\n')).toContain('KESKEYTETTY');
-      expect(T.main(['--projekti=talentmaster-staging'], ok)).toBe(0); expect(lokit.join('\n')).toMatch(/^OK: \d+ salaisuutta/);
-      expect(T.main(['--projekti=;rm -rf'], ok)).toBe(2);
+      const v = vale('talentmaster-pilot', { ilmanOikeutta: ['SENDGRID_API_KEY'] });
+      expect(T.main(['--projekti=talentmaster-pilot'], v.aja)).toBe(1);
+      expect(virheet.join('\n')).toContain('SENDGRID_API_KEY'); expect(virheet.join('\n')).toContain('KESKEYTETTY'); expect(virheet.join('\n')).toContain('add-iam-policy-binding SENDGRID_API_KEY');
+      expect(v.kutsut.every((k) => (k[1] === 'versions' && k[2] === 'describe') || k[1] === 'get-iam-policy')).toBe(true);   // vain lukukutsut
+      expect(T.main(['--projekti=talentmaster-staging'], ok('talentmaster-staging'))).toBe(0); expect(lokit.join('\n')).toMatch(/^OK: \d+ salaisuutta .*secretAccessor/);
+      expect(T.main(['--projekti=;rm -rf'], ok('x'))).toBe(2);
     } finally { console.error = e; console.log = l; }
+  });
+  it('skriptissä ei kirjoittavia gcloud-komentoja (CI ei saa lisäoikeuksia): komennot vain tulostetaan viestissä', () => {
+    const src = readFileSync(join(ROOT, 'scripts/tarkista_salaisuudet.js'), 'utf8');
+    const kutsut = src.match(/aja\(\[[^\]]*\]\)/g) || []; expect(kutsut.length).toBe(2); kutsut.forEach((k) => expect(k).toMatch(/'describe'|'get-iam-policy'/));
+    expect(src).not.toMatch(/spawnSync\('gcloud', \[\s*'secrets', '(create|add-iam|versions', 'add)/);
   });
 });
 
@@ -84,9 +122,24 @@ describe('STAGING_ASENNUS.md B/A: staging-asennuksen löydökset', () => {
   it('WIF-ehto ${REPO}:environment:staging (aaltosulkeet, zsh), ei paljas $REPO:e', () => {
     expect(OHJE).toContain('repo:${REPO}:environment:staging'); expect(OHJE).not.toMatch(/\$REPO:[a-z]/);
   });
+  it('dummy-salaisuuksille luodaan samalla secretAccessor-oikeus ajotilille (luonti + oikeus aina yhdessä)', () => {
+    const lohko = OHJE.slice(OHJE.indexOf('for S in '), OHJE.indexOf('# --- Budjetti'));
+    expect(lohko).toContain('gcloud secrets create'); expect(lohko).toMatch(/gcloud secrets add-iam-policy-binding \$S .*roles\/secretmanager\.secretAccessor/); expect(lohko).toContain('@appspot.gserviceaccount.com');
+  });
   it('budjettikomento --billing-project=$PROJECT_ID', () => { expect(OHJE).toMatch(/gcloud billing budgets create --billing-project=\$PROJECT_ID/); });
   it('A4: Storage "Get started" tehdään loppuun Consolessa (rules-deploy muuten kaatuu)', () => {
     const a4 = OHJE.split('\n').find((r) => /^4\. \*\*Storage/.test(r)) || '';
     expect(a4).toMatch(/LOPPUUN Consolessa/); expect(a4).toContain('rules-deploy kaatuu');
+  });
+});
+
+describe('docs/SECRET_MANAGER_MIGRAATIO.md: "Uusi salaisuus" -osio', () => {
+  const D = lue('docs/SECRET_MANAGER_MIGRAATIO.md'), osio = D.slice(D.indexOf('## Uusi salaisuus'));
+  it('osio on olemassa ja sisältää luonti- ja oikeuskomennon YHDESSÄ samassa koodilohkossa', () => {
+    expect(D).toContain('## Uusi salaisuus'); const lohko = (osio.match(/```sh\n([\s\S]*?)```/) || [])[1] || '';
+    expect(lohko).toContain('gcloud secrets create'); expect(lohko).toContain('gcloud secrets add-iam-policy-binding'); expect(lohko).toContain('roles/secretmanager.secretAccessor'); expect(lohko).toContain('@appspot.gserviceaccount.com');
+  });
+  it('osio kertoo miksi (CI ei saa asettaa oikeutta), esitarkistuksen ja että staging-ohjeen dummy-lista päivitetään', () => {
+    expect(osio).toMatch(/setIamPolicy/); expect(osio).toContain('scripts/tarkista_salaisuudet.js'); expect(osio).toContain('docs/STAGING_ASENNUS.md');
   });
 });

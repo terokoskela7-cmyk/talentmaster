@@ -72,8 +72,10 @@ echo "STAGING_DEPLOY_SA=$DEPLOY_SA"
 for S in SENDGRID_API_KEY ANTHROPIC_API_KEY AWS_BEDROCK_ACCESS_KEY_ID AWS_BEDROCK_SECRET_ACCESS_KEY VALVONTA_VASTAANOTTAJA; do
   case $S in VALVONTA_VASTAANOTTAJA) V='staging-ei-kaytossa@example.com';; *) V='staging-ei-kaytossa';; esac
   printf '%s' "$V" | gcloud secrets create $S --project $PROJECT_ID --replication-policy=automatic --data-file=-
+  # luonti + oikeus AINA yhdessä: ajotili (<projekti>@appspot) tarvitsee secretAccessor; CI ei saa asettaa sitä itse (setIamPolicy 403) → CI-esitarkistus kaatuu ilman tätä
+  gcloud secrets add-iam-policy-binding $S --project $PROJECT_ID --member="serviceAccount:$PROJECT_ID@appspot.gserviceaccount.com" --role=roles/secretmanager.secretAccessor
 done
-# CI tarkistaa ennen functions-deployta (scripts/tarkista_salaisuudet.js), että jokainen koodin salaisuus on olemassa ja sillä on versio.
+# CI tarkistaa ennen functions-deployta (scripts/tarkista_salaisuudet.js), että jokainen koodin salaisuus on olemassa, sillä on versio ja ajotilillä on secretAccessor. Uusi salaisuus: docs/SECRET_MANAGER_MIGRAATIO.md "Uusi salaisuus".
 
 # --- Budjetti 25 € (korvaa BILLING_ACCOUNT_ID; `gcloud billing accounts list`) ---
 # --billing-project=$PROJECT_ID: ilman sitä gcloud käyttää oletusprojektia (tuotanto) kiintiö-/API-projektina.
