@@ -42,7 +42,7 @@ describe('konseptien nimet: yksi sv-nimi per konsepti (MASTER.json = lib-sanasto
   });
   it('sama muunnos kuin VP:n _vpKonseptiNimiNimella (ei erillistä kirjoitusasulogiikkaa)', () => {
     const vpHtml = teksti('TalentMaster_VP_v25.html');
-    expect(vpHtml).toContain("var u = sv.replace(/(\\d)v(\\d)/g, '$1V$2');"); expect(vpHtml).toContain("(u === u.toUpperCase() && u !== u.toLowerCase()) ? (u.charAt(0) + u.slice(1).toLowerCase()) : sv");
+    expect(vpHtml).toContain('function _vpKonseptiNimiNormaali(sv)'); expect(vpHtml).toContain('return _vpKonseptiNimiNormaali(sv);');   // normalisoija: tests/vp_konsepti_nimi_normaali.test.js vertaa vientiskriptin kopioon
     for (const t of TUNNUKSET) expect(V.normaali(MASTER[t + '.nimi']), t).toBe(LIB['sn_' + t]);
   });
 });

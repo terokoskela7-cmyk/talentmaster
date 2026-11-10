@@ -14,7 +14,7 @@ const PALAUTUS = 'docs/i18n/sv_kaannoserae_102_palautus.json', LAHETYS = 'docs/i
 const COMMON_FI = ['Valakyykky', 'Askelkyykky', 'Hyvää huomenta', 'Etunojapunnerrus'];
 const KONSEPTIT = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ['sn_y_h' + n, 'y_h' + n + '.nimi']).concat([1, 2, 3, 4].map((n) => ['sn_y_p' + n, 'y_p' + n + '.nimi']));
 const otsake = 'sv-käännöserä 102 (PM 10.11.2026; ' + PALAUTUS + '; vienti scripts/i18n_vie_sv_era102.cjs) — VP Kenttä-näkymän vierekkäiset tekstit (#1245)';
-const normaali = (s) => { const u = s.replace(/(\d)v(\d)/g, '$1V$2'); return u === u.toUpperCase() && u !== u.toLowerCase() ? u.charAt(0) + u.slice(1).toLowerCase() : s; };   // = _vpKonseptiNimiNimella (P1.2; '1v1' ei estä isojen tunnistusta)
+const normaali = (sv) => { const r = String(sv).split(/(\([^)]*\))/).map((osa, i) => { if (i % 2 === 1) return osa; const u = osa.replace(/(\d)v(\d)/g, '$1V$2'); return u === u.toUpperCase() && u !== u.toLowerCase() ? u.toLowerCase() : osa; }).join(''); return r.charAt(0).toUpperCase() + r.slice(1); };   // = VP:n _vpKonseptiNimiNormaali (P1.2; tests/vp_konsepti_nimi_normaali.test.js vertaa)
 
 function vie(opts) {
   opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [];
