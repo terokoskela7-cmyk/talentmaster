@@ -6338,8 +6338,16 @@ function _vpKonseptiNimiNimella(nimi) {
   if (!_vpKnNimellaKartta) { _vpKnNimellaKartta = {}; Object.keys(m).forEach(function (k) { if (!/^[a-z0-9_]+\.nimi$/.test(k)) return; var a = k.slice(0, -5), c = tmKonseptiKaanon(a); if (c && c.nimi) _vpKnNimellaKartta[String(c.nimi).toLowerCase()] = a; }); }
   var a2 = _vpKnNimellaKartta[s.toLowerCase()], sv = a2 ? m[a2 + '.nimi'] : null;
   if (!sv) return s;
-  var u = sv.replace(/(\d)v(\d)/g, '$1V$2');   // '1v1' ei ole pienaakkosia → ei estä isojen tunnistusta
-  return (u === u.toUpperCase() && u !== u.toLowerCase()) ? (u.charAt(0) + u.slice(1).toLowerCase()) : sv;   // KAANON-nimi isoilla → sentence case kuten fi-puolella (P1.2)
+  return _vpKonseptiNimiNormaali(sv);
+}
+// _vpKonseptiNimiNormaali: KAANON-nimi isoilla → sentence case kuten fi-puolella (P1.2). Isoilla kirjoitettu osa → pienet; sulkeissa oleva osa (esim. "(rest defence)") säilyy sellaisenaan; '1v1' ei ole pienaakkosia → ei estä isojen tunnistusta. Jo normaali teksti ei muutu.
+function _vpKonseptiNimiNormaali(sv) {
+  var r = String(sv).split(/(\([^)]*\))/).map(function (osa, i) {
+    if (i % 2 === 1) return osa;
+    var u = osa.replace(/(\d)v(\d)/g, '$1V$2');
+    return (u === u.toUpperCase() && u !== u.toLowerCase()) ? u.toLowerCase() : osa;
+  }).join('');
+  return r.charAt(0).toUpperCase() + r.slice(1);
 }
 // _ttKaanonSv: kaanon (EI seuraoverridea) sv:nä — tmTanaanOsat({kaanon}) lukee kpi[].teksti → Kehitystyöpöydän osarivit. Sama sidecar kuin _ttKonsepti; puuttuva sv → fi.
 function _ttKaanonSv(avain) {
