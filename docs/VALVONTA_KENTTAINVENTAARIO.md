@@ -32,7 +32,7 @@ Rules vertaa `seuraId`:tä vain Solo-pelaajan `players`-päivityksessä (`reques
 | `seuranta_kuittaukset` | `joukkue` | laajuusskripti |
 | `viestit`, `kooste_joukkue`, `havainnot`, `harjoitusarvioinnit`, `mentoroinnit` | `joukkue` | **oletus**, ei vielä varmistettu koodista |
 
-**Avoin (PR 2):** viimeisen rivin kokoelmien kentät varmistetaan baseline-ajossa. Jos kenttä on väärä, E1 antaa 0 ilman virhettä, joten PR 2:n ajossa tarkistetaan, että jokaisessa kokoelmassa on vähintään yksi dokumentti, jossa jokin `VIITEKENTAT`-kenttä esiintyy.
+**Kenttävahti F1 (PR 2):** viimeisen rivin kokoelmien kentät ovat arvauksia. Jos kokoelmassa on dokumentteja mutta alle 50 %:lla on yhtään oletetuista kentistä (tai 0 %:lla), tarkistus palauttaa VAROITUS: kenttä puuttuu (kokoelma, osuus) eikä hiljaista nollaa. `node scripts/valvonta_aja.js` tulostaa baseline-ajossa osion "Kenttävahti (F1)": jokaisen oletetun kentän osuuden, kokoelman todelliset joukkue-nimiset kentät ja rivin "LISÄÄ INVENTAARIOON?", kun datassa on kenttä, jota ei ole `VIITEKENTAT`-listalla. Inventaario (tämä taulukko ja `VIITEKENTAT`) korjataan sen mukaan; kokoelma, jossa kenttää ei kuulu olla (esim. viestit ilman joukkuetta), poistetaan listalta tai kirjataan sallittujen listaan perusteluineen.
 
 ## 3. Muut tarkistukset ja niiden kentät
 
