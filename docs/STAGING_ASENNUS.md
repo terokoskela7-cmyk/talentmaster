@@ -9,7 +9,7 @@ Ajoreitti: tee A (Console), B (gcloud), C (GitHub), sitten aja **Actions → Dep
 1. **Projekti.** Firebase Console → Add project → ID `talentmaster-staging` (ei Google Analyticsia).
 2. **Laskutus.** Liitä Blaze-laskutustili (Functions 1st gen, Secret Manager ja Scheduler vaativat sen).
 3. **Firestore.** Create database, Native mode, **sijainti `eur3`** (sama kuin tuotanto; ei muutettavissa jälkikäteen). Aloita production-säännöillä; CI deployaa oikeat.
-4. **Storage.** Get started, oletusbucket **`europe-west1`** (storage-säännöt deployataan vasta kun bucket on olemassa).
+4. **Storage.** Get started, oletusbucket **`europe-west1`** — **tee "Get started" LOPPUUN Consolessa** (hyväksy ehdot ja luo bucket). Pelkkä `firebasestorage.googleapis.com`-API:n enablointi ei riitä: ilman oletusbucketia rules-deploy kaatuu (`Firebase Storage has not been set up on project`). Tarkista, että Storage-sivulla näkyy bucket.
 5. **Authentication.** Get started → Sign-in method: ota käyttöön samat tavat kuin tuotannossa (tarkista tuotannon Console: Email/Password, Google). Settings → Authorized domains: lisää `talentmaster-staging.web.app` ja `talentmaster-staging.firebaseapp.com`. Peilaa tuotannon salasanapolitiikka ja sähköpostipohjat (suomennokset).
 6. **Hosting.** Get started (site-id `talentmaster-staging`).
 7. **Web-sovellus.** Project settings → Your apps → Add app (Web), nimi `talentmaster-staging-web`. Kopioi `apiKey`, `appId`, `messagingSenderId` (näitä käytetään C-kohdassa; ne ovat julkisia web-konfiguraation arvoja, eivät salaisuuksia). **Rajaa API-avain** (Google Cloud Console → APIs & Services → Credentials): HTTP referrer `talentmaster-staging.web.app/*`, `talentmaster-staging--*.web.app/*`, `talentmaster-staging.firebaseapp.com/*`, `localhost/*`.
@@ -67,12 +67,17 @@ echo "STAGING_WIF_PROVIDER=projects/$PROJECT_NUMBER/locations/global/workloadIde
 echo "STAGING_DEPLOY_SA=$DEPLOY_SA"
 
 # --- Functionsin salaisuudet: DUMMY-arvot (deploy vaatii, että secretit ovat olemassa; oikeaa sähköpostia/AI:ta ei käytetä, P6) ---
-for S in SENDGRID_API_KEY ANTHROPIC_API_KEY AWS_BEDROCK_ACCESS_KEY_ID AWS_BEDROCK_SECRET_ACCESS_KEY; do
-  printf 'staging-ei-kaytossa' | gcloud secrets create $S --project $PROJECT_ID --replication-policy=automatic --data-file=-
+# LISTA = kaikki koodin runWith({ secrets }) -nimet (functions/*.js). Vartijatesti tests/staging_salaisuudet_ohje.test.js kaatuu, jos koodiin tulee uusi salaisuus eikä sitä ole tässä.
+# VALVONTA_VASTAANOTTAJA: dummy on kelvollinen osoitemuoto (muuten valvonta lokittaisi vastaanottaja_puuttuu); staging ei lähetä oikeaa postia (sahkoposti_esto).
+for S in SENDGRID_API_KEY ANTHROPIC_API_KEY AWS_BEDROCK_ACCESS_KEY_ID AWS_BEDROCK_SECRET_ACCESS_KEY VALVONTA_VASTAANOTTAJA; do
+  case $S in VALVONTA_VASTAANOTTAJA) V='staging-ei-kaytossa@example.com';; *) V='staging-ei-kaytossa';; esac
+  printf '%s' "$V" | gcloud secrets create $S --project $PROJECT_ID --replication-policy=automatic --data-file=-
 done
+# CI tarkistaa ennen functions-deployta (scripts/tarkista_salaisuudet.js), että jokainen koodin salaisuus on olemassa ja sillä on versio.
 
 # --- Budjetti 25 € (korvaa BILLING_ACCOUNT_ID; `gcloud billing accounts list`) ---
-gcloud billing budgets create --billing-account=BILLING_ACCOUNT_ID --display-name="talentmaster-staging 25 EUR" \
+# --billing-project=$PROJECT_ID: ilman sitä gcloud käyttää oletusprojektia (tuotanto) kiintiö-/API-projektina.
+gcloud billing budgets create --billing-project=$PROJECT_ID --billing-account=BILLING_ACCOUNT_ID --display-name="talentmaster-staging 25 EUR" \
   --budget-amount=25EUR --filter-projects=projects/$PROJECT_ID \
   --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 --threshold-rule=percent=1.0
 
