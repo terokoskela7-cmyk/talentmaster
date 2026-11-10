@@ -53,7 +53,7 @@ const TM_BASE_URL = (process.env.TM_BASE_URL || 'https://talentmasterid.com').re
 // ─────────────────────────────────────────────────────────────────────────────
 // APUFUNKTIO: Lähetä sähköposti SendGridin HTTP API:n kautta
 // ─────────────────────────────────────────────────────────────────────────────
-async function lahetaSahkoposti({ to, subject, html, fromName }) {
+async function lahetaSahkoposti({ to, subject, html, fromName, hiljainen }) {   // hiljainen: ei vastaanottajaa eikä vastauksen runkoa lokiin (projekti 07 valvonta)
   // Projekti 06 P6: muu kuin tuotantoprojekti (esim. staging) ei lähetä oikeaa sähköpostia. Tämä on ENSIMMÄINEN tarkistus (ennen avainta),
   // jotta staging ei kaadu puuttuvaan avaimeen. Lokiin vain projekti (ei vastaanottajaa/otsikkoa). Vartija: tests/sahkoposti_esto_kytkenta.test.js.
   const _esto = sahkopostiEsto.sahkopostiEsto(process.env);
@@ -94,11 +94,11 @@ async function lahetaSahkoposti({ to, subject, html, fromName }) {
         res.on('data', chunk => { body += chunk; });
         res.on('end', () => {
           if (res.statusCode === 202) {
-            console.log('[SendGrid] Lähetetty onnistuneesti:', to);
+            console.log('[SendGrid] Lähetetty onnistuneesti:', hiljainen ? '(vastaanottaja ei lokiin)' : to);
             resolve({ ok: true });
           } else {
-            console.error('[SendGrid] Virhe:', res.statusCode, body);
-            reject(new Error(`SendGrid palautti ${res.statusCode}: ${body}`));
+            console.error('[SendGrid] Virhe:', res.statusCode, hiljainen ? '(runko ei lokiin)' : body);
+            reject(hiljainen ? Object.assign(new Error('SendGrid ' + res.statusCode), { koodi: 'sendgrid_' + res.statusCode }) : new Error(`SendGrid palautti ${res.statusCode}: ${body}`));
           }
         });
       }
@@ -1867,5 +1867,6 @@ exports.kirjautumisaikaYo = functions.region('europe-west1').runWith({ timeoutSe
   .onRun(require('./kirjautumisaika').ajastettuKasittelija({ db, auth: admin.auth(), Timestamp: admin.firestore.Timestamp }));
 
 /* Projekti 07 / PR 3: erottelun valvonta (functions/valvonta.js; P1). Kuiva-ajo ennen VALVONTA_KIRJOITUS_ALKAA (koodivakio, 17.11.2026); kirjoittaa vain audit-rivin (kirjaaAudit). */
-exports.valvontaPaivittain = functions.region('europe-west1').runWith({ timeoutSeconds: 540, memory: '1GB' }).pubsub.schedule('30 5 * * *').timeZone('Europe/Helsinki').onRun(require('./valvonta').ajastettuKasittelija({ db, FieldValue: admin.firestore.FieldValue }, 'paivittain'));
-exports.valvontaViikko = functions.region('europe-west1').runWith({ timeoutSeconds: 540, memory: '1GB' }).pubsub.schedule('0 5 * * 1').timeZone('Europe/Helsinki').onRun(require('./valvonta').ajastettuKasittelija({ db, FieldValue: admin.firestore.FieldValue }, 'viikko'));
+const _valvDeps = { db, FieldValue: admin.firestore.FieldValue, posti: require('./valvonta_posti').luoLahetin({ laheta: lahetaSahkoposti }) };   // PR 4: virhesähköposti
+exports.valvontaPaivittain = functions.region('europe-west1').runWith({ timeoutSeconds: 540, memory: '1GB', secrets: ['SENDGRID_API_KEY', 'VALVONTA_VASTAANOTTAJA'] }).pubsub.schedule('30 5 * * *').timeZone('Europe/Helsinki').onRun(require('./valvonta').ajastettuKasittelija(_valvDeps, 'paivittain'));
+exports.valvontaViikko = functions.region('europe-west1').runWith({ timeoutSeconds: 540, memory: '1GB', secrets: ['SENDGRID_API_KEY', 'VALVONTA_VASTAANOTTAJA'] }).pubsub.schedule('0 5 * * 1').timeZone('Europe/Helsinki').onRun(require('./valvonta').ajastettuKasittelija(_valvDeps, 'viikko'));

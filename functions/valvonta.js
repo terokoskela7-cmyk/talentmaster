@@ -9,12 +9,13 @@
  *   Alkupäivästä lähtien (Helsingin päivä >= vakio) ajo kirjoittaa audit-rivin. Ei ympäristömuuttujaa: CI-deploy ei lue functions/.env (CLAUDE.md §39) ja käsin asetettu muuttuja
  *   nollautuisi seuraavassa functions-deployssa. Alkupäivän siirto = koodimuutos PR:llä.
  * KIRJOITUS (P3/P5): vain `kirjaaAudit` → audit-kokoelma, toiminto 'valvonta_ajo'. Ei muita kirjoituksia (tests/valvonta_kirjoitusvartija.test.js). Ei Rules-muutosta.
- * Sähköposti (P4/P6) tulee PR 4:ssä (Secret Manager VALVONTA_VASTAANOTTAJA); tämä PR ei lähetä mitään.
+ * Sähköposti (P4/P6, PR 4): kirjauksen JÄLKEEN valvonta_posti.js (deps.posti = lähetin); kuivalla jaksolla ei lähetetä mitään. Lähetysvirhe ei kaada ajoa eikä peru audit-riviä.
  * PII (P4/VAIHE0 §3.3): audit-rivi ja loki sisältävät vain seura-id:t, tarkistuskoodit, kokoelmien nimet ja lukumäärät; tmVOnkoPii ennen kirjoitusta; virheestä vain koodi.
  */
 const V = require('./tm_valvonta.js');
 const R = require('./tm_valvonta_raportti.js');
 const L = require('./valvonta_luku.js');
+const P = require('./valvonta_posti.js');
 
 const TOIMINTO = 'valvonta_ajo';
 const SEURA_RE = /^[a-z0-9_-]{1,40}$/, KOK_RE = /^[a-z_]{1,40}$/;
@@ -76,7 +77,8 @@ async function aja(deps, tyyppi) {
   aineisto.virheet.forEach((v) => loki.error(R.tmVLokiVirhe(v.seura, { code: v.koodi })));
   if (kuiva) return { kuiva: true, raportti, audit, kirjattu: false };
   await kirjaaAudit(deps, audit);
-  return { kuiva: false, raportti, audit, kirjattu: true };
+  const posti = deps.posti ? await P.kasittele({ laheta: deps.posti, loki }, raportti, tyyppi) : { lahetetty: false, syy: 'ei_lahetinta' };
+  return { kuiva: false, raportti, audit, kirjattu: true, posti };
 }
 /** index.js:n kytkentä: onRun-käsittelijä. Virhe → loki (vain koodi) + heitto, jotta Cloud Scheduler/Monitoring näkee epäonnistumisen. */
 function ajastettuKasittelija(deps, tyyppi) {
