@@ -22,3 +22,6 @@ export const E80AVAIN = (avain, vanha) => { for (const k of [avain, K1D.uusi(ava
    KB5(kohde, avain, vanha) palauttaa korjauserän sv:n, jos (kohde = 'tm_lang' | 'lib', avain) on korjattu ja vanha = korjauserän sv_vanha; muuten vanhan arvon. Avain-tarkka. */
 const B5 = JSON.parse(readFileSync(new URL('../../docs/i18n/sv_korjaus_b5_utforande.json', import.meta.url), 'utf8')).osiot;
 export const KB5 = (kohde, avain, vanha) => { const r = B5[kohde] && B5[kohde].rivit[avain]; return r && r.sv_vanha === vanha ? r.sv : vanha; };
+/* Erä 102 (PM 10.11.2026): konseptien nimet yhtenäistettiin — lib sn_y_h0…9 = MASTER-sidecarin 'y_hN.nimi' normaalilla kirjoitusasulla (korvasi erän 46 sv:n). Avain-tarkka; vanhojen erien testit vertaavat tähän. */
+const M102 = JSON.parse(readFileSync(new URL('../../docs/i18n/curriculum_kaannettava.sv.MASTER.json', import.meta.url), 'utf8'));
+export const E102 = (avain, vanha) => { const m = /^sn_(y_h\d)$/.exec(avain); const s = m && M102[m[1] + '.nimi']; return typeof s === 'string' ? s.charAt(0) + s.slice(1).toLowerCase() : vanha; };

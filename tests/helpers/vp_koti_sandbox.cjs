@@ -19,7 +19,7 @@ function luoYmparisto(src, o) {
   const ctx = {
     console, Date, JSON, Math, Promise, Object, Array, String, Number, isNaN, parseInt, setTimeout, clearTimeout,
     _seuraId: o.seuraId || 'demo-fc', _pelaajat: o.pelaajat || [], _kalenteriTapahtumat: o.kalenteri || [], _currentWs: 'koti', _vpJoukkueDocs: o.joukkueDocs || [], _joukkueNimet: o.joukkueNimet || {},
-    vpT: (x) => x, _jsvEsc: (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+    vpT: (x) => x, _vpKonseptiNimiNimella: (x) => x /* erä 102: Kodin/Joukkueiden konseptinimi sv-sidecarista; fi-tilassa identtinen */, _jsvEsc: (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     toast(m, t) { (o.toastit = o.toastit || []).push([m, t]); }, setWs() {}, renderVpAloitaKortti() { el('vpAloitaKortti').innerHTML = '<AOPAS/>'; },
     // klassisen Kodin riippuvuudet: kiinteät tynkät → vertailu on rakenteellinen (lippu pois → täsmälleen sama HTML kuin ennen)
     _vpSignaaliKortit: () => ({ kortit: [{ ik: 'I', sev: 'var(--teal)', txt: 'T1', cta: 'C1', fn: 'F1()' }, { ik: 'J', sev: 'var(--amber)', txt: 'T2', cta: 'C2', fn: 'F2()' }], tuotu: 10, kutsuttu: 6, odottaa: 4, annettu: 2, ilman: 8, konv: 33 }),

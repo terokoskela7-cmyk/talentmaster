@@ -15,18 +15,21 @@ describe('erä 102 — erätiedosto', () => {
   const t = R.rivit({});
   it('rakentaja ei raportoi virheitä; erätiedosto = rakentajan tuotos (avaimet ja järjestys)', () => {
     expect(t.virheet).toEqual([]);
-    expect(Object.keys(ERA.osiot.vp_kentta_b.rivit)).toEqual(Object.keys(t.rivit));
-    expect(Object.keys(t.rivit).length).toBeGreaterThanOrEqual(50);
+    /* Vienti tehty (tests/i18n_era102_vienti.test.js): rakentaja ei enää löydä käännöstä vaille jääneitä rivejä (t.rivit tyhjä), vaan kaikki lähetetyn erän rivit ovat nyt kartassa (t.kartassa). */
+    expect(Object.keys(t.rivit)).toEqual([]);
+    expect(Object.keys(ERA.osiot.vp_kentta_b.rivit).sort()).toEqual(t.kartassa.filter((k) => ERA.osiot.vp_kentta_b.rivit[k]).sort());
+    expect(Object.keys(ERA.osiot.vp_kentta_b.rivit).length).toBe(55);
   });
-  it('lähetetty sv on tyhjä; rivillä on lähde + näkymä; jo kartassa olevat tekstit eivät ole erässä', () => {
+  it('lähetetty sv on tyhjä; rivillä on lähde + näkymä; vienti: jokainen lähetetty rivi on nyt kartassa PM:n palautuksena', () => {
     for (const [k, r] of Object.entries(ERA.osiot.vp_kentta_b.rivit)) { expect(r.sv, k).toBe(''); expect(r.fi, k).toBe(k); expect(r.lahde, k).toBeTruthy(); expect(r.nakyma.length, k).toBeGreaterThan(0); }
     const res = R.ketju(new URL('..', import.meta.url).pathname);
-    for (const k of Object.keys(ERA.osiot.vp_kentta_b.rivit)) expect(res(k), k).toBeNull();
+    const PAL = JSON.parse(teksti('docs/i18n/sv_kaannoserae_102_palautus.json')).osiot.vp_kentta_b.rivit;
+    for (const k of Object.keys(ERA.osiot.vp_kentta_b.rivit)) expect(res(k), k).toBe(PAL[k].sv);
   });
-  it('liikkuvuusliikkeiden neljä nimeä ovat erässä (ei lukittua sanastoa common/MASTER:ssa)', () => {
+  it('liikkuvuusliikkeiden neljä nimeä ovat erässä; viennän jälkeen lukitussa sanastossa (common)', () => {
     for (const n of ['Valakyykky', 'Askelkyykky', 'Hyvää huomenta', 'Etunojapunnerrus']) expect(ERA.osiot.vp_kentta_b.rivit[n], n).toBeTruthy();
     const C = require('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv;
-    for (const n of ['Valakyykky', 'Askelkyykky', 'Hyvää huomenta', 'Etunojapunnerrus']) expect(C[n], n).toBeUndefined();
+    for (const n of ['Valakyykky', 'Askelkyykky', 'Hyvää huomenta', 'Etunojapunnerrus']) expect(typeof C[n], n).toBe('string');
   });
 });
 
