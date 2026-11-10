@@ -37,7 +37,7 @@ describe('PII-vartija: koko ketju', () => {
   });
   it('audit-rivin ja sähköpostin avaimet/arvot rajoittuvat sallittuun: seura-id, koodi, kokoelma, luku, taso', () => {
     const audit = R.tmVAuditRivi(raportti);
-    audit.rivit.forEach((r) => { expect(Object.keys(r).sort()).toEqual(['c', 'e', 'k', 'n', 's', 't']); expect(r.s).toMatch(/^[a-z0-9_-]{1,40}$/); expect(r.k).toMatch(/^[EFHKM]\d[ab]?$/); expect(typeof r.n).toBe('number'); expect(typeof r.e).toBe('number'); });
+    audit.rivit.forEach((r) => { expect(Object.keys(r).sort()).toEqual(['c', 'e', 'k', 'n', 's', 't']); expect(r.s).toMatch(/^[a-z0-9_-]{1,40}$/); expect(r.k).toMatch(/^[EFHKM]\d[a-c]?$/); expect(typeof r.n).toBe('number'); expect(typeof r.e).toBe('number'); });
     expect(Object.keys(audit).sort()).toEqual(['ajettu', 'ei_ehtinyt', 'hylatty', 'rivit', 'severity', 'toiminto', 'tyyppi', 'varoituksia', 'virheita']);
     const rivi = R.tmVRiviTeksti({ taso: 'virhe', koodi: 'E1a', seura: 'sibbovargarna', kokoelma: 'toimenpiteet', lkm: 12, edellinen: 0 });
     expect(rivi).toBe('ERROR E1a · sibbovargarna · toimenpiteet · 12 (edellinen 0)');

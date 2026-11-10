@@ -332,3 +332,42 @@ describe('PR 2b: baseline-korjaukset (10.11.)', () => {
     expect(JSON.stringify(o)).not.toMatch(/Sininen|Koko|vanha/);
   });
 });
+
+describe('PR 2c: E1c (kirjoitusasu), aliaslista, K1-normalisointi', () => {
+  const ss = [seuraA('a', ['A U13 Sininen', 'A U12']), seuraA('b', ['B U13'])];
+  const aja2 = (kok, extra) => { const I = V.tmVIndeksit(ss.map((s) => ({ sid: s.sid, joukkueet: s.joukkueet, pelaajat: [], kayttajat: [] }))); return V.tmVTarkistaSeura(Object.assign({ sid: 'a', joukkueet: ss[0].joukkueet, kokoelmat: kok, kayttajat: new Set(), indeksit: I }, extra || {})); };
+  const rr = (t, koodi, kok) => t.find((x) => x.koodi === koodi && x.kokoelma === kok);
+  it('kirjoitusasu (sama joukkue eri tavalla kirjoitettuna) on E1c WARN, ei E1b ERROR — vaikka osuus olisi yli 10 %', () => {
+    const docs = lista(20, (i) => ({ _id: 'k' + i, tyyppi: 'harjoitus', joukkue: i < 15 ? 'a u13-sininen!' : 'A U12' }));
+    const t = aja2({ kalenteri: docs });
+    expect(rr(t, 'E1c', 'kalenteri')).toMatchObject({ lkm: 15, taso: 'varoitus' }); expect(rr(t, 'E1b', 'kalenteri')).toMatchObject({ lkm: 0, taso: 'ok' });
+  });
+  it('oikea orpo pysyy E1b:nä; dokumentti jossa sekä kirjoitusasu että oikea orpo → E1b; toisen seuran viite → E1a', () => {
+    const t = aja2({ toimenpiteet: [{ _id: '1', joukkue: 'Haamu FC' }, { _id: '2', joukkue: 'a u13 sininen!' }, { _id: '3', joukkue: 'B U13' }] });
+    expect(rr(t, 'E1b', 'toimenpiteet').lkm).toBe(1); expect(rr(t, 'E1c', 'toimenpiteet').lkm).toBe(1); expect(rr(t, 'E1a', 'toimenpiteet').lkm).toBe(1);
+  });
+  it('aliaslista: aliaksella löytyvä viite on OK (E1b/E1c nollaan); alias ei vaikuta, jos kohdejoukkuetta ei ole seurassa; toisen seuran alias ei vaikuta', () => {
+    const rivi = { seura: 'a', alias: 'A U13 vanha', joukkue: 'a_j0', perustelu: 'joukkue nimettiin uudelleen 2025', paiva: '2026-11-11' };
+    const docs = [{ _id: '1', tyyppi: 'harjoitus', joukkue: 'A U13 vanha' }, { _id: '2', tyyppi: 'harjoitus', joukkue: 'A U13 vanha!' }];
+    const ilman = aja2({ kalenteri: docs }); expect(rr(ilman, 'E1b', 'kalenteri').lkm + rr(ilman, 'E1c', 'kalenteri').lkm).toBe(2);
+    const kanssa = aja2({ kalenteri: docs }, { aliasRivit: [rivi] });     expect(rr(kanssa, 'E1b', 'kalenteri').lkm).toBe(1);   // 2. ('A U13 vanha!') ei täsmää aliakseen → pysyy orpona
+    expect(rr(aja2({ kalenteri: docs }, { aliasRivit: [Object.assign({}, rivi, { joukkue: 'poistettu_j9' })] }), 'E1b', 'kalenteri').lkm).toBe(2);
+    expect(rr(aja2({ kalenteri: docs }, { aliasRivit: [Object.assign({}, rivi, { seura: 'b' })] }), 'E1b', 'kalenteri').lkm).toBe(2);
+  });
+  it('tmVAliasVirheet: validointi', () => {
+    const h = { seura: 'a', alias: 'X', joukkue: 'a_j0', perustelu: 'perusteltu hyvin', paiva: '2026-11-11' };
+    expect(V.tmVAliasVirheet([h])).toEqual([]);
+    expect(V.tmVAliasVirheet([Object.assign({}, h, { alias: '' })])).toEqual(['rivi 1: alias']); expect(V.tmVAliasVirheet([Object.assign({}, h, { alias: 'mikko@x.fi' })])).toEqual(['rivi 1: alias']);
+    expect(V.tmVAliasVirheet([Object.assign({}, h, { joukkue: '' })])).toEqual(['rivi 1: joukkue']); expect(V.tmVAliasVirheet([Object.assign({}, h, { perustelu: 'lyhyt' })])).toEqual(['rivi 1: perustelu puuttuu']);
+    expect(V.tmVAliasVirheet([h, Object.assign({}, h, { alias: ' x ' })])).toEqual(['rivi 2: kaksoiskappale']);
+  });
+  it('K1: joukkueen id ja nimi (sekä kirjoitusasu) ovat sama ryhmä; vieraat nimet normalisoidaan (kirjainkoko, välimerkit)', () => {
+    const avoin = (i, j) => ({ _id: 'e' + i, tila: 'ehdotus', joukkue: j });
+    const docs = [].concat(lista(3, (i) => avoin(i, 'a_j0')), lista(3, (i) => avoin(10 + i, 'A U13 Sininen')), lista(2, (i) => avoin(20 + i, 'a u13-sininen')), lista(4, (i) => avoin(30 + i, i % 2 ? 'Haamu-FC' : 'HAAMU FC')));
+    const t = aja2({ toimenpiteet: docs }); expect(rr(t, 'K1', 'toimenpiteet').lkm).toBe(8); expect(rr(t, 'K1', 'toimenpiteet').taso).toBe('varoitus');   // 3+3+2 samaa joukkuetta
+  });
+  it('tmVE6Jasenet (sisäinen): palauttaa vain ryhmät joissa ≥ 2 eri pelaajadokumenttia', () => {
+    const g = V.tmVE6Jasenet([{ sid: 'k', kokoelmat: { pelaajat: [{ _id: 'a', etunimi: 'M', sukunimi: 'M', tunniste: '5' }, { _id: 'b', etunimi: 'M', sukunimi: 'M', tunniste: '5' }, { _id: 'c', tunniste: '6' }] } }]);
+    expect(g.length).toBe(1); expect(g[0].jasenet.map((m) => m.pid)).toEqual(['a', 'b']);
+  });
+});

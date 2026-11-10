@@ -50,6 +50,7 @@ if (process.env.FAKE_PR2B) {   // PR 2b: todellisen datan muodot (kalenterin tyy
   put(K, 'p6', { tyyppi: 'harjoitus', alalaji: 'aamutreeni', kohde: { tyyppi: 'pelaajat' } });   // ei joukkuepakkoa
   put(K, 'p7', { tyyppi: 'ottelu', joukkue: 'beta_j0', joukkueet: ['beta_j0'], kohde: { tyyppi: 'joukkue' } });   // toisen seuran
   put(K, 'p8', { tyyppi: 'harjoitus', kohde: { tyyppi: 'joukkue' } });   // joukkue puuttuu (F1)
+  put(K, 'p9', { tyyppi: 'harjoitus', joukkue: 'Alfa-U13!', kohde: { tyyppi: 'joukkue' }, lahde: 'manuaalinen', nakyvyys: 'kaikki' });   // kirjoitusasu → E1c (varoitus)
   put('seurat/alfa/viestit', 'vj1', { tyyppi: 'muu', joukkueId: 'alfa_j0' }); put('seurat/alfa/viestit', 'vj2', { tyyppi: 'muu', joukkueId: 'beta_j0' }); put('seurat/alfa/viestit', 'vj3', { tyyppi: 'muu', joukkueId: 'roikkuva_j9' });
   put('seurat/alfa/mentoroinnit', 'mj1', { joukkueId: 'alfa_j1', valmentajaId: 'x' });
   put('seurat/alfa/kooste_joukkue', 'alfa_j0_2026-W45', { jid: 'alfa_j0', vk: '2026-W45' }); put('seurat/alfa/kooste_joukkue', 'beta_j0_2026-W45', { jid: 'beta_j0', vk: '2026-W45' }); put('seurat/alfa/kooste_joukkue', 'roikkuva_j9_2026-W45', { jid: 'roikkuva_j9', vk: '2026-W45' });
