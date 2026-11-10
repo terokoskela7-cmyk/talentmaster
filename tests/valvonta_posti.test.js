@@ -15,14 +15,6 @@ const rap = (rivit, extra) => R.tmVRaportti(Object.assign({ tulokset: rivit, aje
 const virhe = { seura: 's1', koodi: 'E6', kokoelma: 'pelaajat', lkm: 2, taso: 'virhe' };
 const varoitus = { seura: 's1', koodi: 'E5b', kokoelma: 'seuranta_kuittaukset', lkm: 3, taso: 'varoitus' };
 
-/** Vale-https: tallentaa pyynnön ja vastaa annetulla tilakoodilla (rungossa osoite, jotta nähdään ettei sitä lokiteta). */
-function valeHttps(tila, kirjaus) {
-  return { request: (opts, cb) => {
-    const kutsu = { opts, body: '' }; if (kirjaus) kirjaus.push(kutsu);
-    return { on: () => {}, write: (b) => { kutsu.body += b; }, end: () => { const res = { statusCode: tila, on: (e, f) => { if (e === 'data') f('rungossa ' + OSOITE); if (e === 'end') f(); } }; cb(res); } };
-  } };
-}
-
 describe('valvonta posti: vastaanottaja (P6, Secret Manager → env)', () => {
   it('kelpaa vain yksi kelvollinen osoite; tyhjä/useita/virheellinen → null', () => {
     expect(P.vastaanottaja({ VALVONTA_VASTAANOTTAJA: ' ' + OSOITE + ' ' })).toBe(OSOITE);
@@ -32,23 +24,22 @@ describe('valvonta posti: vastaanottaja (P6, Secret Manager → env)', () => {
 });
 
 describe('valvonta posti: lähetin', () => {
-  const env = { GCLOUD_PROJECT: 'talentmaster-pilot', SENDGRID_API_KEY: 'SG.avain', VALVONTA_VASTAANOTTAJA: OSOITE };
-  it('lähettää SendGridiin: seuranta pois, vastaanottaja payloadissa; EI lokita osoitetta, avainta eikä vastauksen runkoa', async () => {
-    const kutsut = [], loki = hiljainen(), laheta = P.luoLahetin({ env, https: valeHttps(202, kutsut), loki });
+  const env = { VALVONTA_VASTAANOTTAJA: OSOITE };
+  it('kutsuu lahetaSahkoposti-funktiota hiljaisessa tilassa: vastaanottaja env:stä, otsikon rivinvaihdot pois', async () => {
+    const kutsut = []; const laheta = P.luoLahetin({ env, laheta: async (x) => { kutsut.push(x); return { ok: true }; } });
     const r = await laheta({ subject: 'TalentMaster valvonta: 1 virhettä\nBcc: x', html: '<p>x</p>' });
-    expect(r.ok).toBe(true); expect(kutsut.length).toBe(1); expect(kutsut[0].opts.hostname).toBe('api.sendgrid.com');
-    const pl = JSON.parse(kutsut[0].body); expect(pl.personalizations[0].to[0].email).toBe(OSOITE); expect(pl.tracking_settings.click_tracking.enable).toBe(false); expect(pl.subject).not.toMatch(/\n/);
-    expect(loki.l.join('\n')).not.toContain(OSOITE); expect(loki.l.join('\n')).not.toContain('SG.avain');
+    expect(r.ok).toBe(true); expect(kutsut[0]).toMatchObject({ to: OSOITE, hiljainen: true, html: '<p>x</p>' }); expect(kutsut[0].subject).not.toMatch(/\n/);
   });
-  it('ei tuotantoprojekti (staging) → ESTETTY, ei https-kutsua', async () => {
-    const kutsut = [], r = await P.luoLahetin({ env: Object.assign({}, env, { GCLOUD_PROJECT: 'talentmaster-staging' }), https: valeHttps(202, kutsut), loki: hiljainen() })({ subject: 's', html: 'h' });
-    expect(r).toEqual({ ok: true, estetty: true }); expect(kutsut).toEqual([]);
-  });
-  it('puuttuva vastaanottaja / avain / SendGrid-virhe → heittää vain koodin (ei osoitetta)', async () => {
-    await expect(P.luoLahetin({ env: Object.assign({}, env, { VALVONTA_VASTAANOTTAJA: '' }), https: valeHttps(202), loki: hiljainen() })({ subject: 's', html: 'h' })).rejects.toMatchObject({ koodi: 'vastaanottaja_puuttuu' });
-    await expect(P.luoLahetin({ env: Object.assign({}, env, { SENDGRID_API_KEY: '' }), https: valeHttps(202), loki: hiljainen() })({ subject: 's', html: 'h' })).rejects.toMatchObject({ koodi: 'sendgrid_avain_puuttuu' });
-    const e = await P.luoLahetin({ env, https: valeHttps(401), loki: hiljainen() })({ subject: 's', html: 'h' }).catch((x) => x);
+  it('puuttuva vastaanottaja → ei kutsua, koodi vastaanottaja_puuttuu; lähetysvirhe → vain koodi (ei osoitetta)', async () => {
+    const kutsut = [];
+    await expect(P.luoLahetin({ env: { VALVONTA_VASTAANOTTAJA: '' }, laheta: async (x) => { kutsut.push(x); } })({ subject: 's', html: 'h' })).rejects.toMatchObject({ koodi: 'vastaanottaja_puuttuu' }); expect(kutsut).toEqual([]);
+    const e = await P.luoLahetin({ env, laheta: async () => { throw Object.assign(new Error('x ' + OSOITE), { koodi: 'sendgrid_401' }); } })({ subject: 's', html: 'h' }).catch((x) => x);
     expect(e.koodi).toBe('sendgrid_401'); expect(JSON.stringify([e.message, e.koodi])).not.toContain(OSOITE);
+  });
+  it('index.js: lahetaSahkoposti hiljaisessa tilassa ei lokita osoitetta eikä vastauksen runkoa; valvonta käyttää sitä', () => {
+    const idx = readFileSync(join(ROOT, 'functions/index.js'), 'utf8'), f = idx.slice(idx.indexOf('async function lahetaSahkoposti('), idx.indexOf('async function lahetaSahkoposti(') + 3500);
+    expect(f).toContain("hiljainen ? '(vastaanottaja ei lokiin)' : to"); expect(f).toContain("hiljainen ? '(runko ei lokiin)' : body");
+    expect(idx).toMatch(/luoLahetin\(\{ laheta: lahetaSahkoposti \}\)/);
   });
 });
 

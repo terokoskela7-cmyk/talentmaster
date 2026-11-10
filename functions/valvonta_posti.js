@@ -4,16 +4,13 @@
  *  · vastaanottaja: Secret Manager VALVONTA_VASTAANOTTAJA (runWith({secrets}) → process.env); yksi osoite (v1). Puuttuva/virheellinen → ei lähetetä, loki kertoo vain syyn.
  *  · sisältö: R.tmVSahkoposti (lib/tm_valvonta_raportti.js, PR 1): päivittäin vain uudet/kasvaneet virheet tai käsittelemättä jääneet seurat; viikoittain yhteenveto (virheet + varoitukset).
  *    Vain seura-id, tarkistuskoodi, kokoelma ja lukumäärät; tmVOnkoPii tarkistaa viestin ennen lähetystä.
- *  · lähetys: SendGrid (sama payload-rakentaja kuin muu sähköposti → seuranta pois, §39) ja sama ympäristöesto (ei oikeaa postia muussa kuin tuotantoprojektissa).
- *    Eri kuin index.js:n lahetaSahkoposti: EI lokita vastaanottajaa eikä SendGridin vastauksen runkoa (voi toistaa osoitteen); lokiin vain tilakoodi.
+ *  · lähetys: index.js:n lahetaSahkoposti (injektoitu; seuranta pois §39, ympäristöesto: ei oikeaa postia muussa kuin tuotantoprojektissa) `hiljainen`-tilassa:
+ *    EI lokita vastaanottajaa eikä SendGridin vastauksen runkoa (voi toistaa osoitteen); lokiin vain tilakoodi.
  *  · epäonnistunut lähetys EI kaada valvonta-ajoa eikä estä audit-riviä (kirjaus tehdään ennen lähetystä).
  */
 const R = require('./tm_valvonta_raportti.js');
-const { rakennaSendGridPayload } = require('./sahkoposti_payload');
-const sahkopostiEsto = require('./sahkoposti_esto');
 
 const OSOITE_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/;
-const LAHETTAJA = 'noreply@talentmasterid.com';   // sama oletus kuin lahetaSahkoposti (ei salainen; CI-deploy ei lue .env:iä)
 
 /** env → vastaanottaja tai null (tyhjä, useita osoitteita tai virheellinen muoto → null). */
 function vastaanottaja(env) {
@@ -22,24 +19,15 @@ function vastaanottaja(env) {
 }
 const otsikko = (s) => String(s || '').replace(/[\r\n\u2028\u2029]+/g, ' ').trim().slice(0, 120);
 
-/** SendGrid-lähetin (injektoitava https/env testeille). → async ({ subject, html }) => { ok, estetty?, tila? }. Heittää vain tilakoodin sisältävän virheen. */
+/** Lähetin: opts = { laheta (index.js:n lahetaSahkoposti: ainoa SendGrid-kutsukohta, ympäristöesto sisällä), env? }. → async ({ subject, html }) => { ok, estetty? }.
+ *  Vastaanottaja luetaan env:stä tässä; `hiljainen: true` → lahetaSahkoposti ei lokita osoitetta eikä SendGridin vastauksen runkoa. Virhe heitetään vain koodilla (ei osoitetta). */
 function luoLahetin(opts) {
-  const o = opts || {}, env = o.env || process.env, https = o.https || require('https'), loki = o.loki || console;
+  const o = opts || {}, env = o.env || process.env;
   return async function laheta(viesti) {
-    const esto = sahkopostiEsto.sahkopostiEsto(env);
-    if (esto.estetty) { loki.log('valvonta posti: lähetys ESTETTY (ei tuotantoprojekti) projekti=' + (esto.projekti || 'tuntematon')); return { ok: true, estetty: true }; }
-    const to = vastaanottaja(env), apiKey = env.SENDGRID_API_KEY;
+    const to = vastaanottaja(env);
     if (!to) throw Object.assign(new Error('vastaanottaja'), { koodi: 'vastaanottaja_puuttuu' });
-    if (!apiKey) throw Object.assign(new Error('avain'), { koodi: 'sendgrid_avain_puuttuu' });
-    const payload = JSON.stringify(rakennaSendGridPayload({ to, fromEmail: LAHETTAJA, fromName: 'TalentMaster™ valvonta', subject: otsikko(viesti.subject), html: viesti.html }));
-    return new Promise((resolve, reject) => {
-      const req = https.request({ hostname: 'api.sendgrid.com', path: '/v3/mail/send', method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } }, (res) => {
-        res.on('data', () => {}); res.on('end', () => (res.statusCode === 202 ? resolve({ ok: true, tila: 202 }) : reject(Object.assign(new Error('sendgrid'), { koodi: 'sendgrid_' + res.statusCode }))));
-      });
-      req.on('error', () => reject(Object.assign(new Error('verkko'), { koodi: 'sendgrid_verkko' })));
-      req.write(payload); req.end();
-    });
+    try { return await o.laheta({ to, subject: otsikko(viesti.subject), html: viesti.html, fromName: 'TalentMaster™ valvonta', hiljainen: true }); }
+    catch (e) { throw Object.assign(new Error('lahetys'), { koodi: (e && e.koodi) || R.tmVTurvallinenVirhe(e).koodi }); }
   };
 }
 
