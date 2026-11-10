@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KIRJOITUS = /\.(set|update|delete|add|create|commit|batch|runTransaction|bulkWriter|recursiveDelete)\s*\(|\b(FieldValue|writeBatch|setDoc|updateDoc|deleteDoc|addDoc)\b/;
-const TIEDOSTOT = ['lib/tm_valvonta.js', 'lib/tm_valvonta_raportti.js', 'functions/tm_valvonta.js', 'functions/tm_valvonta_raportti.js', 'functions/valvonta.js', 'functions/valvonta_luku.js', 'scripts/valvonta_aja.js'];
+const TIEDOSTOT = ['lib/tm_valvonta.js', 'lib/tm_valvonta_raportti.js', 'functions/tm_valvonta.js', 'functions/tm_valvonta_raportti.js', 'functions/valvonta.js', 'functions/valvonta_luku.js', 'scripts/valvonta_aja.js', 'scripts/diag_valvonta_luonne.js'];
 
 /** Poistaa kommentit ja funktion `kirjaaAudit` rungon; palauttaa jäljelle jäävän koodin. */
 export function ilmanSallittua(koodi) {
@@ -27,7 +27,7 @@ describe('valvonnan kirjoitusvartija', () => {
       expect(rikkoo(readFileSync(join(ROOT, f), 'utf8')), f).toBe(false);
     });
   });
-  it('lib-tiedostot ja PR 2:n lukukerros + käsiajuri ovat olemassa (vartija ei ole vacuous)', () => { expect(existsSync(join(ROOT, 'functions/valvonta_luku.js'))).toBe(true); expect(existsSync(join(ROOT, 'scripts/valvonta_aja.js'))).toBe(true); expect(existsSync(join(ROOT, 'lib/tm_valvonta.js'))).toBe(true); expect(existsSync(join(ROOT, 'lib/tm_valvonta_raportti.js'))).toBe(true); });
+  it('lib-tiedostot ja PR 2:n lukukerros + käsiajuri ovat olemassa (vartija ei ole vacuous)', () => { expect(existsSync(join(ROOT, 'functions/valvonta_luku.js'))).toBe(true); expect(existsSync(join(ROOT, 'scripts/valvonta_aja.js'))).toBe(true); expect(existsSync(join(ROOT, 'scripts/diag_valvonta_luonne.js'))).toBe(true); expect(existsSync(join(ROOT, 'lib/tm_valvonta.js'))).toBe(true); expect(existsSync(join(ROOT, 'lib/tm_valvonta_raportti.js'))).toBe(true); });
   it('vartija tunnistaa kirjoituskutsut (negatiivinen testi)', () => {
     ['db.collection("x").doc("y").set({a:1});', 'ref.update({a:1})', 'await b.commit();', 'x.delete()', 'col.add({})', 'db.batch()', 'db.runTransaction(async t=>{})', 'FieldValue.increment(1)', 'setDoc(r, {})']
       .forEach((k) => expect(rikkoo('function muu(){ ' + k + ' }'), k).toBe(true));

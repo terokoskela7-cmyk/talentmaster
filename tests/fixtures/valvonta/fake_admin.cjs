@@ -40,12 +40,27 @@ if (process.env.FAKE_DEMO) {   // P10-testi: demo-seura, jonka data viittaa alfa
   put('seurat', 'demo', { nimi: 'demo' }); put('seurat/demo/joukkueet', 'dj0', { nimi: 'Demo U13' });
   for (let i = 0; i < 5; i++) put('seurat/demo/toimenpiteet', 'd' + i, { joukkue: 'Alfa U13', tila: 'ehdotus' });
 }
+if (process.env.FAKE_PR2B) {   // PR 2b: todellisen datan muodot (kalenterin tyypit/kohteet, viestien joukkueId, kooste_joukkue-id, korvattu-ehdotus); alfa
+  const K = 'seurat/alfa/kalenteri';
+  put(K, 'p1', { tyyppi: 'harjoitus', joukkue: 'alfa_j0', joukkue_nimi: 'Vanhentunut nimi', joukkueet: ['alfa_j0'], kohde: { tyyppi: 'joukkue' } });   // id oma, nimi vanhentunut → ei orpo
+  put(K, 'p2', { tyyppi: 'ottelu', joukkue: null, joukkue_nimi: 'Alfa U13 · Alfa U12', joukkueet: ['alfa_j0', 'alfa_j1'], kohde: { tyyppi: 'joukkueet' } });   // "A · B" -nimi
+  put(K, 'p3', { tyyppi: 'seuran_tauko', joukkue: null, joukkue_nimi: null, joukkueet: [], kohde: { tyyppi: 'joukkue' } });   // seuratason: sallittu
+  put(K, 'p4', { tyyppi: 'harjoitus', joukkue: 'roikkuva_j9', joukkueet: ['roikkuva_j9'], kohde: { tyyppi: 'joukkue' } });   // oikea orpo
+  put(K, 'p5', { tyyppi: 'harjoitus', joukkue: 'Alfa U12', kohde: { tyyppi: 'joukkue' } });   // nimi käy
+  put(K, 'p6', { tyyppi: 'harjoitus', alalaji: 'aamutreeni', kohde: { tyyppi: 'pelaajat' } });   // ei joukkuepakkoa
+  put(K, 'p7', { tyyppi: 'ottelu', joukkue: 'beta_j0', joukkueet: ['beta_j0'], kohde: { tyyppi: 'joukkue' } });   // toisen seuran
+  put(K, 'p8', { tyyppi: 'harjoitus', kohde: { tyyppi: 'joukkue' } });   // joukkue puuttuu (F1)
+  put('seurat/alfa/viestit', 'vj1', { tyyppi: 'muu', joukkueId: 'alfa_j0' }); put('seurat/alfa/viestit', 'vj2', { tyyppi: 'muu', joukkueId: 'beta_j0' }); put('seurat/alfa/viestit', 'vj3', { tyyppi: 'muu', joukkueId: 'roikkuva_j9' });
+  put('seurat/alfa/mentoroinnit', 'mj1', { joukkueId: 'alfa_j1', valmentajaId: 'x' });
+  put('seurat/alfa/kooste_joukkue', 'alfa_j0_2026-W45', { jid: 'alfa_j0', vk: '2026-W45' }); put('seurat/alfa/kooste_joukkue', 'beta_j0_2026-W45', { jid: 'beta_j0', vk: '2026-W45' }); put('seurat/alfa/kooste_joukkue', 'roikkuva_j9_2026-W45', { jid: 'roikkuva_j9', vk: '2026-W45' });
+  put('seurat/alfa/toimenpiteet', 'tk1', { joukkue: 'Beta U13', tila: 'korvattu' }); put('seurat/alfa/toimenpiteet', 'tk2', { joukkue: 'Beta U13', tila: 'kuitattu' });   // korvattu ei lasketa, kuitattu lasketaan
+}
 if (process.env.FAKE_VIRHE) { Object.defineProperty(store, 'seurat/beta/kalenteri', { get() { const e = new Error('Missing permission seurat/beta/pelaajat/SALAINEN-UID Matti Meikäläinen'); e.code = 'permission-denied'; throw e; }, enumerable: false }); }
 const OPS = { '==': (a, b) => a === b, '>=': (a, b) => (a && typeof a.toMillis === 'function' ? a.toMillis() >= (b instanceof Date ? b.getTime() : b) : a >= b), in: (a, b) => b.includes(a) };
 function docSnap(path, id) { const data = store[path][id]; return { id, data: () => data, get: (f) => data[f], ref: { path: path + '/' + id, collection: (n) => query(path + '/' + id + '/' + n, []) } }; }
 function query(path, filt, sel) {
   const docs = () => Object.keys(store[path] || {}).filter((id) => filt.every((f) => OPS[f[1]](store[path][id][f[0]], f[2]))).sort().map((id) => docSnap(path, id));
-  return { where: (a, b, c) => query(path, filt.concat([[a, b, c]]), sel), select: () => query(path, filt, true), count: () => ({ get: async () => ({ data: () => ({ count: docs().length }) }) }), get: async () => ({ docs: docs(), size: docs().length }), doc: (id) => ({ collection: (n) => query(path + '/' + id + '/' + n, []) }) };
+  return { where: (a, b, c) => query(path, filt.concat([[a, b, c]]), sel), orderBy: () => query(path, filt, sel), select: () => query(path, filt, true), count: () => ({ get: async () => ({ data: () => ({ count: docs().length }) }) }), get: async () => ({ docs: docs(), size: docs().length }), doc: (id) => ({ collection: (n) => query(path + '/' + id + '/' + n, []) }) };
 }
 const db = { collection: (n) => query(n, []), collectionGroup: (n) => ({ get: async () => { const docs = []; Object.keys(store).filter((k) => k === n || k.endsWith('/' + n)).sort().forEach((k) => Object.keys(store[k]).sort().forEach((id) => docs.push(docSnap(k, id)))); return { docs, size: docs.length }; } }) };
 const fake = { initializeApp() {}, firestore: () => db, credential: {} };

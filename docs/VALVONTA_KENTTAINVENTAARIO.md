@@ -26,11 +26,15 @@ Rules vertaa `seuraId`:tä vain Solo-pelaajan `players`-päivityksessä (`reques
 
 | Kokoelma | Kentät | Lähde |
 |---|---|---|
-| `pelaajat` | `joukkue`, `joukkueNimi`, `joukkueId`, `joukkueet[]` | CLAUDE.md §7.18, `laajuus_vieraat_toimenpiteet.js` |
-| `toimenpiteet` | `joukkue` | `siivoa_toimenpide_tuplat.js` |
-| `kalenteri` | `joukkue`, `joukkue_nimi`, `joukkueet[]` | `lib/tm_kalenteri_malli.js` (rivi 47) |
-| `seuranta_kuittaukset` | `joukkue` | laajuusskripti |
-| `viestit`, `kooste_joukkue`, `havainnot`, `harjoitusarvioinnit`, `mentoroinnit` | `joukkue` | **oletus**, ei vielä varmistettu koodista |
+| `pelaajat` | `joukkue`, `joukkueNimi`, `joukkueId`, `joukkueet[]`, `joukkueetNimet[]` | CLAUDE.md §7.18; `joukkueetNimet` lisätty baseline-ajon perusteella (5,7 % dokumenteista) |
+| `toimenpiteet` | `joukkue` (tila `korvattu` ohitetaan: historiaa, ei elävä viite) | `siivoa_toimenpide_tuplat.js`; baseline: 100 % |
+| `kalenteri` | `joukkue` (id tai nimi), `joukkueet[]` ensisijaisia; `joukkue_nimi` toissijainen: luetaan vain jos tunnisteita ei ole, ja `A · B` pilkotaan (usean joukkueen tapahtuma, `tmKenelleDoc`); F1 lasketaan vain joukkuetapahtumista (`harjoitus`/`ottelu`, ei aamutreeni, ei kohde ryhmä/pelaajat/henkilökunta, `JOUKKUEPAKKO` lib/tm_ryhmat.js) | `lib/tm_kalenteri_malli.js`, `lib/tm_ryhmat.js` (`tmKenelleDoc`); seuratason tapahtuma ilman joukkuetta on sallittu |
+| `viestit`, `mentoroinnit` | `joukkueId` | baseline: viestit 73 %, mentoroinnit 100 % (aiempi oletus `joukkue` oli väärä) |
+| `kooste_joukkue` | dokumentin id `{joukkueId}_{vvvv-Www}` (joukkueId = id ilman loppua `_vvvv-Www`) | `functions/seuran_kooste.js`; kentällä `joukkue` ei ole arvoa |
+| `harjoitusarvioinnit`, `havainnot` | `joukkue` (nimi tai id; Master kirjoittaa valinnan nimenä, varapolku id:nä) | baseline: harjoitusarvioinnit 100 % |
+| ~~`seuranta_kuittaukset`~~ | pois E1:stä ja F1:stä: E5 (`valmentaja_uid` vs. `kayttajat`) kattaa | PM 10.11. |
+
+**K2 poistettu (PR 2b):** avointen ehdotusten seurakohtainen raja 50 poistui, kun VP:n ehdotushaku ei enää leikkaa (#1242; `diag_hiljaiset_rajat.js`-rekisteri). K1 (yli 6 avointa joukkuetta kohden = tuplaepäily) säilyy.
 
 **Kenttävahti F1 (PR 2):** viimeisen rivin kokoelmien kentät ovat arvauksia. Jos kokoelmassa on dokumentteja mutta alle 50 %:lla on yhtään oletetuista kentistä (tai 0 %:lla), tarkistus palauttaa VAROITUS: kenttä puuttuu (kokoelma, osuus) eikä hiljaista nollaa. `node scripts/valvonta_aja.js` tulostaa baseline-ajossa osion "Kenttävahti (F1)": jokaisen oletetun kentän osuuden, kokoelman todelliset joukkue-nimiset kentät ja rivin "LISÄÄ INVENTAARIOON?", kun datassa on kenttä, jota ei ole `VIITEKENTAT`-listalla. Inventaario (tämä taulukko ja `VIITEKENTAT`) korjataan sen mukaan; kokoelma, jossa kenttää ei kuulu olla (esim. viestit ilman joukkuetta), poistetaan listalta tai kirjataan sallittujen listaan perusteluineen.
 

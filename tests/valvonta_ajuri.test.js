@@ -29,15 +29,17 @@ describe('käsiajuri: tuloste', () => {
     expect(rivi(ulos, 'E5', 'beta', 'seuranta_kuittaukset')).toMatch(/ERROR/);
     expect(rivi(ulos, 'E7', 'alfa', 'audit')).toMatch(/ 2$/); expect(rivi(ulos, 'E7', 'beta', 'audit')).toBeUndefined();
   });
-  it('KENTTÄVAHTI näkyy suoraan: kalenteri, viestit ja harjoitusarvioinnit (0 %) saavat VAROITUS: kenttä puuttuu (kokoelma, osuus); toimenpiteet ok', () => {
+  it('KENTTÄVAHTI näkyy suoraan: viestit ja harjoitusarvioinnit (0 %) saavat VAROITUS: kenttä puuttuu (kokoelma, osuus); toimenpiteet ok; kalenterilla ei ole joukkuetapahtumia → ei vartioitavaa', () => {
     const { ulos } = aja();
-    ['kalenteri', 'viestit', 'harjoitusarvioinnit'].forEach((k) => {
+    ['viestit', 'harjoitusarvioinnit'].forEach((k) => {
       expect(ulos).toContain('‼ VAROITUS: kenttä puuttuu (' + k + ', osuus 0 %)');
       expect(rivi(ulos, 'F1', 'alfa', k)).toMatch(/WARN .*kenttä puuttuu; osuus 0 %/);
     });
-    expect(ulos).toMatch(/toimenpiteet\s+360\s+100 % .*OK/); expect(ulos).not.toContain('kenttä puuttuu (toimenpiteet');
+    expect(ulos).toMatch(/toimenpiteet\s+360\s+100 % .*OK/); expect(ulos).not.toContain('kenttä puuttuu (toimenpiteet'); expect(ulos).not.toContain('kenttä puuttuu (kalenteri');
+    expect(ulos).toMatch(/kalenteri\s+2400\s+–\s+\(ei dokumentteja, joilta joukkueviite odotetaan/);
     expect(ulos).toContain('kokoelmassa ei dokumentteja — ei vartioitavaa');
-    expect(ulos).toMatch(/pelaajat\s+160\s+100 % +joukkue 92\.5, joukkueNimi 7\.5, joukkueId 0, joukkueet 92\.5/);   // per kenttä: joukkueId 0 % = arvattu väärin
+    expect(ulos).toMatch(/pelaajat\s+160\s+100 % +joukkue 92\.5, joukkueNimi 7\.5, joukkueId 0, joukkueet 92\.5, joukkueetNimet 0/);   // per kenttä: joukkueId 0 % = arvattu väärin
+    expect(ulos).not.toMatch(/ K2 /); expect(ulos).not.toMatch(/seuranta_kuittaukset +\d+ +\d+ %/);
   });
   it('--raaka ja --kaikki toimivat; P10: demo ohitetaan oletuksena ja näkyy vain --kaikki-ajossa', () => {
     const oletus = aja([], { FAKE_DEMO: '1' }), kaikki = aja(['--kaikki'], { FAKE_DEMO: '1' });
@@ -57,6 +59,34 @@ describe('käsiajuri: tuloste', () => {
     expect(r.status, r.virhe).toBe(0);
     expect(r.ulos).toContain('LUKUVIRHE seura=beta koodi=permission-denied'); expect(r.ulos).toContain('seuroja luettu 3 · tarkistettu 3');
     expect(r.ulos + r.virhe).not.toMatch(/SALAINEN|Meikäläinen|Missing permission/); expect(r.ulos).not.toMatch(/ beta +pelaajat/);
+  });
+});
+
+describe('PR 2b: todelliset kenttämuodot ja luonnediagnostiikka', () => {
+  const DIAG = join(ROOT, 'scripts/diag_valvonta_luonne.js');
+  function diag(env) { const r = spawnSync('node', ['-r', join(FIX, 'fake_admin.cjs'), DIAG, NYT, '--kaikki'], { cwd: ROOT, encoding: 'utf8', env: Object.assign({}, process.env, env || {}) }); return { ulos: r.stdout, virhe: r.stderr, status: r.status }; }
+  it('FAKE_PR2B: alfan kalenteri/viestit/kooste/toimenpiteet antavat täsmälleen odotetut E1-luvut (0 väärää orpoa vanhentuneesta nimestä, "A · B"-nimestä tai seuratason tapahtumasta)', () => {
+    const { ulos } = aja([], { FAKE_PR2B: '1' });
+    expect(rivi(ulos, 'E1a', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 608$/); expect(rivi(ulos, 'E1b', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 608$/);   // p7 toisen seuran, p4 haamu-id; p1/p2/p3/p5/p6 puhtaita
+    expect(rivi(ulos, 'E1a', 'alfa', 'viestit')).toMatch(/ 1 \/ 703$/); expect(rivi(ulos, 'E1b', 'alfa', 'viestit')).toMatch(/ 1 \/ 703$/);
+    expect(rivi(ulos, 'E1a', 'alfa', 'kooste_joukkue')).toMatch(/ 1 \/ 3$/); expect(rivi(ulos, 'E1b', 'alfa', 'kooste_joukkue')).toMatch(/ 1 \/ 3$/);
+    expect(rivi(ulos, 'E1a', 'alfa', 'mentoroinnit')).toBeUndefined(); expect(rivi(ulos, 'E1b', 'alfa', 'mentoroinnit')).toBeUndefined();
+    expect(rivi(ulos, 'E1a', 'alfa', 'toimenpiteet')).toBeDefined(); expect(ulos).toMatch(/kalenteri +6 +83\.3 %/);   // F1-populaatio: 6 joukkuetapahtumaa, 5:llä kenttä
+    expect(ulos).not.toMatch(/ K2 /);
+  });
+  it('diag_valvonta_luonne: E6-ryhmät ja orpojen luonne lukumäärinä; ei nimiä, tunnisteita eikä id:itä; vain luku', () => {
+    const r = diag({ FAKE_PR2B: '1' }); expect(r.status, r.virhe).toBe(0);
+    expect(r.ulos).toContain('## E6: samaa tunnistetta käyttävät pelaajadokumentit — ryhmiä 35'); expect(r.ulos).toMatch(/alfa:1 beta:1 delta:1 gamma:1 +ei +0 \/ 4 +0 \/ 4 +ei +numeerinen_muu +kyllä/);
+    expect(r.ulos).toMatch(/yhteenveto: ryhmää, joissa KAIKKI dokumentit ovat §10-testipelaajia: 0 \/ 35/);
+    expect(r.ulos).toMatch(/alfa +kalenteri +1 +0 +0 +0 +1 +0/); expect(r.ulos).toMatch(/alfa +kooste_joukkue +1 +0 +0 +0 +1 +0/);
+    ['Kadonnut', 'Vieras', 'alfa_p', 'Alfa U13', 'roikkuva', 'Topias', 'm93GB', '1005'].forEach((k) => expect(r.ulos + r.virhe, k).not.toContain(k));
+    expect(readFileSync(DIAG, 'utf8')).toContain('admin.initializeApp({ projectId: projekti })'); expect(readFileSync(DIAG, 'utf8')).toContain('if (require.main !== module) throw');
+  });
+  it('sallittujen lista: KPV:n 12 kuitattua/hylättyä vierasta ehdotusta (9.11. seuranvaihtovika), perustelu ja päivä mukana; yli 12 hälyttää uudelleen', () => {
+    const j = JSON.parse(readFileSync(join(ROOT, 'functions/valvonta_sallitut.json'), 'utf8'));
+    expect(j.rivit).toEqual([{ seura: 'kpv', koodi: 'E1a', kokoelma: 'toimenpiteet', enimmaismaara: 12, perustelu: '9.11. seuranvaihtovika #1234, siivottu, säilytetään historiana', paiva: '2026-11-10' }]);
+    const t = (lkm) => V.tmVSovellaSallitut([{ seura: 'kpv', koodi: 'E1a', kokoelma: 'toimenpiteet', lkm, taso: 'virhe' }], j.rivit)[0];
+    expect(t(12)).toMatchObject({ taso: 'ok', sallittu: true }); expect(t(13)).toMatchObject({ taso: 'virhe', ylittaaSallitun: true });
   });
 });
 
@@ -93,7 +123,7 @@ describe('sallitut-tiedosto ja lukukerros', () => {
       collection: (n) => ({
         select: () => ({ get: async () => ({ docs: [doc('s1', {}, 'seurat/s1')] }) }),
         doc: () => ({ collection: (k) => ({ get: async () => { kutsut.push(k); return k === 'joukkueet' ? { docs: [doc('j1', { nimi: 'J Yksi' }, 'x')] } : (k === 'kayttajat' ? { docs: [doc('u1', { seuraId: 's1' }, 'x')] } : tyhja); } }) }),
-        where: (...a) => ({ where: (...b) => ({ get: async () => { kutsut.push(n + ':' + a[2] + ':' + b[1] + ':' + (b[2] instanceof Date)); return { docs: [doc('a1', { seuraId: 's1', aikaleima: { toMillis: () => 5 }, uid: 'EI-TALTEEN' }, 'audit/a1')] }; } }) })
+        where: (...a) => ({ where: (...b) => ({ orderBy: (kentta, suunta) => ({ get: async () => { kutsut.push(n + ':' + a[2] + ':' + b[1] + ':' + (b[2] instanceof Date) + ':' + kentta + ':' + suunta); return { docs: [doc('a1', { seuraId: 's1', aikaleima: { toMillis: () => 5 }, uid: 'EI-TALTEEN' }, 'audit/a1')] }; } }) }) })
       }),
       collectionGroup: (n) => ({ get: async () => { kutsut.push('cg:' + n); return { docs: [doc('d', { seuraId: 's2', teksti: 'EI-TALTEEN' }, 'seurat/s1/pelaajat/p/sisainen/d')] }; } })
     };
@@ -102,7 +132,7 @@ describe('sallitut-tiedosto ja lukukerros', () => {
     expect(a.seurat[0].joukkueet).toEqual([{ id: 'j1', nimi: 'J Yksi' }]); expect(a.seurat[0].kayttajat).toEqual(['u1']);
     expect(a.seurat[0].kokoelmat.sisainen).toEqual([{ _id: 'd', seuraId: 's2' }]);   // vain seuraId talteen
     expect(a.auditRivit.length).toBe(2); expect(a.auditRivit[0]).toEqual({ toiminto: 'kayttaja_toisen_seuran_estetty', seuraId: 's1', aikaleimaMs: 5 });
-    expect(JSON.stringify(a.auditRivit)).not.toContain('EI-TALTEEN'); expect(kutsut).toContain('cg:sisainen'); expect(kutsut.filter((k) => k.indexOf('audit:') === 0).every((k) => k.endsWith(':true'))).toBe(true);
+    expect(JSON.stringify(a.auditRivit)).not.toContain('EI-TALTEEN'); expect(kutsut).toContain('cg:sisainen'); expect(kutsut.filter((k) => k.indexOf('audit:') === 0).length === 2 && kutsut.filter((k) => k.indexOf('audit:') === 0).every((k) => k.endsWith(':true:aikaleima:desc'))).toBe(true);
     L.SEURAN_KOKOELMAT.forEach((k) => expect(kutsut).toContain(k));
   });
   it('lukukerros: yhden seuran virhe ei kaada muita; virheestä vain koodi', async () => {

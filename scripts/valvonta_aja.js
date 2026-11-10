@@ -38,18 +38,20 @@ function muotoile(aineisto, tulokset, opts) {
   const huomattavat = tulokset.filter((t) => t.lkm > 0 || t.taso !== 'ok').sort((a, b) => (a.seura < b.seura ? -1 : a.seura > b.seura ? 1 : (a.koodi < b.koodi ? -1 : a.koodi > b.koodi ? 1 : (a.kokoelma < b.kokoelma ? -1 : 1))));
   if (!huomattavat.length) rivit.push('(ei poikkeamia)');
   huomattavat.forEach((t) => rivit.push(MERKKI[t.taso] + ' ' + pad(t.koodi, 4) + ' ' + pad(t.seura, 18) + ' ' + pad(t.kokoelma, 22) + ' ' + lpad(t.lkm, 7) + (t.koodi !== 'M1' && t.kokonais != null ? ' / ' + t.kokonais : '')
-    + (t.koodi === 'M1' ? ' tavua (suurin dokumentti; ' + t.kokonais + ' dok)' : '') + (t.koodi === 'F1' ? ' (kenttä puuttuu; osuus ' + t.osuus + ' %)' : '') + (t.sallittu ? ' [sallittu ≤ ' + t.sallittuMax + ']' : '') + (t.ylittaaSallitun ? ' [YLITTÄÄ sallitun ' + t.sallittuMax + ']' : '')));
+    + (t.koodi === 'M1' ? ' tavua (suurin dokumentti; ' + t.kokonais + ' dok)' : '') + (t.koodi === 'F1' ? (t.taso === 'varoitus' ? ' (kenttä puuttuu; osuus ' : ' (osa ilman kenttää; osuus ') + t.osuus + ' %)' : '') + (t.sallittu ? ' [sallittu ≤ ' + t.sallittuMax + ']' : '') + (t.ylittaaSallitun ? ' [YLITTÄÄ sallitun ' + t.sallittuMax + ']' : '')));
 
-  rivit.push('', '## Kenttävahti (F1): oletetut joukkuekentät kokoelmittain, kaikki tarkistetut seurat yhteensä');
+  rivit.push('', '## Kenttävahti (F1): oletetut joukkuekentät kokoelmittain, kaikki tarkistetut seurat yhteensä (dok = dokumentit, joilta joukkueviite odotetaan; kalenterissa vain harjoitukset ja ottelut)');
   rivit.push(pad('kokoelma', 22) + lpad('dok', 8) + lpad('osuus', 9) + '  oletetut kentät (% dokumenteista)  ·  löydetyt joukkue-nimiset kentät (%)  ·  arvio');
   Object.keys(V.VIITEKENTAT).forEach((kok) => {
     const docs = [].concat(...mukana.map((s) => s.kokoelmat[kok] || []));
     if (!docs.length) { rivit.push(pad(kok, 22) + lpad(0, 8) + lpad('–', 9) + '  (kokoelmassa ei dokumentteja — ei vartioitavaa)'); return; }
-    const f = V.tmVKenttavahti('x', kok, docs), loydetyt = V.tmVJoukkuekentat(docs), odotetut = V.VIITEKENTAT[kok];
+    const f = V.tmVKenttavahti('x', kok, docs);
+    if (!f) { rivit.push(pad(kok, 22) + lpad(docs.length, 8) + lpad('–', 9) + '  (ei dokumentteja, joilta joukkueviite odotetaan — ei vartioitavaa)'); return; }
+    const loydetyt = V.tmVJoukkuekentat(docs), odotetut = V.VIITEKENTAT[kok];
     const odotettuTeksti = odotetut.map((k) => k + ' ' + f.kentat[k]).join(', '), loydettyTeksti = Object.keys(loydetyt).map((k) => k + ' ' + loydetyt[k]).join(', ') || '–';
     const ylimaaraiset = Object.keys(loydetyt).filter((k) => odotetut.indexOf(k) < 0 && loydetyt[k] >= 5);
     const arvio = f.taso === 'varoitus' ? '‼ VAROITUS: kenttä puuttuu (' + kok + ', osuus ' + f.osuus + ' %)' : 'OK';
-    rivit.push(pad(kok, 22) + lpad(docs.length, 8) + lpad(f.osuus + ' %', 9) + '  ' + odotettuTeksti + '  ·  ' + loydettyTeksti + '  ·  ' + arvio);
+    rivit.push(pad(kok, 22) + lpad(f.kokonais, 8) + lpad(f.osuus + ' %', 9) + '  ' + odotettuTeksti + '  ·  ' + loydettyTeksti + '  ·  ' + arvio);
     if (ylimaaraiset.length) rivit.push('    → LISÄÄ INVENTAARIOON? ' + kok + ': ' + ylimaaraiset.join(', ') + ' (esiintyy datassa, ei VIITEKENTAT-listalla)');
   });
 

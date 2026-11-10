@@ -7,15 +7,20 @@
    KYNNYS        · tmVKynnys(koodi, luku, raja?, kokonais?) → 'ok'|'varoitus'|'virhe'   · tmVKasvuTaso(nyt, edellinen, ennen)   · tmVTila(maara, raja)
    MITTARIT      · MITTARIT / PELAAJAMITTARIT (deklaratiivinen H1/H2-lista {nimi,tyyppi,kokoelma,ehto,raja}) — diag_hiljaiset_rajat.js ajaa ne
    Koodit: E1a toisen seuran joukkue · E1b orpo joukkue · E2 sama pelaaja-id usealla seuralla (aktiivinen/arkistoitu E2b) · E3 seuraId≠polku · E4 osittainen pelaajadoc · E5 kuittauksen uid (toisen seuran / E5b ei missään)
-           E6 PalloID-törmäys · E7 audit-estot 7 pv · H1 hiljainen raja · K1 avoimia ehdotuksia/joukkue · K2 avoimia/seura (raja 50) · K3 kasvu · M1 dokumenttikoko · M2 orpo pelaajaviite
+           E6 PalloID-törmäys · E7 audit-estot 7 pv · H1 hiljainen raja · K1 avoimia ehdotuksia/joukkue (K2 poistui PR 2b:ssä: VP:n avoimet ehdotukset eivät ole enää rajattuja, #1242) · K3 kasvu · M1 dokumenttikoko · M2 orpo pelaajaviite
            F1 KENTTÄVAHTI (PR 2): kokoelmassa on dokumentteja, mutta alle 50 %:lla on yhtään oletetuista joukkuekentistä → VAROITUS (ei hiljaista nollaa; E1 voisi muuten näyttää 0, vaikka kenttä on arvattu väärin) */
 (function (root) {
   'use strict';
   var OHITETUT_SEURAT = ['demo', 'demo-fc', 'qg_savu'];   // P10: synteettinen data; uusi demo-seura lisätään tähän PR:llä
   var DOC_RAJA_TAVU = 1048576, AUDIT_ESTOT = ['kayttaja_toisen_seuran_estetty', 'kayttaja_rooli_estetty'], VIIKKO_MS = 7 * 86400000;
   /* Joukkueviitekentät kokoelmittain (VAIHE0 §1.1 E1; inventaario PR 1: pelaajat/toimenpiteet koodista, muut joukkue*-perhe, vahvistetaan PR 2:n ajossa) */
-  var VIITEKENTAT = { toimenpiteet: ['joukkue'], pelaajat: ['joukkue', 'joukkueNimi', 'joukkueId', 'joukkueet'], kalenteri: ['joukkue', 'joukkue_nimi', 'joukkueet'], viestit: ['joukkue'],
-    seuranta_kuittaukset: ['joukkue'], kooste_joukkue: ['joukkue'], havainnot: ['joukkue'], harjoitusarvioinnit: ['joukkue'], mentoroinnit: ['joukkue'] };
+  /* PR 2b (baseline 10.11.): viestit/mentoroinnit → joukkueId · kooste_joukkue → dokumentin id ('_id' = {joukkueId}_{vvvv-Www}) · seuranta_kuittaukset pois (E5 kattaa) · pelaajat + joukkueetNimet */
+  var VIITEKENTAT = { toimenpiteet: ['joukkue'], pelaajat: ['joukkue', 'joukkueNimi', 'joukkueId', 'joukkueet', 'joukkueetNimet'], kalenteri: ['joukkue', 'joukkue_nimi', 'joukkueet'], viestit: ['joukkueId'],
+    kooste_joukkue: ['_id'], havainnot: ['joukkue'], harjoitusarvioinnit: ['joukkue'], mentoroinnit: ['joukkueId'] };
+  /* Toissijaiset kentät = näyttönimi, jota luetaan vain jos dokumentissa ei ole yhtään ensisijaista viitettä (kalenterin joukkue_nimi on luontihetken näyttönimi: vanhentuu nimenmuutoksessa ja usean joukkueen tapahtumassa se on "A · B") */
+  var TOISSIJAISET = { kalenteri: ['joukkue_nimi'] }, KOOSTE_VK_RE = /_\d{4}-W\d{1,2}$/;
+  /** F1:n populaatio: mitkä dokumentit ODOTETAAN sisältävän joukkueviite. Kalenterissa vain harjoitukset ja ottelut (JOUKKUEPAKKO, lib/tm_ryhmat.js); seuratason, ryhmä-, pelaaja- ja henkilökuntatapahtumat ilman joukkuetta ovat sallittuja. */
+  var F1_POPULAATIO = { kalenteri: function (d) { var t = String(d.tyyppi == null ? '' : d.tyyppi).trim().toLowerCase(), k = d.kohde && d.kohde.tyyppi; return (t === 'harjoitus' || t === 'ottelu') && d.alalaji !== 'aamutreeni' && k !== 'ryhma' && k !== 'pelaajat' && k !== 'henkilokunta'; } };
   var SEURAID_KOKOELMAT = ['kayttajat', 'havainnot', 'sisainen'];   // E3: kokoelmat, joissa seuraId tallentuu (inventaario)
   var ORPO_PELAAJAVIITE = ['seuranta_kuittaukset', 'toimenpiteet', 'viestit'], PELAAJA_VIITEKENTAT = ['pelaajaId', 'pelaaja_id'];
 
@@ -92,7 +97,7 @@
   /* ── Kynnykset (P4, VAIHE0 §3.2) ── */
   var KYNNYS = {   // absoluuttinen luku → taso: [varoitus-alaraja, virhe-alaraja] (null = ei kyseistä tasoa)
     E1a: [null, 1], E1b: [1, null], E2: [null, 1], E2b: [1, null], E3: [null, 1], E4: [1, null], E5: [null, 1], E5b: [1, null], E6: [null, 1], E7: [1, null], K1: [7, 12], M2: [1, null] };
-  var OSUUSKYNNYS = { H1: [0.7, 1], K2: [0.7, 1], M1: [0.7, 0.9] };   // luku/raja → [varoitus, virhe]
+  var OSUUSKYNNYS = { H1: [0.7, 1], M1: [0.7, 0.9] };   // luku/raja → [varoitus, virhe]
   var KENTTAVAHTI_RAJA = 50;   // F1: alle 50 % dokumenteista sisältää oletetun joukkuekentän → varoitus
   var E1B_MASSA = 0.1;   // E1b: yli 10 % seuran dokumenteista kokoelmassa → virhe
   /** luku (+ raja osuuskynnyksille, + kokonais E1b-massavirheelle) → 'ok'|'varoitus'|'virhe'. Tuntematon koodi → virhe (ei hiljaa ok). */
@@ -134,6 +139,19 @@
   }
   function rivi(seura, koodi, kokoelma, lkm, kokonais, extra) { var r = { seura: seura, koodi: koodi, kokoelma: kokoelma, lkm: lkm, kokonais: kokonais == null ? null : kokonais }; r.taso = tmVKynnys(koodi, lkm, extra, kokonais); if (extra != null) r.raja = extra; return r; }
 
+  /** Dokumentin joukkueviitteet: { p: ensisijaiset, t: toissijaiset (näyttönimet; kalenterin ' · '-erotettu nimi pilkotaan) }. Tyhjät arvot pois. */
+  function viitteet(kok, d) {
+    var p = [], t = [], toiss = TOISSIJAISET[kok] || [];
+    if (kok === 'kooste_joukkue') { var j = String(d._id == null ? '' : d._id).replace(KOOSTE_VK_RE, ''); if (j) p.push(j); return { p: p, t: t }; }
+    (VIITEKENTAT[kok] || []).forEach(function (f) {
+      (Array.isArray(d[f]) ? d[f] : [d[f]]).forEach(function (v) {
+        if (v == null || v === '') return;
+        if (toiss.indexOf(f) >= 0) String(v).split(' · ').forEach(function (x) { if (x.trim()) t.push(x.trim()); }); else p.push(v);
+      });
+    });
+    return { p: p, t: t };
+  }
+  function viiteluokat(kok, d, ctx) { var v = viitteet(kok, d); return (v.p.length ? v.p : v.t).map(function (x) { return tmVJoukkueviite(x, ctx); }); }
   /** Seurakohtaiset tarkistukset. syote: { sid, joukkueet:[{id,nimi}], kokoelmat:{ nimi: [doc+_id] }, kayttajat:Set(uid), indeksit } → rivit (myös lkm 0, jotta "edellinen" säilyy). */
   function tmVTarkistaSeura(syote) {
     var sid = syote.sid, K = syote.kokoelmat || {}, I = syote.indeksit || tmVIndeksit([]), out = [];
@@ -142,8 +160,8 @@
     Object.keys(VIITEKENTAT).forEach(function (kok) {   // E1a / E1b
       var docs = arr(K[kok]), a = 0, b = 0;
       docs.forEach(function (d) {
-        var luokat = [];
-        VIITEKENTAT[kok].forEach(function (f) { (Array.isArray(d[f]) ? d[f] : [d[f]]).forEach(function (v) { if (v != null && v !== '') luokat.push(tmVJoukkueviite(v, ctx)); }); });
+        if (kok === 'toimenpiteet' && d.tila === 'korvattu') return;   // korvattu ehdotus on historiaa, ei elävä viite
+        var luokat = viiteluokat(kok, d, ctx);
         if (luokat.indexOf('toisen_seuran') >= 0) a++; else if (luokat.indexOf('orpo') >= 0) b++;
       });
       if (K[kok]) { out.push(rivi(sid, 'E1a', kok, a, docs.length)); out.push(rivi(sid, 'E1b', kok, b, docs.length)); }
@@ -165,11 +183,10 @@
       K.seuranta_kuittaukset.forEach(function (k) { if (!k.valmentaja_uid || own.has(String(k.valmentaja_uid))) return; if (onMuussa(haeSetti(I.uidSeurat, String(k.valmentaja_uid)), sid)) toinen++; else ei++; });
       out.push(rivi(sid, 'E5', 'seuranta_kuittaukset', toinen, K.seuranta_kuittaukset.length)); out.push(rivi(sid, 'E5b', 'seuranta_kuittaukset', ei, K.seuranta_kuittaukset.length));
     }
-    if (K.toimenpiteet) {   // K1 / K2: avoimet ehdotukset
+    if (K.toimenpiteet) {   // K1: avoimet ehdotukset joukkueittain
       var ryhmat = {}, yht = 0;
       K.toimenpiteet.forEach(function (t) { if (t.tila !== 'ehdotus') return; yht++; var n = normJoukkue(t.joukkue); ryhmat[n] = (ryhmat[n] || 0) + 1; });
       out.push(rivi(sid, 'K1', 'toimenpiteet', Object.keys(ryhmat).reduce(function (a, k) { return Math.max(a, ryhmat[k]); }, 0), yht));
-      out.push(rivi(sid, 'K2', 'toimenpiteet', yht, null, 50));
     }
     return out;
   }
@@ -201,7 +218,8 @@
   /** Kokoelman dokumenteista kuinka suurella osalla on vähintään yksi oletetuista joukkuekentistä. Tyhjä kokoelma → null (ei dataa, ei vartioitavaa).
    *  Rivi: { koodi:'F1', lkm: dokumentit ILMAN kenttää, kokonais, osuus (% , 1 desimaali), kentat: {kentta: %}, taso }. Vain luvut ja kenttien NIMET (ei arvoja). */
   function tmVKenttavahti(sid, kok, docs, kentat) {
-    var n = arr(docs).length; if (!n) return null;
+    docs = arr(docs); if (F1_POPULAATIO[kok]) docs = docs.filter(F1_POPULAATIO[kok]);
+    var n = docs.length; if (!n) return null;
     var ks = kentat || VIITEKENTAT[kok] || [], per = {}, yht = 0, pros = function (x) { return Math.round(x * 1000 / n) / 10; };
     ks.forEach(function (f) { per[f] = 0; });
     docs.forEach(function (d) { var on = false; ks.forEach(function (f) { if (kentallinen(d[f])) { per[f]++; on = true; } }); if (on) yht++; });
@@ -215,6 +233,51 @@
     docs.forEach(function (d) { Object.keys(d || {}).forEach(function (k) { if (KENTTANIMI_RE.test(k) && JOUKKUEKENTTA_RE.test(k) && kentallinen(d[k])) lask[k] = (lask[k] || 0) + 1; }); });
     Object.keys(lask).sort().forEach(function (k) { ulos[k] = Math.round(lask[k] * 1000 / n) / 10; });
     return ulos;
+  }
+
+  /* ── Diagnostiikka (PR 2b; vain luku, vain lukumäärät): E6-törmäysten ja orpojen viitteiden LUONNE ilman nimiä tai arvoja ── */
+  function nimiAvain(x) { return String(x == null ? '' : x).toLowerCase().replace(/[^a-z0-9äöå]/g, ''); }
+  function tunnisteMuoto(t) { t = String(t); return /^\d+$/.test(t) ? (t.length === 8 ? 'numeerinen_8' : 'numeerinen_muu') : 'muu'; }
+  function onTestiarvo(t) { t = String(t); return /^(\d)\1+$/.test(t) || '12345678 1234567 123456 12345 1234 87654321 01234567'.split(' ').indexOf(t) >= 0 || /test|demo|xxx/i.test(t); }
+  /** seurat (aineisto) + testinimet (§10, vain muistissa vertailuun) + testiIdt → ryhmät, joissa sama tunniste on ≥ 2 eri pelaajadokumentilla. Ryhmä: { koko, seurat:{sid:n}, sisaSeura, testipelaajia, arkistoituja, testiarvo, muoto, samaNimi }. Ei nimiä, ei tunnisteita. */
+  function tmVE6Luonne(seurat, testinimet, testiIdt) {
+    var kartta = tyhja(), tn = arr(testinimet).map(nimiAvain), ti = arr(testiIdt).map(String), ulos = [];
+    arr(seurat).forEach(function (s) {
+      arr((s.kokoelmat || {}).pelaajat).forEach(function (p) {
+        var t = p.tunniste != null && p.tunniste !== '' ? p.tunniste : (p.palloId != null && p.palloId !== '' ? p.palloId : p.palloID); if (t == null || t === '') return;
+        var nimi = nimiAvain(p.nimi || ((p.etunimi || '') + ' ' + (p.sukunimi || '')));
+        (kartta[String(t)] = kartta[String(t)] || []).push({ sid: s.sid, pid: String(p._id), aktiivinen: onAktiivinen(p), testi: (nimi && tn.indexOf(nimi) >= 0) || ti.indexOf(String(p._id)) >= 0, nimi: nimi });
+      });
+    });
+    Object.keys(kartta).sort().forEach(function (t) {
+      var m = kartta[t], pidit = []; m.forEach(function (x) { if (pidit.indexOf(x.pid) < 0) pidit.push(x.pid); });
+      if (pidit.length < 2) return;
+      var seurat2 = {}, sisa = false; m.forEach(function (x) { seurat2[x.sid] = (seurat2[x.sid] || 0) + 1; if (seurat2[x.sid] > 1) sisa = true; });
+      ulos.push({ koko: m.length, seurat: seurat2, sisaSeura: sisa, testipelaajia: m.filter(function (x) { return x.testi; }).length, arkistoituja: m.filter(function (x) { return !x.aktiivinen; }).length,
+        testiarvo: onTestiarvo(t), muoto: tunnisteMuoto(t), samaNimi: !!m[0].nimi && m.every(function (x) { return x.nimi === m[0].nimi; }) });
+    });
+    return ulos;
+  }
+  var AVAINSANAT = ['kokoseura', 'koko', 'kaikki', 'seura', 'all', 'muu', 'henkilokunta', 'valmennus', 'valmentajat'];
+  /** Orpojen viitteiden (E1b) luonne seurassa: { seura, kokoelma, orpoja, luokat:{kirjoitusasu, osittainen, avainsana, id_muotoinen, muu} } (dokumentteja per luokka). Ei arvoja. */
+  function tmVOrpojenLuonne(sid, kok, docs, joukkueet, indeksit) {
+    var I = indeksit || tmVIndeksit([]), omat = arr(joukkueet), omatAvaimet = [];
+    omat.forEach(function (j) { omatAvaimet.push(nimiAvain(j.nimi || j.id), nimiAvain(j.id)); });
+    var ctx = { sid: sid, omatNimet: new Set(omat.map(function (j) { return normJoukkue(j.nimi || j.id); })), omatIdt: new Set(omat.map(function (j) { return String(j.id); })), nimiSeurat: I.nimiSeurat, idSeurat: I.idSeurat };
+    var luokat = { kirjoitusasu: 0, osittainen: 0, avainsana: 0, id_muotoinen: 0, muu: 0 }, orpoja = 0;
+    arr(docs).forEach(function (d) {
+      if (kok === 'toimenpiteet' && d.tila === 'korvattu') return;
+      var v = viitteet(kok, d), lista = v.p.length ? v.p : v.t, orpo = lista.filter(function (x) { return tmVJoukkueviite(x, ctx) === 'orpo'; });
+      if (!orpo.length || lista.some(function (x) { return tmVJoukkueviite(x, ctx) === 'toisen_seuran'; })) return;
+      orpoja++; var x = String(orpo[0]), a = nimiAvain(x), luokka;
+      if (a && omatAvaimet.indexOf(a) >= 0) luokka = 'kirjoitusasu';
+      else if (a.length >= 3 && omatAvaimet.some(function (o) { return o.length >= 3 && (o.indexOf(a) >= 0 || a.indexOf(o) >= 0); })) luokka = 'osittainen';
+      else if (AVAINSANAT.indexOf(a) >= 0) luokka = 'avainsana';
+      else if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(x)) luokka = 'id_muotoinen';
+      else luokka = 'muu';
+      luokat[luokka]++;
+    });
+    return { seura: sid, kokoelma: kok, orpoja: orpoja, luokat: luokat };
   }
 
   /* ── Sallittujen lista (P11): { seura, koodi, kokoelma, enimmaismaara, perustelu, paiva }; lista kasvaa vain PR:llä, jonka PM hyväksyy ── */
@@ -259,6 +322,6 @@
     ohitetaanko: ohitetaanko, normJoukkue: normJoukkue, onVieras: onVieras, onNimi: onNimi, onSyntyma: onSyntyma, onOsittainen: onOsittainen, onAktiivinen: onAktiivinen, vieraatViitteet: vieraatViitteet,
     onToisenSeuranNimi: onToisenSeuranNimi, kuittausVieras: kuittausVieras, ryhmaYhteenveto: ryhmaYhteenveto, ikkunanAlku: ikkunanAlku, mittarinEhto: mittarinEhto, mittarinNimi: mittarinNimi,
     tmVTila: tmVTila, tmVJoukkueviite: tmVJoukkueviite, tmVKynnys: tmVKynnys, tmVKasvuTaso: tmVKasvuTaso, tmVKasvuLuvut: tmVKasvuLuvut, tmVIndeksit: tmVIndeksit, tmVTarkistaSeura: tmVTarkistaSeura, tmVTarkistaGlobaali: tmVTarkistaGlobaali,
-    tmVKenttavahti: tmVKenttavahti, tmVJoukkuekentat: tmVJoukkuekentat, tmVSallitutVirheet: tmVSallitutVirheet, tmVSovellaSallitut: tmVSovellaSallitut, tmVAjaKaikki: tmVAjaKaikki, KENTTAVAHTI_RAJA: KENTTAVAHTI_RAJA };
+    tmVKenttavahti: tmVKenttavahti, tmVE6Luonne: tmVE6Luonne, tmVOrpojenLuonne: tmVOrpojenLuonne, viitteet: viitteet, tmVJoukkuekentat: tmVJoukkuekentat, tmVSallitutVirheet: tmVSallitutVirheet, tmVSovellaSallitut: tmVSovellaSallitut, tmVAjaKaikki: tmVAjaKaikki, KENTTAVAHTI_RAJA: KENTTAVAHTI_RAJA };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.TM_VALVONTA = API;
 })(typeof window !== 'undefined' ? window : this);

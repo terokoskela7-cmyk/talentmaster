@@ -26,11 +26,11 @@ async function lueSisainen(db) {
   snap.docs.forEach((d) => { const p = String(d.ref && d.ref.path || '').split('/'); if (p[0] !== 'seurat' || !p[1]) return; (ulos[p[1]] = ulos[p[1]] || []).push({ _id: d.id, seuraId: (d.data() || {}).seuraId }); });
   return ulos;
 }
-/** audit: viimeisen 7 pv estotapahtumat (indeksi toiminto + aikaleima). Säilytetään vain toiminto, seuraId ja aika. */
+/** audit: viimeisen 7 pv estotapahtumat. orderBy desc = olemassa oleva indeksi toiminto ASC + aikaleima DESC (firestore.indexes.json); ilman orderByta kysely vaatisi nousevan indeksin (baseline: audit_9 = FAILED_PRECONDITION). Säilytetään vain toiminto, seuraId ja aika. */
 async function lueAuditEstot(db, nytMs) {
   const alku = new Date(nytMs - VIIKKO_MS), ulos = [];
   for (const toiminto of ['kayttaja_toisen_seuran_estetty', 'kayttaja_rooli_estetty']) {
-    const snap = await db.collection('audit').where('toiminto', '==', toiminto).where('aikaleima', '>=', alku).get();
+    const snap = await db.collection('audit').where('toiminto', '==', toiminto).where('aikaleima', '>=', alku).orderBy('aikaleima', 'desc').get();
     snap.docs.forEach((d) => { const x = d.data() || {}, t = x.aikaleima; ulos.push({ toiminto, seuraId: x.seuraId ? String(x.seuraId) : null, aikaleimaMs: t && typeof t.toMillis === 'function' ? t.toMillis() : Number(t) || 0 }); });
   }
   return ulos;
