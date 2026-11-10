@@ -27,10 +27,12 @@ echo "Projektinumero: $PROJECT_NUMBER"   # tarkista, että ei ole tuotannon nume
 test "$PROJECT_NUMBER" != "872561784446" && echo OK-eri-projekti
 
 # --- API:t ---
+# (gcloud services enable ottaa käyttöön enintään 20 palvelua / komento; 23 palvelua → kaksi komentoa)
 gcloud services enable --project $PROJECT_ID \
   firebase.googleapis.com firestore.googleapis.com firebaserules.googleapis.com firebasehosting.googleapis.com \
   cloudfunctions.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com run.googleapis.com \
-  cloudscheduler.googleapis.com secretmanager.googleapis.com eventarc.googleapis.com pubsub.googleapis.com \
+  cloudscheduler.googleapis.com secretmanager.googleapis.com eventarc.googleapis.com pubsub.googleapis.com
+gcloud services enable --project $PROJECT_ID \
   identitytoolkit.googleapis.com firebaseappcheck.googleapis.com recaptchaenterprise.googleapis.com \
   iamcredentials.googleapis.com sts.googleapis.com iam.googleapis.com cloudresourcemanager.googleapis.com \
   serviceusage.googleapis.com monitoring.googleapis.com logging.googleapis.com billingbudgets.googleapis.com
