@@ -6330,6 +6330,26 @@ function _ttKonsepti(item) {
   return o;
 }
 function _ttKonseptit(arr) { return (arr || []).map(_ttKonsepti); }
+// _vpKonseptiNimiNimella: konseptin näyttönimi pelkästä (fi) nimestä — Koti/Joukkueet-rivit saavat vain tallennetun konsepti_nimi-merkkijonon (ei avainta). fi-nimi → avain kaanonista, sv MASTER-sidecarista (TM_TT_SV '<avain>.nimi'); ei osumaa → nimi sellaisenaan.
+var _vpKnNimellaKartta = null;
+function _vpKonseptiNimiNimella(nimi) {
+  var s = String(nimi == null ? '' : nimi), m = _ttSvKartta();
+  if (!s || _vpTaksLang() === 'fi' || !m || typeof tmKonseptiKaanon !== 'function') return s;
+  if (!_vpKnNimellaKartta) { _vpKnNimellaKartta = {}; Object.keys(m).forEach(function (k) { if (!/^[a-z0-9_]+\.nimi$/.test(k)) return; var a = k.slice(0, -5), c = tmKonseptiKaanon(a); if (c && c.nimi) _vpKnNimellaKartta[String(c.nimi).toLowerCase()] = a; }); }
+  var a2 = _vpKnNimellaKartta[s.toLowerCase()], sv = a2 ? m[a2 + '.nimi'] : null;
+  if (!sv) return s;
+  var u = sv.replace(/(\d)v(\d)/g, '$1V$2');   // '1v1' ei ole pienaakkosia → ei estä isojen tunnistusta
+  return (u === u.toUpperCase() && u !== u.toLowerCase()) ? (u.charAt(0) + u.slice(1).toLowerCase()) : sv;   // KAANON-nimi isoilla → sentence case kuten fi-puolella (P1.2)
+}
+// _ttKaanonSv: kaanon (EI seuraoverridea) sv:nä — tmTanaanOsat({kaanon}) lukee kpi[].teksti → Kehitystyöpöydän osarivit. Sama sidecar kuin _ttKonsepti; puuttuva sv → fi.
+function _ttKaanonSv(avain) {
+  var k = (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon(avain) : null;
+  if (!k || !k.avain || !_ttSvPaalla()) return k;
+  var o = _ttKopio(k);
+  _TT_TEKSTIKENTAT.forEach(function (f) { var s = _ttSv(k.avain, f); if (s) o[f] = s; });
+  if (Array.isArray(k.kpi)) o.kpi = k.kpi.map(function (c) { var s = (c && c.koodi) ? _ttSv(k.avain, 'kpi.' + c.koodi + '.teksti') : null; if (!s) return c; var n = _ttKopio(c); n.teksti = s; return n; });
+  return o;
+}
 // TIER 1: piilotetut pois + seuran omat (seura_*) perään. Vaihe-/pelipaikkagate tulee kaanonilta
 // (tmTtItems) ennen tätä — seurakerros ei ohita gatea, se vain muokkaa/piilottaa/lisää.
 function _ttSeuraLista(arr) {
@@ -8178,7 +8198,7 @@ function _vpKehSuunnitelmaHTML(p, opts) {
   // Sanktioidut avaimet ovat jo kartassa (Teknis-taktinen/Fyysinen/Sosiaalinen); 'Henkinen' jää fi-fallbackiksi.
   /* Meta: osa-alue + osien hallinta pelissa ("Teknis-taktinen · 0/1 osaa hallussa pelissa").
      Viikkoluku siirtyi tilariville, joten sita ei toisteta tassa. */
-  const jfOsaYht = (jf && window.TM_KEHITYSTYOPOYTA) ? window.TM_KEHITYSTYOPOYTA.tmKtOsatYhteenveto(window.TM_KEHITYSTYOPOYTA.tmKtOsat(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null })) : { n: 0, m: 0 };   // nimittäjä = jakson KAIKKI osat (sama lähde kuin Tänään)
+  const jfOsaYht = (jf && window.TM_KEHITYSTYOPOYTA) ? window.TM_KEHITYSTYOPOYTA.tmKtOsatYhteenveto(window.TM_KEHITYSTYOPOYTA.tmKtOsat(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? (typeof _ttKaanonSv === 'function' ? _ttKaanonSv : tmKonseptiKaanon) : null })) : { n: 0, m: 0 };   // nimittäjä = jakson KAIKKI osat (sama lähde kuin Tänään)
   const jfMeta = jfNimi
     ? [(jfDom ? jfDom.ikoni + ' ' + esc(vpT(jfDom.nimi)) : ''),
       jfOsaYht.m ? (jfOsaYht.n + '/' + jfOsaYht.m + ' ' + vpT('osaa hallussa pelissä')) : ''
@@ -11087,7 +11107,7 @@ function _ktTanaanHTML(p, tila) {   // mockup 22 osio 1: koko Tänään kootaan 
   const K = window.TM_KEHITYSTYOPOYTA;
   const kenttaFn = function (alue, pp, spec) { return (typeof window.tmKentta === 'function') ? window.tmKentta(spec || { koko: 'puoli', ase: { alue: alue, nimi: (pp && pp.ydinvahvuus && pp.ydinvahvuus.kuvaus) || '', tila: 'ok' }, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: vpT }) : ''; };   // D98 + B1: kenttä piirtyy VAIN kun ydinvahvuus.alue on (ei tyhjää kenttää); muuten jaksokortti + CTA (lib). spec = lib/tm_kentta_spec.js (ase + reitti + viikkomerkit + osat + historia); ilman sitä vanha ase-vain-spec
   return K.tmKtTanaanKoko(p, tila, { esc: _jsvEsc, t: vpT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
-    paneeli: true, ilmanOsia: true, keskustelu: true, rooli: window._vpSA ? 'super_admin' : window._vpRooli, uid: _uid, nimet: function (u) { const v = (_valmentajat || []).find(function (x) { return x.id === u; }); return v ? v.nimi : ''; }, voiKirjoittaa: typeof _vpVoiMuokata !== 'function' || _vpVoiMuokata(p), kenttaFn: kenttaFn, kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, tanaan: tmPaivaIso(new Date()),
+    paneeli: true, ilmanOsia: true, keskustelu: true, rooli: window._vpSA ? 'super_admin' : window._vpRooli, uid: _uid, nimet: function (u) { const v = (_valmentajat || []).find(function (x) { return x.id === u; }); return v ? v.nimi : ''; }, voiKirjoittaa: typeof _vpVoiMuokata !== 'function' || _vpVoiMuokata(p), kenttaFn: kenttaFn, kaanon: (typeof tmKonseptiKaanon === 'function') ? (typeof _ttKaanonSv === 'function' ? _ttKaanonSv : tmKonseptiKaanon) : null, tanaan: tmPaivaIso(new Date()),
     sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), kalenteri: (typeof _ktKalenteri === 'function' ? _ktKalenteri() : null), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });
 }
 /* K35-1 kytkentä: Tänään saa seuran kalenterin (tauko D193 + seuraava harjoitus "Treenattiinko?"-korttiin). Luetaan kerran, jos Kalenteria ei ole vielä avattu; sitten _ktPaivita. Logiikka libissä (tmKtKalenteri). */
@@ -11287,7 +11307,7 @@ window._kvkAvaa = function (pid, k3Paalla) {
   if (!K) return window._vpSuljeJakso(pid);   // lib puuttuu → vanha sulkulomake
   if (!p || !p.jaksofokus || !(p.jaksofokus.konsepti_avain || p.jaksofokus.konsepti_nimi)) { if (typeof toast === 'function') toast(vpT('Ei suljettavaa jaksoa'), 'error'); return; }
   const jf = p.jaksofokus, vali = _vpSulkuJaksovali(jf), sessiot = _vpSulkuSessiot(jf, vali.alkoi, vali.loppu);
-  let osat = []; try { if (window.TM_TANAAN_KENTTA) osat = window.TM_TANAAN_KENTTA.tmTanaanOsat(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }); } catch (e) { osat = []; }
+  let osat = []; try { if (window.TM_TANAAN_KENTTA) osat = window.TM_TANAAN_KENTTA.tmTanaanOsat(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? (typeof _ttKaanonSv === 'function' ? _ttKaanonSv : tmKonseptiKaanon) : null }); } catch (e) { osat = []; }
   window._vpArvPelaaja = p;
   window._kvkTila = K.tmKkAlku(p, { profiili: _kvkProfiili(p), lahde: _kvkLahde(), nimi: _tmHenkiloNimi(p), konsepti: jf.konsepti_nimi || jf.konsepti_avain, kestoVk: jf.kesto_vk || null, kortit: _vpK3Ehdotukset(p), osat: osat, k3Paalla: !!k3Paalla,
     vihjeet: { treeni: sessiot.length + ' ' + vpT('teemaharjoitusta jaksolla') } });
@@ -11389,7 +11409,7 @@ function _mvPaikka(html, id) { const v = document.getElementById(id); if (v) v.r
 window._mvAvaa = function (pid) {   // pid: pelaaja (V4 ⋯ / Polku) tai null (Inboxin ＋ klippi → valitse vastaanottajat)
   const M = window.TM_MEDIAVIESTI, C = _mvC(); if (!M) return;
   const p = pid ? C.pelaajat().filter(function (x) { return x.id === pid; })[0] : null; if (pid && !p) return;
-  let osat = []; try { if (p && window.TM_TANAAN_KENTTA && p.jaksofokus && p.jaksofokus.tila !== 'valittavana') osat = window.TM_TANAAN_KENTTA.tmTanaanOsat(p.jaksofokus, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }); } catch (e) { osat = []; }
+  let osat = []; try { if (p && window.TM_TANAAN_KENTTA && p.jaksofokus && p.jaksofokus.tila !== 'valittavana') osat = window.TM_TANAAN_KENTTA.tmTanaanOsat(p.jaksofokus, { kaanon: (typeof tmKonseptiKaanon === 'function') ? (typeof _ttKaanonSv === 'function' ? _ttKaanonSv : tmKonseptiKaanon) : null }); } catch (e) { osat = []; }
   const joukkueNimi = p ? (p.joukkue || '') : C.joukkue();
   const S = { kohde: p ? 'yksi' : 'valitut', pid: pid || null, pelaajanNimi: p ? C.nimi(p) : '', joukkueNimi: joukkueNimi, valitut: [], url: '', klippityyppi: 'onnistui', osa: '', osat: osat, kysymysAvain: null, kysymysOma: '', saate: '', rekisteri: 'rakentaja', suostumusPuuttuu: false, tallentaa: false,
     pelaajatLista: C.pelaajat().filter(function (x) { return !joukkueNimi || _pOnJoukkueessa(x, joukkueNimi); }).map(function (x) { return { id: x.id, nimi: C.nimi(x) }; }), tarjolla: { yksi: !!p } };
@@ -14271,7 +14291,7 @@ function _vpViikkoHTML(p) {
   const opittu = (jf.onnistumiskriteeri && String(jf.onnistumiskriteeri).trim()) ? esc(jf.onnistumiskriteeri) : vpT('konsepti näkyy pelissä itsenäisesti');
   let h = '<div style="border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:15px 18px;background:rgba(40,176,144,.08);margin-bottom:16px">'
     + '<div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--teal);margin-bottom:5px">' + vpT('Tämän viikon fokus · kannettu jaksofokuksesta') + '</div>'
-    + '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:21px;line-height:1.2;color:var(--ink);margin-bottom:5px">' + esc(jf.konsepti_nimi) + '</div>'
+    + '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:21px;line-height:1.2;color:var(--ink);margin-bottom:5px">' + esc(_vpKonseptiNimiNimella(jf.konsepti_nimi)) + '</div>'
     + '<div style="font-size:11.5px;color:var(--ink2);line-height:1.5">' + vpT('Opittu kun') + ': ' + opittu + ' <span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--teal)">↳ ' + vpT('Polku · jakso') + ' (' + (jf.kesto_vk || 4) + ' vk, ' + domLbl + ')</span></div></div>';
   // Otsikkorivi + "✨ Täytä viikko" (MUUTOS 4: esitäyttö säilyy).
   h += '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px"><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--teal)">' + vpT('Viikon rakenne') + '</div>'
@@ -21362,7 +21382,7 @@ function _renderKotiPulssi(el) {
     const opasLuokka = function (p) { const w = document.getElementById('ws-koti'); if (w && w.classList) { w.classList.add('kk-uusi'); w.classList.toggle('vpk-hide-guide', p); } };   // D150
     const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: demo ? D.ensin : S.ensin, katselmusPv: demo ? {} : _vpKatselmusPv(), jaksoVk: demo ? {} : _vpJaksoVk(), kuittaukset: demo ? [] : S.kuittaukset || [] }), vaihe = KK.tmKotiVaihe(m);
     const env = { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: demo ? [] : _tapahtumat, nimet: demo ? {} : _joukkueNimet, kalenteri: kal, viestit: demo ? [] : (_vpViestit.rivit || []).filter(function (r) { return r.lukematon && r.saapunut; }), nytMs: nyt, seuraNimi: demo ? D.seuranNimi : (document.getElementById('tbSeura') || {}).textContent };
-    const op = { kapea: window.innerWidth < 600, t: vpT, esc: _jsvEsc, konseptiNimi: (typeof _vpKonseptiNimiFi === 'function') ? _vpKonseptiNimiFi : null, kieli: typeof tmNykyinenKieli === 'function' ? tmNykyinenKieli() : 'fi', pika: demo || !window.TM_VP_NAVI ? null : window.TM_VP_NAVI.tmNaviPikatoiminnot(), auki: window._vpKotiAuki,
+    const op = { kapea: window.innerWidth < 600, t: vpT, esc: _jsvEsc, konseptiNimi: _vpKonseptiNimiNimella, kieli: typeof tmNykyinenKieli === 'function' ? tmNykyinenKieli() : 'fi', pika: demo || !window.TM_VP_NAVI ? null : window.TM_VP_NAVI.tmNaviPikatoiminnot(), auki: window._vpKotiAuki,
       fn: demo ? {} : { aloitaJaksot: '_vpKotiAloitaJaksot', kutsu: '_vpKotiKutsu', testit: 'avaaUusiTestiModaali', joukkue: 'avaaJoukkueSyvanakyma', viesti: '_vpViestiAvaa', tilanne: '_vpPulssiTilanne', kalenteri: '_vpKotiKalenteri', paivita: '_vpPulssiPaivita', demo: '_vpKotiDemoVaihda', tuo: '_vpKotiTuo', auki: '_vpKotiAukiVaihda', opas: '_vpKotiOpas', kuittaa: '_vpPulssiKuittaa', valmentaja: '_vpPulssiValmentajat' } };
     const kaynn = vaihe === 'kaynnistys' && !demo, r = kaynn ? KK.tmKotiKaynnistysHTML(KK.tmKotiKaynnistysMalli(m, env), op) : KK.tmKotiRytmiHTML(KK.tmKotiRytmiMalli(m, env), op);
     opasLuokka(!window._vpKotiOpasNayta);   // opas piilossa oletuksena kaikissa vaiheissa; vain sivun lopun "Näytä opas" -linkki näyttää sen   // D150: Käynnistyksessä kolme askelta korvaa oppaan (palautus otsikkorivin linkistä)
