@@ -68,7 +68,7 @@
       TP_SIGNAALIT.forEach(function (sig) {
         var r = sig.tarkista(j, pelaajat, ctx);
         if (!r) return;
-        if (este && LU) { if (LU.ehdotusEstetty(este, r)) return; este[r.signaali + '|' + r.joukkue] = true; }
+        if (este && LU) { if (LU.ehdotusEstetty(este, r)) return; LU.ehdotusEsteLisaa(este, r); }
         ulos.push(r);
       });
     });

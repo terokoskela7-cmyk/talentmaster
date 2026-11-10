@@ -75,6 +75,26 @@ describe('E1a / E1b: joukkueviitteen luokittelu', () => {
   });
 });
 
+describe('PR 2d: E6 / E6b — vain yksi aktiivinen ryhmässä = WARN (sama sääntö kuin E2)', () => {
+  const P = (id, extra) => Object.assign({ _id: id, etunimi: 'X', syntymaVuosi: 2013, tunniste: 't' + id }, extra || {});
+  const g = (ss) => V.tmVTarkistaGlobaali(V.tmVIndeksit(ss), [], 0);
+  const rv = (r, k) => r.filter((x) => x.koodi === k).map((x) => [x.seura, x.lkm, x.taso]);
+  it('1 aktiivinen + 1 arkistoitu (eri seurat) → E6 0, E6b varoitus molemmille', () => {
+    const r = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '777' })] }), seuraA('b', ['B'], { pelaajat: [P('p2', { tunniste: '777', tila: 'arkistoitu' })] })]);
+    expect(rv(r, 'E6')).toEqual([['a', 0, 'ok'], ['b', 0, 'ok']]); expect(rv(r, 'E6b')).toEqual([['a', 1, 'varoitus'], ['b', 1, 'varoitus']]);
+  });
+  it('sama seura: 1 aktiivinen + 1 arkistoitu → WARN; 2 aktiivista → ERROR (E6)', () => {
+    const w = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '5' }), P('p2', { tunniste: '5', arkistoitu: true })] })]);
+    expect(rv(w, 'E6')).toEqual([['a', 0, 'ok']]); expect(rv(w, 'E6b')).toEqual([['a', 2, 'varoitus']]);   // kuten E2b: kaikki ryhmän dokumentit lasketaan
+    const e = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '5' }), P('p2', { tunniste: '5' })] })]);
+    expect(rv(e, 'E6')).toEqual([['a', 2, 'virhe']]); expect(rv(e, 'E6b')).toEqual([['a', 0, 'ok']]);
+  });
+  it('2 aktiivista + 1 arkistoitu → aktiiviset E6 ERROR, arkistoitu E6b', () => {
+    const r = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '9' }), P('p2', { tunniste: '9' }), P('p3', { tunniste: '9', poistettu: true })] })]);
+    expect(rv(r, 'E6')).toEqual([['a', 2, 'virhe']]); expect(rv(r, 'E6b')).toEqual([['a', 1, 'varoitus']]);
+  });
+});
+
 describe('E2 / E6: seurojen väliset (globaali)', () => {
   const P = (id, extra) => Object.assign({ _id: id, etunimi: 'X', syntymaVuosi: 2013, tunniste: 't' + id }, extra || {});
   it('E2: sama id kahdella seuralla, molemmat aktiivisia → virhe kummallekin', () => {
@@ -369,5 +389,29 @@ describe('PR 2c: E1c (kirjoitusasu), aliaslista, K1-normalisointi', () => {
   it('tmVE6Jasenet (sisäinen): palauttaa vain ryhmät joissa ≥ 2 eri pelaajadokumenttia', () => {
     const g = V.tmVE6Jasenet([{ sid: 'k', kokoelmat: { pelaajat: [{ _id: 'a', etunimi: 'M', sukunimi: 'M', tunniste: '5' }, { _id: 'b', etunimi: 'M', sukunimi: 'M', tunniste: '5' }, { _id: 'c', tunniste: '6' }] } }]);
     expect(g.length).toBe(1); expect(g[0].jasenet.map((m) => m.pid)).toEqual(['a', 'b']);
+  });
+});
+
+describe('PR 2d: kalenterin poistettu: true ohitetaan (E1, F1)', () => {
+  const ss = [seuraA('a', ['A U13']), seuraA('b', ['B U13'])];
+  const aja = (docs) => { const I = V.tmVIndeksit(ss.map((s) => ({ sid: s.sid, joukkueet: s.joukkueet, pelaajat: [], kayttajat: [] }))); return V.tmVTarkistaSeura({ sid: 'a', joukkueet: ss[0].joukkueet, kokoelmat: { kalenteri: docs }, kayttajat: new Set(), indeksit: I }); };
+  const harj = (x) => Object.assign({ tyyppi: 'harjoitus' }, x);
+  it('poistettu:true ei lasketa vieraaksi/orvoksi eikä F1:n kenttäpuutteeksi; poistamaton lasketaan', () => {
+    const docs = [harj({ joukkue: 'B U13', poistettu: true }), harj({ joukkue: 'Tuntematon X', poistettu: true }), harj({ poistettu: true }), harj({ joukkue: 'B U13' })];
+    const r = aja(docs);
+    expect(hae(r, 'E1a', 'kalenteri').lkm).toBe(1); expect(hae(r, 'E1a', 'kalenteri').kokonais).toBe(1);
+    expect(hae(r, 'E1b', 'kalenteri').lkm).toBe(0);
+    expect(hae(r, 'F1', 'kalenteri').kokonais).toBe(1); expect(hae(r, 'F1', 'kalenteri').lkm).toBe(0);
+  });
+  it('vain poistettuja → F1 ei vartioitavaa (ei riviä) ja E1 nollilla', () => {
+    const r = aja([harj({ poistettu: true }), harj({ joukkue: 'B U13', poistettu: true })]);
+    expect(hae(r, 'F1', 'kalenteri')).toBeUndefined(); expect(hae(r, 'E1a', 'kalenteri').lkm).toBe(0);
+    expect(V.tmVKenttavahti('a', 'kalenteri', [harj({ poistettu: true })])).toBeNull();
+  });
+  it('alias KPV U13 → kpv_u13 (functions/valvonta_aliakset.json) on voimassa ja validi', () => {
+    const j = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'functions', 'valvonta_aliakset.json'), 'utf8'));
+    expect(V.tmVAliasVirheet(j.rivit)).toEqual([]);
+    expect(V.tmVAliakset(j.rivit, 'kpv', [{ id: 'kpv_u13', nimi: 'KPV_U13' }])).toContain('kpv u13');
+    expect(V.tmVAliakset(j.rivit, 'kpv', [{ id: 'kpv_u12', nimi: 'U12' }])).toEqual([]);   // kohdejoukkue puuttuu → ei vaikuta
   });
 });
