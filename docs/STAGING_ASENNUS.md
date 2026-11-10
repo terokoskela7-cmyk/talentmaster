@@ -53,7 +53,7 @@ gcloud iam workload-identity-pools create github --project $PROJECT_ID --locatio
 gcloud iam workload-identity-pools providers create-oidc github-oidc --project $PROJECT_ID --location=global --workload-identity-pool=github \
   --issuer-uri="https://token.actions.githubusercontent.com" \
   --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-  --attribute-condition="assertion.repository=='$REPO' && assertion.sub=='repo:$REPO:environment:staging'"
+  --attribute-condition="assertion.repository=='$REPO' && assertion.sub=='repo:${REPO}:environment:staging'"
 gcloud iam service-accounts add-iam-policy-binding $DEPLOY_SA --project $PROJECT_ID --role=roles/iam.workloadIdentityUser \
   --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/$REPO"
 
