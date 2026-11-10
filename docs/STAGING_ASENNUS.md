@@ -108,9 +108,14 @@ Tuotannon secretejä (`FIREBASE_SA_KEY`, `FIREBASE_SERVICE_ACCOUNT*`) **ei** ann
 ## D. Ensimmäinen deploy ja tarkistus
 
 1. Actions → **Deploy Staging** → Run workflow: `rules` ✔, `functions` ✔, `hosting` ✔, kanava `live`. Työnkulku kaatuu heti, jos kohde ei ole `talentmaster-staging`, ja `scripts/staging_konfiguraatio.js` kaatuu, jos julkaistavaan joukkoon jäisi tuotannon arvo.
-2. Avaa `https://talentmaster-staging.web.app` → kirjautumissivu latautuu; selaimen konsolissa `firebase.app().options.projectId` = `talentmaster-staging`. Sentry on pois päältä (ei tapahtumia).
-3. Kanava Playwright-mittausta varten (P4): sama työnkulku, kanava `kuorma` → URL muotoa `https://talentmaster-staging--kuorma-<tunniste>.web.app` (30 pv).
-4. Kerro Claude Codelle → seuraava PR (generaattori). Sähköposti on estetty koodissa (`functions/sahkoposti_esto.js`, PR 0 (#1239) pitää olla mergattuna mainiin ennen stagingin functions-deployta, koska staging deployaa mainin koodin) ja avain on dummy.
+2. **Siivoussääntö Artifact Registryyn (kerran, ensimmäisen functions-deployn jälkeen).** Functions-deploy tekee kuvat `gcf-artifacts`-repoon, ja Firebase yrittää asettaa sille siivoussäännön. deploy-tunnuksella ei todennäköisesti ole siihen oikeutta (ei varmistettu), joten ajo päättyy virheeseen `could not set up cleanup policy in location europe-west1` (functionit deployataan silti). Aseta sääntö käsin omistajan tunnuksilla (repo syntyy vasta ensimmäisessä deployssa, joten aikaisemmin tämä ei onnistu):
+   ```sh
+   npx firebase functions:artifacts:setpolicy --project talentmaster-staging --location europe-west1 --days 1
+   ```
+   Poistaa yli 1 vuorokauden vanhat kuvat (ei kasvata laskua). Tuotannossa sama sääntö on jo (`firebase-functions-cleanup`, DELETE, olderThan 86400 s, tarkistettu 11.11.2026). Tarkistus (vain luku): `gcloud artifacts repositories describe gcf-artifacts --project talentmaster-staging --location europe-west1 --format="yaml(cleanupPolicies)"`.
+3. Avaa `https://talentmaster-staging.web.app` → kirjautumissivu latautuu; selaimen konsolissa `firebase.app().options.projectId` = `talentmaster-staging`. Sentry on pois päältä (ei tapahtumia).
+4. Kanava Playwright-mittausta varten (P4): sama työnkulku, kanava `kuorma` → URL muotoa `https://talentmaster-staging--kuorma-<tunniste>.web.app` (30 pv).
+5. Kerro Claude Codelle → seuraava PR (generaattori). Sähköposti on estetty koodissa (`functions/sahkoposti_esto.js`, PR 0 (#1239) pitää olla mergattuna mainiin ennen stagingin functions-deployta, koska staging deployaa mainin koodin) ja avain on dummy.
 
 ## Siivous (P10)
 Mittauksen jälkeen data poistetaan (generaattorin `--tyhjenna`, PR 2); infra jää. Budjettihälytys 25 €/kk seuraa kustannusta.
