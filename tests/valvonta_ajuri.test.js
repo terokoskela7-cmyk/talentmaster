@@ -67,8 +67,8 @@ describe('PR 2b: todelliset kenttämuodot ja luonnediagnostiikka', () => {
   function diag(env) { const r = spawnSync('node', ['-r', join(FIX, 'fake_admin.cjs'), DIAG, NYT, '--kaikki'], { cwd: ROOT, encoding: 'utf8', env: Object.assign({}, process.env, env || {}) }); return { ulos: r.stdout, virhe: r.stderr, status: r.status }; }
   it('FAKE_PR2B: alfan kalenteri/viestit/kooste/toimenpiteet antavat täsmälleen odotetut E1-luvut (0 väärää orpoa vanhentuneesta nimestä, "A · B"-nimestä tai seuratason tapahtumasta)', () => {
     const { ulos } = aja([], { FAKE_PR2B: '1' });
-    expect(rivi(ulos, 'E1a', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 609$/); expect(rivi(ulos, 'E1b', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 609$/);   // p7 toisen seuran, p4 haamu-id; p1/p2/p3/p5/p6 puhtaita
-    expect(rivi(ulos, 'E1c', 'alfa', 'kalenteri')).toMatch(/^WARN  E1c .* 1 \/ 609$/);   // kirjoitusasu 'Alfa-U13!' = WARN, ei ERROR
+    expect(rivi(ulos, 'E1a', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 409$/); expect(rivi(ulos, 'E1b', 'alfa', 'kalenteri')).toMatch(/ 1 \/ 409$/);   // 609 − 200 poistettu:true (PR 2d: ohitetaan) = 409; p7 toisen seuran, p4 haamu-id; p1/p2/p3/p5/p6 puhtaita
+    expect(rivi(ulos, 'E1c', 'alfa', 'kalenteri')).toMatch(/^WARN  E1c .* 1 \/ 409$/);   // kirjoitusasu 'Alfa-U13!' = WARN, ei ERROR
     expect(rivi(ulos, 'E1b', 'alfa', 'kalenteri')).toMatch(/^WARN  E1b/);
     expect(rivi(ulos, 'E1a', 'alfa', 'viestit')).toMatch(/ 1 \/ 703$/); expect(rivi(ulos, 'E1b', 'alfa', 'viestit')).toMatch(/ 1 \/ 703$/);
     expect(rivi(ulos, 'E1a', 'alfa', 'kooste_joukkue')).toMatch(/ 1 \/ 3$/); expect(rivi(ulos, 'E1b', 'alfa', 'kooste_joukkue')).toMatch(/ 1 \/ 3$/);

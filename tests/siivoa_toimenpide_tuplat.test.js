@@ -11,8 +11,14 @@ describe('siivoa_toimenpide_tuplat', () => {
       { id: 'd', signaali: 's1', joukkue: 'J2', luotuMs: 100 }, { id: 'e', signaali: 's2', joukkue: 'J1', luotuMs: 100 },
     ]);
     expect(r.korvattavat.sort()).toEqual(['a', 'c']);
-    expect(r.ryhmat['s1 | J1']).toEqual({ yht: 3, korvattavat: ['c', 'a'] });
-    expect(r.ryhmat['s1 | J2'].korvattavat).toEqual([]);
+    expect(r.ryhmat['s1 | j1']).toEqual({ yht: 3, korvattavat: ['c', 'a'] });
+    expect(r.ryhmat['s1 | j2'].korvattavat).toEqual([]);
+  });
+  it('PR 2d: ryhmittely kirjainkoosta riippumaton (T12 / t12 / " T12 " = sama joukkue; sama normalisointi kuin K1) → uusin säilyy, muut korvataan', () => {
+    const r = S.suunnittele([
+      { id: 'a', signaali: 's1', joukkue: 'T12', luotuMs: 100 }, { id: 'b', signaali: 's1', joukkue: 't12', luotuMs: 300 }, { id: 'c', signaali: 's1', joukkue: ' T12 ', luotuMs: 200 }, { id: 'd', signaali: 's1', joukkue: 'T13', luotuMs: 100 },
+    ]);
+    expect(r.korvattavat.sort()).toEqual(['a', 'c']); expect(Object.keys(r.ryhmat).length).toBe(2);
   });
   it('deterministinen tasatilanteessa ja tyhjä syöte', () => {
     const a = S.suunnittele([{ id: 'x', signaali: 's', joukkue: 'J', luotuMs: 0 }, { id: 'y', signaali: 's', joukkue: 'J', luotuMs: 0 }]);

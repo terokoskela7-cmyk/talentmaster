@@ -371,3 +371,27 @@ describe('PR 2c: E1c (kirjoitusasu), aliaslista, K1-normalisointi', () => {
     expect(g.length).toBe(1); expect(g[0].jasenet.map((m) => m.pid)).toEqual(['a', 'b']);
   });
 });
+
+describe('PR 2d: kalenterin poistettu: true ohitetaan (E1, F1)', () => {
+  const ss = [seuraA('a', ['A U13']), seuraA('b', ['B U13'])];
+  const aja = (docs) => { const I = V.tmVIndeksit(ss.map((s) => ({ sid: s.sid, joukkueet: s.joukkueet, pelaajat: [], kayttajat: [] }))); return V.tmVTarkistaSeura({ sid: 'a', joukkueet: ss[0].joukkueet, kokoelmat: { kalenteri: docs }, kayttajat: new Set(), indeksit: I }); };
+  const harj = (x) => Object.assign({ tyyppi: 'harjoitus' }, x);
+  it('poistettu:true ei lasketa vieraaksi/orvoksi eikä F1:n kenttäpuutteeksi; poistamaton lasketaan', () => {
+    const docs = [harj({ joukkue: 'B U13', poistettu: true }), harj({ joukkue: 'Tuntematon X', poistettu: true }), harj({ poistettu: true }), harj({ joukkue: 'B U13' })];
+    const r = aja(docs);
+    expect(hae(r, 'E1a', 'kalenteri').lkm).toBe(1); expect(hae(r, 'E1a', 'kalenteri').kokonais).toBe(1);
+    expect(hae(r, 'E1b', 'kalenteri').lkm).toBe(0);
+    expect(hae(r, 'F1', 'kalenteri').kokonais).toBe(1); expect(hae(r, 'F1', 'kalenteri').lkm).toBe(0);
+  });
+  it('vain poistettuja → F1 ei vartioitavaa (ei riviä) ja E1 nollilla', () => {
+    const r = aja([harj({ poistettu: true }), harj({ joukkue: 'B U13', poistettu: true })]);
+    expect(hae(r, 'F1', 'kalenteri')).toBeUndefined(); expect(hae(r, 'E1a', 'kalenteri').lkm).toBe(0);
+    expect(V.tmVKenttavahti('a', 'kalenteri', [harj({ poistettu: true })])).toBeNull();
+  });
+  it('alias KPV U13 → kpv_u13 (functions/valvonta_aliakset.json) on voimassa ja validi', () => {
+    const j = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'functions', 'valvonta_aliakset.json'), 'utf8'));
+    expect(V.tmVAliasVirheet(j.rivit)).toEqual([]);
+    expect(V.tmVAliakset(j.rivit, 'kpv', [{ id: 'kpv_u13', nimi: 'KPV_U13' }])).toContain('kpv u13');
+    expect(V.tmVAliakset(j.rivit, 'kpv', [{ id: 'kpv_u12', nimi: 'U12' }])).toEqual([]);   // kohdejoukkue puuttuu → ei vaikuta
+  });
+});

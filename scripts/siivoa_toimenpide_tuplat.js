@@ -2,7 +2,7 @@
 /* siivoa_toimenpide_tuplat.js — Projekti 03 / PR B3. gcloud ADC (Tero ajaa).
  * Vanhan VP:n kilpatilanne tuotti automaattisia ehdotus-tuplia (seurat/{s}/toimenpiteet). Tämä merkitsee tuplat tilaan 'korvattu'.
  *  · KOHDE: vain tyyppi=='automaattinen' && tila=='ehdotus'. Muihin (pulssi, kuitattu, hylatty, käsin tehdyt) ei kosketa.
- *  · Ryhmittely signaali+joukkue; uusin (luotu) säilyy tilassa 'ehdotus', muut → tila:'korvattu'. EI poisteta mitään.
+ *  · Ryhmittely signaali+joukkue (joukkue normalisoituna kuten valvonnan K1: kirjainkoosta riippumaton); uusin (luotu) säilyy tilassa 'ehdotus', muut → tila:'korvattu'. EI poisteta mitään.
  *  · VP lukee vain tila=='ehdotus' → 'korvattu' ei näy listassa eikä laskuissa.
  *  · Oletus KUIVA-AJO (ei kirjoita). --aja tekee muutokset. --seura=kpv rajaa yhteen seuraan (muuten kaikki).
  *  · Tulostaa vain lukumäärät seuroittain ja signaali+joukkue-pareittain (ei tekstejä, ei pelaajatunnisteita).
@@ -11,10 +11,12 @@
  * Ajo: node scripts/siivoa_toimenpide_tuplat.js [--seura=kpv] [--vieraat] [--aja] */
 'use strict';
 
+/* normJoukkue: yksi totuus lib/tm_valvonta.js (K1-ryhmittely); ryhmittely on kirjainkoosta riippumaton (PR 2d: T12/t12/"T 12" = sama joukkue). */
+const { normJoukkue, onVieras } = require('../lib/tm_valvonta.js');
 /** Puhdas ydin (testattava): rivit [{id, signaali, joukkue, luotuMs}] → { ryhmat: {avain: {yht, korvattavat:[id]}}, korvattavat:[id] }. Tasatilanne: id:n mukaan, jotta ajo on deterministinen. */
 function suunnittele(rivit) {
   const ryhmat = {};
-  (rivit || []).forEach((r) => { const k = (r.signaali || '') + ' | ' + (r.joukkue || ''); (ryhmat[k] = ryhmat[k] || []).push(r); });
+  (rivit || []).forEach((r) => { const k = (r.signaali || '') + ' | ' + normJoukkue(r.joukkue); (ryhmat[k] = ryhmat[k] || []).push(r); });
   const ulos = {}, kaikki = [];
   Object.keys(ryhmat).forEach((k) => {
     const j = ryhmat[k].slice().sort((a, b) => (b.luotuMs - a.luotuMs) || (a.id < b.id ? 1 : -1));
@@ -24,8 +26,6 @@ function suunnittele(rivit) {
   });
   return { ryhmat: ulos, korvattavat: kaikki };
 }
-/* normJoukkue / onVieras: yksi totuus lib/tm_valvonta.js (projekti 07 / PR 1); skripti re-exporttaa ne (testit + laajuusskripti). */
-const { normJoukkue, onVieras } = require('../lib/tm_valvonta.js');
 const luotuMs = (v) => (v && typeof v.toMillis === 'function') ? v.toMillis() : (v && v.seconds ? v.seconds * 1000 : 0);
 
 async function main(argv) {
