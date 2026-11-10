@@ -15,7 +15,7 @@ const pm = (s) => (s.match(/\{\w+\}/g) || []).sort().join();
 
 describe('sv-erä 102 — vienti', () => {
   it('palautus = tarkistettu tiedosto (sha); 55 riviä = lähetetty erä; lähetetty sv tyhjä, palautettu täytetty, samat paikkamerkit', () => {
-    expect(createHash('sha256').update(teksti('docs/i18n/sv_kaannoserae_102_palautus.json')).digest('hex')).toBe('4443d7601fd5e776a97598c6260ce592857bb950cdb9be15ca778fce971a575e');
+    expect(createHash('sha256').update(teksti('docs/i18n/sv_kaannoserae_102_palautus.json')).digest('hex')).toBe('3522d3cedee6e7e18a0fb40bbcdeae7031492fe1dafcfacb270ff672c733e70a');
     expect(Object.keys(P)).toEqual(['vp_kentta_b']); expect(Object.keys(rivit)).toHaveLength(55);
     expect(Object.keys(rivit).sort()).toEqual(Object.keys(G.vp_kentta_b.rivit).sort());
     for (const [k, r] of Object.entries(rivit)) { expect(G.vp_kentta_b.rivit[k].sv, k).toBe(''); expect(r.fi, k).toBe(k); expect(r.sv.trim(), k).not.toBe(''); expect(pm(r.sv), k).toBe(pm(k)); }
@@ -30,17 +30,31 @@ describe('sv-erä 102 — vienti', () => {
   });
 });
 
-describe('konseptien nimet: yksi sv-nimi per konsepti (MASTER.json = lib-sanasto sn_y_h*)', () => {
-  it('lib sn_y_h0…9 = MASTER y_hN.nimi normaalilla kirjoitusasulla (Mottagning, Finter och utmaningar)', () => {
-    for (let n = 0; n <= 9; n++) {
-      const m = MASTER['y_h' + n + '.nimi']; expect(typeof m, 'y_h' + n).toBe('string');
-      expect(LIB['sn_y_h' + n], 'sn_y_h' + n).toBe(m.charAt(0) + m.slice(1).toLowerCase());
+describe('konseptien nimet: yksi sv-nimi per konsepti (MASTER.json = lib-sanasto sn_y_h* ja sn_y_p*)', () => {
+  const TUNNUKSET = [...Array(10).keys()].map((n) => 'y_h' + n).concat([1, 2, 3, 4].map((n) => 'y_p' + n));
+  it('lib sn_y_h0…9 ja sn_y_p1…4 = MASTER yX.nimi normaalilla kirjoitusasulla (Mottagning, Finter och utmaningar)', () => {
+    expect(TUNNUKSET).toHaveLength(14); expect(V.KONSEPTIT.map((x) => x[0])).toEqual(TUNNUKSET.map((t) => 'sn_' + t));
+    for (const t of TUNNUKSET) {
+      const m = MASTER[t + '.nimi']; expect(typeof m, t).toBe('string');
+      expect(LIB['sn_' + t], 'sn_' + t).toBe(m.charAt(0) + m.slice(1).toLowerCase());
     }
-    expect(LIB.sn_y_h1).toBe('Mottagning'); expect(LIB.sn_y_h4).toBe('Finter och utmaningar');
+    expect(LIB.sn_y_h1).toBe('Mottagning'); expect(LIB.sn_y_h4).toBe('Finter och utmaningar'); expect(LIB.sn_y_p1).toBe('1v1-försvarsspel'); expect(LIB.sn_y_p3).toBe('Understöd i försvarsspel');
   });
   it('sama muunnos kuin VP:n _vpKonseptiNimiNimella (ei erillistä kirjoitusasulogiikkaa)', () => {
     const vpHtml = teksti('TalentMaster_VP_v25.html');
-    expect(vpHtml).toContain("(sv === sv.toUpperCase() && sv !== sv.toLowerCase()) ? (sv.charAt(0) + sv.slice(1).toLowerCase()) : sv");
-    for (let n = 0; n <= 9; n++) expect(V.normaali(MASTER['y_h' + n + '.nimi']), 'y_h' + n).toBe(LIB['sn_y_h' + n]);
+    expect(vpHtml).toContain("var u = sv.replace(/(\\d)v(\\d)/g, '$1V$2');"); expect(vpHtml).toContain("(u === u.toUpperCase() && u !== u.toLowerCase()) ? (u.charAt(0) + u.slice(1).toLowerCase()) : sv");
+    for (const t of TUNNUKSET) expect(V.normaali(MASTER[t + '.nimi']), t).toBe(LIB['sn_' + t]);
+  });
+});
+
+describe('PM:n korjaus #1245: keskellä riviä pieni alkukirjain; isoalkuiset avaimet ennallaan', () => {
+  it('uudet avaimet bio-ikä / kehityskaari ovat omia (pienet) ja pienellä; isoalkuiset Bio-ikä / Kehityskaari säilyvät isolla', () => {
+    expect(rivit['bio-ikä'].sv).toBe('bio-ålder'); expect(rivit.kehityskaari.sv).toBe('utvecklingskurva');
+    expect(VP['bio-ikä']).toBe('bio-ålder'); expect(VP.kehityskaari).toBe('utvecklingskurva');
+    expect(VP['Bio-ikä']).toBe('Bio-ålder'); expect(VP.Kehityskaari).toBe('Utvecklingskurva');
+  });
+  it('avain ei ole jaettu: pienaakkoslinen bio-ikä on vain kypsyyskortin otsikkorivin keskellä (tm_kypsyys.js), kehityskaari vain sparklinen aria-labelissa', () => {
+    const kaytto = (avain) => ['lib/tm_kypsyys.js', 'lib/tm_kehityskaari.js', 'lib/tm_kehitystilanne.js', 'TalentMaster_VP_v25.html'].filter((f) => new RegExp("(?:_T|vpT|\\bT)\\('" + avain + "'\\)").test(teksti(f)));
+    expect(kaytto('bio-ikä')).toEqual(['lib/tm_kypsyys.js']); expect(kaytto('kehityskaari')).toEqual(['lib/tm_kehityskaari.js']);
   });
 });

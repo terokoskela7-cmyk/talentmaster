@@ -3,7 +3,7 @@
    Kaista: Tero. Code EI kirjoita ruotsia (§0): jokainen kartan sv on PM:n rivi merkki merkiltä (avain = koodin reititinliteraali, ei paloittelua). Kohteet:
    · rivit 'Valakyykky', 'Askelkyykky', 'Hyvää huomenta', 'Etunojapunnerrus' (liikkuvuusliikkeet; PM: lisää lukittuun sanastoon) → lib/tm_i18n_common.js TM_I18N_COMMON.sv
    · muut 51 riviä → lib/tm_vp_i18n.js TM_VP_I18N.sv (vpT; kypsyyskortti ja kehityskaari kutsuvat vpT:tä)
-   · konseptien nimet (PM: yhtenäistä): lib/tm_lib_i18n.js sn_y_h0…sn_y_h9 = MASTER-sidecarin 'y_hN.nimi' normaalilla kirjoitusasulla (ensimmäinen kirjain iso, loput pienellä; sama muunnos kuin VP:n _vpKonseptiNimiNimella) — mekaaninen johdos, ei uutta ruotsia.
+   · konseptien nimet (PM: yhtenäistä): lib/tm_lib_i18n.js sn_y_h0…9 ja sn_y_p1…4 = MASTER-sidecarin 'y_hN.nimi' / 'y_pN.nimi' normaalilla kirjoitusasulla (ensimmäinen kirjain iso, loput pienellä; sama muunnos kuin VP:n _vpKonseptiNimiNimella) — mekaaninen johdos, ei uutta ruotsia.
    Idempotentti; virhe → mitään ei kirjoiteta. Ajo: node scripts/i18n_vie_sv_era102.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
@@ -12,9 +12,9 @@ const { sopii, lataaSv, lisaaKarttaan, q } = require('./i18n_vie_sv_era53_19.cjs
 const ROOT = path.join(__dirname, '..');
 const PALAUTUS = 'docs/i18n/sv_kaannoserae_102_palautus.json', LAHETYS = 'docs/i18n/sv_kaannoserae_102_gemini.json', OSIO = 'vp_kentta_b', MASTER = 'docs/i18n/curriculum_kaannettava.sv.MASTER.json';
 const COMMON_FI = ['Valakyykky', 'Askelkyykky', 'Hyvää huomenta', 'Etunojapunnerrus'];
-const KONSEPTIT = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ['sn_y_h' + n, 'y_h' + n + '.nimi']);
+const KONSEPTIT = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ['sn_y_h' + n, 'y_h' + n + '.nimi']).concat([1, 2, 3, 4].map((n) => ['sn_y_p' + n, 'y_p' + n + '.nimi']));
 const otsake = 'sv-käännöserä 102 (PM 10.11.2026; ' + PALAUTUS + '; vienti scripts/i18n_vie_sv_era102.cjs) — VP Kenttä-näkymän vierekkäiset tekstit (#1245)';
-const normaali = (s) => (s === s.toUpperCase() && s !== s.toLowerCase() ? s.charAt(0) + s.slice(1).toLowerCase() : s);   // = _vpKonseptiNimiNimella (P1.2)
+const normaali = (s) => { const u = s.replace(/(\d)v(\d)/g, '$1V$2'); return u === u.toUpperCase() && u !== u.toLowerCase() ? u.charAt(0) + u.slice(1).toLowerCase() : s; };   // = _vpKonseptiNimiNimella (P1.2; '1v1' ei estä isojen tunnistusta)
 
 function vie(opts) {
   opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [];
