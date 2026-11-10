@@ -8,15 +8,13 @@ const path = require('path');
 const V = require(path.join(__dirname, '..', 'lib', 'tm_valvonta.js'));
 const R = require(path.join(__dirname, '..', 'lib', 'tm_valvonta_raportti.js'));
 const L = require(path.join(__dirname, '..', 'functions', 'valvonta_luku.js'));
-
-const ALIKOKOELMAT = ['testitulokset', 'havainnot', 'kirjaukset', 'biologinen_ika', 'sisainen', 'pelidata'];   // terveys/ jätetään kokonaan lukematta (GDPR Art. 9)
+const D = require(path.join(__dirname, 'e6_datamaara.js'));   // JAETTU laskenta arkistoi_tuplapelaaja.js:n kanssa (terveys/ jätetään kokonaan lukematta, GDPR Art. 9)
 const kyllaEi = (b) => (b ? 'kyllä' : 'ei'), pad = (s, n) => String(s).padEnd(n);
 const onArvo = (v) => v != null && v !== '' && !(Array.isArray(v) && !v.length);
 
 /** Yhden dokumentin tiivistelmä (vain lukuja ja kyllä/ei). doc = täysi data, db = Admin Firestore. */
-async function tiivista(db, sid, pid, d) {
-  const alik = {}; let yht = 0;
-  for (const k of ALIKOKOELMAT) { const n = (await db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).collection(k).select().get()).docs.length; alik[k] = n; yht += n; }
+async function tiivista(db, sid, pid, d, valimuisti) {
+  const dm = await D.datamaara(db, sid, pid, valimuisti), alik = dm.alik, yht = dm.yht;
   const kentat = Object.keys(d).filter((k) => onArvo(d[k])).length;
   return { alik, alikYht: yht, kentat, tavuja: JSON.stringify(d).length, suostumusTila: /^[a-z_]{1,20}$/.test(String(d.suostumusTila)) ? String(d.suostumusTila) : (d.suostumusTila ? '(muu)' : '(puuttuu)'),
     suostumusOlemassa: onArvo(d.suostumus) || onArvo(d.suostumusAnnettu) || d.suostumusTila === 'annettu', huoltajaEmail: onArvo(d.huoltajaEmail), pin: onArvo(d.pin) || onArvo(d._pelaajaPin),
@@ -34,18 +32,18 @@ function ryhmat(aineisto) {
   return out;
 }
 async function vertaa(db, aineisto) {
-  const rivit = [], haettu = {};
+  const rivit = [], haettu = {}, valimuisti = {};
   (aineisto.seurat || []).forEach((s) => { haettu[s.sid] = {}; ((s.kokoelmat || {}).pelaajat || []).forEach((p) => { haettu[s.sid][p._id] = p; }); });
   const rs = ryhmat(aineisto);
   rivit.push('# E6: samannimiset pelaajadokumentit samalla tunnisteella samassa seurassa (vain luku) · ryhmiä ' + rs.length);
   for (let i = 0; i < rs.length; i++) {
     const r = rs[i], tiivisteet = [];
-    for (const m of r.jasenet) { const d = Object.assign({}, haettu[r.sid][m.pid]); delete d._id; tiivisteet.push(await tiivista(db, r.sid, m.pid, d)); }
+    for (const m of r.jasenet) { const d = Object.assign({}, haettu[r.sid][m.pid]); delete d._id; tiivisteet.push(await tiivista(db, r.sid, m.pid, d, valimuisti)); }
     tiivisteet.sort((a, b) => b.pisteet - a.pisteet);
     rivit.push('', 'ryhmä ' + (i + 1) + ' · seura ' + r.sid + ' · dokumentteja ' + tiivisteet.length);
     rivit.push(pad('', 26) + tiivisteet.map((t, j) => pad(String.fromCharCode(65 + j) + (j === 0 ? ' (enemmän dataa)' : ''), 20)).join(''));
     const rivi = (nimi, f) => rivit.push(pad(nimi, 26) + tiivisteet.map((t) => pad(f(t), 20)).join(''));
-    ALIKOKOELMAT.forEach((k) => rivi('alikokoelma ' + k, (t) => t.alik[k])); rivi('alikokoelmadokumentteja yht.', (t) => t.alikYht); rivi('kenttiä (ei tyhjiä)', (t) => t.kentat); rivi('koko (tavua)', (t) => t.tavuja);
+    Array.from(new Set([].concat(...tiivisteet.map((t) => Object.keys(t.alik))))).sort().forEach((k) => rivi(k === D.TULOKSET ? 'testitapahtumatulokset' : 'alikokoelma ' + k, (t) => t.alik[k] || 0)); rivi('alikokoelmadokumentteja yht.', (t) => t.alikYht); rivi('kenttiä (ei tyhjiä)', (t) => t.kentat); rivi('koko (tavua)', (t) => t.tavuja);
     rivi('suostumusTila', (t) => t.suostumusTila); rivi('suostumus olemassa', (t) => kyllaEi(t.suostumusOlemassa)); rivi('huoltajaEmail olemassa', (t) => kyllaEi(t.huoltajaEmail)); rivi('PIN olemassa', (t) => kyllaEi(t.pin));
     rivi('lähde', (t) => t.lahde); rivi('arkistoitu/poistettu', (t) => kyllaEi(t.arkistoitu)); rivi('joukkueita (joukkueet[])', (t) => t.joukkueita);
     const a = tiivisteet[0], b = tiivisteet[1];

@@ -19,6 +19,7 @@
 const path = require('path');
 const V = require(path.join(__dirname, '..', 'lib', 'tm_valvonta.js'));
 const R = require(path.join(__dirname, '..', 'lib', 'tm_valvonta_raportti.js'));
+const D = require(path.join(__dirname, 'e6_datamaara.js'));   // JAETTU laskenta diag_e6_vertailu.js:n kanssa
 const KENTAT = ['tunniste', 'palloId', 'palloID'];
 const turva = (m) => Object.assign(new Error(m), { turva: true });
 const tunnisteArvo = (d) => { for (const k of KENTAT) if (d && d[k] != null && d[k] !== '') return String(d[k]); return null; };
@@ -34,12 +35,8 @@ async function lue(db) {
   }
   return ulos;
 }
-/** Alikokoelmadokumenttien lukumäärä yhdelle pelaajalle (kaikki alikokoelmat). */
-async function alikokoelmat(db, sid, pid) {
-  const ref = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid), kols = await ref.listCollections();
-  let yht = 0; for (const k of kols) yht += (await k.select().get()).size;
-  return yht;
-}
+/** Pelaajan dokumenttimäärä (alikokoelmat + testitapahtumat/TID/tulokset/PID) — sama laskenta kuin diag_e6_vertailu.js (e6_datamaara.js). */
+async function alikokoelmat(db, sid, pid, valimuisti) { return (await D.datamaara(db, sid, pid, valimuisti)).yht; }
 /** Suunnitelman puhdas ydin: ryhmat = E6-ryhmät [{ jasenet:[{sid,pid,d,alikok}] }]; testi(pid,d) → bool. → { ehdokkaat:[{A,B}], epaselvat:{muuKoko, eriNimi, testipelaaja, eiAktiivisia, ilmanEroa} } */
 function suunnittele(ryhmat, testi) {
   const ehdokkaat = [], ep = { muuKoko: 0, eriNimi: 0, testipelaaja: 0, eiAktiivisia: 0, ilmanEroa: 0 };
@@ -62,12 +59,12 @@ async function kutsuLuvut(db, sid, pid) {
   return { kutsut: k, huoltajakutsut: h, pin: p };
 }
 async function ryhmat(db, pelaajat) {
-  const kartta = {};
+  const kartta = {}, valimuisti = {};
   pelaajat.forEach((p) => { const t = tunnisteArvo(p.d); if (t != null && aktiivinen(p.d)) (kartta[t] = kartta[t] || []).push(p); });
   const ulos = [];
   for (const t of Object.keys(kartta).sort()) {
     if (kartta[t].length < 2) continue;
-    const jasenet = []; for (const p of kartta[t]) jasenet.push({ sid: p.sid, pid: p.pid, d: p.d, alikok: await alikokoelmat(db, p.sid, p.pid), tunniste: t });
+    const jasenet = []; for (const p of kartta[t]) jasenet.push({ sid: p.sid, pid: p.pid, d: p.d, alikok: await alikokoelmat(db, p.sid, p.pid, valimuisti), tunniste: t });
     ulos.push({ jasenet });
   }
   return ulos;
