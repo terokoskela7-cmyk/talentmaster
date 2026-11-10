@@ -46,3 +46,28 @@ test('F0: vertaa huomaa poistuneen, uuden ja muuttuneen viennin (App Check, secr
   const c = JSON.parse(JSON.stringify(a)); c.x.secretEnvironmentVariables = [{ key: 'SENDGRID_API_KEY' }]; c.x.region = ['us-central1'];
   assert.strictEqual(vertaa(a, c).length, 1);
 });
+
+// ── Ympäristöriippumattomuus (staging-deploy kaatui: eventFilters.resource sisältää projektin nimen) ──
+const { normalisoiProjekti } = require('../tools/viennit.js');
+const { spawnSync } = require('node:child_process');
+const path = require('node:path');
+
+test('F0: normalisoiProjekti korvaa vain projects/<nimi>/-etuliitteen (syvälle ja taulukoihin), muuta ei', () => {
+  const x = { a: { eventTrigger: { eventFilters: { resource: 'projects/talentmaster-staging/databases/(default)/documents/seurat/{sid}/x/{id}' } } }, b: ['projects/abc-1/x', 'ei-projects/muutu'], c: 5, d: null, e: 'talentmaster-pilot' };
+  assert.deepStrictEqual(normalisoiProjekti(x), { a: { eventTrigger: { eventFilters: { resource: 'projects/<projekti>/databases/(default)/documents/seurat/{sid}/x/{id}' } } }, b: ['projects/<projekti>/x', 'ei-projects/muutu'], c: 5, d: null, e: 'talentmaster-pilot' });
+});
+
+test('F0: vertaa on ympäristöriippumaton — tuotannon ja stagingin projektinimi antavat saman tuloksen; oikea ero huomataan yhä', () => {
+  const ev = (proj, polku) => ({ f: { region: ['europe-west1'], eventTrigger: { eventFilters: { resource: 'projects/' + proj + '/databases/(default)/documents/' + polku } } } });
+  const vedos = ev('talentmaster-pilot', 'seurat/{sid}/a/{id}');
+  for (const proj of ['talentmaster-pilot', 'talentmaster-staging']) assert.deepStrictEqual(vertaa(vedos, ev(proj, 'seurat/{sid}/a/{id}')), [], proj);
+  for (const proj of ['talentmaster-pilot', 'talentmaster-staging']) assert.strictEqual(vertaa(vedos, ev(proj, 'seurat/{sid}/b/{id}')).length, 1, proj + ': polun muutos huomataan');
+});
+
+for (const proj of ['talentmaster-pilot', 'talentmaster-staging']) {
+  test('F0: koko vertailu (tools/viennit.js) läpäisee projektilla ' + proj, () => {
+    const r = spawnSync(process.execPath, [path.join(__dirname, '..', 'tools', 'viennit.js')], { env: Object.assign({}, process.env, { GCLOUD_PROJECT: proj }), encoding: 'utf8' });
+    assert.strictEqual(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^OK: \d+ vientiä/);
+  });
+}

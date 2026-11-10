@@ -82,9 +82,19 @@ function lataaViennit() {
   return ulos;
 }
 
+/** Ympäristöriippumattomuus: event-triggereiden resurssi sisältää projektin nimen (projects/talentmaster-pilot/…, staging: projects/talentmaster-staging/…).
+ *  Normalisoidaan kaikissa merkkijonoissa projects/<nimi>/ → projects/<projekti>/ sekä vedoksessa että vertailussa. Muuhun sisältöön ei kosketa. */
+const PROJEKTI_RE = /projects\/[a-z][a-z0-9-]*\//g;
+function normalisoiProjekti(x) {
+  if (typeof x === 'string') return x.replace(PROJEKTI_RE, 'projects/<projekti>/');
+  if (Array.isArray(x)) return x.map(normalisoiProjekti);
+  if (x && typeof x === 'object') { const o = {}; for (const k of Object.keys(x)) o[k] = normalisoiProjekti(x[k]); return o; }
+  return x;
+}
+
 /** Puhdas vertailu (testattu): palauttaa listan eroista ihmisluettavina riveinä. */
-function vertaa(vanha, uusi) {
-  const erot = [];
+function vertaa(vanha0, uusi0) {
+  const vanha = normalisoiProjekti(vanha0), uusi = normalisoiProjekti(uusi0), erot = [];
   for (const k of Object.keys(vanha)) if (!(k in uusi)) erot.push('POISTUI: ' + k);
   for (const k of Object.keys(uusi)) if (!(k in vanha)) erot.push('UUSI: ' + k);
   for (const k of Object.keys(uusi)) {
@@ -101,7 +111,7 @@ if (require.main === module) {
   const nyt = lataaViennit();
   if (process.argv.includes('--kirjoita')) {
     fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
-    fs.writeFileSync(FIXTURE, JSON.stringify(nyt, null, 2) + '\n');
+    fs.writeFileSync(FIXTURE, JSON.stringify(normalisoiProjekti(nyt), null, 2) + '\n');
     console.log('Kirjoitettu ' + path.relative(JUURI, FIXTURE) + ': ' + Object.keys(nyt).length + ' vientiä.');
   } else {
     const erot = vertaa(lueFixture(), nyt);
@@ -110,4 +120,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { lataaViennit, vertaa, siisti, lueFixture, FIXTURE, APPCHECK_AVAIMET };
+module.exports = { lataaViennit, vertaa, normalisoiProjekti, siisti, lueFixture, FIXTURE, APPCHECK_AVAIMET };
