@@ -116,3 +116,23 @@ describe('E6: yhteinen ryhmittely + erittely + terveys raportissa', () => {
     expect(S.raportti(Object.assign(ero, { ryhmia: 1 }), false, null, null)).toMatch(/\[ei dataeroa\]/);
   });
 });
+
+describe('E6: johdetut alikokoelmat (kooste, notifikaatiot) eivät ole dataa', () => {
+  const db = fakeDb({ seurat: { x: { pelaajat: { a: { kolls: { kooste: 1, testitulokset: 2 } }, b: { kolls: { kooste: 1, notifikaatiot: 4 } } }, tapahtumat: {} } } });
+  it('B, jolla on vain kooste (ja notifikaatioita), on tyhjä: yht 0; johdettu raportoidaan erikseen', async () => {
+    const b = await D.datamaara(db, 'x', 'b'); expect(b.yht).toBe(0); expect(b.alik).toEqual({ [D.TULOKSET]: 0 }); expect(b.johdettu).toEqual({ kooste: 1, notifikaatiot: 4 });
+    expect((await D.datamaara(db, 'x', 'a')).yht).toBe(2);
+  });
+  it('arkistointi: A (kooste 1 + testitulokset 2) / B (kooste 1) → ehdokas, ei "ei dataeroa"; vertailu laskee saman', async () => {
+    const lista = ['a', 'b'].map((pid) => ({ sid: 'x', pid, d: { nimi: 'Matti Meikalainen', tunniste: '555' } }));
+    const s = S.suunnittele(await S.ryhmat(db, lista), ei); expect(s.ehdokkaat.length).toBe(1); expect(s.epaselvat.ilmanEroa).toBe(0);
+    expect(await V.tiivista(db, 'x', 'b', {}).then((t) => t.alikYht)).toBe(0);
+  });
+  it('raportti: johdetut näkyvät merkinnällä (johdettu); vertailussa omat rivinsä', async () => {
+    const lista = ['a', 'b'].map((pid) => ({ sid: 'x', pid, d: { nimi: 'Matti Meikalainen', tunniste: '555' } }));
+    const s = S.suunnittele(await S.ryhmat(db, lista), ei); s.ryhmia = 1; const t = S.raportti(s, false, null, null);
+    expect(t).toMatch(/kooste 1 \(johdettu\)/); expect(t).toMatch(/notifikaatiot 4 \(johdettu\)/);
+    const v = await V.vertaa(db, { seurat: [{ sid: 'x', kokoelmat: { pelaajat: lista.map((p) => Object.assign({ _id: p.pid }, p.d)) } }] });
+    expect(v).toMatch(/alikokoelma kooste \(johdettu\) +1 +1/);
+  });
+});

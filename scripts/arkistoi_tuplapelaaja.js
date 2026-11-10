@@ -62,7 +62,7 @@ async function ryhmat(db, pelaajat) {
   const valimuisti = {}, ulos = [];
   for (const g of D.ryhmittele(pelaajat)) {
     const jasenet = [];
-    for (const m of g.jasenet) { const dm = await D.datamaara(db, m.sid, m.pid, valimuisti); jasenet.push({ sid: m.sid, pid: m.pid, d: m.d, alikok: dm.yht, alik: dm.alik, terveys: await D.terveysLkm(db, m.sid, m.pid), tunniste: m.tunniste }); }
+    for (const m of g.jasenet) { const dm = await D.datamaara(db, m.sid, m.pid, valimuisti); jasenet.push({ sid: m.sid, pid: m.pid, d: m.d, alikok: dm.yht, alik: dm.alik, johdettu: dm.johdettu, terveys: await D.terveysLkm(db, m.sid, m.pid), tunniste: m.tunniste }); }
     ulos.push({ jasenet });
   }
   return ulos;
@@ -94,7 +94,7 @@ function raportti(s, aja, kirjoitettu, kutsut) {
   const nm = (k) => (/^[A-Za-z0-9_*\/]{1,40}$/.test(k) ? k : '(muu)');
   (s.erittelyt || []).forEach((g, i) => {
     r.push('  ryhmä ' + (i + 1) + ' [' + g.tulos + ']:');
-    g.jasenet.forEach((m, j) => r.push('    ' + String.fromCharCode(65 + j) + ' (seura ' + m.sid + '): yht. ' + m.alikok + ' · ' + (Object.keys(m.alik || {}).sort().map((k) => nm(k) + ' ' + m.alik[k]).join(', ') || '(ei alikokoelmia)') + ' · terveys ' + (m.terveys == null ? '?' : m.terveys)));
+    g.jasenet.forEach((m, j) => r.push('    ' + String.fromCharCode(65 + j) + ' (seura ' + m.sid + '): yht. ' + m.alikok + ' · ' + (Object.keys(m.alik || {}).sort().map((k) => nm(k) + ' ' + m.alik[k]).concat(Object.keys(m.johdettu || {}).sort().map((k) => nm(k) + ' ' + m.johdettu[k] + ' (johdettu)')).join(', ') || '(ei alikokoelmia)') + ' · terveys ' + (m.terveys == null ? '?' : m.terveys)));
   });
   if (s.ehdokkaat.some((c) => c.B.terveys > 0)) r.push('HUOM: B:llä on terveys-dokumentteja → --aja ei kirjoita (terveys-esto).');
   if (s.ehdokkaat.length > 1) r.push('HUOM: ehdokkaita > 1 → --aja ei kirjoita mitään (tarkista ryhmät ensin).');

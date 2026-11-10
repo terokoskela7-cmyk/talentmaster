@@ -6,6 +6,9 @@
 const path = require('path');
 const V = require(path.join(__dirname, '..', 'lib', 'tm_valvonta.js'));
 const POIS = ['terveys'];
+// Palvelimen johtamat/generoimat pelaaja-alikokoelmat (EI pelaajan eikä henkilökunnan kirjaamaa dataa): kooste = functions/harjoituskertyma.js (trigger),
+// notifikaatiot = functions/index.js (ilmoitukset). Ei lasketa dataksi (yht), mutta raportoidaan merkinnällä (johdettu).
+const JOHDETUT = ['kooste', 'notifikaatiot'];
 const TULOKSET = 'testitapahtumat/*/tulokset';
 
 async function tapahtumaIdt(db, sid, valimuisti) {
@@ -14,14 +17,19 @@ async function tapahtumaIdt(db, sid, valimuisti) {
   if (valimuisti) valimuisti[sid] = ids;
   return ids;
 }
-// → { alik:{ [kokoelma]: n, 'testitapahtumat/*/tulokset': n }, yht } (yht = alikokoelmat + tapahtumatulokset). valimuisti = valinnainen {} (tapahtumaid:t per seura).
+// → { alik:{ [kokoelma]: n, 'testitapahtumat/*/tulokset': n }, johdettu:{ kooste: n, … } (EI mukana yht:ssä), yht } (yht = alikokoelmat + tapahtumatulokset). valimuisti = valinnainen {} (tapahtumaid:t per seura).
 async function datamaara(db, sid, pid, valimuisti) {
   const seura = db.collection('seurat').doc(sid), ref = seura.collection('pelaajat').doc(pid), alik = {};
-  for (const k of await ref.listCollections()) { if (POIS.indexOf(k.id) >= 0) continue; alik[k.id] = (await k.select().get()).size; }
+  const johdettu = {};
+  for (const k of await ref.listCollections()) {
+    if (POIS.indexOf(k.id) >= 0) continue;
+    const n = (await k.select().get()).size;
+    if (JOHDETUT.indexOf(k.id) >= 0) johdettu[k.id] = n; else alik[k.id] = n;
+  }
   let tul = 0;
   for (const tid of await tapahtumaIdt(db, sid, valimuisti)) { if ((await seura.collection('testitapahtumat').doc(tid).collection('tulokset').doc(pid).get()).exists) tul++; }
   alik[TULOKSET] = tul;
-  return { alik, yht: Object.keys(alik).reduce((a, k) => a + alik[k], 0) };
+  return { alik, johdettu, yht: Object.keys(alik).reduce((a, k) => a + alik[k], 0) };
 }
 
 /** terveys/-alikokoelman dokumenttimäärä (vain count(), ei sisältöä). >0 → arkistointi ei kirjoita. */
@@ -44,4 +52,4 @@ function ryhmittele(pelaajat) {
   });
   return Object.keys(kartta).sort().map((k) => kartta[k]).filter((g) => g.jasenet.length >= 2);
 }
-module.exports = { datamaara, terveysLkm, ryhmittele, tunnisteArvo, nimiAvain, TULOKSET, POIS };
+module.exports = { datamaara, terveysLkm, ryhmittele, tunnisteArvo, nimiAvain, TULOKSET, POIS, JOHDETUT };
