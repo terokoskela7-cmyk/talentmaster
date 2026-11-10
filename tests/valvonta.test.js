@@ -85,7 +85,7 @@ describe('PR 2d: E6 / E6b — vain yksi aktiivinen ryhmässä = WARN (sama sää
   });
   it('sama seura: 1 aktiivinen + 1 arkistoitu → WARN; 2 aktiivista → ERROR (E6)', () => {
     const w = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '5' }), P('p2', { tunniste: '5', arkistoitu: true })] })]);
-    expect(rv(w, 'E6')).toEqual([['a', 0, 'ok']]); expect(rv(w, 'E6b')).toEqual([['a', 1, 'varoitus']]);
+    expect(rv(w, 'E6')).toEqual([['a', 0, 'ok']]); expect(rv(w, 'E6b')).toEqual([['a', 2, 'varoitus']]);   // kuten E2b: kaikki ryhmän dokumentit lasketaan
     const e = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '5' }), P('p2', { tunniste: '5' })] })]);
     expect(rv(e, 'E6')).toEqual([['a', 2, 'virhe']]); expect(rv(e, 'E6b')).toEqual([['a', 0, 'ok']]);
   });
