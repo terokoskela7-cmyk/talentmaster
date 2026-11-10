@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KIRJOITUS = /\.(set|update|delete|add|create|commit|batch|runTransaction|bulkWriter|recursiveDelete)\s*\(|\b(FieldValue|writeBatch|setDoc|updateDoc|deleteDoc|addDoc)\b/;
-const TIEDOSTOT = ['lib/tm_valvonta.js', 'lib/tm_valvonta_raportti.js', 'functions/tm_valvonta.js', 'functions/tm_valvonta_raportti.js', 'functions/valvonta.js', 'functions/valvonta_luku.js', 'scripts/valvonta_aja.js', 'scripts/diag_valvonta_luonne.js'];
+const TIEDOSTOT = ['lib/tm_valvonta.js', 'lib/tm_valvonta_raportti.js', 'functions/tm_valvonta.js', 'functions/tm_valvonta_raportti.js', 'functions/valvonta.js', 'functions/valvonta_posti.js', 'functions/valvonta_luku.js', 'scripts/valvonta_aja.js', 'scripts/diag_valvonta_luonne.js'];
 
 /** Poistaa kommentit ja funktion `kirjaaAudit` rungon; palauttaa jäljelle jäävän koodin. */
 export function ilmanSallittua(koodi) {
