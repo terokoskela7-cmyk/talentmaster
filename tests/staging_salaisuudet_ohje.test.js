@@ -114,10 +114,10 @@ describe('esitarkistus kytketty workfloweihin ennen functions-deployta', () => {
 
 describe('STAGING_ASENNUS.md B/A: staging-asennuksen löydökset', () => {
   const komennot = OHJE.split('\n').reduce((acc, rivi, i, rs) => { if (/^gcloud services enable/.test(rivi)) { let k = rivi; let j = i; while (/\\$/.test(rs[j])) { j++; k += ' ' + rs[j]; } acc.push(k); } return acc; }, []);
-  it('gcloud services enable jaettu: enintään 20 palvelua / komento, firebasestorage mukana, ei kaksoiskappaleita', () => {
+  it('gcloud services enable jaettu: enintään 20 palvelua / komento, firebasestorage + cloudbilling (laskutustarkistus) mukana, ei kaksoiskappaleita', () => {
     expect(komennot.length).toBeGreaterThanOrEqual(2);
     const kaikki = []; komennot.forEach((k) => { const n = k.match(/[a-z]+\.googleapis\.com/g) || []; expect(n.length).toBeLessThanOrEqual(20); kaikki.push(...n); });
-    expect(kaikki).toContain('firebasestorage.googleapis.com'); expect(new Set(kaikki).size).toBe(kaikki.length);
+    expect(kaikki).toContain('firebasestorage.googleapis.com'); expect(kaikki).toContain('cloudbilling.googleapis.com'); expect(new Set(kaikki).size).toBe(kaikki.length);
   });
   it('WIF-ehto ${REPO}:environment:staging (aaltosulkeet, zsh), ei paljas $REPO:e', () => {
     expect(OHJE).toContain('repo:${REPO}:environment:staging'); expect(OHJE).not.toMatch(/\$REPO:[a-z]/);
