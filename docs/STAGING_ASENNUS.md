@@ -27,7 +27,12 @@ echo "Projektinumero: $PROJECT_NUMBER"   # tarkista, että ei ole tuotannon nume
 test "$PROJECT_NUMBER" != "872561784446" && echo OK-eri-projekti
 
 # --- API:t ---
-# (gcloud services enable ottaa käyttöön enintään 20 palvelua / komento; 23 palvelua → kaksi komentoa)
+# (gcloud services enable ottaa käyttöön enintään 20 palvelua / komento; 24 palvelua → kaksi komentoa.)
+# Deploy-tili EI saa ottaa API:a käyttöön itse, joten kaikki, mitä firebase-tools (15.x) deployssa yrittää enabloida, pitää olla jo päällä:
+#   rules+storage → firestore, firebaserules, firebasestorage (storage-deploy hakee oletusbucketin) · functions → cloudfunctions, cloudbuild, artifactregistry,
+#   cloudscheduler (SDK:n requiredAPIs ajastetuille; pubsub) ja secretmanager (secrets: SENDGRID_API_KEY, VALVONTA_VASTAANOTTAJA) · hosting → firebasehosting
+#   · Scheduler-pause (gcloud) → cloudscheduler. runtimeconfig tarkistetaan vain (ei enabloida; functions.config() ei käytössä). Kaikki funktiot ovat gcfv1 → run/eventarc
+#   eivät ole deployn vaatimus, mutta ne pidetään päällä (Cloud Run -pohjaiset v1-ajot ja mahdolliset v2-siirrot).
 gcloud services enable --project $PROJECT_ID \
   firebase.googleapis.com firestore.googleapis.com firebaserules.googleapis.com firebasehosting.googleapis.com \
   cloudfunctions.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com run.googleapis.com \
@@ -35,7 +40,7 @@ gcloud services enable --project $PROJECT_ID \
 gcloud services enable --project $PROJECT_ID \
   identitytoolkit.googleapis.com firebaseappcheck.googleapis.com recaptchaenterprise.googleapis.com \
   iamcredentials.googleapis.com sts.googleapis.com iam.googleapis.com cloudresourcemanager.googleapis.com \
-  serviceusage.googleapis.com monitoring.googleapis.com logging.googleapis.com billingbudgets.googleapis.com
+  serviceusage.googleapis.com monitoring.googleapis.com logging.googleapis.com billingbudgets.googleapis.com firebasestorage.googleapis.com
 
 # --- deploy-palvelutili (ei avaimia) ---
 gcloud iam service-accounts create staging-deploy --project $PROJECT_ID --display-name="GitHub staging deploy (WIF)"
