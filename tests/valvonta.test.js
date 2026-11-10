@@ -75,6 +75,26 @@ describe('E1a / E1b: joukkueviitteen luokittelu', () => {
   });
 });
 
+describe('PR 2d: E6 / E6b — vain yksi aktiivinen ryhmässä = WARN (sama sääntö kuin E2)', () => {
+  const P = (id, extra) => Object.assign({ _id: id, etunimi: 'X', syntymaVuosi: 2013, tunniste: 't' + id }, extra || {});
+  const g = (ss) => V.tmVTarkistaGlobaali(V.tmVIndeksit(ss), [], 0);
+  const rv = (r, k) => r.filter((x) => x.koodi === k).map((x) => [x.seura, x.lkm, x.taso]);
+  it('1 aktiivinen + 1 arkistoitu (eri seurat) → E6 0, E6b varoitus molemmille', () => {
+    const r = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '777' })] }), seuraA('b', ['B'], { pelaajat: [P('p2', { tunniste: '777', tila: 'arkistoitu' })] })]);
+    expect(rv(r, 'E6')).toEqual([['a', 0, 'ok'], ['b', 0, 'ok']]); expect(rv(r, 'E6b')).toEqual([['a', 1, 'varoitus'], ['b', 1, 'varoitus']]);
+  });
+  it('sama seura: 1 aktiivinen + 1 arkistoitu → WARN; 2 aktiivista → ERROR (E6)', () => {
+    const w = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '5' }), P('p2', { tunniste: '5', arkistoitu: true })] })]);
+    expect(rv(w, 'E6')).toEqual([['a', 0, 'ok']]); expect(rv(w, 'E6b')).toEqual([['a', 1, 'varoitus']]);
+    const e = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '5' }), P('p2', { tunniste: '5' })] })]);
+    expect(rv(e, 'E6')).toEqual([['a', 2, 'virhe']]); expect(rv(e, 'E6b')).toEqual([['a', 0, 'ok']]);
+  });
+  it('2 aktiivista + 1 arkistoitu → aktiiviset E6 ERROR, arkistoitu E6b', () => {
+    const r = g([seuraA('a', ['A'], { pelaajat: [P('p1', { tunniste: '9' }), P('p2', { tunniste: '9' }), P('p3', { tunniste: '9', poistettu: true })] })]);
+    expect(rv(r, 'E6')).toEqual([['a', 2, 'virhe']]); expect(rv(r, 'E6b')).toEqual([['a', 1, 'varoitus']]);
+  });
+});
+
 describe('E2 / E6: seurojen väliset (globaali)', () => {
   const P = (id, extra) => Object.assign({ _id: id, etunimi: 'X', syntymaVuosi: 2013, tunniste: 't' + id }, extra || {});
   it('E2: sama id kahdella seuralla, molemmat aktiivisia → virhe kummallekin', () => {
