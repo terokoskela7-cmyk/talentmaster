@@ -13,9 +13,9 @@ const onArvo = (v) => v != null && v !== '' && !(Array.isArray(v) && !v.length);
 
 /** Yhden dokumentin tiivistelmä (vain lukuja ja kyllä/ei). doc = täysi data, db = Admin Firestore. */
 async function tiivista(db, sid, pid, d, valimuisti) {
-  const dm = await D.datamaara(db, sid, pid, valimuisti), alik = dm.alik, yht = dm.yht;
+  const dm = await D.datamaara(db, sid, pid, valimuisti), alik = dm.alik, johdettu = dm.johdettu, yht = dm.yht;
   const kentat = Object.keys(d).filter((k) => onArvo(d[k])).length;
-  return { alik, alikYht: yht, kentat, tavuja: JSON.stringify(d).length, suostumusTila: /^[a-z_]{1,20}$/.test(String(d.suostumusTila)) ? String(d.suostumusTila) : (d.suostumusTila ? '(muu)' : '(puuttuu)'),
+  return { alik, johdettu, alikYht: yht, kentat, tavuja: JSON.stringify(d).length, suostumusTila: /^[a-z_]{1,20}$/.test(String(d.suostumusTila)) ? String(d.suostumusTila) : (d.suostumusTila ? '(muu)' : '(puuttuu)'),
     suostumusOlemassa: onArvo(d.suostumus) || onArvo(d.suostumusAnnettu) || d.suostumusTila === 'annettu', huoltajaEmail: onArvo(d.huoltajaEmail), pin: onArvo(d.pin) || onArvo(d._pelaajaPin),
     lahde: /^[a-z_]{1,20}$/.test(String(d.lahde)) ? String(d.lahde) : '(puuttuu)', arkistoitu: d.arkistoitu === true || d.poistettu === true || d.aktiivinen === false, joukkueita: Array.isArray(d.joukkueet) ? d.joukkueet.length : 0, pisteet: score(alik, kentat) };
 }
@@ -36,9 +36,9 @@ async function vertaa(db, aineisto) {
     for (const m of r.jasenet) { const d = Object.assign({}, haettu[r.sid][m.pid]); delete d._id; tiivisteet.push(await tiivista(db, r.sid, m.pid, d, valimuisti)); }
     tiivisteet.sort((a, b) => b.pisteet - a.pisteet);
     rivit.push('', 'ryhmä ' + (i + 1) + ' · seura ' + r.sid + ' · dokumentteja ' + tiivisteet.length);
-    rivit.push(pad('', 26) + tiivisteet.map((t, j) => pad(String.fromCharCode(65 + j) + (j === 0 ? ' (enemmän dataa)' : ''), 20)).join(''));
-    const rivi = (nimi, f) => rivit.push(pad(nimi, 26) + tiivisteet.map((t) => pad(f(t), 20)).join(''));
-    Array.from(new Set([].concat(...tiivisteet.map((t) => Object.keys(t.alik))))).sort().forEach((k) => rivi(k === D.TULOKSET ? 'testitapahtumatulokset' : 'alikokoelma ' + k, (t) => t.alik[k] || 0)); rivi('alikokoelmadokumentteja yht.', (t) => t.alikYht); rivi('kenttiä (ei tyhjiä)', (t) => t.kentat); rivi('koko (tavua)', (t) => t.tavuja);
+    rivit.push(pad('', 36) + tiivisteet.map((t, j) => pad(String.fromCharCode(65 + j) + (j === 0 ? ' (enemmän dataa)' : ''), 20)).join(''));
+    const rivi = (nimi, f) => rivit.push(pad(nimi, 36) + tiivisteet.map((t) => pad(f(t), 20)).join(''));
+    Array.from(new Set([].concat(...tiivisteet.map((t) => Object.keys(t.alik))))).sort().forEach((k) => rivi(k === D.TULOKSET ? 'testitapahtumatulokset' : 'alikokoelma ' + k, (t) => t.alik[k] || 0)); Array.from(new Set([].concat(...tiivisteet.map((t) => Object.keys(t.johdettu || {}))))).sort().forEach((k) => rivi('alikokoelma ' + k + ' (johdettu)', (t) => (t.johdettu || {})[k] || 0)); rivi('alikokoelmadokumentteja yht.', (t) => t.alikYht); rivi('kenttiä (ei tyhjiä)', (t) => t.kentat); rivi('koko (tavua)', (t) => t.tavuja);
     rivi('suostumusTila', (t) => t.suostumusTila); rivi('suostumus olemassa', (t) => kyllaEi(t.suostumusOlemassa)); rivi('huoltajaEmail olemassa', (t) => kyllaEi(t.huoltajaEmail)); rivi('PIN olemassa', (t) => kyllaEi(t.pin));
     rivi('lähde', (t) => t.lahde); rivi('arkistoitu/poistettu', (t) => kyllaEi(t.arkistoitu)); rivi('joukkueita (joukkueet[])', (t) => t.joukkueita);
     const a = tiivisteet[0], b = tiivisteet[1];
