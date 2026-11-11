@@ -17,6 +17,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const L = require('./lukko.js');
 const A = require('./aineisto.js');
+const T = require('./trigger_arvio.js');
 
 const SEURA_ETUVALI = 'kuorma_';
 const OLETUS_TUNNUKSET = path.join(__dirname, '..', '..', '.briefit', 'staging_tunnukset.txt');
@@ -92,8 +93,9 @@ async function main(argv, deps) {
     kirjaa('admins-dokumentti kirjoitettu stagingiin (SA-oikeus).'); return 0;
   }
   if (!a.tyhjenna) {
-    const m = A.laske(profiili, a.siemen);
+    const ls = A.laskeSeuroittain(profiili, a.siemen), m = ls.m;
     Object.keys(m).forEach((k) => kirjaa('  ' + k.padEnd(18) + String(m[k]).padStart(9)));
+    T.muotoile(T.arvioiTriggerit(ls)).forEach((r) => kirjaa(r));   // kulu näkyy ennen --aja:ta
     if (profiili.henkilokuntaa) kirjaa('  ' + 'auth-tilit'.padEnd(18) + String(A.tilit(profiili).length).padStart(9));
     if (kuiva) { kirjaa('Kuiva-ajo valmis. Kirjoita lisäämällä --aja.'); return 0; }
   }

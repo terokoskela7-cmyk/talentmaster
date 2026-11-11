@@ -23,7 +23,9 @@ const IKARYHMAT = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 const SAVU = { nimi: 'savu', seurat: [{ koko: 500 }, { koko: 500 }], kirjaukset: 100, viikkokatsaukset: 35, havainnot: 25, kierroksia: [2, 3], kaksiJoukkuettaTodennakoisyys: 0.03 };
 /* PR 2b: laaja aineisto (kalenteri + läsnäolijat, henkilökunta + Auth, toimenpiteet, jaksofokus_historia, 3 kautta suurimmalle seuralle). Profiili `savu` pysyy 2a:n muotoisena. */
 const LAAJA = { kalenteri: { viikossa: 2, lasnaoloOsuus: 0.9 }, henkilokuntaa: 10, toimenpiteita: 30, jaksoHistoriaa: [4, 8], kausia3: { pelaajia: 20, jaksoHistoriaaKaudessa: 40 } };
-const TAYSI_KOOT = [500, 400, 400, 400].concat(Array(8).fill(300), Array(14).fill(200), Array(14).fill(100));   // VAIHE0 §2.2: 40 seuraa, ~10 000 pelaajaa
+/* VAIHE0 §2.2: 40 seuraa, 10 000 pelaajaa (P11/P12). Alkuperäinen jakauma (1×500, 3×400, 8×300, 14×200, 14×100) summautui vain 8 300:aan → 14 pienintä seuraa saa loput:
+   1×500 + 3×400 + 8×300 + 14×250 + 14×(171–172) = 10 000. Suurin seura (mittauskohde) pysyy 500:ssa. */
+const TAYSI_KOOT = (() => { const pienet = 10000 - 500 - 3 * 400 - 8 * 300 - 14 * 250, pohja = Math.floor(pienet / 14), yli = pienet - pohja * 14; return [500, 400, 400, 400].concat(Array(8).fill(300), Array(14).fill(250), Array.from({ length: 14 }, (_, i) => pohja + (i < yli ? 1 : 0))); })();
 const PROFIILIT = {
   savu: SAVU,
   savu_taysi: Object.assign({}, SAVU, LAAJA, { nimi: 'savu_taysi' }),
@@ -268,11 +270,16 @@ function* generoi(profiili, siemen) {
   }
 }
 
-/** Kokoelmakohtainen dokumenttimäärä (kuiva-ajo): sama virta kuin kirjoituksessa → luvut täsmäävät kirjoitukseen. */
-function laske(profiili, siemen) {
-  const m = { yht: 0 };
-  for (const d of generoi(profiili, siemen)) { const o = d.polku.split('/'), k = o.length % 2 === 0 ? o[o.length - 2] : o[o.length - 1]; m[k] = (m[k] || 0) + 1; m.yht++; }
-  return m;
+/** Kokoelmakohtainen dokumenttimäärä + seuroittain (kuiva-ajo, trigger-arvio): sama virta kuin kirjoituksessa → luvut täsmäävät kirjoitukseen. */
+function laskeSeuroittain(profiili, siemen) {
+  const m = { yht: 0 }, seurat = [];
+  profiili.seurat.forEach((x, si) => seurat.push({ joukkueet: rakennaJoukkueet(si, x.koko).length, kirjaukset: 0, lasnaolijat: 0, kalenteri: 0 }));
+  for (const d of generoi(profiili, siemen)) {
+    const o = d.polku.split('/'), k = o.length % 2 === 0 ? o[o.length - 2] : o[o.length - 1]; m[k] = (m[k] || 0) + 1; m.yht++;
+    if (k === 'kirjaukset' || k === 'lasnaolijat' || k === 'kalenteri') seurat[+o[1].slice(-2) - 1][k]++;
+  }
+  return { m, seurat };
 }
+function laske(profiili, siemen) { return laskeSeuroittain(profiili, siemen).m; }
 
-module.exports = { generoi, laske, tilit, henkilokunta, TILI_DOMAIN, tiliUid, rng, rakennaJoukkueet, PROFIILIT, KAUSI, TESTIKIERROKSET, seuraId, pelaajaId, KAIKKI_PAIVAT, SUNNUNTAIT, isoViikko };
+module.exports = { generoi, laske, laskeSeuroittain, tilit, henkilokunta, TILI_DOMAIN, tiliUid, rng, rakennaJoukkueet, PROFIILIT, KAUSI, TESTIKIERROKSET, seuraId, pelaajaId, KAIKKI_PAIVAT, SUNNUNTAIT, isoViikko };
