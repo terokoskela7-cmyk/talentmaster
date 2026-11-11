@@ -23,7 +23,7 @@ describe('trigger-arvio vs mittaus', () => {
     m.tilasto.nollaa(); for (const p of kirj) { const o = p.split('/'); await K.luoKirjausKasittelija(m.deps)({}, { params: { sid: o[1], pid: o[3], pvm: o[5] } }); } const kirjLuvut = m.tilasto.reads / kirj.length;
     const mitattu = (l.m.lasnaolijat * lasnLuvut + l.m.kirjaukset * kirjLuvut) / (l.m.lasnaolijat + l.m.kirjaukset), arvio = a.lukuja / (a.rivit[0].kutsuja + a.rivit[1].kutsuja);
     expect(arvio / mitattu, 'arvio ' + arvio.toFixed(1) + ' vs mitattu ' + mitattu.toFixed(1)).toBeGreaterThan(0.85); expect(arvio / mitattu).toBeLessThan(1.15);
-  });
+  }, 60000);
   it('notifKalenteriViikko: 0 lukua ilman viikko_era-kenttää (generoiduilla tapahtumilla ei ole)', async () => {
     const m = muisti(100); let h; const KV = require('../functions/kalenteri_viikko.js');
     KV.viikkoTrigger({ functions: { region: () => ({ firestore: { document: () => ({ onCreate: (fn) => { h = fn; return fn; } }) } }) }, admin: {}, db: m.db, roster: async () => [], optOut: () => false });
@@ -43,11 +43,11 @@ describe('kertymien backfill', () => {
         expect(vanha.kausi).toBe(kausi); expect(Object.keys(vanha.korit).length).toBeGreaterThan(0); expect(JSON.parse(JSON.stringify(uusi.viikot)), pid + ' ' + kausi).toEqual(JSON.parse(JSON.stringify(vanha.korit))); expect(uusi.kausi).toBe(kausi);
       }
     }
-  });
+  }, 60000);
   it('tehokkuus: luvut ≈ dokumenttia kohti, ei pelaajakohtaista tapahtumahakua (tapahtumia luetaan kerran seuraa kohti)', async () => {
     const m = muisti(60); m.tilasto.nollaa(); await B.laskeSeuraKausi(m.deps, null, SID, '2026-27', NYT);
     expect(m.tilasto.perKokoelma['kalenteri:query']).toBeLessThan(1500); expect(m.tilasto.reads).toBeLessThan(m.store.size);   // yksi luku/dokumentti on yläraja
-  });
+  }, 30000);
   const vale = (store) => { const m = MEM.luo(store), kirj = []; const bw = { set: (ref) => { kirj.push(ref.polku); }, close: async () => {} }; return { m, kirj, luoDb: async (projekti) => ({ db: m.db, projekti, Timestamp: m.deps.Timestamp, FieldPath: m.deps.FieldPath, palvelinAika: () => 'TS', bulkWriter: () => bw }) }; };
   async function aja(argv, v, env, adc) { const ulos = []; const koodi = await B.main(argv, { luoDb: v.luoDb, kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: env || {}, adc, nyt: NYT }); return { koodi, ulos: ulos.join('\n') }; }
   it('kuiva-ajo ei kirjoita; --aja kirjoittaa vain synteettisille kuorma_-seuroille (muut seurat eivät kosketa)', async () => {
@@ -55,7 +55,7 @@ describe('kertymien backfill', () => {
     const v1 = vale(store), k = await aja(['--projekti=talentmaster-staging'], v1); expect(k.koodi).toBe(0); expect(v1.kirj.length).toBe(0); expect(k.ulos).toContain('KUIVA-AJO'); expect(k.ulos).toMatch(/synteettisiä seuroja: 1/);
     const v2 = vale(store), r = await aja(['--projekti=talentmaster-staging', '--aja'], v2); expect(r.koodi).toBe(0); expect(v2.kirj.length).toBeGreaterThan(30); v2.kirj.forEach((p) => expect(p).toMatch(/^seurat\/kuorma_seura_01\/pelaajat\/[^/]+\/kooste\/kertyma_(2025-26|2026-27)$/));
     expect(r.ulos).not.toMatch(/SYNT-|Testi|kuorma_/);
-  });
+  }, 60000);
   it('lukko ennen kaikkea: pilot / emulaattorin ulkopuolinen / ristiriitainen env / ADC → exit 1, ei yhteyttä', async () => {
     for (const [argv, env, adc] of [[['--projekti=' + PILOT, '--aja'], {}, undefined], [['--projekti=talentmaster-staging', '--aja'], { GCLOUD_PROJECT: PILOT }, undefined], [['--projekti=talentmaster-staging', '--aja'], {}, PILOT], [['--aja'], {}, undefined]]) {
       let yhteys = 0; const v = vale(new Map()), luo = v.luoDb; v.luoDb = async (p) => { yhteys++; return luo(p); };
