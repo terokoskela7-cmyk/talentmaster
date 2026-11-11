@@ -3,7 +3,7 @@
  * Pure: syöte = laskeSeuroittain():n tulos. EI mittaus — hinnat ja kesto ovat OLETUKSIA (vakiot alla), tarkista hinnastosta ennen päätöstä. Triggerit hyväksytty stagingissa (Tero).
  * Triggerit (functions/index.js, harjoituskertyma.js, kalenteri_viikko.js), jotka laukeavat generaattorin CREATE-kirjoituksista:
  *   · kertymaKirjausOnWrite   — pelaajat/{pid}/kirjaukset/{pvm}        → paivitaViikko: lukee pelaajan + joukkueet + seuran viikon tapahtumat + tapahtumakohtaiset läsnäolot + viikon kirjaukset, kirjoittaa 1 koostedokumentin
- *   · kertymaLasnaoloOnWrite  — kalenteri/{eid}/lasnaolijat/{pid}      → sama paivitaViikko (+1 luku tapahtumasta)
+ *   · kertymaLasnaolijaOnWrite  — kalenteri/{eid}/lasnaolijat/{pid}      → sama paivitaViikko (+1 luku tapahtumasta)
  *   · notifKalenteriViikko    — kalenteri/{eid} onCreate               → vain kutsut lasketaan (luvut/ilmoitukset eivät arvioitu; ilmoituskanavat estetty stagingissa)
  * onUpdate-triggerit (pelaajat valintaViesti, kalenterin muutos) laukeavat vasta, kun jo olemassa oleva dokumentti ylikirjoitetaan (UUSINTA-ajo samalle aineistolle) → ei laskettu tässä. */
 const HINNAT = {
@@ -29,7 +29,7 @@ function arvioiTriggerit(laskenta) {
   const kutsuja = kirj + las + kal, kirjoituksia = kirj + las;   // kertymät: 1 kooste-set per kertymäkutsu
   const kulu = { kutsut: kutsuja * HINNAT.kutsu, laskenta: (kirj + las + kal) * HINNAT.laskentaPerKutsu, luvut: lukuja * HINNAT.luku, kirjoitukset: kirjoituksia * HINNAT.kirjoitus };
   kulu.yht = kulu.kutsut + kulu.laskenta + kulu.luvut + kulu.kirjoitukset;
-  return { rivit: [{ nimi: 'kertymaKirjausOnWrite', kutsuja: kirj }, { nimi: 'kertymaLasnaoloOnWrite', kutsuja: las }, { nimi: 'notifKalenteriViikko', kutsuja: kal }], kutsuja, lukuja: Math.round(lukuja), kirjoituksia, kulu };
+  return { rivit: [{ nimi: 'kertymaKirjausOnWrite', kutsuja: kirj }, { nimi: 'kertymaLasnaolijaOnWrite', kutsuja: las }, { nimi: 'notifKalenteriViikko', kutsuja: kal }], kutsuja, lukuja: Math.round(lukuja), kirjoituksia, kulu };
 }
 
 const _n = (x) => Math.round(x).toLocaleString('fi-FI').replace(/ /g, ' ');

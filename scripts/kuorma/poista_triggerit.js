@@ -2,13 +2,13 @@
 'use strict';
 /* poista_triggerit.js — projekti 06 PR 2b jatko: poistaa generaattorin massakirjoituksesta laukeavat Firestore-triggerit STAGINGISTA ennen datalatausta (kuluarvio: STAGING_ASENNUS F). Tero ajaa.
  *   ! node scripts/kuorma/poista_triggerit.js --projekti=talentmaster-staging           KUIVA-AJO (oletus): tulostaa komennon, ei suorita
- *   ! node scripts/kuorma/poista_triggerit.js --projekti=talentmaster-staging --aja     suorittaa: npx firebase functions:delete <3 triggeriä> --project <projekti> --region europe-west1 --force
+ *   ! node scripts/kuorma/poista_triggerit.js --projekti=talentmaster-staging --aja     suorittaa: npx firebase functions:delete <4 triggeriä> --project <projekti> --region europe-west1 --force
  * LUKKO (lukko.js): vain talentmaster-staging[-x] (ei emulaattoria: ei mitään poistettavaa); --projekti + env + ADC samaa. Lisäksi komento kootaan VAIN tästä tiedostosta: funktiolista on kiinteä sallintalista
- * (3 triggeriä) ja `--project` on aina lukon hyväksymä arvo — ei vapaata funktionimeä eikä projektia argumentista. Palautus: Deploy Staging (functions) -workflow deployaa triggerit takaisin. */
+ * (4 triggeriä; luonti- ja päivitystriggerit — uusinta-ajo laukaisee update-triggerit) ja `--project` on aina lukon hyväksymä arvo — ei vapaata funktionimeä eikä projektia argumentista. Palautus: Deploy Staging (functions) -workflow deployaa triggerit takaisin. */
 const { spawnSync } = require('child_process');
 const L = require('./lukko.js');
 
-const TRIGGERIT = ['kertymaKirjausOnWrite', 'kertymaLasnaoloOnWrite', 'notifKalenteriViikko'];
+const TRIGGERIT = ['kertymaKirjausOnWrite', 'kertymaLasnaolijaOnWrite', 'kertymaTapahtumaOnUpdate', 'notifKalenteriViikko'];
 const REGION = 'europe-west1';
 const STAGING = /^talentmaster-staging(-[a-z0-9]+)?$/;
 

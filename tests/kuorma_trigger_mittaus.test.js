@@ -56,6 +56,27 @@ describe('kertymien backfill', () => {
     const v2 = vale(store), r = await aja(['--projekti=talentmaster-staging', '--aja'], v2); expect(r.koodi).toBe(0); expect(v2.kirj.length).toBeGreaterThan(30); v2.kirj.forEach((p) => expect(p).toMatch(/^seurat\/kuorma_seura_01\/pelaajat\/[^/]+\/kooste\/kertyma_(2025-26|2026-27)$/));
     expect(r.ulos).not.toMatch(/SYNT-|Testi|kuorma_/);
   }, 60000);
+  it('edistyminen: tulostaa seuroittain ja kausittain (läsnäolijat + kirjaukset, %) ja kokonaiskeston — heti, ei vasta lopussa', async () => {
+    const store = new Map(muisti(60).store); store.set('seurat/' + SID, { synteettinen: true, nimi: 'x' });
+    const ulos = [], kello = (() => { let t = 0; return () => (t += 1000); })();   // keinokello: jokainen kutsu +1 s → väliedistyminen laukeaa
+    const koodi = await B.main(['--projekti=talentmaster-staging'], { luoDb: vale(store).luoDb, kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: {}, adc: undefined, nyt: NYT, kello, valiMs: 1 });
+    const t = ulos.join('\n'); expect(koodi).toBe(0);
+    for (const kausi of ['2025-26', '2026-27']) { expect(t).toContain('seura 1/1 ' + kausi + ': pelaajia '); expect(t).toContain('seura 1/1 ' + kausi + ' valmis: '); }
+    expect(t).toMatch(/läsnäolijat \(tapahtumia\): \d+\/\d+ \(\d+ %\) · [\d.]+ s/); expect(t).toMatch(/kirjaukset ja korit \(pelaajia\): \d+\/\d+ \(100 %\)/); expect(t).toMatch(/Kokonaiskesto [\d.]+ s\./);
+    expect(t).not.toMatch(/SYNT-|Testi|kuorma_/);
+  }, 30000);
+  it('rinnakkaisuus: rinnan() ajaa kaikki erät, ei yli rajan yhtä aikaa; tulos sama kuin peräkkäin', async () => {
+    let nyt = 0, maks = 0; const tehty = []; await B.rinnan(Array.from({ length: 100 }, (_, i) => i), 8, async (x) => { nyt++; maks = Math.max(maks, nyt); await new Promise((r) => setTimeout(r, 2)); tehty.push(x); nyt--; });
+    expect(maks).toBeLessThanOrEqual(8); expect(maks).toBeGreaterThan(1); expect(tehty.sort((a, b) => a - b)).toEqual(Array.from({ length: 100 }, (_, i) => i));
+  });
+  it('nopeus verkkoviiveellä: 400 pelaajaa, 10 ms/kierros → rinnakkain selvästi alle peräkkäisen (≥ 5× nopeammin) ja sama kooste', async () => {
+    const m = muisti(200), viive = () => new Promise((r) => setTimeout(r, 10)), oc = m.db.collection.bind(m.db);
+    const kaaree = (c) => { const g = c.get, w = c.where, d = c.doc; c.get = async function () { await viive(); return g.apply(this, arguments); }; c.where = function () { return kaaree(w.apply(c, arguments)); }; c.doc = function () { const r = d.apply(c, arguments), rc = r.collection; r.collection = function () { return kaaree(rc.apply(r, arguments)); }; return r; }; return c; };
+    m.db.collection = (x) => kaaree(oc(x));
+    const a = new Map(), b = new Map(); const t0 = Date.now(); await B.laskeSeuraKausi(m.deps, { set: (r, d) => a.set(r.polku, d) }, SID, '2026-27', NYT, { rinnakkain: 1 }); const peräkkäin = Date.now() - t0;
+    const t1 = Date.now(); await B.laskeSeuraKausi(m.deps, { set: (r, d) => b.set(r.polku, d) }, SID, '2026-27', NYT, { rinnakkain: 32 }); const rinnakkain = Date.now() - t1;
+    expect(JSON.stringify([...b].sort())).toBe(JSON.stringify([...a].sort())); expect(peräkkäin / rinnakkain, peräkkäin + ' ms vs ' + rinnakkain + ' ms').toBeGreaterThan(5);
+  }, 120000);
   it('lukko ennen kaikkea: pilot / emulaattorin ulkopuolinen / ristiriitainen env / ADC → exit 1, ei yhteyttä', async () => {
     for (const [argv, env, adc] of [[['--projekti=' + PILOT, '--aja'], {}, undefined], [['--projekti=talentmaster-staging', '--aja'], { GCLOUD_PROJECT: PILOT }, undefined], [['--projekti=talentmaster-staging', '--aja'], {}, PILOT], [['--aja'], {}, undefined]]) {
       let yhteys = 0; const v = vale(new Map()), luo = v.luoDb; v.luoDb = async (p) => { yhteys++; return luo(p); };
@@ -66,10 +87,10 @@ describe('kertymien backfill', () => {
 
 describe('trigger-poisto (poista_triggerit.js)', () => {
   async function aja(argv, env, adc) { const ulos = [], kutsut = []; const koodi = await P.main(argv, { suorita: (c, a) => { kutsut.push([c, a]); return { status: 0 }; }, kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: env || {}, adc }); return { koodi, ulos: ulos.join('\n'), kutsut }; }
-  it('kuiva-ajo oletus: tulostaa komennon, ei suorita; --aja suorittaa täsmälleen 3 triggeriä + staging-projektin', async () => {
-    const k = await aja(['--projekti=talentmaster-staging']); expect(k.koodi).toBe(0); expect(k.kutsut.length).toBe(0); expect(k.ulos).toContain('npx firebase functions:delete kertymaKirjausOnWrite kertymaLasnaoloOnWrite notifKalenteriViikko --project talentmaster-staging --region europe-west1 --force');
+  it('kuiva-ajo oletus: tulostaa komennon, ei suorita; --aja suorittaa täsmälleen 4 triggeriä + staging-projektin', async () => {
+    const k = await aja(['--projekti=talentmaster-staging']); expect(k.koodi).toBe(0); expect(k.kutsut.length).toBe(0); expect(k.ulos).toContain('npx firebase functions:delete kertymaKirjausOnWrite kertymaLasnaolijaOnWrite kertymaTapahtumaOnUpdate notifKalenteriViikko --project talentmaster-staging --region europe-west1 --force');
     const r = await aja(['--projekti=talentmaster-staging', '--aja']); expect(r.koodi).toBe(0); expect(r.kutsut.length).toBe(1);
-    const args = r.kutsut[0][1]; expect(r.kutsut[0][0]).toBe('npx'); expect(args.slice(0, 5)).toEqual(['firebase', 'functions:delete', ...P.TRIGGERIT.slice(0, 3)]); expect(args[args.indexOf('--project') + 1]).toBe('talentmaster-staging'); expect(args.filter((x) => x === '--project').length).toBe(1);
+    const args = r.kutsut[0][1]; expect(r.kutsut[0][0]).toBe('npx'); expect(args.slice(0, 6)).toEqual(['firebase', 'functions:delete', ...P.TRIGGERIT.slice(0, 4)]); expect(args[args.indexOf('--project') + 1]).toBe('talentmaster-staging'); expect(args.filter((x) => x === '--project').length).toBe(1);
   });
   it('lukko: pilot, emulaattori, tyhjä, puuttuva, ristiriitainen env/ADC → exit 1 eikä mitään suoriteta (myös --aja)', async () => {
     for (const [argv, env, adc] of [[['--projekti=' + PILOT, '--aja'], {}, undefined], [['--projekti=demo-kuorma', '--aja'], {}, undefined], [['--projekti=', '--aja'], {}, undefined], [['--aja'], {}, undefined], [['--projekti=talentmaster-staging', '--aja'], { GOOGLE_CLOUD_PROJECT: PILOT }, undefined], [['--projekti=talentmaster-staging', '--aja'], { FIREBASE_CONFIG: JSON.stringify({ projectId: PILOT }) }, undefined], [['--projekti=talentmaster-staging', '--aja'], {}, PILOT]]) {
@@ -78,7 +99,7 @@ describe('trigger-poisto (poista_triggerit.js)', () => {
   });
   it('komento() hylkää muun kuin stagingin; funktiolista kiinteä; tuntematon valinta → 2', async () => {
     [PILOT, 'demo-kuorma', '', undefined, 'talentmaster-staging; rm -rf /'].forEach((p) => expect(() => P.komento(p), String(p)).toThrow());
-    expect(P.TRIGGERIT).toEqual(['kertymaKirjausOnWrite', 'kertymaLasnaoloOnWrite', 'notifKalenteriViikko']); expect((await aja(['--projekti=talentmaster-staging', '--kaikki'])).koodi).toBe(2);
+    expect(P.TRIGGERIT).toEqual(['kertymaKirjausOnWrite', 'kertymaLasnaolijaOnWrite', 'kertymaTapahtumaOnUpdate', 'notifKalenteriViikko']); expect((await aja(['--projekti=talentmaster-staging', '--kaikki'])).koodi).toBe(2);
   });
   it('epäonnistunut firebase-komento → exit 1', async () => { const virheet = []; const koodi = await P.main(['--projekti=talentmaster-staging', '--aja'], { suorita: () => ({ status: 1 }), kirjaa: () => {}, virhe: (r) => virheet.push(r), env: {}, adc: undefined }); expect(koodi).toBe(1); expect(virheet.join()).toContain('epäonnistui'); });
 });
