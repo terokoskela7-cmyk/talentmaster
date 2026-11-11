@@ -150,3 +150,16 @@ Profiilit: `savu` (2a, ennallaan, sha-vartija) · `savu_taysi` (2 seuraa, 1 000 
    (Poistolistassa on myös `kertymaTapahtumaOnUpdate`: se laukeaa vain päivityksestä, mutta uusinta-ajo (`--aja` olemassa olevaa aineistoa vasten) päivittää tapahtumadokumentit ja laukaisisi sen — kukin laukaisu laskee kaikkien joukkueen pelaajien korit.)
    4. Palauta triggerit: GitHub → Actions → **Deploy Staging** (functions) → Run workflow.
    Jos triggerit jätetään päälle, kulu = generaattorin tulosteen arvio (ARVIO: hinnat+kesto oletuksia; kalibroitu mittauksella ±15 %, vartija `tests/kuorma_trigger_mittaus.test.js`). Uusinta-ajo (ylikirjoitus) laukaisee lisäksi `onUpdate`-triggerit.
+
+## G. Mittausajo (projekti 06 PR 3; Tero ajaa `! node …`)
+
+Rajat: P11 (`scripts/kuorma/mittaus_lib.js` → `RAJAT`): interaktiivinen < 5 s Slow 4G / < 2 s työpöytä, < 2 000 lukua/avaus, funktio < 270 s (40 seuralla), pelaajadokumentti < 250 kt, infrakustannus < 1 €/pelaaja/vuosi. Tulokset kirjoitetaan `mittaus_tulokset/` (gitignore); raportti `docs/MITTAUSRAPORTTI_STAGING.md` generoidaan niistä. **Ensin `savu_taysi`; täysi aineisto vasta kun putki toimii.**
+
+1. **Hosting-kanava `kuorma`:** GitHub → Actions → Deploy Staging → hosting ✔, kanava `kuorma` → URL `https://talentmaster-staging--kuorma-<tunniste>.web.app` (kanavan hostille `lib/tm_appcheck.js` sallii debug-tokenin).
+2. **Sivut** (Playwright + Chrome; tarvitsee `STAGING_APPCHECK_DEBUG_TOKEN` ympäristöön — GitHub Secretin arvo, rekisteröity staging-App Checkiin; ei repoon, ei tulosteeseen):
+   `STAGING_APPCHECK_DEBUG_TOKEN='…' ! node scripts/kuorma/mittaa_sivut.js --url=https://talentmaster-staging--kuorma-<tunniste>.web.app --tunnukset=.briefit/staging_tunnukset.txt --kuiva` (suunnitelma) → ilman `--kuiva`.
+   Seura, VP, Master, Kehitystyöpöytä, Testaus, Pelaaja × työpöytä + puhelin (Slow 4G, CPU 4×) × 5 toistoa (kylmä + lämmin) ≈ 120 avausta; edistyminen tulostuu avaus kerrallaan. Tunnukset: seura 1 (suurin, 500 pelaajaa) rooleilla vp / talenttivalmentaja / valmentaja1; salasanat vain muistiin. **Pelaaja** mitataan kirjautumattomana (pelaajakirjautuminen = PalloID + PIN; aineistossa ei pelaaja-Auth-tilejä).
+3. **Monitoring read_count** (muutaman minuutin viiveellä): `! node scripts/kuorma/mittaa_monitoring.js --projekti=talentmaster-staging --tulos=mittaus_tulokset/sivut.json` (laskutuksen totuus; instrumentoitu summa vertailuun).
+4. **Ajastetut funktiot** (käsin Schedulerista, 3 ajoa/funktio): `! node scripts/kuorma/mittaa_funktiot.js --projekti=talentmaster-staging --profiili=savu_taysi` (kuiva) → `--aja` (+ `--kaikki` laskutus/notif*). Sitten muisti: `! node scripts/kuorma/mittaa_monitoring.js --projekti=talentmaster-staging --funktiot=mittaus_tulokset/funktiot.json`. `tasoHaeMaatcheck` on kommentoitu pois `functions/index.js`:stä → ei mitata. Ensimmäinen ajo voi olla kylmäkäynnistys (merkitty `*`).
+5. **Dokumenttikoot:** `! node scripts/kuorma/mittaa_dokkoot.js --projekti=talentmaster-staging --aja` (lukee ~1 luku/dokumentti; `--offline=<profiili>` laskee generaattorin datasta ilman verkkoa).
+6. **Raportti:** `node scripts/kuorma/mittaus_raportti.js --pelaajia=1000 --seuroja=2` → `docs/MITTAUSRAPORTTI_STAGING.md` (jokainen mittari vs. P11 + ensimmäiseksi pettävä kohta; savuaineistolla funktioiden 40 seuran luku on lineaarinen ekstrapolaatio, merkitty).
