@@ -38,13 +38,64 @@ async function _tapahtumat(deps, seura, alkuMs, loppuMs) {
   snap.forEach((d) => a.push(_evMuoto(d.id, d.data() || {}))); return a;
 }
 
-/* Päivittää yhden viikon korin (iso = mikä tahansa viikon päivä 'YYYY-MM-DD'). */
+/* Päivittää yhden viikon korin (iso = mikä tahansa viikon päivä 'YYYY-MM-DD').
+   RAJATTU (projekti 06, mitattu 74–148 lukua/kutsu seuran koon mukana → nyt ≤ ~15, ei riipu seuran koosta): luetaan vain
+   · pelaaja (1) + pelaajan OMAT joukkuedokumentit getAll:lla (ids = pelaaja.joukkueet[], totuus §7.18; legacy-nimi → kysely nimi == x),
+   · pelaajan joukkueiden tapahtumat ikkunasta: joukkueet array-contains id · joukkue == id (tunniste vanhassa nimikentässä, ei joukkueet[]:ia) · joukkue == nimi (legacy), yhdistetty Mapilla doc-id:n mukaan; + pelaajat_id array-contains pid (poimitut/ryhmät),
+   · läsnäolodokumentit VAIN tämän pelaajan tapahtumille getAll:lla (kuuluu pelaajalle + kategoria), + viikon kirjaukset.
+   Kuuluminen ratkaistaan samalla libillä kuin ennen (tmKuuluuPelaajalle) → sama kooste. Poikkeus/puute → PALUU koko-seuran polkuun (paivitaViikkoKoko): kokoelmaindeksit puuttuvat (FAILED_PRECONDITION),
+   joukkuetunniste ei ratkea pelaajan dokumenteilla (legacy-kanonisointi) tai tunniste sisältää '/'. Ei tunnettuja eroja (joukkue = id ilman joukkueet[]:ia katetaan omalla kyselyllä); jäljellä vain: kaksi samannimistä joukkuetta samassa seurassa. */
+const KOKO = 'koko';
+const _indeksipuute = (e) => !!e && (e.code === 9 || e.code === 'failed-precondition' || /FAILED_PRECONDITION|requires an index/i.test(String((e && e.message) || '')));
+async function _pohjaRajattu(deps, sid, pid) {
+  const seura = deps.db.collection('seurat').doc(sid), pSnap = await seura.collection('pelaajat').doc(pid).get();
+  if (!pSnap || !pSnap.exists) return null;
+  const pelaaja = Object.assign({ id: pid }, pSnap.data() || {}), jRef = seura.collection('joukkueet');
+  const ids = (Array.isArray(pelaaja.joukkueet) ? pelaaja.joukkueet : []).filter((x) => x != null && x !== '').map(String), joukkueDocs = [], puuttuu = [];
+  if (ids.some((x) => x.indexOf('/') >= 0)) return KOKO;
+  if (ids.length) { const snaps = await deps.db.getAll.apply(deps.db, ids.map((id) => jRef.doc(id))); ids.forEach((id, i) => { if (snaps[i] && snaps[i].exists) joukkueDocs.push({ id, nimi: (snaps[i].data() || {}).nimi }); else puuttuu.push(id); }); }
+  else { const n = pelaaja.joukkue != null ? pelaaja.joukkue : pelaaja.joukkueNimi; if (n != null && n !== '') puuttuu.push(String(n)); }
+  for (const x of puuttuu) { const q = await jRef.where('nimi', '==', x).get(); if (!q.docs || !q.docs.length) return KOKO; q.forEach((d) => joukkueDocs.push({ id: d.id, nimi: (d.data() || {}).nimi })); }
+  return { seura, pelaaja, joukkueDocs };
+}
+async function _tapahtumatRajattu(deps, seura, pelaaja, joukkueDocs, alkuMs, loppuMs) {
+  const A = deps.Timestamp.fromDate(new Date(alkuMs)), B = deps.Timestamp.fromDate(new Date(loppuMs)), kal = seura.collection('kalenteri');
+  const hae = (kentta, op, arvo) => kal.where(kentta, op, arvo).where('alkaa', '>=', A).where('alkaa', '<=', B).get();
+  const kyselyt = []; joukkueDocs.forEach((j) => { kyselyt.push(hae('joukkueet', 'array-contains', j.id)); kyselyt.push(hae('joukkue', '==', j.id)); if (j.nimi && j.nimi !== j.id) kyselyt.push(hae('joukkue', '==', j.nimi)); });   // id joukkueet[]:ssä · id vanhassa nimikentässä ilman joukkueet[]:ia · legacy-nimi
+  kyselyt.push(hae('pelaajat_id', 'array-contains', pelaaja.id));
+  const kartta = new Map(); (await Promise.all(kyselyt)).forEach((snap) => snap.forEach((d) => kartta.set(d.id, _evMuoto(d.id, d.data() || {}))));
+  return Array.from(kartta.values());
+}
+async function _lasnaolotRajattu(deps, seura, pid, tapahtumat, pelaaja, joukkueDocs) {
+  const KP = require('./tm_kalenteri_pelaajalle'), omat = tapahtumat.filter((ev) => H.tmKertymaKategoria(ev) && KP.tmKuuluuPelaajalle(ev, pelaaja, joukkueDocs)), o = {};
+  if (!omat.length) return o;
+  const snaps = await deps.db.getAll.apply(deps.db, omat.map((ev) => seura.collection('kalenteri').doc(ev.id).collection('lasnaolijat').doc(pid)));
+  snaps.forEach((sn, i) => { if (sn && sn.exists) { const x = sn.data() || {}; o[omat[i].id] = { tila: x.tila || null, syy: x.syy || '', saatavuus: x.saatavuus || null }; } });
+  return o;
+}
 async function paivitaViikko(deps, sid, pid, iso, nyt) {
+  const r = H.tmKertymaVkRajat(iso); if (!r) return null;
+  const pr = await _pohjaRajattu(deps, sid, pid); if (pr === null) return null;
+  if (pr !== KOKO) {
+    try {
+      const alku = Date.parse(r.ma + 'T00:00:00Z') - PV, loppu = Date.parse(r.su + 'T00:00:00Z') + 2 * PV;
+      const tap = await _tapahtumatRajattu(deps, pr.seura, pr.pelaaja, pr.joukkueDocs, alku, loppu), las = await _lasnaolotRajattu(deps, pr.seura, pid, tap, pr.pelaaja, pr.joukkueDocs), kir = await _kirjaukset(deps, pr.seura, pid, r.ma, r.su);
+      const kori = H.tmKertymaKorit({ tapahtumat: tap, lasnaolot: las, kirjaukset: kir, pelaaja: pr.pelaaja, joukkueDocs: pr.joukkueDocs, nyt })[r.avain] || H.tmViikkoKori({ nyt });
+      await _kirjoitaKori(deps, pr.seura, pid, r, kori); return kori;
+    } catch (e) { if (!_indeksipuute(e)) throw e; console.warn('[kertyma] rajattu haku vaatii indeksin — paluu koko-seuran polkuun:', e && e.message); }
+  }
+  return paivitaViikkoKoko(deps, sid, pid, iso, nyt);
+}
+async function _kirjoitaKori(deps, seura, pid, r, kori) {
+  await seura.collection('pelaajat').doc(pid).collection('kooste').doc(koosteId(H.tmKertymaKausiAvain(r.ma))).set({ kausi: H.tmKertymaKausiAvain(r.ma), versio: 1, viikot: { [r.avain]: kori }, paivitetty: deps.palvelinAika() }, { merge: true });
+}
+/* ALKUPERÄINEN (K35-6f) koko-seuran polku: varapolku + pariteetin referenssi (testit vertaavat rajattua tähän). Lukee koko joukkuekokoelman, seuran viikon tapahtumat ja läsnäolot jokaiselle. */
+async function paivitaViikkoKoko(deps, sid, pid, iso, nyt) {
   const r = H.tmKertymaVkRajat(iso); if (!r) return null; const p = await _pohja(deps, sid, pid); if (!p) return null;
   const alku = Date.parse(r.ma + 'T00:00:00Z') - PV, loppu = Date.parse(r.su + 'T00:00:00Z') + 2 * PV;   // ±1 vrk marginaali (Helsingin vs UTC); lib rajaa viikon Helsingin päivällä
   const tap = await _tapahtumat(deps, p.seura, alku, loppu), las = await _lasnaolot(p.seura, tap, pid), kir = await _kirjaukset(deps, p.seura, pid, r.ma, r.su);
   const kori = H.tmKertymaKorit({ tapahtumat: tap, lasnaolot: las, kirjaukset: kir, pelaaja: p.pelaaja, joukkueDocs: p.joukkueDocs, nyt })[r.avain] || H.tmViikkoKori({ nyt });
-  await p.seura.collection('pelaajat').doc(pid).collection('kooste').doc(koosteId(H.tmKertymaKausiAvain(r.ma))).set({ kausi: H.tmKertymaKausiAvain(r.ma), versio: 1, viikot: { [r.avain]: kori }, paivitetty: deps.palvelinAika() }, { merge: true });
+  await _kirjoitaKori(deps, p.seura, pid, r, kori);
   return kori;
 }
 /* Koko kauden täyttö (backfill): korvaa dokumentin. */
@@ -104,4 +155,4 @@ function luoKertymaKasittelija(deps) {
     return { kertyma: H.tmKertymaKoreista(k && k.exists ? (k.data() || {}).viikot : {}, nyt), laskettu: new Date(nyt).toISOString() };
   };
 }
-module.exports = { paivitaViikko, taytaPelaaja, luoTapahtumaMuutosKasittelija, luoLasnaoloKasittelija, luoKirjausKasittelija, luoKertymaKasittelija, koosteId };
+module.exports = { paivitaViikko, paivitaViikkoKoko, taytaPelaaja, luoTapahtumaMuutosKasittelija, luoLasnaoloKasittelija, luoKirjausKasittelija, luoKertymaKasittelija, koosteId };
