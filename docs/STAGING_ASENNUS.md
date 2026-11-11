@@ -119,3 +119,16 @@ Tuotannon secretejä (`FIREBASE_SA_KEY`, `FIREBASE_SERVICE_ACCOUNT*`) **ei** ann
 
 ## Siivous (P10)
 Mittauksen jälkeen data poistetaan (generaattorin `--tyhjenna`, PR 2); infra jää. Budjettihälytys 25 €/kk seuraa kustannusta.
+
+## E. Synteettinen aineisto (projekti 06 PR 2; Tero ajaa `! node …`)
+
+Generaattori: `scripts/kuorma/generoi_aineisto.js`. Aineisto on selvästi synteettistä (`Testi Pelaaja S01-00001`, tunniste `SYNT-…`, seurat `kuorma_seura_NN`, ei sähköposteja) ja deterministinen: sama `--siemen` → sama aineisto.
+
+1. **Kerran:** ADC:n quota-projekti stagingiin (lukko kaatuu muuten, koska se vertaa ADC:tä `--projekti`-arvoon): `gcloud auth application-default set-quota-project talentmaster-staging`. Ympäristömuuttujat `GOOGLE_CLOUD_PROJECT` / `GCLOUD_PROJECT` / `FIREBASE_CONFIG` joko tyhjiä (unset) tai `talentmaster-staging`.
+2. **Kuiva-ajo (oletus, ei kirjoita):** `! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging` → dokumenttimäärät kokoelmittain.
+3. **Savuaineisto (2 seuraa, 1 000 pelaajaa, ~165 000 dokumenttia, arvio kirjoituskulu alle 1 $):** `! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --aja`
+4. **Tyhjennys (P10):** kuiva-ajo `… --tyhjenna`, poisto `… --tyhjenna --aja`. Koskee vain seuroja, joiden id alkaa `kuorma_` ja joilla `synteettinen: true`.
+5. Lukko hyväksyy vain `talentmaster-staging[-x]` ja emulaattorin `demo-kuorma`; mikä tahansa muu (tai ristiriitainen lähde) kaatuu ennen Admin SDK:n alustusta.
+
+Savuaineisto ei vielä sisällä kalenteria (`lasnaolijat`), henkilökuntaa (`kayttajat`) eikä Auth-tilejä; ne tulevat täyteen aineistoon (seuraava PR).
+
