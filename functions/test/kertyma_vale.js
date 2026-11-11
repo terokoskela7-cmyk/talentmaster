@@ -23,6 +23,7 @@ function luoDb(o, opts) {
     const mk = (f) => ({ where: (a, op, v) => mk(f.concat([[a, op, v]])), doc: (id) => ref(polku + '/' + id),
       async get() {
         const virhe = opts.kyselyVirhe && opts.kyselyVirhe(kok(polku + '/x'), f); if (virhe) throw virhe;
+        if (opts.suodataKysely && opts.suodataKysely(f)) { laske(polku + '/x', 1); return { docs: [], empty: true, size: 0, forEach: () => {} }; }   // testi: kysely palauttaa tyhjää (simuloi puuttuvaa kyselyä)
         const ks = lapset().filter((p) => f.every(([a, op, v]) => { const d = store.get(p), x = a === '__id__' ? p.split('/').pop() : msOf(d[a]), y = msOf(v);
           return op === '==' ? x === y : op === '>=' ? x >= y : op === '<=' ? x <= y : op === 'array-contains' ? Array.isArray(x) && x.indexOf(y) >= 0 : false; }));
         laske(polku + '/x', Math.max(1, ks.length)); const docs = ks.map((p) => ({ id: p.split('/').pop(), data: () => store.get(p) }));

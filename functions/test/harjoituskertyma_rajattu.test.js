@@ -23,6 +23,7 @@ const SKENAARIOT = {
   'legacy: tapahtuma joukkue=nimi, joukkueet=[nimi] (Master)': () => { const o = pohja(); o.eventit.a = ev('2026-10-13', { joukkue: 'Demo U13', joukkueet: ['Demo U13'] }); o.eventit.b = ev('2026-10-15', { joukkue: 'Demo U13', joukkueet: [] }); return o; },
   'legacy: pelaajalla ei joukkueet[], vain joukkue-nimi': () => { const o = pohja(); o.pelaajat.p1 = { etunimi: 'Aatu', joukkue: 'Demo U13' }; return o; },
   'legacy: pelaajan joukkueet[] sisältää nimen id:n paikalla': () => { const o = pohja(); o.pelaajat.p1 = PEL({ joukkueet: ['Demo U13'] }); return o; },
+  'tunniste vanhassa nimikentässä: joukkue = id, EI joukkueet[]:ia (kolmas kysely)': () => { const o = pohja(); o.eventit.a = ev('2026-10-13', { joukkue: 'demo_u13', joukkueet: undefined }); delete o.eventit.a.joukkueet; o.eventit.b = ev('2026-10-15', { joukkue: 'demo_u13', joukkueet: [] }); return o; },
   'ryhmätapahtuma (pelaajat_id, ei joukkuetta) + poimittu': () => { const o = pohja(); o.eventit.r = ev('2026-10-15', { joukkue: null, joukkueet: [], pelaajat_id: ['p1'], kohde: { tyyppi: 'ryhma', ryhma_id: 'r1' } }); o.lasnaolot['r/p1'] = { tila: 'paikalla' }; return o; },
   'peruttu / poistettu / henkilökunnan tapahtuma ei lasketa': () => { const o = pohja(); o.eventit.a = ev('2026-10-13', { tila: 'peruttu' }); o.eventit.b = ev('2026-10-15', { poistettu: true }); o.eventit.h = ev('2026-10-14', { nakyvyys: 'henkilokunta' }); o.lasnaolot['h/p1'] = { tila: 'paikalla' }; return o; },
   'aamutreeni + ottelu + vahvistamaton (ei kirjattu)': () => { const o = pohja(); o.eventit.m = ev('2026-10-12', { alalaji: 'aamutreeni' }); o.eventit.o = ev('2026-10-17', { tyyppi: 'ottelu' }); return o; },
@@ -57,4 +58,14 @@ test('VARAPOLKU: indeksipuute (FAILED_PRECONDITION / code 9) → koko-seuran pol
 });
 test('tuntematon pelaaja → null, ei kirjoituksia; väärä pvm → null', async () => {
   const db = luoDb(pohja()); assert.strictEqual(await K.paivitaViikko(deps(db), 'demo', 'ei', '2026-10-14', NYT), null); assert.strictEqual(await K.paivitaViikko(deps(db), 'demo', 'p1', 'roskaa', NYT), null); assert.strictEqual(db.kirjoitukset.length, 0);
+});
+test('AUKKO suljettu: joukkue = id ilman joukkueet[]:ia lasketaan — ja testi KAATUU ilman kolmatta kyselyä (joukkue == id)', async () => {
+  const o = () => { const x = pohja(); delete x.eventit.a.joukkueet; x.eventit.b = ev('2026-10-15', { joukkue: 'demo_u13', joukkueet: [] }); return x; };
+  const koko = luoDb(o()); await K.paivitaViikkoKoko(deps(koko), 'demo', 'p1', '2026-10-14', NYT);
+  const treeniKoko = koko.kirjoitukset[0].d.viikot['2026-W42'].treeni, summa = (t) => t.paik + t.myoh + t.ei_kirjattu + t.poissa.sairas + t.poissa.estynyt + t.poissa.muu;
+  assert.ok(summa(treeniKoko) >= 2, 'aineisto tuottaa vähintään 2 tapahtumaa pelaajalle');
+  const ok = luoDb(o()); await K.paivitaViikko(deps(ok), 'demo', 'p1', '2026-10-14', NYT); assert.deepStrictEqual(viikot(ok), viikot(koko));
+  // ilman kolmatta kyselyä (simuloitu: estetään joukkue == id -kysely) tulos EROAA alkuperäisestä
+  const ilman = luoDb(o(), { suodataKysely: (f) => f.some(([a, op, v]) => a === 'joukkue' && op === '==' && v === 'demo_u13') }); await K.paivitaViikko(deps(ilman), 'demo', 'p1', '2026-10-14', NYT);
+  assert.notDeepStrictEqual(viikot(ilman), viikot(koko));
 });

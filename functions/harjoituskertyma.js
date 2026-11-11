@@ -41,10 +41,10 @@ async function _tapahtumat(deps, seura, alkuMs, loppuMs) {
 /* Päivittää yhden viikon korin (iso = mikä tahansa viikon päivä 'YYYY-MM-DD').
    RAJATTU (projekti 06, mitattu 74–148 lukua/kutsu seuran koon mukana → nyt ≤ ~15, ei riipu seuran koosta): luetaan vain
    · pelaaja (1) + pelaajan OMAT joukkuedokumentit getAll:lla (ids = pelaaja.joukkueet[], totuus §7.18; legacy-nimi → kysely nimi == x),
-   · pelaajan joukkueiden tapahtumat ikkunasta: §7.18-kaksoiskysely (joukkueet array-contains id + joukkue == nimi legacy) + pelaajat_id array-contains pid (poimitut/ryhmät),
+   · pelaajan joukkueiden tapahtumat ikkunasta: joukkueet array-contains id · joukkue == id (tunniste vanhassa nimikentässä, ei joukkueet[]:ia) · joukkue == nimi (legacy), yhdistetty Mapilla doc-id:n mukaan; + pelaajat_id array-contains pid (poimitut/ryhmät),
    · läsnäolodokumentit VAIN tämän pelaajan tapahtumille getAll:lla (kuuluu pelaajalle + kategoria), + viikon kirjaukset.
    Kuuluminen ratkaistaan samalla libillä kuin ennen (tmKuuluuPelaajalle) → sama kooste. Poikkeus/puute → PALUU koko-seuran polkuun (paivitaViikkoKoko): kokoelmaindeksit puuttuvat (FAILED_PRECONDITION),
-   joukkuetunniste ei ratkea pelaajan dokumenteilla (legacy-kanonisointi) tai tunniste sisältää '/'. Tunnettu ero: tapahtuma jolla `joukkue` = id mutta ei `joukkueet[]`-kenttää ei löydy rajatulla haulla (Rules/Master kirjoittavat molemmat). */
+   joukkuetunniste ei ratkea pelaajan dokumenteilla (legacy-kanonisointi) tai tunniste sisältää '/'. Ei tunnettuja eroja (joukkue = id ilman joukkueet[]:ia katetaan omalla kyselyllä); jäljellä vain: kaksi samannimistä joukkuetta samassa seurassa. */
 const KOKO = 'koko';
 const _indeksipuute = (e) => !!e && (e.code === 9 || e.code === 'failed-precondition' || /FAILED_PRECONDITION|requires an index/i.test(String((e && e.message) || '')));
 async function _pohjaRajattu(deps, sid, pid) {
@@ -61,7 +61,7 @@ async function _pohjaRajattu(deps, sid, pid) {
 async function _tapahtumatRajattu(deps, seura, pelaaja, joukkueDocs, alkuMs, loppuMs) {
   const A = deps.Timestamp.fromDate(new Date(alkuMs)), B = deps.Timestamp.fromDate(new Date(loppuMs)), kal = seura.collection('kalenteri');
   const hae = (kentta, op, arvo) => kal.where(kentta, op, arvo).where('alkaa', '>=', A).where('alkaa', '<=', B).get();
-  const kyselyt = []; joukkueDocs.forEach((j) => { kyselyt.push(hae('joukkueet', 'array-contains', j.id)); if (j.nimi) kyselyt.push(hae('joukkue', '==', j.nimi)); });
+  const kyselyt = []; joukkueDocs.forEach((j) => { kyselyt.push(hae('joukkueet', 'array-contains', j.id)); kyselyt.push(hae('joukkue', '==', j.id)); if (j.nimi && j.nimi !== j.id) kyselyt.push(hae('joukkue', '==', j.nimi)); });   // id joukkueet[]:ssä · id vanhassa nimikentässä ilman joukkueet[]:ia · legacy-nimi
   kyselyt.push(hae('pelaajat_id', 'array-contains', pelaaja.id));
   const kartta = new Map(); (await Promise.all(kyselyt)).forEach((snap) => snap.forEach((d) => kartta.set(d.id, _evMuoto(d.id, d.data() || {}))));
   return Array.from(kartta.values());
