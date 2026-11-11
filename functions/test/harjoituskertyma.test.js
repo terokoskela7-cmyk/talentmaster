@@ -10,21 +10,7 @@ const FieldPath = { documentId: () => '__id__' };
 const NYT = Date.parse('2026-10-19T09:00:00+03:00'), ms = (d, h) => Date.parse(d + 'T' + h + ':00+03:00');
 const ev = (d, o) => Object.assign({ tyyppi: 'harjoitus', alkaa: ts(ms(d, '17:30')), paattyy: ts(ms(d, '19:00')), joukkue: 'demo_u13', joukkueet: ['demo_u13'], poistettu: false }, o || {});
 
-function luoDb(o) {
-  const kirjoitukset = [], lukuja = { pelaajat: 0 };
-  const seura = { collection: (n) => {
-    if (n === 'pelaajat') return { doc: (pid) => ({
-      get: async () => { lukuja.pelaajat++; return { exists: !!o.pelaajat[pid], data: () => o.pelaajat[pid] }; },
-      collection: (m) => m === 'kirjaukset' ? { where: (_f, op1, a) => ({ where: (_g, _op2, b) => ({ get: async () => ({ forEach: (f) => Object.keys((o.kirjaukset || {})[pid] || {}).filter((k) => k >= a && k <= b).forEach((k) => f({ id: k, data: () => o.kirjaukset[pid][k] })) }) }) }) }
-        : { doc: (id) => ({ get: async () => ({ exists: !!(o.kooste || {})[pid + '/' + id], data: () => o.kooste[pid + '/' + id] }), set: async (d, opts) => { kirjoitukset.push({ pid, id, d, opts }); } }) },
-    }) };
-    if (n === 'joukkueet') return { get: async () => ({ forEach: (f) => o.joukkueet.forEach((j) => f({ id: j.id, data: () => ({ nimi: j.nimi }) })) }) };
-    if (n === 'kalenteri') return { doc: (eid) => ({ get: async () => ({ exists: !!o.eventit[eid], data: () => o.eventit[eid] }), collection: () => ({ get: async () => ({ forEach: (f) => Object.keys(o.lasnaolot || {}).filter((k) => k.startsWith(eid + '/')).forEach((k) => f({ id: k.split('/')[1], data: () => o.lasnaolot[k] })) }), doc: (pid) => ({ get: async () => ({ exists: !!(o.lasnaolot || {})[eid + '/' + pid], data: () => o.lasnaolot[eid + '/' + pid] }) }) }) }),
-      where: (_k, _o, a) => ({ where: (_k2, _o2, l) => ({ get: async () => ({ forEach: (f) => Object.keys(o.eventit).filter((id) => o.eventit[id].alkaa._ms >= a._ms && o.eventit[id].alkaa._ms <= l._ms).forEach((id) => f({ id, data: () => o.eventit[id] })) }) }) }) };
-    throw new Error('? ' + n);
-  } };
-  return { kirjoitukset, lukuja, collection: () => ({ doc: () => seura }) };
-}
+const { luoDb } = require('./kertyma_vale');
 const JOUKKUEET = [{ id: 'demo_u13', nimi: 'Demo U13' }];
 const PELAAJA = { etunimi: 'Aatu', huoltajaEmail: 'aiti@esimerkki.fi', suostumusTila: 'annettu', joukkue: 'Demo U13', joukkueet: ['demo_u13'] };
 const perus = () => ({ pelaajat: { p1: PELAAJA, p2: Object.assign({}, PELAAJA) }, joukkueet: JOUKKUEET, eventit: { a: ev('2026-10-13'), b: ev('2026-10-15'), vanha: ev('2026-09-01') }, lasnaolot: { 'a/p1': { tila: 'paikalla' }, 'b/p1': { tila: 'poissa', syy: 'sairas' } }, kirjaukset: { p1: { '2026-10-14': { tyyppi: 'T', tehty: true, kesto_min: 20 }, '2026-10-30': { tyyppi: 'T', tehty: true } } } });
@@ -42,9 +28,17 @@ test('TRIGGER kirjaus: päivittää kirjauksen viikon; väärän muotoinen pvm-a
   await kir({}, { params: { sid: 'demo', pid: 'p1', pvm: 'roskaa' } }); await kir({}, { params: { sid: 'demo', pid: 'ei', pvm: '2026-10-14' } });
   await K.luoLasnaoloKasittelija(deps(db))({}, { params: { sid: 'demo', eid: 'ei_ole', pid: 'p1' } }); assert.strictEqual(db.kirjoitukset.length, 1);
 });
-test('TRIGGER: lukumäärä ei riipu seuran koosta — vain 1 pelaajadokin luku per päivitys', async () => {
-  const o = perus(); for (let i = 0; i < 300; i++) o.pelaajat['x' + i] = PELAAJA; const db = luoDb(o);
-  await K.luoLasnaoloKasittelija(deps(db))({}, { params: { sid: 'demo', eid: 'a', pid: 'p1' } }); assert.strictEqual(db.lukuja.pelaajat, 1);
+test('TRIGGER: lukumäärä ei riipu seuran koosta — KAIKKI kokoelmat (pelaajat, joukkueet, kalenteri, läsnäolijat, kirjaukset), ≤ 15 lukua/kutsu, 3 seurakokoa', async () => {
+  const tulos = [];
+  for (const [nP, nJ] of [[20, 3], [200, 15], [800, 25]]) {
+    const o = perus(); o.joukkueet = []; o.eventit = {}; o.lasnaolot = {};
+    for (let j = 0; j < nJ; j++) { const id = j === 0 ? 'demo_u13' : 'x_u' + j; o.joukkueet.push({ id, nimi: id === 'demo_u13' ? 'Demo U13' : 'Muu ' + j }); for (const d of ['2026-10-12', '2026-10-14', '2026-10-16']) o.eventit[id + '_' + d] = ev(d, { joukkue: id, joukkueet: [id] }); }
+    for (let i = 0; i < nP; i++) o.pelaajat['x' + i] = Object.assign({}, PELAAJA, { joukkueet: ['x_u' + (i % nJ || 1)], joukkue: 'Muu' });
+    o.lasnaolot['demo_u13_2026-10-14/p1'] = { tila: 'paikalla' };
+    const db = luoDb(o); await K.luoLasnaoloKasittelija(deps(db))({}, { params: { sid: 'demo', eid: 'demo_u13_2026-10-14', pid: 'p1' } });
+    tulos.push({ nP, nJ, yht: db.lukuja.yht, per: Object.assign({}, db.lukuja.perKokoelma), pelaajat: db.lukuja.pelaajat });
+  }
+  tulos.forEach((t) => { assert.ok(t.yht <= 15, 'lukuja ' + t.yht + ' (seura ' + t.nP + '/' + t.nJ + ')'); assert.strictEqual(t.pelaajat, 1); assert.deepStrictEqual(t.per, tulos[0].per); assert.strictEqual(t.yht, tulos[0].yht); });
 });
 test('BACKFILL: korvaa kauden dokumentin korit; kuiva-ajo ei kirjoita', async () => {
   const db = luoDb(perus()), a = await K.taytaPelaaja(deps(db), 'demo', 'p1', NYT, false); assert.strictEqual(db.kirjoitukset.length, 0); assert.ok(a.korit['2026-W42']);

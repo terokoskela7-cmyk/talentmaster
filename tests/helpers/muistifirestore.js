@@ -16,7 +16,7 @@ function luo(store) {
     const lista = () => lapset(polku);
     const mk = (f) => ({ where: (a, op, v) => mk(f.concat([[a, op, v]])), doc: (id) => refOf(polku + '/' + id),
       async get() {
-        const ks = lista().filter((p) => f.every(([a, op, v]) => { const d = store.get(p), x = a === '__id__' ? p.split('/').pop() : msOf(d[a]), y = msOf(v); return op === '>=' ? x >= y : op === '<=' ? x <= y : x === y; }));
+        const ks = lista().filter((p) => f.every(([a, op, v]) => { const d = store.get(p), x = a === '__id__' ? p.split('/').pop() : msOf(d[a]), y = msOf(v); return op === '>=' ? x >= y : op === '<=' ? x <= y : op === 'array-contains' ? Array.isArray(x) && x.indexOf(y) >= 0 : x === y; }));
         laske(nimi(polku) + ':query', Math.max(1, ks.length)); const docs = ks.map((p) => ({ id: p.split('/').pop(), ref: refOf(p), data: () => wrap(store.get(p)) }));
         return { docs, size: docs.length, forEach: (fn) => docs.forEach(fn) };
       } });
