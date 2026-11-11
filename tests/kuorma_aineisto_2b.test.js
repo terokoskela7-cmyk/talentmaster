@@ -37,7 +37,7 @@ describe('trigger-arvio', () => {
   });
   it('kuiva-ajo tulostaa arvion ennen --aja:ta (kutsumäärät + $-kulu), ilman nimiä/id:itä', async () => {
     const r = await aja(['--projekti=talentmaster-staging', '--profiili=savu_taysi'], valeYhteys(valeAuth()));
-    expect(r.koodi).toBe(0); expect(r.ulos).toMatch(/Trigger-arvio/); expect(r.ulos).toMatch(/kertymaLasnaoloOnWrite\s+79 238 kutsua/); expect(r.ulos).toMatch(/KULU ~\$\d+/); expect(r.ulos).not.toMatch(/SYNT-|Testi|kuorma_/);
+    expect(r.koodi).toBe(0); expect(r.ulos).toMatch(/Trigger-arvio/); expect(r.ulos).toMatch(/kertymaLasnaolijaOnWrite\s+79 238 kutsua/); expect(r.ulos).toMatch(/KULU ~\$\d+/); expect(r.ulos).not.toMatch(/SYNT-|Testi|kuorma_/);
   });
 });
 

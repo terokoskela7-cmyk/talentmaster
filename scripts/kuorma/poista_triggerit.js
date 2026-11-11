@@ -8,7 +8,7 @@
 const { spawnSync } = require('child_process');
 const L = require('./lukko.js');
 
-const TRIGGERIT = ['kertymaKirjausOnWrite', 'kertymaLasnaoloOnWrite', 'notifKalenteriViikko'];
+const TRIGGERIT = ['kertymaKirjausOnWrite', 'kertymaLasnaolijaOnWrite', 'notifKalenteriViikko'];
 const REGION = 'europe-west1';
 const STAGING = /^talentmaster-staging(-[a-z0-9]+)?$/;
 
