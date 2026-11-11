@@ -22,7 +22,22 @@ describe('2a-yhteensopivuus', () => {
   it('determinismi: sama siemen → sama; laske() täsmää virtaan; savu_taysi/taysi määrät', () => {
     expect(JSON.stringify([...koota(PIENI, 3)])).toBe(JSON.stringify([...M])); expect(A.laske(PIENI, 3).yht).toBe(M.size);
     const s = A.laske(A.PROFIILIT.savu_taysi, 1); expect(s.pelaajat).toBe(1000); expect(s.kayttajat).toBe(20); expect(s.kausikuvat).toBe(2); expect(s.toimenpiteet).toBe(80); expect(s.lasnaolijat).toBeGreaterThan(50000);
-    expect(A.PROFIILIT.taysi.seurat.length).toBe(40); expect(A.tilit(A.PROFIILIT.taysi).length).toBe(400);
+    const koot = A.PROFIILIT.taysi.seurat.map((x) => x.koko); expect(koot.length).toBe(40); expect(koot.reduce((a, b) => a + b, 0)).toBe(10000); expect(Math.max(...koot)).toBe(500); expect(koot[0]).toBe(500); expect(Math.min(...koot)).toBeGreaterThanOrEqual(170);
+    expect(A.tilit(A.PROFIILIT.taysi).length).toBe(400);
+  });
+});
+
+describe('trigger-arvio', () => {
+  const T = require('../scripts/kuorma/trigger_arvio.js');
+  it('kutsut = kirjaukset + läsnäolijat + kalenteri; kulu = osien summa; kasvaa kalenterin myötä', () => {
+    const l = A.laskeSeuroittain(PIENI, 3), a = T.arvioiTriggerit(l);
+    expect(a.rivit[0].kutsuja).toBe(l.m.kirjaukset); expect(a.rivit[1].kutsuja).toBe(l.m.lasnaolijat); expect(a.rivit[2].kutsuja).toBe(l.m.kalenteri); expect(a.kutsuja).toBe(l.m.kirjaukset + l.m.lasnaolijat + l.m.kalenteri);
+    expect(a.kulu.yht).toBeCloseTo(a.kulu.kutsut + a.kulu.laskenta + a.kulu.luvut + a.kulu.kirjoitukset, 10); expect(a.lukuja).toBeGreaterThan(a.kutsuja);
+    const savu = T.arvioiTriggerit(A.laskeSeuroittain(A.PROFIILIT.savu, 1)); expect(savu.rivit[1].kutsuja).toBe(0); expect(savu.kulu.yht).toBeLessThan(T.arvioiTriggerit(A.laskeSeuroittain(A.PROFIILIT.savu_taysi, 1)).kulu.yht);
+  });
+  it('kuiva-ajo tulostaa arvion ennen --aja:ta (kutsumäärät + $-kulu), ilman nimiä/id:itä', async () => {
+    const r = await aja(['--projekti=talentmaster-staging', '--profiili=savu_taysi'], valeYhteys(valeAuth()));
+    expect(r.koodi).toBe(0); expect(r.ulos).toMatch(/Trigger-arvio/); expect(r.ulos).toMatch(/kertymaLasnaoloOnWrite\s+79 238 kutsua/); expect(r.ulos).toMatch(/KULU ~\$\d+/); expect(r.ulos).not.toMatch(/SYNT-|Testi|kuorma_/);
   });
 });
 
