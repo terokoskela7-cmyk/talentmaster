@@ -130,5 +130,17 @@ Generaattori: `scripts/kuorma/generoi_aineisto.js`. Aineisto on selvästi syntee
 4. **Tyhjennys (P10):** kuiva-ajo `… --tyhjenna`, poisto `… --tyhjenna --aja`. Koskee vain seuroja, joiden id alkaa `kuorma_` ja joilla `synteettinen: true`.
 5. Lukko hyväksyy vain `talentmaster-staging[-x]` ja emulaattorin `demo-kuorma`; mikä tahansa muu (tai ristiriitainen lähde) kaatuu ennen Admin SDK:n alustusta.
 
-Savuaineisto ei vielä sisällä kalenteria (`lasnaolijat`), henkilökuntaa (`kayttajat`) eikä Auth-tilejä; ne tulevat täyteen aineistoon (seuraava PR).
+Savuaineisto (2a) ei sisällä kalenteria eikä henkilökuntaa; ne tulevat profiileissa `savu_taysi`/`taysi` (kohta F).
 
+
+
+## F. Täysi aineisto (projekti 06 PR 2b; Tero ajaa `! node …`)
+
+Profiilit: `savu` (2a, ennallaan, sha-vartija) · `savu_taysi` (2 seuraa, 1 000 pelaajaa + kaikki alla, ~255 000 dok. + 20 Auth-tiliä) · `taysi` (40 seuraa, 8 300 pelaajaa, ~2,1 milj. dok. + 400 tiliä). Lisäosat: kalenteri + `lasnaolijat` (2 harjoitusta/viikko/joukkue), `kayttajat` (10 hlöä/seura) + Auth-tilit, `toimenpiteet` (ehdotukset + pulssit), **3 kautta suurimmalle seuralle** (20 pelaajaa: kirjaukset/viikkokatsaukset/havainnot/testitulokset 2024–2026 + `kausikuvat/2024,2025`), `jaksofokus_historia` (3-kauden pelaajilla 120 riviä, muilla 4–8; joukkueilla 3).
+
+1. **ADC-quota:** ei tarvitse muuttaa globaalia ADC:tä. Käytä erillistä gcloud-konfiguraatiota: `export CLOUDSDK_CONFIG=~/.config/gcloud-staging; gcloud auth application-default login; gcloud auth application-default set-quota-project talentmaster-staging; export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud-staging/application_default_credentials.json` (lukko lukee quota-projektin juuri tästä tiedostosta). Tuotannon admin-skriptien oletus-ADC jää koskematta.
+2. Kuiva-ajo: `! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --profiili=savu_taysi` (näyttää myös `auth-tilit`).
+3. Kirjoitus: `… --profiili=savu_taysi --aja`. Auth-tilit `*@kuorma.test` (uid `kuorma_…`, claims rooli+seuraId, emailVerified); **salasanat vain** `.briefit/staging_tunnukset.txt` (0600, gitignorattu; `--tunnukset=<polku>` vaihtaa). Toinen ajo ei luo tilejä uudelleen.
+4. **SA stagingiin:** kirjaudu staging-sovellukseen kerran Google-tilillä → `! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --sa-sahkoposti=<osoite>` (kuiva) → lisää `--aja` (kirjoittaa `admins/{uid}`).
+5. **Tyhjennys:** `… --tyhjenna` (kuiva: seurat + Auth-tilit) → `… --tyhjenna --aja`. Poistaa seurat `kuorma_` + `synteettinen:true` JA Auth-tilit `@kuorma.test` + uid `kuorma_`. `admins/{uid}` ja muut tilit eivät kosketa.
+6. ⚠ Jos stagingiin on deployattu Functions, `onWrite`-triggerit (esim. `harjoituskertyma` lasnaolijat/kirjaukset) käynnistyvät massakirjoituksesta → aja datalataus ennen triggerien deployta tai varaudu kulutukseen.
