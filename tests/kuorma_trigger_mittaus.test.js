@@ -87,10 +87,10 @@ describe('kertymien backfill', () => {
 
 describe('trigger-poisto (poista_triggerit.js)', () => {
   async function aja(argv, env, adc) { const ulos = [], kutsut = []; const koodi = await P.main(argv, { suorita: (c, a) => { kutsut.push([c, a]); return { status: 0 }; }, kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: env || {}, adc }); return { koodi, ulos: ulos.join('\n'), kutsut }; }
-  it('kuiva-ajo oletus: tulostaa komennon, ei suorita; --aja suorittaa täsmälleen 3 triggeriä + staging-projektin', async () => {
-    const k = await aja(['--projekti=talentmaster-staging']); expect(k.koodi).toBe(0); expect(k.kutsut.length).toBe(0); expect(k.ulos).toContain('npx firebase functions:delete kertymaKirjausOnWrite kertymaLasnaolijaOnWrite notifKalenteriViikko --project talentmaster-staging --region europe-west1 --force');
+  it('kuiva-ajo oletus: tulostaa komennon, ei suorita; --aja suorittaa täsmälleen 4 triggeriä + staging-projektin', async () => {
+    const k = await aja(['--projekti=talentmaster-staging']); expect(k.koodi).toBe(0); expect(k.kutsut.length).toBe(0); expect(k.ulos).toContain('npx firebase functions:delete kertymaKirjausOnWrite kertymaLasnaolijaOnWrite kertymaTapahtumaOnUpdate notifKalenteriViikko --project talentmaster-staging --region europe-west1 --force');
     const r = await aja(['--projekti=talentmaster-staging', '--aja']); expect(r.koodi).toBe(0); expect(r.kutsut.length).toBe(1);
-    const args = r.kutsut[0][1]; expect(r.kutsut[0][0]).toBe('npx'); expect(args.slice(0, 5)).toEqual(['firebase', 'functions:delete', ...P.TRIGGERIT.slice(0, 3)]); expect(args[args.indexOf('--project') + 1]).toBe('talentmaster-staging'); expect(args.filter((x) => x === '--project').length).toBe(1);
+    const args = r.kutsut[0][1]; expect(r.kutsut[0][0]).toBe('npx'); expect(args.slice(0, 6)).toEqual(['firebase', 'functions:delete', ...P.TRIGGERIT.slice(0, 4)]); expect(args[args.indexOf('--project') + 1]).toBe('talentmaster-staging'); expect(args.filter((x) => x === '--project').length).toBe(1);
   });
   it('lukko: pilot, emulaattori, tyhjä, puuttuva, ristiriitainen env/ADC → exit 1 eikä mitään suoriteta (myös --aja)', async () => {
     for (const [argv, env, adc] of [[['--projekti=' + PILOT, '--aja'], {}, undefined], [['--projekti=demo-kuorma', '--aja'], {}, undefined], [['--projekti=', '--aja'], {}, undefined], [['--aja'], {}, undefined], [['--projekti=talentmaster-staging', '--aja'], { GOOGLE_CLOUD_PROJECT: PILOT }, undefined], [['--projekti=talentmaster-staging', '--aja'], { FIREBASE_CONFIG: JSON.stringify({ projectId: PILOT }) }, undefined], [['--projekti=talentmaster-staging', '--aja'], {}, PILOT]]) {
@@ -99,7 +99,7 @@ describe('trigger-poisto (poista_triggerit.js)', () => {
   });
   it('komento() hylkää muun kuin stagingin; funktiolista kiinteä; tuntematon valinta → 2', async () => {
     [PILOT, 'demo-kuorma', '', undefined, 'talentmaster-staging; rm -rf /'].forEach((p) => expect(() => P.komento(p), String(p)).toThrow());
-    expect(P.TRIGGERIT).toEqual(['kertymaKirjausOnWrite', 'kertymaLasnaolijaOnWrite', 'notifKalenteriViikko']); expect((await aja(['--projekti=talentmaster-staging', '--kaikki'])).koodi).toBe(2);
+    expect(P.TRIGGERIT).toEqual(['kertymaKirjausOnWrite', 'kertymaLasnaolijaOnWrite', 'kertymaTapahtumaOnUpdate', 'notifKalenteriViikko']); expect((await aja(['--projekti=talentmaster-staging', '--kaikki'])).koodi).toBe(2);
   });
   it('epäonnistunut firebase-komento → exit 1', async () => { const virheet = []; const koodi = await P.main(['--projekti=talentmaster-staging', '--aja'], { suorita: () => ({ status: 1 }), kirjaa: () => {}, virhe: (r) => virheet.push(r), env: {}, adc: undefined }); expect(koodi).toBe(1); expect(virheet.join()).toContain('epäonnistui'); });
 });
