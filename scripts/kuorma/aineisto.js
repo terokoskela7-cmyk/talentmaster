@@ -2,14 +2,17 @@
 /* aineisto.js — projekti 06 PR 2: SYNTEETTISEN AINEISTON PUHDAS, DETERMINISTINEN GENERAATTORI (VAIHE0 §2.2, P10–P12). Ei Firestorea, ei kelloa, ei Math.random.
  * Sama (profiili, siemen) → täsmälleen sama aineisto (kaikki päivät johdetaan kiinteästä KAUSI-ikkunasta, ei "tänään"). Jokaiselle entiteetille oma siemen-alivirta (avain = polku),
  * joten yhden entiteetin muutos ei siirrä muiden satunnaislukuja.
- * Tietomuoto johdettu koodista/Rulesista, EI tuotantodatasta (GDPR): nimet ovat selvästi synteettisiä ("Testi Pelaaja S01-00001", tunniste SYNT-…), sähköpostit eivät esiinny lainkaan.
+ * Tietomuoto johdettu koodista/Rulesista, EI tuotantodatasta (GDPR): nimet ovat selvästi synteettisiä ("Testi Pelaaja S01-00001", tunniste SYNT-…), sähköpostit eivät esiinny lainkaan (poikkeus 2b: henkilökunnan @kuorma.test-osoitteet).
  * Kenttärakenteet:
  *   · pelaaja: joukkueet[] (id:t, totuus) + joukkueetNimet[] + joukkue/joukkueNimi (näyttönimi) — CLAUDE.md §7.18; ~3 % pelaajista kuuluu kahteen joukkueeseen (pelaa ylempänä)
  *   · testitulokset/{pvm}_{protokolla} RAAKADATANA (testit-kartta kuten Excel-tuonti: kuljetus_laukaus {y1,y2:{raaka,osumat}}), ei johdettuja arvoja ylikirjoitettuna
  *   · pikakentät (hh_*, d1_*, tki_*, tk_lajit_*, *_edellinen …) lasketaan KANONISELLA lib/tm_pikakentat.js:llä testikierros kerrallaan kronologisesti ja kirjoitetaan pelaajadokumenttiin
  *     YHDELLÄ set():llä → arvo + *_pvm -parit syntyvät aina yhdessä (§26 pari-invariantti). Vartijatesti tarkistaa parit jokaiselta pelaajalta. */
 const path = require('path');
+const crypto = require('crypto');
 const PK = require(path.join(__dirname, '..', '..', 'lib', 'tm_pikakentat.js'));
+const TJ = require(path.join(__dirname, '..', '..', 'lib', 'tm_jaksokooste.js'));
+const PULSSI = require(path.join(__dirname, '..', '..', 'lib', 'tm_seuran_pulssi.js'));
 
 const KAUSI = 2026;
 const KAUSI_ALKU = '2026-01-05';      // maanantai
@@ -17,9 +20,16 @@ const KAUSI_LOPPU = '2026-11-08';     // sunnuntai
 const TESTIKIERROKSET = ['2026-02-14', '2026-06-06', '2026-10-03'];
 const IKARYHMAT = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 
+const SAVU = { nimi: 'savu', seurat: [{ koko: 500 }, { koko: 500 }], kirjaukset: 100, viikkokatsaukset: 35, havainnot: 25, kierroksia: [2, 3], kaksiJoukkuettaTodennakoisyys: 0.03 };
+/* PR 2b: laaja aineisto (kalenteri + läsnäolijat, henkilökunta + Auth, toimenpiteet, jaksofokus_historia, 3 kautta suurimmalle seuralle). Profiili `savu` pysyy 2a:n muotoisena. */
+const LAAJA = { kalenteri: { viikossa: 2, lasnaoloOsuus: 0.9 }, henkilokuntaa: 10, toimenpiteita: 30, jaksoHistoriaa: [4, 8], kausia3: { pelaajia: 20, jaksoHistoriaaKaudessa: 40 } };
+const TAYSI_KOOT = [500, 400, 400, 400].concat(Array(8).fill(300), Array(14).fill(200), Array(14).fill(100));   // VAIHE0 §2.2: 40 seuraa, ~10 000 pelaajaa
 const PROFIILIT = {
-  savu: { nimi: 'savu', seurat: [{ koko: 500 }, { koko: 500 }], kirjaukset: 100, viikkokatsaukset: 35, havainnot: 25, kierroksia: [2, 3], kaksiJoukkuettaTodennakoisyys: 0.03 },
+  savu: SAVU,
+  savu_taysi: Object.assign({}, SAVU, LAAJA, { nimi: 'savu_taysi' }),
+  taysi: Object.assign({}, SAVU, LAAJA, { nimi: 'taysi', seurat: TAYSI_KOOT.map((koko) => ({ koko })) }),
 };
+const TILI_DOMAIN = 'kuorma.test';   // kaikki synteettiset Auth-tilit; tyhjennys koskee vain tätä
 
 // ── Deterministinen satunnaisuus ──────────────────────────────────────────────────────────────────
 function hash32(s) { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h >>> 0; }
@@ -93,8 +103,20 @@ function testit(r, ika, sp, kyky, kierros, protokolla) {
 const PROTOKOLLAT = [['hh_laaja', 'H-H'], ['tekniikkakilpailu', 'TKI']];
 const PHV_VAIHTOEHDOT = (ika, r) => (ika <= 11 ? 'PRE' : ika <= 13 ? r.valitse(['PRE', 'LAH', 'PH']) : ika <= 15 ? r.valitse(['LAH', 'PH', 'POST']) : 'POST');
 
+
+/** Yhden kauden kirjaukset (id = päivä), viikkokatsaukset (id = sunnuntai), havainnot. Sama r-virta ja järjestys kuin 2a:ssa (kausi 2026 → ennallaan). */
+function* kausiHistoria(profiili, r, polku, pid, ikkuna, havEtu) {
+  const kpvt = otosJarjestyksessa(ikkuna.paivat, profiili.kirjaukset, r);
+  for (const pvm of kpvt) yield { polku: polku + '/kirjaukset/' + pvm, data: { pvm, tyyppi: r.valitse(['D', 'S', 'T', 'joukkue', 'vapaa']), arvo: r.int(1, 5), pelaajaId: pid, luoja_uid: pid, luotu: aikaleima(pvm, r.int(15, 21)) } };
+  for (const pvm of otosJarjestyksessa(ikkuna.sunnuntait, profiili.viikkokatsaukset, r)) {
+    yield { polku: polku + '/viikkokatsaukset/' + pvm, data: { vk: isoViikko(pvm), jakso_alkoi: iso(Date.parse(pvm + 'T00:00:00Z') - 6 * 86400000), vastaukset: [{ osa: 'D1', teksti: 'Synteettinen vastaus', arvo: r.valitse(['usein', 'joskus', 'ei_viela']) }], luotu: aikaleima(pvm, 19) } };
+  }
+  const hpvt = otosJarjestyksessa(ikkuna.paivat, profiili.havainnot, r);
+  for (let i = 0; i < hpvt.length; i++) yield { polku: polku + '/havainnot/' + havEtu + nn(i + 1, 3), data: { pvm: hpvt[i], teksti: 'Synteettinen havainto', nakyvyys: r() < 0.3 ? 'pelaaja' : 'valmentajat', tekija_uid: 'kuorma_valmentaja', luotu: aikaleima(hpvt[i], 18), synteettinen: true } };
+}
+
 /** Yksi pelaaja → [{ polku, data }] (pelaajadokumentti viimeisenä: pikakentät laskettu kaikista kierroksista). */
-function* pelaajanDokumentit(profiili, siemen, si, n, joukkueet, jid) {
+function* pelaajanDokumentit(profiili, siemen, si, n, joukkueet, jid, k3) {
   const sid = seuraId(si), pid = pelaajaId(si, n), polku = 'seurat/' + sid + '/pelaajat/' + pid;
   const r = rng(siemen, polku), joukkue = joukkueet[jid], ika = joukkue.ika, sp = joukkue.sukupuoli;
   const ylempi = (r() < profiili.kaksiJoukkuettaTodennakoisyys) ? joukkueet.filter((j) => j.ika === ika + 1 && j.sukupuoli === sp)[0] : null;
@@ -106,17 +128,11 @@ function* pelaajanDokumentit(profiili, siemen, si, n, joukkueet, jid) {
     joukkue: joukkue.nimi, joukkueNimi: joukkue.nimi, joukkueet: jasenet.map((j) => j.id), joukkueetNimet: jasenet.map((j) => j.nimi),
     tila: 'aktiivinen', aktiivinen: true, synteettinen: true, luotu: aikaleima(KAUSI_ALKU, 8),
   };
-  // Kirjaukset (id = päivä), viikkokatsaukset (id = sunnuntai), havainnot
-  const kpvt = otosJarjestyksessa(KAIKKI_PAIVAT, profiili.kirjaukset, r);
-  for (const pvm of kpvt) yield { polku: polku + '/kirjaukset/' + pvm, data: { pvm, tyyppi: r.valitse(['D', 'S', 'T', 'joukkue', 'vapaa']), arvo: r.int(1, 5), pelaajaId: pid, luoja_uid: pid, luotu: aikaleima(pvm, r.int(15, 21)) } };
-  for (const pvm of otosJarjestyksessa(SUNNUNTAIT, profiili.viikkokatsaukset, r)) {
-    yield { polku: polku + '/viikkokatsaukset/' + pvm, data: { vk: isoViikko(pvm), jakso_alkoi: iso(Date.parse(pvm + 'T00:00:00Z') - 6 * 86400000), vastaukset: [{ osa: 'D1', teksti: 'Synteettinen vastaus', arvo: r.valitse(['usein', 'joskus', 'ei_viela']) }], luotu: aikaleima(pvm, 19) } };
-  }
-  const hpvt = otosJarjestyksessa(KAIKKI_PAIVAT, profiili.havainnot, r);
-  for (let i = 0; i < hpvt.length; i++) yield { polku: polku + '/havainnot/h' + nn(i + 1, 3), data: { pvm: hpvt[i], teksti: 'Synteettinen havainto', nakyvyys: r() < 0.3 ? 'pelaaja' : 'valmentajat', tekija_uid: 'kuorma_valmentaja', luotu: aikaleima(hpvt[i], 18), synteettinen: true } };
+  yield* kausiHistoria(profiili, r, polku, pid, { paivat: KAIKKI_PAIVAT, sunnuntait: SUNNUNTAIT }, 'h');
   // Testikierrokset: raakadata → testitulokset/{pvm}_{protokolla}; pikakentät kanonisella libillä kronologisesti (tila kertyy) → yhdellä set():llä pelaajadokumenttiin
   const kierroksia = r.int(profiili.kierroksia[0], profiili.kierroksia[1]), pvmt = TESTIKIERROKSET.slice(TESTIKIERROKSET.length - kierroksia);
   const tila = Object.assign({}, pelaaja);
+  if (k3) yield* aiemmatKaudet(profiili, siemen, polku, pid, pelaaja, joukkue, tila);   // 2b: kaudet KAUSI-2, KAUSI-1 (erilliset siemenvirrat → kausi 2026 ennallaan)
   for (let k = 0; k < pvmt.length; k++) {
     const pvm = pvmt[k];
     for (const [protokolla] of PROTOKOLLAT) {
@@ -129,16 +145,126 @@ function* pelaajanDokumentit(profiili, siemen, si, n, joukkueet, jid) {
       yield { polku: polku + '/testitulokset/' + pvm + '_' + protokolla, data: tulos };
     }
   }
+  if (profiili.jaksoHistoriaa) Object.assign(tila, jaksofokus(profiili, siemen, polku, k3));
   yield { polku, data: tila };
 }
 
-/** Koko aineisto virtana: seura → joukkueet → pelaajat. Pelaajat jaetaan joukkueisiin tasan (koko/joukkueet). */
+// ── 2b: henkilökunta, aiemmat kaudet, jaksofokus, kalenteri, toimenpiteet ───────────────────────────
+const HENKILOKUNTA_ROOLIT = ['vp', 'urheilutoimenjohtaja', 'seurasihteeri', 'talenttivalmentaja', 'fysiikkavalmentaja'];
+const tiliUid = (si, avain) => 'kuorma_s' + nn(si + 1, 2) + '_' + avain;
+const tiliEmail = (si, avain) => avain + '.s' + nn(si + 1, 2) + '@' + TILI_DOMAIN;
+
+/** Seuran henkilökunta: vp, utj, sihteeri, talenttivalm., fysiikkavalm. + valmentajat (joukkueet jaetaan tasan). Sama lista → kayttajat-dokumentit JA Auth-tilit. Ei salasanoja täällä. */
+function henkilokunta(profiili, si, joukkueet) {
+  const lkm = profiili.henkilokuntaa || 0, valm = Math.max(0, lkm - HENKILOKUNTA_ROOLIT.length), ulos = [];
+  for (let i = 0; i < Math.min(lkm, HENKILOKUNTA_ROOLIT.length); i++) ulos.push({ avain: HENKILOKUNTA_ROOLIT[i], rooli: HENKILOKUNTA_ROOLIT[i], joukkueet: [] });
+  for (let v = 1; v <= valm; v++) ulos.push({ avain: 'valmentaja' + v, rooli: 'valmentaja', joukkueet: joukkueet.filter((_, k) => k % valm === v - 1) });
+  return ulos.map((h) => ({ uid: tiliUid(si, h.avain), email: tiliEmail(si, h.avain), rooli: h.rooli, seuraId: seuraId(si), etunimi: 'Testi', sukunimi: 'Henkilö S' + nn(si + 1, 2) + '-' + h.avain.toUpperCase(),
+    joukkueet: h.joukkueet.map((j) => j.id), joukkueetNimet: h.joukkueet.map((j) => j.nimi) }));
+}
+/** Kaikki Auth-tilit profiilille (kuiva-ajon lukumäärät + luonti). */
+function tilit(profiili) { const ulos = []; for (let si = 0; si < profiili.seurat.length; si++) henkilokunta(profiili, si, rakennaJoukkueet(si, profiili.seurat[si].koko)).forEach((h) => ulos.push(h)); return ulos; }
+function kayttajaDokumentti(h) {
+  const nimi = h.etunimi + ' ' + h.sukunimi, t = aikaleima(KAUSI_ALKU, 8);
+  return { uid: h.uid, email: h.email, etunimi: h.etunimi, sukunimi: h.sukunimi, nimi, rooli: h.rooli, seuraId: h.seuraId, joukkue: h.joukkueet[0] || null, joukkueNimi: h.joukkueetNimet[0] || null,
+    joukkueet: h.joukkueet, joukkueetNimet: h.joukkueetNimet, aktiivinen: true, luotu: t, kutsuttu: t, luonut_uid: 'kuorma_generaattori', kutsuja: '', claimsAsetettu: true, synteettinen: true };
+}
+
+const ikkuna = (v) => ({ paivat: paivat(v + '-01-01', v + '-12-31', false), sunnuntait: paivat(v + '-01-01', v + '-12-31', true) });
+const kierrokset = (v) => TESTIKIERROKSET.map((d) => v + d.slice(4));
+
+/** Kaudet KAUSI-2 ja KAUSI-1 yhdelle pelaajalle (kirjaukset, viikkokatsaukset, havainnot, testitulokset). Päivittää `tila`n pikakentät kronologisesti (aiemmat ensin → 2026 jatkaa tilaa). */
+function* aiemmatKaudet(profiili, siemen, polku, pid, pelaaja, joukkue, tila) {
+  for (let ero = 2; ero >= 1; ero--) {
+    const v = KAUSI - ero, ika = joukkue.ika - ero, sp = joukkue.sukupuoli, r = rng(siemen, polku + '#kausi' + v);
+    yield* kausiHistoria(profiili, r, polku, pid, ikkuna(v), 'h' + v + '_');
+    const kyky = rng(siemen, polku).normaali();
+    const pvmt = kierrokset(v);
+    for (let k = 0; k < pvmt.length; k++) for (const [protokolla] of PROTOKOLLAT) {
+      if (protokolla === 'tekniikkakilpailu' && ika > 13) continue;
+      const t = testit(r, ika, sp, kyky, k - 3 * ero, protokolla), upd = PK.tmLaskePikakentat(tila, t, pvmt[k]);
+      Object.assign(tila, upd);
+      const tulos = { testit: t, pelaajaId: pid, tunnistetyyppi: 'palloID', sukunimi: pelaaja.sukunimi, etunimi: pelaaja.etunimi, phv_tila: PHV_VAIHTOEHDOT(ika, r), testauspvm: pvmt[k], pvm_arvio: false, kausi: String(v), protokolla, tallennettu: aikaleima(pvmt[k], 20), ika, sukupuoli: sp, joukkue: joukkue.nimi, lahde: 'historiapohja' };
+      if (upd.tki_viimeisin != null) { tulos.tki = upd.tki_viimeisin; if (upd.tki_merkki) tulos.merkki = upd.tki_merkki; }
+      yield { polku: polku + '/testitulokset/' + pvmt[k] + '_' + protokolla, data: tulos };
+    }
+  }
+}
+
+/** jaksofokus (aktiivinen) + jaksofokus_historia (rivit kanonisella tmHistoriaEntry:llä). 3 kauden pelaajalla kaudessa profiili.kausia3.jaksoHistoriaaKaudessa riviä (pahin tapaus dokumenttikokoon, VAIHE0 §3.3). */
+const KONSEPTIT = ['saynti', 'kaantyminen', 'pallonhallinta', 'ylivoima', 'suojautuminen', 'rytmi', 'suuntamuutos', 'viimeistely'];
+function jaksoRivit(r, vuosi, lkm) {
+  const rivit = [], paivaa = 330 / Math.max(lkm, 1);
+  for (let i = 0; i < lkm; i++) {
+    const a = Math.floor(i * paivaa), alku = iso(Date.parse(vuosi + '-01-05T00:00:00Z') + a * 86400000), loppu = iso(Date.parse(alku + 'T00:00:00Z') + Math.max(6, Math.floor(paivaa) - 1) * 86400000), k = KONSEPTIT[r.int(0, KONSEPTIT.length - 1)];
+    rivit.push(TJ.tmHistoriaEntry({ konsepti_avain: 'teema_synt_' + k, konsepti_nimi: 'Synteettinen teema ' + k, alkoi: alku, paattyi: loppu, harjoituksia: r.int(3, 14), lasnaolo: null, arvio_ennen: r.int(1, 3), arvio_jalkeen: r.int(2, 4), arvioija_rooli: 'valmentaja', suljettu: loppu + 'T18:00:00.000Z' }));
+    rivit[rivit.length - 1].sulkutapa = 'suljettu';
+  }
+  return rivit;
+}
+function jaksofokus(profiili, siemen, polku, k3) {
+  const r = rng(siemen, polku + '#jaksot'), historia = [];
+  if (k3) { for (let v = KAUSI - 2; v <= KAUSI - 1; v++) historia.push.apply(historia, jaksoRivit(r, v, profiili.kausia3.jaksoHistoriaaKaudessa)); historia.push.apply(historia, jaksoRivit(r, KAUSI, profiili.kausia3.jaksoHistoriaaKaudessa)); }
+  else historia.push.apply(historia, jaksoRivit(r, KAUSI, r.int(profiili.jaksoHistoriaa[0], profiili.jaksoHistoriaa[1])));
+  const k = KONSEPTIT[r.int(0, KONSEPTIT.length - 1)];
+  return { jaksofokus: { domeeni: 'teknis_taktinen', konsepti_avain: 'teema_synt_' + k, konsepti_nimi: 'Synteettinen teema ' + k, alkoi: KAUSI_LOPPU + 'T00:00:00.000Z' }, jaksofokus_historia: historia };
+}
+
+/** Seuran kalenteri: joukkueittain `viikossa` harjoitusta/viikko kauden ikkunassa + lasnaolijat (joukkueen pääjäsenet = (n-1) % joukkueita). */
+function* kalenteri(profiili, siemen, si, koko, joukkueet, henkilot) {
+  const sid = seuraId(si), cfg = profiili.kalenteri, J = joukkueet.length, viikot = Math.floor(KAIKKI_PAIVAT.length / 7), valmentajat = henkilot.filter((h) => h.rooli === 'valmentaja');
+  for (let ji = 0; ji < J; ji++) {
+    const j = joukkueet[ji], roster = []; for (let n = ji + 1; n <= koko; n += J) roster.push(n);
+    const paivaOffset = [(ji % 5), ((ji + 2) % 5), ((ji + 4) % 5)].slice(0, cfg.viikossa), valm = valmentajat.length ? valmentajat[ji % valmentajat.length].uid : 'kuorma_valmentaja';
+    for (let w = 0; w < viikot; w++) for (const off of paivaOffset) {
+      const pvm = KAIKKI_PAIVAT[w * 7 + off], eid = j.id + '_' + pvm, polku = 'seurat/' + sid + '/kalenteri/' + eid, r = rng(siemen, polku), alkuH = 16 + (ji % 3);
+      const kooste = { paikalla: 0, myohassa: 0, poissa: 0, merkitsematta: 0 }, rivit = [];
+      for (const n of roster) {
+        const x = r();
+        if (x >= cfg.lasnaoloOsuus) { kooste.merkitsematta++; continue; }
+        const tila = x < cfg.lasnaoloOsuus * 0.82 ? 'paikalla' : x < cfg.lasnaoloOsuus * 0.9 ? 'myohassa' : 'poissa'; kooste[tila]++;
+        rivit.push({ polku: polku + '/lasnaolijat/' + pelaajaId(si, n), data: { tila, syy: tila === 'poissa' ? r.valitse(['sairas', 'koulu', 'matka', 'muu']) : null, nimi: 'Testi Pelaaja S' + nn(si + 1, 2) + '-' + nn(n, 5), merkitsija_uid: valm, merkitty: aikaleima(pvm, alkuH + 3) } });
+      }
+      yield { polku, data: { nimi: 'Harjoitus', tyyppi: 'harjoitus', alkaa: aikaleima(pvm, alkuH), paattyy: aikaleima(pvm, alkuH + 2), koko_paiva: false, joukkue: j.id, joukkue_nimi: j.nimi, joukkueet: [j.id], kohde: { tyyppi: 'joukkue', joukkue: j.id }, nakyvyys: 'kaikki',
+        osallistujat_uid: [], pelaajat_id: [], paikka: 'Testikenttä', luoja_uid: valm, luotu: aikaleima(KAUSI_ALKU, 9), paivitetty: aikaleima(pvm, alkuH + 3), muokkaaja_uid: valm, tila: 'suunniteltu', poistettu: false, lahde: 'manuaalinen', lasnaolo_kooste: kooste, synteettinen: true } };
+      yield* rivit;
+    }
+  }
+}
+
+/** Toimenpiteet: automaattiset ehdotukset (id kuten palvelin: auto_{signaali}_{joukkue}_{vvvv-Www}_{sha1[:10]}) + pulssikuittaukset kanonisella tmPulssiKuittausDoc:lla. */
+const SIGNAALIT = ['hh_taso_alhainen', 'suunta_lasku', 'tkk_puuttuu', 'tki_alhainen', 'tki_lahella_merkkia', 'flei_kartoitus_puuttuu'];
+function* toimenpiteet(profiili, siemen, si, joukkueet) {
+  const sid = seuraId(si), vk = '2026-W' + nn(isoViikko(KAUSI_LOPPU), 2), r = rng(siemen, 'seurat/' + sid + '/toimenpiteet');
+  for (let i = 0; i < profiili.toimenpiteita; i++) {
+    const j = joukkueet[i % joukkueet.length], signaali = SIGNAALIT[i % SIGNAALIT.length], teksti = 'Synteettinen ehdotus ' + nn(i + 1, 3) + ' (' + signaali + ') ' + j.nimi, kuitattu = r() < 0.3;
+    const id = 'auto_' + signaali + '_' + j.id + '_' + vk + '_' + crypto.createHash('sha1').update(teksti).digest('hex').slice(0, 10);
+    yield { polku: 'seurat/' + sid + '/toimenpiteet/' + id, data: { tyyppi: 'automaattinen', signaali, joukkue: j.nimi, teksti, tila: kuitattu ? 'kuitattu' : 'ehdotus', vp_teksti: null, luotu: aikaleima(KAUSI_LOPPU, 6), kuitattu_pvm: kuitattu ? aikaleima(KAUSI_LOPPU, 10) : null, kuitattu_uid: kuitattu ? tiliUid(si, 'vp') : null, synteettinen: true } };
+  }
+  for (let i = 0; i < Math.min(10, joukkueet.length); i++) {
+    const s = { tyyppi: SIGNAALIT[i % SIGNAALIT.length], jid: joukkueet[i].id, ehto: 'synteettinen' }, siirretty = i % 3 === 0;
+    yield { polku: 'seurat/' + sid + '/toimenpiteet/' + PULSSI.tmPulssiKuittausId(s), data: Object.assign({}, PULSSI.tmPulssiKuittausDoc(s, siirretty ? 'siirretty' : 'kuitattu', vk), { kuitattu_pvm: aikaleima(KAUSI_LOPPU, 9), kuitattu_uid: tiliUid(si, 'vp'), luotu: aikaleima(KAUSI_LOPPU, 9), synteettinen: true }) };
+  }
+}
+
+/** Koko aineisto virtana: seura → joukkueet → (henkilökunta) → pelaajat → (kalenteri, toimenpiteet, kausikuvat). */
 function* generoi(profiili, siemen) {
   for (let si = 0; si < profiili.seurat.length; si++) {
-    const koko = profiili.seurat[si].koko, joukkueet = rakennaJoukkueet(si, koko), sid = seuraId(si);
-    yield { polku: 'seurat/' + sid, data: { nimi: seuraNimi(si), synteettinen: true, kuorma_profiili: profiili.nimi, kuorma_siemen: String(siemen), luotu: aikaleima(KAUSI_ALKU, 8), aktiivinen: true } };
-    for (const j of joukkueet) yield { polku: 'seurat/' + sid + '/joukkueet/' + j.id, data: { nimi: j.nimi, ikaryhma: j.ikaryhma, sukupuoli: j.sukupuoli, luotu: aikaleima(KAUSI_ALKU, 8), synteettinen: true } };
-    for (let n = 1; n <= koko; n++) yield* pelaajanDokumentit(profiili, siemen, si, n, joukkueet, (n - 1) % joukkueet.length);
+    const koko = profiili.seurat[si].koko, joukkueet = rakennaJoukkueet(si, koko), sid = seuraId(si), laaja = !!profiili.henkilokuntaa, henkilot = laaja ? henkilokunta(profiili, si, joukkueet) : [];
+    const seuraData = { nimi: seuraNimi(si), synteettinen: true, kuorma_profiili: profiili.nimi, kuorma_siemen: String(siemen), luotu: aikaleima(KAUSI_ALKU, 8), aktiivinen: true };
+    const vp = henkilot.filter((h) => h.rooli === 'vp')[0]; if (vp) { seuraData.vp_uid = vp.uid; seuraData.vp_email = vp.email; }
+    yield { polku: 'seurat/' + sid, data: seuraData };
+    for (const j of joukkueet) yield { polku: 'seurat/' + sid + '/joukkueet/' + j.id, data: Object.assign({ nimi: j.nimi, ikaryhma: j.ikaryhma, sukupuoli: j.sukupuoli, luotu: aikaleima(KAUSI_ALKU, 8), synteettinen: true }, laaja ? { jaksofokus_historia: jaksoRivit(rng(siemen, 'seurat/' + sid + '/joukkueet/' + j.id), KAUSI, 3) } : {}) };
+    for (const h of henkilot) yield { polku: 'seurat/' + sid + '/kayttajat/' + h.uid, data: kayttajaDokumentti(h) };
+    let kolme = 0; const kolmenKauden = [];
+    for (let n = 1; n <= koko; n++) {
+      const jid = (n - 1) % joukkueet.length, k3 = !!(profiili.kausia3 && si === 0 && joukkueet[jid].ika >= 10 && kolme < profiili.kausia3.pelaajia && ++kolme);
+      if (k3) kolmenKauden.push({ id: pelaajaId(si, n), joukkue: joukkueet[jid].nimi, ikaluokka: (joukkueet[jid].sukupuoli === 'N' ? 'T' : 'P') + joukkueet[jid].ika, sukupuoli: joukkueet[jid].sukupuoli, syntymavuosi: KAUSI - joukkueet[jid].ika });
+      yield* pelaajanDokumentit(profiili, siemen, si, n, joukkueet, jid, k3);
+    }
+    if (kolmenKauden.length) for (const v of [KAUSI - 2, KAUSI - 1]) yield { polku: 'seurat/' + sid + '/kausikuvat/' + v, data: { kausi: String(v), luotu: aikaleima(v + '-12-31', 12), luoja: tiliUid(si, 'vp'), pelaajat: kolmenKauden.map((p) => Object.assign({}, p, { syntymavuosi: p.syntymavuosi, talenttiOhjelma: false, tila: 'aktiivinen' })), synteettinen: true } };
+    if (profiili.kalenteri) yield* kalenteri(profiili, siemen, si, koko, joukkueet, henkilot);
+    if (profiili.toimenpiteita) yield* toimenpiteet(profiili, siemen, si, joukkueet);
   }
 }
 
@@ -149,4 +275,4 @@ function laske(profiili, siemen) {
   return m;
 }
 
-module.exports = { generoi, laske, rng, rakennaJoukkueet, PROFIILIT, KAUSI, TESTIKIERROKSET, seuraId, pelaajaId, KAIKKI_PAIVAT, SUNNUNTAIT, isoViikko };
+module.exports = { generoi, laske, tilit, henkilokunta, TILI_DOMAIN, tiliUid, rng, rakennaJoukkueet, PROFIILIT, KAUSI, TESTIKIERROKSET, seuraId, pelaajaId, KAIKKI_PAIVAT, SUNNUNTAIT, isoViikko };
