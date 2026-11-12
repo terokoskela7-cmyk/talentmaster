@@ -78,6 +78,11 @@ for S in SENDGRID_API_KEY ANTHROPIC_API_KEY AWS_BEDROCK_ACCESS_KEY_ID AWS_BEDROC
 done
 # CI tarkistaa ennen functions-deployta (scripts/tarkista_salaisuudet.js), että jokainen koodin salaisuus on olemassa, sillä on versio ja ajotilillä on secretAccessor. Uusi salaisuus: docs/SECRET_MANAGER_MIGRAATIO.md "Uusi salaisuus".
 
+# --- Ajotili saa allekirjoittaa custom-tokenit (pelaajan PalloID+PIN-kirjautuminen: createCustomToken → iam.serviceAccounts.signBlob) ---
+# Ilman tätä pelaajan kirjautuminen kaatuu virheeseen iam.serviceAccounts.signBlob. Rooli annetaan ajotilille itselleen (Tero ajaa):
+gcloud iam service-accounts add-iam-policy-binding $PROJECT_ID@appspot.gserviceaccount.com --project $PROJECT_ID \
+  --member="serviceAccount:$PROJECT_ID@appspot.gserviceaccount.com" --role=roles/iam.serviceAccountTokenCreator
+
 # --- Budjetti 25 € (korvaa BILLING_ACCOUNT_ID; `gcloud billing accounts list`) ---
 # --billing-project=$PROJECT_ID: ilman sitä gcloud käyttää oletusprojektia (tuotanto) kiintiö-/API-projektina.
 gcloud billing budgets create --billing-project=$PROJECT_ID --billing-account=BILLING_ACCOUNT_ID --display-name="talentmaster-staging 25 EUR" \
@@ -88,7 +93,7 @@ gcloud billing budgets create --billing-project=$PROJECT_ID --billing-account=BI
 # gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:SINUN_SÄHKÖPOSTI" --role=roles/monitoring.viewer
 ```
 
-Functions-deploy luo myös Scheduler-ajot (europe-west1). Ensimmäisen deployn jälkeen työnkulku **pausettaa** ne; mittauksessa ne ajetaan käsin (`gcloud scheduler jobs run <nimi> --location=europe-west1 --project talentmaster-staging`).
+Functions-deploy luo myös Scheduler-ajot — **us-central1:een** (funktiot ovat europe-west1:ssä, mutta Firebasen ajastukset eivät; sama kuin tuotannossa), nimi `firebase-schedule-<funktio>-us-central1`. Ensimmäisen deployn jälkeen työnkulku **pausettaa** ne; mittauksessa ne ajetaan käsin (`gcloud scheduler jobs run <nimi> --location=us-central1 --project talentmaster-staging`).
 
 ## C. GitHub
 
@@ -159,6 +164,7 @@ Rajat: P11 (`scripts/kuorma/mittaus_lib.js` → `RAJAT`): interaktiivinen < 5 s 
 2. **Sivut** (Playwright + Chrome; tarvitsee `STAGING_APPCHECK_DEBUG_TOKEN` ympäristöön — GitHub Secretin arvo, rekisteröity staging-App Checkiin; ei repoon, ei tulosteeseen):
    `STAGING_APPCHECK_DEBUG_TOKEN='…' ! node scripts/kuorma/mittaa_sivut.js --url=https://talentmaster-staging--kuorma-<tunniste>.web.app --tunnukset=.briefit/staging_tunnukset.txt --kuiva` (suunnitelma) → ilman `--kuiva`.
    Seura, VP, Master, Kehitystyöpöytä, Testaus, Pelaaja × työpöytä + puhelin (Slow 4G, CPU 4×) × 5 toistoa (kylmä + lämmin) ≈ 120 avausta; edistyminen tulostuu avaus kerrallaan. Tunnukset: seura 1 (suurin, 500 pelaajaa) rooleilla vp / talenttivalmentaja / valmentaja1; salasanat vain muistiin. **Pelaaja** kirjautuu PalloID + PIN:llä (`pelaajaKirjaudu` → custom token, sama polku kuin Pelaaja_v7): luo tunnus ensin `! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --profiili=savu_taysi --vain-pinit` (kuiva) → `--aja` (tai `--pin-pelaaja` generoinnin mukana). Per seura 1 pelaaja (ikä ≥ 10), `suostumusTila:'annettu'`, normalisoitu `palloId` (`SYNT` + seura + nro; väliviivaton, koska kirjautumisfunktio poistaa väliviivat ja hakee tarkalla vastaavuudella), PIN-hajautus `_pelaajaPin`; PIN (6 num.) vain tunnustiedostoon riville `pelaaja.sNN@kuorma.test` (5. sarake PalloID). Rivi säilyy → toinen ajo ei vaihda PIN:iä. Jos riviä ei ole, pelaaja-sivu mitataan kirjautumattomana ja ajo varoittaa. `--tyhjenna` poistaa myös `_pelaajaPin/kuorma_…`-hajautukset ja pelaajien Auth-tilit (`pel_kuorma_…`). Tarvitsee `palloId`-kokoelmaryhmäindeksin stagingissa (`firestore.indexes.json`, kuten tuotannossa).
+   Osa-ajo (`--sivut=pelaaja`) **yhdistyy** aiempaan `--ulos`-tiedostoon sivu×profiili-pareittain (sama isäntä/seura/toistot); sama pari korvataan, muut säilyvät. Aja `mittaa_monitoring.js` uudelleen osa-ajon jälkeen (monitoring-lohko nollautuu).
 3. **Monitoring read_count** (muutaman minuutin viiveellä): `! node scripts/kuorma/mittaa_monitoring.js --projekti=talentmaster-staging --tulos=mittaus_tulokset/sivut.json` (laskutuksen totuus; instrumentoitu summa vertailuun).
 4. **Ajastetut funktiot** (käsin Schedulerista, 3 ajoa/funktio): `! node scripts/kuorma/mittaa_funktiot.js --projekti=talentmaster-staging --profiili=savu_taysi` (kuiva) → `--aja` (+ `--kaikki` laskutus/notif*). Sitten muisti: `! node scripts/kuorma/mittaa_monitoring.js --projekti=talentmaster-staging --funktiot=mittaus_tulokset/funktiot.json`. `tasoHaeMaatcheck` on kommentoitu pois `functions/index.js`:stä → ei mitata. Ensimmäinen ajo voi olla kylmäkäynnistys (merkitty `*`).
 5. **Dokumenttikoot:** `! node scripts/kuorma/mittaa_dokkoot.js --projekti=talentmaster-staging --aja` (lukee ~1 luku/dokumentti; `--offline=<profiili>` laskee generaattorin datasta ilman verkkoa).

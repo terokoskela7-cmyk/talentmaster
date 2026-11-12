@@ -40,6 +40,8 @@ concurrency:
 env:
   STAGING_PROJEKTI: talentmaster-staging
   ALUE: europe-west1
+  # Firebasen ajastetut funktiot (1st gen, europe-west1) luovat Cloud Scheduler -jobit us-central1:een (kuten tuotannossa) — EI funktion omaan alueeseen.
+  SCHEDULER_ALUE: us-central1
 
 jobs:
   deploy:
@@ -94,10 +96,12 @@ jobs:
         if: ${{ inputs.functions }}
         run: |
           set -e
-          nimet=$(gcloud scheduler jobs list --project "$STAGING_PROJEKTI" --location "$ALUE" --format='value(name)' | grep '/firebase-schedule-' || true)
+          nimet=$(gcloud scheduler jobs list --project "$STAGING_PROJEKTI" --location "$SCHEDULER_ALUE" --format='value(name)' | grep '/firebase-schedule-' || true)
           n=0
-          for j in $nimet; do gcloud scheduler jobs pause "${j##*/}" --project "$STAGING_PROJEKTI" --location "$ALUE" --quiet; n=$((n+1)); done
+          for j in $nimet; do gcloud scheduler jobs pause "${j##*/}" --project "$STAGING_PROJEKTI" --location "$SCHEDULER_ALUE" --quiet; n=$((n+1)); done
           echo "Pausetettu ajastuksia: $n"
+          # Hiljainen 0 = väärä sijainti tai nimiprefiksi → ajastukset jäisivät ENABLED-tilaan ja kuluttaisivat; kaadu äänekkäästi.
+          if [ "$n" -eq 0 ]; then echo "::error::Yhtään firebase-schedule-* -jobia ei löytynyt (location=$SCHEDULER_ALUE) — ajastuksia ei pausetettu"; exit 1; fi
 
       - name: Konfiguraation korvaus (staging, Sentry pois) — vain työtilassa
         if: ${{ inputs.hosting }}

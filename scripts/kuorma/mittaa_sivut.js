@@ -102,6 +102,18 @@ function yhteenveto(avaukset) {
 }
 function stats(arvot, jakaja) { const s = M.tilasto(arvot.filter((x) => typeof x === 'number')); const k = (x) => (x == null ? null : Math.round(x / jakaja * 1000) / 1000); return { n: s.n, mediaani: k(s.mediaani), p95: k(s.p95), min: k(s.min), max: k(s.max) }; }
 
+// Osa-ajo (--sivut=pelaaja) EI saa korvata aiempia sivuja: yhdistetään (sivu, profiili) -parein, uusi mittaus korvaa saman parin. Eri isäntä/seura/toistot → ei yhdistetä (vertailukelvoton), aiempi tiedosto ylikirjoitetaan.
+function lueAiempi(polku) { try { const j = JSON.parse(fs.readFileSync(polku, 'utf8')); return j && j.meta && Array.isArray(j.mittaukset) ? j : null; } catch (e) { return null; } }
+function yhdistaTulokset(aiempi, uusi, kirjaa) {
+  if (!aiempi) return uusi;
+  const sama = aiempi.meta.isanta === uusi.meta.isanta && aiempi.meta.seura === uusi.meta.seura && aiempi.meta.toistot === uusi.meta.toistot;
+  if (!sama) { if (kirjaa) kirjaa('  ⚠ Aiempi tulostiedosto on eri isännältä/seuralta/toistoilta → ei yhdistetä, ylikirjoitetaan.'); return uusi; }
+  const avain = (m) => m.sivu + '|' + m.profiili, uudet = new Set(uusi.mittaukset.map(avain));
+  const mittaukset = aiempi.mittaukset.filter((m) => !uudet.has(avain(m))).concat(uusi.mittaukset);
+  const meta = Object.assign({}, uusi.meta, { aika: aiempi.meta.aika < uusi.meta.aika ? aiempi.meta.aika : uusi.meta.aika, kesto_s: (aiempi.meta.kesto_s || 0) + uusi.meta.kesto_s, yhdistetty: true });   // ikkuna kattaa kaikki ajot (Monitoring read_count)
+  if (kirjaa) kirjaa('  Yhdistetty aiempaan tulostiedostoon: ' + mittaukset.length + ' sivu×profiili-riviä (uusia ' + uusi.mittaukset.length + '). Aja mittaa_monitoring.js uudelleen koko ikkunalle.');
+  return { meta, mittaukset };   // monitoring-lohko jätetään pois: vanha summa ei kata uutta ajoa
+}
 async function main(argv, deps) {
   const d = deps || {}, kirjaa = d.kirjaa || ((r) => console.log(r)), virhe = d.virhe || ((r) => console.error(r)), env = d.env || process.env, o = lueArgv(argv), v = tarkista(o, env, d.urlSallittu);   // d.urlSallittu = vain testien injektio (CLI ei aseta)
   if (v) { virhe(v); return 2; }
@@ -142,9 +154,10 @@ async function main(argv, deps) {
     }
   } finally { await selain.close(); }
   tulos.meta.loppu = new Date().toISOString(); tulos.meta.kesto_s = Math.round((Date.now() - t0) / 1000);
-  fs.mkdirSync(path.dirname(o.ulos), { recursive: true }); fs.writeFileSync(o.ulos, JSON.stringify(tulos, null, 2) + '\n');
+  const yhdistetty = yhdistaTulokset(lueAiempi(o.ulos), tulos, kirjaa);
+  fs.mkdirSync(path.dirname(o.ulos), { recursive: true }); fs.writeFileSync(o.ulos, JSON.stringify(yhdistetty, null, 2) + '\n');
   kirjaa('Valmis ' + tulos.meta.kesto_s + ' s · ' + o.ulos + ' · seuraava: mittaa_monitoring.js --tulos=' + o.ulos + ' (read_count, viive muutama min) → mittaus_raportti.js');
   return 0;
 }
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c)).catch((e) => { console.error('Virhe: ' + String(e && e.message || e).split('\n')[0]); process.exit(2); });
-module.exports = { main, lueArgv, tarkista, mittaaAvaus, SIVUT, PROFIILIT, IKKUNA_MS };
+module.exports = { main, yhdistaTulokset, lueArgv, tarkista, mittaaAvaus, SIVUT, PROFIILIT, IKKUNA_MS };
