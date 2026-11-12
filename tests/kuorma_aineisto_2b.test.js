@@ -111,8 +111,8 @@ function valeAuth(alku) {
 }
 function valeYhteys(auth, seurat) {
   const kirj = [], poistot = [], admins = [];
-  const db = { collection: () => ({ get: async () => ({ docs: (seurat || []).map((s) => ({ id: s.id, ref: { id: s.id }, data: () => s.data })) }) }), doc: (p) => ({ polku: p, set: async (d) => { admins.push([p, d]); } }), recursiveDelete: async (r) => { poistot.push(r.id); } };
-  const bw = { set: (r) => { kirj.push(r.polku); return Promise.resolve(); }, onWriteError: () => {}, close: async () => {} };
+  const db = { collection: () => ({ listDocuments: async () => [], get: async () => ({ docs: (seurat || []).map((s) => ({ id: s.id, ref: { id: s.id }, data: () => s.data })) }) }), doc: (p) => ({ polku: p, set: async (d) => { admins.push([p, d]); } }), recursiveDelete: async (r) => { poistot.push(r.id); } };
+  const bw = { set: (r) => { kirj.push(r.polku); return Promise.resolve(); }, delete: () => Promise.resolve(), onWriteError: () => {}, close: async () => {} };
   return { kirj, poistot, admins, luoDb: async (projekti) => ({ db, auth, projekti, bulkWriter: () => bw }) };
 }
 async function aja(argv, v) { const ulos = []; const koodi = await G.main(argv, { luoDb: v.luoDb, kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: {}, adc: undefined }); return { koodi, ulos: ulos.join('\n') }; }

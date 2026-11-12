@@ -8,6 +8,9 @@
  * 2b: profiili savu_taysi (savu + kalenteri, henkilökunta + Auth, toimenpiteet, 3 kautta) ja taysi (40 seuraa). Auth-tilit @kuorma.test (uid kuorma_…); salasanat VAIN tiedostoon
  *   --tunnukset=<polku> (oletus <repo>/.briefit/staging_tunnukset.txt, gitignorattu, 0600) — ei tulosteeseen. --tyhjenna poistaa myös nämä Auth-tilit (vain @kuorma.test + uid kuorma_).
  *   ! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --sa-sahkoposti=<Teron Google-osoite> [--aja]   → admins/{uid} (uid stagingin Authista; kirjaudu stagingiin ensin kerran)
+ * PR 3b (pelaajan PalloID + PIN -kirjautuminen mittauksiin): --pin-pelaaja luo jokaiselle seuralle YHDEN kirjautumiskelpoisen pelaajan (ikä ≥ 10, suostumusTila 'annettu', normalisoitu palloId, PIN-hajautus `_pelaajaPin`);
+ *   PIN (6 num., crypto.randomInt) vain tunnustiedostoon riville pelaaja.sNN@kuorma.test (+ PalloID 5. sarakkeeseen), ei tulosteeseen. --vain-pinit = vain tämä vaihe olemassa olevaa aineistoa vasten (ei regeneroi; päivittää vain 1 pelaajadokumentin/seura).
+ *   --tyhjenna poistaa myös `_pelaajaPin/kuorma_…` -dokumentit ja pelaajien Auth-tilit (uid pel_kuorma_…).
  * Valinnat: --profiili=savu (oletus) · --siemen=1 (oletus; sama siemen → sama aineisto, P10) · --projekti PAKOLLINEN (ei oletusta).
  * LUKKO (lukko.js): vain talentmaster-staging[-x] / demo-kuorma; --projekti + env + ADC:n quota-projekti kaikki samaa; muu kaatuu ENNEN Admin SDK:n alustusta.
  * TYHJENNYS koskee VAIN seuroja, joiden id alkaa `kuorma_` JA dokumentilla synteettinen === true (muuta ei kosketa, vaikka projekti olisi väärä).
@@ -15,6 +18,7 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const K = require(path.join(__dirname, '..', '..', 'functions', 'pelaajakirjautuminen.js'));   // hajautaPin = sama kuin kirjautumisfunktiossa
 const L = require('./lukko.js');
 const A = require('./aineisto.js');
 const T = require('./trigger_arvio.js');
@@ -23,9 +27,9 @@ const SEURA_ETUVALI = 'kuorma_';
 const OLETUS_TUNNUKSET = path.join(__dirname, '..', '..', '.briefit', 'staging_tunnukset.txt');
 
 function lueArgv(argv) {
-  const o = { aja: false, tyhjenna: false, profiili: 'savu', siemen: '1', projekti: undefined, tunnukset: OLETUS_TUNNUKSET, saSahkoposti: undefined, tuntematon: [] };
+  const o = { aja: false, tyhjenna: false, profiili: 'savu', siemen: '1', projekti: undefined, tunnukset: OLETUS_TUNNUKSET, saSahkoposti: undefined, pinPelaaja: false, vainPinit: false, tuntematon: [] };
   (argv || []).forEach((a) => {
-    if (a === '--aja') o.aja = true; else if (a === '--tyhjenna') o.tyhjenna = true; else if (a === '--kuiva') o.aja = false;
+    if (a === '--aja') o.aja = true; else if (a === '--tyhjenna') o.tyhjenna = true; else if (a === '--kuiva') o.aja = false; else if (a === '--pin-pelaaja') o.pinPelaaja = true; else if (a === '--vain-pinit') { o.pinPelaaja = true; o.vainPinit = true; }
     else if (a.indexOf('--projekti=') === 0) o.projekti = a.slice(11); else if (a.indexOf('--profiili=') === 0) o.profiili = a.slice(11);
     else if (a.indexOf('--siemen=') === 0) o.siemen = a.slice(9); else if (a.indexOf('--tunnukset=') === 0) o.tunnukset = a.slice(12); else if (a.indexOf('--sa-sahkoposti=') === 0) o.saSahkoposti = a.slice(16); else o.tuntematon.push(a);
   });
@@ -42,12 +46,25 @@ async function tyhjennettavat(db) {
 /** Synteettinen Auth-tili? VAIN näitä luodaan ja poistetaan: @kuorma.test + uid kuorma_-alkuinen. */
 function onSynteettinenTili(email, uid) { return typeof email === 'string' && email.endsWith('@' + A.TILI_DOMAIN) && typeof uid === 'string' && uid.indexOf(SEURA_ETUVALI) === 0; }
 
+/** Synteettinen pelaajan Auth-tili (custom token, ei sähköpostia): uid 'pel_' + seuraId (kuorma_…). */
+function onSynteettinenPelaajaTili(uid) { return typeof uid === 'string' && uid.indexOf('pel_' + SEURA_ETUVALI) === 0; }
+
+function lueTunnusRivit(tunnuksetPolku) {
+  const rivit = new Map();
+  try { fs.readFileSync(tunnuksetPolku, 'utf8').split('\n').forEach((l) => { const o = l.split('\t'); if (o.length >= 2 && o[0].indexOf('#') !== 0) rivit.set(o[0], l); }); } catch (e) { /* ei vielä tiedostoa */ }
+  return rivit;
+}
+function kirjoitaTunnusRivit(tunnuksetPolku, rivit) {
+  fs.mkdirSync(path.dirname(tunnuksetPolku), { recursive: true });
+  fs.writeFileSync(tunnuksetPolku, '# staging-tunnukset (synteettiset) — email\tsalasana\trooli\tseura[\tpalloId] — ÄLÄ COMMITOI\n' + Array.from(rivit.values()).join('\n') + '\n', { mode: 0o600 });
+  fs.chmodSync(tunnuksetPolku, 0o600);
+}
+
 function salasana() { return crypto.randomBytes(15).toString('base64url'); }
 
 /** Luo puuttuvat tilit + claims {rooli, seuraId}. Salasanat vain tiedostoon (0600), olemassa olevan rivit säilyvät. → { luotu, olemassa, ilmanTunnusta }. */
 async function luoTilit(auth, lista, tunnuksetPolku) {
-  const rivit = new Map();
-  try { fs.readFileSync(tunnuksetPolku, 'utf8').split('\n').forEach((l) => { const o = l.split('\t'); if (o.length >= 2 && o[0].indexOf('#') !== 0) rivit.set(o[0], l); }); } catch (e) { /* ei vielä tiedostoa */ }
+  const rivit = lueTunnusRivit(tunnuksetPolku);
   let luotu = 0, olemassa = 0, ilmanTunnusta = 0;
   for (const h of lista) {
     if (!onSynteettinenTili(h.email, h.uid)) throw new Error('Ei-synteettinen tili generaattorin listassa — keskeytetty.');
@@ -58,18 +75,36 @@ async function luoTilit(auth, lista, tunnuksetPolku) {
     await auth.setCustomUserClaims(h.uid, { rooli: h.rooli, seuraId: h.seuraId });
     rivit.set(h.email, h.email + '\t' + pw + '\t' + h.rooli + '\t' + h.seuraId); luotu++;
   }
-  if (luotu) {
-    fs.mkdirSync(path.dirname(tunnuksetPolku), { recursive: true });
-    fs.writeFileSync(tunnuksetPolku, '# staging-tunnukset (synteettiset) — email\tsalasana\trooli\tseura — ÄLÄ COMMITOI\n' + Array.from(rivit.values()).join('\n') + '\n', { mode: 0o600 });
-    fs.chmodSync(tunnuksetPolku, 0o600);
-  }
+  if (luotu) kirjoitaTunnusRivit(tunnuksetPolku, rivit);
   return { luotu, olemassa, ilmanTunnusta };
+}
+
+/** PR 3b: kirjautumiskelpoinen pelaaja per seura. lista = A.pinPelaajat(). Rivi pelaaja.sNN@kuorma.test = PIN (olemassa oleva rivi säilyy → ei uutta PIN:iä).
+ *  Vain olemassa oleva synteettinen pelaajadokumentti päivitetään (update, ei luo tynkää). → { luotu, olemassa, puuttuu }. PIN:iä ei kirjoiteta muualle kuin tunnustiedostoon + hajautukseen. */
+async function luoPelaajaPinit(db, lista, tunnuksetPolku, nyt) {
+  const rivit = lueTunnusRivit(tunnuksetPolku);
+  let luotu = 0, olemassa = 0, puuttuu = 0;
+  for (const h of lista) {
+    if (h.sid.indexOf(SEURA_ETUVALI) !== 0) throw new Error('Ei-synteettinen seura PIN-listassa — keskeytetty.');
+    const avain = 'pelaaja.s' + String(h.si + 1).padStart(2, '0') + '@' + A.TILI_DOMAIN;
+    if (rivit.has(avain)) { olemassa++; continue; }
+    const ref = db.doc('seurat/' + h.sid + '/pelaajat/' + h.pid), snap = await ref.get();
+    if (!snap.exists || !snap.data() || snap.data().synteettinen !== true) { puuttuu++; continue; }
+    const pin = String(crypto.randomInt(100000, 1000000));
+    const era = db.batch();
+    era.set(db.doc('_pelaajaPin/' + h.sid + '_' + h.pid), { hash: K.hajautaPin(pin), luotu: nyt == null ? Date.now() : nyt, lahde: 'kuorma_generaattori' });
+    era.update(ref, { palloId: h.palloId, suostumusTila: 'annettu' });
+    await era.commit();
+    rivit.set(avain, avain + '\t' + pin + '\tpelaaja\t' + h.sid + '\t' + h.palloId); luotu++;
+  }
+  if (luotu) kirjoitaTunnusRivit(tunnuksetPolku, rivit);
+  return { luotu, olemassa, puuttuu };
 }
 
 /** Poistettavat synteettiset Auth-tilit (sivutettu listUsers; suodatin onSynteettinenTili). */
 async function poistettavatTilit(auth) {
   const ulos = []; let token;
-  do { const r = await auth.listUsers(1000, token); r.users.forEach((u) => { if (onSynteettinenTili(u.email, u.uid)) ulos.push(u.uid); }); token = r.pageToken; } while (token);
+  do { const r = await auth.listUsers(1000, token); r.users.forEach((u) => { if (onSynteettinenTili(u.email, u.uid) || onSynteettinenPelaajaTili(u.uid)) ulos.push(u.uid); }); token = r.pageToken; } while (token);
   return ulos;
 }
 
@@ -92,11 +127,23 @@ async function main(argv, deps) {
     await y.db.doc('admins/' + u.uid).set({ rooli: 'super_admin', superAdmin: true, luotu: new Date(), luoja: 'kuorma_generaattori', lahde: 'staging' }, { merge: true });
     kirjaa('admins-dokumentti kirjoitettu stagingiin (SA-oikeus).'); return 0;
   }
+  if (a.vainPinit) {
+    if (a.tyhjenna) { virhe('--vain-pinit ei yhdisty --tyhjenna-valintaan.'); return 2; }
+    const lista = A.pinPelaajat(profiili);
+    kirjaa('  ' + 'pin-pelaajat'.padEnd(18) + String(lista.length).padStart(9));
+    if (kuiva) { kirjaa('Kuiva-ajo valmis. Kirjoita lisäämällä --aja.'); return 0; }
+    const y = await d.luoDb(lukko.projekti);
+    if (y.projekti !== lukko.projekti) { virhe('LUKKO: Admin SDK:n projekti ei vastaa --projekti-parametria — ajo keskeytetty.'); return 1; }
+    const t = await luoPelaajaPinit(y.db, lista, a.tunnukset);
+    kirjaa('PIN-pelaajat: luotu ' + t.luotu + ', jo olemassa ' + t.olemassa + (t.puuttuu ? ', pelaajaa EI löytynyt ' + t.puuttuu + ' (generoi aineisto ensin)' : '') + '. PIN:t: tunnustiedosto (ei tulosteessa).');
+    return t.puuttuu ? 1 : 0;
+  }
   if (!a.tyhjenna) {
     const ls = A.laskeSeuroittain(profiili, a.siemen), m = ls.m;
     Object.keys(m).forEach((k) => kirjaa('  ' + k.padEnd(18) + String(m[k]).padStart(9)));
     T.muotoile(T.arvioiTriggerit(ls)).forEach((r) => kirjaa(r));   // kulu näkyy ennen --aja:ta
     if (profiili.henkilokuntaa) kirjaa('  ' + 'auth-tilit'.padEnd(18) + String(A.tilit(profiili).length).padStart(9));
+    if (a.pinPelaaja) kirjaa('  ' + 'pin-pelaajat'.padEnd(18) + String(A.pinPelaajat(profiili).length).padStart(9));
     if (kuiva) { kirjaa('Kuiva-ajo valmis. Kirjoita lisäämällä --aja.'); return 0; }
   }
   const yhteys = await d.luoDb(lukko.projekti);
@@ -106,9 +153,14 @@ async function main(argv, deps) {
     const lista = await tyhjennettavat(db);
     const tilit = yhteys.auth ? await poistettavatTilit(yhteys.auth) : [];
     kirjaa('  poistettavia synteettisiä seuroja: ' + lista.length);
-    kirjaa('  poistettavia synteettisiä Auth-tilejä (@' + A.TILI_DOMAIN + '): ' + tilit.length);
+    const pelaajaTilit = tilit.filter(onSynteettinenPelaajaTili).length;
+    kirjaa('  poistettavia synteettisiä Auth-tilejä (@' + A.TILI_DOMAIN + '): ' + (tilit.length - pelaajaTilit));
+    kirjaa('  poistettavia pelaajien Auth-tilejä (pel_' + SEURA_ETUVALI + '…): ' + pelaajaTilit);
+    const pinRefit = (await db.collection('_pelaajaPin').listDocuments()).filter((r) => r.id.indexOf(SEURA_ETUVALI) === 0);
+    kirjaa('  poistettavia PIN-hajautuksia (_pelaajaPin/' + SEURA_ETUVALI + '…): ' + pinRefit.length);
     if (kuiva) { kirjaa('Kuiva-ajo valmis. Poista lisäämällä --aja.'); return 0; }
-    const bw = yhteys.bulkWriter(); for (const s of lista) await db.recursiveDelete(s.ref, bw); await bw.close();
+    const bw = yhteys.bulkWriter(); for (const s of lista) await db.recursiveDelete(s.ref, bw);
+    pinRefit.forEach((r) => bw.delete(r).catch(() => {})); await bw.close();
     for (let i = 0; i < tilit.length; i += 1000) await yhteys.auth.deleteUsers(tilit.slice(i, i + 1000));
     kirjaa('Poistettu synteettisiä seuroja: ' + lista.length + ', Auth-tilejä: ' + tilit.length); return 0;
   }
@@ -124,7 +176,12 @@ async function main(argv, deps) {
     const t = await luoTilit(yhteys.auth, A.tilit(profiili), a.tunnukset);
     kirjaa('Auth-tilit: luotu ' + t.luotu + ', jo olemassa ' + t.olemassa + (t.ilmanTunnusta ? ', ILMAN tunnusta tiedostossa ' + t.ilmanTunnusta + ' (poista --tyhjenna + aja uudelleen)' : '') + '. Salasanat: tunnustiedosto (ei tulosteessa).');
   }
-  return epaonnistui ? 1 : 0;
+  let pinPuuttuu = 0;
+  if (a.pinPelaaja) {
+    const t = await luoPelaajaPinit(db, A.pinPelaajat(profiili), a.tunnukset); pinPuuttuu = t.puuttuu;
+    kirjaa('PIN-pelaajat: luotu ' + t.luotu + ', jo olemassa ' + t.olemassa + (t.puuttuu ? ', pelaajaa EI löytynyt ' + t.puuttuu : '') + '. PIN:t: tunnustiedosto (ei tulosteessa).');
+  }
+  return epaonnistui || pinPuuttuu ? 1 : 0;
 }
 
 /** Oikea Admin SDK. Alustetaan vasta lukon jälkeen; projektiId annetaan eksplisiittisesti. */
@@ -136,4 +193,4 @@ function luoOikeaDb(projekti) {
 }
 
 if (require.main === module) main(process.argv.slice(2), { luoDb: luoOikeaDb }).then((c) => process.exit(c)).catch((e) => { console.error('Virhe: ' + (e && e.code ? e.code : 'tuntematon')); process.exit(2); });
-module.exports = { main, lueArgv, tyhjennettavat, luoTilit, poistettavatTilit, onSynteettinenTili };
+module.exports = { main, lueArgv, tyhjennettavat, luoTilit, luoPelaajaPinit, poistettavatTilit, onSynteettinenTili, onSynteettinenPelaajaTili };
