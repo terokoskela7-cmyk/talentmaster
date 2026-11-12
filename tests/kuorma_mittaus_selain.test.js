@@ -41,7 +41,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('mittaus · se
       const r = await S.mittaaAvaus(page, cdp, 'http://127.0.0.1:' + portti + '/', { ikkuna: 600, aikaraja: 20000 });
       expect(r.virhe).toBeNull(); expect(r.kiinnitetty).toBe(true);
       expect(r.luvut).toEqual({ pelaajat: 3 + 1 /* get 3 + doc-onSnapshot 1 */, tyhja: 1 /* tyhjä kysely = väh. 1 */, seurat: 1 /* doc.get */, havainnot: 2 /* ensimmäinen palvelinsnapshot; välimuistisnapshot (4) ohitetaan */ });
-      expect(r.yht).toBe(8); expect(r.fcp_ms).toBeGreaterThan(0); expect(r.tti_ms).toBeGreaterThanOrEqual(r.fcp_ms); expect(r.tavut).toBeGreaterThan(100);
+      expect(r.yht).toBe(8); expect(r.fcp_ms).toBeGreaterThan(0); expect(r.tti_ms).toBeGreaterThanOrEqual(r.fcp_ms); expect(r.tavut).toBeGreaterThan(100); expect(Array.isArray(r.resurssit) && r.resurssit.length > 0 && r.resurssit.every((x) => x.url.indexOf('?') < 0 && typeof x.koodattu === 'number')).toBe(true);
       expect(await page.evaluate(() => self.FIREBASE_APPCHECK_DEBUG_TOKEN)).toBe('TESTI-TOKEN'); expect(JSON.stringify(r)).not.toContain('TESTI-TOKEN');
       await ctx.close();
     } finally { await selain.close(); palvelin.close(); }
