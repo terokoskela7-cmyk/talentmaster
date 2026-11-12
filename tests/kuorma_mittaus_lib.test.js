@@ -100,7 +100,7 @@ describe('mittaa_funktiot (vale-suoritin)', () => {
   const aja = async (argv, suoritus, extra) => { const ulos = []; const koodi = await F.main(argv, Object.assign({ kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: ENV, adc: ADC, suorita: suoritus || (() => { throw new Error('ei saa suorittaa'); }), odota: async () => {}, kysely_ms: 0 }, extra)); return { koodi, ulos: ulos.join('\n') }; };
   it('kuiva-ajo oletus: tulostaa gcloud-komennot, EI suorita mitään; oletuslista 5 funktiota', async () => {
     const r = await aja(['--projekti=talentmaster-staging', '--profiili=savu_taysi']); expect(r.koodi).toBe(0); expect(r.ulos).toContain('KUIVA-AJO'); expect(r.ulos).toContain('2 seuraa / 1000 pelaajaa');
-    F.OLETUS.forEach((f) => expect(r.ulos).toContain('gcloud scheduler jobs run firebase-schedule-' + f + '-us-central1 --location=us-central1 --project=talentmaster-staging')); expect(F.OLETUS.length).toBe(5);
+    F.OLETUS.forEach((f) => expect(r.ulos).toContain('gcloud scheduler jobs run firebase-schedule-' + f + '-europe-west1 --location=us-central1 --project=talentmaster-staging')); expect(F.OLETUS.length).toBe(5);
   });
   it('lukko: pilot / emulaattori / ristiriitainen env / ADC → exit 1 eikä mitään suoriteta (myös --aja)', async () => {
     for (const [argv, env, adc] of [[['--projekti=' + PILOT, '--aja'], {}, undefined], [['--projekti=demo-kuorma', '--aja'], {}, undefined], [['--aja'], {}, undefined], [['--projekti=talentmaster-staging', '--aja'], { GCLOUD_PROJECT: PILOT }, undefined], [['--projekti=talentmaster-staging', '--aja'], {}, PILOT]]) {
@@ -110,6 +110,10 @@ describe('mittaa_funktiot (vale-suoritin)', () => {
   it('sallintalista: vieras funktionimi hylätään (exit 2) ja komennot() heittää; komentoon ei pääse ei-staging-projekti', async () => {
     expect((await aja(['--projekti=talentmaster-staging', '--funktiot=laskeSeuranKooste,deleteEverything', '--aja'])).koodi).toBe(2);
     expect(() => F.komennot('talentmaster-staging', 'rm -rf', 'x')).toThrow(); expect(() => F.komennot(PILOT, 'laskeSeuranKooste', 'x')).toThrow(); expect(() => F.komennot('talentmaster-staging', 'laskeSeuranKooste', 'x')).not.toThrow();
+  });
+  it('epäonnistunut scheduler-ajo: virheviestiin gcloudin stderr:n 3 ensimmäistä riviä', async () => {
+    const e = await aja(['--projekti=talentmaster-staging', '--funktiot=valvontaPaivittain', '--toistot=1', '--aja', '--odotus=1', '--ulos=' + join(tmp(), 'g2.json')], (c, a) => (a[0] === 'scheduler' ? { status: 1, stderr: 'ERROR: NOT_FOUND rivi1\n\nrivi2\nrivi3\nrivi4-ei-mukaan\n' } : { status: 0, stdout: '[]' }));
+    expect(e.ulos).toContain('gcloud: ERROR: NOT_FOUND rivi1'); expect(e.ulos).toContain('gcloud: rivi2'); expect(e.ulos).toContain('gcloud: rivi3'); expect(e.ulos).not.toContain('rivi4');
   });
   it('--aja: scheduler-ajo + lokirivi → kesto tallentuu (3 ajoa/funktio), JSON-muoto; epäonnistunut ajo ei kaada muita; ei lokiriviä → aikakatkaisu', async () => {
     const kut = [], ulosPolku = join(tmp(), 'f.json'); let kello = Date.parse('2026-11-12T10:00:00Z'), n = 0;
@@ -224,5 +228,10 @@ describe('mittaus_raportti: P11-arviointi ja ensimmäiseksi pettävä', () => {
     const l = S.resurssiLista(pyynnot); expect(l.map((x) => x.url)).toEqual(['https://x.web.app/a.js', 'https://x.web.app/f.woff2']); expect(l[0].koodattu).toBe(1000); expect(l[1].koodattu).toBe(700);
     const y = S.resurssiYhteenveto(l); expect(y.ryhmat.Script).toEqual({ n: 1, koodattu: 1000, purettu: 3000 }); expect(y.top[0].url).toContain('a.js');
     expect(S.resurssiYhteenveto(Array.from({ length: 100 }, (_, i) => ({ url: 'u' + i, tyyppi: 'Script', koodattu: i, purettu: i }))).top.length).toBe(60);
+  });
+  it('Scheduler-job: nimi täsmälleen firebase-schedule-valvontaPaivittain-europe-west1 (funktion alue), sijainti us-central1', () => {
+    const k = F.komennot('talentmaster-staging', 'valvontaPaivittain', '2026-11-12T10:00:00.000Z');
+    expect(F.jobNimi('valvontaPaivittain')).toBe('firebase-schedule-valvontaPaivittain-europe-west1');
+    expect(k.aja[0]).toBe('gcloud'); expect(k.aja[1]).toEqual(['scheduler', 'jobs', 'run', 'firebase-schedule-valvontaPaivittain-europe-west1', '--location=us-central1', '--project=talentmaster-staging']);
   });
 });
