@@ -1169,6 +1169,19 @@ function renderYhteenveto() {
   `;
 }
 
+/* Pelaajaluvun jako (Vaihe 0 B.6 #1): KPI-lataus tallettaa pelaajasnapin, ja SEURAAVA lista-/Kehitystilanne-lataus käyttää sen kertaalleen (TTL 20 s) → ei toista 500 luvun hakua.
+   Kertakäyttöinen + tyhjennys kirjoituspoluissa → ei vanhentunutta listaa muokkauksen jälkeen. Jokainen KPI-lataus uusii sen. */
+var _tmPelaajatEsi = null;
+function tmPelaajatEsiTalleta(sid, snap) { _tmPelaajatEsi = { sid: sid, t: Date.now(), snap: snap }; }
+function tmPelaajatEsiTyhjenna() { _tmPelaajatEsi = null; }
+function tmPelaajatEsiOta(sid) {
+  var e = _tmPelaajatEsi; _tmPelaajatEsi = null;
+  return e && e.sid === sid && (Date.now() - e.t) < 20000 ? e.snap : null;
+}
+async function tmLuePelaajatSnap(sid) {
+  return tmPelaajatEsiOta(sid) || db.collection('seurat').doc(sid).collection('pelaajat').get();
+}
+
 async function lataaYhteenvetoKPIt() {
   try {
     const [pelaajatSnap, henkilostoSnap, kutsutSnap] = await Promise.all([
@@ -1177,6 +1190,7 @@ async function lataaYhteenvetoKPIt() {
       db.collection('seurat').doc(tila.seuraId).collection('kutsut').get(),
     ]);
 
+    tmPelaajatEsiTalleta(tila.seuraId, pelaajatSnap);
     const p = document.getElementById('kpiPelaajat');
     const h = document.getElementById('kpiHenkilosto');
     const k = document.getElementById('kpiKutsut');
@@ -1472,6 +1486,7 @@ async function _pelSiirraValitut(tapa) {
     // §7.18: yksi jaettu rakentaja — siirto korvaa tunnisteet (vanhat pois), lisäys lisää; kaikki neljä kenttää aina yhdessä
     var kirj = tmJasenyysPaivitys(p, tapa, kohdeId, tila.joukkueet);
     try {
+      tmPelaajatEsiTyhjenna();
       await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pid).update(Object.assign({}, kirj, { muokattu: firebase.firestore.FieldValue.serverTimestamp() }));
       // Paikallinen data synkkaan, jottei lista näytä vanhaa ennen seuraavaa latausta.
       Object.assign(p, kirj);
@@ -1603,10 +1618,7 @@ async function renderPelaajat(alue) {
   `;
 
   try {
-    const snap = await db
-      .collection('seurat').doc(tila.seuraId)
-      .collection('pelaajat')
-      .get();
+    const snap = await tmLuePelaajatSnap(tila.seuraId);
 
     const alueEl = document.getElementById('pelaajaListaAlue');
     if (!alueEl) return;
@@ -2105,7 +2117,7 @@ async function _ktLataa(sid, vuosi) {
   const nyt = tmPaivaIso(new Date());
   const [seuraSnap, pelSnap, haSnap, mentSnap, kalSnap, asSnap, stSnap, kkSnap, jSnap] = await Promise.all([
     S.get(),
-    S.collection('pelaajat').get(),
+    tmLuePelaajatSnap(sid),
     _ktLueTurvallisesti(S.collection('harjoitusarvioinnit').where('pvm', '>=', vuosi + '-01-01').get(), puuttuu, 'harjoitusarvioinnit'),
     _ktLueTurvallisesti(S.collection('mentoroinnit').get(), puuttuu, 'mentoroinnit'),
     _ktLueTurvallisesti(S.collection('kalenteri').where('poistettu', '==', false).get(), puuttuu, 'kalenteri'),
