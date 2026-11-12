@@ -1845,6 +1845,14 @@ exports.paivitaSeuranKooste = functions
   .runWith({ enforceAppCheck: true, timeoutSeconds: 300, memory: '512MB' })   // S1.1: + käyttöasteen lähdekyselyt (2/pelaaja + kalenteri)
   .https.onCall(seuranKooste.paivitaKasittelija(_koosteDeps));
 
+/* ═══ Listayhteenveto (Vaihe 0 B.4; kaista Tero) ═══
+   seurat/{sid}/lista_joukkue/{jid} = joukkueen pelaajarivit (Master lukee 1 dokumentin / joukkue). Vain palvelin kirjoittaa (Rules v3.83). Ei sisainen/terveys/PIN/huoltajan sähköposti.
+   · laskeListaYhteenvedot   yöajo 03:30 Europe/Helsinki — kaikki aktiiviset seurat
+   · paivitaListaYhteenveto  callable (johto/talenttivalmentaja/valmentaja/SA oma seura, App Check) — "Päivitä nyt", 30 s jäähy
+   · merkitseListaLikaiseksi pelaajadokumentin onWrite → lista_likainen/{pid} vain jos listariviin vaikuttava kenttä muuttui
+   · siivoaListaLikaiset     minuutin ajastus — rakentaa seuran uudelleen kun merkit ovat hiljenneet (30 s) tai odottaneet 5 min (debounce) */
+Object.assign(exports, require('./lista_yhteenveto').luoFunktiot(functions, { db, FieldValue: admin.firestore.FieldValue, HttpsError: functions.https.HttpsError, tarkistaOikeus }));   // laskeListaYhteenvedot, paivitaListaYhteenveto, merkitseListaLikaiseksi, siivoaListaLikaiset
+
 /* ═══ Laskutus L1b (.briefit/CODE_BRIEF_LASKUTUS_L1.md §3; kaista Tero) ═══
    laskutusKuukausi: kuun 1. päivä klo 6.00 Europe/Helsinki → EDELLISEN kuukauden snapshot laskutus/{YYYY-MM}/seurat/{sid} (create(), ei ylikirjoitusta).
    Laskenta = jaettu tm_laskutus.js (sama kuin Adminin "Tilanne nyt"). Yhden seuran virhe ei kaada muita (loki + audit). Myöhässä ajo → myohassa: true.
