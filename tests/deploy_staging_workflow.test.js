@@ -9,7 +9,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const S = readFileSync(join(ROOT, '.github/workflows/deploy-staging.yml'), 'utf8');
-const KOODI = S.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+const PAUSE = readFileSync(join(ROOT, 'scripts/staging_pausetaukset.sh'), 'utf8');   // pause-vaihe asuu skriptissä (testattu vale-gcloudilla: deploy_staging_pause.test.js)
+const KOODI = (S + '\n' + PAUSE).split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
 
 describe('deploy-staging.yml', () => {
   it('käynnistyy vain käsin: workflow_dispatch, ei push/pull_request/schedule', () => {
@@ -53,11 +54,12 @@ describe('deploy-staging.yml', () => {
   });
   it('ajastusten pause: Scheduler-jobit ovat us-central1:ssä (ei funktion alueella) ja 0 löytynyttä jobia kaataa vaiheen', () => {
     const vaihe = KOODI.slice(KOODI.indexOf('name: Ajastukset pauselle'), KOODI.indexOf('Konfiguraation korvaus'));
+    expect(vaihe).toContain('bash scripts/staging_pausetaukset.sh');
     expect(KOODI).toContain('SCHEDULER_ALUE: us-central1');
-    expect(vaihe).toContain('gcloud scheduler jobs list --project "$STAGING_PROJEKTI" --location "$SCHEDULER_ALUE"');
-    expect(vaihe).toContain('gcloud scheduler jobs pause "${j##*/}" --project "$STAGING_PROJEKTI" --location "$SCHEDULER_ALUE"');
-    expect(vaihe).not.toContain('"$ALUE"');
-    expect(vaihe).toMatch(/if \[ "\$n" -eq 0 \]; then .*exit 1; fi/);
+    expect(PAUSE).toContain('gcloud scheduler jobs list --project "$STAGING_PROJEKTI" --location "$SCHEDULER_ALUE"');
+    expect(PAUSE).toContain('gcloud scheduler jobs pause "$j" --project "$STAGING_PROJEKTI" --location "$SCHEDULER_ALUE"');
+    expect(PAUSE).not.toContain('"$ALUE"');
+    expect(PAUSE).toMatch(/if \[ "\$n" -eq 0 \]; then[\s\S]*exit 1/);
   });
   it('kanava kuorma → esikatselukanava `kuorma` (debug-token toimii vain *--*.web.app, P4)', () => {
     expect(KOODI).toContain('firebase hosting:channel:deploy kuorma');
