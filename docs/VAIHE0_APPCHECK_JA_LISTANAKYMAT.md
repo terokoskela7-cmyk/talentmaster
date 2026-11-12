@@ -237,3 +237,28 @@ Havainnot, jotka vaativat päätöksen:
 - **Q13.** "Päivitä nyt": pidetäänkö synkronisena (vaihe 1) ja siirrytään jonoon vasta mittauksen p95 > 40 s?
 - **Q14.** Tarkistusajo (puuttuva `kooste/{vk}` → jonotus uudelleen) + hälytys mukaan ensimmäiseen toteutukseen? Suositus: kyllä.
 - **Q15.** Tarkistettava ennen toteutusta (ei vielä verifioitu tässä selvityksessä): Cloud Tasks -funktion enimmäiskesto ja `taskQueue`-tuki asennetussa `firebase-functions`-versiossa (`functions/package.json`: ^6.6.0, v1-API) sekä `cloudtasks.enqueuer`-oikeus CI-palvelutilille.
+
+---
+
+## E. PM:n päätökset (12.11.2026)
+
+| Kohta | Päätös |
+|---|---|
+| Q1 | Kyllä: reCAPTCHA pysyy kylmän ensikäynnin kriittisellä polulla; tavoite = toistokäynti (A1) |
+| Q2 | Token-TTL: suositus **24 h**; **Tero vahvistaa** (turvapäätös) |
+| Q3 | A1: **oma** `exchangeRecaptchaEnterpriseToken`-toteutus (ei SDK:n sisäisiä) |
+| Q4 | A4 (palvelimelta mintattu token) **ei nyt** |
+| Q5 | Yhteenvetoskeema B.4 hyväksytty |
+| Q6 | Tuoreus hyväksytty + näkymään **"päivitetty hh:mm"** |
+| Q7 | **Ei terveystietoa** yhteenvetoon (loukkaantumismerkintä haetaan pelaajaa avattaessa) |
+| Q8 | Kyllä: B.6 kohdat **1, 2, 5** heti, pieninä PR:inä |
+| Q9 | Kyllä: CLAUDE.md §41 -päivitys päätöksen jälkeen (tehdään yhteenvetototeutuksen yhteydessä) |
+| Q10 | **Cloud Tasks**, jos Q15 läpäisee; muuten Pub/Sub |
+| Q11 | 8 rinnakkaista, 4 yritystä, 60 s minBackoff: ok |
+| Q12 | Ehdotukset **samassa tehtävässä** (virhe → uudelleenyritys koosteen kirjoituksen jälkeen) |
+| Q13 | "Päivitä nyt" pysyy synkronisena; jonoon vasta kun p95 > ~40 s |
+| Q14 | Tarkistusajo + hälytys mukaan ensimmäiseen toteutukseen |
+| Q15 | Tarkistetaan ensin (Cloud Tasks -funktion kesto, `taskQueue`-tuki, `cloudtasks.enqueuer`) |
+
+**Toteutusjärjestys** (yksi PR kerrallaan, draft, ei mergeä): (1) B.6 kohdat 1, 2, 5 → (2) Masterin `lista_joukkue` (B.7 vaiheet 1–2, Rules v3.83) → (3) fan-out (aloitus Q15-tarkistuksella) → (4) A1.
+**Staging-deployn tekee Tero, ei Code.**
