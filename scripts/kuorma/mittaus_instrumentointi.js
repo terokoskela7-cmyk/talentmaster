@@ -7,11 +7,15 @@
  *   3. App Check -debug-token (vain jos annettu; ei tulosteeseen): self.FIREBASE_APPCHECK_DEBUG_TOKEN + localStorage (lib/tm_appcheck.js sallii vain preview/staging-kanavan hostit).
  * Koukku: window.firebase-asetin → firebase.firestore-asetin (compat-SDK rekisteröi nimiavaruuden sijoituksella) → kietominen heti kun Query/DocumentReference ovat olemassa. __tmM.kiinnitetty = true kun kietominen onnistui. */
 function instrumentointi(a) {
-  var M = window.__tmM = { luvut: {}, yht: 0, varit: [], avoimet: 0, kiinnitetty: false, snapshotit: 0, virheet: [] };
+  var M = window.__tmM = { luvut: {}, dokTavut: {}, dokEiMitattu: 0, yht: 0, varit: [], avoimet: 0, kiinnitetty: false, snapshotit: 0, virheet: [] };
   try { if (a && a.token) { self.FIREBASE_APPCHECK_DEBUG_TOKEN = a.token; try { localStorage.setItem('tm_appcheck_debug', a.token); } catch (e) {} } } catch (e) {}
   try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { M.varit.push([e.startTime, e.startTime + e.duration]); }); }).observe({ type: 'longtask', buffered: true }); } catch (e) {}
   try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (e.name === 'first-contentful-paint') M.fcp = e.startTime; }); }).observe({ type: 'paint', buffered: true }); } catch (e) {}
   function lisaa(nimi, n) { M.luvut[nimi] = (M.luvut[nimi] || 0) + n; M.yht += n; }
+  /* Dokumenttitavut kokoelmittain (Vaihe 0 B.6 #5): JSON-merkkimäärä dokumentin data():sta (≈ purettu koko; ei sisällä protokollan kehystä). Selvittää, miksi purettu Fetch (Master ~93 MB) ylittää dokumenttisumman. Ei kaada mittausta: epäonnistunut dokumentti → dokEiMitattu++. */
+  function tavuta(nimi, docs) {
+    try { var n = 0; for (var i = 0; i < docs.length; i++) { try { n += JSON.stringify(docs[i].data()).length; } catch (e) { M.dokEiMitattu++; } } M.dokTavut[nimi] = (M.dokTavut[nimi] || 0) + n; } catch (e) { M.virheet.push(String(e && e.message || e)); }
+  }
   function kokoelma(o, onDoc) {
     try {
       if (onDoc) return (o.parent && o.parent.id) || (o.path && String(o.path).split('/').slice(-2, -1)[0]) || 'tuntematon';
@@ -26,7 +30,7 @@ function instrumentointi(a) {
     proto.get = function () {
       var t0 = performance.now(), nimi = kokoelma(this, onDoc); M.avoimet++;
       var p = alku.apply(this, arguments), valmis = function () { M.avoimet--; M.varit.push([t0, performance.now()]); };
-      return p.then(function (s) { valmis(); lisaa(nimi, onDoc ? 1 : Math.max(1, s.size != null ? s.size : (s.docs ? s.docs.length : 1))); return s; }, function (e) { valmis(); throw e; });
+      return p.then(function (s) { valmis(); lisaa(nimi, onDoc ? 1 : Math.max(1, s.size != null ? s.size : (s.docs ? s.docs.length : 1))); tavuta(nimi, onDoc ? (s && s.exists ? [s] : []) : (s && s.docs ? s.docs : [])); return s; }, function (e) { valmis(); throw e; });
     };
     proto.get.__tm = true;
   }
@@ -38,7 +42,7 @@ function instrumentointi(a) {
         try {
           if (ensin) { ensin = false; M.avoimet--; M.varit.push([t0, performance.now()]); }
           M.snapshotit++; var cache = s && s.metadata && s.metadata.fromCache;
-          if (!cache) lisaa(nimi, onDoc ? 1 : Math.max(1, (typeof s.docChanges === 'function' ? s.docChanges().length : (s.size || 0))));
+          if (!cache) { lisaa(nimi, onDoc ? 1 : Math.max(1, (typeof s.docChanges === 'function' ? s.docChanges().length : (s.size || 0)))); tavuta(nimi, onDoc ? (s && s.exists ? [s] : []) : (typeof s.docChanges === 'function' ? s.docChanges().map(function (c) { return c.doc; }) : (s.docs || []))); }
         } catch (e) { M.virheet.push(String(e && e.message || e)); }
       }
       var i = args.findIndex(function (x) { return typeof x === 'function' || (x && typeof x.next === 'function'); });
