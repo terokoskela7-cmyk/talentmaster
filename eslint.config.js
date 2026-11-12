@@ -51,7 +51,7 @@ const APP_GLOBALS = {
   // lib/tm_pvm.js
   tmPaivaIso: 'readonly', tmSolustaPvm: 'readonly',
   // lib/tm_pelaajat_esilataus.js (Seura: pelaajaluvun jako)
-  tmPelaajatEsiTalleta: 'readonly', tmPelaajatEsiTyhjenna: 'readonly', tmPelaajatEsiOta: 'readonly', tmLuePelaajatSnap: 'readonly',
+  tmPelaajatEsiTalleta: 'readonly', tmPelaajatEsiTyhjenna: 'readonly', tmPelaajatEsiOta: 'readonly', tmLuePelaajatSnap: 'readonly', tmLuePelaajatKpi: 'readonly',
   // muut jaetut libit / globaalit
   // lib/tm_henkilosto_i18n.js (Seura, ADAR, Pelihavainto: tmHT-reititin) + lib/tm_adar_tekstit.js (ADAR-ulottuvuustekstit) — sv-läpiajo PR 4
   tmHT: 'readonly', tmHTL: 'readonly', TM_HENKILOSTO_I18N: 'readonly', TM_ADAR_TEKSTIT: 'readonly', tmLibT: 'readonly',
