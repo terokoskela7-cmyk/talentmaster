@@ -93,7 +93,7 @@ gcloud billing budgets create --billing-project=$PROJECT_ID --billing-account=BI
 # gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:SINUN_SÄHKÖPOSTI" --role=roles/monitoring.viewer
 ```
 
-Functions-deploy luo myös Scheduler-ajot (europe-west1). Ensimmäisen deployn jälkeen työnkulku **pausettaa** ne; mittauksessa ne ajetaan käsin (`gcloud scheduler jobs run <nimi> --location=europe-west1 --project talentmaster-staging`).
+Functions-deploy luo myös Scheduler-ajot — **us-central1:een** (funktiot ovat europe-west1:ssä, mutta Firebasen ajastukset eivät; sama kuin tuotannossa), nimi `firebase-schedule-<funktio>-us-central1`. Ensimmäisen deployn jälkeen työnkulku **pausettaa** ne; mittauksessa ne ajetaan käsin (`gcloud scheduler jobs run <nimi> --location=us-central1 --project talentmaster-staging`).
 
 ## C. GitHub
 
