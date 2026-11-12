@@ -131,10 +131,10 @@ describe('generaattori: pikakentät atomisesti (§26 pari-invariantti)', () => {
 function valeDb(alkuSeurat) {
   const kirjoitukset = [], poistot = [], seurat = alkuSeurat || [];
   const db = {
-    collection: (k) => ({ get: async () => ({ docs: seurat.map((s) => ({ id: s.id, ref: { id: s.id }, data: () => s.data })) }) }),
+    collection: (k) => ({ listDocuments: async () => [], get: async () => ({ docs: seurat.map((s) => ({ id: s.id, ref: { id: s.id }, data: () => s.data })) }) }),
     doc: (p) => ({ polku: p }), recursiveDelete: async (ref) => { poistot.push(ref.id); },
   };
-  const bw = { set: (ref, data) => { kirjoitukset.push(ref.polku); return Promise.resolve(); }, onWriteError: () => {}, close: async () => {} };
+  const bw = { set: (ref, data) => { kirjoitukset.push(ref.polku); return Promise.resolve(); }, delete: () => Promise.resolve(), onWriteError: () => {}, close: async () => {} };
   return { kirjoitukset, poistot, luoDb: async (projekti) => ({ db, projekti, bulkWriter: () => bw }) };
 }
 async function aja(argv, v, env, adc) { const ulos = []; const koodi = await G.main(argv, { luoDb: v.luoDb, kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: env || {}, adc }); return { koodi, ulos: ulos.join('\n') }; }

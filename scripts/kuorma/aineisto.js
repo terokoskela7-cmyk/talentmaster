@@ -282,4 +282,20 @@ function laskeSeuroittain(profiili, siemen) {
 }
 function laske(profiili, siemen) { return laskeSeuroittain(profiili, siemen).m; }
 
-module.exports = { generoi, laske, laskeSeuroittain, tilit, henkilokunta, TILI_DOMAIN, tiliUid, rng, rakennaJoukkueet, PROFIILIT, KAUSI, TESTIKIERROKSET, seuraId, pelaajaId, KAIKKI_PAIVAT, SUNNUNTAIT, isoViikko };
+/** PIN-pelaajat (PR 3b): seuran ENSIMMÄINEN pelaaja, jonka joukkueen ikä ≥ 10 (8–9-vuotiaana kirjautuminen estetty, functions/tm_pelaaja_ika.js) → [{ si, sid, pid, palloId }].
+ *  palloId = normalisoitu muoto ('SYNT' + seura + nro, ei väliviivoja): pelaajakirjautuminen.normalisoiTunnus poistaa väliviivat, ja haku on tarkka (collectionGroup where palloId == tunnus),
+ *  joten tuotantokoodin hakema avain on tämä, ei dokumentin `tunniste` ('SYNT-01-00001'). Ei satunnaisuutta: sama profiili → sama pelaaja. */
+function pinPelaajat(profiili) {
+  const ulos = [];
+  for (let si = 0; si < profiili.seurat.length; si++) {
+    const joukkueet = rakennaJoukkueet(si, profiili.seurat[si].koko);
+    for (let n = 1; n <= profiili.seurat[si].koko; n++) {
+      if (joukkueet[(n - 1) % joukkueet.length].ika < 10) continue;
+      ulos.push({ si, sid: seuraId(si), pid: pelaajaId(si, n), palloId: 'SYNT' + nn(si + 1, 2) + nn(n, 5) });
+      break;
+    }
+  }
+  return ulos;
+}
+
+module.exports = { generoi, laske, pinPelaajat, laskeSeuroittain, tilit, henkilokunta, TILI_DOMAIN, tiliUid, rng, rakennaJoukkueet, PROFIILIT, KAUSI, TESTIKIERROKSET, seuraId, pelaajaId, KAIKKI_PAIVAT, SUNNUNTAIT, isoViikko };

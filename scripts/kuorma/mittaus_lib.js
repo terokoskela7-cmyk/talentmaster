@@ -79,6 +79,13 @@ function lueTunnukset(teksti) {
   String(teksti || '').split(/\r?\n/).forEach((r) => { if (!r.trim() || r.trim()[0] === '#') return; const p = r.split('\t'); if (p.length >= 2 && /@kuorma\.test$/.test(p[0].trim()) && p[1]) m.set(p[0].trim(), p[1].trim()); });
   return m;
 }
+/** PR 3b: pelaajan PalloID tunnustiedostosta (rivi pelaaja.sNN@kuorma.test, 5. sarake). PalloID ei ole salaisuus; PIN on rivin 2. sarake (haeTunnus(map,'pelaaja',n).salasana → piilota()). → merkkijono tai null. */
+function haePalloId(teksti, seuraNro) {
+  const avain = 'pelaaja.s' + String(seuraNro).padStart(2, '0') + '@kuorma.test';
+  const rivi = String(teksti || '').split(/\r?\n/).find((r) => r.split('\t')[0].trim() === avain);
+  const v = rivi && rivi.split('\t')[4];
+  return v && /^[0-9A-Z]{1,32}$/.test(v.trim()) ? v.trim() : null;
+}
 /** Tunnus roolille ja seuranumerolle ("vp", 1 → vp.s01@kuorma.test). → { email, salasana } tai null. */
 function haeTunnus(map, rooli, seuraNro) { const e = rooli + '.s' + String(seuraNro).padStart(2, '0') + '@kuorma.test'; return map.has(e) ? { email: e, salasana: map.get(e) } : null; }
 function piilota(teksti, map) { let s = String(teksti == null ? '' : teksti); for (const p of (map instanceof Map ? map.values() : map || [])) if (p) s = s.split(p).join('***'); return s; }
@@ -96,4 +103,4 @@ function parsiFunktioLoki(rivit) {
   return ulos;
 }
 
-module.exports = { RAJAT, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, piilota, kanavaUrlSallittu, parsiFunktioLoki };
+module.exports = { RAJAT, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };

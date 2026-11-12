@@ -71,4 +71,27 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('mittaus · se
     expect(k2).toBe(1); expect(u2.join('\n')).toMatch(/kirjautuminen epäonnistui/); expect(u2.join('\n')).not.toContain('Vaara-Salasana-2');
     palvelin.close();
   }, 180000);
+  it('pelaaja-sivu: PalloID + PIN → pelaajaKirjaudu (europe-west1) → signInWithCustomToken nimettyyn appiin (window._fbApp/_auth, ei oletusappia) → kirjautunut=true, rooli pelaaja; PIN/token eivät vuoda; puuttuva tunnus → kirjautumaton + varoitus', async () => {
+    const fsm = require('fs'), os = require('os'), pathm = require('path'), hakemisto = fsm.mkdtempSync(pathm.join(os.tmpdir(), 'mittaus-pelaaja-'));
+    const PELAAJA_SIVU = `<!doctype html><meta charset="utf-8"><title>vale-pelaaja</title><h1>Pelaaja</h1><script src="/sdk.js"></script><script>
+      var tila = function () { try { return localStorage.getItem('pelaajaUid'); } catch (e) { return null; } };
+      window._fbApp = { functions: function (alue) { window.__alue = alue; return { httpsCallable: function (nimi) { return function (syote) { window.__kutsu = { nimi: nimi, alue: alue, tunnus: syote.liittoTunnus }; return syote.liittoTunnus === 'SYNT0100003' && syote.pin === '654321' ? Promise.resolve({ data: { token: 'VALE-CUSTOM-TOKEN' } }) : Promise.reject({ code: 'functions/unauthenticated' }); }; } }; } };
+      window._auth = { get currentUser() { return tila() ? { uid: tila() } : null; }, signInWithCustomToken: function (t) { if (t !== 'VALE-CUSTOM-TOKEN') return Promise.reject({ code: 'auth/invalid-custom-token' }); localStorage.setItem('pelaajaUid', 'pel_x'); return Promise.resolve(); } };
+    </script>`;
+    const palvelin = createServer((rq, rs) => { if (rq.url === '/sdk.js') { rs.setHeader('content-type', 'text/javascript'); rs.end(FAKE_SDK + 'firebase.apps.push({}); firebase.auth = function () { throw new Error("ei oletusappia"); };'); } else { rs.setHeader('content-type', 'text/html'); rs.end(rq.url.indexOf('Pelaaja_v7') > -1 ? PELAAJA_SIVU : SIVU); } });
+    await new Promise((r) => palvelin.listen(0, '127.0.0.1', r)); const portti = palvelin.address().port, tunn = pathm.join(hakemisto, 't.txt'), ulosJson = pathm.join(hakemisto, 's.json');
+    fsm.writeFileSync(tunn, '# x\npelaaja.s01@kuorma.test\t654321\tpelaaja\tkuorma_seura_01\tSYNT0100003\n');
+    const asetus = (ulos) => ({ urlSallittu: () => true, kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: { STAGING_APPCHECK_DEBUG_TOKEN: 'E2E-TOKEN', TM_CHROME_PATH: CHROME } });
+    const ulos = []; const koodi = await S.main(['--url=http://127.0.0.1:' + portti, '--tunnukset=' + tunn, '--sivut=pelaaja', '--profiilit=tyopoyta', '--toistot=1', '--ulos=' + ulosJson], asetus(ulos));
+    const teksti = ulos.join('\n'), j = JSON.parse(fsm.readFileSync(ulosJson, 'utf8'));
+    expect(koodi, teksti).toBe(0); expect(j.mittaukset[0].rooli).toBe('pelaaja'); expect(j.mittaukset[0].kylma[0].kirjautunut).toBe(true); expect(j.mittaukset[0].lampimat[0].kirjautunut).toBe(true);
+    expect(teksti).toMatch(/kirjaudutaan: rooli pelaaja/); expect(teksti).not.toMatch(/EI KIRJAUTUNUT/);
+    const kaikki = teksti + fsm.readFileSync(ulosJson, 'utf8'); ['654321', 'VALE-CUSTOM-TOKEN', 'E2E-TOKEN'].forEach((x) => expect(kaikki).not.toContain(x));
+    const vaaraPin = pathm.join(hakemisto, 'v.txt'); fsm.writeFileSync(vaaraPin, 'pelaaja.s01@kuorma.test\t111111\tpelaaja\tkuorma_seura_01\tSYNT0100003\n'); const u2 = [];
+    expect(await S.main(['--url=http://127.0.0.1:' + portti, '--tunnukset=' + vaaraPin, '--sivut=pelaaja', '--toistot=1', '--ulos=' + ulosJson], asetus(u2))).toBe(1); expect(u2.join('\n')).toMatch(/kirjautuminen epäonnistui \(functions\/unauthenticated\)/); expect(u2.join('\n')).not.toContain('111111');
+    const ilman = pathm.join(hakemisto, 'i.txt'); fsm.writeFileSync(ilman, 'vp.s01@kuorma.test\tx\n'); const u3 = [];
+    expect(await S.main(['--url=http://127.0.0.1:' + portti, '--tunnukset=' + ilman, '--sivut=pelaaja', '--profiilit=tyopoyta', '--toistot=1', '--ulos=' + ulosJson], asetus(u3))).toBe(0);
+    expect(u3.join('\n')).toMatch(/KIRJAUTUMATTOMANA/); const j3 = JSON.parse(fsm.readFileSync(ulosJson, 'utf8')); expect(j3.mittaukset[0].rooli).toBeNull(); expect(j3.mittaukset[0].kylma[0].kirjautunut).toBe(false);
+    palvelin.close();
+  }, 180000);
 });

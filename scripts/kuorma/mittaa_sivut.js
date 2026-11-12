@@ -17,7 +17,7 @@ const SIVUT = Object.freeze({
   master: { tiedosto: 'TalentMaster_Master_v16.html', rooli: 'talenttivalmentaja' },
   kehitys: { tiedosto: 'TalentMaster_Kehitystyopoyta.html', rooli: 'valmentaja1' },
   testaus: { tiedosto: 'TalentMaster_Testaus_v9.html', rooli: 'talenttivalmentaja' },
-  pelaaja: { tiedosto: 'TalentMaster_Pelaaja_v7.html', rooli: null },   // pelaajakirjautuminen = PalloID + PIN (custom token); aineistossa ei pelaaja-Auth-tilejä → mitataan kirjautumattomana
+  pelaaja: { tiedosto: 'TalentMaster_Pelaaja_v7.html', rooli: 'pelaaja' },   // PalloID + PIN → pelaajaKirjaudu → custom token (generoi_aineisto.js --pin-pelaaja luo tunnuksen); puuttuva tunnus → mitataan kirjautumattomana + varoitus
 });
 const PROFIILIT = Object.freeze({
   tyopoyta: { nimi: 'tyopoyta', konteksti: { viewport: { width: 1366, height: 768 } }, verkko: null, cpu: 1 },
@@ -60,7 +60,7 @@ async function mittaaAvaus(page, cdp, url, opt) {
     if (tila && tila.fcp != null && tila.avoimet === 0 && M.laskeInteraktiivinen({ fcp: tila.fcp, varit: tila.varit, ikkuna, havaintoLoppu: tila.nyt }) != null) break;
   }
   let lopullinen = null;
-  try { lopullinen = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window.firebase && firebase.auth && firebase.auth().currentUser); } catch (e) {} return { fcp: m.fcp, varit: m.varit.slice(), luvut: m.luvut, yht: m.yht, kiinnitetty: m.kiinnitetty, virheet: m.virheet, kirjautunut: k, nyt: performance.now() }; }); } catch (e) { virhe = virhe || 'luku: ' + String(e && e.message).split('\n')[0]; }
+  try { lopullinen = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {}   /* window._auth = Pelaaja_v7:n nimetty app 'tm-pelaaja' (ei oletusappia) */ return { fcp: m.fcp, varit: m.varit.slice(), luvut: m.luvut, yht: m.yht, kiinnitetty: m.kiinnitetty, virheet: m.virheet, kirjautunut: k, nyt: performance.now() }; }); } catch (e) { virhe = virhe || 'luku: ' + String(e && e.message).split('\n')[0]; }
   kuuntelijat.forEach(([n, f]) => cdp.off && cdp.off(n, f));
   let tavut = wsTavut; pyynnot.forEach((p) => { tavut += p.valmis ? p.loppu : p.tavut; });
   if (!lopullinen) return { virhe: virhe || 'instrumentointi puuttuu', tavut };
@@ -75,15 +75,23 @@ async function kuristus(cdp, profiili) {
 }
 
 /** Kirjautuminen: avaa Seura-sivu, kirjaudu SDK:lla (default app), palauta storageState MUISTISSA (sisältää tunnisteet — ei levylle). */
-async function kirjaudu(selain, base, tunnus, token, M2) {
+async function kirjaudu(selain, base, tunnus, token, M2, sivu) {
   const ctx = await selain.newContext({ viewport: { width: 1366, height: 768 } }); await ctx.addInitScript(instrumentointi, { token });
   const page = await ctx.newPage();
   try {
-    await page.goto(base + '/' + SEURAAN_KIRJAUTUMINEN, { waitUntil: 'load', timeout: TIMEOUT_MS });
+    await page.goto(base + '/' + (tunnus.palloId ? sivu : SEURAAN_KIRJAUTUMINEN), { waitUntil: 'load', timeout: TIMEOUT_MS });
     await page.waitForFunction(() => window.firebase && firebase.auth && firebase.apps && firebase.apps.length > 0, null, { timeout: 30000 });
-    const r = await page.evaluate(async (t) => { try { await firebase.auth().signInWithEmailAndPassword(t.email, t.salasana); return { ok: true }; } catch (e) { return { ok: false, koodi: e && e.code }; } }, tunnus);
+    if (tunnus.palloId) await page.waitForFunction(() => window._fbApp && window._auth, null, { timeout: 30000 });
+    /* Pelaaja (tunnus.palloId): sama polku kuin Pelaaja_v7 _kirjaudu() — pelaajaKirjaudu({ liittoTunnus, pin }) europe-west1 (App Check: debug-token) → signInWithCustomToken. Henkilökunta: sähköposti + salasana. */
+    const r = await page.evaluate(async (t) => {
+      try {
+        if (t.palloId) { const app = window._fbApp || firebase.app(), au = window._auth || firebase.auth(); const v = await app.functions('europe-west1').httpsCallable('pelaajaKirjaudu')({ liittoTunnus: t.palloId, pin: t.salasana }); await au.signInWithCustomToken(v.data.token); }
+        else await firebase.auth().signInWithEmailAndPassword(t.email, t.salasana);
+        return { ok: true };
+      } catch (e) { return { ok: false, koodi: e && e.code }; }
+    }, tunnus);
     if (!r.ok) throw new Error('kirjautuminen epäonnistui (' + (r.koodi || 'tuntematon') + ')');
-    await page.waitForFunction(() => firebase.auth().currentUser, null, { timeout: 15000 }); await page.waitForTimeout(1500);   // anna IndexedDB-persistenssin kirjoittaa
+    await page.waitForFunction(() => (window._auth || firebase.auth()).currentUser, null, { timeout: 15000 }); await page.waitForTimeout(1500);   // anna IndexedDB-persistenssin kirjoittaa
     return await ctx.storageState({ indexedDB: true });
   } catch (e) { throw new Error(M.piilota(e && e.message, M2)); } finally { await ctx.close(); }
 }
@@ -100,7 +108,7 @@ async function main(argv, deps) {
   const suunnitelma = o.sivut.length * o.profiilit.length * o.toistot * 2;
   kirjaa('SIVUMITTAUS ' + (o.kuiva ? '(KUIVA-AJO, ei avaa selainta)' : '') + ' · ' + o.url + ' · seura s' + String(o.seura).padStart(2, '0') + ' · sivut ' + o.sivut.join(',') + ' · profiilit ' + o.profiilit.join(',') + ' · ' + o.toistot + ' toistoa → ' + suunnitelma + ' avausta (kylmä+lämmin)');
   if (o.kuiva) { o.sivut.forEach((s) => kirjaa('  ' + s + ' → ' + SIVUT[s].tiedosto + ' · rooli ' + (SIVUT[s].rooli || 'ei kirjautumista'))); return 0; }
-  let tunnukset; try { tunnukset = M.lueTunnukset(fs.readFileSync(o.tunnukset, 'utf8')); } catch (e) { virhe('Tunnustiedostoa ei voitu lukea (' + o.tunnukset + ').'); return 2; }
+  let tunnukset, tunnusTeksti; try { tunnusTeksti = fs.readFileSync(o.tunnukset, 'utf8'); tunnukset = M.lueTunnukset(tunnusTeksti); } catch (e) { virhe('Tunnustiedostoa ei voitu lukea (' + o.tunnukset + ').'); return 2; }
   const chromePolku = env.TM_CHROME_PATH || ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => fs.existsSync(p));
   const { chromium } = d.playwright || require('playwright-core'), selain = await chromium.launch({ executablePath: chromePolku, args: ['--no-sandbox', '--hide-scrollbars'] });
   const token = env.STAGING_APPCHECK_DEBUG_TOKEN, alkuAika = new Date().toISOString(), t0 = Date.now(), tulos = { meta: { aika: alkuAika, isanta: new URL(o.url).host, seura: o.seura, toistot: o.toistot, ikkuna_ms: IKKUNA_MS, kuristus: { puhelin: PROFIILIT.puhelin.verkko, cpu: PROFIILIT.puhelin.cpu } }, mittaukset: [] };
@@ -109,8 +117,14 @@ async function main(argv, deps) {
     for (const sivuAvain of o.sivut) {
       const s = SIVUT[sivuAvain]; let tila;
       if (s.rooli) {
-        if (!tilat[s.rooli]) { const t = M.haeTunnus(tunnukset, s.rooli, o.seura); if (!t) { virhe('Tunnusta ei löydy (rooli ' + s.rooli + ', seura ' + o.seura + ').'); await selain.close(); return 2; } kirjaa('  kirjaudutaan: rooli ' + s.rooli); try { tilat[s.rooli] = await kirjaudu(selain, o.url, t, token, tunnukset); } catch (e) { virhe('  ' + e.message); await selain.close(); return 1; } }
-        tila = tilat[s.rooli];
+        if (!(s.rooli in tilat)) {
+          let t = M.haeTunnus(tunnukset, s.rooli, o.seura);
+          if (t && s.rooli === 'pelaaja') { const pid = M.haePalloId(tunnusTeksti, o.seura); t = pid ? Object.assign({ palloId: pid }, t) : null; }
+          if (!t && s.rooli === 'pelaaja') { virhe('  ⚠ Pelaajan PalloID + PIN -tunnusta ei löydy (seura ' + o.seura + ') — pelaaja-sivu mitataan KIRJAUTUMATTOMANA (vain kirjautumisnäkymä). Luo tunnus: generoi_aineisto.js --pin-pelaaja (tai --vain-pinit).'); tilat[s.rooli] = null; }
+          else if (!t) { virhe('Tunnusta ei löydy (rooli ' + s.rooli + ', seura ' + o.seura + ').'); await selain.close(); return 2; }
+          else { kirjaa('  kirjaudutaan: rooli ' + s.rooli); try { tilat[s.rooli] = await kirjaudu(selain, o.url, t, token, tunnukset, s.tiedosto); } catch (e) { virhe('  ' + e.message); await selain.close(); return 1; } }
+        }
+        tila = tilat[s.rooli] || undefined;
       }
       for (const pAvain of o.profiilit) {
         const prof = PROFIILIT[pAvain], kylmat = [], lampimat = [];
@@ -119,11 +133,11 @@ async function main(argv, deps) {
           const page = await ctx.newPage(), cdp = await ctx.newCDPSession(page); await kuristus(cdp, prof);
           const url = o.url + '/' + s.tiedosto, kylma = await mittaaAvaus(page, cdp, url), lampimasti = await mittaaAvaus(page, cdp, url);
           kylmat.push(kylma); lampimat.push(lampimasti);
-          kirjaa('  ' + sivuAvain + ' · ' + pAvain + ' · ' + i + '/' + o.toistot + ' · kylmä: interaktiivinen ' + (kylma.tti_ms != null ? (kylma.tti_ms / 1000).toFixed(1) + ' s' : (kylma.virhe || 'ei rauhoittunut')) + ', ' + (kylma.yht != null ? kylma.yht : '?') + ' lukua, ' + ((kylma.tavut || 0) / 1e6).toFixed(2) + ' MB · lämmin: ' + (lampimasti.tti_ms != null ? (lampimasti.tti_ms / 1000).toFixed(1) + ' s' : '?') + (kylma.kirjautunut === false && s.rooli ? ' · ⚠ EI KIRJAUTUNUT' : ''));
+          kirjaa('  ' + sivuAvain + ' · ' + pAvain + ' · ' + i + '/' + o.toistot + ' · kylmä: interaktiivinen ' + (kylma.tti_ms != null ? (kylma.tti_ms / 1000).toFixed(1) + ' s' : (kylma.virhe || 'ei rauhoittunut')) + ', ' + (kylma.yht != null ? kylma.yht : '?') + ' lukua, ' + ((kylma.tavut || 0) / 1e6).toFixed(2) + ' MB · lämmin: ' + (lampimasti.tti_ms != null ? (lampimasti.tti_ms / 1000).toFixed(1) + ' s' : '?') + (kylma.kirjautunut === false && tila ? ' · ⚠ EI KIRJAUTUNUT' : ''));
           if (i === 1 && kylma.kiinnitetty === false) { virhe('  ⚠ Firestore-instrumentointi ei kiinnittynyt (compat-SDK:n nimiavaruutta ei löytynyt) — lukuja ei lasketa; käytä Monitoring read_countia.'); }
           await ctx.close();
         }
-        tulos.mittaukset.push({ sivu: sivuAvain, profiili: pAvain, rooli: s.rooli, kylma: kylmat, lampimat, yhteenveto: { kylma: yhteenveto(kylmat), lampimat: yhteenveto(lampimat) } });
+        tulos.mittaukset.push({ sivu: sivuAvain, profiili: pAvain, rooli: tila ? s.rooli : null, kylma: kylmat, lampimat, yhteenveto: { kylma: yhteenveto(kylmat), lampimat: yhteenveto(lampimat) } });
       }
     }
   } finally { await selain.close(); }
