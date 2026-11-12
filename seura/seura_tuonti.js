@@ -470,14 +470,7 @@ async function lataaRekisteriPohja() {
     }
 
     // Rakenna Excel SheetJS:llä
-    if (typeof XLSX === 'undefined') {
-      await new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-        s.onload = res; s.onerror = rej;
-        document.head.appendChild(s);
-      });
-    }
+    await window.tmXlsxLataa();   // xlsx laiskasti (lib/tm_xlsx_laiska.js)
 
     const wb = XLSX.utils.book_new();
 
@@ -766,7 +759,7 @@ function kasitteleExcelTuonti(event) {
       const data = new Uint8Array(e.target.result);
 
       // Kaikki tuonti SheetJS:llä — tukee sekä .xlsx että .csv
-      if (typeof XLSX === 'undefined') throw new Error(tmHT('Excel-lukija ei ole ladattu — päivitä sivu ja yritä uudelleen.'));
+      try { await window.tmXlsxLataa(); } catch (le) { throw new Error(tmHT('Excel-lukija ei ole ladattu — päivitä sivu ja yritä uudelleen.')); }   // xlsx laiskasti vasta tiedoston lukuun
       const wb = XLSX.read(data, { type: 'array' });
       // Käytetään ensimmäistä välilehteä (Pelaajat)
       const ws = wb.Sheets[wb.SheetNames[0]];

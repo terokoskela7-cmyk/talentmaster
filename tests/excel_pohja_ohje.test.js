@@ -35,7 +35,7 @@ describe('lataaRekisteriPohja (ajettu SheetJS-tyngällä)', () => {
     const XLSX = { utils: { book_new: () => ({}), aoa_to_sheet: (aoa) => ({ aoa }), book_append_sheet: (wb, ws, nimi) => { lehdet[nimi] = ws.aoa; } }, writeFile() {} };
     const joukkueet = { docs: [{ id: 'kpv_u13', data: () => ({ nimi: 'KPV U13' }) }, { id: 'kpv_t18', data: () => ({ nimi: 'KPV T18' }) }] };
     const ctx = {
-      XLSX, tila: { seuraId: 'kpv', seuraNimi: 'KPV' }, naytaToast: (t, l) => toastit.push([t, l]), console: { error() {} },
+      XLSX, window: { tmXlsxLataa: async () => XLSX }, tila: { seuraId: 'kpv', seuraNimi: 'KPV' }, naytaToast: (t, l) => toastit.push([t, l]), console: { error() {} },
       document: { querySelector: () => nappi }, Date, Set, Promise, Object, String, Array, Number, RegExp,
       db: { collection: () => ({ doc: () => ({ collection: (k) => (k === 'joukkueet'
         ? { orderBy: () => ({ get: async () => joukkueet }), get: async () => joukkueet }
