@@ -130,3 +130,110 @@ seurat/{sid}/kooste_joukkue/…          // olemassa: lisätään Pulssille läs
 - **Q7.** Seuran listassa näytetään loukkaantumismerkintä (terveystieto)? Suositus: ei yhteenvetoon; haetaan pelaajaa avattaessa.
 - **Q8.** Aloitetaanko B.6:n nopeat korjaukset (1, 2, 5) ennen yhteenvetoa? Suositus: kyllä, pieninä PR:inä; 3–4 Masterin B-vaiheen mukana.
 - **Q9.** CLAUDE.md §41 -päivitys (palvelinkooste aiemmin kuin 1 000 pelaajaa) kirjataan päätöksen jälkeen.
+
+---
+
+## D. Kohta 5 — Viikkokoosteen jako seurakohtaisiin tehtäviin (fan-out)
+
+### D.1 Lähtötilanne ja mittaus
+
+Funktiomittaus (staging, 2 seuraa): `laskeSeuranKooste` max **46,6 s**, eli noin **20 s / 500 pelaajan seura**. Valvonta 6 s ja kirjautumisaika 1 s ovat kunnossa.
+
+Syy koodissa (`functions/seuran_kooste.js`): `laskeKaikki` käy seurat **peräkkäin** (`for … await laskeSeura`), ja yksi `laskeSeura` tekee seuran koko työn: joukkueet + pelaajat + `sisainen`-yhdistys, `keraaOma` (2 kyselyä / pelaaja, 25 rinnakkain), viikkokatsausten `getAll`, katselmusten kyselyt, batch-kirjoitukset ja lopuksi toimenpide-ehdotukset (projekti 03). Ajastetut (`ajastettuKasittelija`, su 21 ja ma 06) ajavat kaikki seurat **yhdessä funktiokutsussa**.
+
+| | Nyt | 40 seuraa |
+|---|---|---|
+| Kokonaisaika | ~20 s / 500 pelaajaa, summautuu | **~600–900 s** (isompia seuroja → enemmän) |
+| P11 (270 s) | ok | **ylittyy** |
+| Funktion aikaraja (1st gen scheduled, 540 s) | ok | **ylittyy** → ajo katkeaa kesken, loput seurat ilman koostetta, eikä virhettä kirjata seurakohtaisesti |
+
+Aika kasvaa lineaarisesti seurojen määrässä, joten pelkkä muistin/rinnakkaisuuden nosto ei riitä pitkään: ongelma on rakenteellinen (yksi kutsu = kaikki seurat).
+
+### D.2 Ehdotus: dispatcher + yksi tehtävä per seura
+
+```
+Cloud Scheduler (su 21, ma 06, ennallaan)
+   └─ dispatcher-funktio (lyhyt, ~2–5 s)
+        · lukee aktiiviset seurat (yksi seurat.get())
+        · laskee kerran: rajat, nytMs, koosteViikko → tunniste (vvvv-Www)
+        · jonottaa YHDEN tehtävän / seura, payload { sid, tila, nytMs, vk, arvio:false }
+   └─ worker-funktio (laskeSeura per seura, europe-west1)
+        · ajaa nykyisen laskeSeura(deps, sid, { rajat(vk), nytMs })  ← sama koodi kuin callablessa
+        · epäonnistuu → vain tämä seura yritetään uudelleen
+```
+
+**Kuljetus — vertailu:**
+
+| | Cloud Tasks (`functions.tasks.taskQueue`, v1) | Pub/Sub (`pubsub.topic().onPublish`) |
+|---|---|---|
+| Rinnakkaisuuden rajaus | **Kyllä** (`rateLimits.maxConcurrentDispatches`, `maxDispatchesPerSecond`) | Ei suoraan; rajaus vain `maxInstances`illa |
+| Uudelleenyritys | **Konfiguroitava** (`retryConfig`: maxAttempts, minBackoff/maxBackoff, maxDoublings) | Oletus pois; `failurePolicy:true` yrittää **jopa 7 vrk** ellei viesti onnistu → vaarallinen (sotkee viikot) |
+| Kaksoistoimitus | Tehtävänimellä dedupe (`id`) | At-least-once, ei dedupea |
+| Tehtävän enimmäiskesto | Pidempi kuin scheduled (tarkistettava SDK-versiosta, ennen toteutusta) | 540 s |
+| Uusi riippuvuus | Cloud Tasks API + jono (`firebase-admin/functions` `getFunctions().taskQueue(...)`) | Ei (Pub/Sub jo käytössä ajastuksissa) |
+
+**Suositus: Cloud Tasks.** Rinnakkaisuuden rajaus (esim. 8 yhtä aikaa) suojaa Firestorea ja toisia käyttäjiä, uudelleenyritys on hallittu ja tehtävän `id` antaa dedupen. Pub/Sub on varavaihtoehto, jos Cloud Tasks -jonon käyttöönotto (API + IAM `cloudtasks.enqueuer`) ei onnistu CI-deployssa.
+
+**Seinäaika fan-outilla:** 40 seuraa × ~20 s / 8 rinnakkaista ≈ **100–150 s** (isoimman seuran aika + jonotus), alle P11:n 270 s. Yksittäinen seura on tuhansien pelaajien tapaukseen (5 000 pelaajaa ≈ 200 s) yhä alle 540 s; sen yli seura jaettaisiin joukkueittain (`keraaOma` on nyt vakioerissä 25, rinnakkaisuuden nosto ensin).
+
+**Tärkeä yksityiskohta — aikaleima kulkee mukana:** `arvioHetki = min(nytMs, su21Ms)` riippuu ajohetkestä. Dispatcher laskee `nytMs`:n ja viikon tunnisteen **kerran** ja antaa ne tehtävän payloadissa; worker ei kutsu `Date.now()`ia. Muuten uudelleenyritys tuntien päästä laskisi eri arvion ja su 21 / ma 06 -ajot voisivat päätyä eri viikkoon (§7.26: Helsingin päivä `helsinki_paiva.js`).
+
+### D.3 Kustannus
+
+| Erä | Arvio | Huomio |
+|---|---|---|
+| Firestore-luvut | **ei muutu** (sama työ, jaettuna) | Dominoiva kustannus; ~2–3 k lukua / 500 pelaajan seura × 40 × 2 ajoa/vko ≈ 160–240 k/vko → suuruusluokka **alle 0,2 € / vko** (hinta tarkistettava eur3-hinnastosta; tämä on arvio, ei mittaus) |
+| Function-kutsut | 40 seuraa × 2 = **80 worker + 2 dispatcher / vko** | Vapaiden kiintiöiden sisällä |
+| Laskenta (GB-s) | sama summa kuin nyt (~800 s × muisti) | Fan-out ei lisää; rinnakkaisuus ei maksa lisää, vain pienentää seinäaikaa |
+| Cloud Tasks | ~80 tehtävää / vko | ilmainen taso 1 M / kk |
+| Pub/Sub (vaihtoehto) | ~80 viestiä / vko | käytännössä 0 € |
+| Cloud Scheduler | 2 jobia (ennallaan) | ei muutosta |
+
+Johtopäätös: kustannus ei ole peruste jättää tekemättä; fan-out ei kasvata laskua mitattavasti. **Seurannassa:** worker-lokiin seura-id + kesto + lukumäärät (ei nimiä/pelaaja-ID:itä), jotta vertailu 20 s -lukuun onnistuu myös tuotannossa.
+
+### D.4 Virheet ja uudelleenyritys
+
+- **Seurakohtainen eristys:** nyt yhden seuran virhe kirjataan ja jatketaan (`laskeKaikki`), mutta aikakatko vie kaikki. Fan-outilla katkaisu osuu vain yhteen seuraan.
+- **Idempotenssi on jo olemassa:** koosteet kirjoitetaan `set`illa (sama dokumentti-id = viikon tunniste), ehdotukset `create()`illa deterministisellä id:llä (`ehdotusId`, ALREADY_EXISTS → `ohitettu`). Siksi uudelleenyritys ja kaksoistoimitus ovat turvallisia.
+- **Uudelleenyrityspolitiikka (ehdotus):** 4 yritystä, `minBackoff` 60 s, `maxDoublings` 3; **ei yritetä** pysyviä virheitä (`kooste sisältää kiellettyjä kenttiä` = tmKoosteRikkomukset → ohjelmointivirhe, ei uudelleen). Pysyvät virheet palautetaan 2xx + virheloki, tilapäiset (DEADLINE_EXCEEDED, UNAVAILABLE) heitetään → jono yrittää uudelleen.
+- **Ei hiljaista epäonnistumista (muistisääntö):** jos kaikki yritykset kuluvat, jää jälki: virheloki (`[seuran kooste] seura <sid> <vk>`) + hälytys (Cloud Monitoring log-based, "viikkokooste epäonnistui"). Lisäksi dispatcheriin "tarkistusajo" (esim. su 23:30 / ma 07:30): puuttuuko `kooste/{vk}` jostakin aktiivisesta seurasta → jonota uudelleen. Ilman tätä seura voi jäädä ilman viikon koostetta eikä kukaan huomaa.
+- **Päällekkäinen su 21 ↔ ma 06:** ovat jo nyt turvallisia (sama viikon tunniste, `set` + `create`). Jos su-tehtävä vielä yrittää uudelleen ma 06, kaksi samaa työtä ajaa rinnakkain: tulos sama, vain turha kustannus. Tehtävä-id `kooste_{sid}_{vk}_{tila}` estää saman tehtävän tuplan.
+
+### D.5 "Päivitä nyt" -callable (`paivitaSeuranKooste`)
+
+Nykyinen polku: callable (johto/SA, `tarkistaOikeus`) → 30 s jäähy (`kooste.laskettu`) → **synkroninen** `laskeSeura` yhdelle seuralle → vastaus `{ vk, joukkueita }`. Se on jo seurakohtainen, joten fan-out ei muuta sen perusrakennetta, ja **se käyttää samaa `laskeSeura`a kuin worker** (ei kahta toteutusta).
+
+| Vaihe | Muutos | Perustelu |
+|---|---|---|
+| 1 | **Ei muutosta**: pysyy synkronisena | 20 s / 500 pelaajaa mahtuu callablen aikarajaan; tuettu skenaario = yksi seura |
+| 2 (jos p95 > ~40 s tai isompi seura) | Callable jonottaa **saman workerin** tehtävän (id `paivita_{sid}_{vk}_{30 s -ikkuna}`) ja palauttaa `{ jono: true }`. Klientti kuuntelee `kooste/{vk}.laskettu` (`onSnapshot`) ja näyttää "päivitetty hh:mm" | ei aikarajaa, ei hiljaista katkeamista; jäähy ja tehtävä-id estävät spämmin |
+
+Muuta: callablen oikeustarkistus (johto/SA oma seura) pysyy callablessa; **worker ei luota payloadiin** vaan tarkistaa, että `sid` kuuluu aktiiviseen seuraan (tehtäväjono ei ole julkinen, mutta puolustus syvyydessä). Dispatcher/worker eivät ole client-kutsuttavia (`taskQueue`-funktiot vaativat palvelutilin).
+
+### D.6 Toimenpide-ehdotukset (projekti 03) mukana
+
+Ehdotukset lasketaan nyt `laskeSeura`n **lopussa** samassa kutsussa (`deps.ehdotukset`, vain `!opts.arvio`), joten ne kulkevat fan-outissa automaattisesti seurakohtaisen tehtävän mukana ja jakavat sen aikarajan (~lisää luku `toimenpiteet.where(tila == 'ehdotus')` ja `create`t).
+
+Havainnot, jotka vaativat päätöksen:
+1. **Ehdotusvirhe nielaistaan** (`try/catch` → virheloki, koostetta ei kaadeta). Fan-outissa tämä tarkoittaa, että jono ei koskaan yritä ehdotuksia uudelleen: koosteen onnistuminen peittää ehdotusten epäonnistumisen (= hiljainen virhe). **Ehdotus:** worker saa lipun `ehdotusVirhe` tulokseen ja heittää **vasta koosteen kirjoituksen jälkeen** (kooste on jo tallessa, uudelleenyritys ajaa vain ehdotukset uudelleen; `create` + ALREADY_EXISTS tekee siitä idempotentin). Vaihtoehto: ehdotukset omaksi tehtäväkseen (`ehdotukset_{sid}_{vk}`), jolloin virhe ja kesto näkyvät erikseen — selkeämpi, hieman enemmän koodia.
+2. **Viikko-ankkuri** (`rajat.tunniste`) kulkee payloadissa (D.2), joten su 21 ja ma 06 törmäävät edelleen samaan `ehdotusId`-viikkoon; jos tehtävä yrittää uudelleen tuntien päästä, viikko ei vaihdu.
+3. **Rinnakkaisuus ja dedup (D134):** `ehdotusEste` lasketaan seurakohtaisesti avoimista (`tila == 'ehdotus'`), joten seurojen rinnakkaisajo ei vuoda yli seurojen. Saman seuran kaksi tehtävää rinnakkain (su-uudelleenyritys + ma) → `create` ALREADY_EXISTS → turvallista.
+4. **Callable "Päivitä nyt"** luo ehdotukset samalla tavalla (arvio false). Jos ehdotukset epäonnistuvat, kliennille palautetaan nyt silti onnistuminen → lisätään vastaukseen `ehdotukset: 'virhe'` jotta UI voi näyttää toimintaohjeen (silent-failure-sääntö), ei vain lokiin.
+5. **Loki:** `_lokitaEhdotukset` kirjaa vain luvut ja seura-id:n — sopii sellaisenaan workeriin.
+
+### D.7 Vaiheistus ja muutettavat tiedostot (ei toteutettu tässä PR:ssä)
+
+1. **`functions/`** (Teron kaista): `seuran_kooste.js` → `laskeKaikki` korvataan dispatcherilla + exportoidaan worker-käsittelijä (`laskeSeura` ennallaan); `index.js` → uusi taskQueue-funktio + dispatcher kahdelle ajastukselle (su 21 / ma 06 jäävät omiksi jobeikseen, vain sisältö muuttuu); IAM/Cloud Tasks -jono CI-deployssa (`STAGING_ASENNUS.md` päivitettävä).
+2. **Testit:** dispatcher jonottaa täsmälleen yhden tehtävän / aktiivinen seura (epäaktiivinen ohitetaan); payload sisältää `nytMs`+`vk`; worker idempotentti (kaksi ajoa → sama lopputulos, ei tuplaehdotuksia); ehdotusvirhe ei kadota koostetta mutta aiheuttaa uudelleenyrityksen.
+3. **Mittaus:** `funktiomittaus` mittaa nyt yhden kutsun kestoa; fan-outille mitataan **kokonaisseinäaika** (dispatcher käynnistyksestä viimeisen seuran `kooste.laskettu`-aikaan) ja **max yksittäinen tehtävä**; P11-rajan tulkinta (kokonaisaika vs. yksittäinen) kirjataan raporttiin.
+4. **Staging:** ajastukset on pausetettu (PM: "aja Deploy Staging (vain functions)") — fan-out testataan ensin staging-datalla (500 pelaajan seura × 2 + synteettiset 38 seuraa tai jono-ajo samalla seuralla useasti).
+5. **Tuotanto:** kuiva-ajo/`arvio:true`-tila säilyy; ensimmäinen su-ajo seurataan lokista (seurojen lukumäärä = tehtävien lukumäärä = `kooste`-dokumentit).
+
+### D.8 Päätettävät kohdat
+
+- **Q10.** Kuljetus: Cloud Tasks (suositus) vai Pub/Sub?
+- **Q11.** Rinnakkaisuus ja uudelleenyritys: 8 yhtä aikaa, 4 yritystä, 60 s minBackoff — hyväksytäänkö lähtöarvoiksi?
+- **Q12.** Ehdotukset: samassa tehtävässä virheen uudelleenyrityksellä (nopea) vai omana tehtävänään (selkeämpi)?
+- **Q13.** "Päivitä nyt": pidetäänkö synkronisena (vaihe 1) ja siirrytään jonoon vasta mittauksen p95 > 40 s?
+- **Q14.** Tarkistusajo (puuttuva `kooste/{vk}` → jonotus uudelleen) + hälytys mukaan ensimmäiseen toteutukseen? Suositus: kyllä.
+- **Q15.** Tarkistettava ennen toteutusta (ei vielä verifioitu tässä selvityksessä): Cloud Tasks -funktion enimmäiskesto ja `taskQueue`-tuki asennetussa `firebase-functions`-versiossa (`functions/package.json`: ^6.6.0, v1-API) sekä `cloudtasks.enqueuer`-oikeus CI-palvelutilille.
