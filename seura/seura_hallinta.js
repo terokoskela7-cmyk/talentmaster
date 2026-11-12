@@ -720,6 +720,7 @@ async function tallennaJoukkueMuutos(joukkueId, vanhanimi) {
       if (Object.keys(paivitys).length) { batch.update(d.ref, paivitys); n++; }
     });
     if (n) {
+      if (typeof tmPelaajatEsiTyhjenna === 'function') tmPelaajatEsiTyhjenna();
       await batch.commit();
       if (statusEl) statusEl.textContent = '✓ Valmis — ' + n + ' pelaajaa päivitetty';
     } else {
