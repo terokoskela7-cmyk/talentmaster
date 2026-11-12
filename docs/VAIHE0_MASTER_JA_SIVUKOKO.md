@@ -120,3 +120,20 @@ Hinta: koko repo (HTML-inline-skriptit, `window.*`-globaalit, 135 skriptiä jär
 - **P6.** Sivukoon järjestys: kevennys a–h ensin, Vite-päätös mittauksen jälkeen (suositus) vai Vite-suunnittelu heti?
 - **P7.** Mitkä sivut kuuluvat 5 s -vaatimukseen puhelimella (pelaaja = kyllä; VP/Master = työpöytäkäyttöön, puhelinraja ei koske)? Jos Master/VP:lle riittää työpöytä < 2 s, Vite-tarve pienenee.
 - **P8.** Pitääkö 5 aiemmin mitattua sivua (Testaus, Kehitystyöpöytä, Seura, VP, Master) mitata uudelleen? Kyllä: `sivut.json` ylikirjoittui (korjaus PR #1269); luvut ovat Teron viestissä, mutta raakadata + Monitoring read_count -ikkuna ovat kadonneet. Uudelleenmittaus ~25 min (5 sivua × 2 profiilia × 5 toistoa) kun #1269 on mergetty, tai ajettava vanhalla skriptillä eri `--ulos`-tiedostoihin.
+
+---
+
+## 4. PM:n päätökset (12.11.2026)
+
+| # | Päätös | Toteutus |
+|---|---|---|
+| P1 | Kyllä: resurssierittely + Masterin luvut kokoelmittain | PR #1271 (mittaa_sivut + raportti §3b/§3c) |
+| P2 | Talenttivalmentajan oletus = oma joukkue + talenttiohjelma; koko seura suodattimesta | Masterin latauksen A-vaihe (oma PR) |
+| P3 | B → A; C vasta tarvittaessa | Master-PR:t: ensin laiska lataus, sitten joukkuerajaus |
+| P4 | Lukuja/avaus: 2 000 henkilökunta, 200 pelaaja ja huoltaja | `mittaus_lib.js` RAJAT (#1271) |
+| P5 | fi aina mukana; sv/en ladataan dynaamisesti ENNEN renderiä | i18n-render-gate säilyy; osa kevennystä b |
+| P6 | Kevennykset a–h ensin; Vite mittauksen jälkeen | Kehitystyöpöytä ensin (oma PR), sitten muut sivut |
+| P7 | Puhelin < 5 s: Pelaaja, Vanhempi, Testaus, Kehitystyöpöytä. VP/Master/Seura: työpöytä < 2 s, puhelin < 10 s | `mittaus_lib.js` RAJAT (#1271) |
+| P8 | Kyllä: 5 sivua mitataan uudelleen | Tero ajaa, kun #1271 on mergetty (resurssierittely mukaan) |
+
+Huom. P2 muuttaa mittausta: mittausrooli `talenttivalmentaja` ei enää lataa koko seuraa oletuksena, joten Masterin lukuluku laskee jo ennen B-vaihetta; verrataan P8-uudelleenmittaukseen.
