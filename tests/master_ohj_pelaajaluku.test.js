@@ -8,7 +8,7 @@ function lataaLahde(ctx) {
   expect(m).toBeTruthy();
   const src = m[0].replace(/\nasync function _ohjLaskeN$/, '');
   // ctx-muuttujat samannimisinä kuin tuotannossa (_db, _seuraId, _joukkue, _pelaajatData)
-  return new Function('_db', '_seuraId', 'ctx', 'Date', 'var _joukkue = ctx.joukkue; var _pelaajatData = ctx.pelaajatData;' + src + '; return _ohjPelaajaLahde;');
+  return new Function('_db', '_seuraId', 'ctx', 'Date', 'var _joukkue = ctx.joukkue; var _pelaajatData = ctx.pelaajatData; function _mListaOnRivi(p) { return !!(p && p._lista === true); }' + src + '; return _ohjPelaajaLahde;');
 }
 function db(luvut) {
   return { collection: () => ({ doc: () => ({ collection: () => ({ get: async () => { luvut.n++; return { docs: [{ data: () => ({ id: 'x' }) }, { data: () => ({ id: 'y' }) }] }; } }) }) }) };

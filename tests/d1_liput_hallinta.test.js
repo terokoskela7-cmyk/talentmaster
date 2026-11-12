@@ -10,7 +10,7 @@ const L = require('../lib/tm_liput.js'), H = require('../functions/liput_hallint
 
 describe('lib/tm_liput — rekisteri ja tehokas arvo', () => {
   it('rekisterissä täsmälleen nykyiset 4 lippua, jokaisella kuvaus', () => {
-    expect(L.LIPUT.map((l) => l.avain)).toEqual(['kentta', 'kehitystyopoyta_v2', 'valmentaja_v2', 'klippi_oma_video']);
+    expect(L.LIPUT.map((l) => l.avain)).toEqual(['kentta', 'kehitystyopoyta_v2', 'valmentaja_v2', 'klippi_oma_video', 'lista_yhteenveto']);
     for (const l of L.LIPUT) expect(l.kuvaus.length, l.avain).toBeGreaterThan(10);
     expect(L.tmLippuTunnettu('kentta')).toBe(true); expect(L.tmLippuTunnettu('arvo')).toBe(false); expect(L.tmLippuTunnettu('__proto__')).toBe(false);
   });
@@ -88,8 +88,8 @@ describe('lib/tm_liput_admin — Admin "Liput"', () => {
   const seurat = [{ id: 'kpv', nimi: 'KPV', liput: { klippi_oma_video: true } }, { id: 'sjk', nimi: 'SJK' }];
   it('rivit: tehokas arvo ja lähde jokaiselle rekisterin lipulle', () => {
     const r = A.tmLiputRivit(seurat, { kpv: { kentta: true }, sjk: null });
-    expect(r[0].liput).toEqual([{ avain: 'kentta', arvo: true, lahde: 'julkiset' }, { avain: 'kehitystyopoyta_v2', arvo: false, lahde: 'oletus' }, { avain: 'valmentaja_v2', arvo: false, lahde: 'oletus' }, { avain: 'klippi_oma_video', arvo: true, lahde: 'vanha' }]);
-    const h = A.tmLiputTaulukkoHTML(r); expect(h).toContain('data-seura="kpv" data-lippu="kentta" data-arvo="1"'); expect(h).toContain('(vanha kenttä)'); expect((h.match(/onclick="liputVaihda/g) || []).length).toBe(8);
+    expect(r[0].liput).toEqual([{ avain: 'kentta', arvo: true, lahde: 'julkiset' }, { avain: 'kehitystyopoyta_v2', arvo: false, lahde: 'oletus' }, { avain: 'valmentaja_v2', arvo: false, lahde: 'oletus' }, { avain: 'klippi_oma_video', arvo: true, lahde: 'vanha' }, { avain: 'lista_yhteenveto', arvo: false, lahde: 'oletus' }]);
+    const h = A.tmLiputTaulukkoHTML(r); expect(h).toContain('data-seura="kpv" data-lippu="kentta" data-arvo="1"'); expect(h).toContain('(vanha kenttä)'); expect((h.match(/onclick="liputVaihda/g) || []).length).toBe(10);
   });
   it('loki: aika, seura, lippu, vanha → uusi; escape; tyhjä tila', () => {
     expect(A.tmLiputLokiHTML([])).toContain('Ei vielä lippumuutoksia');
