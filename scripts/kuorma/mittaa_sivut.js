@@ -56,7 +56,7 @@ function resurssiYhteenveto(lista) {
   return { ryhmat, top: (lista || []).slice().sort((a, b) => b.koodattu - a.koodattu).slice(0, 60) };
 }
 
-/** Yksi avaus (kylmä tai lämmin) sivulle `page`. → { fcp_ms, tti_ms, luvut, yht, tavut, kirjautunut, kiinnitetty, virhe } */
+/** Yksi avaus (kylmä tai lämmin) sivulle `page`. → { fcp_ms, tti_ms, luvut, dokTavut, dokEiMitattu, yht, tavut, kirjautunut, kiinnitetty, virhe } */
 async function mittaaAvaus(page, cdp, url, opt) {
   const ikkuna = (opt && opt.ikkuna) || IKKUNA_MS, aikaraja = (opt && opt.aikaraja) || TIMEOUT_MS, pyynnot = new Map();
   let wsTavut = 0;
@@ -72,12 +72,12 @@ async function mittaaAvaus(page, cdp, url, opt) {
     if (tila && tila.fcp != null && tila.avoimet === 0 && M.laskeInteraktiivinen({ fcp: tila.fcp, varit: tila.varit, ikkuna, havaintoLoppu: tila.nyt }) != null) break;
   }
   let lopullinen = null;
-  try { lopullinen = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {}   /* window._auth = Pelaaja_v7:n nimetty app 'tm-pelaaja' (ei oletusappia) */ return { fcp: m.fcp, varit: m.varit.slice(), luvut: m.luvut, yht: m.yht, kiinnitetty: m.kiinnitetty, virheet: m.virheet, kirjautunut: k, nyt: performance.now() }; }); } catch (e) { virhe = virhe || 'luku: ' + String(e && e.message).split('\n')[0]; }
+  try { lopullinen = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {}   /* window._auth = Pelaaja_v7:n nimetty app 'tm-pelaaja' (ei oletusappia) */ return { fcp: m.fcp, varit: m.varit.slice(), luvut: m.luvut, dokTavut: m.dokTavut, dokEiMitattu: m.dokEiMitattu, yht: m.yht, kiinnitetty: m.kiinnitetty, virheet: m.virheet, kirjautunut: k, nyt: performance.now() }; }); } catch (e) { virhe = virhe || 'luku: ' + String(e && e.message).split('\n')[0]; }
   kuuntelijat.forEach(([n, f]) => cdp.off && cdp.off(n, f));
   let tavut = wsTavut; pyynnot.forEach((p) => { tavut += p.valmis ? p.loppu : p.tavut; });
   if (!lopullinen) return { virhe: virhe || 'instrumentointi puuttuu', tavut, resurssit: resurssiLista(pyynnot) };
   const tti = M.laskeInteraktiivinen({ fcp: lopullinen.fcp, varit: lopullinen.varit, ikkuna, havaintoLoppu: lopullinen.nyt });
-  return { resurssit: resurssiLista(pyynnot), fcp_ms: lopullinen.fcp != null ? Math.round(lopullinen.fcp) : null, tti_ms: tti != null ? Math.round(tti) : null, luvut: lopullinen.luvut, yht: lopullinen.yht, tavut, kirjautunut: lopullinen.kirjautunut, kiinnitetty: lopullinen.kiinnitetty, virheet: lopullinen.virheet.length, virhe };
+  return { resurssit: resurssiLista(pyynnot), fcp_ms: lopullinen.fcp != null ? Math.round(lopullinen.fcp) : null, tti_ms: tti != null ? Math.round(tti) : null, luvut: lopullinen.luvut, dokTavut: lopullinen.dokTavut, dokEiMitattu: lopullinen.dokEiMitattu, yht: lopullinen.yht, tavut, kirjautunut: lopullinen.kirjautunut, kiinnitetty: lopullinen.kiinnitetty, virheet: lopullinen.virheet.length, virhe };
 }
 
 async function kuristus(cdp, profiili) {
