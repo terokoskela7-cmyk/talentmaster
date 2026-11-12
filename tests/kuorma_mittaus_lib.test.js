@@ -100,7 +100,7 @@ describe('mittaa_funktiot (vale-suoritin)', () => {
   const aja = async (argv, suoritus, extra) => { const ulos = []; const koodi = await F.main(argv, Object.assign({ kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: ENV, adc: ADC, suorita: suoritus || (() => { throw new Error('ei saa suorittaa'); }), odota: async () => {}, kysely_ms: 0 }, extra)); return { koodi, ulos: ulos.join('\n') }; };
   it('kuiva-ajo oletus: tulostaa gcloud-komennot, EI suorita mitään; oletuslista 5 funktiota', async () => {
     const r = await aja(['--projekti=talentmaster-staging', '--profiili=savu_taysi']); expect(r.koodi).toBe(0); expect(r.ulos).toContain('KUIVA-AJO'); expect(r.ulos).toContain('2 seuraa / 1000 pelaajaa');
-    F.OLETUS.forEach((f) => expect(r.ulos).toContain('gcloud scheduler jobs run firebase-schedule-' + f + '-europe-west1 --location=europe-west1 --project=talentmaster-staging')); expect(F.OLETUS.length).toBe(5);
+    F.OLETUS.forEach((f) => expect(r.ulos).toContain('gcloud scheduler jobs run firebase-schedule-' + f + '-us-central1 --location=us-central1 --project=talentmaster-staging')); expect(F.OLETUS.length).toBe(5);
   });
   it('lukko: pilot / emulaattori / ristiriitainen env / ADC → exit 1 eikä mitään suoriteta (myös --aja)', async () => {
     for (const [argv, env, adc] of [[['--projekti=' + PILOT, '--aja'], {}, undefined], [['--projekti=demo-kuorma', '--aja'], {}, undefined], [['--aja'], {}, undefined], [['--projekti=talentmaster-staging', '--aja'], { GCLOUD_PROJECT: PILOT }, undefined], [['--projekti=talentmaster-staging', '--aja'], {}, PILOT]]) {
@@ -194,5 +194,15 @@ describe('mittaus_raportti: P11-arviointi ja ensimmäiseksi pettävä', () => {
   it('pelaaja-sivu merkitään kirjautumattomaksi; raportti ei sisällä salasanoja eikä seuratunnisteita; main kirjoittaa tiedoston', () => {
     const t = R.muodosta({ sivut: { meta: {}, mittaukset: [sivu('pelaaja', 'tyopoyta', 0.9, 0)] } }); expect(t).toContain('kirjautumaton'); expect(t).not.toMatch(/kuorma_|@kuorma\.test|SYNT-/);
     const polku = join(tmp(), 'r.md'); expect(R.main(['--sivut=/ei', '--funktiot=/ei', '--dokumentit=/ei', '--ulos=' + polku], { kirjaa: () => {} })).toBe(0); expect(rd(polku, 'utf8')).toContain('# Mittausraportti');
+  });
+  it('yhdistaTulokset: osa-ajo (--sivut=pelaaja) säilyttää aiemmat sivut, korvaa saman sivu×profiili-parin, jättää monitoring-lohkon pois; eri isäntä → ylikirjoitus', () => {
+    const rivi = (sivu, tti) => ({ sivu, profiili: 'tyopoyta', kylma: [], lampimat: [], yhteenveto: { tti } });
+    const aiempi = { meta: { aika: '2026-11-12T09:00:00Z', loppu: '2026-11-12T09:10:00Z', isanta: 'h', seura: 1, toistot: 5, kesto_s: 600 }, mittaukset: [rivi('seura', 1), rivi('vp', 2), rivi('pelaaja', 9)], monitoring: { read_count: 5 } };
+    const uusi = { meta: { aika: '2026-11-12T09:30:00Z', loppu: '2026-11-12T09:32:00Z', isanta: 'h', seura: 1, toistot: 5, kesto_s: 130 }, mittaukset: [rivi('pelaaja', 3)] };
+    const y = S.yhdistaTulokset(aiempi, uusi);
+    expect(y.mittaukset.map((m) => m.sivu + ':' + m.yhteenveto.tti)).toEqual(['seura:1', 'vp:2', 'pelaaja:3']);
+    expect(y.meta.aika).toBe('2026-11-12T09:00:00Z'); expect(y.meta.loppu).toBe('2026-11-12T09:32:00Z'); expect(y.meta.kesto_s).toBe(730); expect(y.monitoring).toBeUndefined();
+    expect(S.yhdistaTulokset(Object.assign({}, aiempi, { meta: Object.assign({}, aiempi.meta, { isanta: 'toinen' }) }), uusi)).toBe(uusi);
+    expect(S.yhdistaTulokset(null, uusi)).toBe(uusi);
   });
 });

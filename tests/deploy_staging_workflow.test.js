@@ -51,6 +51,14 @@ describe('deploy-staging.yml', () => {
     expect(i('firestore:rules,firestore:indexes,storage')).toBeLessThan(i('firebase deploy --only functions'));
     expect(KOODI).toContain("TM_BASE_URL=https://%s.web.app");
   });
+  it('ajastusten pause: Scheduler-jobit ovat us-central1:ssä (ei funktion alueella) ja 0 löytynyttä jobia kaataa vaiheen', () => {
+    const vaihe = KOODI.slice(KOODI.indexOf('name: Ajastukset pauselle'), KOODI.indexOf('Konfiguraation korvaus'));
+    expect(KOODI).toContain('SCHEDULER_ALUE: us-central1');
+    expect(vaihe).toContain('gcloud scheduler jobs list --project "$STAGING_PROJEKTI" --location "$SCHEDULER_ALUE"');
+    expect(vaihe).toContain('gcloud scheduler jobs pause "${j##*/}" --project "$STAGING_PROJEKTI" --location "$SCHEDULER_ALUE"');
+    expect(vaihe).not.toContain('"$ALUE"');
+    expect(vaihe).toMatch(/if \[ "\$n" -eq 0 \]; then .*exit 1; fi/);
+  });
   it('kanava kuorma → esikatselukanava `kuorma` (debug-token toimii vain *--*.web.app, P4)', () => {
     expect(KOODI).toContain('firebase hosting:channel:deploy kuorma');
   });
