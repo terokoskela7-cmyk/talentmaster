@@ -19,7 +19,7 @@ function rivit(s) {
   const out = [];
   const sivuData = s.sivut && s.sivut.mittaukset || [];
   ['tyopoyta', 'puhelin'].forEach((prof) => Object.keys(SIVUNIMI).forEach((avain) => {
-    const m = sivuData.find((x) => x.sivu === avain && x.profiili === prof), raja = prof === 'tyopoyta' ? R.interaktiivinen_tyopoyta_s : R.interaktiivinen_slow4g_s, nimi = 'Aika interaktiiviseksi — ' + SIVUNIMI[avain] + ' (' + (prof === 'tyopoyta' ? 'työpöytä' : 'puhelin, Slow 4G') + ')';
+    const m = sivuData.find((x) => x.sivu === avain && x.profiili === prof), raja = M.rajaAika(avain, prof), nimi = 'Aika interaktiiviseksi — ' + SIVUNIMI[avain] + ' (' + (prof === 'tyopoyta' ? 'työpöytä' : 'puhelin, Slow 4G') + ')';
     const pelaajaHuom = avain === 'pelaaja' ? ' · kirjautumaton (vain kirjautumisnäkymä)' : '';
     if (!m) { out.push(rivi('tti_' + prof + '_' + avain, nimi, null, 's', raja, 'ei_mitattu', pelaajaHuom)); return; }
     const y = m.yhteenveto.kylma.tti_s, huom = (m.yhteenveto.kylma.virheita ? m.yhteenveto.kylma.virheita + ' virhettä; ' : '') + 'p95 ' + f1(y.p95) + ' s' + (y.p95 != null && y.p95 > raja ? ' ⚠ p95 ylittää' : '') + ' · lämmin ' + f1(m.yhteenveto.lampimat.tti_s.mediaani) + ' s' + (m.rooli && m.kylma.some((k) => k.kirjautunut === false) ? ' · ⚠ kirjautuminen ei onnistunut kaikissa' : '') + pelaajaHuom;
@@ -27,9 +27,9 @@ function rivit(s) {
   }));
   Object.keys(SIVUNIMI).forEach((avain) => {
     const ms = sivuData.filter((x) => x.sivu === avain), nimi = 'Firestore-lukuja per avaus — ' + SIVUNIMI[avain];
-    if (!ms.length) { out.push(rivi('luvut_' + avain, nimi, null, 'lukua', R.lukuja_per_avaus, 'ei_mitattu')); return; }
+    if (!ms.length) { out.push(rivi('luvut_' + avain, nimi, null, 'lukua', M.rajaLuvut(avain), 'ei_mitattu')); return; }
     const arvot = ms.map((x) => x.yhteenveto.kylma.lukuja.mediaani).filter((x) => x != null), arvo = arvot.length ? Math.max.apply(null, arvot) : null;
-    const top = topKokoelmat(ms); out.push(rivi('luvut_' + avain, nimi, arvo, 'lukua', R.lukuja_per_avaus, arvioi(arvo, R.lukuja_per_avaus), top ? 'suurimmat: ' + top : ''));
+    const top = topKokoelmat(ms); out.push(rivi('luvut_' + avain, nimi, arvo, 'lukua', M.rajaLuvut(avain), arvioi(arvo, M.rajaLuvut(avain)), top ? 'suurimmat: ' + top : ''));
   });
   const fd = s.funktiot, pelaajia = s.pelaajia || (fd && fd.meta && fd.meta.pelaajia) || null;
   if (!fd) out.push(rivi('funktiot', 'Ajastetut funktiot (kesto)', null, 's', R.funktio_s, 'ei_mitattu'));
@@ -68,6 +68,27 @@ function ensimmainen(r) {
   return mit.length ? { pettaa: false, rivi: mit[0], muut: [] } : null;
 }
 
+/** 3b/3c: Firestore-luvut kokoelmittain + resurssierittely (kylmä avaus, 1. toisto). Vanhoissa tuloksissa (ei `resurssit`) osio jää pois. */
+function erittelyt(sd) {
+  const L = [], kb = (b) => f1((b || 0) / 1024) + ' kt';
+  L.push('### 3b. Firestore-luvut kokoelmittain (kylmä, mediaani yli toistojen)', '', '| Sivu | Profiili | Yht. | Kokoelmat (luvut) |', '|---|---|---:|---|');
+  sd.forEach((m) => {
+    const per = {}; m.kylma.forEach((k) => Object.keys(k.luvut || {}).forEach((n) => { (per[n] = per[n] || []).push(k.luvut[n]); }));
+    const med = Object.keys(per).map((n) => [n, M.mediaani(per[n])]).sort((a, b) => b[1] - a[1]);
+    L.push('| ' + SIVUNIMI[m.sivu] + ' | ' + m.profiili + ' | ' + f1(m.yhteenveto.kylma.lukuja.mediaani) + ' | ' + (med.map((x) => '`' + x[0] + '` ' + x[1]).join(' · ') || '–') + ' |');
+  });
+  const rs = sd.filter((m) => m.resurssit_kylma);
+  if (!rs.length) { L.push('', '_Resurssierittelyä ei ole tuloksessa (aja `mittaa_sivut.js` uudelleen)._', ''); return L; }
+  L.push('', '### 3c. Siirretyt tavut resurssityypeittäin (kylmä, 1. toisto; koodattu = verkon yli, purettu = selaimessa)', '', '| Sivu | Profiili | Yht. koodattu | Skriptit | Dokumentti | Fontit | Tyylit | Kuvat | Muu | Pyyntöjä |', '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|');
+  rs.forEach((m) => { const g = m.resurssit_kylma.ryhmat, v = (t) => (g[t] ? kb(g[t].koodattu) : '–'), yht = Object.keys(g).reduce((a, t) => a + g[t].koodattu, 0), n = Object.keys(g).reduce((a, t) => a + g[t].n, 0); L.push('| ' + SIVUNIMI[m.sivu] + ' | ' + m.profiili + ' | ' + kb(yht) + ' | ' + v('Script') + ' | ' + v('Document') + ' | ' + v('Font') + ' | ' + v('Stylesheet') + ' | ' + v('Image') + ' | ' + kb(Object.keys(g).filter((t) => ['Script', 'Document', 'Font', 'Stylesheet', 'Image'].indexOf(t) < 0).reduce((a, t) => a + g[t].koodattu, 0)) + ' | ' + n + ' |'); });
+  rs.filter((m) => m.profiili === 'puhelin').forEach((m) => {
+    L.push('', '**' + SIVUNIMI[m.sivu] + ' (puhelin) — 15 suurinta resurssia:**', '', '| Resurssi | Tyyppi | Koodattu | Purettu | Pakkaus |', '|---|---|---:|---:|---|');
+    m.resurssit_kylma.top.slice(0, 15).forEach((x) => L.push('| `' + x.url + '` | ' + x.tyyppi + ' | ' + kb(x.koodattu) + ' | ' + kb(x.purettu) + ' | ' + (x.pakkaus || 'ei') + ' |'));
+  });
+  L.push('');
+  return L;
+}
+
 function muodosta(s) {
   const r = rivit(s), e = ensimmainen(r), L = [];
   const meta = (s.sivut && s.sivut.meta) || {}, fmeta = (s.funktiot && s.funktiot.meta) || {};
@@ -88,6 +109,7 @@ function muodosta(s) {
   else { L.push('| Sivu | Profiili | Interaktiivinen kylmä (med / p95) | Lämmin (med) | FCP kylmä (med) | Lukuja kylmä (med / p95) | MB kylmä (med) | Suurimmat lukijat |', '|---|---|---:|---:|---:|---:|---:|---|');
     sd.forEach((m) => { const k = m.yhteenveto.kylma; L.push('| ' + SIVUNIMI[m.sivu] + ' | ' + m.profiili + ' | ' + f1(k.tti_s.mediaani) + ' / ' + f1(k.tti_s.p95) + ' s | ' + f1(m.yhteenveto.lampimat.tti_s.mediaani) + ' s | ' + f1(k.fcp_s.mediaani) + ' s | ' + f1(k.lukuja.mediaani) + ' / ' + f1(k.lukuja.p95) + ' | ' + f1(k.mb.mediaani) + ' | ' + (topKokoelmat([m]) || '–') + ' |'); });
     if (s.sivut.monitoring) L.push('', 'Cloud Monitoring `document/read_count` mittausikkunassa: **' + s.sivut.monitoring.read_count + '** (laskutuksen totuus; sisältää myös kirjautumisen ja taustaluvut). Instrumentoitu summa: ' + sd.reduce((a, m) => a + m.kylma.concat(m.lampimat).reduce((x, y) => x + (y.yht || 0), 0), 0) + '.', ''); }
+  if (sd.length) L.push(...erittelyt(sd));
   L.push('## 4. Ajastetut funktiot', '');
   const fn = (s.funktiot && s.funktiot.funktiot) || [];
   if (!fn.length) L.push('_Ei vielä ajettu._', '');

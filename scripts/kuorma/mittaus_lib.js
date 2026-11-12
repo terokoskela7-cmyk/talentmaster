@@ -8,13 +8,21 @@
  *  Slow 4G -raja koskee puhelinemulaatiota 500 pelaajan seuralla; työpöytäraja koskee kaapeliprofiilia. */
 const RAJAT = Object.freeze({
   interaktiivinen_tyopoyta_s: 2,
-  interaktiivinen_slow4g_s: 5,
-  lukuja_per_avaus: 2000,
+  interaktiivinen_slow4g_s: 5,          // P7 (12.11.2026): puhelin < 5 s → Pelaaja, Vanhempi, Testaus, Kehitystyöpöytä
+  interaktiivinen_slow4g_raskas_s: 10,  // P7: VP, Master, Seura = työpöytäsovelluksia → työpöytä < 2 s (yllä) ja puhelin < 10 s
+  raskaat_sivut: Object.freeze(['vp', 'master', 'seura']),
+  lukuja_per_avaus: 2000,               // P4 (12.11.2026): henkilökunta (VP, Master, Seura, Kehitystyöpöytä, Testaus)
+  lukuja_per_avaus_pelaaja: 200,        // P4: pelaaja ja huoltaja
+  pelaajasivut: Object.freeze(['pelaaja', 'vanhempi']),
   funktio_s: 270,                       // 50 % 540 s:n rajasta, 40 seuralla
   pelaajadokumentti_kt: 250,            // 25 % 1 MiB:stä kolmen kauden jälkeen
   kustannus_eur_pelaaja_vuosi: 1,       // nykyhinnoittelu 1 €/pelaaja/kk → infra korkeintaan ~8 %
   funktio_aikaraja_s: 540,
 });
+
+/** Sivukohtaiset rajat (P4 + P7). profiili: 'tyopoyta' | 'puhelin'. */
+const rajaAika = (sivu, profiili) => (profiili === 'tyopoyta' ? RAJAT.interaktiivinen_tyopoyta_s : (RAJAT.raskaat_sivut.indexOf(sivu) >= 0 ? RAJAT.interaktiivinen_slow4g_raskas_s : RAJAT.interaktiivinen_slow4g_s));
+const rajaLuvut = (sivu) => (RAJAT.pelaajasivut.indexOf(sivu) >= 0 ? RAJAT.lukuja_per_avaus_pelaaja : RAJAT.lukuja_per_avaus);
 
 const mediaani = (a) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const prosenttipiste = (a, p) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.max(0, Math.ceil(p * s.length) - 1))]; };
@@ -103,4 +111,4 @@ function parsiFunktioLoki(rivit) {
   return ulos;
 }
 
-module.exports = { RAJAT, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };
+module.exports = { RAJAT, rajaAika, rajaLuvut, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };

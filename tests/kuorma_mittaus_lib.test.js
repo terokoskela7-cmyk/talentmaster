@@ -167,10 +167,18 @@ describe('mittaus_raportti: P11-arviointi ja ensimmäiseksi pettävä', () => {
     const t = R.muodosta({}); expect(t).toContain('⏳ ei mitattu'); expect(t).toContain('Ei vielä pätevää mittausta'); expect(t).not.toContain('❌');
   });
   it('rajaa verrataan oikein: työpöytä 2 s, Slow 4G 5 s, 2 000 lukua; ensimmäiseksi pettävä = suurin ylitys', () => {
-    const t = R.muodosta({ sivut: { meta: { aika: '2026-11-12T10:00:00Z', toistot: 5 }, mittaukset: [sivu('vp', 'tyopoyta', 1.8, 2500, { havainnot: 2300, pelaajat: 200 }), sivu('vp', 'puhelin', 7.5, 2500), sivu('master', 'tyopoyta', 2.4, 900)] } });
-    const r = R.rivit({ sivut: { mittaukset: [sivu('vp', 'tyopoyta', 1.8, 2500), sivu('vp', 'puhelin', 7.5, 2500), sivu('master', 'tyopoyta', 2.4, 900)] } }), by = (id) => r.find((x) => x.id === id);
+    const t = R.muodosta({ sivut: { meta: { aika: '2026-11-12T10:00:00Z', toistot: 5 }, mittaukset: [sivu('vp', 'tyopoyta', 1.8, 2500, { havainnot: 2300, pelaajat: 200 }), sivu('vp', 'puhelin', 14, 2500), sivu('master', 'tyopoyta', 2.4, 900)] } });
+    const r = R.rivit({ sivut: { mittaukset: [sivu('vp', 'tyopoyta', 1.8, 2500), sivu('vp', 'puhelin', 14, 2500), sivu('master', 'tyopoyta', 2.4, 900), sivu('master', 'puhelin', 9.5, 900), sivu('kehitys', 'puhelin', 6, 4), sivu('pelaaja', 'puhelin', 4, 250)] } }), by = (id) => r.find((x) => x.id === id);
     expect(by('tti_tyopoyta_vp').tila).toBe('lapi'); expect(by('tti_puhelin_vp').tila).toBe('ei'); expect(by('tti_tyopoyta_master').tila).toBe('ei'); expect(by('luvut_vp').tila).toBe('ei'); expect(by('luvut_master').tila).toBe('lapi');
+    expect(by('tti_puhelin_master').tila).toBe('lapi'); expect(by('tti_puhelin_master').raja).toBe(10); expect(by('tti_puhelin_kehitys').tila).toBe('ei'); expect(by('tti_puhelin_kehitys').raja).toBe(5); expect(by('luvut_pelaaja').tila).toBe('ei'); expect(by('luvut_pelaaja').raja).toBe(200); expect(by('luvut_kehitys').raja).toBe(2000);
     const e = R.ensimmainen(r); expect(e.pettaa).toBe(true); expect(e.rivi.id).toBe('tti_puhelin_vp'); expect(t).toContain('❌ EI LÄPI'); expect(t).toContain('havainnot'); expect(t).toMatch(/## 2\. Ensimmäiseksi pettävä kohta\s+\*\*Aika interaktiiviseksi — VP \(puhelin/);
+  });
+  it('erittelyt: 3b kokoelmittain + 3c resurssityypeittäin ja 15 suurinta puhelimella; ilman resurssit-kenttää ohje', () => {
+    const m = sivu('master', 'puhelin', 11, 2499, { pelaajat: 500, 'cg:sisainen': 500, kirjaukset: 1400 });
+    expect(R.muodosta({ sivut: { meta: {}, mittaukset: [m] } })).toMatch(/3b\. Firestore-luvut kokoelmittain[\s\S]*`pelaajat` 500 · `cg:sisainen` 500 · `kirjaukset` 1[\s.]?400|`kirjaukset` 1/);
+    expect(R.muodosta({ sivut: { meta: {}, mittaukset: [m] } })).toContain('Resurssierittelyä ei ole tuloksessa');
+    m.resurssit_kylma = { ryhmat: { Script: { n: 2, koodattu: 2048, purettu: 8192 }, Font: { n: 1, koodattu: 1024, purettu: 1024 } }, top: [{ url: 'https://x/lib/a.js', tyyppi: 'Script', koodattu: 2048, purettu: 8192, pakkaus: 'br' }] };
+    const t = R.muodosta({ sivut: { meta: {}, mittaukset: [m] } }); expect(t).toContain('3c. Siirretyt tavut resurssityypeittäin'); expect(t).toContain('`https://x/lib/a.js` | Script | 2 kt | 8 kt | br'); expect(t).toContain('15 suurinta resurssia');
   });
   it('raja on "alle": täsmälleen raja = läpi, raja + epsilon = ei läpi', () => {
     const r = (tti) => R.rivit({ sivut: { mittaukset: [sivu('seura', 'tyopoyta', tti, 100)] } }).find((x) => x.id === 'tti_tyopoyta_seura').tila; expect(r(2)).toBe('lapi'); expect(r(2.001)).toBe('ei');
@@ -204,5 +212,17 @@ describe('mittaus_raportti: P11-arviointi ja ensimmäiseksi pettävä', () => {
     expect(y.meta.aika).toBe('2026-11-12T09:00:00Z'); expect(y.meta.loppu).toBe('2026-11-12T09:32:00Z'); expect(y.meta.kesto_s).toBe(730); expect(y.monitoring).toBeUndefined();
     expect(S.yhdistaTulokset(Object.assign({}, aiempi, { meta: Object.assign({}, aiempi.meta, { isanta: 'toinen' }) }), uusi)).toBe(uusi);
     expect(S.yhdistaTulokset(null, uusi)).toBe(uusi);
+  });
+  it('P4/P7-rajat: puhelin 5 s (Pelaaja/Testaus/Kehitys) vs. 10 s (VP/Master/Seura), työpöytä 2 s; luvut 2000 henkilökunta / 200 pelaaja', () => {
+    ['pelaaja', 'vanhempi', 'testaus', 'kehitys'].forEach((x) => expect(M.rajaAika(x, 'puhelin')).toBe(5));
+    ['vp', 'master', 'seura'].forEach((x) => { expect(M.rajaAika(x, 'puhelin')).toBe(10); expect(M.rajaAika(x, 'tyopoyta')).toBe(2); });
+    expect(M.rajaAika('pelaaja', 'tyopoyta')).toBe(2);
+    expect(M.rajaLuvut('pelaaja')).toBe(200); expect(M.rajaLuvut('vanhempi')).toBe(200); ['master', 'vp', 'seura', 'kehitys', 'testaus'].forEach((x) => expect(M.rajaLuvut(x)).toBe(2000));
+  });
+  it('resurssiYhteenveto: ryhmät tyypeittäin, 60 suurinta; resurssiLista pudottaa kyselyosan ja data:-URL:t', () => {
+    const pyynnot = new Map([['1', { url: 'https://x.web.app/a.js?v=abc#h', tyyppi: 'Script', valmis: true, loppu: 1000, tavut: 900, purettu: 3000, pakkaus: 'br' }], ['2', { url: 'data:image/png;base64,AAAA', tyyppi: 'Image', valmis: true, loppu: 5, tavut: 5, purettu: 5 }], ['3', { url: 'https://x.web.app/f.woff2', tyyppi: 'Font', valmis: false, loppu: 0, tavut: 700, purettu: 700 }]]);
+    const l = S.resurssiLista(pyynnot); expect(l.map((x) => x.url)).toEqual(['https://x.web.app/a.js', 'https://x.web.app/f.woff2']); expect(l[0].koodattu).toBe(1000); expect(l[1].koodattu).toBe(700);
+    const y = S.resurssiYhteenveto(l); expect(y.ryhmat.Script).toEqual({ n: 1, koodattu: 1000, purettu: 3000 }); expect(y.top[0].url).toContain('a.js');
+    expect(S.resurssiYhteenveto(Array.from({ length: 100 }, (_, i) => ({ url: 'u' + i, tyyppi: 'Script', koodattu: i, purettu: i }))).top.length).toBe(60);
   });
 });
