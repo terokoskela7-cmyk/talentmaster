@@ -7269,13 +7269,24 @@ async function _ohjLataaKirjasto(force) {
   return window._ohjKirjasto;
 }
 // N-laskuri: eri pelaajat joilla ohjelma käytössä (jaksofokus.ohjelma.ohjelma_id TAI historia-rivi). Lukee pelaajat KERRAN (§26).
+/* Vaihe 0 B.6 #2: ei omaa koko-pelaajalukua. Koko seura jo muistissa (_pelaajatData, kun joukkuerajausta ei ole) → käytetään sitä; muuten YKSI jaettu luku
+   (N-laskuri + analytiikka-välimuisti jakavat sen; force/uusi seura nollaa). Palauttaa pelkkiä data-objekteja. */
+var _ohjPelaajaLupaus = null, _ohjPelaajaLupausSeura = null, _ohjPelaajaLupausT = 0;   // jaettu luku elää 15 s (N-laskuri + analytiikka samassa avauksessa; ei vanhene käyttäjän muokkausten yli)
+async function _ohjPelaajaLahde(force) {
+  if (!force && !_joukkue && _pelaajatData && _pelaajatData.length) return _pelaajatData;
+  if (force || !_ohjPelaajaLupaus || _ohjPelaajaLupausSeura !== _seuraId || (Date.now() - _ohjPelaajaLupausT) > 15000) {
+    _ohjPelaajaLupausSeura = _seuraId; _ohjPelaajaLupausT = Date.now();
+    _ohjPelaajaLupaus = _db.collection('seurat').doc(_seuraId).collection('pelaajat').get().then(function (sn) { return sn.docs.map(function (d) { return d.data(); }); }).catch(function (e) { _ohjPelaajaLupaus = null; throw e; });
+  }
+  return _ohjPelaajaLupaus;
+}
 async function _ohjLaskeN() {
   window._ohjKirjastoN = {};
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) return;
   try {
-    var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
-    snap.docs.forEach(function (d) {
-      var p = d.data(); var ids = {};
+    var lahde = await _ohjPelaajaLahde(false);
+    lahde.forEach(function (p) {
+      var ids = {};
       if (p.jaksofokus && p.jaksofokus.ohjelma && p.jaksofokus.ohjelma.ohjelma_id) ids[p.jaksofokus.ohjelma.ohjelma_id] = 1;
       (p.jaksofokus_historia || []).forEach(function (h) { if (h && h.ohjelma && h.ohjelma.ohjelma_id) ids[h.ohjelma.ohjelma_id] = 1; });
       Object.keys(ids).forEach(function (oid) { window._ohjKirjastoN[oid] = (window._ohjKirjastoN[oid] || 0) + 1; });
@@ -7291,9 +7302,9 @@ async function _ohjLataaPelaajatCache(force) {
   window._ohjPelaajatCache = [];
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) return window._ohjPelaajatCache;
   try {
-    var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
+    var lahde = await _ohjPelaajaLahde(!!force);
     // PR C: vain mitattu tila (biologinenIka_viimeisin säilyy minimaalisena, jotta jaettu sääntö antaa saman tuloksen).
-    window._ohjPelaajatCache = snap.docs.map(function (d) { var p = d.data(); var k = tmPhvKoodi(p); return { jaksofokus_historia: p.jaksofokus_historia || [], phv_tila: k, biologinenIka_viimeisin: k ? { phv_tila_koodi: k } : null }; });
+    window._ohjPelaajatCache = lahde.map(function (p) { var k = tmPhvKoodi(p); return { jaksofokus_historia: p.jaksofokus_historia || [], phv_tila: k, biologinenIka_viimeisin: k ? { phv_tila_koodi: k } : null }; });
   } catch (e) { /* best-effort */ }
   return window._ohjPelaajatCache;
 }
