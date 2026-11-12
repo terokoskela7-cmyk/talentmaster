@@ -22,14 +22,15 @@
 <script src="lib/tm_appcheck.js"></script>
 <script src="lib/tm_istunto.js"></script>
 <script src="lib/tm_lang.js"></script>
-<script src="lib/tm_lib_i18n.js"></script>
-<script src="lib/tm_i18n_common.js"></script>
-<script src="lib/tm_master_i18n.js"></script>
+<script src="lib/tm_kieli_paketit.js"></script>   <!-- P5: fi-stubit + laiska sv/en-lataus; alla olevat text/plain-tagit EIVÄT lataudu fi-tilassa (tmKieliPaketit.lataa ennen renderiä, ks. init) -->
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_lib_i18n.js"></script>
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_i18n_common.js"></script>
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_master_i18n.js"></script>
 <script src="lib/tm_phv_tila.js"></script>
 <script src="lib/tm_rytmi.js"></script>   <!-- K1d: yhteenvetorytmi (laskeReviewKadenssi delegoi tänne) -->
 <script src="lib/tm_eerikkila_normit.js"></script>
 <script src="lib/tm_normisto.js"></script>
-<script src="lib/tm_teknistaktiset_sv.js"></script>
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_teknistaktiset_sv.js"></script>
 <script src="lib/tm_tt_sv_valinta.js"></script>
 <script src="lib/tm_teknistaktiset.js"></script>
 <script src="lib/tm_konsepti_resolve.js"></script>
@@ -315,6 +316,7 @@ async function _lataaKonteksti(user) {
   if (!_seuraId) return false;
   const kieli = await _db.collection('seurat').doc(_seuraId).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; });
   _seuraDoc = kieli; if (typeof tmKieliInitSeura === 'function') tmKieliInitSeura(kieli ? (kieli.kieli || null) : null);
+  if (window.tmKieliPaketit) await window.tmKieliPaketit.lataa(_kieli());   // P5: sv/en-sanakirjat ENNEN ensimmäistä renderiä (fi: ei latausta)
   if (typeof masterLokalisoi === 'function') masterLokalisoi();
   document.getElementById('sbSeura').textContent = (kieli && kieli.nimi) || _seuraId;
   return true;
@@ -827,8 +829,11 @@ async function _kaynnista(user) {
 function _ktListalle() { _masteriin('dev'); }   // ei pelaajaa osoitteessa → Pelaajat-lista Masterissa (se avaa valitun pelaajan tälle sivulle)
 
 _auth.onAuthStateChanged(function (user) {
-  if (user && !user.isAnonymous) { _kaynnista(user).catch(function (e) { console.warn('[kt-sivu]', e && e.message); _viesti(T('kts_virhe'), '', T('kts_avaa_master'), KS.MASTER); }); }
-  else _kirjauduViesti();
+  // P5: käyttäjän oma kielivalinta (localStorage) tunnetaan jo → sv/en-sanakirjat ennen ensimmäistä tekstiä (myös kirjautumisviesti); fi: ei latausta, lupaus täyttyy heti
+  Promise.resolve(window.tmKieliPaketit ? window.tmKieliPaketit.lataa(_kieli()) : null).catch(function () { return false; }).then(function () {
+    if (user && !user.isAnonymous) { _kaynnista(user).catch(function (e) { console.warn('[kt-sivu]', e && e.message); _viesti(T('kts_virhe'), '', T('kts_avaa_master'), KS.MASTER); }); }
+    else _kirjauduViesti();
+  });
 });
 </script>
 </body>
