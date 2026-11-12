@@ -237,3 +237,34 @@ Havainnot, jotka vaativat päätöksen:
 - **Q13.** "Päivitä nyt": pidetäänkö synkronisena (vaihe 1) ja siirrytään jonoon vasta mittauksen p95 > 40 s?
 - **Q14.** Tarkistusajo (puuttuva `kooste/{vk}` → jonotus uudelleen) + hälytys mukaan ensimmäiseen toteutukseen? Suositus: kyllä.
 - **Q15.** Tarkistettava ennen toteutusta (ei vielä verifioitu tässä selvityksessä): Cloud Tasks -funktion enimmäiskesto ja `taskQueue`-tuki asennetussa `firebase-functions`-versiossa (`functions/package.json`: ^6.6.0, v1-API) sekä `cloudtasks.enqueuer`-oikeus CI-palvelutilille.
+
+---
+
+## F. Toteutus: lista_joukkue PR 1 (palvelin) — 12.11.2026
+
+Toteutettu B.7 vaihe 1 (PM 12.11.). Master lukee dokumentin vasta PR 2:ssa (lippu `lista_yhteenveto`).
+
+**Skeema** `seurat/{sid}/lista_joukkue/{jid}`: `{ jid, nimi, versio: 1, n, rivit: [...], laskettu }`. Rivi (lyhyet avaimet, `lib/tm_lista_yhteenveto.js`): `id e s n pp tp jn sv sg phv tki{v,pvm,k,vh,m} hh{v,t,pvm} flei sm{} d1 d2 d3{v,vm} jf{k,a,l,t,o} adar{v,pvm,n} st fi sg2 vh{u,r} sut idp{t,e,f} to tt jk[] d1r d2r`. Tyhjät arvot jätetään pois. Rivikoko tyypillisesti 200–300 B, vartijaraja 1 200 merkkiä.
+
+**Lähde ja rajaukset**
+- Luetaan VAIN `joukkueet` + `pelaajat/{pid}` (ei `sisainen/*`, ei `terveys/*`; A-kentät puuttuvat riveiltä, PR 2 käsittelee ne). Ei PIN:iä, huoltajan sähköpostia, loukkaantumismerkintää, `jaksofokus_historia`a.
+- Jäsenyys `tmPelaajanJoukkueet` (monen joukkueen pelaaja → rivi jokaisessa), PHV `tmPhvKoodi` (vain mittauslähteestä), D1/D2-ryhmä `tm_nakyma_ryhmat.tmRyhmat` (`d1r`/`d2r`; ei tallennettuja tasokenttiä).
+- Vartija `tmListaRikkomukset` ennen jokaista kirjoitusta: kielletty avain missä tahansa syvyydessä, sähköpostin näköinen arvo tai liian iso rivi → seuran rakennus keskeytyy (virhe lokiin), mitään ei kirjoiteta.
+- Poistetuille joukkueille jääneet `lista_joukkue`-dokumentit poistetaan samassa ajossa.
+
+**Päivitystavat** (`functions/lista_yhteenveto.js`, kaikki Admin SDK)
+| Tapa | Funktio | Huomio |
+|---|---|---|
+| Yöajo | `laskeListaYhteenvedot` 03:30 Europe/Helsinki | kaikki aktiiviset seurat peräkkäin, virhe ei kaada muita |
+| "Päivitä nyt" | callable `paivitaListaYhteenveto({seuraId})` (App Check) | SA, johto, talenttivalmentaja, valmentaja (oma seura, `tarkistaOikeus`); 30 s jäähy → `{tuore:true}` |
+| Debouncattu | `merkitseListaLikaiseksi` (pelaajan onWrite) + `siivoaListaLikaiset` (minuutin ajastus) | merkki `lista_likainen/{pid}` vain jos listariviin vaikuttava kenttä muuttui (viimeisinKirjautuminen, PIN, kirjaus- ja historiakentät eivät laukaise). Siivooja rakentaa seuran, kun merkit ovat hiljenneet 30 s tai vanhin on odottanut 5 min. Merkki poistetaan ehdolla `updateTime` → uudempi muutos säilyy |
+
+Debounce on tarkoituksella ilman Cloud Tasksia: merkki on pelaajakohtainen dokumentti (ei "hot-dokumenttia", joten ~1 kirjoitus/s -raja ei tule vastaan 500 pelaajan tuonnissa), eikä jono/IAM-muutoksia tarvita (Q15 on erillinen fan-outin päätös). Hinta: 1 kysely/min (~1 440 lukua/vrk tyhjänä) + 1 funktiokutsu per listariviin vaikuttava pelaajakirjoitus. Siirto Cloud Tasksiin on mahdollinen myöhemmin vaihtamalla vain merkki+siivooja.
+
+**Rules v3.83** (Teron kaista): `lista_joukkue/{jid}` luku SA | oman seuran johto | talenttivalmentaja | oman joukkueen valmentaja (kuten `kooste_joukkue`), kirjoitus `false`; `lista_likainen/{pid}` ei clientille. Testit `tests/rules/v383_lista_yhteenveto.rules.test.js`.
+
+**Backfill** `scripts/lista_yhteenveto_backfill.js` (Tero ajaa; oletus kuiva-ajo, `--kirjoita`, `--seura=`, `--projekti=`). Tulostaa vain lukumäärät ja kilotavut.
+
+**Ei vielä:** `lista_seura`, `lista_kirjaukset`, Pulssin laajennus (B.7 vaihe 3); CLAUDE.md §41 päivitetään PR 2:ssa, kun lukija on käytössä (Q9).
+
+**Käyttöönottojärjestys:** (1) merge → CI deployaa Rules v3.83 + funktiot, (2) Tero ajaa backfillin kuivana ja sitten `--kirjoita` stagingissa (`--projekti=talentmaster-staging`), (3) tarkistetaan dokumenttikoot ja yöajon kesto, (4) PR 2 (Master lukee lipulla).
