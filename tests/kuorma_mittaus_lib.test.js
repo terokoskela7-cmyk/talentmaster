@@ -204,7 +204,9 @@ describe('mittaus_raportti: P11-arviointi ja ensimmäiseksi pettävä', () => {
     expect(R.rivit({ sivut: { mittaukset: [sivu('vp', 'tyopoyta', 1, 5000)] } }).find((x) => x.id === 'kustannus').tila).toBe('ei_mitattu');
   });
   it('pelaaja-sivu merkitään kirjautumattomaksi; raportti ei sisällä salasanoja eikä seuratunnisteita; main kirjoittaa tiedoston', () => {
-    const t = R.muodosta({ sivut: { meta: {}, mittaukset: [sivu('pelaaja', 'tyopoyta', 0.9, 0)] } }); expect(t).toContain('kirjautumaton'); expect(t).not.toMatch(/kuorma_|@kuorma\.test|SYNT-/);
+    const kirjautumaton = Object.assign(sivu('pelaaja', 'tyopoyta', 0.9, 0), { rooli: null }), kirjautunut = sivu('pelaaja', 'puhelin', 3, 12);   // rooli asetetaan vain kun kirjautuminen tehtiin
+    const t = R.muodosta({ sivut: { meta: {}, mittaukset: [kirjautumaton] } }); expect(t).toContain('kirjautumaton');
+    const tk = R.muodosta({ sivut: { meta: {}, mittaukset: [kirjautunut] } }); expect(tk).not.toContain('kirjautumaton'); expect(tk).toContain('Aika interaktiiviseksi — Pelaaja (puhelin'); expect(t).not.toMatch(/kuorma_|@kuorma\.test|SYNT-/);
     const polku = join(tmp(), 'r.md'); expect(R.main(['--sivut=/ei', '--funktiot=/ei', '--dokumentit=/ei', '--ulos=' + polku], { kirjaa: () => {} })).toBe(0); expect(rd(polku, 'utf8')).toContain('# Mittausraportti');
   });
   it('yhdistaTulokset: osa-ajo (--sivut=pelaaja) säilyttää aiemmat sivut, korvaa saman sivu×profiili-parin, jättää monitoring-lohkon pois; eri isäntä → ylikirjoitus', () => {

@@ -20,8 +20,8 @@ function rivit(s) {
   const sivuData = s.sivut && s.sivut.mittaukset || [];
   ['tyopoyta', 'puhelin'].forEach((prof) => Object.keys(SIVUNIMI).forEach((avain) => {
     const m = sivuData.find((x) => x.sivu === avain && x.profiili === prof), raja = M.rajaAika(avain, prof), nimi = 'Aika interaktiiviseksi — ' + SIVUNIMI[avain] + ' (' + (prof === 'tyopoyta' ? 'työpöytä' : 'puhelin, Slow 4G') + ')';
-    const pelaajaHuom = avain === 'pelaaja' ? ' · kirjautumaton (vain kirjautumisnäkymä)' : '';
-    if (!m) { out.push(rivi('tti_' + prof + '_' + avain, nimi, null, 's', raja, 'ei_mitattu', pelaajaHuom)); return; }
+    if (!m) { out.push(rivi('tti_' + prof + '_' + avain, nimi, null, 's', raja, 'ei_mitattu', '')); return; }
+    const pelaajaHuom = avain === 'pelaaja' && !m.rooli ? ' · kirjautumaton (vain kirjautumisnäkymä)' : '';   // merkintä vain jos mittaus oikeasti tehtiin ilman tunnusta (rooli null); kirjautuneena ei merkintää
     const y = m.yhteenveto.kylma.tti_s, huom = (m.yhteenveto.kylma.virheita ? m.yhteenveto.kylma.virheita + ' virhettä; ' : '') + 'p95 ' + f1(y.p95) + ' s' + (y.p95 != null && y.p95 > raja ? ' ⚠ p95 ylittää' : '') + ' · lämmin ' + f1(m.yhteenveto.lampimat.tti_s.mediaani) + ' s' + (m.rooli && m.kylma.some((k) => k.kirjautunut === false) ? ' · ⚠ kirjautuminen ei onnistunut kaikissa' : '') + pelaajaHuom;
     out.push(rivi('tti_' + prof + '_' + avain, nimi, y.mediaani, 's', raja, arvioi(y.mediaani, raja), huom));
   }));
