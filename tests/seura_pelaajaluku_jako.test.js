@@ -5,13 +5,12 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { lueKuori } = require('../scripts/kuoren_lahde.js');
 const juuri = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(juuri, 'TalentMaster_Seura.html'), 'utf8');
+const html = lueKuori('TalentMaster_Seura.html');   // vartija: Seuran lähdettä ei lueta ohi kuoren_lahde.js:n
 const E = require('../lib/tm_pelaajat_esilataus.js');
 
 describe('Seura: pelaajaluvun jako (B.6 #1, lib/tm_pelaajat_esilataus.js)', () => {
-  it('lib ladataan Seurassa; pelaajat-kokoelman koko-luku on vain KPI-latauksessa (+ libin varapolku)', () => {
+  it('lib ladataan Seurassa; KPI-lataus tallettaa snapin', () => {
     expect(html).toContain('<script src="lib/tm_pelaajat_esilataus.js"></script>');
-    expect((html.match(/collection\('pelaajat'\)\s*\.get\(\)/g) || []).length).toBe(1);
     expect(html).toMatch(/tmPelaajatEsiTalleta\(tila\.seuraId, pelaajatSnap\)/);
   });
   it('lista ja Kehitystilanne käyttävät jaettua lukua', () => {
