@@ -1022,6 +1022,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         const ref = pelCol.doc(ex.id);
         let emailNyt = String((ex.huoltaja && ex.huoltaja.email) || ex.huoltajaEmail || '').trim().toLowerCase();
         let muuttui = false;
+        if (typeof tmPelaajatEsiTyhjenna === 'function') tmPelaajatEsiTyhjenna();
         if (Object.keys(paiv.patch).length) { await ref.update(Object.assign({}, paiv.patch, { muokattu: nyt })); muuttui = true; }
         if (paiv.emailAsetus) {   // huoltajaEmail muuttuu VAIN palvelimella (Rules v3.33)
           try { await firebase.app().functions('europe-west1').httpsCallable('asetaHuoltajaEmail')({ seuraId: tila.seuraId, pelaajaId: ex.id, huoltajaEmail: paiv.emailAsetus }); emailNyt = paiv.emailAsetus; muuttui = true; paiv.emailPaivitetty = true; }

@@ -621,6 +621,7 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
     const _hUusi = hEmail ? hEmail.trim().toLowerCase() : null;
     const _hVanha = (((window._pelaajatKaikki || []).find((x) => x.id === pelaajaId) || {}).huoltajaEmail || '').trim().toLowerCase() || null;
     if (_hUusi !== _hVanha) {
+      if (typeof tmPelaajatEsiTyhjenna === 'function') tmPelaajatEsiTyhjenna();
       await firebase.app().functions('europe-west1').httpsCallable('asetaHuoltajaEmail')({ seuraId: tila.seuraId, pelaajaId, huoltajaEmail: _hUusi });
     }
 
@@ -733,6 +734,7 @@ async function tallennaPelaajanJoukkue(pelaajaId) {
     // Tallennetaan sekä uusi taulukkomuoto että vanha yhteensopivuuskenttä
     // joukkueet[] = kaikki joukkueet (uusi)
     // joukkue = ensimmäinen joukkue (vanha yhteensopivuus valmentajan näkymälle)
+    if (typeof tmPelaajatEsiTyhjenna === 'function') tmPelaajatEsiTyhjenna();
     await db.collection('seurat').doc(tila.seuraId)
       .collection('pelaajat').doc(pelaajaId)
       .update({
@@ -799,6 +801,7 @@ function vahvistaPelaajanPoisto(pelaajaId, pelaajanNimi) {
 // vahvistus → kova poisto. CF tekee täyden recursiveDelete-siivouksen Admin SDK:lla.
 async function suoritaPelaajanPoisto(pelaajaId, pelaajanNimi) {
   const nappi = document.querySelector('#poistoPelaajaModal .lisaaNappi');
+  if (typeof tmPelaajatEsiTyhjenna === 'function') tmPelaajatEsiTyhjenna();
   const poistaFn = firebase.app().functions('europe-west1').httpsCallable('poistaPelaajaGDPR');
   try {
     if (nappi) { nappi.disabled = true; nappi.textContent = tmHT('⏳ Lasketaan…'); }

@@ -261,6 +261,7 @@ async function lahetaRekisteriSahkoposti() {
         const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
           .collection('pelaajat').doc();
         pelaajaId = pelaajaRef.id;
+        if (typeof tmPelaajatEsiTyhjenna === 'function') tmPelaajatEsiTyhjenna();
         await pelaajaRef.set(Object.assign(_tmPelaajanKieli(tila.seuraKieli), {
           etunimi:       etunimi || '',
           sukunimi:      sukunimi || '',
