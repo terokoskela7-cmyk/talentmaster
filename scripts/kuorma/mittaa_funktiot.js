@@ -17,8 +17,9 @@ const SALLITUT = OLETUS.concat(LISAT);
 /* Määritetty muisti ja aikaraja functions/index.js:stä (runWith) — raportin vertailuun; tarkista jos index.js muuttuu (testi vartioi). */
 const MAARITYS = { laskeSeuranKooste: { aikaraja_s: 540, muisti_mb: 512 }, laskeSeuranKoosteMa: { aikaraja_s: 540, muisti_mb: 512 }, laskutusKuukausi: { aikaraja_s: 540, muisti_mb: 512 }, kirjautumisaikaYo: { aikaraja_s: 300, muisti_mb: 256 }, valvontaPaivittain: { aikaraja_s: 540, muisti_mb: 1024 }, valvontaViikko: { aikaraja_s: 540, muisti_mb: 1024 },
   kalenteriTasoSynkka: { aikaraja_s: 60, muisti_mb: 256 }, notifReviewEraantyy: { aikaraja_s: 60, muisti_mb: 256 }, notifKoosteEmail: { aikaraja_s: 60, muisti_mb: 256 }, notifTapahtumaMuistutus: { aikaraja_s: 60, muisti_mb: 256 } };   // 4 viimeistä: gen1-oletus (runWith puuttuu)
-const REGION = 'europe-west1';
-const jobNimi = (fn) => 'firebase-schedule-' + fn + '-' + REGION;
+const REGION = 'europe-west1';   // funktioiden (1st gen) alue → Cloud Logging -suodatin
+const SCHEDULER_ALUE = 'us-central1';   // Firebasen luomat Scheduler-jobit asuvat us-central1:ssä (ei funktion alueella; kuten tuotannossa)
+const jobNimi = (fn) => 'firebase-schedule-' + fn + '-' + SCHEDULER_ALUE;
 
 function lueArgv(argv) {
   const o = { projekti: undefined, profiili: undefined, aja: false, kaikki: false, funktiot: undefined, toistot: 3, ulos: 'mittaus_tulokset/funktiot.json', odotus: 15, tuntematon: [] };
@@ -33,7 +34,7 @@ function komennot(projekti, fn, alkuIso) {
   if (SALLITUT.indexOf(fn) < 0) throw new Error('Funktio ei ole sallintalistalla.');
   if (!/^talentmaster-staging(-x)?$/.test(projekti)) throw new Error('Vain staging.');
   const suodatin = 'resource.type="cloud_function" AND resource.labels.function_name="' + fn + '" AND timestamp>="' + alkuIso + '" AND textPayload:"Function execution took"';
-  return { aja: ['gcloud', ['scheduler', 'jobs', 'run', jobNimi(fn), '--location=' + REGION, '--project=' + projekti]], loki: ['gcloud', ['logging', 'read', suodatin, '--project=' + projekti, '--format=json', '--order=asc', '--limit=5']] };
+  return { aja: ['gcloud', ['scheduler', 'jobs', 'run', jobNimi(fn), '--location=' + SCHEDULER_ALUE, '--project=' + projekti]], loki: ['gcloud', ['logging', 'read', suodatin, '--project=' + projekti, '--format=json', '--order=asc', '--limit=5']] };
 }
 const nuku = (ms) => new Promise((r) => setTimeout(r, ms));
 
