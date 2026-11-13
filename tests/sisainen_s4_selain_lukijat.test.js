@@ -105,7 +105,8 @@ describe('(4) terveyslukijat roolin mukaan (tmTerveysLukuOpts)', () => {
   it('kolme latauspaikkaa (VP, Master, Kehitystyöpöytä) välittävät roolin: tmTerveysLukuOpts(rooli, lista) — ei paljasta kutsua', () => {
     /* PR 2c: sama roolikohtainen opts + onVirhe (latausvirhe näkyviin) */
     expect(lue('TalentMaster_VP_v25.html')).toContain('tmSisainenLataaJaYhdista(db, _seura, _uudet, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(window._vpSA ? "super_admin" : window._vpRooli, _uudet), { onVirhe: _sv }))');
-    expect(lue('TalentMaster_Master_v16.html')).toContain('tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajatData, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, _pelaajatData), { onVirhe: _mSisainenVirhe }))');
+    expect(lue('TalentMaster_Master_v16.html')).toContain('tmSisainenLataaJaYhdista(_db, _seuraId, lista, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, lista), { onVirhe: _mSisainenVirhe }))');   // yksi polku: _mSisainenYhdista (lataus + lista-rivin hydrointi)
+    expect(lue('TalentMaster_Master_v16.html')).toContain('_pelaajatData = await _mSisainenYhdista(_pelaajatData)');
     expect(lue('TalentMaster_Kehitystyopoyta.html')).toContain('tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajat, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, _pelaajat), { onVirhe: _sv }))');
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html']) expect((lue(f).match(/tmSisainenLataaJaYhdista\(/g) || []).length, f).toBe(1);
   });

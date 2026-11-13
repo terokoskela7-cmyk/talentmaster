@@ -17,7 +17,8 @@
     { avain: 'kentta', kuvaus: 'Kenttä-polut (Design V2): Master, VP, Pelaaja, Kehitystyöpöytä' },
     { avain: 'kehitystyopoyta_v2', kuvaus: 'Kehitystyöpöytä v2 -sivu (Master ja VP ohjaavat sinne)' },
     { avain: 'valmentaja_v2', kuvaus: 'Valmentajan uusi navigaatio (Master, Kehitystyöpöytä)' },
-    { avain: 'klippi_oma_video', kuvaus: 'Klippi ryhmälle: pelaajan oma video (Master, VP)' }
+    { avain: 'klippi_oma_video', kuvaus: 'Klippi ryhmälle: pelaajan oma video (Master, VP)' },
+    { avain: 'lista_yhteenveto', kuvaus: 'Master-listat lukevat palvelimen joukkuekoosteen (lista_joukkue) kaikkien pelaajadokumenttien sijaan' }
   ];
   function tmLippuTunnettu(avain) { return LIPUT.some(function (l) { return l.avain === avain; }); }
   function tmLippuTila(avain, julkiset, seuraDoc) {
