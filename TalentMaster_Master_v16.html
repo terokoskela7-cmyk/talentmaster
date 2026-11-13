@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1794478040255';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1794571120256';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <style>/* K1b: kirjautumislomaketta ei näytetä ennen kuin Firebase on kertonut istunnon tilan (deeplink ?ws=…&toiminto=… ei saa vilauttaa "kirjautumista ulos"). _naytaLogin() poistaa luokan. */
 html.tm-auth-odottaa #sLogin{display:none!important}
 html.tm-auth-odottaa body::after{content:"";position:fixed;left:50%;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid rgba(128,128,120,.3);border-top-color:#28B090;border-radius:50%;animation:tmAuthSpin .8s linear infinite}
@@ -172,6 +172,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_koti_oletus.js"></script>
 <script src="lib/tm_joukkoaloitus.js"></script>   <!-- J4 C: joukkoaloitus (Kausi → Pelaajien jaksot) -->   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
 <script src="lib/tm_liput.js"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
+<script src="lib/tm_lista_yhteenveto.js"></script>   <!-- Vaihe 0 B.4: rivi→pelaaja (tmListaRiviPelaajaksi) + versiotarkistus; sama lib kuin palvelimella -->
+<script src="lib/tm_lista_lataus.js"></script>   <!-- Vaihe 0 B.4: lista_joukkue-lataaja (lippu lista_yhteenveto; kaikki tai ei mitään → vanha polku) -->
 <script src="lib/tm_sitoumus.js"></script>   <!-- Kehitystyöpöytä 22 · A1: sitoumus, yksi sääntö -->
 <script src="lib/tm_aloita_jakso.js"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_virhekoodi.js"></script>   <!-- tallennusvirheen syy (koodi) toastiin -->
@@ -227,7 +229,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm-prescription.js"></script>
 <script src="lib/tm-prescription-teksti.js"></script>   <!-- V-KOTI kierros B: pre-harkan alaotsikko kutsujan kielellä -->
 <!-- SheetJS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="lib/tm_xlsx_laiska.js"></script>   <!-- xlsx ladataan vasta Excel-viennissä (tmXlsxLataa) -->
 
 <!-- TalentMaster Bus -->
 <script>
@@ -1642,6 +1644,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
       <div class="sb-logo">Talent<em>Master</em>™</div>
       <div class="sb-role caps" id="sbRole" data-i18n="Valmentaja">Valmentaja</div>
       <div class="sb-seura" id="sbSeura">—</div>
+      <div id="sbLista" style="display:none;font-size:11px;line-height:1.5;color:var(--ink3);padding:2px 0 0"></div>
     </div>
 
     <nav class="sb-nav">
@@ -2745,6 +2748,86 @@ async function _mLataaJoukkueDocs() {
 function _mPJ(p) { return tmPelaajanJoukkueet(p, _mJoukkueDocs.length ? _mJoukkueDocs : null); }   // joukkueiden tunnisteet
 function _mOnJoukkueessa(p, joukkue) { return tmOnJoukkueessa(p, joukkue, _mJoukkueDocs); }   // jäsenyys tunnisteesta; id TAI nimi, kirjainkoosta riippumaton (lib/tm_joukkue.js); ilman docia legacy-nimi
 function _mJNimi(id) { const d = _mJoukkueDocs.find(x => x.id === id); return d ? (d.nimi || id) : id; }
+/* Vaihe 0 B.4 PR 2 — LISTAT PALVELINYHTEENVEDOSTA (lippu lista_yhteenveto, oletus pois → vanha polku täysin ennallaan).
+   Lukee seurat/{sid}/lista_joukkue/* (1 dokumentti/joukkue, ~25 pelaajariviä) kaikkien pelaajadokumenttien sijaan. KAIKKI TAI EI MITÄÄN: puuttuva/vanha dokumentti → palauttaa false → _lataaPelaajat jatkaa vanhalla polulla.
+   Rivi EI sisällä A-kenttiä (sisainen), historiaa eikä raskaita tekstejä → pelaajakortti hydratoi täyden dokumentin + sisainen-yhdistyksen (_mListaHydratoi). P2: talenttivalmentajan oletusnäkymä = oma joukkue + talenttiohjelma, koko seura painikkeesta. */
+/* YKSI sisainen-yhdistyspolku (roolikohtainen terveysluku + onVirhe): _lataaPelaajat ja lista-rivin hydrointi (_mListaHydratoi). */
+async function _mSisainenYhdista(lista) { return window.TM_SISAINEN.tmSisainenLataaJaYhdista(_db, _seuraId, lista, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, lista), { onVirhe: _mSisainenVirhe })); }
+window._mListaTila = null;   // { kaikki:[…rivipelaajat], laskettuMs, koko:bool, omat:[joukkue-id] }
+function _mListaOnRivi(p) { return !!(p && p._lista === true); }
+function _mListaNakyvat() {
+  const t = window._mListaTila; if (!t) return [];
+  const L = window.TM_LISTA_LATAUS, lista = (t.koko || !t.omat) ? t.kaikki : L.tmListaOletusNakyma(t.kaikki, t.omat);
+  return lista.slice().sort((a, b) => (a.sukunimi || '').localeCompare(b.sukunimi || ''));
+}
+function _mListaRenderTila() {
+  const el = document.getElementById('sbLista'), t = window._mListaTila; if (!el) return;
+  if (!t) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const aika = window.TM_LISTA_LATAUS.tmListaPaivitettyTeksti(t.laskettuMs);
+  const btn = 'background:none;border:0;padding:0;margin:0;color:var(--teal,#2ec4b6);cursor:pointer;font:inherit;text-decoration:underline';
+  let h = (aika ? _mEsc(masterT('✓ Päivitetty (') + aika + ')') + ' · ' : '') + '<button type="button" style="' + btn + '" onclick="_mListaPaivitaNyt()">' + _mEsc(masterT('Päivitä nyt')) + '</button>';
+  if (t.omat) h += ' · <button type="button" style="' + btn + '" onclick="_mListaVaihdaLaajuus()">' + _mEsc(t.koko ? masterT('Omat ryhmät') : masterT('Koko seura')) + '</button>';
+  el.innerHTML = h; el.style.display = '';
+}
+function _mListaVaihdaLaajuus() { const t = window._mListaTila; if (!t) return; t.koko = !t.koko; _pelaajatData = _mListaNakyvat(); _mListaRenderTila(); _paivitaKaikkiNakymat(); }
+async function _mListaPaivitaNyt() {
+  const el = document.getElementById('sbLista');
+  try {
+    if (el) el.style.opacity = '.5';
+    await firebase.app().functions('europe-west1').httpsCallable('paivitaListaYhteenveto')({ seuraId: _seuraId });
+    await _lataaPelaajat();
+    if (typeof toast === 'function') toast(masterT('✓ Päivitetty (') + window.TM_LISTA_LATAUS.tmListaPaivitettyTeksti(Date.now()) + ')', 'success');
+  } catch (e) {
+    const koodi = e && e.code ? String(e.code).replace('functions/', '') : '';
+    if (typeof toast === 'function') toast(masterT('Päivitys epäonnistui') + (koodi === 'resource-exhausted' ? ' (30 s)' : koodi ? ' (' + koodi + ')' : ''), 'error');
+  } finally { if (el) el.style.opacity = ''; }
+}
+/* Täysi pelaajadokumentti + sisainen-yhdistys yhdelle riville (pelaajakortti, jaksofokus-sulut, Ohjelmat). Idempotentti; virhe → toast + rivi jää rivinä. */
+async function _mListaHydratoi(pid) {
+  const i = _pelaajatData.findIndex(x => x.id === pid), p = i >= 0 ? _pelaajatData[i] : null;
+  if (!_mListaOnRivi(p) || _demo || !_seuraId) return p;
+  if (p._hydratoidaan) return p._hydratoidaan;
+  p._hydratoidaan = (async () => {
+    try {
+      const sn = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).get();
+      if (!sn.exists) return p;
+      const o = { id: sn.id, ...sn.data() }; o.phv_ilmoitettu_ph = tmPhvIlmoitettuPH(o); o.phv_ei_mitattu = tmPhvEiMitattu(o); o.phv_tila = tmPhvKoodi(o);
+      let rst = [o];
+      if (window.TM_SISAINEN) rst = await _mSisainenYhdista(rst);
+      const uusi = rst[0] || o; delete uusi._lista;
+      Object.keys(p).forEach(k => { delete p[k]; }); Object.assign(p, uusi);   // SAMA objekti (viitteet _pelaajatData/_listassa säilyvät)
+      const t = window._mListaTila; if (t) { const k = t.kaikki.findIndex(x => x.id === pid); if (k >= 0 && t.kaikki[k] !== p) t.kaikki[k] = p; }
+      return p;
+    } catch (e) { console.warn('[lista] hydrointi:', e && e.message); if (typeof toast === 'function') toast(masterT('Päivitys epäonnistui'), 'error'); return p; }
+    finally { delete p._hydratoidaan; }
+  })();
+  return p._hydratoidaan;
+}
+async function _mListaYritaLadata(kanonJ) {
+  try {
+    if (_demo || !window.TM_LISTA_LATAUS || !window.TM_LISTA_YHTEENVETO || typeof _mJjLataaLiput !== 'function') return false;
+    const liput = await _mJjLataaLiput(); if (!(liput && liput.lista_yhteenveto === true)) { window._mListaTila = null; _mListaRenderTila(); return false; }
+    let ids = null;
+    if (_joukkue) { if (!kanonJ) return false; ids = [kanonJ.id]; }
+    const r = await window.TM_LISTA_LATAUS.tmListaLataa(_db, _seuraId, ids, { tunnetut: _mJoukkueDocs.map(j => j.id) });
+    if (!r.ok) { console.warn('[lista] vanha polku:', r.syy); window._mListaTila = null; _mListaRenderTila(); return false; }
+    let omat = null;   // P2: vain talenttivalmentaja koko seuran näkymässä rajataan oletuksena
+    if (!ids && (window._tmClaimRooli || _rooli) === 'talenttivalmentaja' && !_superAdmin) {
+      const d = window._valmentajaData || {}, os = {};
+      (Array.isArray(d.joukkueet) ? d.joukkueet : []).forEach(x => { os[x] = 1; });
+      _valmentajanJoukkueNimet().forEach(n => { const j = tmKanonisoiJoukkue(n, _mJoukkueDocs); if (j && j.id) os[j.id] = 1; });
+      omat = Object.keys(os);
+    }
+    const ed = window._mListaTila, koko = !!(ed && ed.koko && omat);
+    window._mListaTila = { kaikki: r.pelaajat, laskettuMs: r.laskettuMs, koko: koko, omat: omat };
+    _pelaajatData = _mListaNakyvat();
+    _mListaRenderTila();
+    _paivitaKaikkiNakymat();
+    if (typeof _ktKaynnista === 'function') _ktKaynnista();
+    _lataaKirjaukset(); _kuunteleVpViestit(); _mvKuuntele();
+    return true;
+  } catch (e) { console.warn('[lista] vanha polku (poikkeus):', e && e.message); window._mListaTila = null; return false; }
+}
 async function _lataaPelaajat() {
   if (!_seuraId) return;
   if (_mOnOffline()) { _mVerkkoIlmoitus(true); return; }   // ei tyhjää listaa "ei pelaajia" -tilana
@@ -2754,6 +2837,7 @@ async function _lataaPelaajat() {
     let docs;
     await _mLataaJoukkueDocs();
     const _kanonJ = (_joukkue && _mJoukkueDocs.length) ? tmKanonisoiJoukkue(_joukkue, _mJoukkueDocs) : null;   // oman joukkueen oikea tunniste docista (ei slug-arvausta)
+    if (await _mListaYritaLadata(_kanonJ)) return;   // lippu lista_yhteenveto: lista_joukkue-dokumentit; false → vanha polku alla
     if (_joukkue) {
       // §18: kaksoiskysely — joukkue (näyttönimi "SJK P14") + joukkueet[] (id "sjk_p14").
       // Pelaajalla voi olla vain toinen (esim. kutsuflow'n Kerkko: joukkue="sjk_p14").
@@ -2789,7 +2873,7 @@ async function _lataaPelaajat() {
     // PR C: PHV-tila normalisoidaan TÄSSÄ (yksi rajapinta, kuten VP lataaPelaajat): kanoninen Mirwald-koodi vain
     // mittauslähteestä (biologinenIka_viimeisin), muuten null = tuntematon. Ilmoitettu PH → lippu henkilökunnalle.
     _pelaajatData = docs.map(d => { const o = { id: d.id, ...d.data() }; o.phv_ilmoitettu_ph = tmPhvIlmoitettuPH(o); o.phv_ei_mitattu = tmPhvEiMitattu(o); o.phv_tila = tmPhvKoodi(o); return o; });
-    if (!_demo) { if (!window.TM_SISAINEN) _mSisainenVirhe('TM_SISAINEN'); else _pelaajatData = await window.TM_SISAINEN.tmSisainenLataaJaYhdista(_db, _seuraId, _pelaajatData, Object.assign(window.TM_SISAINEN.tmTerveysLukuOpts(_rooli, _pelaajatData), { onVirhe: _mSisainenVirhe })); }   // Vaihe 1 (1d/2c): sisainen/tiedot yhdistetään; puuttuva lib tai latausvirhe näkyy (ei hiljaista ohitusta)
+    if (!_demo) { if (!window.TM_SISAINEN) _mSisainenVirhe('TM_SISAINEN'); else _pelaajatData = await _mSisainenYhdista(_pelaajatData); }   // Vaihe 1 (1d/2c): sisainen/tiedot yhdistetään; puuttuva lib tai latausvirhe näkyy (ei hiljaista ohitusta)
     _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
     if (!_demo) {
       // Renderöi kaikki pelaajadataa käyttävät näkymät (alkulataus + jokainen lataus)
@@ -3239,6 +3323,7 @@ async function _generoiExcel(tap) {
   const kausiNimi = { 'kevat':'Kevät','kesa':'Kesä','syksy':'Syksy' }[tap.kausi?.split('-')[1]] || tap.kausi || '';
   const vuosi = tap.kausi?.split('-')[0] || tap.vuosi || '';
 
+  try { await window.tmXlsxLataa(); } catch (e) { toast(masterT('Yritä uudelleen'), null); return; }   // xlsx laiskasti (CDN) vasta viennissä
   const wb = XLSX.utils.book_new();
 
   // Ohjeet-lehti
@@ -5788,6 +5873,7 @@ function renderDev(pid, vanha) {
     _renderPlayerPickerFirestore();
     if (_activePelaaja) {
       const fp = _pelaajatData.find(p => p.id === _activePelaaja);
+      if (fp && _mListaOnRivi(fp) && !fp._listaVirhe) { _mListaHydratoi(fp.id).then(function (q) { if (q && _mListaOnRivi(q)) q._listaVirhe = true; if (_activePelaaja === fp.id) renderDev(fp.id, vanha); }); _renderTimeline(null); return; }   // lista-rivi → täysi dokumentti ennen korttia
       if (fp) { _renderPinfoFirestore(fp); _renderTimeline(fp); _renderNarrative(fp); }
       else _renderTimeline(null);
     } else {
@@ -5830,6 +5916,7 @@ function _mAvaaPelaaja(pid, valilehti) {
   return _mAvaaPelaajaVanha(pid);
 }
 function _mAvaaPelaajaVanha(pid) {
+  { const _r = (_pelaajatData || []).find(function (x) { return x.id === pid; }); if (_mListaOnRivi(_r) && !_r._listaVirhe) { _mListaHydratoi(pid).then(function (q) { if (q && _mListaOnRivi(q)) q._listaVirhe = true; _mAvaaPelaajaVanha(pid); }); return true; } }   // lista-rivi → hydratoi ennen korttia
   if (window._ktLippu && typeof window._ktAvaa === 'function' && window._ktAvaa(pid, 'tanaan')) return true;   // V4a: lipulla koko ruudun näkymä (URL #pelaaja/{pid}/tanaan)
   // Käsitesti 7.10.: lippu voi olla vielä lukematta (käynnistys kesken) → odota käynnistys ja avaa V4; vanha näkymä vain jos lippu on pois / ei käynnisty
   if (!window._ktLippu && !_demo && _seuraId && typeof _ktKaynnista === 'function' && !window._ktLippuLuettu) {
@@ -7268,13 +7355,24 @@ async function _ohjLataaKirjasto(force) {
   return window._ohjKirjasto;
 }
 // N-laskuri: eri pelaajat joilla ohjelma käytössä (jaksofokus.ohjelma.ohjelma_id TAI historia-rivi). Lukee pelaajat KERRAN (§26).
+/* Vaihe 0 B.6 #2: ei omaa koko-pelaajalukua. Koko seura jo muistissa (_pelaajatData, kun joukkuerajausta ei ole) → käytetään sitä; muuten YKSI jaettu luku
+   (N-laskuri + analytiikka-välimuisti jakavat sen; force/uusi seura nollaa). Palauttaa pelkkiä data-objekteja. */
+var _ohjPelaajaLupaus = null, _ohjPelaajaLupausSeura = null, _ohjPelaajaLupausT = 0;   // jaettu luku elää 15 s (N-laskuri + analytiikka samassa avauksessa; ei vanhene käyttäjän muokkausten yli)
+async function _ohjPelaajaLahde(force) {
+  if (!force && !_joukkue && _pelaajatData && _pelaajatData.length && !_pelaajatData.some(_mListaOnRivi)) return _pelaajatData;   // lista-rivit eivät sisällä jaksofokus_historiaa → täysi luku
+  if (force || !_ohjPelaajaLupaus || _ohjPelaajaLupausSeura !== _seuraId || (Date.now() - _ohjPelaajaLupausT) > 15000) {
+    _ohjPelaajaLupausSeura = _seuraId; _ohjPelaajaLupausT = Date.now();
+    _ohjPelaajaLupaus = _db.collection('seurat').doc(_seuraId).collection('pelaajat').get().then(function (sn) { return sn.docs.map(function (d) { return d.data(); }); }).catch(function (e) { _ohjPelaajaLupaus = null; throw e; });
+  }
+  return _ohjPelaajaLupaus;
+}
 async function _ohjLaskeN() {
   window._ohjKirjastoN = {};
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) return;
   try {
-    var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
-    snap.docs.forEach(function (d) {
-      var p = d.data(); var ids = {};
+    var lahde = await _ohjPelaajaLahde(false);
+    lahde.forEach(function (p) {
+      var ids = {};
       if (p.jaksofokus && p.jaksofokus.ohjelma && p.jaksofokus.ohjelma.ohjelma_id) ids[p.jaksofokus.ohjelma.ohjelma_id] = 1;
       (p.jaksofokus_historia || []).forEach(function (h) { if (h && h.ohjelma && h.ohjelma.ohjelma_id) ids[h.ohjelma.ohjelma_id] = 1; });
       Object.keys(ids).forEach(function (oid) { window._ohjKirjastoN[oid] = (window._ohjKirjastoN[oid] || 0) + 1; });
@@ -7290,9 +7388,9 @@ async function _ohjLataaPelaajatCache(force) {
   window._ohjPelaajatCache = [];
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) return window._ohjPelaajatCache;
   try {
-    var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
+    var lahde = await _ohjPelaajaLahde(!!force);
     // PR C: vain mitattu tila (biologinenIka_viimeisin säilyy minimaalisena, jotta jaettu sääntö antaa saman tuloksen).
-    window._ohjPelaajatCache = snap.docs.map(function (d) { var p = d.data(); var k = tmPhvKoodi(p); return { jaksofokus_historia: p.jaksofokus_historia || [], phv_tila: k, biologinenIka_viimeisin: k ? { phv_tila_koodi: k } : null }; });
+    window._ohjPelaajatCache = lahde.map(function (p) { var k = tmPhvKoodi(p); return { jaksofokus_historia: p.jaksofokus_historia || [], phv_tila: k, biologinenIka_viimeisin: k ? { phv_tila_koodi: k } : null }; });
   } catch (e) { /* best-effort */ }
   return window._ohjPelaajatCache;
 }

@@ -93,7 +93,7 @@ gcloud billing budgets create --billing-project=$PROJECT_ID --billing-account=BI
 # gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:SINUN_SÄHKÖPOSTI" --role=roles/monitoring.viewer
 ```
 
-Functions-deploy luo myös Scheduler-ajot — **us-central1:een** (funktiot ovat europe-west1:ssä, mutta Firebasen ajastukset eivät; sama kuin tuotannossa), nimi `firebase-schedule-<funktio>-us-central1`. Ensimmäisen deployn jälkeen työnkulku **pausettaa** ne; mittauksessa ne ajetaan käsin (`gcloud scheduler jobs run <nimi> --location=us-central1 --project talentmaster-staging`).
+Functions-deploy luo myös Scheduler-ajot — **us-central1:een** (funktiot ovat europe-west1:ssä, mutta Firebasen ajastukset eivät; sama kuin tuotannossa), sijainti us-central1, nimi `firebase-schedule-<funktio>-europe-west1` (pääte = funktion alue). Ensimmäisen deployn jälkeen työnkulku **pausettaa** ne; mittauksessa ne ajetaan käsin (`gcloud scheduler jobs run <nimi> --location=us-central1 --project talentmaster-staging`).
 
 ## C. GitHub
 
@@ -158,7 +158,7 @@ Profiilit: `savu` (2a, ennallaan, sha-vartija) · `savu_taysi` (2 seuraa, 1 000 
 
 ## G. Mittausajo (projekti 06 PR 3; Tero ajaa `! node …`)
 
-Rajat: P11 (`scripts/kuorma/mittaus_lib.js` → `RAJAT`): interaktiivinen < 5 s Slow 4G / < 2 s työpöytä, < 2 000 lukua/avaus, funktio < 270 s (40 seuralla), pelaajadokumentti < 250 kt, infrakustannus < 1 €/pelaaja/vuosi. Tulokset kirjoitetaan `mittaus_tulokset/` (gitignore); raportti `docs/MITTAUSRAPORTTI_STAGING.md` generoidaan niistä. **Ensin `savu_taysi`; täysi aineisto vasta kun putki toimii.**
+Rajat: P11 (`scripts/kuorma/mittaus_lib.js` → `RAJAT`): interaktiivinen työpöytä < 2 s kaikilla; puhelin (Slow 4G) < 5 s Pelaaja/Vanhempi/Testaus/Kehitystyöpöytä ja < 10 s VP/Master/Seura (P7, 12.11.2026); lukuja/avaus < 2 000 henkilökunta ja < 200 pelaaja/huoltaja (P4); funktio < 270 s (40 seuralla), pelaajadokumentti < 250 kt, infrakustannus < 1 €/pelaaja/vuosi. Tulokset kirjoitetaan `mittaus_tulokset/` (gitignore); raportti `docs/MITTAUSRAPORTTI_STAGING.md` generoidaan niistä (sisältää kokoelmakohtaiset luvut ja resurssityyppikohtaiset tavut: 1. kylmä avaus/sivu×profiili, 15 suurinta resurssia puhelimella). **Ensin `savu_taysi`; täysi aineisto vasta kun putki toimii.**
 
 1. **Hosting-kanava `kuorma`:** GitHub → Actions → Deploy Staging → hosting ✔, kanava `kuorma` → URL `https://talentmaster-staging--kuorma-<tunniste>.web.app` (kanavan hostille `lib/tm_appcheck.js` sallii debug-tokenin).
 2. **Sivut** (Playwright + Chrome; tarvitsee `STAGING_APPCHECK_DEBUG_TOKEN` ympäristöön — GitHub Secretin arvo, rekisteröity staging-App Checkiin; ei repoon, ei tulosteeseen):

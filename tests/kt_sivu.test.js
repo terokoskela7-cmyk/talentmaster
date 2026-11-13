@@ -111,7 +111,7 @@ describe('B7 · Master ja VP linkittävät uuteen sivuun lipun kehitystyopoyta_v
   it('Master pickPlayer: lippu päällä (window._tmKtSivu = kehitystyopoyta_v2) → uusi sivu; V-KOTI (_tmNavV2) yksin ei riitä; muuten ennallaan (V4 / vanha näkymä)', () => {
     const f = ['function _mKtSivuTieto(', 'function _mKtSivuPaatos(', 'function _mAvaaPelaaja(', 'function _mAvaaPelaajaVanha(', 'function pickPlayer(pid)'].map((t) => pura(MASTER, t)).join('\n');   // kaikki pelaajan avaukset: _mAvaaPelaaja-sisäänkäynti
     for (const [nav, odotettu] of [[true, 'TalentMaster_Kehitystyopoyta.html#pelaaja/p1/tanaan'], [false, null]]) {
-      const loki = { href: null, ktAvaa: 0, renderDev: 0 }, ctx = { window: { _tmNavV2: true, _tmKtSivu: nav, TM_KT_SIVU: KS, _ktLippu: false, location: {} }, _demo: false, _seuraId: 's', renderDev: () => loki.renderDev++, _ktKaynnista: undefined };
+      const loki = { href: null, ktAvaa: 0, renderDev: 0 }, ctx = { window: { _tmNavV2: true, _tmKtSivu: nav, TM_KT_SIVU: KS, _ktLippu: false, location: {} }, _demo: false, _seuraId: 's', renderDev: () => loki.renderDev++, _ktKaynnista: undefined, _mListaOnRivi: () => false, _pelaajatData: [] };
       Object.defineProperty(ctx.window.location, 'href', { set: (v) => { loki.href = v; }, get: () => '' }); vm.createContext(ctx); vm.runInContext(f + '\npickPlayer("p1");', ctx);
       expect(loki.href).toBe(odotettu); expect(loki.renderDev).toBe(nav ? 0 : 1);
     }

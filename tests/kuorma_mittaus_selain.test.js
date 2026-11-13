@@ -12,7 +12,7 @@ const FAKE_SDK = `
 window.firebase = { apps: [], app: function () {} };
 (function () {
   function Query(path) { this.path = path; }
-  Query.prototype.get = function () { return Promise.resolve({ size: this.path === 'tyhja' ? 0 : 3, docs: [1, 2, 3] }); };
+  Query.prototype.get = function () { return Promise.resolve({ size: this.path === 'tyhja' ? 0 : 3, docs: [1, 2, 3].map(function () { return { data: function () { return { a: 'xx' }; } }; }) }); };
   Query.prototype.onSnapshot = function (a, b) { var f = typeof a === 'function' ? a : a.next; setTimeout(function () { f({ metadata: { fromCache: false }, docChanges: function () { return [1, 2]; }, size: 2 }); }, 40); setTimeout(function () { f({ metadata: { fromCache: true }, docChanges: function () { return [1, 1, 1, 1]; }, size: 4 }); }, 80); return function () {}; };
   function DocumentReference(path) { this.path = path; this.parent = { id: path.split('/').slice(-2, -1)[0] }; }
   DocumentReference.prototype.get = function () { return Promise.resolve({ exists: true }); };
@@ -41,9 +41,36 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('mittaus · se
       const r = await S.mittaaAvaus(page, cdp, 'http://127.0.0.1:' + portti + '/', { ikkuna: 600, aikaraja: 20000 });
       expect(r.virhe).toBeNull(); expect(r.kiinnitetty).toBe(true);
       expect(r.luvut).toEqual({ pelaajat: 3 + 1 /* get 3 + doc-onSnapshot 1 */, tyhja: 1 /* tyhjä kysely = väh. 1 */, seurat: 1 /* doc.get */, havainnot: 2 /* ensimmäinen palvelinsnapshot; välimuistisnapshot (4) ohitetaan */ });
-      expect(r.yht).toBe(8); expect(r.fcp_ms).toBeGreaterThan(0); expect(r.tti_ms).toBeGreaterThanOrEqual(r.fcp_ms); expect(r.tavut).toBeGreaterThan(100);
+      expect(r.dokTavut.pelaajat).toBe(30 /* 3 × {"a":"xx"} = 3 × 10 merkkiä */); expect(r.dokEiMitattu).toBeGreaterThanOrEqual(0); expect(r.yht).toBe(8); expect(r.fcp_ms).toBeGreaterThan(0); expect(r.tti_ms).toBeGreaterThanOrEqual(r.fcp_ms); expect(r.tavut).toBeGreaterThan(100); expect(Array.isArray(r.resurssit) && r.resurssit.length > 0 && r.resurssit.every((x) => x.url.indexOf('?') < 0 && typeof x.koodattu === 'number')).toBe(true);
       expect(await page.evaluate(() => self.FIREBASE_APPCHECK_DEBUG_TOKEN)).toBe('TESTI-TOKEN'); expect(JSON.stringify(r)).not.toContain('TESTI-TOKEN');
       await ctx.close();
+    } finally { await selain.close(); palvelin.close(); }
+  }, 60000);
+  it('--erittely: lukemat polku (id → *) ← kutsujafunktio, [lista]-konsoliviesti kerätään; ilman erittely-valintaa kenttiä ei kerry', async () => {
+    const SIVU_E = `<!doctype html><meta charset="utf-8"><title>e</title><h1>e</h1><script src="/sdk.js"></script><script>
+ var fs = firebase.firestore;
+ function _lataaPelaajat() { return new fs.Query('seurat/s1/pelaajat').get(); }
+ function _mListaYritaLadata() { new fs.Query('seurat/s1/lista_joukkue').get(); console.warn('[lista] vanha polku: versio:abc'); }
+ function _lataaKirjaukset() { new fs.DocumentReference('seurat/s1/pelaajat/p1/kooste/kertyma_2026').get(); new fs.DocumentReference('seurat/s1/pelaajat/p2/kooste/kertyma_2026').get(); }
+ _mListaYritaLadata(); _lataaPelaajat(); _lataaKirjaukset();
+</script>`;
+    const palvelin = createServer((rq, rs) => { if (rq.url === '/sdk.js') { rs.setHeader('content-type', 'text/javascript'); rs.end(FAKE_SDK); } else { rs.setHeader('content-type', 'text/html'); rs.end(SIVU_E); } });
+    await new Promise((r) => palvelin.listen(0, '127.0.0.1', r)); const portti = palvelin.address().port;
+    const { chromium } = require('playwright-core'), selain = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    try {
+      for (const erittely of [true, false]) {
+        const ctx = await selain.newContext(), page = await ctx.newPage(); await ctx.addInitScript(instrumentointi, { erittely }); const cdp = await ctx.newCDPSession(page); await cdp.send('Network.enable');
+        const r = await S.mittaaAvaus(page, cdp, 'http://127.0.0.1:' + portti + '/vale.html', { ikkuna: 500, aikaraja: 15000, erittely });
+        if (erittely) {
+          const k = Object.keys(r.erittely);
+          expect(k.some((x) => /^seurat\/\*\/pelaajat ← _lataaPelaajat vale\.html:\d+$/.test(x) && r.erittely[x].n === 3)).toBe(true);
+          expect(k.some((x) => /^seurat\/\*\/lista_joukkue ← _mListaYritaLadata vale\.html:\d+$/.test(x))).toBe(true);
+          const kooste = k.find((x) => x.indexOf('seurat/*/pelaajat/*/kooste/') === 0 || /^seurat\/\*\/pelaajat\/\*\/kooste/.test(x)); expect(kooste).toBeTruthy(); expect(r.erittely[kooste].n).toBe(2); expect(r.erittely[kooste].kutsuja).toBe(2);
+          expect(r.konsoli).toEqual(['[lista] vanha polku: versio:abc']);
+          const txt = S.erittelyTeksti('master', 'tyopoyta', r); expect(txt).toMatch(/ERITTELY master/); expect(txt).toMatch(/konsoli: \[lista\] vanha polku/);
+        } else { expect(r.erittely).toBeUndefined(); expect(r.konsoli).toBeUndefined(); }
+        await ctx.close();
+      }
     } finally { await selain.close(); palvelin.close(); }
   }, 60000);
   it('ilman firebase-nimiavaruutta kiinnitetty=false (skripti varoittaa eikä väitä nollaa luvuiksi)', async () => {

@@ -19,7 +19,9 @@ const MAARITYS = { laskeSeuranKooste: { aikaraja_s: 540, muisti_mb: 512 }, laske
   kalenteriTasoSynkka: { aikaraja_s: 60, muisti_mb: 256 }, notifReviewEraantyy: { aikaraja_s: 60, muisti_mb: 256 }, notifKoosteEmail: { aikaraja_s: 60, muisti_mb: 256 }, notifTapahtumaMuistutus: { aikaraja_s: 60, muisti_mb: 256 } };   // 4 viimeistä: gen1-oletus (runWith puuttuu)
 const REGION = 'europe-west1';   // funktioiden (1st gen) alue → Cloud Logging -suodatin
 const SCHEDULER_ALUE = 'us-central1';   // Firebasen luomat Scheduler-jobit asuvat us-central1:ssä (ei funktion alueella; kuten tuotannossa)
-const jobNimi = (fn) => 'firebase-schedule-' + fn + '-' + SCHEDULER_ALUE;
+/** gcloudin stderr:n 3 ensimmäistä riviä virheviestiin (diagnoosi: väärä nimi/sijainti/oikeus). */
+const stderrAlku = (r) => { const t = r && r.stderr ? String(r.stderr).split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 3) : []; return t.length ? '\n      gcloud: ' + t.join('\n      gcloud: ') : ''; };
+const jobNimi = (fn) => 'firebase-schedule-' + fn + '-' + REGION;   // nimen pääte = FUNKTION alue (europe-west1); jobin SIJAINTI (--location) on SCHEDULER_ALUE
 
 function lueArgv(argv) {
   const o = { projekti: undefined, profiili: undefined, aja: false, kaikki: false, funktiot: undefined, toistot: 3, ulos: 'mittaus_tulokset/funktiot.json', odotus: 15, tuntematon: [] };
@@ -55,7 +57,7 @@ async function main(argv, deps) {
     const ajot = [];
     for (let i = 1; i <= a.toistot; i++) {
       const alku = nyt(), k = komennot(lukko.projekti, fn, alku.toISOString()), r = suorita(k.aja[0], k.aja[1]);
-      if (!r || r.status !== 0) { virhe('  ' + fn + ' ajo ' + i + ': scheduler jobs run epäonnistui (' + (r && r.status) + ') — onko job olemassa ja ADC voimassa?'); ajot.push({ ajo: i, virhe: 'scheduler' }); continue; }
+      if (!r || r.status !== 0) { virhe('  ' + fn + ' ajo ' + i + ': scheduler jobs run epäonnistui (' + (r && r.status) + ') — onko job olemassa ja ADC voimassa?' + stderrAlku(r)); ajot.push({ ajo: i, virhe: 'scheduler' }); continue; }
       let rivi = null; const raja = alku.getTime() + a.odotus * 60000;
       while (!rivi && nyt().getTime() < raja) {
         await odota(d.kysely_ms != null ? d.kysely_ms : 15000);

@@ -36,7 +36,7 @@ function ymp({ rooli = 'vp', claimRooli, superAdmin = false, joukkue = 'KPV U13'
     normalisioiJoukkue: (x) => String(x).trim().toUpperCase().replace(/_/g, ' '), masterT: (x) => x,
     document: { getElementById: (id) => (id === 'sbSeura' ? { textContent: 'KPV' } : null), createElement: () => Object.assign({}, sel, { children: [] }), querySelector: () => ({ insertBefore(e) { valitsimet.push(e); } }) },
     _mOnOffline: () => false, lataaKonseptikerros: async () => {}, _mVerkkoIlmoitus() {}, _mOnVerkkovirhe: () => false, tmPhvIlmoitettuPH: () => false, tmPhvEiMitattu: () => false, tmPhvKoodi: () => null,
-    _paivitaKaikkiNakymat() {}, _lataaKirjaukset() {}, _kuunteleVpViestit() {}, _lataaTestitapahtumat: async () => {}, _lataaKalenteriTapahtumat: async () => {} };
+    _paivitaKaikkiNakymat() {}, _mListaYritaLadata: async () => false, _mSisainenYhdista: async (l) => l, _lataaKirjaukset() {}, _kuunteleVpViestit() {}, _lataaTestitapahtumat: async () => {}, _lataaKalenteriTapahtumat: async () => {} };
   vm.createContext(c);
   vm.runInContext([pura('function _mSeuranLaajuusRooli('), pura('async function _mLataaJoukkueDocs('), pura('function _mPJ('), pura('function _mJNimi('), pura('async function _lataaPelaajat('), pura('async function _rakennaSAJoukkueValitsin('), pura('function _mKaavioJoukkueId('), pura('function _mKaavioJoukkueet(')].join(';\n') + ';', c);
   return { c, log, tallennukset, valitsimet };
