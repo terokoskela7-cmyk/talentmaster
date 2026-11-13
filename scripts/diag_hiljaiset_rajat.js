@@ -48,7 +48,7 @@ const REKISTERI = [
     { haku: 'viestit where lahettajaUid (EI järjestystä)', raja: 100, luokka: 'LEIKKAA', mittaa: 'viestit_kayttaja', huom: '' },
   ] },
   // ── Master ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  { tiedosto: 'TalentMaster_Master_v16.html', n: 9, kohdat: [
+  { tiedosto: 'TalentMaster_Master_v16.html', n: 10, kohdat: [
     { haku: 'testitapahtumat orderBy luotu desc', raja: 50, luokka: 'LEIKKAA', mittaa: 'testitapahtumat', huom: 'lista näytetään täydellisenä; vanhemmat tapahtumat puuttuvat' },
     { haku: 'pelaaja/kirjaukset orderBy paivitetty desc', raja: 7, luokka: 'UUSIMMAT', huom: '' },
     { haku: 'viestit/notifikaatiot orderBy aika|luotu desc', raja: 20, luokka: 'UUSIMMAT', huom: 'vastaanottajan viimeisimmät' },
@@ -57,7 +57,8 @@ const REKISTERI = [
     { haku: 'harjoitusarvioinnit where valmentajaUid', raja: 100, luokka: 'LEIKKAA', mittaa: 'harjoitusarvioinnit_valmentaja', huom: 'EI järjestystä' },
     { haku: 'kayttajat/{uid}/reflektiot', raja: 100, luokka: 'LEIKKAA', mittaa: 'reflektiot_kayttaja', huom: 'EI järjestystä' },
     { haku: 'notifikaatiot orderBy luotu desc', raja: 50, luokka: 'UUSIMMAT', huom: '' },
-    { haku: 'pelaaja/kenttatarkkailut orderBy luotu desc', raja: 20, luokka: 'UUSIMMAT', huom: '' } ] },
+    { haku: 'pelaaja/kenttatarkkailut orderBy luotu desc', raja: 20, luokka: 'UUSIMMAT', huom: '' },
+    { haku: 'kalenteri alkaa >= ikkunan loppu orderBy alkaa (Kodin seuraava, PR A)', raja: 3, luokka: 'HAKU', huom: 'avainhaku: 1. oman joukkueen tapahtuma ikkunan jälkeen; 3 dok./kierros, max 2 kierrosta, suodatus muistissa' } ] },
   { tiedosto: 'TalentMaster_Kehitystyopoyta.html', n: 1, kohdat: [{ haku: 'pelaaja/viikkokatsaukset where jakso_alkoi', raja: 6, luokka: 'RAJATTU', huom: '' }] },
   { tiedosto: 'TalentMaster_Testaus_v9.html', n: 1, kohdat: [{ haku: 'testitapahtumat orderBy pvm desc', raja: 50, luokka: 'LEIKKAA', mittaa: 'testitapahtumat', huom: 'vanhemmat testitapahtumat eivät valittavissa' }] },
   // ── Pelaaja / Vanhempi ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
