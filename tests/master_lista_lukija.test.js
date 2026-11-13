@@ -11,13 +11,13 @@ const LOHKO = HTML.slice(A, B);
 const L = require('../lib/tm_lista_yhteenveto.js'), LL = require('../lib/tm_lista_lataus.js');
 
 function ymparisto(o) {
-  o = o || {}; const lokit = { luvut: [], renderit: 0, haettuPelaajaDoc: [], toast: [], kirjaukset: 0 };
+  o = o || {}; const lokit = { luvut: [], renderit: 0, haettuPelaajaDoc: [], toast: [], kirjaukset: 0, varoitukset: [] };
   const docs = o.docs || {};
   const col = (nimi) => ({ doc: (id) => ({ get: async () => { lokit.luvut.push(nimi + '/' + id); if (nimi === 'pelaajat') { lokit.haettuPelaajaDoc.push(id); const d = (o.taydet || {})[id]; return { exists: !!d, id, data: () => d }; } const d = docs[id]; return { exists: !!d, data: () => d }; } }), get: async () => { lokit.luvut.push(nimi + '/*'); return { docs: Object.keys(docs).map((id) => ({ id, data: () => docs[id] })) }; } });
   const _db = { collection: () => ({ doc: () => ({ collection: (n) => col(n) }) }) };
-  const sb = { console: { warn() {}, log() {} }, Date, Object, Array, String, JSON, Promise, Math, Intl, setTimeout, window: {}, document: { getElementById: () => sb._el }, _el: { style: {}, innerHTML: '' },
+  const sb = { console: { warn(...a) { lokit.varoitukset.push(a.join(' ')); }, log() {} }, Date, Object, Array, String, JSON, Promise, Math, Intl, setTimeout, window: {}, document: { getElementById: () => sb._el }, _el: { style: {}, innerHTML: '' },
     _db, _seuraId: 's', _demo: !!o.demo, _joukkue: o.joukkue || '', _rooli: o.rooli || 'vp', _superAdmin: !!o.sa, _pelaajatData: [], _mJoukkueDocs: o.joukkueDocs || [],
-    esc: (x) => String(x), masterT: (x) => x, toast: (m, t) => lokit.toast.push(m + '|' + t),
+    _mEsc: (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;'), masterT: (x) => x, toast: (m, t) => lokit.toast.push(m + '|' + t),
     tmPhvIlmoitettuPH: () => false, tmPhvEiMitattu: () => false, tmPhvKoodi: () => null, tmKanonisoiJoukkue: (n, jd) => jd.find((j) => j.nimi === n) || null,
     _valmentajanJoukkueNimet: () => o.omatNimet || [], _paivitaKaikkiNakymat: () => { lokit.renderit++; }, _ktKaynnista() {}, _lataaKirjaukset: () => { lokit.kirjaukset++; }, _kuunteleVpViestit() {}, _mvKuuntele() {},
     _mSisainenYhdista: async (l) => (o.sisainen ? o.sisainen.tmSisainenLataaJaYhdista(_db, 's', l, {}) : l), _mJjLataaLiput: async () => ({ lista_yhteenveto: o.lippu !== false }), _lataaPelaajat: async () => {}, firebase: {} };
@@ -32,6 +32,14 @@ const JD = [{ id: 'a', nimi: 'A' }, { id: 'b', nimi: 'B' }];
 
 describe('Master lista-lukija (lippu lista_yhteenveto)', () => {
   it('lohko löytyi lähteestä (ei vacuous)', () => { expect(A).toBeGreaterThan(0); expect(B).toBeGreaterThan(A); expect(LOHKO).toContain('_mListaHydratoi'); });
+  it('REGRESSIO (esc is not defined): renderöinti ajetaan loppuun ilman poikkeusta — ei "vanha polku (poikkeus)" -varoitusta, lohko ei käytä paljasta esc():ia, _mEsc on määritelty', async () => {
+    expect(LOHKO).not.toMatch(/(^|[^A-Za-z_])esc\(/); expect(HTML).toMatch(/\nfunction _mEsc\(/);
+    for (const omat of [false, true]) {
+      const e = ymparisto(omat ? { docs: DOCS(), joukkueDocs: JD, rooli: 'talenttivalmentaja', omatNimet: ['A'] } : { docs: DOCS(), joukkueDocs: JD });
+      expect(Object.prototype.hasOwnProperty.call(e.sb, 'esc')).toBe(false);   // sandboxissa EI esc-tynkää → ReferenceError näkyisi
+      expect(await e.x.yrita(null)).toBe(true); expect(e.lokit.varoitukset.filter((v) => /poikkeus/.test(v))).toEqual([]); expect(e.sb._el.innerHTML).toContain('Päivitä nyt'); expect(e.sb._pelaajatData.length).toBeGreaterThan(0);
+    }
+  });
   it('lippu pois → false, EI lukua lista_joukkue:sta, _pelaajatData koskematon', async () => {
     const e = ymparisto({ lippu: false, docs: DOCS(), joukkueDocs: JD }); expect(await e.x.yrita(null)).toBe(false); expect(e.lokit.luvut).toEqual([]); expect(e.sb._pelaajatData).toEqual([]);
   });
