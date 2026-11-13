@@ -48,6 +48,13 @@ describe('Master lista-lukija (lippu lista_yhteenveto)', () => {
     expect(e.lokit.luvut).toEqual(['lista_joukkue/*']); expect(e.sb._pelaajatData.map((p) => p.id)).toEqual(['p1', 'p2', 'p3', 'p4']); expect(e.sb._pelaajatData.every(e.x.onRivi)).toBe(true); expect(e.lokit.renderit).toBe(1); expect(e.lokit.kirjaukset).toBe(1);
     expect(e.sb._el.innerHTML).toContain('Päivitä nyt'); expect(e.sb._el.innerHTML).toContain('✓ Päivitetty (');
   });
+  it('PR A: käynnistyksen kaksi PERÄKKÄISTÄ _lataaPelaajat-kutsua (_alusta + renderDev) → YKSI lista_joukkue-luku; muistin nollaus (Päivitä nyt) pakottaa uuden; epäonnistunut luku ei jää muistiin', async () => {
+    const e = ymparisto({ docs: DOCS(), joukkueDocs: JD }); expect(await e.x.yrita(null)).toBe(true); expect(await e.x.yrita(null)).toBe(true);
+    expect(e.lokit.luvut).toEqual(['lista_joukkue/*']);   // ennen: 2 × (kaikki joukkuedokumentit)
+    e.sb._mListaMuistiNollaa(); expect(await e.x.yrita(null)).toBe(true); expect(e.lokit.luvut).toEqual(['lista_joukkue/*', 'lista_joukkue/*']);
+    const puuttuu = ymparisto({ docs: { a: DOCS().a }, joukkueDocs: JD }); expect(await puuttuu.x.yrita(null)).toBe(false); const n = puuttuu.lokit.luvut.length; expect(await puuttuu.x.yrita(null)).toBe(false); expect(puuttuu.lokit.luvut.length).toBe(2 * n);
+    expect(HTML).toMatch(/httpsCallable\('paivitaListaYhteenveto'\)\(\{ seuraId: _seuraId \}\);\s*_mListaMuistiNollaa\(\);\s*await _lataaPelaajat\(\);/);
+  });
   it('yksi joukkue: vain sen dokumentti', async () => {
     const e = ymparisto({ docs: DOCS(), joukkueDocs: JD, joukkue: 'B' }); expect(await e.x.yrita({ id: 'b' })).toBe(true); expect(e.lokit.luvut).toEqual(['lista_joukkue/b']); expect(e.sb._pelaajatData.map((p) => p.id)).toEqual(['p3', 'p4']);
   });

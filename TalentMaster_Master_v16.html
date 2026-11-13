@@ -2783,7 +2783,7 @@ async function _mListaPaivitaNyt() {
   try {
     if (el) el.style.opacity = '.5';
     await firebase.app().functions('europe-west1').httpsCallable('paivitaListaYhteenveto')({ seuraId: _seuraId });
-    await _lataaPelaajat();
+    _mListaMuistiNollaa(); await _lataaPelaajat();
     if (typeof toast === 'function') toast(masterT('✓ Päivitetty (') + window.TM_LISTA_LATAUS.tmListaPaivitettyTeksti(Date.now()) + ')', 'success');
   } catch (e) {
     const koodi = e && e.code ? String(e.code).replace('functions/', '') : '';
@@ -2811,12 +2811,12 @@ async function _mListaHydratoi(pid) {
   })();
   return p._hydratoidaan;
 }
-/* PR A: päällekkäiset _lataaPelaajat-kutsut jakavat YHDEN lista_joukkue-luvun (vain käynnissä oleva; valmistuttua seuraava kutsu lukee tuoreena, koska muokkausten jälkeinen päivitys odottaa uutta dataa). */
-const _mListaLento = {};
+/* PR A (korjaus): _lataaPelaajat kutsutaan käynnistyksessä kahdesti PERÄKKÄIN (_alusta + renderDev:n _devFetchKey, ?ws=dev) → käynnissä olevan luvun jako ei riittänyt (#1285: lista_joukkue yhä 2 × 25). Onnistunut luku jaetaan 10 s (seura + joukkuerajaus); _mListaPaivitaNyt nollaa muistin (käyttäjä pyysi tuoreen). Epäonnistunut luku ei jää muistiin. */
+const _mListaLento = {}; function _mListaMuistiNollaa() { Object.keys(_mListaLento).forEach(k => { delete _mListaLento[k]; }); }
 function _mListaLataaYksi(ids, opts) {
-  const avain = _seuraId + '|' + (ids ? ids.join(',') : '*'); if (_mListaLento[avain]) return _mListaLento[avain];
-  const p = window.TM_LISTA_LATAUS.tmListaLataa(_db, _seuraId, ids, opts), vapauta = () => { if (_mListaLento[avain] === p) delete _mListaLento[avain]; };
-  _mListaLento[avain] = p; p.then(vapauta, vapauta); return p;
+  const avain = _seuraId + '|' + (ids ? ids.join(',') : '*'), m = _mListaLento[avain]; if (m && Date.now() - m.t < 10000) return m.p;
+  const p = window.TM_LISTA_LATAUS.tmListaLataa(_db, _seuraId, ids, opts), vapauta = () => { if (_mListaLento[avain] && _mListaLento[avain].p === p) delete _mListaLento[avain]; };
+  _mListaLento[avain] = { p: p, t: Date.now() }; p.then(r => { if (!r || !r.ok) vapauta(); }, vapauta); return p;
 }
 async function _mListaYritaLadata(kanonJ) {
   try {
