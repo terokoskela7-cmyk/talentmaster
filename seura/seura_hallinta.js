@@ -884,6 +884,7 @@ function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin
     document.body.appendChild(modal);
   }
   const esc = function(s){ return String(s || '').replace(/"/g, '&quot;'); };
+  const omaTunnus = (firebase.auth().currentUser || {}).uid === uid;   // palvelin estää myös
   modal.innerHTML =
     '<div class="modalSisalto" style="max-width:440px;">' +
       '<div class="modalOtsikko"><span>' + tmHT('✏️ Muokkaa henkilön tietoja') + '</span>' +
@@ -891,8 +892,9 @@ function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin
       '<div style="padding:20px;">' +
         '<input type="hidden" id="hm_uid" value="' + esc(uid) + '">' +
         '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
-          '<label class="kenttaLabel">' + tmHT('Sähköposti (ei muokattavissa)') + '</label>' +
-          '<input class="kenttaInput" value="' + esc(email) + '" disabled style="opacity:.6;">' +
+          '<label class="kenttaLabel">' + tmHT('Sähköposti (kirjautumisosoite)') + '</label>' +
+          '<input type="hidden" id="hm_email_orig" value="' + esc(email) + '"><input class="kenttaInput" type="email" id="hm_email" value="' + esc(email) + '" autocomplete="off"' + (omaTunnus ? ' disabled style="opacity:.6;"' : '') + '>' +
+          '<span style="font-size:11px;color:var(--ink3);">' + (omaTunnus ? tmHT('Omaa osoitetta ei voi vaihtaa tästä.') : tmHT('Vaihto säilyttää tunnuksen ja tiedot; salasanalinkki tehdään uuteen osoitteeseen.')) + '</span>' +
         '</div>' +
         '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
           '<label class="kenttaLabel">' + _seuraT('henkilosto.rooli', 'Rooli') + '</label>' +
@@ -944,8 +946,11 @@ async function tallennaHenkiloMuutos() {
   const suuntakoodi = document.getElementById('hm_suunta').value || '+358';
   const puhelin     = (document.getElementById('hm_puhelin').value || '').replace(/[^\d]/g, '');
   const status = document.getElementById('hm_status');
+  const emailOrig = ((document.getElementById('hm_email_orig') || {}).value || '').trim().toLowerCase(), emailEl = document.getElementById('hm_email'), emailUusi = emailEl && !emailEl.disabled ? (emailEl.value || '').trim().toLowerCase() : emailOrig, emailVaihtuu = !!emailUusi && emailUusi !== emailOrig;
+  if (emailVaihtuu && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailUusi) ? (status && (status.textContent = tmHT('Virheellinen sähköpostiosoite.')), true) : !confirm(tmHT('Vaihdetaanko henkilön sähköposti?') + '\n\n' + emailOrig + ' → ' + emailUusi + '\n\n' + tmHT('Henkilö kirjautuu jatkossa uudella osoitteella. Vanha istunto päättyy, tiedot säilyvät. Salasanalinkki tehdään uuteen osoitteeseen.')))) return;   // vahvistus ENNEN kirjoituksia
   if (status) status.textContent = 'Tallennetaan...';
   try {
+    if (emailVaihtuu) await firebase.app().functions('europe-west1').httpsCallable('vaihdaKayttajanSahkoposti')({ kohdeUid: uid, seuraId: tila.seuraId, uusiEmail: emailUusi });   // ensin: yleisin virhe (osoite varattu) pysäyttää ennen muita kirjoituksia
     // Joukkueet + yhteystiedot samaan set-merge-kirjoitukseen (Rules sallii johdolle ei-rooli/seuraId-kentät).
     // Joukkuejäsenyys EI ole custom claimseissa → ei vaadi uudelleenkirjautumista (vain rooli vaatii, CF alla).
     const jk = _keraaJoukkueKentat('#hm_joukkueet_lista');
@@ -966,6 +971,7 @@ async function tallennaHenkiloMuutos() {
     }
     document.getElementById('henkiloMuokkausModal').classList.remove('auki');
     renderHenkilosto(document.getElementById('nakymaAlue'));
+    if (emailVaihtuu) { naytaToast(tmHT('Sähköposti vaihdettu:') + ' ' + emailUusi, 'ok'); await window._lahetaSalasanaReset(uid, emailUusi, etunimi, suuntakoodi, puhelin); }   // salasanalinkki UUTEEN osoitteeseen (lahetaResetLinkki + jakomodaali)
   } catch (e) {
     if (status) status.textContent = 'Virhe: ' + e.message;
     naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe');
