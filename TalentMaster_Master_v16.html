@@ -49,7 +49,7 @@ html.tm-upotettu #_kvCanvas svg{width:100%!important;height:auto!important}   /*
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- K35-7b: callable luoKalenteriTilaus/peruKalenteriTilaus/haeKalenteriTilausTila -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_kalenteri_tilaus_ui.js"></script>   <!-- K35-7b: "Lisää kalenteriini" -->
-<script src="lib/tm_kalenteri_lataus.js"></script>   <!-- K35-10: rajattu kalenterilataus (−8…+26 vk, laajenee selatessa; monipäiväiset erikseen) -->
+<script src="lib/tm_kalenteri_lataus.js"></script>   <!-- K35-10: rajattu kalenterilataus (−2…+6 vk, laajenee selatessa/kuukausi/täyttö; monipäiväiset erikseen) -->
 <script src="lib/tm_viikko.js"></script>   <!-- YKSI ISO 8601 -viikkolasku (audit 27, D140) -->
 <script src="lib/tm_koti_luvut.js"></script>   <!-- P0-luvut: avoimetTestit (yksi määritelmä), kattavuus (D125) — audit 27 -->
 <script src="lib/tm_pvm.js"></script><script src="lib/tm_paiva_otsikko.js"></script>   <!-- Kodin päiväys fi/sv -->   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
@@ -2739,9 +2739,17 @@ window.addEventListener('online', function () {
 /* §7.18 JOUKKUEJÄSENYYS: joukkueet[] on totuus, `joukkue` vain näyttönimi; yksi jaettu funktio tmPelaajanJoukkueet (lib/tm_joukkue.js). Joukkue-docit ladataan kerran per seura.
    Valmentajan lataus hakee ehdokkaat sekä nimellä että tunnisteella (legacy-pelaajat) ja SUODATTAA jäsenyyden mukaan → sama pelaaja ei näy kahdessa joukkueessa (Sibbo: 271 vs 246). */
 let _mJoukkueDocs = [], _mJoukkueDocsSeura = null;
+/* PR A: YKSI joukkueet-luku avausta kohti (ennen: valitsin + _mLataaJoukkueDocs ×2 = 3 × 25). Memo 15 s / seura; poistuu joukkuedokumentin päivityksessä. Hylätty luku ei jää muistiin. */
+let _mJoukkueSnapMuisti = null;
+function _mJoukkueSnap(seuraId) {
+  const m = _mJoukkueSnapMuisti; if (m && m.seura === seuraId && Date.now() - m.t < 15000) return m.p;
+  const p = _db.collection('seurat').doc(seuraId).collection('joukkueet').get(); _mJoukkueSnapMuisti = { seura: seuraId, t: Date.now(), p: p };
+  p.catch(() => { if (_mJoukkueSnapMuisti && _mJoukkueSnapMuisti.p === p) _mJoukkueSnapMuisti = null; });
+  return p;
+}
 async function _mLataaJoukkueDocs() {
   if (_mJoukkueDocsSeura === _seuraId && _mJoukkueDocs.length) return _mJoukkueDocs;
-  try { const sn = await _db.collection('seurat').doc(_seuraId).collection('joukkueet').get(); _mJoukkueDocs = sn.docs.map(d => Object.assign({ id: d.id }, d.data())); _mJoukkueDocsSeura = _seuraId; }
+  try { const sn = await _mJoukkueSnap(_seuraId); _mJoukkueDocs = sn.docs.map(d => Object.assign({ id: d.id }, d.data())); _mJoukkueDocsSeura = _seuraId; }
   catch (e) { console.warn('[joukkueet]', e && e.message); _mJoukkueDocs = []; }
   return _mJoukkueDocs;
 }
@@ -2803,13 +2811,20 @@ async function _mListaHydratoi(pid) {
   })();
   return p._hydratoidaan;
 }
+/* PR A: päällekkäiset _lataaPelaajat-kutsut jakavat YHDEN lista_joukkue-luvun (vain käynnissä oleva; valmistuttua seuraava kutsu lukee tuoreena, koska muokkausten jälkeinen päivitys odottaa uutta dataa). */
+const _mListaLento = {};
+function _mListaLataaYksi(ids, opts) {
+  const avain = _seuraId + '|' + (ids ? ids.join(',') : '*'); if (_mListaLento[avain]) return _mListaLento[avain];
+  const p = window.TM_LISTA_LATAUS.tmListaLataa(_db, _seuraId, ids, opts), vapauta = () => { if (_mListaLento[avain] === p) delete _mListaLento[avain]; };
+  _mListaLento[avain] = p; p.then(vapauta, vapauta); return p;
+}
 async function _mListaYritaLadata(kanonJ) {
   try {
     if (_demo || !window.TM_LISTA_LATAUS || !window.TM_LISTA_YHTEENVETO || typeof _mJjLataaLiput !== 'function') return false;
     const liput = await _mJjLataaLiput(); if (!(liput && liput.lista_yhteenveto === true)) { window._mListaTila = null; _mListaRenderTila(); return false; }
     let ids = null;
     if (_joukkue) { if (!kanonJ) return false; ids = [kanonJ.id]; }
-    const r = await window.TM_LISTA_LATAUS.tmListaLataa(_db, _seuraId, ids, { tunnetut: _mJoukkueDocs.map(j => j.id) });
+    const r = await _mListaLataaYksi(ids, { tunnetut: _mJoukkueDocs.map(j => j.id) });
     if (!r.ok) { console.warn('[lista] vanha polku:', r.syy); window._mListaTila = null; _mListaRenderTila(); return false; }
     let omat = null;   // P2: vain talenttivalmentaja koko seuran näkymässä rajataan oletuksena
     if (!ids && (window._tmClaimRooli || _rooli) === 'talenttivalmentaja' && !_superAdmin) {
@@ -3891,7 +3906,7 @@ function _renderInboxOhjaus(el) {
 function _calTilausEste() { return window.TM_KALENTERI_TILAUS_UI.tmTilausEste({ sa: _superAdmin, seuraId: _seuraId, claimSeuraId: window._tmClaimSeuraId }); }   // K35-11b: SA / toisen seuran käyttäjä / ei seuraa
 function _calTilausAvaa() { window.TM_KALENTERI_TILAUS_UI.tmTilausAsenna({ esto: _calTilausEste, t: masterT, kutsu: (n, d) => firebase.app().functions('europe-west1').httpsCallable(n)(d), args: () => ({ seuraId: _seuraId }), toast: x => toast(x, 'ok') }).avaa(); }
 /* ── KALENTERI TAPAHTUMAT FIRESTORESTA ── */
-/* K35-10: kalenteri ladataan RAJATUSTI (lib/tm_kalenteri_lataus.js): −8…+26 vk nykyhetkestä, laajenee kun viikkoa selataan ulkopuolelle (haetaan vain puuttuva väli); monipäiväiset (tauko/vapaa/erikoisohjelma) 2. kyselyllä.
+/* K35-10: kalenteri ladataan RAJATUSTI (lib/tm_kalenteri_lataus.js): −2…+6 vk nykyhetkestä (PR A), laajenee kun viikkoa selataan ulkopuolelle (haetaan vain puuttuva väli); monipäiväiset (tauko/vapaa/erikoisohjelma) 2. kyselyllä.
    Kutsu ilman argumenttia (muokkauksen jälkeen) = ladattu väli haetaan uudelleen; argumentilla (viikon päivä) = vain puuttuva väli. Sarjan muokkaus (toistuvuus_sarja_id) on oma kyselynsä, ei rajaudu. */
 let _kalLadattu = null, _kalKaikki = [], _kalLataa = false, _kalSeura = null;
 function _kalNormalisoi(d) {
@@ -3907,22 +3922,29 @@ async function _kalSuodata(uudet) {   // joukkue-/ryhmärajaus (tmNakyyKalenteri
     return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || window.TM_KALENTERI_KYSELYT.tmTapahtumaJoukkueelle(t, { id: _calJoukkueId(), nimi: _joukkue }) || (t.kohde && t.kohde.tyyppi === 'ryhma');   // ryhmätapahtumalla ei joukkuetta → ei joukkuesuodatusta
   }).sort(function(a,b) { return (a.pvm||'').localeCompare(b.pvm||''); });
 }
-function _calVarmistaIkkuna(viikkoIso) { if (!_kalLataa && _seuraId && !_demo && _kalLadattu && window.TM_KALENTERI_LATAUS.tmLatausPuuttuva(_kalLadattu, window.TM_KALENTERI_LATAUS.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: viikkoIso, ladattu: _kalLadattu })).length) _lataaKalenteriTapahtumat(viikkoIso); }
-async function _lataaKalenteriTapahtumat(valittuViikko) {
+function _calVarmistaIkkuna(viikkoIso, loppuIso) { if (!_kalLataa && _seuraId && !_demo && _kalLadattu && window.TM_KALENTERI_LATAUS.tmLatausPuuttuva(_kalLadattu, window.TM_KALENTERI_LATAUS.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: viikkoIso, valittuLoppu: loppuIso, ladattu: _kalLadattu })).length) _lataaKalenteriTapahtumat(viikkoIso, loppuIso); }   // PR A: avauksen ikkuna −2…+6 vk → kuukausi (loppuIso = ruudukon viimeinen viikko) ja täyttö (−8 vk historia) laajentavat vasta tarvittaessa
+async function _lataaKalenteriTapahtumat(valittuViikko, valittuLoppu) {
   if (!_seuraId || _demo || _kalLataa) return;
   if (_kalSeura !== _seuraId) { _kalSeura = _seuraId; _kalLadattu = null; _kalKaikki = []; valittuViikko = undefined; }   // seura vaihtui (SA) → ei edellisen seuran välimuistia
-  const L = window.TM_KALENTERI_LATAUS, tarve = L.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: valittuViikko, ladattu: _kalLadattu }), uusiLataus = valittuViikko === undefined || !_kalLadattu;
+  const L = window.TM_KALENTERI_LATAUS, tarve = L.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: valittuViikko, valittuLoppu: valittuLoppu, ladattu: _kalLadattu }), uusiLataus = valittuViikko === undefined || !_kalLadattu;
   const valit = uusiLataus ? [tarve] : L.tmLatausPuuttuva(_kalLadattu, tarve); if (!valit.length) return;
   _kalLataa = true;
   // Kalenteri-kokoelma — ainoa kalenterilähde (K1). Testitapahtumat (§22) luetaan erikseen. poistettu-suodatus muistissa.
   try {
     const docs = await L.tmLataaIkkuna(_db, _seuraId, valit, firebase.firestore.Timestamp), uudet = L.tmLatausSuodata(docs.map(_kalNormalisoi));
-    _kalKaikki = uusiLataus ? uudet : L.tmYhdistaTapahtumat(_kalKaikki, uudet); _kalLadattu = uusiLataus ? tarve : L.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: valittuViikko, ladattu: _kalLadattu });
+    _kalKaikki = uusiLataus ? uudet : L.tmYhdistaTapahtumat(_kalKaikki, uudet); _kalLadattu = uusiLataus ? tarve : L.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: valittuViikko, valittuLoppu: valittuLoppu, ladattu: _kalLadattu });
   } catch(e2) { console.warn('[kalenteri-uusi]', e2.message); _kalLataa = false; return; }
   _kalLataa = false;
   _kalenteriTapahtumat = await _kalSuodata(_kalKaikki);
   _mRyOmatNayta();
   renderCal();
+}
+
+async function _calVarmistaHistoria(maIso) {   // PR A: täyttö/monista tarvitsee 8 vk historian viikon taakse → laajenna ikkuna vain nyt (ei avauksessa)
+  if (!_seuraId || _demo || !_kalLadattu || !/^\d{4}-\d{2}-\d{2}$/.test(String(maIso || ''))) return;
+  const alkuIso = tmPaivaIso(new Date(Date.parse(maIso + 'T12:00:00') - 56 * 86400000)), L = window.TM_KALENTERI_LATAUS;
+  for (let i = 0; i < 50 && _kalLataa; i++) await new Promise(r => setTimeout(r, 100));   // käynnissä oleva lataus ensin (_lataaKalenteriTapahtumat ohittaa päällekkäisen)
+  if (L.tmLatausPuuttuva(_kalLadattu, L.tmLatausIkkuna({ nyt: Date.now(), valittuViikko: alkuIso, ladattu: _kalLadattu })).length) await _lataaKalenteriTapahtumat(alkuIso);
 }
 
 /* ── SA JOUKKUEVALITSIN ── */
@@ -4010,7 +4032,7 @@ async function _rakennaSAJoukkueValitsin(seuraId, opts) {   // opts (VP-periaate
   // Hae joukkueet tämän seuran pelaajista
   try {
     // V-KOTI B live: option.value = joukkueen doc-id, teksti = nimi; _joukkue = docin nimi (ei isoilla kirjoitettu arvo → _mOnJoukkueessa täsmää). Ilman joukkue-doceja legacy: nimet pelaajista (value = nimi).
-    const jsn = await _db.collection('seurat').doc(seuraId).collection('joukkueet').get().catch(() => null);
+    const jsn = await _mJoukkueSnap(seuraId).catch(() => null);
     let joukkueet = jsn ? jsn.docs.filter(d => d.data().arkistoitu !== true && d.data().aktiivinen !== false).map(d => ({ id: d.id, nimi: d.data().nimi || d.id })) : [];
     if (!joukkueet.length) {
       const snap = await _db.collection('seurat').doc(seuraId).collection('pelaajat').get(), joukkueetSet = new Set();
@@ -8259,6 +8281,7 @@ window._mJjTallenna = async function () {
   try {
     await _mTuoreToken(firebase.auth().currentUser);
     await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(d.jid).update(k.update);
+    _mJoukkueSnapMuisti = null;   // PR A: joukkuedokumentti muuttui → seuraava luku tuoreena
     d.data.jaksofokus = k.paikallinen.jaksofokus;   // paikallinen tila vasta onnistumisen jälkeen
     if (k.paikallinen.historiaLisays.length) d.data.jaksofokus_historia = (Array.isArray(d.data.jaksofokus_historia) ? d.data.jaksofokus_historia : []).concat(k.paikallinen.historiaLisays);
     window._mJjSynkkaVirhe = null;
@@ -9967,7 +9990,7 @@ function _calTayttoOhjain() {
     db: _db, seuraId: () => _seuraId, uid: () => _uid, demo: () => !!_demo, joukkue: joukkueNimi, joukkueDocit: () => _mJoukkueDocs, lataaJoukkueDocit: _mLataaJoukkueDocs,
     tapahtumat: () => _kalenteriTapahtumat || [], pelaajat: () => (_pelaajatData || []).filter(p => !_joukkue || _mOnJoukkueessa(p, _joukkue)).map(p => p.id), johto: () => !!_superAdmin || _calJohtoRooli(), saaKirjoittaa: () => _saaMerkitaLasnaolo(),
     ts: (pvm, hhmm) => firebase.firestore.Timestamp.fromDate(new Date(pvm + 'T' + hhmm + ':00')), palvelinAika: () => firebase.firestore.FieldValue.serverTimestamp(), toast: toast, t: masterT,
-    rerender: () => renderCal(), lataaTapahtumat: _lataaKalenteriTapahtumat, avaaUusi: pvm => _avaaUusiTapahtuma(pvm, '17:00'), avaaEhdotus: _calEhdotusMuokkaa,
+    rerender: () => renderCal(), lataaTapahtumat: _lataaKalenteriTapahtumat, varmistaHistoria: _calVarmistaHistoria, avaaUusi: pvm => _avaaUusiTapahtuma(pvm, '17:00'), avaaEhdotus: _calEhdotusMuokkaa,
     maanantai: () => { const d = new Date(), dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow + _calWkOffset * 7); return tmPaivaIso(d); }
   });
   return window._calTaytto;
@@ -10080,7 +10103,7 @@ function _calKuukausiNayta() {   // K35-11b: kuukausinäkymä (lib/tm_kalenteri_
   const n = new Date(); _calKk = _calKk || { vuosi: n.getFullYear(), kk: n.getMonth() };
   if (!document.getElementById('kmCss')) { const st = document.createElement('style'); st.id = 'kmCss'; st.textContent = K.tmKuukausiCSS(); document.head.appendChild(st); }
   const testit = (_testitapahtumat || []).filter(_calSuodataJoukkue).map(t => ({ id: t.id, tyyppi: 'testitapahtuma', koko_paiva: true, nimi: _protokollaLyhenne(t.protokolla), pvm: t.pvm }));
-  const m = K.tmKuukausiMalli({ tapahtumat: (_kalenteriTapahtumat || []).filter(_calSuodataJoukkue).concat(testit), vuosi: _calKk.vuosi, kk: _calKk.kk, tanaan: tmPaivaIso(n), nyt: Date.now() }); _calVarmistaIkkuna(m.viikot[0].maanantai);
+  const m = K.tmKuukausiMalli({ tapahtumat: (_kalenteriTapahtumat || []).filter(_calSuodataJoukkue).concat(testit), vuosi: _calKk.vuosi, kk: _calKk.kk, tanaan: tmPaivaIso(n), nyt: Date.now() }); _calVarmistaIkkuna(m.viikot[0].maanantai, m.viikot[m.viikot.length - 1].maanantai);
   el.innerHTML = K.tmKuukausiHTML(m, { t: masterT, on: { tapahtuma: id => "calEventClick('" + String(id).replace(/'/g, '') + "')", paiva: pvm => "_calKkPaiva('" + pvm + "')" } });
   const l = document.getElementById('calWkLabel'); if (l) l.textContent = (typeof tmPvmFmt === 'function') ? tmPvmFmt(new Date(_calKk.vuosi, _calKk.kk, 1), { month: 'long', year: 'numeric' }, (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi') : masterT(K.tmKuukausiNimi(_calKk.kk)) + ' ' + _calKk.vuosi;   // erä 92: Intl kielen mukaan const s = document.getElementById('calWkSub'); if (s) s.textContent = '';
 }
