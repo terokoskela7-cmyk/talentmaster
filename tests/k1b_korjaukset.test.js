@@ -195,6 +195,15 @@ describe.skipIf(!CHROME_PAALLA)('K1b/7 · taktiikkataulu modaalina pelaajakortin
       }
     } finally { await selain.close(); }
   }, 180000);
+  it('PERF: sivun latauksessa EI ole Master-iframea (ei kehyksiä, ei Master-pyyntöä); taulun avaus luo iframen kerran, sulkeminen poistaa', async () => {
+    const selain = await selainKaynnista(); try {
+      const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', pelaajat: pel() }); const masterPyynnot = []; p.on('request', (r) => { if (/TalentMaster_Master_v16\.html/.test(r.url())) masterPyynnot.push(r.url()); });
+      await masterTynkaan(p); await odota(p); await p.waitForSelector('.kts-kentta-valikko'); await p.waitForTimeout(800);
+      expect(await p.locator('iframe').count(), 'iframe latauksessa').toBe(0); expect(p.frames().length, 'kehyksiä').toBe(1); expect(masterPyynnot, 'Master-pyyntö latauksessa').toEqual([]);
+      await p.evaluate(() => window.avaaKaaviopankki()); await p.waitForSelector(IFR); expect(await p.locator('iframe').count(), 'avauksen jälkeen').toBe(1); expect(p.frames().length).toBe(2);
+      await p.locator('[data-kt-taulu-sulje]').click(); await p.waitForSelector(IFR, { state: 'detached' }); expect(await p.locator('iframe').count()).toBe(0); await sk.close();
+    } finally { await selain.close(); }
+  }, 90000);
   it('puhelin 390 px: modaali koko näyttö (ei marginaalia), iframe täyttää; Escape/tausta ei jätä jumiin; selaimen Takaisin sulkee (pushState)', async () => {
     const selain = await selainKaynnista(); try {
       const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p2/tanaan', leveys: 390, korkeus: 844, pelaajat: pel() }); await masterTynkaan(p); await odota(p); await p.waitForSelector('.kts-kentta-valikko');
