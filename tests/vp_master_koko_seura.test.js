@@ -25,12 +25,12 @@ function db(log) {
   const snap = (ids) => ({ docs: ids.map((id) => ({ id, data: () => PELAAJAT[id] })) });
   const col = { get: async () => { log.push('get-kaikki'); return snap(Object.keys(PELAAJAT)); },
     where: (k, op, v) => ({ get: async () => { log.push('where:' + k + ':' + v); return snap(Object.keys(PELAAJAT).filter((id) => k === 'joukkue' ? PELAAJAT[id].joukkue === v : (PELAAJAT[id].joukkueet || []).includes(v))); } }) };
-  return { collection: () => ({ doc: () => ({ collection: (n) => (n === 'joukkueet' ? { get: async () => ({ docs: [] }) } : col) }) }) };
+  return { collection: () => ({ doc: () => ({ collection: (n) => (n === 'joukkueet' ? { get: async () => { log.push('joukkueet-get'); return { docs: [] }; } } : col) }) }) };
 }
 function ymp({ rooli = 'vp', claimRooli, superAdmin = false, joukkue = 'KPV U13', tallennettu = {} } = {}) {
   const log = [], tallennukset = {}, valitsimet = [];
   const sel = { id: '', style: {}, children: [], appendChild(o) { this.children.push(o); }, setAttribute() {}, insertAdjacentElement() {}, remove() {} };
-  const c = { _db: db(log), _seuraId: 'kpv', _demo: false, _joukkue: joukkue, _rooli: rooli, _superAdmin: superAdmin, _pelaajatData: [], _mJoukkueDocs: [], _mJoukkueDocsSeura: null, tmKanonisoiJoukkue: Jlib.tmKanonisoiJoukkue, tmPelaajanJoukkueet: Jlib.tmPelaajanJoukkueet, _kirjaukset: [], _kirjauksetLadattu: false,
+  const c = { _db: db(log), _seuraId: 'kpv', _demo: false, _joukkue: joukkue, _rooli: rooli, _superAdmin: superAdmin, _pelaajatData: [], _mJoukkueDocs: [], _mJoukkueDocsSeura: null, _mJoukkueSnapMuisti: null, tmKanonisoiJoukkue: Jlib.tmKanonisoiJoukkue, tmPelaajanJoukkueet: Jlib.tmPelaajanJoukkueet, _kirjaukset: [], _kirjauksetLadattu: false,
     window: { _tmClaimRooli: claimRooli, _valmentajaData: { joukkueet: ['kpv_u13'], joukkue: 'KPV U13' } }, console: { warn() {} }, Promise, Map, Set, Array, Object, String,
     localStorage: { getItem: (k) => (k in tallennettu ? tallennettu[k] : null), setItem: (k, v) => { tallennukset[k] = v; }, removeItem: (k) => { tallennukset[k] = null; } },
     normalisioiJoukkue: (x) => String(x).trim().toUpperCase().replace(/_/g, ' '), masterT: (x) => x,
@@ -38,7 +38,7 @@ function ymp({ rooli = 'vp', claimRooli, superAdmin = false, joukkue = 'KPV U13'
     _mOnOffline: () => false, lataaKonseptikerros: async () => {}, _mVerkkoIlmoitus() {}, _mOnVerkkovirhe: () => false, tmPhvIlmoitettuPH: () => false, tmPhvEiMitattu: () => false, tmPhvKoodi: () => null,
     _paivitaKaikkiNakymat() {}, _mListaYritaLadata: async () => false, _mSisainenYhdista: async (l) => l, _lataaKirjaukset() {}, _kuunteleVpViestit() {}, _lataaTestitapahtumat: async () => {}, _lataaKalenteriTapahtumat: async () => {} };
   vm.createContext(c);
-  vm.runInContext([pura('function _mSeuranLaajuusRooli('), pura('async function _mLataaJoukkueDocs('), pura('function _mPJ('), pura('function _mJNimi('), pura('async function _lataaPelaajat('), pura('async function _rakennaSAJoukkueValitsin('), pura('function _mKaavioJoukkueId('), pura('function _mKaavioJoukkueet(')].join(';\n') + ';', c);
+  vm.runInContext([pura('function _mSeuranLaajuusRooli('), pura('function _mJoukkueSnap('), pura('async function _mLataaJoukkueDocs('), pura('function _mPJ('), pura('function _mJNimi('), pura('async function _lataaPelaajat('), pura('async function _rakennaSAJoukkueValitsin('), pura('function _mKaavioJoukkueId('), pura('function _mKaavioJoukkueet(')].join(';\n') + ';', c);
   return { c, log, tallennukset, valitsimet };
 }
 
@@ -91,6 +91,18 @@ describe('UI-2/UI-4 · joukkuevalitsin VP:lle; joukkuesuodatus ei rajaa kun "Kai
     expect(pura('async function _lataaTestitapahtumat(')).toContain('TM_KOTI_LUVUT.avoimetTestit(_testitapahtumat, _joukkue)');   // YKSI avoimen testin määritelmä (audit 27): sama suodatus kuin ennen, nyt lib/tm_koti_luvut.js:ssä
     const e = ymp({ rooli: 'vp' }); const suodata = (jk, _joukkue) => require('../lib/tm_koti_luvut.js').testiKuuluuJoukkueelle(jk ? { joukkue: jk } : {}, _joukkue);
     expect(['KPV U13', 'KPV U15', 'KPV U17'].every((j) => suodata(j, null))).toBe(true); expect(suodata('KPV U15', 'KPV U13')).toBe(false); expect(e.c._joukkue).toBe('KPV U13');
+  });
+});
+
+describe('PR A · joukkueet-kokoelma luetaan kerran avausta kohti', () => {
+  it('valitsin + _lataaPelaajat (→ _mLataaJoukkueDocs) = YKSI joukkueet-luku (ennen 2–3)', async () => {
+    const e = ymp({ rooli: 'vp' }); await e.c._rakennaSAJoukkueValitsin('kpv', { oletusKaikki: true, avain: 'tm-vp-joukkue' }); await e.c._lataaPelaajat(); await e.c._mLataaJoukkueDocs();
+    expect(e.log.filter((x) => x === 'joukkueet-get')).toHaveLength(1);
+  });
+  it('rinnakkaiset _mLataaJoukkueDocs-kutsut jakavat saman luvun; joukkuedokumentin päivitys (muisti nollataan) pakottaa uuden', async () => {
+    const e = ymp({ rooli: 'vp' }); await Promise.all([e.c._mLataaJoukkueDocs(), e.c._mLataaJoukkueDocs(), e.c._rakennaSAJoukkueValitsin('kpv', { oletusKaikki: true })]);
+    expect(e.log.filter((x) => x === 'joukkueet-get')).toHaveLength(1);
+    e.c._mJoukkueSnapMuisti = null; await e.c._rakennaSAJoukkueValitsin('kpv', { oletusKaikki: true }); expect(e.log.filter((x) => x === 'joukkueet-get')).toHaveLength(2);
   });
 });
 
