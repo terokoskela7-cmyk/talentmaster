@@ -894,7 +894,7 @@ function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin
         '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
           '<label class="kenttaLabel">' + tmHT('Sähköposti (kirjautumisosoite)') + '</label>' +
           '<input type="hidden" id="hm_email_orig" value="' + esc(email) + '"><input class="kenttaInput" type="email" id="hm_email" value="' + esc(email) + '" autocomplete="off"' + (omaTunnus ? ' disabled style="opacity:.6;"' : '') + '>' +
-          '<span style="font-size:11px;color:var(--ink3);">' + (omaTunnus ? tmHT('Omaa osoitetta ei voi vaihtaa tästä.') : tmHT('Vaihto säilyttää tunnuksen ja tiedot; salasanalinkki tehdään uuteen osoitteeseen.')) + '</span>' +
+          '<span style="font-size:11px;color:var(--ink3);">' + (omaTunnus ? tmHT('Omaa osoitetta ei voi vaihtaa tästä.') : tmHT('Vaihto säilyttää tunnuksen ja tiedot; salasanalinkki tehdään uuteen osoitteeseen.') + ' ' + tmHT('Google-tunnuksella kirjautuvan osoitetta ei voi vaihtaa.')) + '</span>' +
         '</div>' +
         '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
           '<label class="kenttaLabel">' + _seuraT('henkilosto.rooli', 'Rooli') + '</label>' +

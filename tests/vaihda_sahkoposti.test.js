@@ -108,6 +108,17 @@ describe('vaihdaKayttajanSahkoposti (ajettu)', () => {
     await expect(t.ex.vaihdaKayttajanSahkoposti(PYYNTO(), {})).rejects.toMatchObject({ code: 'unauthenticated' });
     expect(t.audit()).toEqual([]);
   });
+  it('Google-kirjautuja (providerData google.com) → failed-precondition, EI muutosta (ei Auth-, Firestore-muutosta, ei tokenien mitätöintiä, ei auditia); salasanatili menee läpi', async () => {
+    const a = AUTH(); a['valm-1'].providerData = [{ providerId: 'google.com', uid: 'g-1', email: 'vanha@kpv.fi' }];
+    const t = ymparisto(DATA(), a);
+    await expect(t.ex.vaihdaKayttajanSahkoposti(PYYNTO(), ctxUid('vp-1'))).rejects.toMatchObject({ code: 'failed-precondition', message: 'Google-tunnuksella kirjautuvan osoitetta ei voi vaihtaa.' });
+    await expect(t.ex.vaihdaKayttajanSahkoposti(PYYNTO(), ctxUid('sa-1'))).rejects.toMatchObject({ code: 'failed-precondition' });   // SA:llakaan ei
+    expect(t.users.get('valm-1')).toMatchObject({ email: 'vanha@kpv.fi', revoked: 0 }); expect(t.users.get('valm-1').emailVerified).toBeUndefined();
+    expect(t.f.D.get('seurat/kpv/kayttajat/valm-1').email).toBe('vanha@kpv.fi'); expect(t.audit()).toEqual([]);
+    const b = AUTH(); b['valm-1'].providerData = [{ providerId: 'password', uid: 'vanha@kpv.fi' }];
+    const t2 = ymparisto(DATA(), b);
+    await expect(t2.ex.vaihdaKayttajanSahkoposti(PYYNTO(), ctxUid('vp-1'))).resolves.toMatchObject({ ok: true });
+  });
   it('ei-henkilöstörooli (esim. pelaaja/huoltaja-rooli kayttajat-dokumentissa) estetty', async () => {
     const d = DATA(); d['seurat/kpv/kayttajat/huolt-1'] = { rooli: 'huoltaja', seuraId: 'kpv', aktiivinen: true, email: 'h@kpv.fi' };
     const t = ymparisto(d, Object.assign(AUTH(), { 'huolt-1': { email: 'h@kpv.fi' } }));
@@ -125,6 +136,7 @@ describe('Seura.html · Muokkaa henkilön tietoja (lähdetarkistus)', () => {
     expect(fn.indexOf('confirm(')).toBeLessThan(fn.indexOf("httpsCallable('vaihdaKayttajanSahkoposti')"));
     expect(fn.indexOf("httpsCallable('vaihdaKayttajanSahkoposti')")).toBeLessThan(fn.indexOf("collection('kayttajat')"));
     expect(fn).toMatch(/_lahetaSalasanaReset\(uid, emailUusi,/);
+    expect(src).toContain("tmHT('Google-tunnuksella kirjautuvan osoitetta ei voi vaihtaa.')");   // selite lomakkeella
     expect(fn).not.toMatch(/\.set\(\{[^}]*email:/);   // email ei mene selaimen set-kirjoitukseen
   });
 });

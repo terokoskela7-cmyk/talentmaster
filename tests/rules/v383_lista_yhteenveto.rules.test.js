@@ -66,7 +66,7 @@ describe('v3.83 · lista_likainen: ei clientille', () => {
     }
   });
   it('lähde: versio 3.83 + changelog, ei yleistä catch-all-sääntöä joka avaisi alikokoelman', () => {
-    expect(RULES).toMatch(/firestore\.rules v3\.83/); expect(RULES).toMatch(/Muutokset v3\.82 → v3\.83/);
+    expect(RULES).toMatch(/Muutokset v3\.82 → v3\.83/);   // changelog-lohko (ei nykyversiota: otsikko elää versiosta toiseen)
     expect(RULES).toMatch(/match \/lista_joukkue\/\{jid\}/); expect(RULES).toMatch(/match \/lista_likainen\/\{pid\}/);
   });
 });

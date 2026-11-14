@@ -15,6 +15,7 @@ async function suorita(d) {
   let kohdeAuth;
   try { kohdeAuth = await auth.getUser(kohdeUid); }
   catch (e) { if (d.authEiLoydy(e)) throw new HttpsError('not-found', 'Käyttäjän kirjautumistiliä ei löydy.'); throw e; }
+  if ((kohdeAuth.providerData || []).some((p) => p && p.providerId === 'google.com')) throw new HttpsError('failed-precondition', 'Google-tunnuksella kirjautuvan osoitetta ei voi vaihtaa.');   // osoite tulee Googlelta: Auth-muutos ei pysyisi, kirjautuminen menisi rikki
   const vanha = String(kohdeAuth.email || kDoc.get('email') || '').toLowerCase() || null;
   if (vanha === uusi) throw new HttpsError('failed-precondition', 'Uusi osoite on sama kuin nykyinen.');
   const varattu = () => new HttpsError('already-exists', 'Sähköpostiosoite on jo käytössä toisella käyttäjällä — muutosta ei tehty.');

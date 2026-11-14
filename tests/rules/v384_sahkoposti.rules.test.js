@@ -38,7 +38,7 @@ describe('v3.84 · kayttajat.email vain palvelimelta', () => {
   it('lähde: email on pääsykenttälistassa (ei omaa sivupolkua)', () => {
     const i = RULES.indexOf('function kayttajaPaasyKentatEnnallaan');
     expect(RULES.slice(i, i + 500)).toMatch(/'claimsAsetettu', 'email'\]/);
-    expect(RULES).toMatch(/firestore\.rules v3\.84/);
+    expect(RULES).toMatch(/firestore\.rules v3\.84\s*\n/); expect(RULES).toMatch(/Muutokset v3\.83 → v3\.84/);
   });
   it('VP ei muuta toisen eikä oman email-kenttää; muut kentät (nimi) sallittu', async () => {
     await assertFails(updateDoc(kayttaja(vp(), 'valm-1'), { email: 'uusi@fcl.fi' }));
