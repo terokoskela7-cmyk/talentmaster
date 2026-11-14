@@ -169,3 +169,60 @@ describe('CLI (valedb)', () => {
     const r = await aja(['--projekti=talentmaster-staging', '--aja'], valeDb()); expect(r.ulos).not.toMatch(/SYNT-|Testi|kuorma_/);
   });
 });
+
+// ── admins/-vartija (--sa-sahkoposti vain oikealle tilille; --kuiva-tarkistus; --siivoa-admins) ──────────────────
+function adminsDb(adminsDokit, authKayttajat) {
+  const asetukset = [], poistot = [];
+  const db = {
+    collection: (k) => ({ get: async () => ({ docs: k === 'admins' ? adminsDokit.map((x) => ({ id: x.uid, data: () => x.data || {} })) : [] }), listDocuments: async () => [] }),
+    doc: (p) => ({ set: async (d) => { asetukset.push(p); }, delete: async () => { poistot.push(p); } }),
+  };
+  const auth = {
+    getUser: async (uid) => { const u = authKayttajat.find((x) => x.uid === uid); if (!u) throw new Error('ei'); return u; },
+    getUserByEmail: async (e) => { const u = authKayttajat.find((x) => x.email === e); if (!u) throw new Error('ei'); return u; },
+  };
+  return { asetukset, poistot, luoDb: async (projekti) => ({ db, auth, projekti, bulkWriter: () => { throw new Error('ei saa kutsua'); } }) };
+}
+const SA_TERO = { uid: 'sa-tero-uid', email: 'sa.tero@kuorma.test' }, TERO = { uid: 'tero-uid', email: 'tero@example.com' }, VP = { uid: 'kuorma_kuorma_seura_01_vp', email: 'vp.s01@kuorma.test' };
+describe('admins/-vartija', () => {
+  it('--sa-sahkoposti synteettisellä osoitteella estetään ENNEN yhteyttä (ei kirjoitusta)', async () => {
+    const v = adminsDb([], [VP]); let yhteys = 0; const luo = v.luoDb; v.luoDb = async (p) => { yhteys++; return luo(p); };
+    const r = await aja(['--projekti=talentmaster-staging', '--sa-sahkoposti=vp.s01@kuorma.test', '--aja'], v); expect(r.koodi).toBe(2); expect(yhteys).toBe(0); expect(v.asetukset.length).toBe(0);
+  });
+  it('--sa-sahkoposti: oikea tili → yksi admins/{uid}-kirjoitus; kuorma_-uid:llä oleva tili estetään vaikka email olisi eri', async () => {
+    const v = adminsDb([], [TERO]); const r = await aja(['--projekti=talentmaster-staging', '--sa-sahkoposti=tero@example.com', '--aja'], v); expect(r.koodi).toBe(0); expect(v.asetukset).toEqual(['admins/tero-uid']);
+    const v2 = adminsDb([], [{ uid: 'kuorma_x', email: 'a@example.com' }]); const r2 = await aja(['--projekti=talentmaster-staging', '--sa-sahkoposti=a@example.com', '--aja'], v2); expect(r2.koodi).toBe(2); expect(v2.asetukset.length).toBe(0);
+  });
+  it('--kuiva-tarkistus listaa uid + email, ei kirjoita; synteettinen → exit 1, puhdas → 0', async () => {
+    const v = adminsDb([{ uid: 'tero-uid' }, { uid: VP.uid }], [TERO, VP]);
+    const r = await aja(['--projekti=talentmaster-staging', '--kuiva-tarkistus'], v); expect(r.koodi).toBe(1);
+    expect(r.ulos).toContain('uid=tero-uid  email=tero@example.com'); expect(r.ulos).toContain('vp.s01@kuorma.test'); expect(r.ulos).toContain('SYNTEETTINEN'); expect(v.asetukset.length + v.poistot.length).toBe(0);
+    const puhdas = await aja(['--projekti=talentmaster-staging', '--kuiva-tarkistus'], adminsDb([{ uid: 'tero-uid' }], [TERO])); expect(puhdas.koodi).toBe(0);
+  });
+  it('--siivoa-admins: oletus kuiva-ajo; --aja poistaa VAIN synteettiset (Tero säilyy; Auth-tiliä vailla oleva tuntematon säilyy)', async () => {
+    const dokit = [{ uid: 'tero-uid' }, { uid: VP.uid }, { uid: 'outo-uid' }];
+    const v = adminsDb(dokit, [TERO, VP]);
+    const kuiva = await aja(['--projekti=talentmaster-staging', '--siivoa-admins'], v); expect(kuiva.koodi).toBe(0); expect(v.poistot.length).toBe(0);
+    const r = await aja(['--projekti=talentmaster-staging', '--siivoa-admins', '--aja'], v); expect(r.koodi).toBe(0); expect(v.poistot).toEqual(['admins/' + VP.uid]);
+  });
+  it('lukko kaataa tarkistuksen ennen yhteyttä (tuotanto-projekti)', async () => {
+    const v = adminsDb([], []); let yhteys = 0; const luo = v.luoDb; v.luoDb = async (p) => { yhteys++; return luo(p); };
+    const r = await aja(['--projekti=talentmaster-v1', '--kuiva-tarkistus'], v); expect(r.koodi).toBe(1); expect(yhteys).toBe(0);
+  });
+});
+
+describe('admins/-vartija · sallittu staging-SA sa.<nimi>@kuorma.test', () => {
+  it('--sa-sahkoposti=sa.tero@kuorma.test kelpaa (yksi admins/-kirjoitus); generaattorin osoitteet (vp./valmentaja1./pelaaja.) ja sa.-osoite kuorma_-uid:llä estetty', async () => {
+    const v = adminsDb([], [SA_TERO]); const r = await aja(['--projekti=talentmaster-staging', '--sa-sahkoposti=sa.tero@kuorma.test', '--aja'], v); expect(r.koodi).toBe(0); expect(v.asetukset).toEqual(['admins/sa-tero-uid']);
+    for (const e of ['vp.s01@kuorma.test', 'valmentaja1.s02@kuorma.test', 'pelaaja.s01@kuorma.test', 'sa.s01.x@kuorma.test', 'tero@kuorma.test']) { const w = adminsDb([], []); const x = await aja(['--projekti=talentmaster-staging', '--sa-sahkoposti=' + e, '--aja'], w); expect([e, x.koodi]).toEqual([e, 2]); expect(w.asetukset.length).toBe(0); }
+    const v2 = adminsDb([], [{ uid: 'kuorma_sa', email: 'sa.tero@kuorma.test' }]); const r2 = await aja(['--projekti=talentmaster-staging', '--sa-sahkoposti=sa.tero@kuorma.test', '--aja'], v2); expect(r2.koodi).toBe(2); expect(v2.asetukset.length).toBe(0);
+  });
+  it('--siivoa-admins --aja: sa.tero@kuorma.test SÄILYY, vp.s01@kuorma.test poistuu, ei-kuorma-SA säilyy; --kuiva-tarkistus ei merkitse sa.terota synteettiseksi', async () => {
+    const dokit = [{ uid: 'tero-uid' }, { uid: SA_TERO.uid }, { uid: VP.uid }];
+    const v = adminsDb(dokit, [TERO, SA_TERO, VP]);
+    const t = await aja(['--projekti=talentmaster-staging', '--kuiva-tarkistus'], v); expect(t.koodi).toBe(1); expect(t.ulos).toContain('sa.tero@kuorma.test'); expect(t.ulos).toMatch(/Synteettisiä[^\n]*: 1/);
+    expect(t.ulos.split('\n').find((l) => l.includes('sa.tero@kuorma.test'))).not.toContain('SYNTEETTINEN');
+    const r = await aja(['--projekti=talentmaster-staging', '--siivoa-admins', '--aja'], v); expect(r.koodi).toBe(0); expect(v.poistot).toEqual(['admins/' + VP.uid]);
+    const puhdas = await aja(['--projekti=talentmaster-staging', '--kuiva-tarkistus'], adminsDb([{ uid: SA_TERO.uid }, { uid: 'tero-uid' }], [SA_TERO, TERO])); expect(puhdas.koodi).toBe(0);
+  });
+});
