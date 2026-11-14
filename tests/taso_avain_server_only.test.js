@@ -1,7 +1,7 @@
 /* Turvallisuus-PR: integraatioavaimet server-only (Rules v3.62 salaiset/{dokId}), migraatioskripti, UI ei lue eikä kirjoita avainta selaimella. Emulaattoritestit: tests/rules (v3.62). functions/test/salaiset.test.js. */
 const fs = require('fs'), path = require('path');
 const M = require('../scripts/siirra_integraatioavaimet.js');
-const RULES = fs.readFileSync(path.join(__dirname, '..', 'tm_admin', 'firestore.rules'), 'utf8'), UI = fs.readFileSync(path.join(__dirname, '..', 'taso_seura_ui.html'), 'utf8'), IDX = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
+const RULES = fs.readFileSync(path.join(__dirname, '..', 'tm_admin', 'firestore.rules'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'docs', 'RULES_CHANGELOG.md'), 'utf8'), UI = fs.readFileSync(path.join(__dirname, '..', 'taso_seura_ui.html'), 'utf8'), IDX = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
 const DEL = Symbol('del'), fv = { serverTimestamp: () => 'TS', delete: () => DEL };
 function fakeDb(alku) {
   const store = new Map(Object.entries(alku || {})), kirj = [];

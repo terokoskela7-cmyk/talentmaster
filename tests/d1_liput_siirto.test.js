@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const M = require('../scripts/liput_siirra_julkisiin.js'), L = require('../lib/tm_liput.js'), N = require('../lib/tm_audit_nimet.js');
-const R = readFileSync(new URL('../tm_admin/firestore.rules', import.meta.url), 'utf8');
+const R = readFileSync(new URL('../tm_admin/firestore.rules', import.meta.url), 'utf8') + readFileSync(new URL('../docs/RULES_CHANGELOG.md', import.meta.url), 'utf8');   // changelog-lohkot v3.80 asti: docs/RULES_CHANGELOG.md
 
 /* Vale-Firestore: seurat/{sid} + seurat/{sid}/liput/julkiset + audit; batch kerää ja toteuttaa kirjoitukset. */
 function valeDb(seurat, julkiset) {

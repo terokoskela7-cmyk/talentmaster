@@ -1,7 +1,7 @@
 /* K35-6c (D196): ryhmän vastaava — lib (tmRyhmaSyote vastuu_uid, tmRyhmaVastaa, lomake-select) + kuorikytkennät (Master-oikeus, VP-lomake, kirjoitus). Rules: tests/rules (v3.61). */
 const fs = require('fs'), path = require('path');
 const R = require('../lib/tm_ryhmat.js');
-const MASTER = fs.readFileSync(path.join(__dirname, '..', 'TalentMaster_Master_v16.html'), 'utf8'), VP = fs.readFileSync(path.join(__dirname, '..', 'TalentMaster_VP_v25.html'), 'utf8'), RULES = fs.readFileSync(path.join(__dirname, '..', 'tm_admin', 'firestore.rules'), 'utf8');
+const MASTER = fs.readFileSync(path.join(__dirname, '..', 'TalentMaster_Master_v16.html'), 'utf8'), VP = fs.readFileSync(path.join(__dirname, '..', 'TalentMaster_VP_v25.html'), 'utf8'), RULES = fs.readFileSync(path.join(__dirname, '..', 'tm_admin', 'firestore.rules'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'docs', 'RULES_CHANGELOG.md'), 'utf8');
 const base = { nimi: 'Maalivahdit', tyyppi: 'lista', pelaajat_id: ['p1'], valmentajat: ['u1', 'u2'] };
 
 describe('tmRyhmaSyote: vastuu_uid', () => {
