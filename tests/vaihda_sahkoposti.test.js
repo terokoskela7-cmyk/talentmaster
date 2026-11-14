@@ -108,6 +108,15 @@ describe('vaihdaKayttajanSahkoposti (ajettu)', () => {
     await expect(t.ex.vaihdaKayttajanSahkoposti(PYYNTO(), {})).rejects.toMatchObject({ code: 'unauthenticated' });
     expect(t.audit()).toEqual([]);
   });
+  it('seuran VP:n osoitteen vaihto päivittää seurat/{sid}.vp_email; muun henkilön vaihto ei koske siihen', async () => {
+    const d = DATA(); d['seurat/kpv'] = { nimi: 'KPV', vp_uid: 'vp-1', vp_email: 'vp@kpv.fi' };
+    const t = ymparisto(d, AUTH());
+    await t.ex.vaihdaKayttajanSahkoposti(PYYNTO({ kohdeUid: 'valm-1', uusiEmail: 'uusi@kpv.fi' }), ctxUid('vp-1'));
+    expect(t.f.D.get('seurat/kpv')).toMatchObject({ vp_uid: 'vp-1', vp_email: 'vp@kpv.fi' });   // valmentaja ≠ vp_uid → ennallaan
+    await t.ex.vaihdaKayttajanSahkoposti(PYYNTO({ kohdeUid: 'vp-1', uusiEmail: 'vp-uusi@kpv.fi' }), ctxUid('sa-1'));   // SA vaihtaa VP:n osoitteen (VP ei vaihda omaansa)
+    expect(t.f.D.get('seurat/kpv')).toMatchObject({ vp_uid: 'vp-1', vp_email: 'vp-uusi@kpv.fi' });
+    expect(t.f.D.get('seurat/kpv/kayttajat/vp-1').email).toBe('vp-uusi@kpv.fi'); expect(t.users.get('vp-1').email).toBe('vp-uusi@kpv.fi');
+  });
   it('Google-kirjautuja (providerData google.com) → failed-precondition, EI muutosta (ei Auth-, Firestore-muutosta, ei tokenien mitätöintiä, ei auditia); salasanatili menee läpi', async () => {
     const a = AUTH(); a['valm-1'].providerData = [{ providerId: 'google.com', uid: 'g-1', email: 'vanha@kpv.fi' }];
     const t = ymparisto(DATA(), a);

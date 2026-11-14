@@ -30,10 +30,10 @@ describe('tmHT — henkilöstösivujen teksti-avainreititin', () => {
     const s98 = lue('lib/tm_henkilosto_i18n.js'), a98 = s98.indexOf('// sv-käännöserä 98 '), a99 = s98.indexOf('// sv-käännöserä 99 '), era98 = (s98.slice(a98, a99).match(/^\s*'(?:[^'\\]|\\.)*':\s*'/gm) || []).length;   // erä 98 (B12 Seura): vienti scripts/i18n_vie_sv_era98.cjs (tests/i18n_era98_vienti.test.js)
     const a100 = s98.indexOf('// sv-käännöserä 100 '), avain = /^\s*'(?:[^'\\]|\\.)*':\s*'/gm;
     const era99 = (s98.slice(a99, a100).match(avain) || []).length;   // erä 99 (B12 Seuran muodot): scripts/i18n_vie_sv_era99.cjs (tests/i18n_era99_vienti.test.js)
-    const a103 = s98.indexOf('// sv-käännöserä 103 '), era100 = (s98.slice(a100, a103).match(avain) || []).length, era103 = (s98.slice(a103, s98.indexOf('\n  },', a103)).match(avain) || []).length;   // erä 103 (sähköpostin vaihto): scripts/i18n_vie_sv_era103.cjs (tests/i18n_era103_vienti.test.js)
+    const a103 = s98.indexOf('// sv-käännöserä 103 '), era100 = (s98.slice(a100, a103).match(avain) || []).length, a104 = s98.indexOf('// sv-käännöserä 104 '), era103 = (s98.slice(a103, a104).match(avain) || []).length, era104 = (s98.slice(a104, s98.indexOf('\n  },', a104)).match(avain) || []).length;   // erä 103 (sähköpostin vaihto): scripts/i18n_vie_sv_era103.cjs (tests/i18n_era103_vienti.test.js)
     //   // erä 100 (B12 Kaikki luvut): scripts/i18n_vie_sv_era100.cjs (tests/i18n_era100_vienti.test.js)
-    expect(era98).toBe(57); expect(era99).toBe(121); expect(era100).toBe(127); expect(era103).toBe(7);
-    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length - poistetut + lisatyt + lainat + era98 + era99 + era100 + era103);
+    expect(era98).toBe(57); expect(era99).toBe(121); expect(era100).toBe(127); expect(era103).toBe(7); expect(era104).toBe(1);
+    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length - poistetut + lisatyt + lainat + era98 + era99 + era100 + era103 + era104);
     expect(H.tmHT('Ei vielä pelaajia')).toBe('Ei vielä pelaajia');   // ilman kieltä (fi) teksti ennallaan
   });
   it('kolme henkilöstösivua lataa tmHT:n ennen ensimmäistä käyttöä', () => {

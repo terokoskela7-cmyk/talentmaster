@@ -3,6 +3,7 @@
  * Sähköpostin vaihto (callable vaihdaKayttajanSahkoposti, ydin). Authz tehty kutsujassa (kayttajahallinta.js: SA tai seuran johto, ei oma/SA-tunnus).
  * Yksi kokonaisuus: Auth email + kayttajat.email + token-mitätöinti + audit (vanha → uusi, tekijä). Varattu osoite → already-exists, EI muutosta.
  * Firestore-virhe → Auth-osoite palautetaan (rollback). Vain seuran henkilöstörooli (ei pelaaja/huoltaja).
+ * Jos seurat/{sid}.vp_uid == kohde → myös seurat/{sid}.vp_email päivittyy (tiedoksi-kopio; virhe ei kaada vaihtoa).
  */
 const SAHKOPOSTI_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const _koodi = (e) => (e && (e.code || (e.errorInfo && e.errorInfo.code))) || '';
@@ -37,6 +38,10 @@ async function suorita(d) {
     if (vanha) { try { await auth.updateUser(kohdeUid, { email: vanha }); } catch (e2) { console.error('[vaihdaKayttajanSahkoposti] rollback epäonnistui', kohdeUid, e2 && e2.message); } }
     throw new HttpsError('internal', 'Osoitteen tallennus epäonnistui — muutos peruttu.');
   }
+  try {   // seurat/{sid}.vp_email on seuran VP:n tiedoksi-kopio (vp_uid osoittaa häneen) → pidetään samassa; muun henkilön vaihto ei koske seuradokumenttiin
+    const sRef = db.collection('seurat').doc(seuraId), sDoc = await sRef.get();
+    if (sDoc.exists && sDoc.get('vp_uid') === kohdeUid) await sRef.update({ vp_email: uusi });
+  } catch (e) { console.error('[vaihdaKayttajanSahkoposti] vp_email-päivitys epäonnistui (ei kriittinen)', seuraId, e && e.message); }
   await auth.revokeRefreshTokens(kohdeUid);
   await db.collection('audit').add({
     toiminto: 'sahkoposti_vaihdettu', severity: 'info', kohde_uid: kohdeUid, seuraId, vanha_email: vanha, uusi_email: uusi, tekija_uid: tekijaUid,

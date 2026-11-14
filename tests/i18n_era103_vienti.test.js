@@ -1,5 +1,5 @@
 /* sv-erä 103 (sähköpostin vaihto, #1290; PM 14.11.2026) — 7 riviä. Code ei kirjoita ruotsia (§0): koodin sv = PM:n palautus (sha 5af844c6…93ec5) merkki merkiltä.
-   Kohde lib/tm_henkilosto_i18n.js (tmHT); jokainen avain on seura/seura_hallinta.js:ssä lainausmerkeissä. Erä 104 (Google-tunnuksen selite, 1 rivi) odottaa Geminiä. */
+   Kohde lib/tm_henkilosto_i18n.js (tmHT); jokainen avain on seura/seura_hallinta.js:ssä lainausmerkeissä. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createHash } from 'crypto';
@@ -26,8 +26,8 @@ describe('sv-erä 103 — vienti', () => {
     const t = V.vie({ kirjoita: false });
     expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); expect(t.ohitettu).toHaveLength(7); expect(V.KOODISSA).toEqual({});
   });
-  it('erä 103 ei ole enää odottavien listalla; erä 104 on (Google-selite)', () => {
+  it('erä 103 ei ole enää odottavien listalla', () => {
     const rivi = teksti('tools/i18n/sv_kattavuus.mjs').match(/const ODOTTAVAT_ERAT = \[([^\]]*)\];/); expect(rivi).toBeTruthy();
-    expect(rivi[1].split(',').map((x) => x.trim())).toEqual(['104']);
+    expect(rivi[1].split(',').map((x) => x.trim())).not.toContain('103');
   });
 });
