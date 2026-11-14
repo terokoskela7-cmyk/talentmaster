@@ -8,6 +8,9 @@
  * 2b: profiili savu_taysi (savu + kalenteri, henkilökunta + Auth, toimenpiteet, 3 kautta) ja taysi (40 seuraa). Auth-tilit @kuorma.test (uid kuorma_…); salasanat VAIN tiedostoon
  *   --tunnukset=<polku> (oletus <repo>/.briefit/staging_tunnukset.txt, gitignorattu, 0600) — ei tulosteeseen. --tyhjenna poistaa myös nämä Auth-tilit (vain @kuorma.test + uid kuorma_).
  *   ! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --sa-sahkoposti=<Teron Google-osoite> [--aja]   → admins/{uid} (uid stagingin Authista; kirjaudu stagingiin ensin kerran)
+ * admins/ saa VAIN --sa-sahkoposti-tilin (ei synteettistä @kuorma.test / kuorma_-tiliä; generaattori ei kirjoita admins/:iin muuten).
+ *   ! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --kuiva-tarkistus          listaa admins/-dokumentit (uid + email), vain luku; exit 1 jos synteettinen löytyy
+ *   ! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --siivoa-admins [--aja]     poistaa VAIN synteettiset admins/-dokumentit (oletus kuiva-ajo)
  * PR 3b (pelaajan PalloID + PIN -kirjautuminen mittauksiin): --pin-pelaaja luo jokaiselle seuralle YHDEN kirjautumiskelpoisen pelaajan (ikä ≥ 10, suostumusTila 'annettu', normalisoitu palloId, PIN-hajautus `_pelaajaPin`);
  *   PIN (6 num., crypto.randomInt) vain tunnustiedostoon riville pelaaja.sNN@kuorma.test (+ PalloID 5. sarakkeeseen), ei tulosteeseen. --vain-pinit = vain tämä vaihe olemassa olevaa aineistoa vasten (ei regeneroi; päivittää vain 1 pelaajadokumentin/seura).
  *   --tyhjenna poistaa myös `_pelaajaPin/kuorma_…` -dokumentit ja pelaajien Auth-tilit (uid pel_kuorma_…).
@@ -29,7 +32,7 @@ const OLETUS_TUNNUKSET = path.join(__dirname, '..', '..', '.briefit', 'staging_t
 function lueArgv(argv) {
   const o = { aja: false, tyhjenna: false, profiili: 'savu', siemen: '1', projekti: undefined, tunnukset: OLETUS_TUNNUKSET, saSahkoposti: undefined, pinPelaaja: false, vainPinit: false, tuntematon: [] };
   (argv || []).forEach((a) => {
-    if (a === '--aja') o.aja = true; else if (a === '--tyhjenna') o.tyhjenna = true; else if (a === '--kuiva') o.aja = false; else if (a === '--pin-pelaaja') o.pinPelaaja = true; else if (a === '--vain-pinit') { o.pinPelaaja = true; o.vainPinit = true; }
+    if (a === '--aja') o.aja = true; else if (a === '--tyhjenna') o.tyhjenna = true; else if (a === '--kuiva') o.aja = false; else if (a === '--pin-pelaaja') o.pinPelaaja = true; else if (a === '--vain-pinit') { o.pinPelaaja = true; o.vainPinit = true; } else if (a === '--kuiva-tarkistus') o.kuivaTarkistus = true; else if (a === '--siivoa-admins') o.siivoaAdmins = true;
     else if (a.indexOf('--projekti=') === 0) o.projekti = a.slice(11); else if (a.indexOf('--profiili=') === 0) o.profiili = a.slice(11);
     else if (a.indexOf('--siemen=') === 0) o.siemen = a.slice(9); else if (a.indexOf('--tunnukset=') === 0) o.tunnukset = a.slice(12); else if (a.indexOf('--sa-sahkoposti=') === 0) o.saSahkoposti = a.slice(16); else o.tuntematon.push(a);
   });
@@ -48,6 +51,21 @@ function onSynteettinenTili(email, uid) { return typeof email === 'string' && em
 
 /** Synteettinen pelaajan Auth-tili (custom token, ei sähköpostia): uid 'pel_' + seuraId (kuorma_…). */
 function onSynteettinenPelaajaTili(uid) { return typeof uid === 'string' && uid.indexOf('pel_' + SEURA_ETUVALI) === 0; }
+
+const SYNT_EMAIL = new RegExp('@' + A.TILI_DOMAIN.replace(/\./g, '\\.') + '\\s*$', 'i');
+/** admins/-vartija: synteettinen = @kuorma.test-email TAI uid kuorma_… / pel_kuorma_… (laajempi kuin onSynteettinenTili: kumpikin ehto riittää, koska admins/-oikeutta ei saa jäädä millekään kuorma-tilille). */
+function onSynteettinenAdminTili(email, uid) { return (typeof email === 'string' && SYNT_EMAIL.test(email)) || (typeof uid === 'string' && (uid.indexOf(SEURA_ETUVALI) === 0 || uid.indexOf('pel_' + SEURA_ETUVALI) === 0)); }
+
+/** Vain luku: admins/-dokumentit → [{ uid, email, synteettinen }]. email dokumentista, muuten Authista; ei muita kenttiä. */
+async function adminsTarkistus(db, auth) {
+  const snap = await db.collection('admins').get(), ulos = [];
+  for (const dok of snap.docs) {
+    let email = dok.data && dok.data() && typeof dok.data().email === 'string' ? dok.data().email : '';
+    if (!email && auth) { try { email = (await auth.getUser(dok.id)).email || ''; } catch (e) { /* ei Auth-tiliä */ } }
+    ulos.push({ uid: dok.id, email, synteettinen: onSynteettinenAdminTili(email, dok.id) });
+  }
+  return ulos;
+}
 
 function lueTunnusRivit(tunnuksetPolku) {
   const rivit = new Map();
@@ -118,11 +136,28 @@ async function main(argv, deps) {
   if (!profiili) { virhe('Tuntematon profiili. Saatavilla: ' + Object.keys(A.PROFIILIT).join(', ')); return 2; }
   const moodi = a.tyhjenna ? 'TYHJENNYS' : 'GENEROINTI', kuiva = !a.aja;
   kirjaa(moodi + (kuiva ? ' (KUIVA-AJO, ei kirjoita)' : ' (KIRJOITTAA)') + ' · projekti ' + lukko.projekti + ' · profiili ' + profiili.nimi + ' · siemen ' + a.siemen);
+  if (a.kuivaTarkistus || a.siivoaAdmins) {   // admins/-tarkistus (vain luku) ja siivous (--siivoa-admins --aja): ei generointia
+    if (a.tyhjenna || a.saSahkoposti !== undefined || a.pinPelaaja) { virhe('--kuiva-tarkistus / --siivoa-admins ei yhdisty muihin toimintoihin.'); return 2; }
+    const y = await d.luoDb(lukko.projekti);
+    if (y.projekti !== lukko.projekti) { virhe('LUKKO: Admin SDK:n projekti ei vastaa --projekti-parametria — ajo keskeytetty.'); return 1; }
+    const rivit = await adminsTarkistus(y.db, y.auth);
+    kirjaa('admins/-dokumentteja: ' + rivit.length);
+    rivit.forEach((r) => kirjaa('  uid=' + r.uid + '  email=' + (r.email || '(ei Auth-tiliä / ei emailia)') + (r.synteettinen ? '  ← SYNTEETTINEN (ei kuulu admins/-kokoelmaan)' : '')));
+    const vaarat = rivit.filter((r) => r.synteettinen);
+    kirjaa('Synteettisiä (@' + A.TILI_DOMAIN + ' / uid ' + SEURA_ETUVALI + '…) admins/-dokumentteja: ' + vaarat.length);
+    if (a.kuivaTarkistus) return vaarat.length ? 1 : 0;
+    if (!vaarat.length) { kirjaa('Ei siivottavaa.'); return 0; }
+    if (kuiva) { kirjaa('Kuiva-ajo valmis. Poista ylläolevat ' + vaarat.length + ' admins/-dokumenttia lisäämällä --aja (muihin admins/-dokumentteihin ei kosketa).'); return 0; }
+    for (const r of vaarat) await y.db.doc('admins/' + r.uid).delete();
+    kirjaa('Poistettu admins/-dokumentteja: ' + vaarat.length + '. Kirjautuneet istunnot päivittyvät uudella tokenilla (kirjaudu ulos ja sisään).'); return 0;
+  }
   if (a.saSahkoposti !== undefined) {   // SA-vaihe: vain admins/{uid} Teron Google-tilille (ei generointia)
     if (a.tyhjenna) { virhe('--sa-sahkoposti ei yhdisty --tyhjenna-valintaan.'); return 2; }
+    if (SYNT_EMAIL.test(a.saSahkoposti)) { virhe('--sa-sahkoposti ei saa olla synteettinen (@' + A.TILI_DOMAIN + ') — admins/ on vain oikealle SA-tilille.'); return 2; }
     const y = await d.luoDb(lukko.projekti);
     if (y.projekti !== lukko.projekti) { virhe('LUKKO: Admin SDK:n projekti ei vastaa --projekti-parametria — ajo keskeytetty.'); return 1; }
     let u; try { u = await y.auth.getUserByEmail(a.saSahkoposti); } catch (e) { virhe('Tiliä ei löytynyt stagingin Authista. Kirjaudu stagingiin kerran Google-tilillä ja aja uudelleen.'); return 1; }
+    if (onSynteettinenAdminTili(u.email, u.uid)) { virhe('Tili on synteettinen (kuorma-tunnus) — admins/-kirjoitus estetty.'); return 2; }
     if (kuiva) { kirjaa('  Tili löytyi stagingin Authista. Kirjoita admins/{uid} lisäämällä --aja.'); return 0; }
     await y.db.doc('admins/' + u.uid).set({ rooli: 'super_admin', superAdmin: true, luotu: new Date(), luoja: 'kuorma_generaattori', lahde: 'staging' }, { merge: true });
     kirjaa('admins-dokumentti kirjoitettu stagingiin (SA-oikeus).'); return 0;
