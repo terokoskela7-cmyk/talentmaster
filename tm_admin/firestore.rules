@@ -1,9 +1,11 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.83
+// TalentMaster™ — firestore.rules v3.84
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.83 → v3.84 (sähköpostin vaihto #1290, KIRISTÄÄ): seurat/{sid}/kayttajat/{uid}.`email` vain palvelimella (vaihdaKayttajanSahkoposti) — kayttajaPaasyKentatEnnallaan; myös SA/johto/oma uid estetty.
 //
 // Muutokset v3.82 → v3.83 (Vaihe 0 / B.4, listayhteenveto — LAAJENTAA kapeasti, additiivinen; client ei kirjoita):
 //   · seurat/{sid}/lista_joukkue/{jid}: joukkueen pelaajarivit (palvelin rakentaa: functions/lista_yhteenveto.js). Luku kuten kooste_joukkue: SA | oman seuran johto | talenttivalmentaja (koko seura) |
@@ -403,7 +405,7 @@ service cloud.firestore {
     // v3.31 (P0): kayttajat-dokumentin pääsykentät vain palvelimella (ks. kayttajat/{uid}).
     function kayttajaPaasyKentatEnnallaan() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'rooli', 'seuraId', 'aktiivinen', 'deaktivoitu', 'deaktivoija_uid', 'aktivoitu', 'aktivoija_uid', 'claimsAsetettu']);
+        'rooli', 'seuraId', 'aktiivinen', 'deaktivoitu', 'deaktivoija_uid', 'aktivoitu', 'aktivoija_uid', 'claimsAsetettu', 'email']);
     }
 
     // v3.82 (projekti 03): kirjautumisaikaleiman kirjoittaa vain palvelin (yöajo) — muuttumattomana kaikille clienteille, myös SA:lle.

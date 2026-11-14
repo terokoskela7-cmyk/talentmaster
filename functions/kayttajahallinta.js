@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Käyttäjähallinta (henkilökunta) — siirretty functions/index.js:stä SELLAISENAAN (rivikattojen purku F1, 6.11.2026).
- *   luoKayttaja · vaihdaKayttajanRooli · lahetaResetLinkki · deaktivioiKayttaja · aktivoiKayttaja · poistaKayttaja
+ *   luoKayttaja · vaihdaKayttajanRooli · lahetaResetLinkki · vaihdaKayttajanSahkoposti · deaktivioiKayttaja · aktivoiKayttaja · poistaKayttaja
  *   + niiden apufunktiot (_authEiLoydy, poistaKirjautumisoikeus, vapautaVpUid, tarkistaKayttajaToimenpide) ja SALLITUT_ROOLIT_VAIHTO.
  * Vienti, region, runWith ja secrets pysyvät index.js:ssä (exports.X = functions.region(...)...https.onCall(kayttajahallinta.X));
  * vedos functions/test/fixtures/viennit.json todentaa, ettei julkaistava pinta muutu.
@@ -9,6 +9,7 @@
  * siksi siirretty koodi on tiedoston ylätasolla samassa sisennyksessä kuin index.js:ssä (siirtotarkistus vertaa rivit sellaisinaan).
  */
 const functions = require('firebase-functions/v1');
+const sahkopostinVaihto = require('./sahkopostin_vaihto');
 const admin     = require('firebase-admin');
 let db, auth, tarkistaOikeus, onSuperAdminUid, estaPaikkamerkkiOsoite, uusiValiaikainenSalasana, lahetaSahkoposti, pohjaSalasanaAsetus, TM_BASE_URL;
 /** index.js kutsuu kerran latauksessa, ennen kuin yksikään käsittelijä ajetaan. */
@@ -398,6 +399,16 @@ exports.lahetaResetLinkki = (async (data, context) => {
         `Reset-linkin generointi epäonnistui: ${e.message}`);
     }
   });
+// vaihdaKayttajanSahkoposti — vaihtaa henkilökunnan kirjautumisosoitteen SAMALLA UID:llä (data säilyy). Authz tässä (SA tai seuran johto, ei oma/SA-tunnus), ydin: ./sahkopostin_vaihto.js.
+// Rules v3.84: client ei kirjoita kayttajat.email-kenttää.
+exports.vaihdaKayttajanSahkoposti = (async (data, context) => {
+    const { kohdeUid, seuraId, uusiEmail } = data || {};
+    const uusi = typeof uusiEmail === 'string' ? uusiEmail.trim().toLowerCase() : '';
+    sahkopostinVaihto.tarkistaOsoite(uusi, functions.https.HttpsError); estaPaikkamerkkiOsoite(uusi);
+    const { kRef, kDoc } = await tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, false);
+    return sahkopostinVaihto.suorita({ db, auth, admin, HttpsError: functions.https.HttpsError, sallitutRoolit: SALLITUT_ROOLIT_VAIHTO, authEiLoydy: _authEiLoydy, kRef, kDoc, kohdeUid, seuraId, uusi, tekijaUid: context.auth.uid });
+  });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // deaktivioiKayttaja
 // ─────────────────────────────────────────────────────────────────────────────
