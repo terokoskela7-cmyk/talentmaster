@@ -288,7 +288,7 @@ describe('GREP-PORTTI: pelaajan ja vanhemman sivut eivät lue siirrettäviä S4-
 });
 
 describe('Rules v3.70 (tekstitarkistus; toiminta: tests/rules/sisainen.rules.test.js)', () => {
-  const R = lue('tm_admin/firestore.rules');
+  const R = (lue('tm_admin/firestore.rules') + lue('docs/RULES_CHANGELOG.md'));
   it('versio 3.70 + changelog; testivastaava vain kasvumittauksen kypsyys-avaimet; johto vain tuojaUid; kutsut create + update', () => {
     expect(R).toMatch(/firestore\.rules v3\.(7\d|8\d)/); expect(R).toContain('Muutokset v3.69 → v3.70');   // PR 1f-1: versio nousi v3.71:een (changelog säilyy)
     expect((R.match(/sisainenTestivastaavaKelpaa\(seuraId, /g) || []).length).toBe(3); expect((R.match(/sisainenTuojaKelpaa\(seuraId, /g) || []).length).toBe(3);   // määritys + create + update
