@@ -785,7 +785,7 @@ let _seuraLadataan = false; // bugfix 2026-03-27 — estää päällekkäiset la
 // signOut() laukaisee callbackin null-käyttäjällä — ilman flagia sivu
 // heittäisi käyttäjän ulos uudelleen kesken kirjautumisprosessin.
 let _kirjautuminenKesken = false;
-auth.onAuthStateChanged(async (kayttaja) => {
+auth.onAuthStateChanged(async (kayttaja) => {  if (kayttaja && !kayttaja.isAnonymous && TM_ISTUNTO.tmKayttajaVaihtui(kayttaja.uid)) return;   /* käyttäjä vaihtui samassa välilehdessä (SA → VP) → sivun uudelleenlataus, ettei edellisen tila vuoda (lib/tm_istunto.js) */
   if (_kirjautuminenKesken) return;
   if (_seuraLadataan && kayttaja) return;
   if (!kayttaja) _seuraLadataan = false;
@@ -796,7 +796,7 @@ auth.onAuthStateChanged(async (kayttaja) => {
   } else {
     // Nollataan tila uloskirjautuessa
     if (tila._joukkueetKuuntelija) { tila._joukkueetKuuntelija(); }
-    nayta('kirjautuminen');
+    Object.assign(tila, { kayttaja: null, claims: null, rooli: null, seuraId: null, seuraNimi: null, seuraPaketti: null, seuraKieli: null, laskutusSopimus: false, seurat: [], joukkueet: [], pelaajat: [], henkilosto: [], kayttajaEmail: null, _joukkueetKuuntelija: null }); nayta('kirjautuminen');   // käyttäjäkohtainen tila pois heti (uid-vaihto lataa lisäksi sivun)
   }
 });
 
