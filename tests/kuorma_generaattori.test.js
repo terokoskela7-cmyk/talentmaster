@@ -183,7 +183,7 @@ function adminsDb(adminsDokit, authKayttajat) {
   };
   return { asetukset, poistot, luoDb: async (projekti) => ({ db, auth, projekti, bulkWriter: () => { throw new Error('ei saa kutsua'); } }) };
 }
-const TERO = { uid: 'tero-uid', email: 'tero@example.com' }, VP = { uid: 'kuorma_kuorma_seura_01_vp', email: 'vp.s01@kuorma.test' };
+const SA_TERO = { uid: 'sa-tero-uid', email: 'sa.tero@kuorma.test' }, TERO = { uid: 'tero-uid', email: 'tero@example.com' }, VP = { uid: 'kuorma_kuorma_seura_01_vp', email: 'vp.s01@kuorma.test' };
 describe('admins/-vartija', () => {
   it('--sa-sahkoposti synteettisellä osoitteella estetään ENNEN yhteyttä (ei kirjoitusta)', async () => {
     const v = adminsDb([], [VP]); let yhteys = 0; const luo = v.luoDb; v.luoDb = async (p) => { yhteys++; return luo(p); };
@@ -208,5 +208,21 @@ describe('admins/-vartija', () => {
   it('lukko kaataa tarkistuksen ennen yhteyttä (tuotanto-projekti)', async () => {
     const v = adminsDb([], []); let yhteys = 0; const luo = v.luoDb; v.luoDb = async (p) => { yhteys++; return luo(p); };
     const r = await aja(['--projekti=talentmaster-v1', '--kuiva-tarkistus'], v); expect(r.koodi).toBe(1); expect(yhteys).toBe(0);
+  });
+});
+
+describe('admins/-vartija · sallittu staging-SA sa.<nimi>@kuorma.test', () => {
+  it('--sa-sahkoposti=sa.tero@kuorma.test kelpaa (yksi admins/-kirjoitus); generaattorin osoitteet (vp./valmentaja1./pelaaja.) ja sa.-osoite kuorma_-uid:llä estetty', async () => {
+    const v = adminsDb([], [SA_TERO]); const r = await aja(['--projekti=talentmaster-staging', '--sa-sahkoposti=sa.tero@kuorma.test', '--aja'], v); expect(r.koodi).toBe(0); expect(v.asetukset).toEqual(['admins/sa-tero-uid']);
+    for (const e of ['vp.s01@kuorma.test', 'valmentaja1.s02@kuorma.test', 'pelaaja.s01@kuorma.test', 'sa.s01.x@kuorma.test', 'tero@kuorma.test']) { const w = adminsDb([], []); const x = await aja(['--projekti=talentmaster-staging', '--sa-sahkoposti=' + e, '--aja'], w); expect([e, x.koodi]).toEqual([e, 2]); expect(w.asetukset.length).toBe(0); }
+    const v2 = adminsDb([], [{ uid: 'kuorma_sa', email: 'sa.tero@kuorma.test' }]); const r2 = await aja(['--projekti=talentmaster-staging', '--sa-sahkoposti=sa.tero@kuorma.test', '--aja'], v2); expect(r2.koodi).toBe(2); expect(v2.asetukset.length).toBe(0);
+  });
+  it('--siivoa-admins --aja: sa.tero@kuorma.test SÄILYY, vp.s01@kuorma.test poistuu, ei-kuorma-SA säilyy; --kuiva-tarkistus ei merkitse sa.terota synteettiseksi', async () => {
+    const dokit = [{ uid: 'tero-uid' }, { uid: SA_TERO.uid }, { uid: VP.uid }];
+    const v = adminsDb(dokit, [TERO, SA_TERO, VP]);
+    const t = await aja(['--projekti=talentmaster-staging', '--kuiva-tarkistus'], v); expect(t.koodi).toBe(1); expect(t.ulos).toContain('sa.tero@kuorma.test'); expect(t.ulos).toMatch(/Synteettisiä[^\n]*: 1/);
+    expect(t.ulos.split('\n').find((l) => l.includes('sa.tero@kuorma.test'))).not.toContain('SYNTEETTINEN');
+    const r = await aja(['--projekti=talentmaster-staging', '--siivoa-admins', '--aja'], v); expect(r.koodi).toBe(0); expect(v.poistot).toEqual(['admins/' + VP.uid]);
+    const puhdas = await aja(['--projekti=talentmaster-staging', '--kuiva-tarkistus'], adminsDb([{ uid: SA_TERO.uid }, { uid: 'tero-uid' }], [SA_TERO, TERO])); expect(puhdas.koodi).toBe(0);
   });
 });

@@ -8,7 +8,7 @@
  * 2b: profiili savu_taysi (savu + kalenteri, henkilökunta + Auth, toimenpiteet, 3 kautta) ja taysi (40 seuraa). Auth-tilit @kuorma.test (uid kuorma_…); salasanat VAIN tiedostoon
  *   --tunnukset=<polku> (oletus <repo>/.briefit/staging_tunnukset.txt, gitignorattu, 0600) — ei tulosteeseen. --tyhjenna poistaa myös nämä Auth-tilit (vain @kuorma.test + uid kuorma_).
  *   ! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --sa-sahkoposti=<Teron Google-osoite> [--aja]   → admins/{uid} (uid stagingin Authista; kirjaudu stagingiin ensin kerran)
- * admins/ saa VAIN --sa-sahkoposti-tilin (ei synteettistä @kuorma.test / kuorma_-tiliä; generaattori ei kirjoita admins/:iin muuten).
+ * admins/ saa VAIN --sa-sahkoposti-tilin: ei-kuorma-osoite TAI sa.<nimi>@kuorma.test (esim. sa.tero@kuorma.test; stagingissa ei Google-kirjautumista). Generaattorin tilit (<rooli>.sNN@kuorma.test, kuorma_-uid) estetty; --siivoa-admins jättää sallitut SA:t aina.
  *   ! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --kuiva-tarkistus          listaa admins/-dokumentit (uid + email), vain luku; exit 1 jos synteettinen löytyy
  *   ! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --siivoa-admins [--aja]     poistaa VAIN synteettiset admins/-dokumentit (oletus kuiva-ajo)
  * PR 3b (pelaajan PalloID + PIN -kirjautuminen mittauksiin): --pin-pelaaja luo jokaiselle seuralle YHDEN kirjautumiskelpoisen pelaajan (ikä ≥ 10, suostumusTila 'annettu', normalisoitu palloId, PIN-hajautus `_pelaajaPin`);
@@ -53,8 +53,12 @@ function onSynteettinenTili(email, uid) { return typeof email === 'string' && em
 function onSynteettinenPelaajaTili(uid) { return typeof uid === 'string' && uid.indexOf('pel_' + SEURA_ETUVALI) === 0; }
 
 const SYNT_EMAIL = new RegExp('@' + A.TILI_DOMAIN.replace(/\./g, '\\.') + '\\s*$', 'i');
-/** admins/-vartija: synteettinen = @kuorma.test-email TAI uid kuorma_… / pel_kuorma_… (laajempi kuin onSynteettinenTili: kumpikin ehto riittää, koska admins/-oikeutta ei saa jäädä millekään kuorma-tilille). */
-function onSynteettinenAdminTili(email, uid) { return (typeof email === 'string' && SYNT_EMAIL.test(email)) || (typeof uid === 'string' && (uid.indexOf(SEURA_ETUVALI) === 0 || uid.indexOf('pel_' + SEURA_ETUVALI) === 0)); }
+/** SALLITTU staging-SA: sa.<nimi>@kuorma.test (esim. sa.tero@kuorma.test; stagingissa ei Google-kirjautumista). Generaattori EI luo tällaisia (sen osoitteet ovat <rooli>.sNN@kuorma.test), eikä uid saa olla generaattorin (kuorma_… / pel_kuorma_…). */
+const SA_TILI_EMAIL = new RegExp('^sa\\.[a-z0-9_-]+@' + A.TILI_DOMAIN.replace(/\./g, '\\.') + '$', 'i');
+function onGeneraattorinUid(uid) { return typeof uid === 'string' && (uid.indexOf(SEURA_ETUVALI) === 0 || uid.indexOf('pel_' + SEURA_ETUVALI) === 0); }
+function onSallittuSaTili(email, uid) { return typeof email === 'string' && SA_TILI_EMAIL.test(email.trim()) && !onGeneraattorinUid(uid); }
+/** admins/-vartija: synteettinen = generaattorin luoma tili (@kuorma.test-email TAI uid kuorma_… / pel_kuorma_…) PAITSI eksplisiittisesti sallittu SA-tili (sa.<nimi>@kuorma.test) — se säilyy aina. */
+function onSynteettinenAdminTili(email, uid) { if (onSallittuSaTili(email, uid)) return false; return (typeof email === 'string' && SYNT_EMAIL.test(email)) || onGeneraattorinUid(uid); }
 
 /** Vain luku: admins/-dokumentit → [{ uid, email, synteettinen }]. email dokumentista, muuten Authista; ei muita kenttiä. */
 async function adminsTarkistus(db, auth) {
@@ -153,7 +157,7 @@ async function main(argv, deps) {
   }
   if (a.saSahkoposti !== undefined) {   // SA-vaihe: vain admins/{uid} Teron Google-tilille (ei generointia)
     if (a.tyhjenna) { virhe('--sa-sahkoposti ei yhdisty --tyhjenna-valintaan.'); return 2; }
-    if (SYNT_EMAIL.test(a.saSahkoposti)) { virhe('--sa-sahkoposti ei saa olla synteettinen (@' + A.TILI_DOMAIN + ') — admins/ on vain oikealle SA-tilille.'); return 2; }
+    if (SYNT_EMAIL.test(a.saSahkoposti) && !SA_TILI_EMAIL.test(a.saSahkoposti.trim())) { virhe('--sa-sahkoposti: kuorma-osoite kelpaa vain muodossa sa.<nimi>@' + A.TILI_DOMAIN + ' (generaattorin tilit eivät saa admins/-oikeutta); muuten käytä ei-kuorma-osoitetta.'); return 2; }
     const y = await d.luoDb(lukko.projekti);
     if (y.projekti !== lukko.projekti) { virhe('LUKKO: Admin SDK:n projekti ei vastaa --projekti-parametria — ajo keskeytetty.'); return 1; }
     let u; try { u = await y.auth.getUserByEmail(a.saSahkoposti); } catch (e) { virhe('Tiliä ei löytynyt stagingin Authista. Kirjaudu stagingiin kerran Google-tilillä ja aja uudelleen.'); return 1; }
