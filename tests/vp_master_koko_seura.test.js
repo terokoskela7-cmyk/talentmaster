@@ -84,7 +84,7 @@ describe('UI-1 · Masterin pelaajalataus', () => {
 
 describe('UI-2/UI-4 · joukkuevalitsin VP:lle; joukkuesuodatus ei rajaa kun "Kaikki"', () => {
   it('"Valitse joukkue ensin" -esto ja _joukkueTunniste ovat ennallaan, mutta VP:llä on nyt valitsin jolla joukkueen voi valita (valitsimessa kaikki seuran joukkueet)', () => {
-    expect(MA).toMatch(/if \(_mSeuranLaajuusRooli\(\)\) await _rakennaSAJoukkueValitsin\(_seuraId, \{ oletusKaikki: true, avain: 'tm-vp-joukkue' \}\);\s*else _rakennaValmentajaJoukkueValitsin\(\);/);
+    expect(MA).toMatch(/if \(_mSeuranLaajuusRooli\(\)\) await _rakennaSAJoukkueValitsin\(_seuraId, \{ oletusKaikki: true, avain: 'tm-vp-joukkue' \}\);\s*else await _rakennaValmentajaJoukkueValitsin\(\);/);
     expect(MA).toMatch(/if \(_mSeuranLaajuusRooli\(\)\) \{ _joukkue = ''; await _rakennaSAJoukkueValitsin\(_seuraId, \{ oletusKaikki: true, avain: 'tm-vp-joukkue' \}\); \}/);   // ilman kayttajat-dokkia
   });
   it('testitapahtumien ja kalenterin suodatus: _joukkue null → kaikki joukkueet näkyvät (ennallaan olevat lausekkeet !_joukkue || …)', () => {

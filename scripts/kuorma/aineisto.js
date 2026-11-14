@@ -168,7 +168,7 @@ function henkilokunta(profiili, si, joukkueet) {
 function tilit(profiili) { const ulos = []; for (let si = 0; si < profiili.seurat.length; si++) henkilokunta(profiili, si, rakennaJoukkueet(si, profiili.seurat[si].koko)).forEach((h) => ulos.push(h)); return ulos; }
 function kayttajaDokumentti(h) {
   const nimi = h.etunimi + ' ' + h.sukunimi, t = aikaleima(KAUSI_ALKU, 8);
-  return { uid: h.uid, email: h.email, etunimi: h.etunimi, sukunimi: h.sukunimi, nimi, rooli: h.rooli, seuraId: h.seuraId, joukkue: h.joukkueet[0] || null, joukkueNimi: h.joukkueetNimet[0] || null,
+  return { uid: h.uid, email: h.email, etunimi: h.etunimi, sukunimi: h.sukunimi, nimi, rooli: h.rooli, seuraId: h.seuraId, joukkue: h.joukkueetNimet[0] || null, joukkueNimi: h.joukkueetNimet[0] || null,
     joukkueet: h.joukkueet, joukkueetNimet: h.joukkueetNimet, aktiivinen: true, luotu: t, kutsuttu: t, luonut_uid: 'kuorma_generaattori', kutsuja: '', claimsAsetettu: true, synteettinen: true };
 }
 

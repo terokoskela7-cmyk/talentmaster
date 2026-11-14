@@ -76,7 +76,7 @@ describe('B — siirto korvaa, lisäys yhdistää', () => {
 describe('C — valmentajan joukkuevalitsin', () => {
   const fn = pala(M, '_rakennaValmentajaJoukkueValitsin', '\n}\n');
   it('näkyy vasta ≥2 joukkueella — yhdellä se olisi turha kontrolli', () => {
-    expect(fn).toMatch(/nimet\.length < 2\) return/);
+    expect(fn).toMatch(/lista\.length < 2\) return/);
   });
   it('EI "kaikki joukkueet" -vaihtoehtoa: se lataisi koko seuran möykyn', () => {
     expect(fn).not.toMatch(/Kaikki joukkueet/);
@@ -87,14 +87,15 @@ describe('C — valmentajan joukkuevalitsin', () => {
     expect(fn).toMatch(/_lataaPelaajat\(\)/);
     expect(fn).toMatch(/_paivitaKaikkiNakymat\(\)/);
   });
-  it('lähteet kattavat molemmat rakenteet (§18) + nykyisen joukkueen', () => {
-    const n = pala(M, '_valmentajanJoukkueNimet', '\n}\n');
-    ['joukkueetNimet', 'joukkueet', 'd.joukkue', '_joukkue'].forEach((k) => expect(n, k).toContain(k));
-    expect(n).toMatch(/normalisioiJoukkue/);   // 'sjk_p14' ja 'SJK P14' eivät saa olla kaksi eri joukkuetta
+  it('lähteet kattavat molemmat rakenteet (§18) + nykyisen joukkueen — yksi jaettu funktio libissä (tunniste → docin nimi)', () => {
+    expect(M).toMatch(/function _valmentajanJoukkueet\(\) \{ return tmValmentajanJoukkueet\(window\._valmentajaData \|\| \{\}, _mJoukkueDocs, _joukkue\); \}/);
+    const L = readFileSync(join(ROOT, 'lib/tm_joukkue.js'), 'utf8'), n = L.slice(L.indexOf('function tmValmentajanJoukkueet('), L.indexOf('function tmValitseValmentajaJoukkue('));
+    ['joukkueetNimet', 'joukkueet', 'd.joukkueNimi', 'd.joukkue', 'nykyinen'].forEach((k) => expect(n, k).toContain(k));
+    expect(n).toMatch(/tmEtsiJoukkueDoc/);   // tunniste/nimi → joukkuedokumentti → YKSI rivi per tunniste
   });
   it('kutsutaan kirjautumisen jälkeen kun valmentajadata on luettu', () => {
     const i = M.indexOf('window._valmentajaData = d;');
-    const j = M.indexOf('_rakennaValmentajaJoukkueValitsin();');
+    const j = M.indexOf('await _rakennaValmentajaJoukkueValitsin();');
     expect(i).toBeGreaterThan(0);
     expect(j).toBeGreaterThan(i);
   });
