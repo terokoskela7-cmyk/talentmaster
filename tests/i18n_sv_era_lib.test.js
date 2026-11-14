@@ -182,7 +182,7 @@ describe('vienti: kartat sisältävät Gemini-erän rivit sellaisinaan', () => {
 describe('kytkentä: script-tagi + SW-allowlist + cache-bumpit (§27.4)', () => {
   it('tm_lib_i18n.js ladataan VP:ssä, Masterissa, Pelaajassa ja Vanhemmassa — tm_lang.js:n JÄLKEEN', () => {
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) {
-      const s = lue(f); const a = s.indexOf('lib/tm_lang.js"'), b = s.indexOf('<script src="lib/tm_lib_i18n.js"');
+      const s = lue(f); const a = s.indexOf('lib/tm_lang.js"'), b = s.indexOf('src="lib/tm_lib_i18n.js"');   // L1: Masterissa text/plain-laiskapaketti (tm_kieli_paketit.js)
       expect(a, f).toBeGreaterThan(0); expect(b, f).toBeGreaterThan(a);
     }
   });

@@ -113,8 +113,8 @@ const DATA = 'var __d=function(o,h,m){var t=new Date(Date.now()+o*864e5);t.setHo
 const MT_SEURANTA = 'window.__puuttuu={};var __mt=masterT;masterT=function(k){var r=__mt(k);if(typeof k==="string"&&r===k&&/\\p{L}{3}/u.test(k)&&tmNykyinenKieli()==="sv")window.__puuttuu[k]=1;return r};';   // raportti: reititetyt avaimet, joilta sv puuttuu
 const KUTSU = (kieli, ryhmat) => KERAA + MT_SEURANTA + DATA + 'window.__toastit=[];var __t0=toast;toast=function(m,a){window.__toastit.push(String(m));return __t0(m,a)};'
   + 'window._mRyLista=' + JSON.stringify(ryhmat || []) + ';_lataaPelaajat=async function(){};_lataaTestitapahtumat=async function(){};_lataaKalenteriTapahtumat=async function(){};_mLataaJoukkueDocs=async function(){return _mJoukkueDocs};'
-  + 'window.__aseta();masterVaihdaKieli("' + kieli + '");_setGreet("Alex");_setDate();document.getElementById("sbSeura").textContent="FC Demo";_paivitaKaikkiNakymat();'   // kuten _alusta + datan lataus
-  + 'TM_VALMENTAJA_NAV.tmNavAsenna({db:_db,seuraId:"demo",t:masterT,ws:function(){return _ws},ryhmia:function(){return _mRyHaeLista().then(function(l){return l.length>0})}}).then(function(on){window.__navOn=on;if(on)setWs("koti")});';
+  + 'tmKieliPaketit.lataa("' + kieli + '").then(function(){window.__aseta();masterVaihdaKieli("' + kieli + '");_setGreet("Alex");_setDate();document.getElementById("sbSeura").textContent="FC Demo";_paivitaKaikkiNakymat();'   // kuten _alusta + datan lataus
+  + 'TM_VALMENTAJA_NAV.tmNavAsenna({db:_db,seuraId:"demo",t:masterT,ws:function(){return _ws},ryhmia:function(){return _mRyHaeLista().then(function(l){return l.length>0})}}).then(function(on){window.__navOn=on;if(on)setWs("koti")})});';   // L1: sv/en-paketit ladataan laiskasti → render vasta latauksen jälkeen (kuten tuotannon ensirender)
 const JOUKKUEET = { 'seurat/demo/joukkueet': [{ id: 'demo_u13', data: { nimi: 'Demo U13' } }, { id: 'demo_u14', data: { nimi: 'Demo U14' } }] };
 const RYHMAT = [{ id: 'g1', nimi: 'G1 Demo', pelaajat_id: ['p1', 'p2'], aktiivinen: true }, { id: 'g2', nimi: 'G2 Demo', tyyppi: 'saanto', pelaajat_id: ['p3'], aktiivinen: true }];
 
@@ -203,7 +203,7 @@ async function vaihtoPolku(selain) {
   const kerätyt = [], k = async (p, vaihe, sel) => { for (const t of await p.evaluate((s) => window.__keraa(s), sel)) kerätyt.push({ vaihe, teksti: t }); };
   const { sk, p, virheet } = await avaaSivu(selain, 'fi', { width: 1280, height: 900 }, { kokoelmat: JOUKKUEET });
   await p.evaluate(async () => { const s = document.createElement('select'); s.id = 'sa-joukkue-sel'; s.innerHTML = '<option value="demo">FC Demo</option>'; document.querySelector('.sb-nav').insertBefore(s, document.querySelector('.sb-nav').firstChild); await _rakennaSAJoukkueValitsin('demo', { oletusKaikki: true }); window._valmentajaData = { joukkueetNimet: ['Demo U13', 'Demo U14'] }; _rakennaValmentajaJoukkueValitsin(); setWs('season'); });
-  await p.evaluate(() => masterVaihdaKieli('sv')); await p.waitForTimeout(200);
+  await p.evaluate(() => new Promise((r) => { masterVaihdaKieli('sv'); tmKieliPaketit.lataa('sv').then(() => setTimeout(r, 100)); })); await p.waitForTimeout(200);   // L1: vaihto lataa paketit ensin
   await k(p, 'Vaihto → Kausi ja jaksot', '#sidebar, .h-top, #nvTabs, .ws-view.active');
   for (const [ws, n] of [['pulse', 'Tilanne'], ['koti', 'Koti']]) { await p.evaluate((w) => setWs(w), ws); await p.waitForTimeout(150); await k(p, 'Vaihto → ' + n, '.ws-view.active, #nvTabs'); }
   const puuttuu = await p.evaluate(() => Object.keys(window.__puuttuu || {})); await sk.close(); return { kerätyt, virheet: suodata(virheet), puuttuu };

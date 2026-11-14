@@ -49,3 +49,15 @@ describe('tm_kieli_paketit: laiska kielipakettilataus (P5)', () => {
     expect(HTML).toMatch(/_auth\.onAuthStateChanged\(function \(user\) \{[\s\S]{0,300}tmKieliPaketit\.lataa\(_kieli\(\)\)/);
   });
 });
+
+describe('tm_kieli_paketit: arvona välitetty stub (L1-regressio: nav-lib saa t: masterT ennen latausta)', () => {
+  it('ennen latausta talteen otettu masterT/tmLibT delegoi oikeaan funktioon sv-latauksen jälkeen; fi pysyy identiteettinä; ei-latautunut → stub', async () => {
+    const sb = { console: { warn() {} }, Promise, localStorage: { getItem: () => null } };
+    sb.document = { readyState: 'complete', head: { appendChild(el) { setTimeout(() => { if (/master_i18n/.test(el.src)) { sb.masterT = function (fi) { return 'sv:' + fi; }; sb.tmLibT = function () { return 'svlib'; }; } el.onload(); }, 1); } }, createElement: () => ({}), querySelectorAll: () => [{ getAttribute: () => 'lib/tm_master_i18n.js' }] };
+    sb.window = sb; vm.createContext(sb); vm.runInContext(LOADER, sb);
+    const talteen = sb.masterT, talteenLib = sb.tmLibT;   // kuten t: masterT navigaation asennuksessa
+    expect(talteen('Koti')).toBe('Koti'); expect(talteenLib('x')).toBeUndefined();
+    expect(await sb.tmKieliPaketit.lataa('sv')).toBe(true);
+    expect(talteen('Koti')).toBe('sv:Koti'); expect(talteenLib('x')).toBe('svlib'); expect(sb.masterT('Koti')).toBe('sv:Koti');
+  });
+});
