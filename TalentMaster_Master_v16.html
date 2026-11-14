@@ -62,10 +62,10 @@ html.tm-upotettu #_kvCanvas svg{width:100%!important;height:auto!important}   /*
 <script src="lib/tm_pelihavainto_valinta.js"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_aktiivisuus.js"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_arviointi_historia.js"></script>   <!-- kausiavain: tmKausiNyt (CPD-raportin "Kausi:") — sama lähde kuin VP/Admin -->
-<script src="lib/tm_lang.js"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_lib_i18n.js"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
-<script src="lib/tm_i18n_common.js"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_lang.js"></script><script src="lib/tm_kieli_paketit.js"></script>   <!-- i18n V0 — tm_lang: fi/sv/en käännöstaulukko + t() + kieli-init · L1 (P5): fi-stubit + laiska sv/en-lataus; text/plain-tagit EIVÄT lataudu fi-tilassa — tmKieliPaketit.lataa ennen ensirenderiä (onAuthStateChanged) ja kielenvaihdossa (masterVaihdaKieli) -->   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_lib_i18n.js"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_i18n_common.js"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_master_i18n.js"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_phv_tila.js"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_rytmi.js"></script>   <!-- K1d: yhteenvetorytmi (laskeReviewKadenssi delegoi tänne) -->
 <script src="lib/tm_eerikkila_normit.js"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -78,7 +78,7 @@ html.tm-upotettu #_kvCanvas svg{width:100%!important;height:auto!important}   /*
 <script src="lib/tm_nakyma_ryhmat.js"></script>   <!-- YKSI TOTUUS: D1/D2-ryhmittely, kortti, banneri, kattavuus samasta luokittelusta (ei omia rajoja näkymissä) -->
 <script src="lib/tm_harjoitusarviointi.js"></script>
 <script src="lib/tm_kalenteri.js"></script>
-<script src="lib/tm_teknistaktiset_sv.js"></script>   <!-- sv-läpiajo PR 3: curriculumin sv-sidecar (TM_TT_SV) — kielivalinta VAIN näyttöön (lib/tm_tt_sv_valinta.js) -->
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_teknistaktiset_sv.js"></script>   <!-- sv-läpiajo PR 3: curriculumin sv-sidecar (TM_TT_SV) — kielivalinta VAIN näyttöön (lib/tm_tt_sv_valinta.js) -->
 <script src="lib/tm_tt_sv_valinta.js"></script>
 <script src="lib/tm_teknistaktiset.js"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_piirros.js"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
@@ -2369,7 +2369,7 @@ const DEMO = {
 ════════════════════════════════════════════════════════════ */
 // onAuthStateChanged kutsutaan aina kun auth-tila muuttuu
 // _kirjautuminenKesken-lippu koskee VAIN login()-funktiota, ei tätä
-_auth.onAuthStateChanged(async user => {
+_auth.onAuthStateChanged(async user => { await window.tmKieliPaketit.valmiit();   // L1: sv/en-sanakirjat ENNEN renderiä
   if (user && !user.isAnonymous) {
     // Kirjautunut käyttäjä — aina lataa, riippumatta _kirjautuminenKesken
     _kirjautuminenKesken = false; // varmista nollaus
@@ -2383,7 +2383,7 @@ _auth.onAuthStateChanged(async user => {
         tmKieliInitSeura(_sd.exists ? (_sd.data().kieli || null) : null);
       } else if (typeof tmKieliInitSeura === 'function') { tmKieliInitSeura(null); }
     } catch (e) { if (typeof tmKieliInitSeura === 'function') tmKieliInitSeura(null); }
-    if (typeof masterLokalisoi === 'function') masterLokalisoi();
+    await window.tmKieliPaketit.valmiit(); if (typeof masterLokalisoi === 'function') masterLokalisoi();   // L1: seura.kieli voi vaihtaa kielen → paketit ennen sweepiä
     if (typeof masterPaivitaKielivalitsin === 'function') masterPaivitaKielivalitsin();
     if (typeof _notifInit === 'function') _notifInit();   // N1 notifikaatiokeskus (uid + _seuraId valmiit)
   } else if (user && user.isAnonymous) {
@@ -2502,7 +2502,7 @@ async function kirjauduGooglella() {
    ne, mutta demo ei saa yrittää lukea oikeaa dataa. Ilman käyttäjää nämä polut pysähtyvät omaan
    `_auth.currentUser`-tarkistukseensa ennen hakua. */
 async function loginDemo() {
-  _demo = true;
+  _demo = true; await window.tmKieliPaketit.valmiit();   // L1: paketit ennen demon ensirenderiä
   _kaynnistaDemoTila();
   /* Sama kielipyyhkäisy kuin auth-kuuntelijan demo-haarassa: staattiset data-i18n-otsikot
      muuten fi:nä, vaikka käyttäjä on valinnut sv:n (localStorage-valinta säilyy). */
@@ -5602,8 +5602,8 @@ window._vcaNaytaUudelleen = function (){
 function masterVaihdaKieli(lang) {
   if (typeof tmAsetaKieli === 'function') tmAsetaKieli(lang, true);
   masterPaivitaKielivalitsin();
-  if (typeof masterLokalisoi === 'function') masterLokalisoi();
-  if (typeof _ws !== 'undefined' && _ws) { _setDate(); if (window._mGreetNimi != null) _setGreet(window._mGreetNimi); try { _paivitaKaikkiNakymat(); } catch (e) {} setWs(_ws); }   // V-KOTI sv: KAIKKI jo piirretyt näkymät (myös Kausi) + otsikkorivi uudella kielellä; valitsimet data-i18n-sweepillä
+  window.tmKieliPaketit.vaihda(lang, function () { if (typeof masterLokalisoi === 'function') masterLokalisoi();   // L1: sv/en → render vasta pakettien latauksen jälkeen; fi synkroninen
+  if (typeof _ws !== 'undefined' && _ws) { _setDate(); if (window._mGreetNimi != null) _setGreet(window._mGreetNimi); try { _paivitaKaikkiNakymat(); } catch (e) {} setWs(_ws); } });   // V-KOTI sv: KAIKKI jo piirretyt näkymä
 }
 function masterPaivitaKielivalitsin() {
   var k = (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi';
