@@ -121,4 +121,22 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('mittaus · se
     expect(u3.join('\n')).toMatch(/KIRJAUTUMATTOMANA/); const j3 = JSON.parse(fsm.readFileSync(ulosJson, 'utf8')); expect(j3.mittaukset[0].rooli).toBeNull(); expect(j3.mittaukset[0].kylma[0].kirjautunut).toBe(false);
     palvelin.close();
   }, 180000);
+  it('lämmin avaus samaan hash-URL:iin: ilman uusiDokumentti-valintaa same-document (ei latausta), valinnalla oikea uudelleenlataus (Kehitystyöpöytä lämmin = kylmä -mittarivirhe)', async () => {
+    let htmlLataukset = 0;
+    const palvelin = createServer((rq, rs) => { if (rq.url === '/sdk.js') { rs.setHeader('content-type', 'text/javascript'); rs.end(FAKE_SDK); } else { if (rq.url.indexOf('favicon') < 0) htmlLataukset++; rs.setHeader('content-type', 'text/html'); rs.end(SIVU); } });
+    await new Promise((r) => palvelin.listen(0, '127.0.0.1', r)); const portti = palvelin.address().port, url = 'http://127.0.0.1:' + portti + '/#pelaaja/p1/tanaan';
+    const { chromium } = require('playwright-core'), selain = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    try {
+      const ctx = await selain.newContext(), page = await ctx.newPage(); await ctx.addInitScript(instrumentointi, { token: 'T' }); const cdp = await ctx.newCDPSession(page); await cdp.send('Network.enable');
+      const o = { ikkuna: 500, aikaraja: 15000 };
+      const kylma = await S.mittaaAvaus(page, cdp, url, o); expect(kylma.virhe).toBeNull(); expect(htmlLataukset).toBe(1);
+      const t0 = await page.evaluate(() => performance.timeOrigin);
+      await S.mittaaAvaus(page, cdp, url, o);   // vanha tapa: sama dokumentti
+      expect(htmlLataukset).toBe(1); expect(await page.evaluate(() => performance.timeOrigin)).toBe(t0);
+      const lampimasti = await S.mittaaAvaus(page, cdp, url, Object.assign({ uusiDokumentti: true }, o));
+      expect(lampimasti.virhe).toBeNull(); expect(htmlLataukset).toBe(2); expect(await page.evaluate(() => performance.timeOrigin)).not.toBe(t0);
+      expect(lampimasti.yht).toBe(8);   // uuden dokumentin omat luvut, ei edellisen kertymä
+      await ctx.close();
+    } finally { await selain.close(); palvelin.close(); }
+  }, 60000);
 });
