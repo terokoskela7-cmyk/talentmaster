@@ -831,10 +831,12 @@ async function _kaynnista(user) {
   _joukkueDocs = docs;
   await _lataaKonseptikerros();
   const _h0 = H.tmHashParse(window.location.hash);
+  if (!(_h0 && _h0.pid)) console.warn('[kt] vanha polku: ei_pelaajaa_hashissa');   // mittaa_sivut --erittely kerää [kt]-rivit (kuten Masterin [lista])
+  else if (!_listaLippu()) console.warn('[kt] vanha polku: lippu_pois (lista_yhteenveto ei päällä; julkiset=' + (_julkisetLiput ? 'luettu' : 'ei_dokumenttia') + ')');
   if (_h0 && _h0.pid && _listaLippu()) {   // lippu lista_yhteenveto: vain valittu pelaaja + vaihtolista lista_joukkue-yhteenvedosta; epäonnistuminen → vanha kokolataus
-    try { const r = await KS.tmKtSivuLataaAvaus({ db: _db, sid: _seuraId, rooli: _rooli, pid: _h0.pid, joukkueet: _omatJoukkueet(), joukkueDocs: _joukkueDocs }); if (r && r.ok) { _pelaajat = r.pelaajat; _laiska = true; } else console.warn('[avaus] vanha polku:', r && r.syy); }
-    catch (e) { console.warn('[avaus] vanha polku (poikkeus):', e && e.message); }
-    if (_laiska) { try { await _hydratoi(_h0.pid); } catch (e) { console.warn('[avaus] hydratointi:', e && e.message); _laiska = false; } }
+    try { const r = await KS.tmKtSivuLataaAvaus({ db: _db, sid: _seuraId, rooli: _rooli, pid: _h0.pid, joukkueet: _omatJoukkueet(), joukkueDocs: _joukkueDocs }); if (r && r.ok) { _pelaajat = r.pelaajat; _laiska = true; } else console.warn('[kt] vanha polku:', (r && r.syy) || 'tuntematon'); }
+    catch (e) { console.warn('[kt] vanha polku (poikkeus):', e && e.message); }
+    if (_laiska) { try { await _hydratoi(_h0.pid); } catch (e) { console.warn('[kt] vanha polku (hydratointi):', e && e.message); _laiska = false; } }
   }
   if (!_laiska) {
     try { _pelaajat = await KS.tmKtSivuLataaPelaajat({ db: _db, sid: _seuraId, rooli: _rooli, joukkueet: _omatJoukkueet(), joukkueDocs: _joukkueDocs }); }
