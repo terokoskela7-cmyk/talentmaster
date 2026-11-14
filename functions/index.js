@@ -477,6 +477,9 @@ exports.luoKayttaja = functions
 exports.vaihdaKayttajanRooli = functions
   .region('europe-west1')
   .https.onCall(kayttajahallinta.vaihdaKayttajanRooli);
+exports.vaihdaKayttajanSahkoposti = functions
+  .region('europe-west1')
+  .https.onCall(kayttajahallinta.vaihdaKayttajanSahkoposti);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // korjaaJoukkueenTestipvm — bulk-korjaa joukkueen testipäivä (väärin tuotu historiadata).

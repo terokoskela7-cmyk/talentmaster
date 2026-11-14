@@ -26,7 +26,7 @@ describe('F1 · functions-lähde siirtomoduuleineen', () => {
       expect(existsSync(join(JUURI, m)), m).toBe(true);
       expect(INDEX, m).toMatch(new RegExp("^const \\w+ = require\\('\\./" + tiedosto(m) + "'\\);$", 'm'));
     }
-    expect(siirretyt.map((x) => x.nimi).sort()).toEqual(['aktivoiKayttaja', 'deaktivioiKayttaja', 'lahetaResetLinkki', 'luoKayttaja', 'poistaKayttaja', 'vahvistaSuostumus', 'vaihdaKayttajanRooli']);
+    expect(siirretyt.map((x) => x.nimi).sort()).toEqual(['aktivoiKayttaja', 'deaktivioiKayttaja', 'lahetaResetLinkki', 'luoKayttaja', 'poistaKayttaja', 'vahvistaSuostumus', 'vaihdaKayttajanRooli', 'vaihdaKayttajanSahkoposti']);
     for (const { m, nimi } of siirretyt) {
       expect(INDEX, nimi).toMatch(new RegExp('exports\\.' + nimi + ' = functions\\n(?:  \\.[a-zA-Z]+\\([^\\n]*\\)[^\\n]*\\n)*  \\.https\\.onCall\\(' + muuttuja(m) + '\\.' + nimi + '\\);'));
       expect(INDEX, nimi + ': runko ei saa jäädä index.js:ään').not.toContain('exports.' + nimi + ' = functions\n  .region(\'europe-west1\')\n  .https.onCall(async');
