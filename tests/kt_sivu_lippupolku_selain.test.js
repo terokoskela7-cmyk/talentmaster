@@ -29,10 +29,10 @@ function adminDb() {
 }
 
 /* ── Selain: oikeat libit window-kontekstissa, ei CommonJS:ää ── */
-function selain(fireDb) {
+function selain(ilman) {
   const win = { Intl, console, Promise, Object, Array, JSON, Date, Math, String, Number, RegExp, Error, parseInt, parseFloat, isNaN, encodeURIComponent, decodeURIComponent };
   win.window = win; const ctx = vm.createContext(win);
-  ['tm_liput', 'tm_joukkue', 'tm_phv_tila', 'tm_lista_yhteenveto', 'tm_lista_lataus', 'tm_kt_sivu'].forEach((n) => vm.runInContext(fs.readFileSync('lib/' + n + '.js', 'utf8'), ctx, { filename: n }));
+  ['tm_liput', 'tm_joukkue', 'tm_phv_tila', 'tm_lista_yhteenveto', 'tm_lista_lataus', 'tm_kt_sivu'].filter((n) => n !== ilman).forEach((n) => vm.runInContext(fs.readFileSync('lib/' + n + '.js', 'utf8'), ctx, { filename: n }));
   expect(typeof win.module).toBe('undefined'); expect(typeof win.require).toBe('undefined');
   return win;
 }
@@ -68,7 +68,7 @@ describe('Kehitystyöpöytä · lippupolku selaimen muodossa', () => {
     expect(db.log).toEqual(['seurat/s1/pelaajat/p1', 'seurat/s1/lista_joukkue/u13']);
   });
   it('lib puuttuu selaimessa → ok:false + syy (kutsuja kirjaa "[kt] vanha polku: <syy>")', async () => {
-    const w = selain(); delete w.TM_LISTA_LATAUS;
+    const w = selain('tm_lista_lataus'); expect(w.TM_LISTA_LATAUS).toBeUndefined();   // lib ladataan pois (ei delete: vm-kontekstin delete-käytös vaihtelee Node-versioittain)
     const db = lukuDb({ 'seurat/s1/pelaajat/p1': { etunimi: 'A', sukunimi: 'A', joukkueet: ['u13'] } });
     const r = await w.TM_KT_SIVU.tmKtSivuLataaAvaus({ db, sid: 's1', rooli: 'vp', pid: 'p1', joukkueDocs: [{ id: 'u13', nimi: 'U13' }] });
     expect(r).toEqual({ ok: false, syy: 'lib_puuttuu' });
