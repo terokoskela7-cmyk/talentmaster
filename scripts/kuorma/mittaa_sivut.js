@@ -86,7 +86,10 @@ async function mittaaAvaus(page, cdp, url, opt) {
     ['Network.loadingFinished', (e) => { const p = pyynnot.get(e.requestId); if (p) { p.valmis = true; p.loppu = e.encodedDataLength || 0; } }], ['Network.webSocketFrameReceived', (e) => { wsTavut += (e.response && e.response.payloadData ? e.response.payloadData.length : 0); }]];
   kuuntelijat.forEach(([n, f]) => cdp.on(n, f));
   let virhe = null;
-  try { await page.goto(url, { waitUntil: 'commit', timeout: aikaraja }); } catch (e) { virhe = 'navigointi: ' + String(e && e.message).split('\n')[0]; }
+  /* LÄMMIN avaus samaan hash-URL:iin (#pelaaja/<id>/tanaan, Kehitystyöpöytä) EI lataa sivua uudelleen: identtinen URL + fragmentti = same-document-navigointi (Chrome; todennettu timeOrigin ei muutu).
+     Silloin "lämmin" luki ENSIMMÄISEN dokumentin __tmM-mittarit → lämmin = kylmä (kehitys_1292: ~10 s / ~10 s). uusiDokumentti: about:blank ensin → oikea uudelleenlataus (HTTP-välimuisti säilyy). */
+  if (opt && opt.uusiDokumentti) { try { await page.goto('about:blank', { timeout: aikaraja }); } catch (e) { virhe = 'about:blank: ' + String(e && e.message).split('\n')[0]; } }
+  try { if (!virhe) await page.goto(url, { waitUntil: 'commit', timeout: aikaraja }); } catch (e) { virhe = 'navigointi: ' + String(e && e.message).split('\n')[0]; }
   const alku = Date.now(); let tila = null;
   while (!virhe && Date.now() - alku < aikaraja) {
     await page.waitForTimeout(300);
@@ -192,7 +195,7 @@ async function main(argv, deps) {
           const kh = s.pelaajaHaku ? kohteet[s.rooli] : null; if (s.pelaajaHaku && !(kh && kh.pelaajaId)) { virhe('  mittauskohdetta (pelaaja) ei saatu — ' + sivuAvain + ' ei mitata ilman sitä.'); await ctx.close(); await selain.close(); return 1; }
           const url = o.url + '/' + s.tiedosto + (kh ? '#pelaaja/' + encodeURIComponent(kh.pelaajaId) + '/tanaan' : ''), kylma = await mittaaAvaus(page, cdp, url, { erittely: o.erittely, odotettuTiedosto: s.tiedosto });
           if (kylma.virhe && /^uudelleenohjaus/.test(kylma.virhe)) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ': ' + kylma.virhe + ' — mittaus keskeytetty (väärää sivua ei mitata).'); await ctx.close(); await selain.close(); return 1; }
-          const lampimasti = await mittaaAvaus(page, cdp, url, { odotettuTiedosto: s.tiedosto });
+          const lampimasti = await mittaaAvaus(page, cdp, url, { odotettuTiedosto: s.tiedosto, uusiDokumentti: true });
           if (lampimasti.virhe && /^uudelleenohjaus/.test(lampimasti.virhe)) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ' (lämmin): ' + lampimasti.virhe + ' — mittaus keskeytetty.'); await ctx.close(); await selain.close(); return 1; }
           if (i === 1) resKylma = resurssiYhteenveto(kylma.resurssit); delete kylma.resurssit; delete lampimasti.resurssit;   // JSON pysyy pienenä: erittely vain 1. kylmästä
           kylmat.push(kylma); lampimat.push(lampimasti);
