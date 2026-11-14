@@ -119,3 +119,23 @@ describe('Excel_Tuonti: tallennusfunktiot pysähtyvät istuntovirheeseen (lähde
     const i = s.indexOf('async function tallennaFirestoreen() {'); expect(s.slice(i, s.indexOf('\n}\n', i))).toContain("nappi.innerHTML = '💾 Yritä uudelleen'");
   });
 });
+
+describe('Käyttäjän vaihto samassa välilehdessä (SA → VP) — sivun uudelleenlataus', () => {
+  const kutsut = () => { let n = 0; return { f: () => { n++; }, n: () => n }; };
+  it('ensimmäinen uid vain muistetaan; sama uid uudelleen ei lataa; eri uid lataa', () => {
+    I._tmNollaaKayttajaMuisti();
+    const k = kutsut();
+    expect(I.tmKayttajaVaihtui('sa', { lataaUudelleen: k.f })).toBe(false);
+    expect(I.tmKayttajaVaihtui('sa', { lataaUudelleen: k.f })).toBe(false);   // token-päivitys / uudelleenkirjautuminen samalla uid:llä
+    expect(I.tmKayttajaVaihtui(null, { lataaUudelleen: k.f })).toBe(false);   // uloskirjautuminen ei kutsu / ei nollaa
+    expect(I.tmKayttajaVaihtui('vp', { lataaUudelleen: k.f })).toBe(true);    // SA → ulos → VP
+    expect(k.n()).toBe(1);
+    I._tmNollaaKayttajaMuisti();
+  });
+  it.each(['Seura', 'Admin', 'Master', 'VP'])('%s kutsuu tmKayttajaVaihtui onAuthStateChanged-callbackin alussa', (nimi) => {
+    expect(SIVUT[nimi]).toMatch(/TM_ISTUNTO\.tmKayttajaVaihtui\(\w+\.uid\)\) return;/);
+  });
+  it('Seura nollaa käyttäjäkohtaisen tilan uloskirjautuessa', () => {
+    expect(SIVUT.Seura).toMatch(/Object\.assign\(tila, \{ kayttaja: null, claims: null, rooli: null, seuraId: null/);
+  });
+});
