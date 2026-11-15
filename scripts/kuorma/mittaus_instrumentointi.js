@@ -11,19 +11,6 @@ function instrumentointi(a) {
   try { if (a && a.token) { self.FIREBASE_APPCHECK_DEBUG_TOKEN = a.token; try { localStorage.setItem('tm_appcheck_debug', a.token); } catch (e) {} } } catch (e) {}
   try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { M.varit.push([e.startTime, e.startTime + e.duration]); }); }).observe({ type: 'longtask', buffered: true }); } catch (e) {}
   try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (e.name === 'first-contentful-paint') M.fcp = e.startTime; }); }).observe({ type: 'paint', buffered: true }); } catch (e) {}
-  /* Vaihemerkit (L2-regressioselvitys 15.11.): milloin istunto tiedettiin (tm-auth-odottaa pois), milloin kuori (#sDash tai #sLogin) tuli näkyviin. FCP = kuoren ensipiirto → merkit kertovat, onko viive ennen vai jälkeen auth-vaihetta. */
-  M.merkit = {};
-  try {
-    var mk = function (n) { if (M.merkit[n] == null) M.merkit[n] = Math.round(performance.now()); };
-    var tarkista = function () {
-      try {
-        var h = document.documentElement, od = !!(h && h.classList && h.classList.contains('tm-auth-odottaa')); if (od) M.merkit._nahtyOdotus = true; else if (M.merkit._nahtyOdotus) mk('auth_odottaa_pois');   // vain sivun oman odotusluokan poistuminen (luokka lisätään sivun alussa)
-        var d = document.getElementById('sDash'); if (d && d.className.indexOf('hidden') < 0 && getComputedStyle(d).display !== 'none') mk('dash_nakyy');
-        var l = document.getElementById('sLogin'); if (l && l.className.indexOf('hidden') < 0 && getComputedStyle(l).display !== 'none') mk('login_nakyy');
-      } catch (e) {}
-    };
-    var mo = new MutationObserver(tarkista); mo.observe(document, { attributes: true, subtree: true, childList: true, attributeFilter: ['class', 'style'] });
-  } catch (e) {}
   function lisaa(nimi, n, er) { M.luvut[nimi] = (M.luvut[nimi] || 0) + n; M.yht += n; if (er) { var e = M.erittely[er] = M.erittely[er] || { n: 0, kutsuja: 0 }; e.n += n; e.kutsuja++; } }
   /* --erittely (a.erittely): polku normalisoituna (id-segmentit → *) + kutsuja (sovelluskoodin ensimmäinen pinokehys) → M.erittely["polku ← funktio tiedosto:rivi"] = { n: dokumenttia, kutsuja: kutsuja }. Pino luetaan SYNKRONISESTI get()/onSnapshot()-kutsuhetkellä. */
   function erKey(o, onDoc) {
