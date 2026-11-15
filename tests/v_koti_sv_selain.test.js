@@ -176,7 +176,7 @@ async function desktopPolku(selain, kieli) {
   await p.locator('[data-nv="ryhmat"]').click(); await p.waitForFunction(() => document.querySelector('#ryhmatView .nv-ryhma-nimi')); await k(p, 'Ryhmät', '#ryhmatView, #nvTabs');
   await p.evaluate(() => { document.getElementById('ryhmatView').innerHTML = TM_VALMENTAJA_NAV.tmRyhmatHTML([], {}, { t: masterT }); }); await k(p, 'Ryhmät (tyhjä)', '#ryhmatView');
   // (c) joukkuevalitsin: valmentaja usealla joukkueella; SA seura + joukkue ("— Kaikki joukkueet —")
-  await p.evaluate(() => { window._valmentajaData = { joukkueetNimet: ['Demo U13', 'Demo U14'] }; _rakennaValmentajaJoukkueValitsin(); setWs('koti'); });
+  await p.evaluate(async () => { window._valmentajaData = { joukkueetNimet: ['Demo U13', 'Demo U14'] }; await _rakennaValmentajaJoukkueValitsin(); setWs('koti'); });
   expect(await p.locator('#valm-joukkue-valitsin').isVisible()).toBe(true); await k(p, 'Valitsin (valmentaja)', '#sidebar');
   await p.evaluate(async () => { document.getElementById('valm-joukkue-valitsin').remove(); const s = document.createElement('select'); s.id = 'sa-joukkue-sel'; s.innerHTML = '<option value="demo">FC Demo</option>'; document.querySelector('.sb-nav').insertBefore(s, document.querySelector('.sb-nav').firstChild); await _rakennaSAJoukkueValitsin('demo', { oletusKaikki: true }); setWs('koti'); });
   expect(await p.locator('#sa-joukkue-valitsin').isVisible()).toBe(true); await k(p, 'Valitsin (SA)', '#sidebar'); await toastit('Valitsin');
