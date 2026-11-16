@@ -24,9 +24,9 @@ on:
         type: boolean
         default: true
       kanava:
-        description: 'Hosting-kanava: live = talentmaster-staging.web.app · kuorma = esikatselukanava (App Check -debug-token toimii vain *--*.web.app-hosteilla, P4)'
+        description: 'Hosting-kanava: live = talentmaster-staging.web.app · kuorma / kuorma-b = esikatselukanavat (App Check -debug-token toimii vain *--*.web.app-hosteilla, P4). kuorma-b = toinen kanava samassa projektissa: vuorotteleva A/B (scripts/kuorma/ab_vuorotellen.js) tarvitsee kaksi rinnakkaista versiota'
         type: choice
-        options: [live, kuorma]
+        options: [live, kuorma, kuorma-b]
         default: live
 
 permissions:
@@ -115,3 +115,6 @@ jobs:
       - name: Deploy Hosting (esikatselukanava kuorma)
         if: ${{ inputs.hosting && inputs.kanava == 'kuorma' }}
         run: npx firebase hosting:channel:deploy kuorma --expires 30d --project "$STAGING_PROJEKTI" --non-interactive
+      - name: Deploy Hosting (esikatselukanava kuorma-b)
+        if: ${{ inputs.hosting && inputs.kanava == 'kuorma-b' }}
+        run: npx firebase hosting:channel:deploy kuorma-b --expires 30d --project "$STAGING_PROJEKTI" --non-interactive

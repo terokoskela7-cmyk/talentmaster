@@ -62,7 +62,16 @@ describe('deploy-staging.yml', () => {
     expect(PAUSE).toMatch(/if \[ "\$n" -eq 0 \]; then[\s\S]*exit 1/);
   });
   it('kanava kuorma → esikatselukanava `kuorma` (debug-token toimii vain *--*.web.app, P4)', () => {
-    expect(KOODI).toContain('firebase hosting:channel:deploy kuorma');
+    expect(KOODI).toContain('firebase hosting:channel:deploy kuorma ');
+  });
+  it('kanava kuorma-b → toinen esikatselukanava, sama projekti; ei muuta muutosta (vuorotteleva A/B)', () => {
+    expect(KOODI).toMatch(/options: \[live, kuorma, kuorma-b\]/);
+    const vaihe = KOODI.slice(KOODI.indexOf('name: Deploy Hosting (esikatselukanava kuorma-b)'));
+    expect(vaihe).toContain("inputs.kanava == 'kuorma-b'");
+    expect(vaihe).toContain('firebase hosting:channel:deploy kuorma-b --expires 30d --project "$STAGING_PROJEKTI"');
+    expect(vaihe).not.toMatch(/--project (?!"\$STAGING_PROJEKTI")/);   // vain stagingiin
+    // jokainen kanavavaihe on tarkalleen yhden kanavan ehdolla (live ei laukea kuorma-b:llä eikä päinvastoin)
+    expect(KOODI.match(/inputs\.kanava == '/g).length).toBe(3);
   });
   it('.firebaserc: default pysyy tuotannossa, staging-alias lisätty', () => {
     const rc = JSON.parse(readFileSync(join(ROOT, '.firebaserc'), 'utf8'));

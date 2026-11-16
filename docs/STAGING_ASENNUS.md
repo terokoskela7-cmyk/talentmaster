@@ -119,7 +119,7 @@ Tuotannon secretejä (`FIREBASE_SA_KEY`, `FIREBASE_SERVICE_ACCOUNT*`) **ei** ann
    ```
    Poistaa yli 1 vuorokauden vanhat kuvat (ei kasvata laskua). Tuotannossa sama sääntö on jo (`firebase-functions-cleanup`, DELETE, olderThan 86400 s, tarkistettu 11.11.2026). Tarkistus (vain luku): `gcloud artifacts repositories describe gcf-artifacts --project talentmaster-staging --location europe-west1 --format="yaml(cleanupPolicies)"`.
 3. Avaa `https://talentmaster-staging.web.app` → kirjautumissivu latautuu; selaimen konsolissa `firebase.app().options.projectId` = `talentmaster-staging`. Sentry on pois päältä (ei tapahtumia).
-4. Kanava Playwright-mittausta varten (P4): sama työnkulku, kanava `kuorma` → URL muotoa `https://talentmaster-staging--kuorma-<tunniste>.web.app` (30 pv).
+4. Kanava Playwright-mittausta varten (P4): sama työnkulku, kanava `kuorma` → URL muotoa `https://talentmaster-staging--kuorma-<tunniste>.web.app` (30 pv). Toinen kanava `kuorma-b` (sama työnkulku, sama projekti) vuorottelevaa A/B-mittausta varten: deployaa vertailtavat versiot kumpikin omalle kanavalleen (ajo valitsee haaran: Run workflow → Use workflow from → haara) ja aja `scripts/kuorma/ab_vuorotellen.js` (ks. skriptin otsake).
 5. Kerro Claude Codelle → seuraava PR (generaattori). Sähköposti on estetty koodissa (`functions/sahkoposti_esto.js`, PR 0 (#1239) pitää olla mergattuna mainiin ennen stagingin functions-deployta, koska staging deployaa mainin koodin) ja avain on dummy.
 
 ## Siivous (P10)
