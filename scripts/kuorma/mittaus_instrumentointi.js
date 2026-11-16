@@ -8,6 +8,15 @@
  * Koukku: window.firebase-asetin → firebase.firestore-asetin (compat-SDK rekisteröi nimiavaruuden sijoituksella) → kietominen heti kun Query/DocumentReference ovat olemassa. __tmM.kiinnitetty = true kun kietominen onnistui. */
 function instrumentointi(a) {
   var M = window.__tmM = { luvut: {}, erittely: {}, konsoli: [], dokTavut: {}, dokEiMitattu: 0, yht: 0, varit: [], avoimet: 0, kiinnitetty: false, snapshotit: 0, virheet: [] };
+  /* appcheck_vaihto oli ennen AINA null: "kylmä" konteksti saa kirjautumisen storageStatesta (indexedDB: true) myös App Check -tokenin → SDK lukee voimassa olevan tokenin eikä vaihda mitään (todennettu paikallisesti: login 1 vaihtopyyntöä, storageStatella 0).
+     Mittari kirjaa nyt (1) ettei Resource Timing -puskuri (oletus 250) täyty ja (2) onko voimassa oleva token IndexedDB:ssä alussa (→ ajat.appcheck_token_valimuistissa). null + true = ei vaihtoa, ei mittarivika. */
+  try { performance.setResourceTimingBufferSize(2000); } catch (e) {}
+  M.acValimuistissa = null;
+  try {
+    var rq = indexedDB.open('firebase-app-check-database');
+    rq.onupgradeneeded = function () { M.acValimuistissa = false; try { rq.transaction.abort(); } catch (e) {} };   // ei vielä olemassa → älä luo (SDK luo itse)
+    rq.onsuccess = function () { try { var db = rq.result, tx = db.transaction('firebase-app-check-store', 'readonly'), g = tx.objectStore('firebase-app-check-store').getAll(); g.onsuccess = function () { M.acValimuistissa = (g.result || []).some(function (r) { return r && r.value && r.value.expireTimeMillis > Date.now(); }); db.close(); }; g.onerror = function () { db.close(); }; } catch (e) { M.acValimuistissa = false; } };
+  } catch (e) {}
   try { if (a && a.token) { self.FIREBASE_APPCHECK_DEBUG_TOKEN = a.token; try { localStorage.setItem('tm_appcheck_debug', a.token); } catch (e) {} } } catch (e) {}
   try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { M.varit.push([e.startTime, e.startTime + e.duration]); }); }).observe({ type: 'longtask', buffered: true }); } catch (e) {}
   try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (e.name === 'first-contentful-paint') M.fcp = e.startTime; }); }).observe({ type: 'paint', buffered: true }); } catch (e) {}
