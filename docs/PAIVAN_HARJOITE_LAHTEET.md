@@ -10,7 +10,7 @@ Vain koodin luku, ei logiikkamuutoksia. Menetelmäpäätös on Teron. Lähteet: 
 |---|---|---|
 | Master Resepti (`tm_naytto_lohkot.js:332`) | `valitsePaivanHarjoite(p, null, iso)` | **Ei** — ei `seuraPankki`a, ei `jaksoEnsin` |
 | Pelaaja_v7 Tänään, Kenttä-näkymä (`rA1Kentta`, rivi 1491; lippu `liput/julkiset.kentta`) | `valitsePaivanHarjoite(p, PANKKI, tanaan, _p7SeuraPankki, { jaksoEnsin: true })` | **Kyllä** (konsepti_avain), ellei osumaa |
-| Pelaaja_v7 vanha Tänään (`rA1`, rivi 1081) | `valitsePaivanHarjoite(p, PANKKI, iso)` | **Ei** — vain testidata |
+| Pelaaja_v7 vanha Tänään-näkymän D-kortti (rivi 1081) | `valitsePaivanHarjoite(p, PANKKI, iso)` | **Ei** — vain testidata |
 | Solo_Koti (rivi 263) | `valitsePaivanHarjoite(pel, PANKKI, iso)` | Ei |
 
 ## 3. Valintajärjestys moottorissa
@@ -36,5 +36,5 @@ Kumpikin edellyttää Teron päätöstä: kuuluuko TKI-heikoin laji pelaajan pä
 Tarvittava data on jo pelaajadokissa ja olemassa olevissa libeissä; uutta tallennusta tai Rules-muutosta ei tarvita:
 - **X = viikon osa:** `TM_VIIKON_OSA.tmViikonOsa(osat, valittuKoodi)` (`lib/tm_viikon_osa.js`; valmentajan valinta "Tämän viikon fokus" voittaa, muuten ensimmäinen ei-itsenäisesti-osa) — sama sääntö jonka Kehitystyopoyta jo näyttää rivinä "Tällä viikolla: {ydinasia}" (`tm_kehitystyopoyta.js:303`). Nimi: `tmTanaanOsat(jf)` + `_naytaNimet`.
 - **Tai X = kotiharjoite:** `TM_KOTIHARJOITTEET.tmKotiharjoitteet(jf)[0].nimi` (jakson tukiosa; tyhjä → rivi piiloon).
-- **Omatoimisuuden määrä** (valinnainen kolmas osa): `tm_harjoituskertyma.js` `omatoimi: {n, min}` per viikko (`tmKertymaKoreista(...).viikot`), kirjaukset pelaajan `harjoituskirjaukset`-kokoelmasta (Polku lataa jo viikon luvun `tmKtPolkuLataaViikko`).
+- **Omatoimisuuden määrä** (valinnainen kolmas osa): `tm_harjoituskertyma.js` `omatoimi: {n, min}` per viikko (`tmKertymaKoreista(...).viikot`) (Polku lataa jo viikon luvun `tmKtPolkuLataaViikko`; tarkista lähdekokoelma toteutuksessa).
 Käytännössä: yksi uusi puhdas funktio `tmKtPolkuOmatoimiRivi(jf, osat, valittuKoodi, kertyma, c)` → teksti tai `''`, kutsutaan `tm_kt_polku.js`:n Tämä viikko -osiosta (rivin ~290 viikonOsa-kohta); i18n: yksi uusi avain (`Omatoiminen tällä viikolla: {x}`) + sv. Arvio: pieni PR (~1 lib-funktio + testi + sv-avain). Päätettävä: onko X viikon osa vai kotiharjoite (suosittelen viikon osaa; kotiharjoite jos jakso on niitä liittänyt).
