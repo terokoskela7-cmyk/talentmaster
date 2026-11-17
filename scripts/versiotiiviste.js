@@ -30,6 +30,23 @@ const SW = {
   'sw_adar.js': { nimi: 'tm-adar', kuori: 'TalentMaster_ADAR_Pikakortti.html', muut: [] },
 };
 
+/* L6 (docs/KYLMA_AVAUS_DIAGNOOSI.md §9.4 vaihe 1): sivun viimeinen iso inline-pääskripti (Master: ~720 kt raakana / 239 kt gz) irrotetaan DEPLOYSSA omaan tiedostoonsa
+   (`<script src="…?v=<tiiviste>" defer>`): HTML kutistuu (~12 kt), pääskripti on välimuistissa ja V8 code cache -kelpoinen → lämmin avaus nopeutuu ~1,2 s (puhelin). REPOSSA lähde pysyy
+   inline-skriptinä (227 testiä skannaa HTML-lähdettä; lint ja diffit ennallaan) — sama periaate kuin ?v: repo ei sisällä deploy-artefaktia. DOM-ekvivalentti: skripti on dokumentin viimeinen
+   (ei DOM:ia sen jälkeen), ja `defer` ajaa sen heti jäsennyksen jälkeen, ennen DOMContentLoadedia, kaikkien synkronisten skriptien jälkeen (kuten ennen). Uusi sivu → lisää taulukkoon. */
+const PAASKRIPTI = { 'TalentMaster_Master_v16.html': 'tm_master_main.js' };
+const PAASKRIPTI_MIN = 50000;   // merkkiä; pienempää ei irroteta (vartija: ei vahingossa pientä lopputagia)
+
+/** → { html (src+defer ilman ?v:tä), js } | null. Vain dokumentin viimeinen paljas `<script>…</script>` ennen `</body>`ia, kun se on ≥ PAASKRIPTI_MIN merkkiä. */
+function irrotaPaaskripti(html, tiedosto) {
+  const runko = html.lastIndexOf('</body>'); if (runko < 0) return null;
+  const loppu = html.lastIndexOf('</script>', runko); if (loppu < 0 || html.slice(loppu + 9, runko).trim() !== '') return null;
+  const alku = html.lastIndexOf('<script>', loppu); if (alku < 0) return null;
+  const js = html.slice(alku + 8, loppu);
+  if (js.length < PAASKRIPTI_MIN || js.indexOf('</script') >= 0) return null;
+  return { html: html.slice(0, alku) + '<script src="' + tiedosto + '" defer></script>' + html.slice(loppu + 9), js: js.replace(/^\r?\n/, '') };
+}
+
 const RE_SCRIPT = /(<script\b[^>]*\bsrc\s*=\s*)(["'])([^"']+)\2/gi;
 const RE_DYN = /(\.src\s*=\s*)(["'])([^"'+\s]+\.js(?:\?[^"']*)?)\2/g;
 const RE_REKISTEROI = /serviceWorker\.register\(\s*["']([^"']+)["']/g;
@@ -75,7 +92,9 @@ function laske(juuri) {
     const t = muisti.get(p); if (t === null) virheet.push(sivu + ': ladattava tiedosto puuttuu: ' + polku); return t;
   };
   for (const sivu of sivut(juuri)) {
-    const html = fs.readFileSync(path.join(juuri, sivu), 'utf8'), rivi = {};
+    let html = fs.readFileSync(path.join(juuri, sivu), 'utf8'); const rivi = {};
+    let irrotettu = null;
+    if (PAASKRIPTI[sivu]) { const x = irrotaPaaskripti(html, PAASKRIPTI[sivu]); if (x) { irrotettu = { nimi: PAASKRIPTI[sivu], js: x.js, t: tiiviste(x.js) }; html = x.html.replace('<script src="' + irrotettu.nimi + '" defer></script>', '<!--@@PAASKRIPTI@@-->'); } }   // paikanpitäjä: korvaa-passi ei saa nähdä vielä-levyllä-puuttuvaa tiedostoa
     const korvaa = (all, alku, q, src) => {
       if (!paikallinen(src)) return all;
       const j = jasenna(src), t = tiedostonTiiviste(j.polku, sivu); if (!t) return all;
@@ -83,8 +102,13 @@ function laske(juuri) {
     };
     const uusi = html.replace(RE_SCRIPT, korvaa).replace(RE_DYN, korvaa)
       .replace(RE_LINK, (tagi) => (onTyylilinkki(tagi) ? tagi.replace(RE_HREF, korvaa) : tagi));
+    let valmis = uusi;
+    if (irrotettu) {   // ?v = irrotetun tiedoston tiiviste (tiedosto kirjoitetaan tämän ajon tuloksena, ei vielä levyllä)
+      valmis = uusi.replace('<!--@@PAASKRIPTI@@-->', '<script src="' + irrotettu.nimi + '?v=' + irrotettu.t + '" defer></script>');
+      tiedostot[irrotettu.nimi] = irrotettu.js; rivi[irrotettu.nimi] = irrotettu.t;
+    }
     raportti.sivut[sivu] = rivi;
-    if (uusi !== html) tiedostot[sivu] = uusi;
+    if (irrotettu || valmis !== fs.readFileSync(path.join(juuri, sivu), 'utf8')) tiedostot[sivu] = valmis;
   }
   for (const sw of swTiedostot(juuri)) {
     const maar = SW[sw];
@@ -167,5 +191,5 @@ function main(args) {
   console.log('versiotiiviste: repo ok (ei käsin kirjoitettuja versioita)'); return 0;
 }
 
-module.exports = { SW, tiiviste, jasenna, lataukset, laske, kirjoita, tarkistaJulkaisu, tarkistaRepo };
+module.exports = { PAASKRIPTI, irrotaPaaskripti, SW, tiiviste, jasenna, lataukset, laske, kirjoita, tarkistaJulkaisu, tarkistaRepo };
 if (require.main === module) process.exit(main(process.argv.slice(2)));
