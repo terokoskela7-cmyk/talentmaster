@@ -53,3 +53,20 @@ Ratkaisu (`lib/tm_appcheck.js`, yksi paikka): provider-instanssin `initialize` s
 Todennus: `tests/appcheck_laiska.test.js` (yksikkö) ja `tests/appcheck_laiska_selain.test.js` (oikea SDK Chromessa: voimassa oleva token → 0 reCAPTCHA-pyyntöä; ei tokenia → ladataan; kääreetön vertailu lataa myös tokenin kanssa).
 **Vaikutus riippuu TTL:stä:** SDK uusii tokenin 50 % TTL:n jälkeen. Oletus-TTL 1 h → uusinta ~35 min kohdalla → lämmin avaus > 35 min tauon jälkeen lataa reCAPTCHAn joka tapauksessa. **TTL 24 h (päätös 12.11.) on Consolen asetus (App Check → Apps → reCAPTCHA Enterprise → Token TTL), ei koodia — Teron toimenpide**; vasta sen jälkeen lämmin hyöty ulottuu yli ~12 h.
 **Stagingin mittausvinkki:** staging käyttää debug-tokenia (SDK ei kutsu silloin providerin `getToken`ia) → reCAPTCHAa ei ladata lainkaan; mittaus näyttää siis ylärajan lämpimän hyödyn, ei tuotannon kylmää ensikäyntiä.
+
+## 8. Mittausmenetelmä: ennen/jälkeen-vertailu AINA vuorottelevalla A/B:llä (17.11.2026)
+
+**Sääntö.** Suorituskykymuutoksen vaikutus todennetaan `scripts/kuorma/ab_vuorotellen.js`:llä: **A = main → esikatselukanava `kuorma`, B = muutos (PR-haara) → `kuorma-b`**, mitattuna samalla koneella samassa ikkunassa, järjestys vuorotellen (AB/BA/AB). Eri päivinä tai eri kellonaikoina tehtyjä yksittäisiä mittauksia **ei verrata keskenään** — staging-ympäristön vuorokausivaihtelu on suurempi kuin tyypillinen muutos.
+
+Ajo (token vain ympäristömuuttujasta; Tero ajaa `! node`):
+```
+STAGING_APPCHECK_DEBUG_TOKEN=<token> node scripts/kuorma/ab_vuorotellen.js \
+  --a=https://talentmaster-staging--kuorma-<tunniste>.web.app --b=https://talentmaster-staging--kuorma-b-<tunniste>.web.app \
+  --kierrokset=3 --sivut=master --profiilit=tyopoyta --toistot=3
+```
+Deploy: `deploy-staging.yml`, hosting + kanava `kuorma` (main) ja `kuorma-b` (PR-haara). Tulkinta: muutos on syy vain jos B−A on samaa suuntaa myös kierroksilla, joilla järjestys on käännetty; ~0 tai vaihtuva suunta = kohinaa/ajankohtaa. Tulos: `mittaus_tulokset/ab_<aika>/yhteenveto.json`.
+
+### 8.1 Esimerkkitapaus 15.–17.11.2026: näennäinen +2 s "regressio" oli ajankohta
+- 15.11. vertailtiin A1:tä (#1293) mainiin yksittäisillä ajoilla eri kellonaikoina (a_main 11:16 vs c_ilman_a1 20:22 UTC): A1 näytti hidastavan noin 2 s. #1293 revertattiin varmuuden vuoksi (5cfe1501).
+- 17.11. A/B-ajo (`ab_2026-11-17T18-13-33`, 3 kierrosta AB/BA/AB): B−A-erot kohinaa — kylmä A 2,6 s / B 2,4 s, lämmin 1,96 / 1,93 s. A1 ei hidasta ja säästää 0,36 MB.
+- Johtopäätös: aiempi "regressio" oli staging-ympäristön vuorokausivaihtelua, ei muutosta. Opetus: yksittäinen eri-päivän vertailu antoi väärän syyn ja aiheutti turhan revertin.
