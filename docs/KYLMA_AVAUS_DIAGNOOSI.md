@@ -150,25 +150,18 @@ Tämä on sama suuruusluokka kuin §5:n L1–L5 (2,3 s) — vaiheet 3–4 ovat k
 ### 9.7 Suositus
 Vaihe 0 → 1 (L6, pieni, lämmin −1,2 s, avaa mahdollisuuden 2–4) → 2 → 3 → 4, kukin A/B:llä (`ab_vuorotellen.js`, §8). Älä tee 3:a ennen 2:ta (ilman `defer`-kuorta boot-skripti ei aikaista mitään). Päätös Terolle/PM:lle: vaihe 4:n boot-lista kerätään oikeilla rooleilla (vaihe 0b) ennen kuin mitään lib-skriptiä siirretään pois synkroniselta polulta.
 
-## 10. Resepti-lohko (`lib/tm_naytto_lohkot.js`, `_reseptiHtml`) — kuollutta koodia vai ei? (18.11.2026)
+## 10. Resepti-lohko (`lib/tm_naytto_lohkot.js`, `_reseptiHtml`) — kuollutta koodia vai ei? (18.11.2026, korjattu PM-tarkistuksen jälkeen)
 
-**Johtopäätös: EI kuollutta koodia — ei poisteta. Mutta L3 (#1303) on todennäköisesti piilottanut sen Polku-näkymästä; erillinen korjaus-PR.**
+**Johtopäätös: EI kuollutta koodia — ei poisteta. Ei L3-regressiota.** (Ensimmäinen versio tästä osiosta väitti L3:n piilottaneen Reseptin Polusta; se oli väärin: sekoitin Masterin vanhan näkymän ja uuden Kehitystyöpöytä-sivun. PM tarkisti 18.11. klo 00.25: Resepti toimii tuotannossa L3:n jälkeen.)
 
-**Käyttäjät (staattinen jäljitys):**
-| Paikka | Käyttö | Näkyvyys |
+**Käyttäjät:**
+| Paikka | Näkymä | Resepti |
 |---|---|---|
-| Master `_ktPolkuHTML` (rivi 6844–6847) = kehitystyöpöytä-lippu (`kentta`) päällä, **Polku-välilehti** | `o._reseptiHtml` ("Resepti — T-harjoite tänään") + `_ttHtml` | pääkäyttö (V4b-1 #872 siirsi tänne tarkoituksella, mockup 13 §2–§5) |
-| Master `_renderPinfoFirestore` (rivi 8646) = vanha pelaajakortti `#pinfoCard` | `${_reseptiHtml}` | lippu päällä piilossa CSS:llä `.ws-view[data-view="dev"][data-lista] #pinfoCard{display:none}` (rivi 14); lippu pois / tietoinen vanha näkymä → näkyy |
-| `TalentMaster_Kehitystyopoyta.html` (erillinen sivu) | lataa libin, mutta kutsuu vain `tmNayttoDevIkaSp`, `D3_DIMS`, `tmNayttoTtApu`, `ttItems`; **ei `tmNayttoOsat`ia** → ei Reseptiä (rivin 607 kommentti: K2:n vanhaa raakalistaa ei enää näytetä) | ei |
-| `Solo_Koti` / `Pelaaja_v7` | viittaavat `harjoitelogiikka_v4`-funktioihin itse (eri sivu, ei tämä lohko) | — |
+| `TalentMaster_Master_v16.html` `_ktPolkuHTML` (rivi 6844–6847) ja `_renderPinfoFirestore` (8646) | **vanha Master-näkymä: Tänään · Polku · Näyttö** | näkyy (tarkistettu tuotannossa, KPV-testipelaaja, Polku, sivun uudelleenlataus) |
+| `TalentMaster_Kehitystyopoyta.html` (valmentaja_v2: Tänään · Polku · Profiili) | uusi näkymä | **ei koskaan** — sivu lataa libin mutta kutsuu vain `tmNayttoDevIkaSp`, `D3_DIMS`, `tmNayttoTtApu`, `ttItems`; ei `tmNayttoOsat`ia (rivin 607 kommentti) |
 
-**Miksi se ei näy `valmentaja_v2`-näkymässä (Tänään/Polku/Profiili)** — kolme porttia, ja ne kaikki pitää läpäistä (`tm_naytto_lohkot.js:327–331`):
-1. `typeof valitsePaivanHarjoite === 'function'` — **L3:n jälkeen `harjoitelogiikka_v4.js` on `data-tm-laiska`**. Mikään Resepti-polku ei kutsu `tmLaiska.varmista()`:a; kirjastoerä latautuu vasta kun jokin käyttäjän portti (`setWs!koti`, `openDrill`, `calEventClick`, `avaaValmentajaKehitys`, …) laukeaa. L3-kommentti rivillä 225 ("typeof-vartio") tunnistaa tämän, mutta **uudelleenpiirto ei kata Polkua**: `_paivitaKaikkiNakymat` ei kutsu `_ktPaivita()`/`_ktNayta()`:a → Polku, joka piirrettiin ennen latausta, jää ilman Reseptiä seuraavaan `_ktNayta`-kutsuun asti.
-2. `laskeTekninenKehityskohde(p).lahde !== 'oletus'` — pelaajalla pitää olla TKI/TSI/H-H-dataa (§B3). Kuormatestin tileillä sitä ei välttämättä ole → näkymä on tyhjä myös ennen L3:a.
-3. `!c.vainNaytto` — Masterissa kukaan ei aseta; ei este.
+**Ehdot (`tm_naytto_lohkot.js:327–331`):** `typeof valitsePaivanHarjoite === 'function'` (L3: laiska kirjasto; latautuu ensimmäisellä `tmLaiska`-portilla, jonka jälkeen näkymät piirtyvät uudelleen) · `laskeTekninenKehityskohde(p).lahde !== 'oletus'` (TKI/SM/H-H-dataa) · `!c.vainNaytto`. Pieni huomio: `_paivitaKaikkiNakymat` ei piirrä `_kt*`-Polkua uudelleen kirjastolatauksen jälkeen, joten ensimmäinen Polku-piirto ennen yhtään porttia voi olla ilman Reseptiä; käytännössä portti laukeaa ennen kuin Polkuun mennään, eikä tämä ole havaittu ongelma.
 
-**Mitä EI voi päätellä staattisesti:** onko Resepti näkynyt Polussa ennen L3:a sillä datalla, jolla 18.11. tarkistettiin (portti 2 voi yksin selittää). Todennus: pelaaja, jolla on TKI/H-H-dataa, Polku-välilehti, `kuorma` (main, L3 sisällä) vs. `kuorma-b` ilman L3:a, tai `git revert`-haara; ja `typeof valitsePaivanHarjoite` konsolista Polun avautuessa.
+**Testikattavuus:** `tests/v4b1_naytto.test.js:53–56` käyttää `_mPinfoOsat`-tynkää → ei kata oikeaa `tmNayttoOsat` + laiska-kirjasto -ketjua. Ei kiireellistä.
 
-**Testikattavuus:** `tests/v4b1_naytto.test.js:53–56` testaa vain että `_ktPolkuHTML` liittää `_reseptiHtml`:n kun `_mPinfoOsat` on tynkä — ei sitä, että oikea `tmNayttoOsat` tuottaa Reseptin lazy-kirjaston kanssa. Siksi L3:n sivuvaikutus meni läpi vihreänä (sama kuvio kuin muistiossa "testityngän nimi peittää ReferenceErrorin").
-
-**Ehdotus (erillinen pieni PR, ei tässä):** (a) `tmNayttoOsat` / `_ktPolkuHTML` kutsuu `tmLaiska.varmista()` ennen Resepti-lohkoa ja piirtää Polun uudelleen latauksen jälkeen (tai lisää `_ktPaivita()` `_paivitaKaikkiNakymat`-listaan — hyödyttää myös §9.6-kohtaa 4); (b) testi: oikea `tmNayttoOsat` + lazy-lataus simuloituna → `_reseptiHtml` ei tyhjä kun `lahde !== 'oletus'`. Jos PM päättää, ettei Reseptiä enää haluta Polkuun (tuotepäätös), silloin poistetaan erillisenä PR:nä: `_reseptiHtml` (lib 324–345, 375), kolme kuluttajaa (Master 6847, 8637, 8646) ja `harjoitelogiikka_v4.js`:n Master-lataus (−72 kt gz **kokonaan** pois, ei vain laiskaksi) — mutta se on tuotepäätös, ei kuolleen koodin siivous.
+**Mistä Resepti valitaan ja miksi se voi poiketa jaksofokuksesta:** ks. `docs/PAIVAN_HARJOITE_LAHTEET.md`.
