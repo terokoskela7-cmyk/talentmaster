@@ -16,6 +16,7 @@
  *   --tyhjenna poistaa myös `_pelaajaPin/kuorma_…` -dokumentit ja pelaajien Auth-tilit (uid pel_kuorma_…).
  * 20.11.2026 (taysi-OOM stagingissa): kirjoitus ERISSÄ (flush/ERA_KOKO → muisti vakio, ei koko aineiston jonottamista) + VAHVISTUS ennen --aja-kirjoitusta (dokumenttimäärä + arvioitu kulu, kirjoita KYLLÄ).
  *   ! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --profiili=savu_taysi --paivita-tki [--aja]       kirjoittaa VAIN tkiVaihtelun (#1306) muuttamat dokumentit (kuiva-ajo: lukee ne ja vertaa, ei kirjoita)
+ *     + --vain-tki-kentat: muokattujen dokumenttien (käsin/palvelimella) TKI-kentät merge-kirjoituksena, muut kentät säilyvät; TKI-kenttä itse muokattu → ohitetaan + raportoidaan; tulostaa poikkeavien polut + kenttien nimet
  *   ! node scripts/kuorma/generoi_aineisto.js --projekti=talentmaster-staging --profiili=savu_taysi --siivoa-ylimaarat [--aja]  poistaa profiilin ulkopuoliset synteettiset seurat + Auth-tilit + PIN-hajautukset (palauttaa profiilin kokoon)
  * Valinnat: --profiili=savu (oletus) · --siemen=1 (oletus; sama siemen → sama aineisto, P10) · --projekti PAKOLLINEN (ei oletusta).
  * LUKKO (lukko.js): vain talentmaster-staging[-x] / demo-kuorma; --projekti + env + ADC:n quota-projekti kaikki samaa; muu kaatuu ENNEN Admin SDK:n alustusta.
@@ -34,9 +35,9 @@ const SEURA_ETUVALI = 'kuorma_';
 const OLETUS_TUNNUKSET = path.join(__dirname, '..', '..', '.briefit', 'staging_tunnukset.txt');
 
 function lueArgv(argv) {
-  const o = { aja: false, tyhjenna: false, paivitaTki: false, siivoaYlimaarat: false, profiiliAsetettu: false, profiili: 'savu', siemen: '1', projekti: undefined, tunnukset: OLETUS_TUNNUKSET, saSahkoposti: undefined, pinPelaaja: false, vainPinit: false, tuntematon: [] };
+  const o = { aja: false, tyhjenna: false, paivitaTki: false, vainTkiKentat: false, siivoaYlimaarat: false, profiiliAsetettu: false, profiili: 'savu', siemen: '1', projekti: undefined, tunnukset: OLETUS_TUNNUKSET, saSahkoposti: undefined, pinPelaaja: false, vainPinit: false, tuntematon: [] };
   (argv || []).forEach((a) => {
-    if (a === '--aja') o.aja = true; else if (a === '--tyhjenna') o.tyhjenna = true; else if (a === '--kuiva') o.aja = false; else if (a === '--pin-pelaaja') o.pinPelaaja = true; else if (a === '--vain-pinit') { o.pinPelaaja = true; o.vainPinit = true; } else if (a === '--kuiva-tarkistus') o.kuivaTarkistus = true; else if (a === '--siivoa-admins') o.siivoaAdmins = true; else if (a === '--paivita-tki') o.paivitaTki = true; else if (a === '--siivoa-ylimaarat') o.siivoaYlimaarat = true;
+    if (a === '--aja') o.aja = true; else if (a === '--tyhjenna') o.tyhjenna = true; else if (a === '--kuiva') o.aja = false; else if (a === '--pin-pelaaja') o.pinPelaaja = true; else if (a === '--vain-pinit') { o.pinPelaaja = true; o.vainPinit = true; } else if (a === '--kuiva-tarkistus') o.kuivaTarkistus = true; else if (a === '--siivoa-admins') o.siivoaAdmins = true; else if (a === '--paivita-tki') o.paivitaTki = true; else if (a === '--vain-tki-kentat') o.vainTkiKentat = true; else if (a === '--siivoa-ylimaarat') o.siivoaYlimaarat = true;
     else if (a.indexOf('--projekti=') === 0) o.projekti = a.slice(11); else if (a.indexOf('--profiili=') === 0) { o.profiili = a.slice(11); o.profiiliAsetettu = true; }
     else if (a.indexOf('--siemen=') === 0) o.siemen = a.slice(9); else if (a.indexOf('--tunnukset=') === 0) o.tunnukset = a.slice(12); else if (a.indexOf('--sa-sahkoposti=') === 0) o.saSahkoposti = a.slice(16); else o.tuntematon.push(a);
   });
@@ -159,29 +160,46 @@ async function ylimaarat(yhteys, profiili) {
   return { seurat, tilit, pinRefit };
 }
 
-/** TKI-vaihtelun päivitys (#1306): vain muuttuneet dokumentit. Lukee ne ja varmistaa, että Firestoressa on täsmälleen vanha (ennen #1306:ta generoitu) tai jo uusi versio — muuhun ei kirjoiteta. */
+/** TKI-vaihtelun päivitys (#1306): vain muuttuneet dokumentit. Lukee ne ja luokittelee (TP.luokittele): vanha / jo uusi / puuttuu / muokattu (käsin tai palvelimella).
+ *  Oletus: kirjoittaa vain jos KAIKKI ovat vanha tai uusi (muuten exit 1, ei kirjoiteta). --vain-tki-kentat: kirjoittaa TKI-kentät MERGE-kirjoituksena (muut kentät säilyvät), jos 'muokattu'-dokumentin
+ *  muut erot ovat TKI:hin kuulumattomia kenttiä; jos TKI-kenttä itse on muokattu → dokumentti ohitetaan ja raportoidaan (pikakenttäparit pysyvät eheinä: kaikki tai ei mitään per dokumentti). Tulostaa poikkeavien polut + kenttien NIMET (ei arvoja). */
 async function paivitaTki(a, profiili, yhteys, kuiva, kirjaa, virhe) {
   if (!profiili.tkiVaihtelu) { kirjaa('Profiililla ei ole tkiVaihtelua → ei muutettavaa.'); return 0; }
   const muuttuneet = TP.tkiMuuttuneet(A, profiili, a.siemen), kind = {};
   muuttuneet.forEach((d) => { const o = d.polku.split('/'), k = o.length % 2 === 0 ? o[o.length - 2] : o[o.length - 1]; kind[k] = (kind[k] || 0) + 1; });
   kirjaa('TKI-vaihtelu muuttaa ' + muuttuneet.length + ' dokumenttia (' + Object.keys(kind).sort().map((k) => k + ' ' + kind[k]).join(', ') + ') — koko aineistosta ' + luku(A.laske(profiili, a.siemen).yht) + ' dokumenttia ei kosketa.');
   if (!muuttuneet.length) return 0;
-  const haettu = await TP.haeDokumentit(yhteys.db, muuttuneet.map((d) => d.polku)), kirjoitettavat = [];
-  let jo = 0, puuttuu = 0, poikkeaa = 0;
+  const haettu = await TP.haeDokumentit(yhteys.db, muuttuneet.map((d) => d.polku)), vanhat = [], mergeKelpoiset = [], poikkeavat = [], ohitetut = [];
+  let jo = 0, puuttuu = 0;
   for (const d of muuttuneet) {
-    const h = haettu.get(d.polku);
-    if (!h || !h.exists) puuttuu++; else if (TP.sama(h.data, d.uusi)) jo++; else if (TP.sama(h.data, d.vanha)) kirjoitettavat.push(d); else poikkeaa++;
+    const h = haettu.get(d.polku), c = TP.luokittele(d.vanha, d.uusi, h && h.exists ? h.data : null);
+    if (c.tila === 'puuttuu') puuttuu++; else if (c.tila === 'jo') jo++; else if (c.tila === 'vanha') vanhat.push({ d, c });
+    else {
+      poikkeavat.push({ d, c });
+      if (c.tkiRistiriita.length || (c.paivita.some((k) => d.uusi[k] === undefined) && !yhteys.poista)) ohitetut.push({ d, c }); else if (c.paivita.length) mergeKelpoiset.push({ d, c }); else jo++;   // muokattu, mutta TKI-kentät jo uudet → ei tehtävää
+    }
   }
-  kirjaa('  stagingissa: päivitettävää ' + kirjoitettavat.length + ' · jo päivitetty ' + jo + ' · puuttuu ' + puuttuu + ' · poikkeaa sekä vanhasta että uudesta ' + poikkeaa);
-  if (puuttuu || poikkeaa) { virhe('Staging ei vastaa odotettua (puuttuu/poikkeaa) — EI kirjoiteta. Tarkista tila ensin: scripts/kuorma/tarkista_staging.js.'); return 1; }
-  if (!kirjoitettavat.length) { kirjaa('Kaikki jo ajan tasalla.'); return 0; }
-  if (kuiva) { kirjaa('Kuiva-ajo valmis. Kirjoita ' + kirjoitettavat.length + ' dokumenttia lisäämällä --aja.'); return 0; }
+  const vain = a.vainTkiKentat;
+  kirjaa('  stagingissa: päivitettävää ' + vanhat.length + ' · jo päivitetty ' + jo + ' · puuttuu ' + puuttuu + ' · poikkeaa sekä vanhasta että uudesta ' + poikkeavat.length + (poikkeavat.length ? ' (merge-kelpoisia ' + mergeKelpoiset.length + ', ohitetaan ' + ohitetut.length + ')' : ''));
+  poikkeavat.slice(0, 50).forEach(({ d, c }) => kirjaa('  poikkeava: ' + d.polku + ' — muut kentät: ' + (c.muutErot.join(', ') || '(ei)') + ' · TKI-kentät ristiriidassa: ' + (c.tkiRistiriita.join(', ') || '(ei)')));
+  if (poikkeavat.length > 50) kirjaa('  … ja ' + (poikkeavat.length - 50) + ' muuta');
+  if (puuttuu) { virhe('Dokumentteja puuttuu stagingista — EI kirjoiteta. Tarkista tila ensin: scripts/kuorma/tarkista_staging.js.'); return 1; }
+  if (poikkeavat.length && !vain) { virhe('Staging ei vastaa odotettua (poikkeavia dokumentteja) — EI kirjoiteta. Vain TKI-kenttien merge-päivitys: lisää --vain-tki-kentat.'); return 1; }
+  if (vain && !yhteys.poista) for (let i = vanhat.length - 1; i >= 0; i--) if (vanhat[i].c.paivita.some((k) => vanhat[i].d.uusi[k] === undefined)) ohitetut.push(vanhat.splice(i, 1)[0]);   // merge ei osaa poistaa kenttää ilman FieldValue.delete()
+  const kirjoitettavat = vain ? vanhat.concat(mergeKelpoiset) : vanhat;
+  if (!kirjoitettavat.length) { kirjaa('Kaikki jo ajan tasalla' + (ohitetut.length ? ', ohitettuja ' + ohitetut.length : '') + '.'); return ohitetut.length ? 1 : 0; }
+  if (kuiva) { kirjaa('Kuiva-ajo valmis. Kirjoita ' + kirjoitettavat.length + ' dokumenttia' + (vain ? ' (vain TKI-kentät, merge)' : '') + ' lisäämällä --aja' + (ohitetut.length ? ' (ohitetaan ' + ohitetut.length + ')' : '') + '.'); return 0; }
   const bw = yhteys.bulkWriter(); let epaonnistui = 0;
   bw.onWriteError((e) => { if (e.failedAttempts < 5) return true; epaonnistui++; return false; });
-  kirjoitettavat.forEach((d) => { bw.set(yhteys.db.doc(d.polku), d.uusi).catch(() => {}); });
+  kirjoitettavat.forEach(({ d, c }) => {
+    const ref = yhteys.db.doc(d.polku);
+    if (!vain) { bw.set(ref, d.uusi).catch(() => {}); return; }
+    const osa = {}; c.paivita.forEach((k) => { osa[k] = d.uusi[k] === undefined ? yhteys.poista : d.uusi[k]; });
+    bw.set(ref, osa, { merge: true }).catch(() => {});
+  });
   await bw.close();
-  kirjaa('Kirjoitettu ' + (kirjoitettavat.length - epaonnistui) + ' dokumenttia, epäonnistui ' + epaonnistui + '.');
-  return epaonnistui ? 1 : 0;
+  kirjaa('Kirjoitettu ' + (kirjoitettavat.length - epaonnistui) + ' dokumenttia' + (vain ? ' (vain TKI-kentät, merge)' : '') + ', epäonnistui ' + epaonnistui + (ohitetut.length ? ', OHITETTU ' + ohitetut.length + ' (TKI-kenttä muokattu tai poisto ei tuettu)' : '') + '.');
+  return epaonnistui || ohitetut.length ? 1 : 0;
 }
 
 /** deps: { luoDb(projekti) → { db, bulkWriter() , projektiVarmistus } , kirjaa(rivi), env, adc }. Palauttaa exit-koodin 0/1/2. */
@@ -220,8 +238,9 @@ async function main(argv, deps) {
     await y.db.doc('admins/' + u.uid).set({ rooli: 'super_admin', superAdmin: true, luotu: new Date(), luoja: 'kuorma_generaattori', lahde: 'staging' }, { merge: true });
     kirjaa('admins-dokumentti kirjoitettu stagingiin (SA-oikeus).'); return 0;
   }
-  if (a.paivitaTki || a.siivoaYlimaarat) {   // profiilin korjaustoiminnot: ei generointia, ei yhdisty muihin
+  if (a.paivitaTki || a.siivoaYlimaarat || a.vainTkiKentat) {   // profiilin korjaustoiminnot: ei generointia, ei yhdisty muihin
     if ((a.paivitaTki && a.siivoaYlimaarat) || a.tyhjenna || a.saSahkoposti !== undefined || a.pinPelaaja) { virhe('--paivita-tki / --siivoa-ylimaarat ei yhdisty toisiinsa eikä muihin toimintoihin.'); return 2; }
+    if (a.vainTkiKentat && !a.paivitaTki) { virhe('--vain-tki-kentat kuuluu vain --paivita-tki-toimintoon.'); return 2; }
     if (!a.profiiliAsetettu) { virhe('Anna --profiili= eksplisiittisesti (esim. --profiili=savu_taysi); oletusta ei käytetä.'); return 2; }
     const y = await d.luoDb(lukko.projekti);
     if (y.projekti !== lukko.projekti) { virhe('LUKKO: Admin SDK:n projekti ei vastaa --projekti-parametria — ajo keskeytetty.'); return 1; }
@@ -307,7 +326,7 @@ function luoOikeaDb(projekti) {
   const admin = require(path.join(__dirname, '..', '..', 'functions', 'node_modules', 'firebase-admin'));
   admin.initializeApp({ projectId: projekti });
   const db = admin.firestore();
-  return { db, auth: admin.auth(), projekti: admin.app().options.projectId, bulkWriter: () => db.bulkWriter({ throttling: { initialOpsPerSecond: 500, maxOpsPerSecond: 5000 } }) };
+  return { db, auth: admin.auth(), poista: admin.firestore.FieldValue.delete(), projekti: admin.app().options.projectId, bulkWriter: () => db.bulkWriter({ throttling: { initialOpsPerSecond: 500, maxOpsPerSecond: 5000 } }) };
 }
 
 if (require.main === module) main(process.argv.slice(2), { luoDb: luoOikeaDb }).then((c) => process.exit(c)).catch((e) => { console.error('Virhe: ' + (e && e.code ? e.code : 'tuntematon')); process.exit(2); });

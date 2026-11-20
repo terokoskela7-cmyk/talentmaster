@@ -1,5 +1,6 @@
 // Staging-turva (taysi-OOM 20.11.2026): kirjoitus erissä (muisti vakio), vahvistus ennen --aja:ta, --paivita-tki (vain muuttuneet dokumentit), --siivoa-ylimaarat, tarkista_staging (vain luku). Ei Firestorea/Authia (muistissa oleva vale).
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60000 });   // 165 k dokumentin valekirjoitukset: CI-kuormassa yli oletuksen 5 s
 import { createRequire } from 'module';
 import { readFileSync, mkdtempSync, writeFileSync, utimesSync, rmSync } from 'fs';
 import { join } from 'path';
@@ -16,7 +17,8 @@ const PIENI = Object.assign({}, A.PROFIILIT.savu_taysi, { nimi: 'pieni_turva', s
 A.PROFIILIT.pieni_turva = PIENI;   // tarkista_staging hakee profiilin nimellä
 
 // ── Muistissa oleva Firestore + Auth ─────────────────────────────────────────────────────────────
-function vale(alku, tilit) {
+const POISTA = { poistaKentta: true };   // vale FieldValue.delete()
+function vale(alku, tilit, asetukset) {
   const kanta = new Map(alku || []), kirj = [], poistot = [], poistetutTilit = []; let jonossa = 0, maxJonossa = 0, flushit = 0;
   const ref = (p) => ({ polku: p, path: p, id: p.split('/').pop(), get: async () => ({ exists: kanta.has(p), data: () => kanta.get(p) }) });
   const ylin = (k) => [...kanta.keys()].filter((p) => p.split('/').length === 2 && p.split('/')[0] === k);
@@ -28,12 +30,12 @@ function vale(alku, tilit) {
     recursiveDelete: async (r) => { poistot.push(r.id); [...kanta.keys()].forEach((p) => { if (p === r.polku || p.indexOf(r.polku + '/') === 0) kanta.delete(p); }); },
   };
   const bw = {
-    set: (r, d) => { kirj.push(r.polku); kanta.set(r.polku, d); jonossa++; maxJonossa = Math.max(maxJonossa, jonossa); return Promise.resolve(); },
+    set: (r, d, opts) => { kirj.push(r.polku); if (opts && opts.merge) { const nyt = Object.assign({}, kanta.get(r.polku)); Object.keys(d).forEach((k) => { if (d[k] === POISTA) delete nyt[k]; else nyt[k] = d[k]; }); kanta.set(r.polku, nyt); } else kanta.set(r.polku, d); jonossa++; maxJonossa = Math.max(maxJonossa, jonossa); return Promise.resolve(); },
     delete: (r) => { kanta.delete(r.polku); return Promise.resolve(); }, onWriteError: () => {}, flush: async () => { jonossa = 0; flushit++; }, close: async () => { jonossa = 0; },
   };
   const kayttajat = (tilit || []).slice();
   const auth = { listUsers: async () => ({ users: kayttajat, pageToken: undefined }), deleteUsers: async (uids) => { uids.forEach((u) => { poistetutTilit.push(u); const i = kayttajat.findIndex((x) => x.uid === u); if (i >= 0) kayttajat.splice(i, 1); }); } };
-  return { kanta, kirj, poistot, poistetutTilit, get maxJonossa() { return maxJonossa; }, get flushit() { return flushit; }, luoDb: async (projekti) => ({ db, auth, projekti, bulkWriter: () => bw }) };
+  return { kanta, kirj, poistot, poistetutTilit, get maxJonossa() { return maxJonossa; }, get flushit() { return flushit; }, luoDb: async (projekti) => ({ db, auth, projekti, poista: (asetukset && asetukset.eiPoistoa) ? undefined : POISTA, bulkWriter: () => bw }) };
 }
 async function aja(M, argv, v, lisa) { const ulos = []; const koodi = await M.main(argv, Object.assign({ luoDb: v.luoDb, kirjaa: (r) => ulos.push(r), virhe: (r) => ulos.push('VIRHE ' + r), env: {}, adc: undefined }, lisa || {})); return { koodi, ulos: ulos.join('\n') }; }
 const kooste = (profiili, siemen, vanha) => { const m = new Map(); for (const d of TP.parivirta(A, profiili, siemen)) m.set(d.polku, vanha ? d.vanha : d.uusi); return m; };
@@ -74,6 +76,45 @@ describe('--paivita-tki', () => {
     expect((await aja(G, ['--projekti=' + P, '--paivita-tki'], v)).koodi).toBe(2);
     expect((await aja(G, ['--projekti=' + P, '--profiili=pieni_turva', '--paivita-tki', '--siivoa-ylimaarat'], v)).koodi).toBe(2);
     expect((await aja(G, ['--projekti=' + PILOT, '--profiili=pieni_turva', '--paivita-tki', '--aja'], v)).koodi).toBe(1); expect(yhteys).toBe(0); expect(v.kirj.length).toBe(0);
+  });
+  describe('--vain-tki-kentat (käsin/palvelimella muokatut dokumentit)', () => {
+    const arg = (...x) => ['--projekti=' + P, '--profiili=pieni_turva', '--paivita-tki'].concat(x);
+    const pelaajaD = muuttuneet.find((d) => /\/pelaajat\/[^/]+$/.test(d.polku) && !Object.keys(d.vanha).some((k) => d.uusi[k] === undefined));
+    const poistoD = muuttuneet.find((d) => Object.keys(d.vanha).some((k) => d.uusi[k] === undefined));
+    const muokkaa = (d, f) => { const k = alku(), i = k.findIndex(([p]) => p === d.polku); k[i] = [d.polku, f(Object.assign({}, k[i][1]))]; return k; };
+    const kasin = (x) => Object.assign(x, { viimeisinKirjautuminen: 'SALAINEN-ARVO-1', kauden_tavoite: 'SALAINEN-ARVO-2' });
+    it('ilman valintaa: poikkeavan polku + eroavien kenttien NIMET tulostetaan (ei arvoja), ei kirjoiteta, exit 1, vihje valintaan', async () => {
+      const v = vale(muokkaa(pelaajaD, kasin)); const r = await aja(G, arg('--aja'), v);
+      expect(r.koodi).toBe(1); expect(v.kirj.length).toBe(0); expect(r.ulos).toContain('poikkeava: ' + pelaajaD.polku + ' — muut kentät: kauden_tavoite, viimeisinKirjautuminen · TKI-kentät ristiriidassa: (ei)'); expect(r.ulos).not.toContain('SALAINEN'); expect(r.ulos).toContain('--vain-tki-kentat');
+    });
+    it('kuiva-ajo + valinta: merge-kelpoinen raportoidaan, ei kirjoiteta', async () => {
+      const v = vale(muokkaa(pelaajaD, kasin)); const r = await aja(G, arg('--vain-tki-kentat'), v);
+      expect(r.koodi).toBe(0); expect(v.kirj.length).toBe(0); expect(r.ulos).toContain('merge-kelpoisia 1, ohitetaan 0'); expect(r.ulos).toContain('Kirjoita ' + muuttuneet.length + ' dokumenttia (vain TKI-kentät, merge)');
+    });
+    it('--aja + valinta: muokatun pelaajan TKI-kentät päivittyvät, käsin lisätyt kentät SÄILYVÄT, muut dokumentit = generoitu uusi; ei-TKI-kenttiä ei kosketa', async () => {
+      const v = vale(muokkaa(pelaajaD, kasin)); const r = await aja(G, arg('--vain-tki-kentat', '--aja'), v);
+      expect(r.koodi, r.ulos).toBe(0); expect(v.kirj.length).toBe(muuttuneet.length);
+      const nyt = v.kanta.get(pelaajaD.polku), uusi = kooste(PIENI, '1', false).get(pelaajaD.polku), tkiKentat = TP.eroavatKentat(pelaajaD.vanha, pelaajaD.uusi);
+      tkiKentat.forEach((k) => expect(TP.sama(nyt[k], uusi[k]), k).toBe(true)); expect(nyt.viimeisinKirjautuminen).toBe('SALAINEN-ARVO-1'); expect(nyt.kauden_tavoite).toBe('SALAINEN-ARVO-2');
+      Object.keys(pelaajaD.vanha).filter((k) => tkiKentat.indexOf(k) < 0).forEach((k) => expect(TP.sama(nyt[k], pelaajaD.vanha[k]), k).toBe(true));
+      const uusiKaikki = kooste(PIENI, '1', false); muuttuneet.filter((d) => d !== pelaajaD).forEach((d) => expect(TP.sama(v.kanta.get(d.polku), uusiKaikki.get(d.polku)), d.polku).toBe(true));
+    });
+    it('kenttä, joka uudesta versiosta puuttuu (merkki / tki_merkki), poistetaan merge-kirjoituksessa (FieldValue.delete)', async () => {
+      const poistuvat = Object.keys(poistoD.vanha).filter((k) => poistoD.uusi[k] === undefined), v = vale(muokkaa(poistoD, kasin)); const r = await aja(G, arg('--vain-tki-kentat', '--aja'), v);
+      expect(r.koodi, r.ulos).toBe(0); poistuvat.forEach((k) => expect(k in v.kanta.get(poistoD.polku), k).toBe(false)); expect(v.kanta.get(poistoD.polku).viimeisinKirjautuminen).toBe('SALAINEN-ARVO-1');
+    });
+    it('TKI-kenttä itse muokattu → dokumentti OHITETAAN ja raportoidaan (muut päivittyvät, ohitettu säilyy koskemattomana), exit 1', async () => {
+      const tkiK = TP.eroavatKentat(pelaajaD.vanha, pelaajaD.uusi)[0], v = vale(muokkaa(pelaajaD, (x) => Object.assign(x, { [tkiK]: 'KÄSIN-ASETETTU' })));
+      const kuiva = await aja(G, arg('--vain-tki-kentat'), v); expect(kuiva.koodi).toBe(0); expect(kuiva.ulos).toContain('ohitetaan 1'); expect(kuiva.ulos).toContain('TKI-kentät ristiriidassa: ' + tkiK);
+      const r = await aja(G, arg('--vain-tki-kentat', '--aja'), v); expect(r.koodi).toBe(1); expect(r.ulos).toContain('OHITETTU 1');
+      expect(v.kirj.length).toBe(muuttuneet.length - 1); expect(v.kirj).not.toContain(pelaajaD.polku); expect(v.kanta.get(pelaajaD.polku)[tkiK]).toBe('KÄSIN-ASETETTU');
+    });
+    it('puuttuva dokumentti estää aina; poistotuen puuttuessa kenttää poistava dokumentti ohitetaan (ei undefined-kirjoitusta); valinta vain --paivita-tki:n kanssa', async () => {
+      const v1 = vale(alku().filter(([p]) => p !== pelaajaD.polku)); const r1 = await aja(G, arg('--vain-tki-kentat', '--aja'), v1); expect(r1.koodi).toBe(1); expect(v1.kirj.length).toBe(0); expect(r1.ulos).toContain('puuttuu 1');
+      const v2 = vale(alku(), undefined, { eiPoistoa: true }); const r2 = await aja(G, arg('--vain-tki-kentat', '--aja'), v2); expect(r2.koodi).toBe(1); expect(r2.ulos).toContain('OHITETTU'); expect(v2.kirj).not.toContain(poistoD.polku);
+      v2.kirj.forEach((p) => Object.values(v2.kanta.get(p)).forEach((x) => expect(x).not.toBe(undefined)));
+      expect((await aja(G, ['--projekti=' + P, '--profiili=pieni_turva', '--siivoa-ylimaarat', '--vain-tki-kentat'], vale(alku()))).koodi).toBe(2);
+    });
   });
 });
 

@@ -148,7 +148,7 @@ describe('CLI (valedb)', () => {
   it('--aja kirjoittaa täsmälleen laske()-määrän dokumentteja, kaikki kuorma_-polkuja', async () => {
     const v = valeDb(); const r = await aja(['--projekti=talentmaster-staging', '--aja'], v);
     expect(r.koodi).toBe(0); expect(v.kirjoitukset.length).toBe(A.laske(SAVU, '1').yht); v.kirjoitukset.forEach((p) => expect(p).toMatch(/^seurat\/kuorma_seura_\d\d/)); expect(r.ulos).toMatch(/Kirjoitettu \d+ dokumenttia, epäonnistui 0/);
-  });
+  }, 30000);   // 20.11.2026: CI-kuormassa ylitti oletuksen 5 s (generoi 165 k dokumenttia valedb:hen)
   it('lukko ennen kaikkea: väärä projekti / ristiriitainen env / ADC → exit 1, ei yhteyttä eikä kirjoituksia (myös --aja ja --tyhjenna)', async () => {
     for (const [argv, env, adc] of [[['--projekti=' + PILOT, '--aja'], {}, undefined], [['--projekti=talentmaster-staging', '--aja'], { GCLOUD_PROJECT: PILOT }, undefined], [['--projekti=talentmaster-staging', '--tyhjenna', '--aja'], {}, PILOT], [['--aja'], {}, undefined], [['--projekti=', '--aja'], {}, undefined]]) {
       const v = valeDb([{ id: 'kuorma_seura_01', data: { synteettinen: true } }]); let yhteys = 0; const luo = v.luoDb; v.luoDb = async (p) => { yhteys++; return luo(p); };
