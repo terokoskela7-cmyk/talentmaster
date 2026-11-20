@@ -180,6 +180,8 @@ async function pelaajanakymaPolku(selain, kieli) {
     + 'masterVaihdaKieli("' + kieli + '");window._ktLippu=true;';
   await p.goto('file://' + sivu(lue('TalentMaster_Master_v16.html'), JUURI, { rooli: 'valmentaja', pohjat: false, kutsu: alku })); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 20000 });
   expect(await p.locator('#probe-out').textContent()).toBe('ok');
+  await p.evaluate(() => window.tmKieliPaketit.valmiit());   // AJOITUSRIIPPUMATON: masterVaihdaKieli lataa sv-paketit asynkronisesti (TM_TT_SV viimeisenä) → odota ENNEN renderiä; ilman tätä konseptinimi jäi ajoittain suomeksi (CI 20.11.)
+  expect(await p.evaluate(() => window.tmKieliPaketit.valmis()), 'kielipaketit ladattu ennen renderiä').toBe(true);
   for (const pid of ['p1', 'p2', 'p3', 'p4']) {
     for (const v of ['tanaan', 'polku']) {
       await p.evaluate(([pid, v]) => { _demo = true; _ktS.pid = pid; _ktS.valilehti = v; _ktS.ladattu = { polku: v === 'polku', naytto: false }; _ktNayta(); }, [pid, v]); await odota(p, 120);
