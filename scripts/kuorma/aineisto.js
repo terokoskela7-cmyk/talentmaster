@@ -22,7 +22,7 @@ const IKARYHMAT = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 
 const SAVU = { nimi: 'savu', seurat: [{ koko: 500 }, { koko: 500 }], kirjaukset: 100, viikkokatsaukset: 35, havainnot: 25, kierroksia: [2, 3], kaksiJoukkuettaTodennakoisyys: 0.03 };
 /* PR 2b: laaja aineisto (kalenteri + läsnäolijat, henkilökunta + Auth, toimenpiteet, jaksofokus_historia, 3 kautta suurimmalle seuralle). Profiili `savu` pysyy 2a:n muotoisena. */
-const LAAJA = { kalenteri: { viikossa: 2, lasnaoloOsuus: 0.9 }, henkilokuntaa: 10, toimenpiteita: 30, jaksoHistoriaa: [4, 8], kausia3: { pelaajia: 20, jaksoHistoriaaKaudessa: 40 } };
+const LAAJA = { tkiVaihtelu: true, kalenteri: { viikossa: 2, lasnaoloOsuus: 0.9 }, henkilokuntaa: 10, toimenpiteita: 30, jaksoHistoriaa: [4, 8], kausia3: { pelaajia: 20, jaksoHistoriaaKaudessa: 40 } };
 /* VAIHE0 §2.2: 40 seuraa, 10 000 pelaajaa (P11/P12). Alkuperäinen jakauma (1×500, 3×400, 8×300, 14×200, 14×100) summautui vain 8 300:aan → 14 pienintä seuraa saa loput:
    1×500 + 3×400 + 8×300 + 14×250 + 14×(171–172) = 10 000. Suurin seura (mittauskohde) pysyy 500:ssa. */
 const TAYSI_KOOT = (() => { const pienet = 10000 - 500 - 3 * 400 - 8 * 300 - 14 * 250, pohja = Math.floor(pienet / 14), yli = pienet - pohja * 14; return [500, 400, 400, 400].concat(Array(8).fill(300), Array(14).fill(250), Array.from({ length: 14 }, (_, i) => pohja + (i < yli ? 1 : 0))); })();
@@ -117,6 +117,25 @@ function* kausiHistoria(profiili, r, polku, pid, ikkuna, havEtu) {
   for (let i = 0; i < hpvt.length; i++) yield { polku: polku + '/havainnot/' + havEtu + nn(i + 1, 3), data: { pvm: hpvt[i], teksti: 'Synteettinen havainto', nakyvyys: r() < 0.3 ? 'pelaaja' : 'valmentajat', tekija_uid: 'kuorma_valmentaja', luotu: aikaleima(hpvt[i], 18), synteettinen: true } };
 }
 
+/** TKI-VAIHTELU (18.11.2026): staging-tarkistukset tarvitsevat pelaajia, joilla testidatasta johdettu kehityskohde (tki_kehityskohde → Resepti/T-harjoite) vaihtelee. Ilman tätä
+ *  kehityskohde oli käytännössä aina 'syotto' (syöttö on lajeista hitain) → muut polut (ponnauttelu/pujottelu/kuljetus_laukaus) jäivät katsomatta. Valitut pelaajat saavat YHDEN lajin
+ *  aikaan kertoimen 1,45 (hitain → varma kehityskohde). Vain profiileille joilla tkiVaihtelu (LAAJA: savu_taysi, taysi) — `savu` on sha1-lukittu 2a-yhteensopivuustestillä. Valinta puhtaasti polusta (hash) + pin-pelaajat (si % 4 → laji) → EI uusia r()-kutsuja: kaikkien muiden pelaajien aineisto ja
+ *  r-virrat ennallaan (determinismi, vain valittujen TKI-arvot muuttuvat). */
+const TKI_VAIHTELU_LAJIT = ['syotto', 'ponnauttelu', 'pujottelu', 'kuljetus_laukaus'];
+const TKI_VAIHTELU_KERROIN = 1.45, TKI_VAIHTELU_JAKO = 14;
+function tkiHeikkoLaji(si, n, polku, joukkueet) {
+  let pinN = 0; for (let m = 1; m <= joukkueet.length * 2; m++) { if (joukkueet[(m - 1) % joukkueet.length].ika >= 10) { pinN = m; break; } }
+  if (n === pinN) return TKI_VAIHTELU_LAJIT[si % 4];                                    // pin-pelaaja (pinPelaajat: ensimmäinen ≥10-v.) → seura si:n mukainen laji
+  const h = hash32(polku + '#tkivaihtelu');
+  return h % TKI_VAIHTELU_JAKO === 0 ? TKI_VAIHTELU_LAJIT[(h >>> 8) % 4] : null;
+}
+function tkiHeikennaLaji(t, laji) {
+  const k = TKI_VAIHTELU_KERROIN;
+  if (laji === 'kuljetus_laukaus') { ['y1', 'y2'].forEach((y) => { if (t[laji] && t[laji][y]) t[laji][y].raaka = Math.round(t[laji][y].raaka * k * 100) / 100; }); }
+  else if (typeof t[laji] === 'number') t[laji] = Math.round(t[laji] * k * 100) / 100;
+  return t;
+}
+
 /** Yksi pelaaja → [{ polku, data }] (pelaajadokumentti viimeisenä: pikakentät laskettu kaikista kierroksista). */
 function* pelaajanDokumentit(profiili, siemen, si, n, joukkueet, jid, k3) {
   const sid = seuraId(si), pid = pelaajaId(si, n), polku = 'seurat/' + sid + '/pelaajat/' + pid;
@@ -135,11 +154,13 @@ function* pelaajanDokumentit(profiili, siemen, si, n, joukkueet, jid, k3) {
   const kierroksia = r.int(profiili.kierroksia[0], profiili.kierroksia[1]), pvmt = TESTIKIERROKSET.slice(TESTIKIERROKSET.length - kierroksia);
   const tila = Object.assign({}, pelaaja);
   if (k3) yield* aiemmatKaudet(profiili, siemen, polku, pid, pelaaja, joukkue, tila);   // 2b: kaudet KAUSI-2, KAUSI-1 (erilliset siemenvirrat → kausi 2026 ennallaan)
+  const tkiHeikko = (profiili.tkiVaihtelu && ika <= 13) ? tkiHeikkoLaji(si, n, polku, joukkueet) : null;
   for (let k = 0; k < pvmt.length; k++) {
     const pvm = pvmt[k];
     for (const [protokolla] of PROTOKOLLAT) {
       if (protokolla === 'tekniikkakilpailu' && ika > 13) continue;   // TKI vain ikä 8–13 (lib)
       const t = testit(r, ika, sp, kyky, k, protokolla);
+      if (protokolla === 'tekniikkakilpailu' && tkiHeikko) tkiHeikennaLaji(t, tkiHeikko);   // TKI-vaihtelu (ei r()-kutsuja)
       const upd = PK.tmLaskePikakentat(tila, t, pvm);
       Object.assign(tila, upd);
       const tulos = { testit: t, pelaajaId: pid, tunnistetyyppi: 'palloID', sukunimi: pelaaja.sukunimi, etunimi: pelaaja.etunimi, phv_tila: phv, testauspvm: pvm, pvm_arvio: false, kausi: String(KAUSI), protokolla, tallennettu: aikaleima(pvm, 20), ika, sukupuoli: sp, joukkue: joukkue.nimi, lahde: 'historiapohja' };

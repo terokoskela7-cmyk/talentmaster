@@ -152,3 +152,20 @@ describe('CLI 2b', () => {
     rmSync(TMP, { recursive: true, force: true });
   });
 });
+
+describe('TKI-vaihtelu (18.11.2026) — testidatasta johdettu kehityskohde vaihtelee, muu aineisto ennallaan', () => {
+  const kerro = (profiili) => {
+    const kk = {}, pinKk = []; const pin = new Set(A.pinPelaajat(profiili).map((p) => 'seurat/' + p.sid + '/pelaajat/' + p.pid));
+    for (const d of A.generoi(profiili, 1)) if (/\/pelaajat\/[^/]+$/.test(d.polku)) { const k = d.data.tki_kehityskohde; if (k) kk[k] = (kk[k] || 0) + 1; if (pin.has(d.polku)) pinKk.push(k); }
+    return { kk, pinKk };
+  };
+  it('savu_taysi: kaikki 4 TKI-lajia esiintyvät kehityskohteena; pin-pelaajilla laji = seura si % 4 (seura 1 syotto, seura 2 ponnauttelu)', () => {
+    const { kk, pinKk } = kerro(A.PROFIILIT.savu_taysi);
+    ['syotto', 'ponnauttelu', 'pujottelu', 'kuljetus_laukaus'].forEach((l) => expect(kk[l], l).toBeGreaterThan(5));
+    expect(pinKk).toEqual(['syotto', 'ponnauttelu']);
+  });
+  it('savu (sha1-lukittu) ei saa vaihtelua: vain syotto/kuljetus_laukaus kuten ennen', () => {
+    const { kk } = kerro(A.PROFIILIT.savu);
+    expect(Object.keys(kk).sort()).toEqual(['kuljetus_laukaus', 'syotto']);
+  });
+});
