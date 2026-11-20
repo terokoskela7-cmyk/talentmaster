@@ -199,12 +199,27 @@ describe('valitsePaivanHarjoite — K1 opts.jaksoEnsin', () => {
   const H = (lisa) => Object.assign({ nimi: 'Seuran porttikuljetus', tyyppi: 'T', lahde: 'seura', tila: 'hyvaksytty', kaytto: 'koti', konsepti: 'y_h2', ohje: 'Kuljeta pallo porttien läpi.', kesto_min: 12, ika_min: 10, ika_max: 16 }, lisa || {});
   const P = (lisa) => Object.assign({ syntymaVuosi: 2013, seuraId: 'kpv', luotu: '2026-03-01', tki_kehityskohde: 'syotto', jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Kuljettaminen' } }, lisa || {});
   const BANK = (rivit) => ({ seuraId: 'kpv', harjoitteet: rivit });
-  it('ILMAN opts / opts.jaksoEnsin !== true → täsmälleen sama tulos kuin ennen (jakso ei vaikuta); kenttärakenne ennallaan', () => {
-    const vanha = lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK([H()]));
-    expect(vanha.nimi).not.toBe('Seuran porttikuljetus');   // seuran rivin kehityskohde ei täsmää testikohteeseen → TM-polku
-    for (const opts of [undefined, null, {}, { jaksoEnsin: false }, { jaksoEnsin: 'true' }, { jaksoEnsin: 1 }]) expect(lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK([H()]), opts)).toEqual(vanha);
+  it('ILMAN seuraPankkia → täsmälleen sama tulos kuin ennen (jakso ei vaikuta, opts.jaksoEnsin mikä tahansa); kenttärakenne ennallaan', () => {
+    const vanha = lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM);
     expect(Object.keys(vanha).sort()).toEqual(VPH_KENTAT);
-    for (const [nimi, p] of Object.entries(FIKSTURIT)) expect(lib.valitsePaivanHarjoite(p, lib.PANKKI, PVM, undefined, { jaksoEnsin: true }), nimi).toEqual(lib.valitsePaivanHarjoite(p, lib.PANKKI, PVM));   // ei jaksoa → testipolku
+    for (const pankki of [undefined, null, BANK([]), { seuraId: 'kpv' }]) for (const opts of [undefined, null, {}, { jaksoEnsin: true }, { jaksoEnsin: false }, { viikonOsa: 'a' }]) expect(lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, pankki, opts)).toEqual(vanha);
+    for (const [nimi, p] of Object.entries(FIKSTURIT)) { expect(lib.valitsePaivanHarjoite(p, lib.PANKKI, PVM, undefined, { jaksoEnsin: true }), nimi).toEqual(lib.valitsePaivanHarjoite(p, lib.PANKKI, PVM)); expect(lib.valitsePaivanHarjoite(p, lib.PANKKI, PVM, BANK([H()])), nimi).toEqual(lib.valitsePaivanHarjoite(p, lib.PANKKI, PVM)); }   // ei jaksoa → testipolku
+  });
+  it('PR A: jaksoEnsin on OLETUS kun seuraPankki annetaan; opts.jaksoEnsin === false kytkee pois (= vanha polku)', () => {
+    const vanha = lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM);
+    expect(vanha.nimi).not.toBe('Seuran porttikuljetus');   // seuran rivin kehityskohde ei täsmää testikohteeseen → TM-polku
+    for (const opts of [undefined, null, {}, { jaksoEnsin: true }, { jaksoEnsin: 'true' }]) expect(lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK([H()]), opts), JSON.stringify(opts)).toMatchObject({ nimi: 'Seuran porttikuljetus', lahde: 'seura', jaksosta: true, osa: null });
+    expect(lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK([H()]), { jaksoEnsin: false })).toEqual(vanha);
+  });
+  it('PR A osatasolla: viikon osa → ensin konsepti_osa-täsmäävät, sitten konseptitason rivit; vain muiden osien rivit → testidata', () => {
+    const A = H({ nimi: 'Osa A', konsepti_osa: 'a' }), B = H({ nimi: 'Osa B', konsepti_osa: 'b' }), K = H({ nimi: 'Koko konsepti' }), vanha = lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM);
+    const v = (rivit, osa) => lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK(rivit), osa === undefined ? undefined : { viikonOsa: osa });
+    expect(v([A, B, K], 'b')).toMatchObject({ nimi: 'Osa B', osa: 'b', jaksosta: true, lahde: 'seura' });
+    expect(v([A, B, K], 'B')).toMatchObject({ nimi: 'Osa B', osa: 'b' });   // kirjainkoko ei ratkaise
+    expect(v([A, B, K], 'c')).toMatchObject({ nimi: 'Koko konsepti', osa: null });   // osalle ei riviä → konseptitaso
+    expect(v([A, B], 'c')).toEqual(vanha);   // vain muiden osien rivejä → testidata
+    expect(['Osa A', 'Osa B', 'Koko konsepti']).toContain(v([A, B, K]).nimi);   // viikon osaa ei tiedossa → kaikki konseptin rivit (K1-käytös)
+    expect(v([A, H({ nimi: 'B-luonnos', konsepti_osa: 'b', tila: 'luonnos' }), H({ nimi: 'B-joukkue', konsepti_osa: 'b', kaytto: 'joukkue' })], 'b')).toEqual(vanha);   // luonnos/joukkue-rivi ei koskaan osa-täsmää; A on eri osa → testidata
   });
   it('jaksoEnsin: pelaajan jakson konsepti_avain täsmää seuran hyväksyttyyn pankkiriviin → päivän treeni siitä (lahde seura, jaksosta: true), kehityskohde silti testistä', () => {
     const r = lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK([H()]), { jaksoEnsin: true });
