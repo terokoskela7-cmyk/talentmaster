@@ -61,3 +61,25 @@ describe('tm_kieli_paketit: arvona välitetty stub (L1-regressio: nav-lib saa t:
     expect(talteen('Koti')).toBe('sv:Koti'); expect(talteenLib('x')).toBe('svlib'); expect(sb.masterT('Koti')).toBe('sv:Koti');
   });
 });
+
+describe('tm_kieli_paketit.valmis(): synkroninen "sanakirjat paikallaan" (a2-flake 20.11.2026)', () => {
+  const MASTER = readFileSync(new URL('../TalentMaster_Master_v16.html', import.meta.url), 'utf8');
+  it('fi → aina true; sv → false kunnes lataus on ratkennut, sitten true', async () => {
+    const { w } = ymparisto(); w.tmNykyinenKieli = () => 'fi'; expect(w.tmKieliPaketit.valmis()).toBe(true);
+    w.tmNykyinenKieli = () => 'sv'; expect(w.tmKieliPaketit.valmis()).toBe(false);
+    const lupaus = w.tmKieliPaketit.valmiit(); expect(w.tmKieliPaketit.valmis()).toBe(false);   // lataus käynnissä → ei vielä valmis (tässä ikkuna jossa TM_TT_SV puuttui)
+    await lupaus; expect(w.tmKieliPaketit.valmis()).toBe(true);
+  });
+  it('epäonnistunut lataus ratkaisee myös (fi-fallback) → valmis() true, ei ikuista odotusta eikä uudelleenpiirtosilmukkaa', async () => {
+    const { w } = ymparisto({ virhe: 'lib/tm_teknistaktiset_sv.js' }); w.tmNykyinenKieli = () => 'sv';
+    expect(await w.tmKieliPaketit.valmiit()).toBe(false); expect(w.tmKieliPaketit.valmis()).toBe(true);
+  });
+  it('en → sama kuin sv; kielenvaihto fi→sv ennen latausta → false', async () => {
+    const { w } = ymparisto(); w.tmNykyinenKieli = () => 'en'; expect(w.tmKieliPaketit.valmis()).toBe(false); await w.tmKieliPaketit.lataa('en'); expect(w.tmKieliPaketit.valmis()).toBe(true);
+  });
+  it('Master _ktNayta piirtää vasta kun paketit ovat paikallaan (valmis → muuten valmiit().then(_ktNayta)) — ensimmäinen lause funktiossa', () => {
+    const i = MASTER.indexOf('function _ktNayta() {'); expect(i).toBeGreaterThan(-1);
+    const alku = MASTER.slice(i, i + 700); expect(alku).toContain('tmKieliPaketit.valmis()'); expect(alku).toContain('valmiit().then(function () { _ktNayta(); })');
+    expect(alku.indexOf('valmis()')).toBeLessThan(alku.indexOf('_ktAsetaHTML'));
+  });
+});
