@@ -28,6 +28,25 @@ function* parivirta(A, profiili, siemen) {
   }
 }
 
+/** Kentät (ylätaso), joiden arvo eroaa kahden dokumentin välillä (avainten unioni; puuttuva = undefined). */
+function eroavatKentat(a, b) {
+  const ks = new Set(Object.keys(a || {}).concat(Object.keys(b || {})));
+  return [...ks].filter((k) => !sama((a || {})[k], (b || {})[k])).sort();
+}
+
+/** Luokittele Firestoren nykyinen dokumentti suhteessa generoituun vanhaan/uuteen versioon. TKI-kentät = ne kentät, jotka tkiVaihtelu muuttaa (vanha ≠ uusi) — ei nimimallia.
+ *  → { tila: 'puuttuu' | 'jo' | 'vanha' | 'muokattu', tki:[kentät], paivita:[TKI-kentät joiden nykyarvo = vanha], muutErot:[ei-TKI-kentät, joissa nykyinen ≠ vanha (käsin/palvelimella muokattu)],
+ *       tkiRistiriita:[TKI-kentät, joiden nykyarvo on muu kuin vanha tai uusi] }.  'muokattu' + tkiRistiriita tyhjä = merge-kelpoinen (vain TKI-kentät kirjoitetaan, muut säilyvät). */
+function luokittele(vanha, uusi, nykyinen) {
+  if (nykyinen == null) return { tila: 'puuttuu', tki: [], paivita: [], muutErot: [], tkiRistiriita: [] };
+  const tki = eroavatKentat(vanha, uusi);
+  if (sama(nykyinen, uusi)) return { tila: 'jo', tki, paivita: [], muutErot: [], tkiRistiriita: [] };
+  const paivita = tki.filter((k) => sama(nykyinen[k], vanha[k]) && !sama(nykyinen[k], uusi[k]));
+  const tkiRistiriita = tki.filter((k) => !sama(nykyinen[k], vanha[k]) && !sama(nykyinen[k], uusi[k]));
+  const muutErot = eroavatKentat(nykyinen, vanha).filter((k) => tki.indexOf(k) < 0);
+  return { tila: sama(nykyinen, vanha) ? 'vanha' : 'muokattu', tki, paivita, muutErot, tkiRistiriita };
+}
+
 /** Dokumentit, joiden data muuttuu tkiVaihtelun myötä → [{ polku, vanha, uusi }]. */
 function tkiMuuttuneet(A, profiili, siemen) {
   const ulos = [];
@@ -52,4 +71,4 @@ async function haeDokumentit(db, polut, era) {
   return ulos;
 }
 
-module.exports = { normaali, sama, ilmanTki, parivirta, tkiMuuttuneet, otos, haeDokumentit };
+module.exports = { normaali, sama, ilmanTki, parivirta, tkiMuuttuneet, otos, haeDokumentit, eroavatKentat, luokittele };
