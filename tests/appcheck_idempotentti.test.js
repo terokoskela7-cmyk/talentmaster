@@ -39,8 +39,8 @@ describe('tmAppCheckAktivoi: idempotentti per appi per ikkuna', () => {
     expect(e.aktivoinnit.slice().sort()).toEqual(['[DEFAULT]', 'tm-pelaaja', 'tm-vanhempi']);
   });
   it('loki erottaa kontekstin: ylin ikkuna vs iframe (kaksi riviä samassa konsolissa selittyy)', () => {
-    const ylin = ymparisto(); ylin.win.tmAppCheckAktivoi(); expect(ylin.loki.find((m) => m.indexOf('[AppCheck] aktivoitu') === 0)).toBe('[AppCheck] aktivoitu (enterprise, appi [DEFAULT], ylin ikkuna)');
-    const ifr = ymparisto({ iframe: true }); ifr.win.tmAppCheckAktivoi(); expect(ifr.loki.find((m) => m.indexOf('[AppCheck] aktivoitu') === 0)).toBe('[AppCheck] aktivoitu (enterprise, appi [DEFAULT], iframe)');
+    const ylin = ymparisto(); ylin.win.tmAppCheckAktivoi(); expect(ylin.loki.find((m) => m.indexOf('[AppCheck] aktivoitu') === 0)).toMatch(/^\[AppCheck\] aktivoitu \(enterprise, appi \[DEFAULT\], ylin ikkuna, dok [a-z0-9]+(, nav \w+)?\)$/);
+    const ifr = ymparisto({ iframe: true }); ifr.win.tmAppCheckAktivoi(); expect(ifr.loki.find((m) => m.indexOf('[AppCheck] aktivoitu') === 0)).toMatch(/^\[AppCheck\] aktivoitu \(enterprise, appi \[DEFAULT\], iframe, dok [a-z0-9]+(, nav \w+)?\)$/);
   });
   it('aktivointi, joka epäonnistuu (SDK puuttuu), ei merkitse appia aktivoiduksi → uusi yritys sallittu', () => {
     const e = ymparisto(); const fb = e.win.firebase; e.win.firebase = {};
