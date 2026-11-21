@@ -58,11 +58,11 @@ describe('Kehitystyöpöytä: moottori ladataan laiskasti', () => {
     expect(S).toContain('omatoiminen: _omatoimi(p)');
   });
 });
-describe('sv-erä 105: sv tyhjä (PM kirjoittaa), 5 avainta, paikkamerkit', () => {
+describe('sv-erä 105: lähetetty erä (sv tyhjä, PM:n palautus viety erikseen), 5 avainta, paikkamerkit', () => {
   const E = JSON.parse(teksti('docs/i18n/sv_kaannoserae_105_gemini.json')), r = E.osiot['lib.tm_kt_polku'].rivit;
-  it('avaimet = lib-FI, fi täsmää, sv tyhjä, odotuslistalla', () => {
+  it('avaimet = lib-FI, fi täsmää, lähetetty sv tyhjä', () => {
     const avaimet = Object.keys(r).sort(); expect(avaimet).toEqual(['ktp_omat', 'ktp_omat_ilman_osaa', 'ktp_omat_lahde_seura', 'ktp_omat_lahde_seura_ei_nimea', 'ktp_omat_lahde_tm']); expect(E._rivit_yhteensa).toBe(5);
-    for (const k of avaimet) { expect(r[k].fi, k).toBe(FI[k]); expect(r[k].sv, k).toBe(''); expect(require('./helpers/era105_odottaa.cjs').era105Odottaa(k), k).toBe(true); }
-    expect(teksti('tools/i18n/sv_kattavuus.mjs')).toMatch(/const ODOTTAVAT_ERAT = \[105\]/);
+    for (const k of avaimet) { expect(r[k].fi, k).toBe(FI[k]); expect(r[k].sv, k).toBe(''); }
+    expect(teksti('tools/i18n/sv_kattavuus.mjs')).toMatch(/const ODOTTAVAT_ERAT = \[\];/);
   });
 });
