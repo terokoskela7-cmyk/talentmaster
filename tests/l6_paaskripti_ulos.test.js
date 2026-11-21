@@ -44,13 +44,18 @@ describe('Masterin julkaisu — oikea sivu', () => {
     const norm = (x) => x.replace(/\?v=[0-9a-f]{8}/g, '');
     // 1) pääskripti: sama kuin repon viimeinen inline-skripti + tasan yksi lisäys heti 'use strict' -rivin jälkeen
     const orig = html.slice(html.lastIndexOf('<script>', html.lastIndexOf('</script>')) + 8, html.lastIndexOf('</script>')).replace(/^\r?\n/, '');
-    expect(js).toBe(orig.replace(/^'use strict';/, "'use strict';\n" + rm));
+    // vaihe 3: boot-lohko on siirretty tm_master_boot.js:ään → palautus: merkkikommentti → boot-tiedoston runko (ilman 'use strict' -riviä ja loppurivinvaihtoa)
+    const bootJs = r.tiedostot['tm_master_boot.js'], MERKKI = '/* tm_master_boot.js (deploy): _FB, firebase.initializeApp, tmAppCheckAktivoi, _auth */';
+    expect(js.split(MERKKI)).toHaveLength(2); expect(bootJs.startsWith("'use strict';\n") && bootJs.endsWith('\n')).toBe(true);
+    expect(js.replace(MERKKI, bootJs.slice("'use strict';\n".length, -1))).toBe(orig.replace(/^'use strict';/, "'use strict';\n" + rm));
     // 2) alku-tiedosto = kolme alkuperäistä head-lohkoa peräkkäin
     const lohkot = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].filter((m) => ALKU.lohkot.some((x) => m[1].indexOf(x) >= 0));
     expect(lohkot).toHaveLength(3); expect(norm(alkuJs)).toBe(norm(lohkot.map((m) => m[1].trim()).join('\n\n') + '\n'));
     // 3) loppu: poista siirretyt lohkot alkuperäisestä; generoidusta alku-tagi, tynkä+tyyli, defer-attribuutit, pääskripti-tagi
     let a = html; for (const m of lohkot) a = a.replace(m[0], '');
-    let b = ulos.replace(/<script src="tm_master_alku\.js\?v=[0-9a-f]{8}" defer><\/script>/, '').replace(/<script src="tm_master_main\.js\?v=[0-9a-f]{8}" defer><\/script>/, '<script>\n' + orig + '</script>');
+    const AC = '<script src="lib/tm_appcheck.js"></script>'; expect(a.split(AC)).toHaveLength(2); a = a.replace(AC, '');   // vaihe 3: tm_appcheck-tagi siirtyy auth-SDK:n perään (sijainti testataan l8_boot_ensin.test.js:ssä)
+    let b = ulos.replace(/<link rel="preload" as="script"[^>]*>\n?/g, '').replace(/ fetchpriority="high"/g, '').replace(/<script src="lib\/tm_appcheck\.js\?v=[0-9a-f]{8}" defer><\/script>\n?/, '').replace(/<script src="tm_master_boot\.js\?v=[0-9a-f]{8}" defer><\/script>\n?/, '')
+      .replace(/<script src="tm_master_alku\.js\?v=[0-9a-f]{8}" defer><\/script>/, '').replace(/<script src="tm_master_main\.js\?v=[0-9a-f]{8}" defer><\/script>/, '<script>\n' + orig + '</script>');
     b = b.replace("document.documentElement.classList.add('tm-auth-odottaa','" + ALKU.luokka + "');window." + ALKU.tynkat.join('=window.') + '=function(){};', "document.documentElement.classList.add('tm-auth-odottaa');")
       .replace(/<style>html\.tm-main-odottaa #sLogin[^<]*<\/style>\n/, '').replace(/(<script\b[^>]*\bsrc=[^>]*) defer>/g, '$1>');
     expect(norm(b)).toBe(norm(a));

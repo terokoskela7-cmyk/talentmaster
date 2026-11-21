@@ -229,3 +229,31 @@ Syy: `_paivitaKaikkiNakymat` kutsuu `renderSeason`ia ennen kuin laiska `lib/tm_e
 **Testit:** (a) deploy-rakenne: boot ennen kaikkia lib-skriptejä ja pääskriptiä, init/aktivointi vain boot-tiedostossa, `_auth`/`_db` vain kerran; (b) selain (deploy-muoto): `typeof _db/_auth` DCL:ssä, ei ReferenceErroria, App Check kerran per dokumentti (L7), login-tynkien vapautus; (c) EI HUKKAA -regressio: käänteismuunnos = lähde; (d) QG-2: `?v` boot-tiedostolle, `tarkistaJulkaisu`.
 **Rollback:** `LYKKAYS`-sääntöön yksi lippu (boot pois → vaiheen 2 muoto); ei datan/rules-muutoksia.
 **Avoimet:** (1) kuuluuko `tm_kieli_paketit`/`tm_istunto` bootiin vai pääskriptiin (kielipaketti odotetaan `onAuthStateChanged`issa — todennäköisesti jää pääskriptiin); (2) K1b-päätös (näytetäänkö lomake ennen auth-tilaa) — vaikuttaa FCP:hen, ei init_ms:ään.
+
+## 14. Vaihe 3 toteutettu: boot-tiedosto ensin (21.11.2026, PR perf/master-boot-ensin)
+
+**Toteutus (deploy-muunnos, repo ennallaan — kuten §11–12).** `scripts/versiotiiviste.js`: `LYKKAYS[Master].boot` (`erotaBoot`, `siirraBoot`, `esilataus`).
+1. **`tm_master_boot.js`** (~0,6 kt) = pääskriptin lohko `const _FB` … `const _auth = firebase.auth();`: config, `firebase.initializeApp`, `tmAppCheckAktivoi()`, `_auth`. Pääskriptiin jää merkkikommentti; `onAuthStateChanged` pysyy pääskriptissä.
+2. **Poikkeama §13.3:sta (tarkoituksella):** `const _db = firebase.firestore();` JÄÄ pääskriptiin. Syy: boot-ketjuun ei tarvitse Firestore-SDK:ta (99 kt gz ≈ 0,5 s puhelimella); App Check on silloin silti aktivoitu ennen ensimmäistä Firestore-kutsua. `typeof _db` -vartijat toimivat (pääskripti on viimeinen).
+3. **Järjestys:** app → app-check → auth → `lib/tm_appcheck.js` (siirretty tagi; riippumaton muista libeistä) → `tm_master_boot.js` → Firestore/Functions/Storage-SDK:t → muut libit → pääskripti.
+4. **Prioriteetti:** nuo viisi (app, app-check, auth, tm_appcheck, boot) `fetchpriority="high"` + `<link rel="preload" as="script">` samalla href:llä heti `<meta charset>`in jälkeen. Muille ei `low`-attribuuttia (deferattu skripti on jo oletuksena low).
+5. **Vartijat:** deploy kaatuu jos lohkon rajat eivät löydy täsmälleen kerran / järjestys initializeApp < tmAppCheckAktivoi < auth rikkoutuu / lohko riippuu Firestoresta tai tilasta. Testit `tests/l8_boot_ensin.test.js` (yksiköt, rakenne, EI HUKKAA, rollback, selain: initializeApp ajetaan ENNEN libejä ja pääskriptiä, `_auth/_db` globaaleina, App Check kerran per dokumentti).
+6. **Rollback:** `LYKKAYS[Master].boot = null` → vaiheen 2 muoto (testattu).
+7. **Mittarit A/B:hen:** `ab_vuorotellen.js` raportoi nyt myös `init` (`merkit.init` = initializeApp-hetki) ja `act` (App Check -vaihdon valmistuminen); `kylma_aikajana.js` `app_check_token_ms`.
+
+**Paikallinen malli (`kylma_aikajana.js --deploy`, puhelin Slow 4G + CPU 4×, 2 ajoa/kohta, EI A/B-todiste):**
+| | init_ms | FCP | dcl_ms | login näkyy | siirretty (enc_kt) |
+|---|---|---|---|---|---|
+| main (vaihe 2) | 7 551–7 562 | 440–444 | 7 586–7 598 | 7 716–7 727 | 1 251 |
+| tämä PR | **2 055–2 056** | 460–468 | 8 940 | 9 030–9 036 | 1 606 |
+
+**Rehellinen havainto — hyväksyntäkriteeri "TTI ei regressiota > 0,5 s" voi pettää ensikävijällä.** `init_ms` paranee ~5,5 s, mutta ilman voimassa olevaa App Check -tokenia reCAPTCHA (353 kt) alkaa nyt ~2 s kohdalla ja kilpailee kaistasta kirjastojen kanssa → pääskripti valmistuu ~1,4 s myöhemmin (malli; +355 kt siirtyi mittausikkunassa). Aiemmin reCAPTCHA haettiin vasta initin jälkeen (~7,5 s), TTI:n jälkeen. **Staging-A/B (debug-token) EI näe tätä**, koska debug-token ohittaa reCAPTCHA:n latauksen; samoin voimassa oleva token (lämmin / palaava käyttäjä) ohittaa sen. Vaikutus koskee: ensikäynti / vanhentunut token. Hyöty vastaavasti: token valmis ennen kuin pääskripti tekee ensimmäisen Firestore-kutsun (data aikaisemmin).
+Vaihtoehto jos Tero haluaa suojata ensikävijän TTI:n: pidä `tmAppCheckAktivoi()` pääskriptissä (init + auth boot-tiedostossa) — mutta silloin Auth-kutsut lähtevät ennen aktivointia (§9.6 kohta 1 kieltää) ja RTT-päällekkäisyys (~0,6 s) katoaa. Ei toteutettu; päätös Terolle.
+
+**A/B (Tero ajaa `! `):** A = main → `kuorma`, B = tämä PR → `kuorma-b`:
+```
+STAGING_APPCHECK_DEBUG_TOKEN=<token> node scripts/kuorma/ab_vuorotellen.js \
+  --a=https://talentmaster-staging--kuorma-<tunniste>.web.app --b=https://talentmaster-staging--kuorma-b-<tunniste>.web.app \
+  --kierrokset=3 --sivut=master --profiilit=tyopoyta,puhelin --toistot=3
+```
+Hyväksyntä (§13.3): `init` puhelin kylmä ≥ −3 s; TTI ei regressiota > 0,5 s; FCP ei regressiota. Lisäksi (ei A/B:llä): ensikävijän TTI ilman tokenia mitataan `kylma_aikajana.js --deploy` ilman debug-tokenia (yllä oleva malli).

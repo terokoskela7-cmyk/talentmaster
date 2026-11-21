@@ -96,6 +96,8 @@ function instrumentointi(a) {
   }
   function firebaseKoukku(fb) {
     if (!fb || fb.__tmK) return; try { Object.defineProperty(fb, '__tmK', { value: true }); } catch (e) { return; }
+    /* Vaihe 3 (KYLMA_AVAUS_DIAGNOOSI §13.3): auth-käynnistyksen hetki = ensimmäinen firebase.initializeApp-kutsu → merkit.init (ms navigoinnista). A/B-mittari `init`. */
+    try { var io = fb.initializeApp; if (typeof io === 'function' && !io.__tmI) { fb.initializeApp = function () { if (M.merkit && M.merkit.init == null) M.merkit.init = Math.round(performance.now()); return io.apply(this, arguments); }; fb.initializeApp.__tmI = true; } } catch (e) { M.virheet.push('init-koukku: ' + e.message); }
     var fs = fb.firestore;
     try { Object.defineProperty(fb, 'firestore', { configurable: true, enumerable: true, get: function () { return fs; }, set: function (x) { fs = x; kieto(x); } }); } catch (e) { M.virheet.push('firestore-koukku: ' + e.message); }
     if (fs) kieto(fs);

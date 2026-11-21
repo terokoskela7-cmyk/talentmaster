@@ -56,8 +56,13 @@ const LYKKAYS = {
   'TalentMaster_Master_v16.html': {
     alku: 'tm_master_alku.js', luokka: 'tm-main-odottaa', tynkat: ['login', 'kirjauduGooglella', 'loginDemo', '_unohditSalasana'],
     lohkot: ['window.TM_KAAVIO_HOST = {', "window.__TM_SEURA = localStorage.getItem('tm-sa-seura')", 'function _lataaDemoScript(',],
+    /* Vaihe 3 (§13.3): boot-tiedosto ENSIN. null = pois (rollback → vaiheen 2 muoto). ketju = resurssit, jotka saavat fetchpriority=high + preload (auth-käynnistyksen kriittinen polku). */
+    boot: { tiedosto: 'tm_master_boot.js', ketju: ['firebase-app-compat.js', 'firebase-app-check-compat.js', 'firebase-auth-compat.js', 'lib/tm_appcheck.js', 'tm_master_boot.js'] },
   },
 };
+const BOOT_ALKU = 'const _FB = {', BOOT_LOPPU = 'const _auth = firebase.auth();', BOOT_MERKKI = '/* tm_master_boot.js (deploy): _FB, firebase.initializeApp, tmAppCheckAktivoi, _auth */';
+const RE_SDK_AUTH = /<script src="https:\/\/www\.gstatic\.com\/firebasejs\/[^"]+\/firebase-auth-compat\.js"><\/script>/g;
+const TAGI_APPCHECK = '<script src="lib/tm_appcheck.js"></script>';
 const ODOTA_ALKU = "document.documentElement.classList.add('tm-auth-odottaa');";
 const RE_PAIKALLINEN_INLINE = /<script>([\s\S]*?)<\/script>/g;
 
@@ -87,6 +92,43 @@ function lykkaaSivu(html, maar) {
       + '<style>html.' + maar.luokka + ' #sLogin button,html.' + maar.luokka + ' #sLogin [onclick]{pointer-events:none;opacity:.55}</style>');
   }
   return { html: lisaaDefer(html), alku, virhe: null };
+}
+
+/** Vaihe 3: erottaa pääskriptin alusta boot-lohkon (`const _FB` … `const _auth = firebase.auth();`: config, initializeApp, tmAppCheckAktivoi, _auth). `const _db = firebase.firestore()` JÄÄ pääskriptiin (Firestore-SDK ei kuulu auth-kriittiselle polulle).
+ *  → { main, boot, virhe }. Lohkon rajat täsmälleen kerran ja järjestyksessä initializeApp < tmAppCheckAktivoi < firebase.auth() — muuten deploy kaatuu (ei hiljaista ohitusta). */
+function erotaBoot(js) {
+  const cnt = (x) => js.split(x).length - 1, a = js.indexOf(BOOT_ALKU), b = js.indexOf(BOOT_LOPPU);
+  if (cnt(BOOT_ALKU) !== 1 || cnt(BOOT_LOPPU) !== 1 || b < a) return { main: js, boot: null, virhe: 'boot: lohkon rajoja (' + BOOT_ALKU + ' … ' + BOOT_LOPPU + ') ei löydy täsmälleen kerran oikeassa järjestyksessä' };
+  const loppu = b + BOOT_LOPPU.length, lohko = js.slice(a, loppu);
+  const i1 = lohko.indexOf('firebase.initializeApp('), i2 = lohko.indexOf('tmAppCheckAktivoi()'), i3 = lohko.indexOf('firebase.auth()');
+  if (!(i1 >= 0 && i2 > i1 && i3 > i2)) return { main: js, boot: null, virhe: 'boot: lohkossa pitää olla initializeApp → tmAppCheckAktivoi() → firebase.auth() tässä järjestyksessä' };
+  if (/firebase\.(firestore|functions|storage)\b|\b_db\b|\b_user\b/.test(lohko)) return { main: js, boot: null, virhe: 'boot: lohko ei saa riippua Firestoresta/Functionsista/Storagesta eikä sovelluksen tilasta' };
+  return { main: js.slice(0, a) + BOOT_MERKKI + js.slice(loppu), boot: "'use strict';\n" + lohko + '\n', virhe: null };
+}
+
+/** Vaihe 3: siirtää `lib/tm_appcheck.js`-tagin heti firebase-auth-compat-tagin perään ja jättää sen perään paikanpitäjän `<!--@@BOOT@@-->` (boot-tiedoston paikka). Jälkeen: app → app-check → auth → tm_appcheck → boot; Firestore/Functions/Storage-SDK:t tulevat vasta sen jälkeen.
+ *  tm_appcheck.js on riippumaton muista libeistä (vain firebase kutsuhetkellä) → siirto ei muuta muiden skriptien suoritusjärjestystä. → { html, virhe } */
+function siirraBoot(html) {
+  const auth = html.match(RE_SDK_AUTH);
+  if (!auth || auth.length !== 1) return { html, virhe: 'boot: firebase-auth-compat-tagia ei löydy täsmälleen kerran' };
+  if (html.split(TAGI_APPCHECK).length !== 2) return { html, virhe: 'boot: ' + TAGI_APPCHECK + ' ei löydy täsmälleen kerran' };
+  if (html.indexOf(TAGI_APPCHECK) < html.indexOf(auth[0])) return { html, virhe: 'boot: tm_appcheck.js on jo ennen firebase-auth-compat-tagia' };
+  html = html.replace(TAGI_APPCHECK, '').replace(auth[0], () => auth[0] + '\n' + TAGI_APPCHECK + '\n<!--@@BOOT@@-->');
+  return { html, virhe: null };
+}
+
+/** Vaihe 3: auth-käynnistyksen kriittinen ketju (SDK:t app/app-check/auth + tm_appcheck + boot) → `fetchpriority="high"` + `<link rel="preload" as="script">` heti <head>:n alkuun. Muut deferit jäävät selaimen oletukseen (low).
+ *  Preloadin href = tagin src täsmälleen (sama ?v), eikä crossorigin-attribuuttia (tagit eivät sitä käytä) → selain käyttää preloadin uudelleen eikä hae kahdesti. Idempotentti. */
+function esilataus(html, ketju) {
+  if (html.indexOf('rel="preload" as="script"') >= 0) return html;
+  const linkit = [];
+  for (const osa of ketju) {
+    const re = new RegExp('<script\\b([^>]*\\bsrc="([^"]*' + osa.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[^"]*)"[^>]*)>');
+    html = html.replace(re, (all, attr, href) => { if (!/\bfetchpriority=/.test(attr)) linkit.push('<link rel="preload" as="script" href="' + href + '" fetchpriority="high">'); return /\bfetchpriority=/.test(attr) ? all : '<script' + attr + ' fetchpriority="high">'; });
+  }
+  if (!linkit.length) return html;
+  const paikka = /<meta\s+charset=[^>]*>/i.test(html) ? /<meta\s+charset=[^>]*>/i : /<head[^>]*>/i;   // charset-meta pysyy ensimmäisenä (kuuluu ensimmäiseen 1024 tavuun)
+  return html.replace(paikka, (h) => h + '\n' + linkit.join('\n'));
 }
 
 const RE_SCRIPT = /(<script\b[^>]*\bsrc\s*=\s*)(["'])([^"']+)\2/gi;
@@ -135,13 +177,17 @@ function laske(juuri) {
   };
   for (const sivu of sivut(juuri)) {
     let html = fs.readFileSync(path.join(juuri, sivu), 'utf8'); const rivi = {};
-    let irrotettu = null, alkuIrrotettu = null; const lykkays = LYKKAYS[sivu];
+    let irrotettu = null, alkuIrrotettu = null, bootIrrotettu = null; const lykkays = LYKKAYS[sivu];
     if (PAASKRIPTI[sivu]) {
       const x = irrotaPaaskripti(html, PAASKRIPTI[sivu]);
       if (x) {
         let js = x.js;
         if (lykkays) {   // pääskripti vapauttaa kirjautumisnapit heti alussa ('use strict' -direktiivin jälkeen: direktiivi pysyy ensimmäisenä)
           if (!/^'use strict';/.test(js)) { virheet.push(sivu + ": pääskripti ei ala 'use strict';-direktiivillä — vapautus ei voi mennä sen jälkeen"); } else js = js.replace(/^'use strict';/, "'use strict';\ndocument.documentElement.classList.remove('" + lykkays.luokka + "');");
+        }
+        if (lykkays && lykkays.boot) {   // vaihe 3: boot-lohko omaan tiedostoonsa + sen paikka (tm_appcheck siirtyy auth-SDK:n perään)
+          const e = erotaBoot(js), h = siirraBoot(x.html);
+          if (e.virhe) virheet.push(sivu + ': ' + e.virhe); else if (h.virhe) virheet.push(sivu + ': ' + h.virhe); else { js = e.main; x.html = h.html; bootIrrotettu = { nimi: lykkays.boot.tiedosto, js: e.boot, t: tiiviste(e.boot) }; }
         }
         irrotettu = { nimi: PAASKRIPTI[sivu], js: js, t: tiiviste(js) }; html = x.html.replace('<script src="' + irrotettu.nimi + '" defer></script>', '<!--@@PAASKRIPTI@@-->');   // paikanpitäjä: korvaa-passi ei saa nähdä vielä-levyllä-puutt
       }
@@ -160,10 +206,12 @@ function laske(juuri) {
     if (alkuIrrotettu) { alkuIrrotettu.js = alkuIrrotettu.js.replace(RE_DYN, korvaa); alkuIrrotettu.t = tiiviste(alkuIrrotettu.js); }   // dynaaminen lataus (tm-demo.js) siirtyi HTML:stä alku-tiedostoon → sama ?v-korvaus siellä, ennen tiivisteen laskua
     let valmis = uusi;
     if (alkuIrrotettu) { valmis = valmis.replace('<!--@@ALKU@@-->', '<script src="' + alkuIrrotettu.nimi + '?v=' + alkuIrrotettu.t + '" defer></script>'); tiedostot[alkuIrrotettu.nimi] = alkuIrrotettu.js; rivi[alkuIrrotettu.nimi] = alkuIrrotettu.t; }
+    if (bootIrrotettu) { valmis = valmis.replace('<!--@@BOOT@@-->', '<script src="' + bootIrrotettu.nimi + '?v=' + bootIrrotettu.t + '" defer></script>'); tiedostot[bootIrrotettu.nimi] = bootIrrotettu.js; rivi[bootIrrotettu.nimi] = bootIrrotettu.t; }
     if (irrotettu) {   // ?v = irrotetun tiedoston tiiviste (tiedosto kirjoitetaan tämän ajon tuloksena, ei vielä levyllä)
       valmis = valmis.replace('<!--@@PAASKRIPTI@@-->', '<script src="' + irrotettu.nimi + '?v=' + irrotettu.t + '" defer></script>');
       tiedostot[irrotettu.nimi] = irrotettu.js; rivi[irrotettu.nimi] = irrotettu.t;
     }
+    if (bootIrrotettu) valmis = esilataus(valmis, lykkays.boot.ketju);
     raportti.sivut[sivu] = rivi;
     if (irrotettu || alkuIrrotettu || valmis !== fs.readFileSync(path.join(juuri, sivu), 'utf8')) tiedostot[sivu] = valmis;
   }
@@ -252,5 +300,5 @@ function main(args) {
   console.log('versiotiiviste: repo ok (ei käsin kirjoitettuja versioita)'); return 0;
 }
 
-module.exports = { PAASKRIPTI, LYKKAYS, lykkaaSivu, lisaaDefer, irrotaPaaskripti, SW, tiiviste, jasenna, lataukset, laske, kirjoita, tarkistaJulkaisu, tarkistaRepo };
+module.exports = { PAASKRIPTI, LYKKAYS, lykkaaSivu, lisaaDefer, irrotaPaaskripti, erotaBoot, siirraBoot, esilataus, SW, tiiviste, jasenna, lataukset, laske, kirjoita, tarkistaJulkaisu, tarkistaRepo };
 if (require.main === module) process.exit(main(process.argv.slice(2)));

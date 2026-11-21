@@ -16,6 +16,8 @@ const M = require('./mittaus_lib.js');
 const MITTARIT = Object.freeze([
   { avain: 'fcp', nimi: 'FCP', ots: 'fcp_ms', ms: true },
   { avain: 'tti', nimi: 'interaktiivinen', ots: 'tti_ms', ms: true },
+  { avain: 'init', nimi: 'initializeApp (auth/App Check alkaa)', ots: 'merkit.init', ms: true },   // vaihe 3 (§13.3): hyväksyntä puhelin kylmä ≥ −3 s
+  { avain: 'act', nimi: 'App Check -tokenin vaihto valmis', ots: 'ajat.appcheck_vaihto.1', ms: true },   // null kun voimassa oleva token on välimuistissa (ei vaihtoa)
   { avain: 'auth', nimi: 'auth-haun alku', ots: 'ajat.auth_haku.0', ms: true },
   { avain: 'fs', nimi: '1. Firestore alkaa', ots: 'ajat.firestore_ensimmainen.0', ms: true },
 ]);

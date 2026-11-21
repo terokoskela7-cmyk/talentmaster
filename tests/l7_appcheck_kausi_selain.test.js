@@ -18,18 +18,20 @@ const kaynnista = () => require('playwright-core').chromium.launch({ executableP
 
 describe('L7 · App Check kerran — deploy-puun rakenne (staattinen)', () => {
   const r = VT.laske(JUURI), T = r.tiedostot, html = T['TalentMaster_Master_v16.html'];
-  const skriptit = Object.keys(T).filter((k) => /\.js$/.test(k)).filter((k) => k === 'tm_master_main.js' || k === 'tm_master_alku.js');
+  const skriptit = Object.keys(T).filter((k) => /\.js$/.test(k)).filter((k) => k === 'tm_master_main.js' || k === 'tm_master_alku.js' || k === 'tm_master_boot.js');
   it('Master-deploy: tm_appcheck.js ladataan täsmälleen kerran ja ennen pääskriptiä', () => {
     const m = html.match(/<script[^>]*src="lib\/tm_appcheck\.js[^"]*"/g) || [];
     expect(m.length).toBe(1);
-    expect(html.indexOf('lib/tm_appcheck.js')).toBeLessThan(html.indexOf('tm_master_main.js'));
+    expect(html.indexOf('lib/tm_appcheck.js')).toBeLessThan(html.indexOf('tm_master_boot.js'));
+    expect(html.indexOf('tm_master_boot.js')).toBeLessThan(html.indexOf('tm_master_main.js'));
   });
-  it('Master-deploy: tmAppCheckAktivoi() kutsutaan täsmälleen kerran (pääskriptissä; ei alku-tiedostossa eikä HTML:n inline-lohkoissa)', () => {
+  it('Master-deploy: tmAppCheckAktivoi() kutsutaan täsmälleen kerran (vaihe 3: boot-tiedostossa; ei pääskriptissä, alku-tiedostossa eikä HTML:n inline-lohkoissa)', () => {
     const kutsu = /tmAppCheckAktivoi\s*\(/g;
-    expect((T['tm_master_main.js'].match(kutsu) || []).length).toBe(1);
+    expect((T['tm_master_boot.js'].match(kutsu) || []).length).toBe(1);
+    expect((T['tm_master_main.js'].match(kutsu) || []).length).toBe(0);
     expect((T['tm_master_alku.js'].match(kutsu) || []).length).toBe(0);
     expect((html.match(kutsu) || []).length).toBe(0);
-    expect(skriptit.length).toBe(2);
+    expect(skriptit.length).toBe(3);
   });
 });
 

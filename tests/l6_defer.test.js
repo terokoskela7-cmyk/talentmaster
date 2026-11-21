@@ -62,9 +62,11 @@ describe('Masterin deploy-muoto', () => {
     expect(i('lib/tm_appcheck.js')).toBeLessThan(i('tm_master_main.js')); expect(i('tm_sentry.js')).toBeLessThan(i('firebase-app-compat.js'));
     expect(ulos.indexOf('window.TM_SENTRY={app:')).toBeLessThan(ulos.indexOf('<script src="tm_sentry.js'));
   });
-  it('APP CHECK -JÄRJESTYS pääskriptissä: initializeApp → tmAppCheckAktivoi() → vasta sitten ensimmäinen Firestore/Functions/Storage-kutsu', () => {
-    const a = main.indexOf('firebase.initializeApp('), b = main.indexOf('tmAppCheckAktivoi()'), c = Math.min(...['firebase.firestore()', 'functions(', 'firebase.storage()'].map((k) => { const x = main.indexOf(k); return x < 0 ? Infinity : x; }));
+  it('APP CHECK -JÄRJESTYS (vaihe 3: boot-tiedostossa): initializeApp → tmAppCheckAktivoi() → firebase.auth(); pääskriptissä vasta sitten ensimmäinen Firestore/Functions/Storage-kutsu eikä initiä/aktivointia lainkaan', () => {
+    const boot = r.tiedostot[M.boot.tiedosto], a = boot.indexOf('firebase.initializeApp('), b = boot.indexOf('tmAppCheckAktivoi()'), c = boot.indexOf('firebase.auth()');
     expect(a).toBeGreaterThanOrEqual(0); expect(b).toBeGreaterThan(a); expect(c).toBeGreaterThan(b);
+    expect(main).not.toContain('firebase.initializeApp('); expect(main).not.toContain('tmAppCheckAktivoi('); expect(main).not.toContain('const _auth');
+    expect(main).toContain('const _db   = firebase.firestore();');   // Firestore-SDK ei kuulu auth-kriittiselle polulle → _db pääskriptissä, App Check on silloin jo aktivoitu
   });
   it('kirjautumisnapit: tynkä + luokka kunnes pääskripti ajaa; pääskripti vapauttaa heti \'use strict\' -rivin jälkeen (tasan kerran); oikeat funktiot määritellään pääskriptissä', () => {
     expect(main.startsWith("'use strict';\ndocument.documentElement.classList.remove('" + M.luokka + "');")).toBe(true); expect(main.split("classList.remove('" + M.luokka + "')")).toHaveLength(2);

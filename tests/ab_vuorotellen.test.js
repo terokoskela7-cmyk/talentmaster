@@ -43,7 +43,7 @@ describe('ab_vuorotellen', () => {
     expect(kutsut.map((k) => k.argit.find((a) => a.startsWith('--url=')).slice(6) === A ? 'A' : 'B').join('')).toBe('ABBAAB');
     expect(kutsut.every((k) => k.token === 'tok-xyz' && !k.argit.join(' ').includes('tok-xyz'))).toBe(true);
     expect(existsSync(join(ulos, 'yhteenveto.json'))).toBe(true);
-    expect(JSON.parse(readFileSync(join(ulos, 'yhteenveto.json'), 'utf8')).tulos['master|tyopoyta'].rivit.length).toBe(8);
+    expect(JSON.parse(readFileSync(join(ulos, 'yhteenveto.json'), 'utf8')).tulos['master|tyopoyta'].rivit.length).toBe(12);   // 6 mittaria (FCP, TTI, init, App Check -vaihto, auth, Firestore) × 2 tilaa
     expect(rivit.join('\n')).toContain('B−A');
     let n = 0; const ajaaVirhe = (argit) => { n++; if (n === 2) return 3; const u = argit.find((a) => a.startsWith('--ulos=')).slice(7); writeFileSync(u, JSON.stringify(tulos([1], [1]))); return 0; };
     expect(await AB.main(['--a=' + A, '--b=' + B, '--ulos=' + ulos], { ajaa: ajaaVirhe, env, kirjaa: () => {}, virhe: () => {} })).toBe(3);
