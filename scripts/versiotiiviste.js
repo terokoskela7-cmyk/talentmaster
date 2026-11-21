@@ -47,6 +47,48 @@ function irrotaPaaskripti(html, tiedosto) {
   return { html: html.slice(0, alku) + '<script src="' + tiedosto + '" defer></script>' + html.slice(loppu + 9), js: js.replace(/^\r?\n/, '') };
 }
 
+/* L6 vaihe 2 (KYLMA_AVAUS_DIAGNOOSI §9.4, §12): kaikki synkroniset skriptilataukset `defer`iksi, jotta HTML jäsentyy ja kirjautumiskuori (spinneri) piirtyy ENNEN kuin kirjastot on haettu. DEPLOY-muunnos (repo ennallaan, kuten vaihe 1).
+   Sisältö: (1) lib-riippumattomat head-lohkot (taktiikkataulun host-adapteri, __TM_SEURA, _lataaDemoScript) → yksi `tm_master_alku.js` (defer) ensimmäisen lohkon paikalle — suoritus ennen kaikkia muita deferattuja, joten
+   "ennen tm_kaavio_ui / ennen tm-bus" säilyy; (2) kirjautumisnapit (login, kirjauduGooglella, loginDemo, _unohditSalasana) saavat no-op-tynkän + `tm-main-odottaa`-luokan (napit pois käytöstä) kunnes pääskripti alkaa ajaa;
+   pääskripti poistaa luokan heti 'use strict' -rivin jälkeen (funktiodeklaraatiot on silloin jo nostettu; ei tapahtumia ennen skriptin loppua) → tynkä korvautuu oikeilla funktioilla. Pienet inline-lohkot jotka ovat ENNEN ensimmäistä maalausta pakollisia (luokat
+   tm-auth-odottaa / tm-upotettu, versiotarkistus, TM_SENTRY-asetus) jäävät inline. Uusi sivu → lisää taulukkoon. */
+const LYKKAYS = {
+  'TalentMaster_Master_v16.html': {
+    alku: 'tm_master_alku.js', luokka: 'tm-main-odottaa', tynkat: ['login', 'kirjauduGooglella', 'loginDemo', '_unohditSalasana'],
+    lohkot: ['window.TM_KAAVIO_HOST = {', "window.__TM_SEURA = localStorage.getItem('tm-sa-seura')", 'function _lataaDemoScript(',],
+  },
+};
+const ODOTA_ALKU = "document.documentElement.classList.add('tm-auth-odottaa');";
+const RE_PAIKALLINEN_INLINE = /<script>([\s\S]*?)<\/script>/g;
+
+/** Lisää `defer` jokaiseen skriptilatauksen tagiin, jolla ei ole defer/async/type-attribuuttia (type=text/plain-laiskatagit ja moduulit ennallaan). Idempotentti. */
+function lisaaDefer(html) {
+  return html.replace(/<script\b([^>]*\bsrc\s*=[^>]*)>/gi, (all, attr) => (/\b(defer|async|type)\b/i.test(attr) ? all : '<script' + attr + ' defer>'));
+}
+
+/** Master (LYKKAYS): → { html, alku: js|null, virhe: string|null }. html sisältää paikanpitäjän `<!--@@ALKU@@-->` kun alku-tiedosto irrotettiin tällä ajolla. Idempotentti (jo muunnettu sivu ei muutu). */
+function lykkaaSivu(html, maar) {
+  let alku = null;
+  if (html.indexOf('src="' + maar.alku) < 0) {
+    const osumat = [...html.matchAll(RE_PAIKALLINEN_INLINE)].filter((m) => maar.lohkot.some((x) => m[1].indexOf(x) >= 0));
+    if (osumat.length !== maar.lohkot.length) return { html, alku: null, virhe: 'lykkäys: odotettiin ' + maar.lohkot.length + ' siirrettävää head-lohkoa, löytyi ' + osumat.length };
+    for (const x of maar.lohkot) if (osumat.filter((m) => m[1].indexOf(x) >= 0).length !== 1) return { html, alku: null, virhe: 'lykkäys: lohkoa ei löydy täsmälleen kerran: ' + x };
+    if (osumat.some((m) => m[1].indexOf('</script') >= 0)) return { html, alku: null, virhe: 'lykkäys: lohko sisältää </script' };
+    alku = osumat.map((m) => m[1].trim()).join('\n\n') + '\n';
+    let ulos = '', kohta = 0;
+    osumat.forEach((m, i) => { ulos += html.slice(kohta, m.index) + (i === 0 ? '<!--@@ALKU@@-->' : ''); kohta = m.index + m[0].length; });
+    html = ulos + html.slice(kohta);
+  }
+  if (html.indexOf(maar.luokka) < 0) {
+    const vanha = '<script>' + ODOTA_ALKU + '</script>';
+    if (html.split(vanha).length !== 2) return { html, alku, virhe: 'lykkäys: tm-auth-odottaa-lohkoa ei löydy täsmälleen kerran' };
+    const tynkat = maar.tynkat.map((n) => 'window.' + n).join('=') + '=function(){};';
+    html = html.replace(vanha, '<script>' + ODOTA_ALKU.replace("'tm-auth-odottaa'", "'tm-auth-odottaa','" + maar.luokka + "'") + tynkat + '</script>\n'
+      + '<style>html.' + maar.luokka + ' #sLogin button,html.' + maar.luokka + ' #sLogin [onclick]{pointer-events:none;opacity:.55}</style>');
+  }
+  return { html: lisaaDefer(html), alku, virhe: null };
+}
+
 const RE_SCRIPT = /(<script\b[^>]*\bsrc\s*=\s*)(["'])([^"']+)\2/gi;
 const RE_DYN = /(\.src\s*=\s*)(["'])([^"'+\s]+\.js(?:\?[^"']*)?)\2/g;
 const RE_REKISTEROI = /serviceWorker\.register\(\s*["']([^"']+)["']/g;
@@ -93,8 +135,21 @@ function laske(juuri) {
   };
   for (const sivu of sivut(juuri)) {
     let html = fs.readFileSync(path.join(juuri, sivu), 'utf8'); const rivi = {};
-    let irrotettu = null;
-    if (PAASKRIPTI[sivu]) { const x = irrotaPaaskripti(html, PAASKRIPTI[sivu]); if (x) { irrotettu = { nimi: PAASKRIPTI[sivu], js: x.js, t: tiiviste(x.js) }; html = x.html.replace('<script src="' + irrotettu.nimi + '" defer></script>', '<!--@@PAASKRIPTI@@-->'); } }   // paikanpitäjä: korvaa-passi ei saa nähdä vielä-levyllä-puuttuvaa tiedostoa
+    let irrotettu = null, alkuIrrotettu = null; const lykkays = LYKKAYS[sivu];
+    if (PAASKRIPTI[sivu]) {
+      const x = irrotaPaaskripti(html, PAASKRIPTI[sivu]);
+      if (x) {
+        let js = x.js;
+        if (lykkays) {   // pääskripti vapauttaa kirjautumisnapit heti alussa ('use strict' -direktiivin jälkeen: direktiivi pysyy ensimmäisenä)
+          if (!/^'use strict';/.test(js)) { virheet.push(sivu + ": pääskripti ei ala 'use strict';-direktiivillä — vapautus ei voi mennä sen jälkeen"); } else js = js.replace(/^'use strict';/, "'use strict';\ndocument.documentElement.classList.remove('" + lykkays.luokka + "');");
+        }
+        irrotettu = { nimi: PAASKRIPTI[sivu], js: js, t: tiiviste(js) }; html = x.html.replace('<script src="' + irrotettu.nimi + '" defer></script>', '<!--@@PAASKRIPTI@@-->');   // paikanpitäjä: korvaa-passi ei saa nähdä vielä-levyllä-puutt
+      }
+    }
+    if (lykkays) {
+      const y = lykkaaSivu(html, lykkays);
+      if (y.virhe) virheet.push(sivu + ': ' + y.virhe); else { html = y.html; if (y.alku) alkuIrrotettu = { nimi: lykkays.alku, js: y.alku, t: tiiviste(y.alku) }; }
+    }
     const korvaa = (all, alku, q, src) => {
       if (!paikallinen(src)) return all;
       const j = jasenna(src), t = tiedostonTiiviste(j.polku, sivu); if (!t) return all;
@@ -102,13 +157,15 @@ function laske(juuri) {
     };
     const uusi = html.replace(RE_SCRIPT, korvaa).replace(RE_DYN, korvaa)
       .replace(RE_LINK, (tagi) => (onTyylilinkki(tagi) ? tagi.replace(RE_HREF, korvaa) : tagi));
+    if (alkuIrrotettu) { alkuIrrotettu.js = alkuIrrotettu.js.replace(RE_DYN, korvaa); alkuIrrotettu.t = tiiviste(alkuIrrotettu.js); }   // dynaaminen lataus (tm-demo.js) siirtyi HTML:stä alku-tiedostoon → sama ?v-korvaus siellä, ennen tiivisteen laskua
     let valmis = uusi;
+    if (alkuIrrotettu) { valmis = valmis.replace('<!--@@ALKU@@-->', '<script src="' + alkuIrrotettu.nimi + '?v=' + alkuIrrotettu.t + '" defer></script>'); tiedostot[alkuIrrotettu.nimi] = alkuIrrotettu.js; rivi[alkuIrrotettu.nimi] = alkuIrrotettu.t; }
     if (irrotettu) {   // ?v = irrotetun tiedoston tiiviste (tiedosto kirjoitetaan tämän ajon tuloksena, ei vielä levyllä)
-      valmis = uusi.replace('<!--@@PAASKRIPTI@@-->', '<script src="' + irrotettu.nimi + '?v=' + irrotettu.t + '" defer></script>');
+      valmis = valmis.replace('<!--@@PAASKRIPTI@@-->', '<script src="' + irrotettu.nimi + '?v=' + irrotettu.t + '" defer></script>');
       tiedostot[irrotettu.nimi] = irrotettu.js; rivi[irrotettu.nimi] = irrotettu.t;
     }
     raportti.sivut[sivu] = rivi;
-    if (irrotettu || valmis !== fs.readFileSync(path.join(juuri, sivu), 'utf8')) tiedostot[sivu] = valmis;
+    if (irrotettu || alkuIrrotettu || valmis !== fs.readFileSync(path.join(juuri, sivu), 'utf8')) tiedostot[sivu] = valmis;
   }
   for (const sw of swTiedostot(juuri)) {
     const maar = SW[sw];
@@ -138,6 +195,10 @@ function tarkistaJulkaisu(juuri) {
       const odotus = tiiviste(fs.readFileSync(p, 'utf8'));
       if (l.v !== odotus) ongelmat.push(sivu + ': ' + l.polku + ' ?v=' + l.v + ', odotettu ' + odotus);
     }
+  }
+  for (const [sivu, maar] of Object.entries(LYKKAYS)) {   // alku-tiedoston dynaamiset lataukset (tm-demo.js) = nykyinen tiiviste
+    const p = path.join(juuri, maar.alku); if (!fs.existsSync(p)) continue;
+    for (const m of fs.readFileSync(p, 'utf8').matchAll(RE_DYN)) if (paikallinen(m[3])) { const j = jasenna(m[3]), q = path.join(juuri, j.polku); if (!fs.existsSync(q)) ongelmat.push(maar.alku + ': puuttuu ' + j.polku); else if (j.v !== tiiviste(fs.readFileSync(q, 'utf8'))) ongelmat.push(maar.alku + ': ' + j.polku + ' ?v=' + j.v + ' ≠ nykyinen tiiviste'); }
   }
   const uusi = laske(juuri);
   uusi.virheet.forEach((v) => ongelmat.push(v));
@@ -191,5 +252,5 @@ function main(args) {
   console.log('versiotiiviste: repo ok (ei käsin kirjoitettuja versioita)'); return 0;
 }
 
-module.exports = { PAASKRIPTI, irrotaPaaskripti, SW, tiiviste, jasenna, lataukset, laske, kirjoita, tarkistaJulkaisu, tarkistaRepo };
+module.exports = { PAASKRIPTI, LYKKAYS, lykkaaSivu, lisaaDefer, irrotaPaaskripti, SW, tiiviste, jasenna, lataukset, laske, kirjoita, tarkistaJulkaisu, tarkistaRepo };
 if (require.main === module) process.exit(main(process.argv.slice(2)));

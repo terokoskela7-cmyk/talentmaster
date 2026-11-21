@@ -70,7 +70,7 @@ describe('QG-2 · julkaisu: jokainen ladattu tiedosto saa tiivisteen', () => {
   });
   it('esimerkit: P7 tm_lang.js, Masterin dynaaminen tm-demo.js ja SW-cachenimet', () => {
     expect(lue(puu, 'TalentMaster_Pelaaja_v7.html')).toContain('<script src="lib/tm_lang.js?v=' + sha8(lue(puu, 'lib/tm_lang.js')) + '"');
-    expect(lue(puu, 'TalentMaster_Master_v16.html')).toContain("s.src = 'tm-demo.js?v=" + sha8(lue(puu, 'tm-demo.js')) + "'");
+    expect(lue(puu, 'tm_master_alku.js')).toContain("s.src = 'tm-demo.js?v=" + sha8(lue(puu, 'tm-demo.js')) + "'");   // L6 vaihe 2: _lataaDemoScript siirtyi HTML:stä tm_master_alku.js:ään
     expect(lue(puu, 'sw_pelaaja.js')).toMatch(/^const CACHE = 'tm-pelaaja-[0-9a-f]{8}';/m);
     expect(lue(puu, 'sw_vanhempi.js')).toMatch(/^const CACHE = 'tm-vanhempi-[0-9a-f]{8}';/m);
     expect(lue(puu, 'sw_adar.js')).toMatch(/^const CACHE = 'tm-adar-[0-9a-f]{8}';/m);
