@@ -6,7 +6,8 @@
  *
  *   STAGING_APPCHECK_DEBUG_TOKEN=<token> ! node scripts/kuorma/ab_vuorotellen.js \
  *     --a=https://talentmaster-staging--kuorma-<tunniste>.web.app --b=https://talentmaster-staging--kuorma-b-<tunniste>.web.app \
- *     --kierrokset=3 --sivut=master --profiilit=tyopoyta --toistot=3 [--tunnukset=.briefit/staging_tunnukset.txt] [--seura=1] [--ulos=mittaus_tulokset/ab_<aika>] [--kuiva]
+ *     --kierrokset=3 --sivut=master --profiilit=tyopoyta --toistot=3 [--tunnukset=.briefit/staging_tunnukset.txt] [--seura=1] [--ulos=mittaus_tulokset/ab_<aika>] [--kuiva] [--ilman-tokenia]
+ *   --ilman-tokenia = TAPAUS (b) kylmä App Check: ei debug-tokenia (STAGING_APPCHECK_DEBUG_TOKEN ei tarvita), kirjautumisen App Check -token poistetaan storageStatesta → reCAPTCHA latautuu oikeasti. VAATII ettei stagingin App Check ole enforce-tilassa (Firebase Console → App Check → palvelut = Unenforced; docs/STAGING_ASENNUS.md kohta 8: 'älä pakota') — muuten kirjautuminen/Firestore hylätään ja ajo päättyy virheeseen.
  * Token VAIN ympäristömuuttujasta (ei komentoriviltä, ei tulosteeseen). Jokainen ajo = oma mittaa_sivut.js-prosessi (sen URL-vartija: vain staging) → <ulos>/kierros<N>_<A|B>.json.
  * Lopuksi: mediaanit A ja B, erotus B−A ja per-kierros-erotus (kylmä/lämmin: FCP, TTI, auth-haun alku, ensimmäisen Firestore-pyynnön alku) + <ulos>/yhteenveto.json.
  * Tulkinta: muutos on syy vain jos B−A on SAMAA suuntaa myös kierroksilla, joilla järjestys on käännetty. Eri suunta tai ~0 → kohinaa/ajankohtaa. */
@@ -24,10 +25,11 @@ const MITTARIT = Object.freeze([
 const TILAT = Object.freeze([{ avain: 'kylma', nimi: 'KYLMÄ' }, { avain: 'lampimat', nimi: 'LÄMMIN' }]);
 
 function lueArgv(argv) {
-  const o = { a: undefined, b: undefined, kierrokset: 3, sivut: 'master', profiilit: 'tyopoyta', toistot: 3, tunnukset: '.briefit/staging_tunnukset.txt', seura: 1, ulos: undefined, kuiva: false, tuntematon: [] };
+  const o = { a: undefined, b: undefined, kierrokset: 3, sivut: 'master', profiilit: 'tyopoyta', toistot: 3, tunnukset: '.briefit/staging_tunnukset.txt', seura: 1, ulos: undefined, kuiva: false, ilmanTokenia: false, tuntematon: [] };
   (argv || []).forEach((x) => {
     const kv = /^--([a-z]+)=(.*)$/.exec(x);
     if (x === '--kuiva') o.kuiva = true;
+    else if (x === '--ilman-tokenia') o.ilmanTokenia = true;
     else if (kv && ['a', 'b', 'sivut', 'profiilit', 'tunnukset', 'ulos'].indexOf(kv[1]) >= 0) o[kv[1]] = kv[1] === 'a' || kv[1] === 'b' ? kv[2].replace(/\/$/, '') : kv[2];
     else if (kv && ['kierrokset', 'toistot', 'seura'].indexOf(kv[1]) >= 0) o[kv[1]] = +kv[2];
     else o.tuntematon.push(/token/i.test(x) ? '--token…(token ei kuulu komentoriviltä)' : x.split('=')[0]);
@@ -42,7 +44,7 @@ function tarkista(o, env, urlSallittu) {
   if (o.a === o.b) return '--a ja --b ovat sama URL — vertailu ei kerro mitään.';
   if (!(o.kierrokset >= 2 && o.kierrokset <= 10)) return '--kierrokset 2–10 (vähintään 2, jotta järjestys ehtii vaihtua).';
   if (!(o.toistot >= 1 && o.toistot <= 20) || !(o.seura >= 1 && o.seura <= 99)) return 'Virheellinen --toistot tai --seura.';
-  if (!o.kuiva && !(env && env.STAGING_APPCHECK_DEBUG_TOKEN)) return 'STAGING_APPCHECK_DEBUG_TOKEN puuttuu ympäristöstä (ei komentoriviltä).';
+  if (!o.kuiva && !o.ilmanTokenia && !(env && env.STAGING_APPCHECK_DEBUG_TOKEN)) return 'STAGING_APPCHECK_DEBUG_TOKEN puuttuu ympäristöstä (ei komentoriviltä).';
   return null;
 }
 /** Kierros k (0-alkuinen): parillinen A,B · pariton B,A. */
@@ -133,7 +135,7 @@ async function main(argv, deps) {
     for (const x of jarjestys(k)) {
       const tiedosto = path.join(ulos, tiedostonimi(k, x)), url = x === 'A' ? o.a : o.b;
       kirjaa('\n--- kierros ' + (k + 1) + '/' + o.kierrokset + ' · ' + x + ' · ' + url);
-      const koodi = ajaa(['--url=' + url, '--tunnukset=' + o.tunnukset, '--seura=' + o.seura, '--toistot=' + o.toistot, '--sivut=' + o.sivut, '--profiilit=' + o.profiilit, '--ulos=' + tiedosto], env);
+      const koodi = ajaa(['--url=' + url, '--tunnukset=' + o.tunnukset, '--seura=' + o.seura, '--toistot=' + o.toistot, '--sivut=' + o.sivut, '--profiilit=' + o.profiilit, '--ulos=' + tiedosto].concat(o.ilmanTokenia ? ['--ilman-tokenia'] : []), env);
       if (koodi !== 0) { virhe('mittaa_sivut.js päättyi koodiin ' + koodi + ' (kierros ' + (k + 1) + ', ' + x + ') — A/B keskeytetty; aiemmat kierrokset: ' + ulos); return koodi; }
       try { kr[x] = JSON.parse(fs.readFileSync(tiedosto, 'utf8')); } catch (e) { virhe('Tulostiedostoa ei voitu lukea: ' + tiedosto); return 1; }
     }

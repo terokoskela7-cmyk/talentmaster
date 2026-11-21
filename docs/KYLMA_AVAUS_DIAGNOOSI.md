@@ -257,3 +257,27 @@ STAGING_APPCHECK_DEBUG_TOKEN=<token> node scripts/kuorma/ab_vuorotellen.js \
   --kierrokset=3 --sivut=master --profiilit=tyopoyta,puhelin --toistot=3
 ```
 Hyväksyntä (§13.3): `init` puhelin kylmä ≥ −3 s; TTI ei regressiota > 0,5 s; FCP ei regressiota. Lisäksi (ei A/B:llä): ensikävijän TTI ilman tokenia mitataan `kylma_aikajana.js --deploy` ilman debug-tokenia (yllä oleva malli).
+
+
+## 15. Vaihe 3 jatko (#1315): reCAPTCHA ei kilpaile pääskriptin kanssa
+
+**Lähtökohta (Teron päätös):** ei-tokenia-tapaus ei ole harvinainen (TTL 24 h, SDK uusii 50 %:ssa → kerran päivässä avaava valmentaja on lähes aina ilman voimassa olevaa tokenia). +1,4 s TTI ei kelpaa; `tmAppCheckAktivoi()` pysyy boot-tiedostossa (§9.6).
+
+**Muutos (`lib/tm_appcheck.js`, yksi paikka):** kylmän tokenin reCAPTCHA-lataus (provider.initialize, 353 kt) odottaa nyt `DOMContentLoaded` + 1 makrotehtävä, eli kunnes kaikki `defer`-skriptit (pääskripti viimeisenä) on ajettu. `initializeApp` → `tmAppCheckAktivoi()` → auth käynnistyvät boot-vaiheessa heti kuten ennenkin; vain SDK:n ulkoinen skriptinlisäys siirtyy. Ensimmäinen backend-kutsu (Firestore/Auth/Functions) odottaa tokenia kuten ennenkin (`provider.getToken` ratkeaa vasta latauksen ja vaihdon jälkeen). Portti on auki heti jos dokumentti on jo jäsennetty (muut kuin boot-ajoitetut sivut, node-testit) → ei muutosta niissä. Voimassa oleva token: reCAPTCHAa ei ladata lainkaan (A1 ennallaan). ENFORCE-turva ennallaan (kääre ei keksi tokenia). `fetchpriority=low` ei ole mahdollinen: skriptin lisää SDK itse (`document.createElement('script')`), emme hallitse sen attribuutteja; ajoitus on tehokkaampi keino joka tapauksessa (ei lainkaan kilpailua ennen pääskriptiä).
+
+**Malli** (`kylma_aikajana.js --deploy --token=voimassa|ei`, puhelin: Slow 4G 1,6 Mbit/s + 150 ms, CPU 4×; 2 ajoa/solu; ms):
+
+| tapaus | auth-alku (`initializeApp`) | kuori/TTI (login näkyvissä) | 1. backend-kutsu mahdollinen* | enc kt |
+|---|---|---|---|---|
+| (a) voimassa token — PR | 2055–2077 | 7733–7827 | 7733–7827 | 1251 |
+| (a) voimassa token — main | 7603–7639 | 7714–7732 | 7714–7732 | 1250 |
+| (b) ei tokenia — PR | 2051–2066 | 7713–7715 | 10208–10250 | 1605 |
+| (b) ei tokenia — main | 7570–7603 | 7718–7722 | 10226–10267 | 1604 |
+
+\* `appCheck().getToken(false)`:n ratkeamishetki kuoren tultua näkyviin = milloin ensimmäinen Firestore-kutsu voisi lähteä (mallissa ei kirjautumista → ei oikeaa Firestorea; token-vaihto epäonnistuu localhostilla → tulos "virhe", mutta ratkeamisaika on todellinen latausviive).
+
+**Tulos rehellisesti:** (b) ei huonompi kuin main (TTI −5…+0 ms, 1. backend −41…+24 ms; vaatimus ≤ +0,5 s täyttyy selvästi). Edellisen version +1,4 s poistui. (a): auth-alku paranee ~5,5 s, mutta **TTI/kuori ja 1. backend-kutsu eivät parane paikallisessa mallissa** (+19…+95 ms, kohinan sisällä) — pullonkaula on pääskriptin ja kirjastojen tavut (1,25 Mt), ei auth-alku. Auth-alun hyöty näkyy vasta kirjautuneella käyttäjällä (istunnon palautus ~5 s aiemmin) → sitä malli ei kata (ei kirjautumista); se on A/B-mittauksen asia (staging, kirjautuneena: mittarit `init`, `auth`, `Firestore`, TTI). "(a) parempi kuin main" on siis osoitettu auth-alulle, ei vielä TTI:lle.
+
+**Tapauksen (b) mittaus stagingissa:** `ab_vuorotellen.js --ilman-tokenia` (+ `mittaa_sivut.js --ilman-tokenia`): ei debug-tokenia (reCAPTCHA latautuu oikeasti), ja kirjautumisen aikana saatu App Check -token poistetaan storageStatesta (`firebase-app-check-database`) → kylmä avaus alkaa ilman tokenia. Ehto: stagingin App Check ei saa olla **enforce**-tilassa — `docs/STAGING_ASENNUS.md` kohta 8 ohjeistaa "älä pakota", mutta nykytilaa ei voi lukea repon kautta → **Teron tarkistettava Firebase Console → App Check → palvelut (Unenforced)**. Jos enforce on päällä, kirjautuminen/Firestore hylätään ja ajo päättyy virheeseen (ei hiljaista väärää lukua). Lisäksi kanava-domainin pitää kelvata reCAPTCHA-avaimelle, muuten token-vaihto epäonnistuu (lataus silti tapahtuu → latausviive mitataan oikein, mutta vaihto-osuus ei). Lämmin-rivi ei ole tässä tilassa puhdas tapaus (a), koska token on saatu vasta kylmässä avauksessa; (a) mitataan ennallaan debug-tokenilla.
+
+**A/B-komennot:** (a) kuten §14. (b): `node scripts/kuorma/ab_vuorotellen.js --a=<kuorma> --b=<kuorma-b> --kierrokset=3 --sivut=master --profiilit=tyopoyta,puhelin --toistot=3 --ilman-tokenia` (STAGING_APPCHECK_DEBUG_TOKEN ei tarvita).

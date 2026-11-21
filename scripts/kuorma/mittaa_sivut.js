@@ -27,9 +27,9 @@ const PROFIILIT = Object.freeze({
 const IKKUNA_MS = 2000, TIMEOUT_MS = 90000, SEURAAN_KIRJAUTUMINEN = 'TalentMaster_Seura.html';
 
 function lueArgv(argv) {
-  const o = { url: undefined, tunnukset: '.briefit/staging_tunnukset.txt', seura: 1, toistot: 5, profiilit: Object.keys(PROFIILIT), sivut: Object.keys(SIVUT), ulos: 'mittaus_tulokset/sivut.json', kuiva: false, erittely: false, tuntematon: [] };
+  const o = { url: undefined, tunnukset: '.briefit/staging_tunnukset.txt', seura: 1, toistot: 5, profiilit: Object.keys(PROFIILIT), sivut: Object.keys(SIVUT), ulos: 'mittaus_tulokset/sivut.json', kuiva: false, erittely: false, ilmanTokenia: false, tuntematon: [] };
   (argv || []).forEach((a) => {
-    if (a === '--kuiva') o.kuiva = true; else if (a === '--erittely') o.erittely = true; else if (a.indexOf('--url=') === 0) o.url = a.slice(6).replace(/\/$/, ''); else if (a.indexOf('--tunnukset=') === 0) o.tunnukset = a.slice(12);
+    if (a === '--kuiva') o.kuiva = true; else if (a === '--ilman-tokenia') o.ilmanTokenia = true; else if (a === '--erittely') o.erittely = true; else if (a.indexOf('--url=') === 0) o.url = a.slice(6).replace(/\/$/, ''); else if (a.indexOf('--tunnukset=') === 0) o.tunnukset = a.slice(12);
     else if (a.indexOf('--seura=') === 0) o.seura = +a.slice(8); else if (a.indexOf('--toistot=') === 0) o.toistot = +a.slice(10); else if (a.indexOf('--profiilit=') === 0) o.profiilit = a.slice(12).split(',');
     else if (a.indexOf('--sivut=') === 0) o.sivut = a.slice(8).split(','); else if (a.indexOf('--ulos=') === 0) o.ulos = a.slice(7); else o.tuntematon.push(a);
   });
@@ -40,7 +40,7 @@ function tarkista(o, env, urlSallittu) {
   if (!(urlSallittu || M.kanavaUrlSallittu)(o.url)) return 'URL ei ole stagingin Hosting (https://talentmaster-staging[--kanava].web.app) — ajo keskeytetty (tuotantoa ei mitata).';
   if (!(o.seura >= 1 && o.seura <= 99) || !(o.toistot >= 1 && o.toistot <= 50)) return 'Virheellinen --seura tai --toistot.';
   if (o.profiilit.some((p) => !PROFIILIT[p]) || o.sivut.some((s) => !SIVUT[s])) return 'Tuntematon profiili tai sivu.';
-  if (!o.kuiva && !(env && env.STAGING_APPCHECK_DEBUG_TOKEN)) return 'STAGING_APPCHECK_DEBUG_TOKEN puuttuu ympäristöstä (GitHub Secret → export; ei repoon, ei tulosteeseen).';
+  if (!o.kuiva && !o.ilmanTokenia && !(env && env.STAGING_APPCHECK_DEBUG_TOKEN)) return 'STAGING_APPCHECK_DEBUG_TOKEN puuttuu ympäristöstä (GitHub Secret → export; ei repoon, ei tulosteeseen).';
   return null;
 }
 
@@ -123,6 +123,12 @@ async function kuristus(cdp, profiili) {
   if (profiili.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: profiili.cpu });
 }
 
+/** storageState ilman App Check -tokenin IndexedDB-tietokantaa (SDK:n 'firebase-app-check-database') → uusi konteksti aloittaa ilman voimassa olevaa tokenia (kylmä token, tapaus b); Auth-istunto säilyy. */
+function ilmanAppCheckTokenia(st) {
+  if (!st || !Array.isArray(st.origins)) return st;
+  return Object.assign({}, st, { origins: st.origins.map((o) => (o && Array.isArray(o.indexedDB) ? Object.assign({}, o, { indexedDB: o.indexedDB.filter((d) => d && d.name !== 'firebase-app-check-database') }) : o)) });
+}
+
 /** Kirjautuminen: avaa Seura-sivu, kirjaudu SDK:lla (default app), palauta storageState MUISTISSA (sisältää tunnisteet — ei levylle). */
 async function kirjaudu(selain, base, tunnus, token, M2, sivu, kohde) {   // kohde (valinnainen objekti): täytetään { seuraId, pelaajaId } kirjautuneessa sivussa ennen sulkemista
   const ctx = await selain.newContext({ viewport: { width: 1366, height: 768 } }); await ctx.addInitScript(instrumentointi, { token });
@@ -142,7 +148,8 @@ async function kirjaudu(selain, base, tunnus, token, M2, sivu, kohde) {   // koh
     if (!r.ok) throw new Error('kirjautuminen epäonnistui (' + (r.koodi || 'tuntematon') + ')');
     await page.waitForFunction(() => (window._auth || firebase.auth()).currentUser, null, { timeout: 15000 }); await page.waitForTimeout(1500);   // anna IndexedDB-persistenssin kirjoittaa
     if (kohde) { const k = await haePelaajaKohde(page); if (k.virhe) throw new Error('mittauskohteen haku: ' + k.virhe); Object.assign(kohde, k); }
-    return await ctx.storageState({ indexedDB: true });
+    const st = await ctx.storageState({ indexedDB: true });
+    return token ? st : ilmanAppCheckTokenia(st);   // ei debug-tokenia (--ilman-tokenia, tapaus b): kylmä avaus EI saa periä kirjautumisen aikana saatua App Check -tokenia
   } catch (e) { throw new Error(M.piilota(e && e.message, M2)); } finally { await ctx.close(); }
 }
 
@@ -173,7 +180,7 @@ async function main(argv, deps) {
   let tunnukset, tunnusTeksti; try { tunnusTeksti = fs.readFileSync(o.tunnukset, 'utf8'); tunnukset = M.lueTunnukset(tunnusTeksti); } catch (e) { virhe('Tunnustiedostoa ei voitu lukea (' + o.tunnukset + ').'); return 2; }
   const chromePolku = env.TM_CHROME_PATH || ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => fs.existsSync(p));
   const { chromium } = d.playwright || require('playwright-core'), selain = await chromium.launch({ executablePath: chromePolku, args: ['--no-sandbox', '--hide-scrollbars'] });
-  const token = env.STAGING_APPCHECK_DEBUG_TOKEN, alkuAika = new Date().toISOString(), t0 = Date.now(), tulos = { meta: { aika: alkuAika, isanta: new URL(o.url).host, seura: o.seura, toistot: o.toistot, ikkuna_ms: IKKUNA_MS, kuristus: { puhelin: PROFIILIT.puhelin.verkko, cpu: PROFIILIT.puhelin.cpu } }, mittaukset: [] };
+  const token = o.ilmanTokenia ? undefined : env.STAGING_APPCHECK_DEBUG_TOKEN, alkuAika = new Date().toISOString(), t0 = Date.now(), tulos = { meta: { aika: alkuAika, isanta: new URL(o.url).host, seura: o.seura, toistot: o.toistot, ilman_tokenia: !!o.ilmanTokenia, ikkuna_ms: IKKUNA_MS, kuristus: { puhelin: PROFIILIT.puhelin.verkko, cpu: PROFIILIT.puhelin.cpu } }, mittaukset: [] };
   const tilat = {}, kohteet = {};
   try {
     for (const sivuAvain of o.sivut) {
@@ -216,4 +223,4 @@ async function main(argv, deps) {
   return 0;
 }
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c)).catch((e) => { console.error('Virhe: ' + String(e && e.message || e).split('\n')[0]); process.exit(2); });
-module.exports = { tarkistaLopullinenUrl, naytaUrl, haePelaajaKohde, main, erittelyTeksti, yhdistaTulokset, resurssiLista, resurssiYhteenveto, lueArgv, tarkista, mittaaAvaus, SIVUT, PROFIILIT, IKKUNA_MS };
+module.exports = { ilmanAppCheckTokenia, tarkistaLopullinenUrl, naytaUrl, haePelaajaKohde, main, erittelyTeksti, yhdistaTulokset, resurssiLista, resurssiYhteenveto, lueArgv, tarkista, mittaaAvaus, SIVUT, PROFIILIT, IKKUNA_MS };

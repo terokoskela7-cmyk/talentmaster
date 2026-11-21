@@ -49,6 +49,21 @@ describe('ab_vuorotellen', () => {
     expect(await AB.main(['--a=' + A, '--b=' + B, '--ulos=' + ulos], { ajaa: ajaaVirhe, env, kirjaa: () => {}, virhe: () => {} })).toBe(3);
     expect(n).toBe(2);   // keskeytyy heti
   });
+  it('--ilman-tokenia (tapaus b): ei vaadi debug-tokenia ja välittyy mittaa_sivut-ajoihin', async () => {
+    const kutsut = []; const ulos = join(mkdtempSync(join(tmpdir(), 'abit-')), 'x');
+    const ajaa = (argit) => { kutsut.push(argit); const u = argit.find((a) => a.startsWith('--ulos=')).slice(7); writeFileSync(u, JSON.stringify(tulos([1], [1]))); return 0; };
+    expect(await AB.main(['--a=' + A, '--b=' + B, '--kierrokset=2', '--ilman-tokenia', '--ulos=' + ulos], { ajaa, env: {}, kirjaa: () => {}, virhe: () => {} })).toBe(0);
+    expect(kutsut.length).toBe(4); expect(kutsut.every((k) => k.includes('--ilman-tokenia'))).toBe(true);
+    expect(await AB.main(['--a=' + A, '--b=' + B, '--ulos=' + ulos], { ajaa, env: {}, kirjaa: () => {}, virhe: () => {} })).toBe(2);   // ilman lippua token vaaditaan edelleen
+  });
+  it('mittaa_sivut --ilman-tokenia: ei vaadi debug-tokenia; storageStatesta poistuu vain App Check -tietokanta (Auth-istunto säilyy)', () => {
+    const MS = require('../scripts/kuorma/mittaa_sivut.js');
+    expect(MS.tarkista(MS.lueArgv(['--url=' + A, '--ilman-tokenia']), {}, () => true)).toBe(null);
+    expect(MS.tarkista(MS.lueArgv(['--url=' + A]), {}, () => true)).toMatch(/STAGING_APPCHECK_DEBUG_TOKEN/);
+    const st = { cookies: [1], origins: [{ origin: 'x', localStorage: [], indexedDB: [{ name: 'firebaseLocalStorageDb' }, { name: 'firebase-app-check-database' }] }] };
+    const r = MS.ilmanAppCheckTokenia(st);
+    expect(r.origins[0].indexedDB.map((d) => d.name)).toEqual(['firebaseLocalStorageDb']); expect(r.cookies).toEqual([1]); expect(st.origins[0].indexedDB.length).toBe(2);   // alkuperäinen koskematon
+  });
   it('kuiva-ajo ei kutsu ajajaa eikä vaadi tokenia', async () => {
     let kutsuttu = false; const rivit = [];
     expect(await AB.main(['--a=' + A, '--b=' + B, '--kuiva'], { ajaa: () => { kutsuttu = true; return 0; }, env: {}, kirjaa: (r) => rivit.push(r), virhe: () => {} })).toBe(0);

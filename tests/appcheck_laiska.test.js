@@ -22,11 +22,29 @@ function ajaa(opts) {
     async getToken() { if (opts.valimuistissa) return { token: 'VALIMUISTI' }; try { return await this.provider.getToken(); } catch (e) { return { token: 'dummy', error: e }; } },
   };
   const appCheckFn = () => appCheckInst; appCheckFn.ReCaptchaEnterpriseProvider = Provider;
-  const win = { firebase: { appCheck: appCheckFn }, console: { log: (m) => loki.push('log:' + m), warn: (...a) => varoitukset.push(a.join(' ')) }, Promise, self: {}, location: { hostname: 'tm.example' }, localStorage: { getItem: () => null }, Error };
+  const dokLisat = {}; if (opts.dok) { const kuuntelijat = []; dokLisat.document = { readyState: 'interactive', addEventListener: (t, f) => { if (t === 'DOMContentLoaded') kuuntelijat.push(f); } }; dokLisat.performance = { getEntriesByType: () => [{ domContentLoadedEventEnd: 0 }] }; dokLisat.setTimeout = setTimeout; opts.dclLaukea = () => kuuntelijat.forEach((f) => f()); }
+  const win = Object.assign({ firebase: { appCheck: appCheckFn }, console: { log: (m) => loki.push('log:' + m), warn: (...a) => varoitukset.push(a.join(' ')) }, Promise, self: {}, location: { hostname: 'tm.example' }, localStorage: { getItem: () => null }, Error }, dokLisat);
   win.window = win; const ctx = vm.createContext(win); vm.runInContext(KOODI, ctx);
   return { win, loki, varoitukset, tilat, appCheckInst };
 }
 const odota = () => new Promise((r) => setTimeout(r, 5));
+
+describe('Vaihe 3 · reCAPTCHA ei kilpaile pääskriptin kanssa (#1315)', () => {
+  it('kylmä token + dokumentti vielä jäsentymättä → reCAPTCHA (initialize) EI käynnisty ennen DOMContentLoaded + makrotehtävää; sen jälkeen kerran', async () => {
+    const opts = { dok: true }; const a = ajaa(opts); a.win.tmAppCheckAktivoi(); await odota();
+    expect(a.tilat.init).toBe(0); expect(a.tilat.getToken).toBe(0); expect(a.win.tmAppCheckTila().recaptcha).toBe('viivastettu');
+    opts.dclLaukea(); expect(a.tilat.init).toBe(0);   // vasta makrotehtävän jälkeen (pääskriptin viimeiset synkroniset työt ehtivät ensin)
+    await odota(); expect(a.tilat.init).toBe(1); expect(a.tilat.getToken).toBe(1); expect(a.win.tmAppCheckTila().recaptcha).toBe('ladataan');
+    expect(a.loki.filter((x) => !/^log:/.test(x))).toEqual(['initialize:[DEFAULT]', 'provider.getToken']);   // järjestys ennallaan, ENFORCE-turva ennallaan
+  });
+  it('voimassa oleva token → ei reCAPTCHAa lainkaan, portti ei vaikuta', async () => {
+    const opts = { dok: true, valimuistissa: true }; const a = ajaa(opts); a.win.tmAppCheckAktivoi(); await odota(); opts.dclLaukea(); await odota();
+    expect(a.tilat.init).toBe(0); expect(a.win.tmAppCheckTila().token).toBe(true);
+  });
+  it('DOMContentLoaded jo ohi (document ei ole jäsentymässä) → ei viivettä', async () => {
+    const a = ajaa(); a.win.tmAppCheckAktivoi(); await odota(); expect(a.tilat.init).toBe(1);
+  });
+});
 
 describe('A1 · laiska reCAPTCHA', () => {
   it('voimassa oleva token välimuistissa → reCAPTCHAa (provider.initialize) EI ajeta lainkaan', async () => {
