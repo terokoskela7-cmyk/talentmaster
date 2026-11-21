@@ -175,3 +175,32 @@ Vaihe 0 → 1 (L6, pieni, lämmin −1,2 s, avaa mahdollisuuden 2–4) → 2 →
 **DOM-ekvivalenssi.** Skripti on dokumentin viimeinen (ei DOM:ia sen jälkeen); `defer` ajaa sen jäsennyksen jälkeen ennen `DOMContentLoaded`ia ja kaikkien synkronisten skriptien jälkeen — sama järjestys kuin ennen. CSP sallii (`script-src 'self'`).
 
 **Odotus A/B:lle (rehellinen).** Kylmä puhelin: **~0** — kaikki synkroniset libit ajetaan edelleen ennen pääskriptiä ja tavut ovat samat. Lämmin: aiempi arvio −1,2 s (§4 L6) oletti, että HTML ladataan kokonaan joka avauksella. Hosting palvelee HTML:n `no-cache` + ETagilla → muuttumaton HTML = 304; koko 239 kt ladataan vain kun jokin `?v` (mikä tahansa lib) on muuttunut deployssa. Hyöty = (a) deployn jälkeinen ensiavaus hakee 38 kt eikä 239 kt silloin kun pääskripti ei muuttunut, (b) pääskripti on V8 code cache -kelpoinen (inline-skripti ei ole). Odota lämpimässä pientä (~0,1–0,3 s) hyötyä ja A/B:ssä lähes kohinaa; **isompi arvo on se, että vaihe 2 (`defer` kaikille) on nyt mahdollinen**. Mittaus: §8-komento (`--sivut=master --profiilit=tyopoyta`), A = main (`kuorma`), B = tämä PR (`kuorma-b`).
+
+## 12. Vaihe 2 toteutettu: kaikki skriptit `defer`, head-lohkot ulos, kirjautumisnapit tynkinä (21.11.2026, PR perf/master-kylma-avaus-v2)
+
+**Toteutus (deploy-muunnos, repo ennallaan — sama periaate kuin §11).** `scripts/versiotiiviste.js` (`LYKKAYS`, `lykkaaSivu`, `lisaaDefer`) tekee Masterille julkaisussa:
+1. **Kaikki ajettavat `<script src>` → `defer`** (139 kpl; `type="text/plain"`-laiskatagit ennallaan). Dokumenttijärjestys säilyy → suoritusjärjestys säilyy; DOMContentLoaded odottaa deferattuja kuten ennenkin.
+2. **Head-lohkot ulos** → `tm_master_alku.js` (defer, ensimmäisen lohkon paikalle): taktiikkataulun host-adapteri (`TM_KAAVIO_HOST`), `__TM_SEURA`, `_lataaDemoScript`. Kaikki ovat lib-riippumattomia latausaikana (host lukee globaalit vasta kutsuhetkellä), joten "ennen tm_kaavio_ui / ennen tm-bus" säilyy. `tm-demo.js`-viite saa `?v`:n myös alku-tiedostossa. Neljä pientä inline-lohkoa jää tarkoituksella (versiotarkistus, `tm-auth-odottaa`-luokka, `tm-upotettu`-luokka, `TM_SENTRY`-asetus): ne ovat ensimmäistä maalausta varten tai asetuksia, eivät lib-kutsuja.
+3. **Kirjautumisnapit:** inline-lohko asettaa luokan `tm-main-odottaa` (napit `pointer-events:none`) ja no-op-tynkät `login`, `kirjauduGooglella`, `loginDemo`, `_unohditSalasana`. Pääskripti poistaa luokan heti `'use strict'`-rivin jälkeen: funktiodeklaraatiot on silloin jo nostettu eikä tapahtumia ehdi väliin, joten tynkä korvautuu oikeilla funktioilla (selaintesti todentaa: ennen pääskriptiä tynkä, sen jälkeen `async function`).
+4. **App Check -järjestys säilyy:** `firebase.initializeApp` → `tmAppCheckAktivoi()` → ensimmäinen Firestore/Functions/Storage-kutsu ovat edelleen pääskriptin alussa; `tm_appcheck.js` ja SDK:t (app → app-check → auth) ovat sitä ennen. Vartija `tests/l6_defer.test.js`.
+5. **QG-2 / CSP / SW:** uusi tiedosto saa `?v`:n sisällöstä (kaikki deploy-polut ajavat `versiotiiviste.js --kirjoita`); Hosting-CSP `script-src 'self' 'unsafe-inline'` sallii omat tiedostot ja inline-lohkot; `firebase.json ignore` ei estä juuritiedostoja; yksikään SW ei nimeä Masterin tiedostoja. `tarkistaJulkaisu` tarkistaa myös alku-tiedoston dynaamiset lataukset.
+
+**Päälöydös mittauksessa: pelkkä `defer` ei riitä FCP:hen.** K1b piilottaa kirjautumislomakkeen (`html.tm-auth-odottaa #sLogin{display:none}`) kunnes istunnon tila on selvillä, ja odotustilan spinneri on `body::after` ilman tekstiä → **ei laske FCP:ksi**. Siksi ennen tätä PR:ää FCP = kirjautumisen näkymisen hetki = auth-vastaus (§9.1). Korjaus: odotustilassa piirtyy sanamerkki (`html.tm-auth-odottaa body::before{content:"TalentMaster™"}`, tekstinä → FCP). **K1b säilyy** (lomaketta ei näytetä ennen kuin istunto tiedetään; kirjautunut käyttäjä ei näe kirjautumisvilausta). Kirjautumislomakkeen aikaistaminen vaatisi K1b:n päätöksen uudelleenavausta tai vaihetta 3 (auth/init aikaisemmaksi).
+
+**Paikallinen malli (`kylma_aikajana.js`, gzip-palvelin, ei stagingia; yksi ajo/kohta → EI A/B-todiste):**
+| | puhelin (Slow 4G, CPU 4×) FCP | puhelin init_ms | työpöytä FCP | työpöytä init_ms |
+|---|---|---|---|---|
+| repo (sync, main) | 7 184 | 7 209 | 208 | 168 |
+| deploy-muoto (tämä PR) | **440** | 7 659 | **88** | 176 |
+
+`init_ms` (firebase.initializeApp) EI parane tässä vaiheessa (puhelin +0,45 s yhden ajon kohinassa; selittyy sillä, että pääskripti latautuu nyt rinnan kaikkien libien kanssa jaetulla kaistalla) — sen aikaistaminen on vaihe 3 (boot ensin). Vaihe 2 siirtää vain FCP:n irti TTI:stä. **Hyväksyntä A/B:llä, ei tästä taulukosta.**
+
+**Mittaustyökalu.** `scripts/kuorma/kylma_aikajana.js` raportoi nyt `init_ms` (initializeApp-kutsun hetki, firebase-globaalin setterillä), `dcl_ms`, `skriptit_defer` ja `vesiputous` (jokaiselle skriptille haun alku/valmis, koko, ajon alku ja kesto, defer/async); `--deploy` palvelee deploy-muotoisen puun muistista (`versiotiiviste.js laske`) eikä repon lähdettä.
+
+**A/B (Tero ajaa `! `):** A = main → `kuorma`, B = tämä PR → `kuorma-b` (deploy-staging.yml molemmille):
+```
+STAGING_APPCHECK_DEBUG_TOKEN=<token> node scripts/kuorma/ab_vuorotellen.js \
+  --a=https://talentmaster-staging--kuorma-<tunniste>.web.app --b=https://talentmaster-staging--kuorma-b-<tunniste>.web.app \
+  --kierrokset=3 --sivut=master --profiilit=tyopoyta,puhelin --toistot=3
+```
+Odotus: FCP puhelin kylmä −6 s…−7 s (B−A samaan suuntaan myös käännetyillä kierroksilla); `auth`-haun alku ja TTI ~0 (ei regressiota > kohina; ± 0,5 s sallittu).

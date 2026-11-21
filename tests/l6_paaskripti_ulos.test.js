@@ -38,11 +38,22 @@ describe('Masterin julkaisu — oikea sivu', () => {
     expect(typeof js).toBe('string'); expect(js.length).toBeGreaterThan(500000); expect(ulos).toContain('<script src="tm_master_main.js?v=' + sha8(js) + '" defer></script>');
     expect(r.raportti.sivut[MASTER]['tm_master_main.js']).toBe(sha8(js));
   });
-  it('EI HUKKAA: takaisin inline-muotoon yhdistettynä = repon alkuperäinen HTML (tavu tavulta)', () => {
-    const takaisin = ulos.replace('<script src="tm_master_main.js?v=' + sha8(js) + '" defer></script>', '<script>\n' + js + '</script>');
-    // muut ?v-lisäykset pois: vertaa ilman ?v=…-osia
-    const norm = (s) => s.replace(/\?v=[0-9a-f]{8}/g, '');
-    expect(norm(takaisin)).toBe(norm(html));
+  it('EI HUKKAA: kaikki muunnokset kumottuna = repon alkuperäinen HTML (tavu tavulta): pääskripti inline, alku-lohkot takaisin, defer pois, tynkä pois', () => {
+    const ALKU = require('../scripts/versiotiiviste.js').LYKKAYS[MASTER], alkuJs = r.tiedostot[ALKU.alku];
+    const rm = "document.documentElement.classList.remove('" + ALKU.luokka + "');";
+    const norm = (x) => x.replace(/\?v=[0-9a-f]{8}/g, '');
+    // 1) pääskripti: sama kuin repon viimeinen inline-skripti + tasan yksi lisäys heti 'use strict' -rivin jälkeen
+    const orig = html.slice(html.lastIndexOf('<script>', html.lastIndexOf('</script>')) + 8, html.lastIndexOf('</script>')).replace(/^\r?\n/, '');
+    expect(js).toBe(orig.replace(/^'use strict';/, "'use strict';\n" + rm));
+    // 2) alku-tiedosto = kolme alkuperäistä head-lohkoa peräkkäin
+    const lohkot = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].filter((m) => ALKU.lohkot.some((x) => m[1].indexOf(x) >= 0));
+    expect(lohkot).toHaveLength(3); expect(norm(alkuJs)).toBe(norm(lohkot.map((m) => m[1].trim()).join('\n\n') + '\n'));
+    // 3) loppu: poista siirretyt lohkot alkuperäisestä; generoidusta alku-tagi, tynkä+tyyli, defer-attribuutit, pääskripti-tagi
+    let a = html; for (const m of lohkot) a = a.replace(m[0], '');
+    let b = ulos.replace(/<script src="tm_master_alku\.js\?v=[0-9a-f]{8}" defer><\/script>/, '').replace(/<script src="tm_master_main\.js\?v=[0-9a-f]{8}" defer><\/script>/, '<script>\n' + orig + '</script>');
+    b = b.replace("document.documentElement.classList.add('tm-auth-odottaa','" + ALKU.luokka + "');window." + ALKU.tynkat.join('=window.') + '=function(){};', "document.documentElement.classList.add('tm-auth-odottaa');")
+      .replace(/<style>html\.tm-main-odottaa #sLogin[^<]*<\/style>\n/, '').replace(/(<script\b[^>]*\bsrc=[^>]*) defer>/g, '$1>');
+    expect(norm(b)).toBe(norm(a));
   });
   it('js kääntyy (syntaksi) ja alkaa \'use strict\'-direktiivillä; sivulla ei jää isoa inline-skriptiä', () => {
     expect(() => new vm.Script(js, { filename: 'tm_master_main.js' })).not.toThrow(); expect(js.trimStart().startsWith("'use strict';")).toBe(true);
