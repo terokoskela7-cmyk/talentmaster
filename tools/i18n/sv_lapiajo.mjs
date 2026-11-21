@@ -242,7 +242,7 @@ async function main() {
           const tunn = onkoSuomea(t); const kartassa = fiKorpus.has(avain(t)); const svRivi = kartassa ? fiKorpus.get(avain(t)) : null;
           const malli = kartassa ? null : MALLIT.find((m) => m.re.test(avain(t)));   // QG-1c: kääntämätön paikkamerkillinen t()-literaali
           let osat = kartassa || tunn.fi || malli ? [] : osaOnFi(t), heurOsa = false;
-          if (!kartassa && !tunn.fi && !malli && !osat.length) { for (const re of SV_MALLIT) { const m = t.match(re); if (!m) continue; const fiArvot = m.slice(1).filter((x) => /[a-zåäö]{4}/i.test(x) && (fiKorpus.has(avain(x)) || OSAT.has(avain(x)) || onkoSuomea(x).fi)); if (fiArvot.length) { osat = fiArvot; break; } } }   // QG-1c: sv-mallin suomenkielinen arvo
+          if (!kartassa && !tunn.fi && !malli && !osat.length) { for (const re of SV_MALLIT) { const m = t.match(re); if (!m) continue; const fiArvot = m.slice(1).filter((x) => /[a-zåäö]{4}/i.test(x) && !sallittu(x) && (fiKorpus.has(avain(x)) || OSAT.has(avain(x)) || onkoSuomea(x).fi)); if (fiArvot.length) { osat = fiArvot; break; } } }   // QG-1c: sv-mallin suomenkielinen arvo (sallitut nimet kuten TalentMaster eivät ole suomea: 'Källa: {seura}' + 'TalentMaster', erä 105)
           if (!kartassa && !tunn.fi && !malli && !osat.length) { osat = tekstinOsat(t).filter((o) => o !== t && o.split(' ').length >= 2 && (({ fi: f, sv: s }) => f && !s)(onkoSuomea(o))); heurOsa = osat.length > 0; }   // QG-1c: suomenkielinen lause sv-tekstin osana (objektikartan arvo t(KL[k]))   // QG-1: tunnettu fi-merkkijono tekstin osana (heuristiikka ei tunnista)
           if (!tunn.fi && !kartassa && !malli && !osat.length) continue;
           const lahde = etsiLahde(idx, t, cfg.tiedosto);

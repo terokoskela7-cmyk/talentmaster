@@ -454,7 +454,7 @@ async function _pankkiLataa() {
   if (_pankki || _pankkiLadataan || !_seuraId || !_db) return; _pankkiLadataan = true;
   try { const sn = await _db.collection('seurat').doc(_seuraId).collection('harjoitepankki').get(); _pankki = sn.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); } catch (e) { _pankki = []; console.warn('[toimintakortti] harjoitepankki:', e && e.message); }
   try { const l = await _db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitelahteet').get(); _lahteet = l && l.exists ? l.data() : null; } catch (e) { _lahteet = null; }   // lukuvirhe → oletusjärjestys (seura → TalentMaster)
-  _pankkiLadataan = false; _nayta();
+  _pankkiLadataan = false; _naytaSailyttaen();
 }
 const _kuvaVali = {};   // Storage-polku → URL | null (haettu, ei saatu) | undefined (ei vielä haettu)
 function _kuvaUrl(polku) {   // toimintakortin kuva: Storage-polku → latauslinkki (haetaan kerran, sitten _nayta)
@@ -607,7 +607,7 @@ function _harjLataa() {
   if (_harjTila) return; if (typeof valitsePaivanHarjoite === 'function') { _harjTila = 'valmis'; return; } _harjTila = 'lataa';
   const srcs = Array.prototype.map.call(document.querySelectorAll('script[data-tm-harj]'), function (e) { return e.getAttribute('src'); });
   srcs.reduce(function (ketju, src) { return ketju.then(function () { return new Promise(function (ok, ei) { const el = document.createElement('script'); el.src = src; el.async = false; el.onload = ok; el.onerror = function () { ei(new Error(src)); }; document.head.appendChild(el); }); }); }, Promise.resolve())
-    .then(function () { _harjTila = 'valmis'; _nayta(); }, function (e) { _harjTila = 'virhe'; console.warn('[polku] päivän harjoite -moottori:', e && e.message); });
+    .then(function () { _harjTila = 'valmis'; _naytaSailyttaen(); }, function (e) { _harjTila = 'virhe'; console.warn('[polku] päivän harjoite -moottori:', e && e.message); });
 }
 function _omatoimi(p) {
   if (!(p.jaksofokus && p.jaksofokus.konsepti_avain)) return null;
@@ -809,6 +809,13 @@ function _murupolku(p) {   // Pelaajat › pelaaja (D246: Pelaajat-kohta aktiivi
 function _naapuriAria() {   // ‹ › : aria-nimessä naapurin nimi (mockup 22 0b)
   const j = K.tmKtJarjestys(_naapurit(), _S.pid);
   [['[data-kt-edellinen]', j.edellinen, 'kt_edellinen'], ['[data-kt-seuraava]', j.seuraava, 'kt_seuraava']].forEach(function (a) { const el = document.querySelector('#ktJuuri ' + a[0]), n = a[1] && _pelaaja(a[1]); if (el && n) el.setAttribute('aria-label', T(a[2]) + ': ' + _nimi(n)); });
+}
+/* Taustalataus (päivän harjoite -moottori, harjoitepankki) piirtää näkymän uudelleen käyttäjästä riippumatta → jo avattu ⋯-valikko (details.kt-valikko) ei saa sulkeutua alta (hidas yhteys: valikko avattiin ennen latauksen valmistumista). Avoimet tunnistetaan järjestysnumerolla. */
+function _naytaSailyttaen() {
+  const juuri = document.getElementById('ktJuuri'), auki = [];
+  if (juuri) Array.prototype.forEach.call(juuri.querySelectorAll('details.kt-valikko'), function (d, i) { if (d.open) auki.push(i); });
+  _nayta();
+  if (juuri && auki.length) { const kaikki = juuri.querySelectorAll('details.kt-valikko'); auki.forEach(function (i) { if (kaikki[i]) kaikki[i].open = true; }); }
 }
 function _nayta() {
   if (!_S.pid) return;
