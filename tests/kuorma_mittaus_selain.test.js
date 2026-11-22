@@ -88,6 +88,34 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('mittaus · se
       await ctx.close();
     } finally { await selain.close(); palvelin.close(); }
   }, 60000);
+  it('positiivinen polku: currentUser 300 ms, tm-auth-odottaa poistuu ~2 s → ei virhettä, TTI ≥ 2 s, mittaus päättyy selvästi ennen aikarajaa', async () => {
+    const SIVU_P = '<!doctype html><html class="tm-auth-odottaa"><meta charset="utf-8"><title>p</title><h1>Ensipiirto</h1><script>setTimeout(function () { window.__u = { uid: "u1" }; window.firebase = window.firebase || {}; window.firebase.auth = function () { return { get currentUser() { return window.__u; } }; }; }, 300); setTimeout(function () { document.documentElement.classList.remove("tm-auth-odottaa"); }, 2000);</script>';
+    const palvelin = createServer((rq, rs) => { rs.setHeader('content-type', 'text/html'); rs.end(SIVU_P); });
+    await new Promise((r) => palvelin.listen(0, '127.0.0.1', r)); const portti = palvelin.address().port;
+    const { chromium } = require('playwright-core'), selain = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    try {
+      const ctx = await selain.newContext(), page = await ctx.newPage(); await ctx.addInitScript(instrumentointi, { token: 'T' }); const cdp = await ctx.newCDPSession(page); await cdp.send('Network.enable');
+      const t0 = Date.now(), r = await S.mittaaAvaus(page, cdp, 'http://127.0.0.1:' + portti + '/', { ikkuna: 600, aikaraja: 30000, odotaKirjautunut: true });
+      expect(r.virhe).toBeFalsy(); expect(r.kirjautunut).toBe(true);
+      expect(r.tti_ms).toBeGreaterThanOrEqual(2000);
+      expect(Date.now() - t0).toBeLessThan(15000);
+      await ctx.close();
+    } finally { if (palvelin.closeAllConnections) palvelin.closeAllConnections(); await selain.close(); palvelin.close(); }
+  }, 60000);
+  it('A/B 23.11. (#1320 live): kesken jäävä Script-lataus (ei koskaan valmistu) EI estä alarajan asetusta, kun odotusluokka on poistunut → ei virhettä, TTI ≥ 2 s', async () => {
+    const SIVU_P = '<!doctype html><html class="tm-auth-odottaa"><meta charset="utf-8"><title>p</title><h1>Ensipiirto</h1><script>setTimeout(function () { var s = document.createElement("script"); s.src = "/jumi.js"; document.head.appendChild(s); }, 100);</script><script>setTimeout(function () { window.__u = { uid: "u1" }; window.firebase = window.firebase || {}; window.firebase.auth = function () { return { get currentUser() { return window.__u; } }; }; }, 300); setTimeout(function () { document.documentElement.classList.remove("tm-auth-odottaa"); }, 2000);</script>';
+    const palvelin = createServer((rq, rs) => { if (rq.url === '/jumi.js') { rs.setHeader('content-type', 'text/javascript'); rs.write('/* jumissa */'); return; } rs.setHeader('content-type', 'text/html'); rs.end(SIVU_P); });
+    await new Promise((r) => palvelin.listen(0, '127.0.0.1', r)); const portti = palvelin.address().port;
+    const { chromium } = require('playwright-core'), selain = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    try {
+      const ctx = await selain.newContext(), page = await ctx.newPage(); await ctx.addInitScript(instrumentointi, { token: 'T' }); const cdp = await ctx.newCDPSession(page); await cdp.send('Network.enable');
+      const t0 = Date.now(), r = await S.mittaaAvaus(page, cdp, 'http://127.0.0.1:' + portti + '/', { ikkuna: 600, aikaraja: 9000, odotaKirjautunut: true });
+      expect(r.virhe).toBeFalsy(); expect(r.kirjautunut).toBe(true);
+      expect(r.tti_ms).toBeGreaterThanOrEqual(2000);   // alaraja = odotusluokan poistuminen (~2 s), ei FCP; vanha koodi: alaraja null → virhe
+      expect(r.silmukka.max_odottavat).toBeGreaterThanOrEqual(1); expect(r.silmukka.alaraja_t).toBeGreaterThanOrEqual(2000); expect(r.silmukka.odottavat_urlit[0]).toMatch(/Script .*\/jumi\.js$/);   // lokitus todistaa syyn: kesken oleva lataus + alaraja asetettu silti
+      await ctx.close();
+    } finally { if (palvelin.closeAllConnections) palvelin.closeAllConnections(); await selain.close(); palvelin.close(); }
+  }, 60000);
   it('--erittely: lukemat polku (id → *) ← kutsujafunktio, [lista]-konsoliviesti kerätään; ilman erittely-valintaa kenttiä ei kerry', async () => {
     const SIVU_E = `<!doctype html><meta charset="utf-8"><title>e</title><h1>e</h1><script src="/sdk.js"></script><script>
  var fs = firebase.firestore;

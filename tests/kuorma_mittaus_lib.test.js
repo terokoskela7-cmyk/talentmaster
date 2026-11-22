@@ -261,4 +261,9 @@ describe('mittaus_raportti: P11-arviointi ja ensimmäiseksi pettävä', () => {
     expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: true, kirjautunut: false, tti: 12000, authAlku: AUTH })).toMatch(/kirjautunut != true/);
     expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: false, kirjautunut: false, tti: 448, authAlku: AUTH })).toBeNull();   // kirjautumatonta sivua ei vaadita
   });
+  it('silmukkalokitus: odottavatUrlit (vain Script/Document/Stylesheet, query pois, max n) + silmukkaTeksti kertoo kirjautumis-/merkki-/alarajahetken ja kesken olevat', () => {
+    const m = new Map([[1, { valmis: false, tyyppi: 'Script', url: 'https://x/a.js?v=1' }], [2, { valmis: true, tyyppi: 'Script', url: 'https://x/b.js' }], [3, { valmis: false, tyyppi: 'Fetch', url: 'https://x/l' }], [4, { valmis: false, tyyppi: 'Document', url: 'https://x/f.html#h' }]]);
+    expect(M.odottavatUrlit(m, 5)).toEqual(['Script https://x/a.js', 'Document https://x/f.html']); expect(M.odottavatUrlit(m, 1)).toHaveLength(1);
+    expect(M.silmukkaTeksti({ polleja: 10, nollapolleja: 0, max_odottavat: 3, kirjautunut_t: 350, merkki_t: 9700, alaraja_t: null, odottavat_urlit: ['Script https://x/a.js'] })).toMatch(/10 pollausta.*350 ms.*9700 ms.*alaraja asetettu null ms.*ilman kesken olevia latauksia 0.*max 3.*a\.js/);
+  });
 });

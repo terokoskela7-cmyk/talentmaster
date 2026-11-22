@@ -119,6 +119,15 @@ function odottavatLataukset(pyynnot) {
   let n = 0; pyynnot.forEach((p) => { if (p && !p.valmis && (p.tyyppi === 'Script' || p.tyyppi === 'Document' || p.tyyppi === 'Stylesheet')) n++; });
   return n;
 }
+/** Kesken olevien latausten URLit (enintään n; query/fragmentti pois) — diagnostiikka, miksi silmukka ei päättynyt. */
+function odottavatUrlit(pyynnot, n) {
+  const ulos = []; pyynnot.forEach((p) => { if (ulos.length < n && p && !p.valmis && (p.tyyppi === 'Script' || p.tyyppi === 'Document' || p.tyyppi === 'Stylesheet')) ulos.push(p.tyyppi + ' ' + String(p.url || '?').split('?')[0].split('#')[0].slice(0, 120)); }); return ulos;
+}
+/** Silmukan yhteenveto yhdelle riville (virheviestiin / --erittelyyn). */
+function silmukkaTeksti(s) {
+  if (!s) return 'silmukka: ei tietoa';
+  return 'silmukka: ' + s.polleja + ' pollausta, kirjautunut ensin ' + s.kirjautunut_t + ' ms, odotusluokka pois ' + s.merkki_t + ' ms, alaraja asetettu ' + s.alaraja_t + ' ms, pollauksia ilman kesken olevia latauksia ' + s.nollapolleja + ', kesken max ' + s.max_odottavat + (s.odottavat_urlit && s.odottavat_urlit.length ? ' [' + s.odottavat_urlit.join(' | ') + ']' : '');
+}
 const MITTAUS_EI_VALMIS = 'mittaus ei valmis';
 const MITTAUS_TTI_ENNEN_AUTHIA = 'mittaus virheellinen';
 
@@ -146,4 +155,4 @@ function dokumenttiKokoVaroitus(koot) {
   return 'Dokumentin koko eroaa ' + (r > 1 ? r.toFixed(1) + '× (A suurempi)' : (1 / r).toFixed(1) + '× (B suurempi)') + ' (A ' + Math.round(a / 1024) + ' kt, B ' + Math.round(b / 1024) + ' kt purettuna) — kanavat eivät ole samaa deploy-muotoa; A/B-vertailu on sekoittunut. Deployaa molemmat saman deploy-muunnoksen (versiotiiviste) läpi.';
 }
 
-module.exports = { odottavatLataukset, MITTAUS_EI_VALMIS, MITTAUS_TTI_ENNEN_AUTHIA, kirjautumisAlaraja, tarkistaTtiAuthiin, dokumenttiKokoVaroitus, RAJAT, rajaAika, rajaLuvut, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };
+module.exports = { odottavatUrlit, silmukkaTeksti, odottavatLataukset, MITTAUS_EI_VALMIS, MITTAUS_TTI_ENNEN_AUTHIA, kirjautumisAlaraja, tarkistaTtiAuthiin, dokumenttiKokoVaroitus, RAJAT, rajaAika, rajaLuvut, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };
