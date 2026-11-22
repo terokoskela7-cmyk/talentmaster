@@ -252,3 +252,13 @@ A:n Document = 196 kt br / 902 kt purettu ja resurssilistassa EI ole `tm_master_
 **Oppi (sama virhe ei saa toistua):** (a) A/B-mittarin "rauhoittunut"-ehto ei saa luottaa CPU-hiljaisuuteen hitaalla verkolla; (b) ennen A/B:tä varmista että molemmat kanavat ovat saman deploy-muunnoksen tuotos (HTML-koko, `tm_master_main.js` löytyy molemmista) — mittari varoittaa nyt; (c) 0 lukua + `tti == fcp` on aina mittausvika, ei tulos.
 
 **Seuraavat:** boot-ensin (#1315) on mitattava uudelleen vasta kun (1) tämä vartija on mainissa ja (2) A ja B on deployattu samalla muunnoksella. Ei vielä päätöstä boot-ensin-muutoksen kohtalosta.
+
+## 15. Seuraava työ: tavujen vähentäminen — kattavuuslista (kerätään kirjautuneella valmentajalla)
+
+Lähtökohta §9: demo-kattavuudella 108 lib-skriptiä / 564 kt gz ei kutsuttu ensipiirrossa (yläraja: demo ≠ oikea tili). Nyt oikea lista: `scripts/kuorma/kattavuus_skriptit.js` (V8 precise coverage, kirjautunut valmentaja stagingissa, puhelinprofiili Slow 4G + CPU 4×, lopetus vasta kun lataukset valmiit — §14 vartija). Ajo (Tero):
+```
+! STAGING_APPCHECK_DEBUG_TOKEN=<token> node scripts/kuorma/kattavuus_skriptit.js --url=https://talentmaster-staging--<kanava>.web.app --seura=1 --profiili=puhelin --era-kt=100
+```
+Tulostaa `mittaus_tulokset/kattavuus_<aika>/kattavuus.{txt,json}`: per skripti luokka (EI_KUTSUTTU / VAHAN / KAYTOSSA), gz kt, käytetty %, **ylätaso %** (ajettu ylätason koodi ilman funktioita = rekisteröinnit/sivuvaikutukset, jotka ajettiin silti), ylätason nimet, sekä **eräehdotus** (EI_KUTSUTTU, iso ensin, ~100 kt/erä). Kanava pitää olla deployattu saman deploy-muunnoksen läpi kuin vertailukanava (§14).
+
+**Tulkinta:** EI_KUTSUTTU ≠ turvallisesti siirrettävissä. Erän skriptit tarvitsevat (a) typeof-vartion kutsujissa tai tmLaiska-portin, (b) ylätason sivuvaikutusten tarkistuksen (`ylataso_pct`, nimet; §9.3 kuusi tunnettua top-level-kohtaa), (c) oman A/B:n (mitattu §14-vartijoilla, samat deploy-muodot) ennen mergeä. Kattavuus on yhden roolin (valmentaja, Koti) yhden avauksen näkymä: muut välilehdet/roolit kutsuvat siirrettyjä skriptejä käyttäjän toiminnasta → siksi laiska lataus ensikäytöllä, ei poisto. Toteutusta ei ole; erät ehdotetaan kun oikea lista on kerätty.
