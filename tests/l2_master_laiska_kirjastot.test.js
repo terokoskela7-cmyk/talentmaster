@@ -19,9 +19,9 @@ describe('L2 · Master: kirjastot text/plain, ei eager', () => {
   it('loader ladataan ennen inline-skriptejä; portit kattavat setWs (ei Kotia), openDrill, vanhan pelaajaprofiilin, tapahtuman ja D3-arvion', () => {
     const m = /<script src="lib\/tm_laiska_kirjastot\.js" data-portit="([^"]+)"><\/script>/.exec(HTML);
     expect(m).toBeTruthy();
-    expect(m[1].split(',')).toEqual(['setWs!koti', 'openDrill', '_mAvaaPelaajaVanha=true', 'calEventClick', '_avaaD3Arvio', '+avaaKaaviopankki', '+_kaavioUusiLomake', '+tmKaavioLiitaHavaintoon', '+tmPhAvaaValinta', 'avaaHarjoitusarviointi', 'avaaValmentajaKehitys', 'avaaCoachProfiili']);
+    expect(m[1].split(',')).toEqual(['setWs!koti', 'openDrill', '_mAvaaPelaajaVanha=true', 'calEventClick', '_avaaD3Arvio', '+avaaKaaviopankki@kaavio', '+_kaavioUusiLomake@kaavio', '+tmKaavioLiitaHavaintoon@kaavio', '+tmPhAvaaValinta@kaavio', 'avaaHarjoitusarviointi', 'avaaValmentajaKehitys', 'avaaCoachProfiili']);
     expect(HTML.indexOf('lib/tm_laiska_kirjastot.js')).toBeLessThan(HTML.indexOf('data-tm-laiska src='));
-    m[1].split(',').forEach((p) => { const n = p.replace(/^\+/, '').replace(/[!=].*/, ''), K = HTML + readFileSync(new URL('../lib/tm_kaavio_ui.js', import.meta.url), 'utf8') + readFileSync(new URL('../lib/tm_pelihavainto_valinta.js', import.meta.url), 'utf8');
+    m[1].split(',').forEach((p) => { const n = p.replace(/^\+/, '').replace(/[!=@].*/, ''), K = HTML + readFileSync(new URL('../lib/tm_kaavio_ui.js', import.meta.url), 'utf8') + readFileSync(new URL('../lib/tm_pelihavainto_valinta.js', import.meta.url), 'utf8');
       expect(K, n).toMatch(new RegExp('\\n(?:async )?function ' + n + '\\(|window\\.' + n + ' = '));   // portti vaatii globaalin funktion (declaraatio tai window-sijoitus)
     });
   });
@@ -41,7 +41,7 @@ describe('L2 · Master: kirjastot text/plain, ei eager', () => {
 
 function ymparisto(opts) {
   const lisatyt = [], kuuntelijat = {};
-  const tagit = (opts.srcs || ['a.js', 'b.js']).map((s) => ({ getAttribute: () => s }));
+  const tagit = (opts.srcs || ['a.js', 'b.js']).map((s) => (opts.ryhmat && opts.ryhmat[s]) ? { getAttribute: (a) => (a === 'src' ? s : opts.ryhmat[s]), hasAttribute: (a) => a === 'data-tm-ryhma' } : { getAttribute: () => s });
   const head = { appendChild(el) { lisatyt.push(el.src); setTimeout(() => (opts.epaonnistuu && opts.epaonnistuu(el.src) ? el.onerror() : el.onload()), 0); } };
   const doc = { readyState: 'complete', head, createElement: () => ({}), querySelectorAll: () => tagit, querySelector: () => ({ getAttribute: () => opts.portit || '' }), addEventListener() {} };
   const root = { document: doc, console: { warn() {} }, addEventListener: (n, f) => { kuuntelijat[n] = f; } };
@@ -77,5 +77,22 @@ describe('L2 · lib/tm_laiska_kirjastot.js', () => {
     kuuntelijat.error({ error: { name: 'TypeError' } }); expect(lisatyt).toEqual([]);
     kuuntelijat.error({ error: { name: 'ReferenceError', message: 'x is not defined' } }); await new Promise((r) => setTimeout(r, 30));
     expect(lisatyt).toEqual(['a.js', 'b.js']); expect(root.tmLaiska.valmis()).toBe(true);
+  });
+  it('ryhmät (data-tm-ryhma): oletusryhmä ei lataa kaavio-ryhmää eikä päinvastoin; tynkä +nimi@ryhmä lataa vain oman ryhmänsä ja kutsuu oikeaa funktiota; ReferenceError lataa kaikki', async () => {
+    const kutsut = [];
+    const { root, lisatyt, kuuntelijat } = ymparisto({ srcs: ['a.js', 'k1.js', 'k2.js', 'b.js'], ryhmat: { 'k1.js': 'kaavio', 'k2.js': 'kaavio' }, portit: 'avaa=true,+kuva@kaavio', globaalit: { avaa: () => kutsut.push('avaa') } });
+    expect(root.tmLaiska.ryhmat()).toEqual(['', 'kaavio']); expect(root.tmLaiska.lista()).toEqual(['a.js', 'b.js']); expect(root.tmLaiska.lista('kaavio')).toEqual(['k1.js', 'k2.js']);
+    expect(typeof root.kuva).toBe('function'); expect(root.kuva.__tmTynka).toBe(true);
+    // kirjasto "määrittelee" kuva-funktion latautuessaan: korvataan tynkä kun k2.js on ladattu
+    const alku = root.tmLaiska.varmista; void alku;
+    root.kuva(7); await new Promise((r) => setTimeout(r, 30));   // tynkä: lataa vain kaavio-ryhmän
+    expect(lisatyt).toEqual(['k1.js', 'k2.js']); expect(root.tmLaiska.valmis('kaavio')).toBe(true); expect(root.tmLaiska.valmis()).toBe(false);
+    root.avaa(); await new Promise((r) => setTimeout(r, 30));   // oletusryhmän portti: vain a.js, b.js
+    expect(lisatyt).toEqual(['k1.js', 'k2.js', 'a.js', 'b.js']); expect(root.tmLaiska.valmis()).toBe(true); expect(kutsut).toEqual(['avaa']);
+  });
+  it('ReferenceError lataa kaikki ryhmät', async () => {
+    const { root, lisatyt, kuuntelijat } = ymparisto({ srcs: ['a.js', 'k1.js'], ryhmat: { 'k1.js': 'kaavio' } });
+    kuuntelijat.error({ error: { name: 'ReferenceError', message: 'x is not defined' } }); await new Promise((r) => setTimeout(r, 30));
+    expect(lisatyt.sort()).toEqual(['a.js', 'k1.js']); expect(root.tmLaiska.valmis()).toBe(true); expect(root.tmLaiska.valmis('kaavio')).toBe(true);
   });
 });

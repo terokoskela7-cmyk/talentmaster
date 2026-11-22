@@ -20,7 +20,7 @@ async function avaa(selain) {
 }
 describe('L2 Erä 1 · staattiset', () => {
   it('8 skriptiä text/plain + data-tm-laiska; tm_idp, tm_arviointi_taksonomia, tm_piirros, tm_master_alku EIVÄT siirry (fail-open/globaalit)', () => {
-    ERA.forEach((n) => { expect(MASTER, n).toMatch(new RegExp('<script type="text/plain" data-tm-laiska src="lib/' + n.replace('.', '\\.') + '"></script>')); });
+    ERA.forEach((n) => { expect(MASTER, n).toMatch(new RegExp('<script type="text/plain" data-tm-laiska data-tm-ryhma="kaavio" src="lib/' + n.replace('.', '\\.') + '"></script>')); });
     ['tm_idp', 'tm_arviointi_taksonomia', 'tm_piirros'].forEach((n) => expect(MASTER, n).toMatch(new RegExp('<script src="lib/' + n + '\\.js"></script>')));
   });
   it('HTML-järjestys (= latausjärjestys) säilyttää alkuperäiset riippuvuudet: render < policy < validate < editori < xt < xt_kerros < ui', () => {
@@ -45,9 +45,19 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('L2 Erä 1 · 
     try {
       const { sk, p, haetut } = await avaa(selain); await p.waitForTimeout(600);
       await p.evaluate(() => { try { avaaKaaviopankki(); } catch (e) { /* oikea funktio voi tarvita Firestorea — tässä vain lataus ratkaisee */ } });
-      await p.waitForFunction(() => window.tmLaiska.valmis() && !window.avaaKaaviopankki.__tmTynka, null, { timeout: 15000 });
+      await p.waitForFunction(() => window.tmLaiska.valmis('kaavio') && !window.avaaKaaviopankki.__tmTynka, null, { timeout: 15000 });
       expect(haetut).toEqual(ERA);
+      expect(await p.evaluate(() => window.tmLaiska.valmis())).toBe(false);   // oletusryhmä (L2/L3: harjoitelogiikka ym.) EI latautunut kaavio-avauksella
       expect(await p.evaluate(() => [typeof TM_KAAVIO_RENDER, typeof validoiKaavio, typeof xtPiirraKerros, typeof kaavioEdPX, typeof _kaavioUusiLomake, !!_kaavioUusiLomake.__tmTynka])).toEqual(['object', 'function', 'function', 'function', 'function', false]);
+      await sk.close();
+    } finally { await selain.close(); }
+  }, 120000);
+  it('setWs(dev) (oletusryhmän portti) EI lataa kaavio-ryhmää: välilehden vaihto ei maksa erän tavuja (eikä kasvata portin odotusta)', async () => {
+    const selain = await kaynnista();
+    try {
+      const { sk, p, haetut } = await avaa(selain); await p.waitForTimeout(600);
+      await p.evaluate(() => setWs('dev')); await p.waitForFunction(() => window.tmLaiska.valmis(), null, { timeout: 15000 }); await p.waitForTimeout(300);
+      expect(haetut).toEqual([]); expect(await p.evaluate(() => window.tmLaiska.valmis('kaavio'))).toBe(false);
       await sk.close();
     } finally { await selain.close(); }
   }, 120000);

@@ -58,4 +58,9 @@ describe('kattavuus_skriptit', () => {
     const a = K.analysoiSkripti(lahde, f); expect(a.kutsuttuja).toBe(0); expect(a.funktioita).toBe(1);
     expect(K.analysoi([{ url: 'https://talentmaster-staging.web.app/lib/u.js', source: lahde, functions: f }], [])[0].luokka).toBe('EI_KUTSUTTU');
   });
+  it('kutsutut_nimet: nimetön kutsuttu funktio saa offset + lähdepätkän (tm_kehitystyopoyta-tyyppinen "1 kutsu" tunnistettavissa)', () => {
+    const f = [{ functionName: '', ranges: [{ startOffset: 0, endOffset: 100, count: 1 }] }, { functionName: '', ranges: [{ startOffset: 20, endOffset: 40, count: 2 }] }];
+    const a = K.analysoiSkripti('0123456789'.repeat(10), f);
+    expect(a.kutsutut_nimet).toEqual(['(anon@20) 012345678901234567890123456789012345678901234567×2']); expect(a.kutsuttuja).toBe(1);
+  });
 });

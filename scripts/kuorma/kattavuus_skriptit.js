@@ -27,7 +27,7 @@ function analysoiSkripti(lahde, funktiot) {
   if (ylataso) { const k2 = new Uint8Array(n); ylataso.ranges.forEach((a) => k2.fill(a.count > 0 ? 1 : 0, Math.max(0, a.startOffset), Math.min(n, a.endOffset)));
     (funktiot || []).forEach((f) => { if (f !== ylataso && f.ranges && f.ranges.length) { const a = f.ranges[0]; k2.fill(0, Math.max(0, a.startOffset), Math.min(n, a.endOffset)); } });
     for (let i = 0; i < n; i++) yl += k2[i]; }
-  const nimet = (funktiot || []).filter((f) => f !== ylataso && f.functionName && f.ranges && f.ranges[0] && f.ranges[0].count > 0 && (f.ranges[0].endOffset - f.ranges[0].startOffset) < 0.8 * n).map((f) => f.functionName + (f.ranges[0].count > 1 ? '×' + f.ranges[0].count : '')).slice(0, 12);
+  const nimet = (funktiot || []).filter((f) => f !== ylataso && f.ranges && f.ranges[0] && f.ranges[0].count > 0 && (f.ranges[0].endOffset - f.ranges[0].startOffset) < 0.8 * n).map((f) => (f.functionName || '(anon@' + f.ranges[0].startOffset + ') ' + lahde.slice(f.ranges[0].startOffset, f.ranges[0].startOffset + 48).replace(/\s+/g, ' ')) + (f.ranges[0].count > 1 ? '×' + f.ranges[0].count : '')).slice(0, 12);
   return { kutsutut_nimet: nimet, tavut: n, kaytetty_pct: n ? +(100 * kaytetty / n).toFixed(1) : 0, kutsuttuja, funktioita, ylataso_pct: n ? +(100 * yl / n).toFixed(1) : 0 };
 }
 
@@ -71,7 +71,7 @@ function raporttiTeksti(rivit, era, meta) {
   const ul = ['KATTAVUUS · ' + meta.isanta + ' · ' + meta.sivu + ' · ' + meta.profiili + ' · seura ' + meta.seura + ' · ' + rivit.length + ' omaa skriptiä',
     '  EI_KUTSUTTU ' + n('EI_KUTSUTTU') + ' kpl / ' + sum('EI_KUTSUTTU').toFixed(0) + ' kt gz · VAHAN ' + n('VAHAN') + ' kpl / ' + sum('VAHAN').toFixed(0) + ' kt · KAYTOSSA ' + n('KAYTOSSA') + ' kpl / ' + sum('KAYTOSSA').toFixed(0) + ' kt', '',
     '  luokka        gz kt  käytetty%  ylätaso%  funkt(kutsutt/yht)  skripti  [ylätason nimet]'];
-  rivit.forEach((r) => ul.push('  ' + r.luokka.padEnd(12) + String(r.koodattu_kt).padStart(7) + String(r.kaytetty_pct).padStart(10) + String(r.ylataso_pct).padStart(9) + '  ' + (r.kutsuttuja + '/' + r.funktioita).padEnd(18) + r.skripti + '  [' + r.nimet.join(', ') + ']'));
+  rivit.forEach((r) => ul.push('  ' + r.luokka.padEnd(12) + String(r.koodattu_kt).padStart(7) + String(r.kaytetty_pct).padStart(10) + String(r.ylataso_pct).padStart(9) + '  ' + (r.kutsuttuja + '/' + r.funktioita).padEnd(18) + r.skripti + '  [' + r.nimet.join(', ') + ']' + (r.kutsuttuja > 0 && r.kutsuttuja <= 4 ? '  KUTSUT: ' + r.kutsutut_nimet.join(' | ') : '')));
   ul.push('', '  ERÄEHDOTUS (EI_KUTSUTTU, iso ensin; jokainen erä = oma PR + A/B):'); era.forEach((e) => ul.push('    erä ' + e.era + ' · ' + e.kt + ' kt · ' + e.skriptit.length + ' skriptiä: ' + e.skriptit.join(', ')));
   return ul.join('\n');
 }
