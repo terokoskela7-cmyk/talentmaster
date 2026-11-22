@@ -72,6 +72,7 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_taito_nimi.js') !== -1) return true;   // sv-aukot P7 kohta 8: taidon nimi pelaajan kielellä   // K1d: aikajanan tekstit käännösavaimilla (siirretty tm_idp.js:stä)
   if (url.indexOf('/lib/tm_koti_luvut.js') !== -1 || url.indexOf('/lib/tm_normisto.js') !== -1 || url.indexOf('/lib/tm_testipaiva.js') !== -1 || url.indexOf('/lib/tm_joukkuesaanto.js') !== -1 || url.indexOf('/lib/tm_tekniikka.js') !== -1 || url.indexOf('/lib/tm_fyysinen.js') !== -1) return true;   // PR 4 (K14): harjoitelogiikan kohdevalinta
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;   // i18n V0 — käännöstaulukko offline-cacheen
+  if (url.indexOf('/lib/tm_lang_sv.js') !== -1 || url.indexOf('/lib/tm_lang_en.js') !== -1) return true;   // erä (a): kielipaketit (tm_lang.js:stä erotetut sv/en) offline-cacheen
   if (url.indexOf('/lib/tm_ennatykset.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
   if (url.indexOf('/lib/tm_merkki_nakyma.js') !== -1) return true;   // palaute-näkyvyys 0a: merkkisääntö
   if (url.indexOf('/lib/tm_kalenteri_ilmoitus.js') !== -1) return true;

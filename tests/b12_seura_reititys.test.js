@@ -98,7 +98,7 @@ describe('B12: seuraLokalisoi (ajettu oikeilla kirjastoilla)', () => {
     const ls = new Map([['tm_kieli', kieli]]);
     const ctx = { console: { log() {}, warn() {} }, document, localStorage: { getItem: (k) => (ls.has(k) ? ls.get(k) : null), setItem: (k, v) => ls.set(k, v) }, navigator: { language: 'fi' } };
     ctx.window = ctx; vm.createContext(ctx);
-    for (const f of ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_henkilosto_i18n.js']) vm.runInContext(lueKuori(f), ctx);
+    for (const f of ['lib/tm_lang.js', 'lib/tm_lang_sv.js', 'lib/tm_lang_en.js', 'lib/tm_i18n_common.js', 'lib/tm_henkilosto_i18n.js']) vm.runInContext(lueKuori(f), ctx);
     vm.runInContext([pura('function _tkKieli('), pura('function _seuraKieli('), pura('function _seuraT('), pura('function seuraLokalisoi(')].join('\n'), ctx);
     return { ctx, els };
   }

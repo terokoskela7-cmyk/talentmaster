@@ -543,6 +543,8 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_appcheck.js"></script>
 <script src="lib/tm_verkko.js"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_lang_sv.js"></script><script type="text/plain" data-tm-kielipaketti src="lib/tm_lang_en.js"></script>   <!-- erä (a): fi-sivu ei lataa; sv/en ladataan tarvittaessa -->
+<script>/* erä (a): tallennettu sv/en-kieli → paketti ladataan synkronisesti heti (kuten ennen jakoa: ei fi-hetkeä käynnistyskoodille); fi ei lataa mitään. Paketti on järjestysriippumaton (TM_LANG_PAKETIT). */(function(){try{var k=localStorage.getItem('tm_kieli');if(k==='sv'||k==='en'){var a=document.querySelectorAll('script[data-tm-kielipaketti]'),i,s;for(i=0;i<a.length;i++){s=a[i].getAttribute('src')||'';if(s.indexOf('tm_lang_'+k+'.js')>=0)document.write('<script src'+"='"+s+"'><\/script>");}}}catch(e){}})();</script>
 <script src="lib/tm_lib_i18n.js"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="lib/tm_phv_tila.js"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_kentta.js"></script>
@@ -765,6 +767,7 @@ const EX=[
 const body=document.getElementById('phBody');
 
 function draw(){
+  if (typeof tmLangValmis === 'function' && !tmLangValmis()) { tmLangLataa().then(function () { draw(); }); return; }   // erä (a): sv/en-haarukka ennen renderiä (ei fi-vilahdusta); fi → ei tee mitään
   const hideTabs=_sc==='pin'||_sc==='train'||_sc==='lataa';
   let html='';
   if(_sc==='lataa')      html=rLataa();

@@ -4,6 +4,7 @@
    Code EI kirjoita ruotsia (§0): arvot kopioidaan merkki merkiltä ja vienti VERIFIOIDAAN lataamalla kartat uudelleen. Idempotentti; virhe → ei kirjoiteta mitään. Ajo: node scripts/i18n_vie_sv_era54.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const { sopii, lataaSv, lisaaKarttaan, q } = require('./i18n_vie_sv_era53_19.cjs');
 const VK = require('./vientipohja_kieli.js');
@@ -11,7 +12,7 @@ const ROOT = path.join(__dirname, '..');
 const PALAUTUS = 'docs/i18n/sv_kaannoserae_54_palautus.json';
 
 function vie(opts) {
-  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], R = { lisatty: [], ohitettu: [] };
+  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => LL.lueTied(juuri, f), virheet = [], R = { lisatty: [], ohitettu: [] };
   const P = JSON.parse(lue(PALAUTUS)).osiot, common = lataaSv(lue('lib/tm_i18n_common.js'), 'TM_I18N_COMMON');
   let sLib = lue('lib/tm_lib_i18n.js'), sMa = lue('lib/tm_master_i18n.js'), sLang = lue('lib/tm_lang.js');
   const olLib = lataaSv(sLib, 'TM_LIB_I18N'), olMa = lataaSv(sMa, 'TM_MASTER_I18N');
@@ -59,8 +60,8 @@ function vie(opts) {
   if (virheet.length) return { virheet, lisatty: [], ohitettu: R.ohitettu, kirjoitettu: false };
   const n = libU.length + maU.length + langU.length + Object.keys(vpU).length;
   if (opts.kirjoita && n) {
-    fs.writeFileSync(path.join(juuri, 'lib/tm_lib_i18n.js'), sLib); fs.writeFileSync(path.join(juuri, 'lib/tm_master_i18n.js'), sMa); fs.writeFileSync(path.join(juuri, 'lib/tm_lang.js'), sLang);
-    Object.assign(svNyk.tekstit, vpU); fs.writeFileSync(path.join(juuri, 'scripts/vientipohja_sv.json'), JSON.stringify(svNyk, null, 1) + '\n');
+    LL.kt(juuri, 'lib/tm_lib_i18n.js', sLib); LL.kt(juuri, 'lib/tm_master_i18n.js', sMa); LL.kt(juuri, 'lib/tm_lang.js', sLang);
+    Object.assign(svNyk.tekstit, vpU); LL.kt(juuri, 'scripts/vientipohja_sv.json', JSON.stringify(svNyk, null, 1) + '\n');
   }
   return { virheet, lisatty: n, ohitettu: R.ohitettu, kirjoitettu: !!(opts.kirjoita && n), lib: libU.length, master: maU.length, tm_lang: langU.length, vientipohja: Object.keys(vpU).length };
 }

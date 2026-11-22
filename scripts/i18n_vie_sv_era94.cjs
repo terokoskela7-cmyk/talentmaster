@@ -8,6 +8,7 @@
    Idempotentti; virhe → ei kirjoiteta mitään. Ajo: node scripts/i18n_vie_sv_era94.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const vm = require('vm');
 const { sopii, lataaSv, lisaaKarttaan, q } = require('./i18n_vie_sv_era53_19.cjs');
@@ -36,7 +37,7 @@ function lisaaRiville(src, alku, loppu, ankkuriAlku, lisays) {
 }
 
 function vie(opts) {
-  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [];
+  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => LL.lueTied(juuri, f), virheet = [], ohitettu = [];
   const P = JSON.parse(lue(PALAUTUS)).osiot || {}, G = JSON.parse(lue(LAHETYS)).osiot || {};
   const s = { lang: lue(F.lang), he: lue(F.he), lib: lue(F.lib), sp: lue(F.sp) };
   const L = lataaLang(s.lang), HE = lataaSv(s.he, 'TM_HENKILOSTO_I18N'), LIB = lataaSv(s.lib, 'TM_LIB_I18N'), SP = lataaTekstit(s.sp);
@@ -95,7 +96,7 @@ function vie(opts) {
   if (s.lang.split('\n').length !== lue(F.lang).split('\n').length || s.lib.split('\n').length !== lue(F.lib).split('\n').length) virheet.push('tm_lang/tm_lib_i18n: rivimäärä muuttui (rivikatto)');
   if (virheet.length) return { virheet, lisatty: 0, ohitettu, kirjoitettu: false };
   const n = u.lang.length + u.he.length + u.lib.length + u.sp.length;
-  if (opts.kirjoita && n) for (const k of Object.keys(u)) if (u[k].length) fs.writeFileSync(path.join(juuri, F[k]), s[k]);
+  if (opts.kirjoita && n) for (const k of Object.keys(u)) if (u[k].length) LL.kt(juuri, F[k], s[k]);
   return { virheet, lisatty: n, tmLang: u.lang.length, henkilosto: u.he.length, lib: u.lib.length, sahkoposti: u.sp.length, ohitettu, kirjoitettu: !!(opts.kirjoita && n) };
 }
 module.exports = { vie, PALAUTUS };

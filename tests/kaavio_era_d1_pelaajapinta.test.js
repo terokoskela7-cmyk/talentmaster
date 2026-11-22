@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
+import LL from '../scripts/lang_lahde.cjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const require_ = createRequire(import.meta.url);
@@ -56,7 +57,7 @@ function pelaajaCtx(pelaaja, kaaviot, kieli) {
   const LANG = (() => {
     const sb = { window: {}, console, localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} } };
     vm.createContext(sb);
-    vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_lang.js'), 'utf8'), sb);
+    vm.runInContext(LL.lue(ROOT), sb);
     return sb.window.TM_LANG || sb.TM_LANG;
   })();
 

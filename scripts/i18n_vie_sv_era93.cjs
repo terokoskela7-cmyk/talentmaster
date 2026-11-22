@@ -6,6 +6,7 @@
    Idempotentti; virhe → ei kirjoiteta mitään. Ajo: node scripts/i18n_vie_sv_era93.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const vm = require('vm');
 const { sopii, lataaSv, lisaaKarttaan, q } = require('./i18n_vie_sv_era53_19.cjs');
@@ -20,7 +21,7 @@ function lataaLang(src) {
 }
 
 function vie(opts) {
-  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [];
+  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => LL.lueTied(juuri, f), virheet = [], ohitettu = [];
   const P = JSON.parse(lue(PALAUTUS)).osiot || {}, G = JSON.parse(lue(LAHETYS)).osiot || {};
   let sLang = lue(F_LANG), sHe = lue(F_HE);
   const L = lataaLang(sLang), HE = lataaSv(sHe, 'TM_HENKILOSTO_I18N'), uLang = [], uHe = [];
@@ -52,7 +53,7 @@ function vie(opts) {
   for (const [k, sv] of uHe) if (vH[k] !== sv) virheet.push('verifiointi henkilosto ' + k);
   if (virheet.length) return { virheet, lisatty: 0, ohitettu, kirjoitettu: false };
   const n = uLang.length + uHe.length;
-  if (opts.kirjoita && n) { if (uLang.length) fs.writeFileSync(path.join(juuri, F_LANG), sLang); if (uHe.length) fs.writeFileSync(path.join(juuri, F_HE), sHe); }
+  if (opts.kirjoita && n) { if (uLang.length) LL.kt(juuri, F_LANG, sLang); if (uHe.length) LL.kt(juuri, F_HE, sHe); }
   return { virheet, lisatty: n, tmLang: uLang.length, henkilosto: uHe.length, ohitettu, kirjoitettu: !!(opts.kirjoita && n) };
 }
 module.exports = { vie, PALAUTUS };

@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import vm from 'vm';
 import { createRequire as _kuoriReq } from 'module';
+import LL from '../scripts/lang_lahde.cjs';
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const SEURA = lueKuori('TalentMaster_Seura.html');
@@ -148,7 +149,7 @@ describe('Harmaa tila (PM 3.11.): lib/tm_laskutus_esto.js', async () => {
   it('Huoltajakutsu-sivu: uuden linkin pyynnön esto → ei_kaytossa-teksti; tm_lang fi/sv/en (sv = PM:n teksti)', async () => {
     const H = fs.readFileSync('TalentMaster_Huoltajakutsu.html', 'utf8');
     expect(H).toMatch(/e\.details\.syy === 'joukkue_passiivinen'\) nayta\('', T\('ei_kaytossa'\)\)/);
-    const L = fs.readFileSync('lib/tm_lang.js', 'utf8');
+    const L = LL.lue('.');
     expect(L).toContain("ei_kaytossa: '" + FI + "'"); expect(L).toContain("ei_kaytossa: '" + SV + "'"); expect(L).toContain("kortti_ei_kaytossa: '" + SV + "'");
     expect((L.match(/ei_kaytossa: /g) || []).length).toBe(6);
   });

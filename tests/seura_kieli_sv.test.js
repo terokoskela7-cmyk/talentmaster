@@ -11,6 +11,7 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { createRequire as _kuoriReq } from 'module';
+import LL from '../scripts/lang_lahde.cjs';
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -27,7 +28,7 @@ function sivu({ seuraKieli, aktiivinenKieli }) {
     document: { documentElement: {} }, navigator: { language: 'fi' }, String, Object, Array, RegExp };
   ctx.window = ctx;
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(lue('lib/tm_lang.js'), ctx);
+  vm.runInContext(LL.lue(ROOT), ctx);
   if (aktiivinenKieli && typeof ctx.tmAsetaKieli === 'function') ctx.tmAsetaKieli(aktiivinenKieli, true);
   ctx.tila = { seuraId: 'sibbovargarna', seuraKieli };
   vm.runInContext([pura('function _tkKieli(avain, kieli, fi, muuttujat) {'), pura('function _tk(avain, fi, muuttujat) {'), pura('function _pinKortitHtml(kortit) {')].join('\n'), ctx);
