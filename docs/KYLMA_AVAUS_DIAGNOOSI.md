@@ -229,3 +229,26 @@ Syy: `_paivitaKaikkiNakymat` kutsuu `renderSeason`ia ennen kuin laiska `lib/tm_e
 **Testit:** (a) deploy-rakenne: boot ennen kaikkia lib-skriptejä ja pääskriptiä, init/aktivointi vain boot-tiedostossa, `_auth`/`_db` vain kerran; (b) selain (deploy-muoto): `typeof _db/_auth` DCL:ssä, ei ReferenceErroria, App Check kerran per dokumentti (L7), login-tynkien vapautus; (c) EI HUKKAA -regressio: käänteismuunnos = lähde; (d) QG-2: `?v` boot-tiedostolle, `tarkistaJulkaisu`.
 **Rollback:** `LYKKAYS`-sääntöön yksi lippu (boot pois → vaiheen 2 muoto); ei datan/rules-muutoksia.
 **Avoimet:** (1) kuuluuko `tm_kieli_paketit`/`tm_istunto` bootiin vai pääskriptiin (kielipaketti odotetaan `onAuthStateChanged`issa — todennäköisesti jää pääskriptiin); (2) K1b-päätös (näytetäänkö lomake ennen auth-tilaa) — vaikuttaa FCP:hen, ei init_ms:ään.
+
+## 14. A/B 22.11.2026 (#1315 boot ensin): puhelinajo "ei kirjaudu" — diagnoosi (vain diagnoosi + mittausvartijat)
+
+**Tulos jonka piti selittyä:** `ab_2026-11-22T07-56-42` (3 kierrosta × 3 toistoa, Master): B (PR #1315) puhelinprofiililla 9/9 avausta: 0 lukua, 0,11 MB, `kirjautunut=false`, "Firestore-instrumentointi ei kiinnittynyt". Työpöytä toimi (121 lukua). #1315 suljettu, ei mergetty (haara `perf/master-boot-ensin` säilytetty).
+
+**Syy 1 (varmistettu datasta): mittari päätti avauksen ennen kuin sivun skriptit ehtivät ajaa — SDK ei ollut "lataamatta", se oli vielä matkalla.**
+`mittaaAvaus` lopettaa kun `fcp != null` ∧ avoimia Firestore-lukuja 0 ∧ `laskeInteraktiivinen` (2 s ikkunassa ei pitkiä tehtäviä). Slow 4G (200 kt/s) + CPU 4×: B:n FCP tulee 0,45 s kohdalla (shell piirtyy, `defer`-skriptit vielä latauksessa), sen jälkeen 2 s ei yhtään pitkää tehtävää, koska CPU odottaa verkkoa → "rauhoittunut" hetkellä FCP, **tti_ms = fcp_ms = 464** (9/9), silmukka päättyy ~2,5 s kohdalla. Todisteet samassa JSONissa:
+- `tti_ms == fcp_ms` kaikissa 9 B-puhelinavauksessa; `merkit` ilman `dash_nakyy`/`auth_odottaa_pois`; `ajat.auth_haku = null`, `tm_lang = null`, `firestore_ensimmainen = null`.
+- Skriptejä koodattuna vain 77 kt / 140 pyyntöä (Script-ryhmä), `tm_master_alku.js` ja `tm_sentry.js` 0 tavua (kesken); `tm_master_boot.js` 428 t ehti. Firestore-compat-SDK ei ollut ehtinyt ajaa → `firebase.firestore`-nimiavaruutta ei vielä ollut → `kiinnitetty=false`.
+- A (main) puhelimella: FCP = `dash_nakyy` ≈ 9,6 s eli FCP tuli vasta kun kaikki oli ajettu → sama sääntö ei laukea ennen aikojaan. Työpöydällä lataus on nopea ja CPU-työ osuu 2 s ikkunaan → B näyttää oikeat luvut.
+→ "Firebase compat-SDK ei lataudu boot-versiossa" EI pidä: tuotantosivu ei rikkoutunut, mittarin lopetusehto vain olettaa että FCP jälkeinen hiljaisuus = valmis. Boot-ensin-muutos (shell piirtyy ennen skriptejä) paljasti vian; se ei sitä aiheuttanut. Paikallinen malli (`kylma_aikajana.js --deploy`, sama puhelinprofiili) näytti B:n kirjautumisnäkymän 9,0 s kohdalla ja `init_ms` 2,05 s — sivu toimii.
+
+**Syy 2 (varmistettu datasta, todennäköisesti isompi kuin syy 1): A ja B eivät olleet samaa deploy-muotoa.**
+A:n Document = 196 kt br / 902 kt purettu ja resurssilistassa EI ole `tm_master_main.js`, `tm_master_alku.js`, `tm_sentry.js` → A:n kanavalla pääskripti oli yhä inline HTML:ssä (deploy-muunnos #1307/#1313 ei ollut ajettu). B:n Document = 34 kt br / 156 kt purettu (+ irrotetut tiedostot). Siksi A:n FCP on 1,9 s (työpöytä) / 9,7 s (puhelin) — inline-skripti estää ensipiirron — ja B:n 0,26 / 0,46 s. "Vain FCP parani" ei siis ole B:n ansio vaan vertailu inline- vs. irrotettu-muotoon; TTI-ero työpöydällä (−53 ms, kohinaa) on silti B vs. A samoilla ehdoilla vain jos A olisi ollut deployattu muunnoksen läpi. **Tämän A/B:n mitään lukua ei voi käyttää boot-ensin-päätökseen.** (Päätelmä resurssilistasta: `top`-lista on kokojärjestyksessä, ~750 kt:n pääskripti puuttuisi A:sta jos se olisi tiedosto; ei vahvistettu A-kanavan HTML:stä itsestään — kanava voi olla jo poistunut.)
+
+**Vartijat (tämä PR, `scripts/kuorma/`):**
+1. `mittaa_sivut.js` `mittaaAvaus`: lopetus vasta kun yhtään Script/Document/Stylesheet-latausta ei ole kesken (`mittaus_lib.odottavatLataukset`; Fetch/WebSocket ei lasketa, Firestore Listen pysyy auki). Selainregressiotesti: hidas (3 s) skripti → mittaus ei pääty ennen sen ajoa.
+2. Kirjautuneella tilalla (`odotaKirjautunut`) `kirjautunut=false` avauksen lopussa = virhe `mittaus ei valmis` → `main` keskeyttää (exit 1) kuten uudelleenohjausvartija; **ei raportoida nollalukuja hiljaa**.
+3. `ab_vuorotellen.js`: jos A:n ja B:n dokumentin purettu koko samalla profiilla eroaa > 2× (`dokumenttiKokoVaroitus`), tulostuu ⚠ "kanavat eivät ole samaa deploy-muotoa". Tämä olisi napannut Syyn 2 (5,8×) ensimmäisellä kierroksella.
+
+**Oppi (sama virhe ei saa toistua):** (a) A/B-mittarin "rauhoittunut"-ehto ei saa luottaa CPU-hiljaisuuteen hitaalla verkolla; (b) ennen A/B:tä varmista että molemmat kanavat ovat saman deploy-muunnoksen tuotos (HTML-koko, `tm_master_main.js` löytyy molemmista) — mittari varoittaa nyt; (c) 0 lukua + `tti == fcp` on aina mittausvika, ei tulos.
+
+**Seuraavat:** boot-ensin (#1315) on mitattava uudelleen vasta kun (1) tämä vartija on mainissa ja (2) A ja B on deployattu samalla muunnoksella. Ei vielä päätöstä boot-ensin-muutoksen kohtalosta.
