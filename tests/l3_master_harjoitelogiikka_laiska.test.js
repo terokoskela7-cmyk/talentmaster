@@ -21,7 +21,7 @@ describe('L3 · Master: harjoitelogiikka_v4 text/plain, ei eager', () => {
   });
   it('portit ennallaan (L3 ei lisää eikä poista porttia: sama lataus-trigger kuin L2:lla)', () => {
     const m = /<script src="lib\/tm_laiska_kirjastot\.js" data-portit="([^"]+)"><\/script>/.exec(HTML);
-    expect(m[1].split(',')).toEqual(['setWs!koti', 'openDrill', '_mAvaaPelaajaVanha=true', 'calEventClick', '_avaaD3Arvio', 'avaaKaaviopankki', 'avaaHarjoitusarviointi', 'avaaValmentajaKehitys', 'avaaCoachProfiili']);
+    expect(m[1].split(',')).toEqual(['setWs!koti', 'openDrill', '_mAvaaPelaajaVanha=true', 'calEventClick', '_avaaD3Arvio', '+avaaKaaviopankki', '+_kaavioUusiLomake', '+tmKaavioLiitaHavaintoon', '+tmPhAvaaValinta', 'avaaHarjoitusarviointi', 'avaaValmentajaKehitys', 'avaaCoachProfiili']);
   });
   it('YKSI ajonaikainen kuluttaja: eager-skriptit + Master-inline eivät kutsu harjoitelogiikka-globaaleja paitsi tm_naytto_lohkot.js:n typeof-vartioitu Resepti-lohko (kommentit ja kirjastojen omat nimet sallittu)', () => {
     const eager = [...HTML.matchAll(/<script src="((?:lib\/)?[A-Za-z0-9_.-]+\.js)"/g)].map((m) => m[1]).filter((f) => f !== 'harjoitelogiikka_v4.js');

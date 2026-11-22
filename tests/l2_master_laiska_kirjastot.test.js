@@ -19,9 +19,9 @@ describe('L2 · Master: kirjastot text/plain, ei eager', () => {
   it('loader ladataan ennen inline-skriptejä; portit kattavat setWs (ei Kotia), openDrill, vanhan pelaajaprofiilin, tapahtuman ja D3-arvion', () => {
     const m = /<script src="lib\/tm_laiska_kirjastot\.js" data-portit="([^"]+)"><\/script>/.exec(HTML);
     expect(m).toBeTruthy();
-    expect(m[1].split(',')).toEqual(['setWs!koti', 'openDrill', '_mAvaaPelaajaVanha=true', 'calEventClick', '_avaaD3Arvio', 'avaaKaaviopankki', 'avaaHarjoitusarviointi', 'avaaValmentajaKehitys', 'avaaCoachProfiili']);
+    expect(m[1].split(',')).toEqual(['setWs!koti', 'openDrill', '_mAvaaPelaajaVanha=true', 'calEventClick', '_avaaD3Arvio', '+avaaKaaviopankki', '+_kaavioUusiLomake', '+tmKaavioLiitaHavaintoon', '+tmPhAvaaValinta', 'avaaHarjoitusarviointi', 'avaaValmentajaKehitys', 'avaaCoachProfiili']);
     expect(HTML.indexOf('lib/tm_laiska_kirjastot.js')).toBeLessThan(HTML.indexOf('data-tm-laiska src='));
-    m[1].split(',').forEach((p) => { const n = p.replace(/[!=].*/, ''), K = HTML + readFileSync(new URL('../lib/tm_kaavio_ui.js', import.meta.url), 'utf8');
+    m[1].split(',').forEach((p) => { const n = p.replace(/^\+/, '').replace(/[!=].*/, ''), K = HTML + readFileSync(new URL('../lib/tm_kaavio_ui.js', import.meta.url), 'utf8') + readFileSync(new URL('../lib/tm_pelihavainto_valinta.js', import.meta.url), 'utf8');
       expect(K, n).toMatch(new RegExp('\\n(?:async )?function ' + n + '\\(|window\\.' + n + ' = '));   // portti vaatii globaalin funktion (declaraatio tai window-sijoitus)
     });
   });

@@ -707,7 +707,7 @@ describe('(12) yksi sisäänkäynti — kaikki reitit jaetun funktion kautta (§
 
   it('molemmat sovellukset lataavat jaetun kirjaston', () => {
     expect(VP).toMatch(/<script src="lib\/tm_pelihavainto_valinta\.js/);
-    expect(MASTER).toMatch(/<script src="lib\/tm_pelihavainto_valinta\.js/);
+    expect(MASTER).toMatch(/<script (?:type="text\/plain" data-tm-laiska )?src="lib\/tm_pelihavainto_valinta\.js/);   // Master: laiska (Erä 1, #tynkä +tmPhAvaaValinta)
   });
 
   /* AJETTU todiste, ei grep: `if (false) tmPhAvaaValinta(...)` jättäisi merkkijonon paikalleen
