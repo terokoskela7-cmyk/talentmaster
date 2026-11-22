@@ -120,6 +120,23 @@ function odottavatLataukset(pyynnot) {
   return n;
 }
 const MITTAUS_EI_VALMIS = 'mittaus ei valmis';
+const MITTAUS_TTI_ENNEN_AUTHIA = 'mittaus virheellinen';
+
+/** Kirjautumisen alaraja (ms navigaation alusta) yhdestä mittaustilasta. A/B 22.11. puhelin: Firebase palauttaa currentUserin IndexedDB:stä heti (~0,3 s), vaikka auth-haku (securetoken) alkaa vasta ~8 s:ssa
+ *  → `kirjautunut` yksin ei kerro istunnon valmistumista. Alaraja = vasta sivun oman odotusluokan poistumisen merkki (auth_odottaa_pois); odotusluokka vielä näkyvissä → null (ei vielä). */
+function kirjautumisAlaraja(tila) {
+  if (!tila || tila.kirjautunut !== true) return null;
+  const mk = tila.merkit || {};
+  if (typeof mk.auth_odottaa_pois === 'number') return Math.min(tila.nyt, mk.auth_odottaa_pois);
+  return mk._nahtyOdotus ? null : tila.nyt;
+}
+/** Vartija: kirjautumista odottaneen avauksen TTI ei saa alittaa auth-haun alkua, ja kirjautunut=true. → virheteksti tai null (ei hiljaista FCP-arvoa). */
+function tarkistaTtiAuthiin(o) {
+  if (!o || o.odotaKirjautunut !== true) return null;
+  if (o.kirjautunut !== true) return MITTAUS_TTI_ENNEN_AUTHIA + ': kirjautunut != true — TTI ei kuvaa avausta';
+  if (typeof o.tti === 'number' && typeof o.authAlku === 'number' && o.tti < o.authAlku) return MITTAUS_TTI_ENNEN_AUTHIA + ': interaktiivinen ' + o.tti + ' ms < auth-haun alku ' + o.authAlku + ' ms — TTI laskettu ennen kirjautumista';
+  return null;
+}
 
 /** A/B-vartija: A:n ja B:n dokumentin purettu koko samalla profiililla. Jos suhde > 2 tai < 0,5, kanavat eivät ole samaa deploy-muotoa (esim. toisessa pääskripti inline, toisessa irrotettuna) → vertailu on sekoittunut.
  *  koot = { a, b } (tavua) → null | varoitusteksti. */
@@ -129,4 +146,4 @@ function dokumenttiKokoVaroitus(koot) {
   return 'Dokumentin koko eroaa ' + (r > 1 ? r.toFixed(1) + '× (A suurempi)' : (1 / r).toFixed(1) + '× (B suurempi)') + ' (A ' + Math.round(a / 1024) + ' kt, B ' + Math.round(b / 1024) + ' kt purettuna) — kanavat eivät ole samaa deploy-muotoa; A/B-vertailu on sekoittunut. Deployaa molemmat saman deploy-muunnoksen (versiotiiviste) läpi.';
 }
 
-module.exports = { odottavatLataukset, MITTAUS_EI_VALMIS, dokumenttiKokoVaroitus, RAJAT, rajaAika, rajaLuvut, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };
+module.exports = { odottavatLataukset, MITTAUS_EI_VALMIS, MITTAUS_TTI_ENNEN_AUTHIA, kirjautumisAlaraja, tarkistaTtiAuthiin, dokumenttiKokoVaroitus, RAJAT, rajaAika, rajaLuvut, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };

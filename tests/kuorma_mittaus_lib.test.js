@@ -246,4 +246,19 @@ describe('mittaus_raportti: P11-arviointi ja ensimmäiseksi pettävä', () => {
     expect(M.dokumenttiKokoVaroitus({ a: 155854, b: 160000 })).toBeNull(); expect(M.dokumenttiKokoVaroitus({})).toBeNull();
     expect(M.MITTAUS_EI_VALMIS).toBe('mittaus ei valmis');
   });
+  it('puhelinprofiilin aikajana (A/B 22.11.: FCP 448 < auth-haku 7889 ms): currentUser heti → alaraja EI 0,3 s; vasta odotusluokan poistuminen (10270 ms); TTI ≥ auth-haun alku, muuten rivi virheelliseksi', () => {
+    const FCP = 448, AUTH = 7889;
+    const varhain = { kirjautunut: true, nyt: 350, merkit: { _nahtyOdotus: true } };   // IndexedDB-istunto palautettu, sivu vielä tm-auth-odottaa
+    expect(M.kirjautumisAlaraja(varhain)).toBeNull();   // ei saa palauttaa 350 (vanha: alaraja = tila.nyt → TTI = FCP 448)
+    expect(M.kirjautumisAlaraja({ kirjautunut: false, nyt: 11000, merkit: { auth_odottaa_pois: 10270 } })).toBeNull();
+    const myohaan = { kirjautunut: true, nyt: 10400, merkit: { _nahtyOdotus: true, auth_odottaa_pois: 10270 } }, alaraja = M.kirjautumisAlaraja(myohaan);
+    expect(alaraja).toBe(10270);
+    const tti = M.laskeInteraktiivinen({ fcp: FCP, alaraja, varit: [], ikkuna: 2000, havaintoLoppu: 13000 });
+    expect(tti).toBeGreaterThanOrEqual(AUTH); expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: true, kirjautunut: true, tti, authAlku: AUTH })).toBeNull();
+    expect(M.kirjautumisAlaraja({ kirjautunut: true, nyt: 900, merkit: {} })).toBe(900);   // sivu ilman odotusluokkaa (ei nähty) → entinen käytös
+    // vanha virhe: TTI = FCP 448 < auth 7889 → virheellinen rivi, ei hiljaista arvoa
+    expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: true, kirjautunut: true, tti: 448, authAlku: AUTH })).toMatch(new RegExp('^' + M.MITTAUS_TTI_ENNEN_AUTHIA + '.*448.*7889'));
+    expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: true, kirjautunut: false, tti: 12000, authAlku: AUTH })).toMatch(/kirjautunut != true/);
+    expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: false, kirjautunut: false, tti: 448, authAlku: AUTH })).toBeNull();   // kirjautumatonta sivua ei vaadita
+  });
 });

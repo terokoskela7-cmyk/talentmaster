@@ -7,6 +7,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const S = require('../scripts/kuorma/mittaa_sivut.js');
 const { instrumentointi } = require('../scripts/kuorma/mittaus_instrumentointi.js');
+const M = require('../scripts/kuorma/mittaus_lib.js');
 const CHROME = [process.env.TM_CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean).find((p) => existsSync(p));
 const FAKE_SDK = `
 window.firebase = { apps: [], app: function () {} };
@@ -71,6 +72,19 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('mittaus · se
       const r = await S.mittaaAvaus(page, cdp, 'http://127.0.0.1:' + portti + '/', { ikkuna: 600, aikaraja: 20000, odotaKirjautunut: true });
       expect(r.virhe).toBeFalsy(); expect(r.kirjautunut).toBe(true);
       expect(r.tti_ms).toBeGreaterThanOrEqual(2800);   // ilman alarajaa TTI = FCP (~0,1 s) ja silmukka päättyi ennen kirjautumista → "kirjautunut=false"
+      await ctx.close();
+    } finally { await selain.close(); palvelin.close(); }
+  }, 60000);
+  it('odotusluokka ei koskaan poistu (kirjautuminen jumissa, currentUser kyllä) → mittaus ei odota loputtomiin: aikarajan jälkeen rivi saa virhe-merkinnän, ei hiljaista TTI-arvoa', async () => {
+    const SIVU_J = '<!doctype html><html class="tm-auth-odottaa"><meta charset="utf-8"><title>j</title><h1>Ensipiirto</h1><script>setTimeout(function () { window.__u = { uid: "u1" }; window.firebase = window.firebase || {}; window.firebase.auth = function () { return { get currentUser() { return window.__u; } }; }; }, 300);</script>';
+    const palvelin = createServer((rq, rs) => { rs.setHeader('content-type', 'text/html'); rs.end(SIVU_J); });
+    await new Promise((r) => palvelin.listen(0, '127.0.0.1', r)); const portti = palvelin.address().port;
+    const { chromium } = require('playwright-core'), selain = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    try {
+      const ctx = await selain.newContext(), page = await ctx.newPage(); await ctx.addInitScript(instrumentointi, { token: 'T' }); const cdp = await ctx.newCDPSession(page); await cdp.send('Network.enable');
+      const t0 = Date.now(), r = await S.mittaaAvaus(page, cdp, 'http://127.0.0.1:' + portti + '/', { ikkuna: 600, aikaraja: 4000, odotaKirjautunut: true });
+      expect(Date.now() - t0).toBeLessThan(15000);
+      expect(r.virhe).toMatch(new RegExp('^' + M.MITTAUS_TTI_ENNEN_AUTHIA + ': istunto ei valmistunut aikarajassa'));
       await ctx.close();
     } finally { await selain.close(); palvelin.close(); }
   }, 60000);
