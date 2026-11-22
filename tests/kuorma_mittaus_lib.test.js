@@ -26,6 +26,7 @@ describe('P11-rajat ja tilastot', () => {
 });
 
 describe('laskeInteraktiivinen (TTI-approksimaatio)', () => {
+  it('alaraja (kirjautumishetki) > FCP → t ≥ alaraja, ei FCP (hidas verkko: kuori ennen kirjautumista)', () => expect(M.laskeInteraktiivinen({ fcp: 400, alaraja: 9000, varit: [], ikkuna: 2000, havaintoLoppu: 12000 })).toBe(9000));
   it('rauhallinen heti FCP:n jälkeen → t = FCP', () => expect(M.laskeInteraktiivinen({ fcp: 800, varit: [], ikkuna: 2000, havaintoLoppu: 4000 })).toBe(800));
   it('pitkä tehtävä + avoin luku siirtävät: t = viimeisen kiireisen jakson loppu ennen ≥ 2 s hiljaisuutta', () => {
     const o = { fcp: 500, varit: [[600, 900], [1200, 3100], [3200, 3300]], ikkuna: 2000, havaintoLoppu: 6000 };
