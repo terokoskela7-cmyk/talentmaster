@@ -61,6 +61,19 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('mittaus · se
       await ctx.close();
     } finally { await selain.close(); palvelin.close(); }
   }, 60000);
+  it('A/B 22.11. (kuorma-b puhelin): kirjautuminen valmistuu vasta 3 s FCP:n jälkeen, kun kaikki lataukset on tehty ja CPU joutilas → mittaus odottaa kirjautumista, TTI ≥ kirjautumisen hetki (ei FCP)', async () => {
+    const SIVU_K = '<!doctype html><meta charset="utf-8"><title>k</title><h1>Ensipiirto</h1><script src="/sdk.js" defer></script><script>setTimeout(function () { window.__u = { uid: "u1" }; window.firebase = window.firebase || {}; window.firebase.auth = function () { return { get currentUser() { return window.__u; } }; }; }, 3000);</script>';
+    const palvelin = createServer((rq, rs) => { if (rq.url === '/sdk.js') { rs.setHeader('content-type', 'text/javascript'); rs.end(FAKE_SDK); } else { rs.setHeader('content-type', 'text/html'); rs.end(SIVU_K); } });
+    await new Promise((r) => palvelin.listen(0, '127.0.0.1', r)); const portti = palvelin.address().port;
+    const { chromium } = require('playwright-core'), selain = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    try {
+      const ctx = await selain.newContext(), page = await ctx.newPage(); await ctx.addInitScript(instrumentointi, { token: 'T' }); const cdp = await ctx.newCDPSession(page); await cdp.send('Network.enable');
+      const r = await S.mittaaAvaus(page, cdp, 'http://127.0.0.1:' + portti + '/', { ikkuna: 600, aikaraja: 20000, odotaKirjautunut: true });
+      expect(r.virhe).toBeFalsy(); expect(r.kirjautunut).toBe(true);
+      expect(r.tti_ms).toBeGreaterThanOrEqual(2800);   // ilman alarajaa TTI = FCP (~0,1 s) ja silmukka päättyi ennen kirjautumista → "kirjautunut=false"
+      await ctx.close();
+    } finally { await selain.close(); palvelin.close(); }
+  }, 60000);
   it('--erittely: lukemat polku (id → *) ← kutsujafunktio, [lista]-konsoliviesti kerätään; ilman erittely-valintaa kenttiä ei kerry', async () => {
     const SIVU_E = `<!doctype html><meta charset="utf-8"><title>e</title><h1>e</h1><script src="/sdk.js"></script><script>
  var fs = firebase.firestore;

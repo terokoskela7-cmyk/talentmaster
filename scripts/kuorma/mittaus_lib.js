@@ -36,8 +36,11 @@ function tilasto(arvot) {
 /** TTI-approksimaatio (Lighthouse-tyyli, lyhyt ikkuna): aikaisin hetki t ≥ fcp, josta eteenpäin ikkunan (ms) ajan ei ole yhtään "kiireistä" jaksoa
  *  (pitkä tehtävä > 50 ms tai avoin Firestore-luku). varit = [[alku, loppu], …] (ms navigaation alusta); havaintoLoppu = viimeisin havaintohetki. → t tai null (ei rauhoittunut). */
 function laskeInteraktiivinen(o) {
-  const fcp = o && o.fcp, ikkuna = (o && o.ikkuna) || 2000, loppu = o && o.havaintoLoppu;
-  if (typeof fcp !== 'number' || typeof loppu !== 'number') return null;
+  const fcp0 = o && o.fcp, ikkuna = (o && o.ikkuna) || 2000, loppu = o && o.havaintoLoppu;
+  if (typeof fcp0 !== 'number' || typeof loppu !== 'number') return null;
+  /* alaraja (A/B 22.11. kuorma-b): hitaalla verkolla FCP (kuori) tulee ennen kirjautumista; kun CPU odottaa verkkoa, "rauhoittunut" laukeaa jo FCP:n hetkellä (TTI 0,4–0,5 s, 121 lukua).
+     alaraja = hetki, jolloin sivu oli kirjautunut/auth valmis → TTI ei voi olla sitä aiempi. */
+  const fcp = typeof (o && o.alaraja) === 'number' ? Math.max(fcp0, o.alaraja) : fcp0;
   const varit = ((o && o.varit) || []).filter((v) => v && v[1] > fcp).map((v) => [Math.max(v[0], fcp), v[1]]).sort((a, b) => a[0] - b[0]);
   let t = fcp;
   for (const [a, b] of varit) { if (a - t >= ikkuna) break; if (b > t) t = b; }   // seuraava kiireinen jakso alkaa vasta ikkunan jälkeen → t kelpaa
