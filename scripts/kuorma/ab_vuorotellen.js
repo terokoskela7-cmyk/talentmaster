@@ -135,6 +135,10 @@ async function main(argv, deps) {
       if (koodi !== 0) { virhe('mittaa_sivut.js päättyi koodiin ' + koodi + ' (kierros ' + (k + 1) + ', ' + x + ') — A/B keskeytetty; aiemmat kierrokset: ' + ulos); return koodi; }
       try { kr[x] = JSON.parse(fs.readFileSync(tiedosto, 'utf8')); } catch (e) { virhe('Tulostiedostoa ei voitu lukea: ' + tiedosto); return 1; }
     }
+    for (const m of ((kr.A && kr.A.mittaukset) || [])) {   // A/B-vartija: sama deploy-muoto molemmissa kanavissa (HTML-koko)
+      const mb = ((kr.B && kr.B.mittaukset) || []).find((x) => x.sivu === m.sivu && x.profiili === m.profiili), dok = (x) => x && x.resurssit_kylma && x.resurssit_kylma.ryhmat && x.resurssit_kylma.ryhmat.Document && x.resurssit_kylma.ryhmat.Document.purettu;
+      const w = M.dokumenttiKokoVaroitus({ a: dok(m), b: dok(mb) }); if (w) virhe('  ⚠ ' + m.sivu + ' · ' + m.profiili + ': ' + w);
+    }
     tulokset.push(kr);
   }
   const yht = yhdista(tulokset), teksti = raporttiTeksti(yht, o);

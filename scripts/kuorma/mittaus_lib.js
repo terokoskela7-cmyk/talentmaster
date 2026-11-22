@@ -111,4 +111,19 @@ function parsiFunktioLoki(rivit) {
   return ulos;
 }
 
-module.exports = { RAJAT, rajaAika, rajaLuvut, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };
+/** Mittausvartija (A/B 22.11., #1315): kesken olevien LATAUSTEN määrä (dokumentti, skripti, tyylitiedosto). Fetch/WebSocket jätetään pois — Firestore Listen-kanava pysyy auki koko avauksen. pyynnot = Map<id, { valmis, tyyppi }>. */
+function odottavatLataukset(pyynnot) {
+  let n = 0; pyynnot.forEach((p) => { if (p && !p.valmis && (p.tyyppi === 'Script' || p.tyyppi === 'Document' || p.tyyppi === 'Stylesheet')) n++; });
+  return n;
+}
+const MITTAUS_EI_VALMIS = 'mittaus ei valmis';
+
+/** A/B-vartija: A:n ja B:n dokumentin purettu koko samalla profiililla. Jos suhde > 2 tai < 0,5, kanavat eivät ole samaa deploy-muotoa (esim. toisessa pääskripti inline, toisessa irrotettuna) → vertailu on sekoittunut.
+ *  koot = { a, b } (tavua) → null | varoitusteksti. */
+function dokumenttiKokoVaroitus(koot) {
+  const a = koot && koot.a, b = koot && koot.b; if (!(a > 0) || !(b > 0)) return null;
+  const r = a / b; if (r <= 2 && r >= 0.5) return null;
+  return 'Dokumentin koko eroaa ' + (r > 1 ? r.toFixed(1) + '× (A suurempi)' : (1 / r).toFixed(1) + '× (B suurempi)') + ' (A ' + Math.round(a / 1024) + ' kt, B ' + Math.round(b / 1024) + ' kt purettuna) — kanavat eivät ole samaa deploy-muotoa; A/B-vertailu on sekoittunut. Deployaa molemmat saman deploy-muunnoksen (versiotiiviste) läpi.';
+}
+
+module.exports = { odottavatLataukset, MITTAUS_EI_VALMIS, dokumenttiKokoVaroitus, RAJAT, rajaAika, rajaLuvut, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };

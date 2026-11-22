@@ -236,4 +236,13 @@ describe('mittaus_raportti: P11-arviointi ja ensimmäiseksi pettävä', () => {
     expect(F.jobNimi('valvontaPaivittain')).toBe('firebase-schedule-valvontaPaivittain-europe-west1');
     expect(k.aja[0]).toBe('gcloud'); expect(k.aja[1]).toEqual(['scheduler', 'jobs', 'run', 'firebase-schedule-valvontaPaivittain-europe-west1', '--location=us-central1', '--project=talentmaster-staging']);
   });
+
+  it('A/B 22.11. (#1315) -vartijat: odottavatLataukset laskee vain Script/Document/Stylesheet; dokumenttiKokoVaroitus nappaa 5,8× koko-eron (A inline-pääskripti vs B irrotettu)', () => {
+    const m = new Map([[1, { valmis: false, tyyppi: 'Script' }], [2, { valmis: true, tyyppi: 'Script' }], [3, { valmis: false, tyyppi: 'Fetch' }], [4, { valmis: false, tyyppi: 'Document' }]]);
+    expect(M.odottavatLataukset(m)).toBe(2); expect(M.odottavatLataukset(new Map())).toBe(0);
+    expect(M.dokumenttiKokoVaroitus({ a: 902267, b: 155854 })).toMatch(/5\.8× \(A suurempi\)/);
+    expect(M.dokumenttiKokoVaroitus({ a: 155854, b: 902267 })).toMatch(/B suurempi/);
+    expect(M.dokumenttiKokoVaroitus({ a: 155854, b: 160000 })).toBeNull(); expect(M.dokumenttiKokoVaroitus({})).toBeNull();
+    expect(M.MITTAUS_EI_VALMIS).toBe('mittaus ei valmis');
+  });
 });

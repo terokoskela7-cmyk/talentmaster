@@ -94,11 +94,15 @@ async function mittaaAvaus(page, cdp, url, opt) {
   while (!virhe && Date.now() - alku < aikaraja) {
     await page.waitForTimeout(300);
     try { tila = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; return { fcp: m.fcp, varit: m.varit.slice(), avoimet: m.avoimet, nyt: performance.now() }; }); } catch (e) { tila = null; continue; }   // navigointi kesken
+    /* A/B 22.11. (#1315): hitaalla verkolla (Slow 4G) FCP tulee ennen skriptejä ja CPU on 2 s ajan joutilas, kun SDK:t/pääskripti vielä latautuvat → "rauhoittunut" FCP:n hetkellä (TTI = FCP, 0 lukua).
+       Ei päätetä ennen kuin dokumentti/skriptit/tyylit on ladattu (Fetch/WebSocket ei: Firestore Listen pysyy auki). */
+    if (M.odottavatLataukset(pyynnot) > 0) continue;
     if (tila && tila.fcp != null && tila.avoimet === 0 && M.laskeInteraktiivinen({ fcp: tila.fcp, varit: tila.varit, ikkuna, havaintoLoppu: tila.nyt }) != null) break;
   }
   let lopullinen = null;
   try { lopullinen = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {}   /* window._auth = Pelaaja_v7:n nimetty app 'tm-pelaaja' (ei oletusappia) */ let ajat = null; try { const R = performance.getEntriesByType('resource'), os = (re) => { const r = R.filter((x) => re.test(x.name)).sort((x, y) => x.startTime - y.startTime)[0]; return r ? [Math.round(r.startTime), Math.round(r.responseEnd)] : null; }; ajat = { appcheck_vaihto: os(/firebaseappcheck\.googleapis\.com/), auth_haku: os(/identitytoolkit|securetoken/), firestore_ensimmainen: os(/firestore\.googleapis\.com/), recaptcha: os(/recaptcha/), appcheck_token_valimuistissa: m.acValimuistissa, tm_lang: os(/\/lib\/tm_lang\.js/) }; } catch (e) {} return { merkit: m.merkit, ajat, fcp: m.fcp, varit: m.varit.slice(), luvut: m.luvut, erittely: m.erittely, dokTavut: m.dokTavut, dokEiMitattu: m.dokEiMitattu, yht: m.yht, kiinnitetty: m.kiinnitetty, virheet: m.virheet, kirjautunut: k, nyt: performance.now() }; }); } catch (e) { virhe = virhe || 'luku: ' + String(e && e.message).split('\n')[0]; }
   const lopullinenUrl = naytaUrl(page.url()), urlVirhe = opt && opt.odotettuTiedosto ? tarkistaLopullinenUrl(opt.odotettuTiedosto, page.url()) : null; if (urlVirhe && !virhe) virhe = urlVirhe;
+  if (!virhe && opt && opt.odotaKirjautunut && lopullinen && lopullinen.kirjautunut === false) virhe = M.MITTAUS_EI_VALMIS + ': sivu ei ehtinyt kirjautua mittausikkunassa (kirjautunut=false) — luvut/TTI eivät kuvaa avausta';
   kuuntelijat.forEach(([n, f]) => cdp.off && cdp.off(n, f)); if (opt && opt.erittely) page.off('console', konsoliKuuntelija);
   let tavut = wsTavut; pyynnot.forEach((p) => { tavut += p.valmis ? p.loppu : p.tavut; });
   if (!lopullinen) return { virhe: virhe || 'instrumentointi puuttuu', lopullinen_url: lopullinenUrl, tavut, resurssit: resurssiLista(pyynnot) };
@@ -194,9 +198,10 @@ async function main(argv, deps) {
           const ctx = await selain.newContext(Object.assign({}, prof.konteksti, tila ? { storageState: tila } : {})); await ctx.addInitScript(instrumentointi, { token, erittely: o.erittely });
           const page = await ctx.newPage(), cdp = await ctx.newCDPSession(page); await kuristus(cdp, prof);
           const kh = s.pelaajaHaku ? kohteet[s.rooli] : null; if (s.pelaajaHaku && !(kh && kh.pelaajaId)) { virhe('  mittauskohdetta (pelaaja) ei saatu — ' + sivuAvain + ' ei mitata ilman sitä.'); await ctx.close(); await selain.close(); return 1; }
-          const url = o.url + '/' + s.tiedosto + (kh ? '#pelaaja/' + encodeURIComponent(kh.pelaajaId) + '/tanaan' : ''), kylma = await mittaaAvaus(page, cdp, url, { erittely: o.erittely, odotettuTiedosto: s.tiedosto });
+          const url = o.url + '/' + s.tiedosto + (kh ? '#pelaaja/' + encodeURIComponent(kh.pelaajaId) + '/tanaan' : ''), kylma = await mittaaAvaus(page, cdp, url, { erittely: o.erittely, odotettuTiedosto: s.tiedosto, odotaKirjautunut: !!tila });
+          if (kylma.virhe && kylma.virhe.indexOf(M.MITTAUS_EI_VALMIS) === 0) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ': ' + kylma.virhe + ' — mittaus keskeytetty (ei raportoida nollalukuja).'); await ctx.close(); await selain.close(); return 1; }
           if (kylma.virhe && /^uudelleenohjaus/.test(kylma.virhe)) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ': ' + kylma.virhe + ' — mittaus keskeytetty (väärää sivua ei mitata).'); await ctx.close(); await selain.close(); return 1; }
-          const lampimasti = await mittaaAvaus(page, cdp, url, { odotettuTiedosto: s.tiedosto, uusiDokumentti: true });
+          const lampimasti = await mittaaAvaus(page, cdp, url, { odotettuTiedosto: s.tiedosto, uusiDokumentti: true, odotaKirjautunut: !!tila });
           if (lampimasti.virhe && /^uudelleenohjaus/.test(lampimasti.virhe)) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ' (lämmin): ' + lampimasti.virhe + ' — mittaus keskeytetty.'); await ctx.close(); await selain.close(); return 1; }
           if (i === 1) resKylma = resurssiYhteenveto(kylma.resurssit); delete kylma.resurssit; delete lampimasti.resurssit;   // JSON pysyy pienenä: erittely vain 1. kylmästä
           kylmat.push(kylma); lampimat.push(lampimasti);
@@ -216,4 +221,4 @@ async function main(argv, deps) {
   return 0;
 }
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c)).catch((e) => { console.error('Virhe: ' + String(e && e.message || e).split('\n')[0]); process.exit(2); });
-module.exports = { tarkistaLopullinenUrl, naytaUrl, haePelaajaKohde, main, erittelyTeksti, yhdistaTulokset, resurssiLista, resurssiYhteenveto, lueArgv, tarkista, mittaaAvaus, SIVUT, PROFIILIT, IKKUNA_MS };
+module.exports = { kirjaudu, kuristus, tarkistaLopullinenUrl, naytaUrl, haePelaajaKohde, main, erittelyTeksti, yhdistaTulokset, resurssiLista, resurssiYhteenveto, lueArgv, tarkista, mittaaAvaus, SIVUT, PROFIILIT, IKKUNA_MS };
