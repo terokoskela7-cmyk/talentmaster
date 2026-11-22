@@ -11,8 +11,8 @@ describe('L2 · Master: kirjastot text/plain, ei eager', () => {
   it('viisi kirjastoa on text/plain + data-tm-laiska (ei <script src>), alkuperäinen keskinäinen järjestys säilyy', () => {
     const pos = LAISKAT.map((s) => {
       expect(HTML, s + ' ei saa olla eager').not.toContain('<script src="' + s + '"></script>');
-      expect(HTML.split('<script type="text/plain" data-tm-laiska src="' + s + '"></script>').length - 1, s).toBe(1);
-      return HTML.indexOf('data-tm-laiska src="' + s + '"');
+      expect(HTML.split(new RegExp('<script type="text/plain" data-tm-laiska(?: data-tm-myos="kaavio")? src="' + s.replace(/[./]/g, '\\$&') + '"></script>')).length - 1, s).toBe(1);   // tm_teknistaktiset: myös kaavio-ryhmän riippuvuus (Erä 1)
+      return HTML.indexOf('src="' + s + '"');
     });
     for (let i = 1; i < pos.length; i++) expect(pos[i - 1]).toBeLessThan(pos[i]);
   });
@@ -41,7 +41,7 @@ describe('L2 · Master: kirjastot text/plain, ei eager', () => {
 
 function ymparisto(opts) {
   const lisatyt = [], kuuntelijat = {};
-  const tagit = (opts.srcs || ['a.js', 'b.js']).map((s) => (opts.ryhmat && opts.ryhmat[s]) ? { getAttribute: (a) => (a === 'src' ? s : opts.ryhmat[s]), hasAttribute: (a) => a === 'data-tm-ryhma' } : { getAttribute: () => s });
+  const tagit = (opts.srcs || ['a.js', 'b.js']).map((s) => (opts.myos && opts.myos[s]) ? { getAttribute: (x) => (x === 'src' ? s : opts.myos[s]), hasAttribute: (x) => x === 'data-tm-myos' } : (opts.ryhmat && opts.ryhmat[s]) ? { getAttribute: (a) => (a === 'src' ? s : opts.ryhmat[s]), hasAttribute: (a) => a === 'data-tm-ryhma' } : { getAttribute: () => s });
   const head = { appendChild(el) { lisatyt.push(el.src); setTimeout(() => (opts.epaonnistuu && opts.epaonnistuu(el.src) ? el.onerror() : el.onload()), 0); } };
   const doc = { readyState: 'complete', head, createElement: () => ({}), querySelectorAll: () => tagit, querySelector: () => ({ getAttribute: () => opts.portit || '' }), addEventListener() {} };
   const root = { document: doc, console: { warn() {} }, addEventListener: (n, f) => { kuuntelijat[n] = f; } };
@@ -94,5 +94,11 @@ describe('L2 · lib/tm_laiska_kirjastot.js', () => {
     const { root, lisatyt, kuuntelijat } = ymparisto({ srcs: ['a.js', 'k1.js'], ryhmat: { 'k1.js': 'kaavio' } });
     kuuntelijat.error({ error: { name: 'ReferenceError', message: 'x is not defined' } }); await new Promise((r) => setTimeout(r, 30));
     expect(lisatyt.sort()).toEqual(['a.js', 'k1.js']); expect(root.tmLaiska.valmis()).toBe(true); expect(root.tmLaiska.valmis('kaavio')).toBe(true);
+  });
+  it('data-tm-myos: oletusryhmän skripti ladataan myös kaavio-ryhmän ensimmäisenä riippuvuutena, kerran (ei tuplalatausta oletusryhmää ladattaessa)', async () => {
+    const { root, lisatyt } = ymparisto({ srcs: ['a.js', 'dep.js', 'k1.js'], ryhmat: { 'k1.js': 'kaavio' }, myos: { 'dep.js': 'kaavio' } });
+    expect(root.tmLaiska.lista('kaavio')).toEqual(['dep.js', 'k1.js']); expect(root.tmLaiska.lista()).toEqual(['a.js', 'dep.js']);   // dep.js kuuluu oletusryhmään
+    await root.tmLaiska.varmista('kaavio'); expect(lisatyt).toEqual(['dep.js', 'k1.js']);
+    await root.tmLaiska.varmista(); expect(lisatyt).toEqual(['dep.js', 'k1.js', 'a.js']);   // dep.js ei latautunut uudelleen
   });
 });

@@ -20,7 +20,7 @@ export function lataaSivu(htmlTiedosto, extra) {
   ctx.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }; ctx.sessionStorage = ctx.localStorage; ctx.navigator = { onLine: true, userAgent: 'test' }; ctx.location = { hash: '', search: '', pathname: '/x', href: 'http://x/x' };
   ctx.addEventListener = () => {}; ctx.removeEventListener = () => {}; ctx.requestAnimationFrame = (f) => 0; ctx.matchMedia = () => ({ matches: false, addEventListener() {} }); ctx.history = { replaceState() {}, back() {} };
   vm.createContext(ctx);
-  for (const m of src.matchAll(/<script (?:type="text\/plain" data-tm-laiska )?src="(lib\/[^"?]+)(?:\?[^"]*)?"><\/script>/g)) { const p = join(juuri, m[1]); if (existsSync(p)) { try { vm.runInContext(readFileSync(p, 'utf8') + '\n;', ctx, { filename: m[1] }); } catch (e) { /* kuten selaimessa */ } } }
+  for (const m of src.matchAll(/<script (?:type="text\/plain" data-tm-laiska(?: data-tm-ryhma="[^"]*")?(?: data-tm-myos="[^"]*")? )?src="(lib\/[^"?]+)(?:\?[^"]*)?"><\/script>/g)) { const p = join(juuri, m[1]); if (existsSync(p)) { try { vm.runInContext(readFileSync(p, 'utf8') + '\n;', ctx, { filename: m[1] }); } catch (e) { /* kuten selaimessa */ } } }
   const lohkot = [...src.matchAll(/<script(?![^>]*\bsrc=)(?![^>]*type="module")[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   let ajettu = 0, virheita = 0;
   for (const koodi of lohkot) {

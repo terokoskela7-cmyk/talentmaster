@@ -47,6 +47,7 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('L2 Erä 1 · 
       await p.evaluate(() => { try { avaaKaaviopankki(); } catch (e) { /* oikea funktio voi tarvita Firestorea — tässä vain lataus ratkaisee */ } });
       await p.waitForFunction(() => window.tmLaiska.valmis('kaavio') && !window.avaaKaaviopankki.__tmTynka, null, { timeout: 15000 });
       expect(haetut).toEqual(ERA);
+      expect(await p.evaluate(() => [typeof TM_TT_YOUTH, typeof TM_TT_JOUKKUE])).toEqual(['object', 'object']);   // kaavio_ui lukee konseptit TM_TT_*:stä (typeof-vartioitu) → tm_teknistaktiset.js ladataan kaavio-ryhmän mukana (data-tm-myos)
       expect(await p.evaluate(() => window.tmLaiska.valmis())).toBe(false);   // oletusryhmä (L2/L3: harjoitelogiikka ym.) EI latautunut kaavio-avauksella
       expect(await p.evaluate(() => [typeof TM_KAAVIO_RENDER, typeof validoiKaavio, typeof xtPiirraKerros, typeof kaavioEdPX, typeof _kaavioUusiLomake, !!_kaavioUusiLomake.__tmTynka])).toEqual(['object', 'function', 'function', 'function', 'function', false]);
       await sk.close();
