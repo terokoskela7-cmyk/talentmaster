@@ -43,7 +43,8 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('tm_lang-paket
     it(s.nimi + ' ajonaikainen vaihto fi → sv → en: paketti ladataan kerran per kieli, draw() odottaa eikä heitä', async () => {
       const selain = await selainKaynnista(); try {
         const { sk, p, pyynnot, virheet } = await avaa(selain, s, null), ennen = virheet.length;
-        await p.evaluate(s.vaihda('sv')); expect(await p.evaluate(() => tmLangValmis()), 'draw() jäi odottamaan pakettia').toBe(false);
+        // Determinismi: vaihto + tarkistus samassa synkronisessa evaluatessa (script-lataus on asynkroninen → ei kisaa nopealla CI-koneella; erillinen evaluate-kutsu ehti nähdä ladatun paketin)
+        expect(await p.evaluate(`(() => { ${s.vaihda('sv')}; return tmLangValmis(); })()`), 'draw() jäi odottamaan pakettia').toBe(false);
         await p.waitForFunction(() => tmLangValmis(), null, { timeout: 15000 }); let x = await tila(p);
         expect(x).toMatchObject({ kieli: 'sv', sv: true, en: false, t: 'Spara' });
         await p.evaluate(s.vaihda('en')); await p.waitForFunction(() => tmLangValmis(), null, { timeout: 15000 }); x = await tila(p);
