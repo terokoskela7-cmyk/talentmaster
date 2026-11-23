@@ -246,4 +246,24 @@ describe('mittaus_raportti: P11-arviointi ja ensimmäiseksi pettävä', () => {
     expect(M.dokumenttiKokoVaroitus({ a: 155854, b: 160000 })).toBeNull(); expect(M.dokumenttiKokoVaroitus({})).toBeNull();
     expect(M.MITTAUS_EI_VALMIS).toBe('mittaus ei valmis');
   });
+  it('puhelinprofiilin aikajana (A/B 22.11.: FCP 448 < auth-haku 7889 ms): currentUser heti → alaraja EI 0,3 s; vasta odotusluokan poistuminen (10270 ms); TTI ≥ auth-haun alku, muuten rivi virheelliseksi', () => {
+    const FCP = 448, AUTH = 7889;
+    const varhain = { kirjautunut: true, nyt: 350, merkit: { _nahtyOdotus: true } };   // IndexedDB-istunto palautettu, sivu vielä tm-auth-odottaa
+    expect(M.kirjautumisAlaraja(varhain)).toBeNull();   // ei saa palauttaa 350 (vanha: alaraja = tila.nyt → TTI = FCP 448)
+    expect(M.kirjautumisAlaraja({ kirjautunut: false, nyt: 11000, merkit: { auth_odottaa_pois: 10270 } })).toBeNull();
+    const myohaan = { kirjautunut: true, nyt: 10400, merkit: { _nahtyOdotus: true, auth_odottaa_pois: 10270 } }, alaraja = M.kirjautumisAlaraja(myohaan);
+    expect(alaraja).toBe(10270);
+    const tti = M.laskeInteraktiivinen({ fcp: FCP, alaraja, varit: [], ikkuna: 2000, havaintoLoppu: 13000 });
+    expect(tti).toBeGreaterThanOrEqual(AUTH); expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: true, kirjautunut: true, tti, authAlku: AUTH })).toBeNull();
+    expect(M.kirjautumisAlaraja({ kirjautunut: true, nyt: 900, merkit: {} })).toBe(900);   // sivu ilman odotusluokkaa (ei nähty) → entinen käytös
+    // vanha virhe: TTI = FCP 448 < auth 7889 → virheellinen rivi, ei hiljaista arvoa
+    expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: true, kirjautunut: true, tti: 448, authAlku: AUTH })).toMatch(new RegExp('^' + M.MITTAUS_TTI_ENNEN_AUTHIA + '.*448.*7889'));
+    expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: true, kirjautunut: false, tti: 12000, authAlku: AUTH })).toMatch(/kirjautunut != true/);
+    expect(M.tarkistaTtiAuthiin({ odotaKirjautunut: false, kirjautunut: false, tti: 448, authAlku: AUTH })).toBeNull();   // kirjautumatonta sivua ei vaadita
+  });
+  it('silmukkalokitus: odottavatUrlit (vain Script/Document/Stylesheet, query pois, max n) + silmukkaTeksti kertoo kirjautumis-/merkki-/alarajahetken ja kesken olevat', () => {
+    const m = new Map([[1, { valmis: false, tyyppi: 'Script', url: 'https://x/a.js?v=1' }], [2, { valmis: true, tyyppi: 'Script', url: 'https://x/b.js' }], [3, { valmis: false, tyyppi: 'Fetch', url: 'https://x/l' }], [4, { valmis: false, tyyppi: 'Document', url: 'https://x/f.html#h' }]]);
+    expect(M.odottavatUrlit(m, 5)).toEqual(['Script https://x/a.js', 'Document https://x/f.html']); expect(M.odottavatUrlit(m, 1)).toHaveLength(1);
+    expect(M.silmukkaTeksti({ polleja: 10, nollapolleja: 0, max_odottavat: 3, kirjautunut_t: 350, merkki_t: 9700, alaraja_t: null, odottavat_urlit: ['Script https://x/a.js'] })).toMatch(/10 pollausta.*350 ms.*9700 ms.*alaraja asetettu null ms.*ilman kesken olevia latauksia 0.*max 3.*a\.js/);
+  });
 });
