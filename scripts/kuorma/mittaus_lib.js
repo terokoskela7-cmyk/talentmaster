@@ -115,13 +115,15 @@ function parsiFunktioLoki(rivit) {
 }
 
 /** Mittausvartija (A/B 22.11., #1315): kesken olevien LATAUSTEN määrä (dokumentti, skripti, tyylitiedosto). Fetch/WebSocket jätetään pois — Firestore Listen-kanava pysyy auki koko avauksen. pyynnot = Map<id, { valmis, tyyppi }>. */
+/** Firebase Authin piilotettu iframe (…/__/auth/iframe) pysyy kesken koko avauksen → ei kuulu latausvartijaan (muuten jokainen ajo odottaa aikarajaan asti, ~1098 s). */
+const onAuthIframe = (p) => p.tyyppi === 'Document' && /\/__\/auth\/iframe/.test(String(p.url || ''));
 function odottavatLataukset(pyynnot) {
-  let n = 0; pyynnot.forEach((p) => { if (p && !p.valmis && (p.tyyppi === 'Script' || p.tyyppi === 'Document' || p.tyyppi === 'Stylesheet')) n++; });
+  let n = 0; pyynnot.forEach((p) => { if (p && !p.valmis && (p.tyyppi === 'Script' || p.tyyppi === 'Document' || p.tyyppi === 'Stylesheet') && !onAuthIframe(p)) n++; });
   return n;
 }
 /** Kesken olevien latausten URLit (enintään n; query/fragmentti pois) — diagnostiikka, miksi silmukka ei päättynyt. */
 function odottavatUrlit(pyynnot, n) {
-  const ulos = []; pyynnot.forEach((p) => { if (ulos.length < n && p && !p.valmis && (p.tyyppi === 'Script' || p.tyyppi === 'Document' || p.tyyppi === 'Stylesheet')) ulos.push(p.tyyppi + ' ' + String(p.url || '?').split('?')[0].split('#')[0].slice(0, 120)); }); return ulos;
+  const ulos = []; pyynnot.forEach((p) => { if (ulos.length < n && p && !p.valmis && !onAuthIframe(p) && (p.tyyppi === 'Script' || p.tyyppi === 'Document' || p.tyyppi === 'Stylesheet')) ulos.push(p.tyyppi + ' ' + String(p.url || '?').split('?')[0].split('#')[0].slice(0, 120)); }); return ulos;
 }
 /** Silmukan yhteenveto yhdelle riville (virheviestiin / --erittelyyn). */
 function silmukkaTeksti(s) {

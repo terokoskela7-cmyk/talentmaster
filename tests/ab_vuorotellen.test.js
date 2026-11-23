@@ -31,6 +31,10 @@ describe('ab_vuorotellen', () => {
     expect(r.a).toBe(2000); expect(r.b).toBe(3600); expect(r.ero).toBe(1600); expect(r.ero_kierroksittain).toEqual([1500, 1600]);
     expect(AB.suunta(r)).toMatch(/B hitaampi \(johdonmukainen\)/);
     expect(AB.suunta({ ero: 900, ero_kierroksittain: [1800, -100] })).toMatch(/ei johdonmukainen/);
+    // #1317: kaikki kierrokset samaa merkkiä mutta |ero| < 500 → oma tila, ei 'ei johdonmukainen'
+    const s = AB.suunta({ ero: -404, ero_kierroksittain: [-410, -404, -368] });
+    expect(s).toBe('A hitaampi (johdonmukainen, alle merkitsevyysrajan)'); expect(s).not.toMatch(/ei johdonmukainen/);
+    expect(AB.suunta({ ero: 404, ero_kierroksittain: [410, 404, 368] })).toMatch(/B hitaampi \(johdonmukainen, alle merkitsevyysrajan\)/);
     expect(AB.suunta(y.rivit.find((x) => x.tila === 'lampimat' && x.mittari === 'fcp'))).toMatch(/ei johdonmukainen/);
     expect(y.rivit.find((x) => x.tila === 'kylma' && x.mittari === 'auth').a).toBe(500);
   });
