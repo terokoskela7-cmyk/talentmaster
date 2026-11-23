@@ -12,7 +12,7 @@ export function libitLadattu(src) {
   const ctx = { console: { warn() {}, log() {}, error() {} }, setTimeout: () => 0, clearTimeout() {}, Date: KDate, Math, JSON, Object, Array, String, Number, Promise, RegExp, Error, isFinite, isNaN, parseFloat, parseInt, Map, Set, Symbol };
   ctx.window = ctx; ctx.self = ctx; ctx.globalThis = ctx; ctx.document = { getElementById: () => null, createElement: () => ({}) }; ctx.localStorage = { getItem: () => null, setItem() {} }; ctx.navigator = { onLine: true };
   vm.createContext(ctx);
-  const skriptit = [...src.matchAll(/<script (?:type="text\/plain" data-tm-laiska )?src="(lib\/[^"?]+)(?:\?[^"]*)?"><\/script>/g)].map((m) => m[1]);
+  const skriptit = [...src.matchAll(/<script (?:type="text\/plain" data-tm-laiska(?: data-tm-ryhma="[^"]*")?(?: data-tm-myos="[^"]*")? )?src="(lib\/[^"?]+)(?:\?[^"]*)?"><\/script>/g)].map((m) => m[1]);
   for (const s of skriptit) { const p = join(juuri, s); if (!existsSync(p)) continue; try { vm.runInContext(readFileSync(p, 'utf8') + '\n;', ctx, { filename: s }); } catch (e) { /* kuten selaimessa: yksittäisen libin virhe ei kaada muita */ } }
   return ctx;
 }

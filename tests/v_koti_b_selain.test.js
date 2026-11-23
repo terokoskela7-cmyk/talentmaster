@@ -16,7 +16,10 @@ const NAKYMAT = ['koti', 'inbox', 'cal', 'pulse', 'season', 'dev', 'ryhmat', 'te
 const kaynnista = async (selain, opts, koko) => {
   const sk = await selain.newContext({ viewport: koko }), p = await sk.newPage(); const virheet = []; p.on('pageerror', (e) => virheet.push(e.message));
   await p.goto('file://' + sivu(MASTER, JUURI, Object.assign({ rooli: 'valmentaja', kutsu: (opts.valitsin || '') + KUTSU(opts.ryhmia, opts.oikeaDrill), dokit: opts.lippu ? LIPPU : {} }, opts))); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 15000 });
-  await p.waitForFunction(() => window.__navOn !== undefined, null, { timeout: 15000 }); return { sk, p, virheet };
+  await p.waitForFunction(() => window.__navOn !== undefined, null, { timeout: 15000 });
+  /* Determinismi (#1317): setWs(≠koti) on tmLaiska-portin takana → ensimmäinen kutsu odottaa laiskan ryhmän latausta ja suoritetaan vasta sen jälkeen (tuotannossa oikein). Testi lukee näkymän heti kutsun jälkeen → ilman esilatausta se kilpailee latauksen kanssa (toistuu mainillakin CPU 25× kuristuksella). */
+  await p.evaluate(() => (window.tmLaiska ? window.tmLaiska.varmista() : null)); await p.waitForFunction(() => !window.tmLaiska || window.tmLaiska.valmis(), null, { timeout: 30000 });
+  return { sk, p, virheet };
 };
 const aktiivinenNakyma = (p) => p.evaluate(() => ({ ws: _ws, nakyma: (document.querySelector('.ws-view.active') || {}).dataset && document.querySelector('.ws-view.active').dataset.view }));
 describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('V-KOTI B · selain', () => {
