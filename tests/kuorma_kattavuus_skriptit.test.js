@@ -18,14 +18,14 @@ describe('kattavuus_skriptit', () => {
   });
   it('analysoiSkripti: yksi sisäfunktio ajettu → kutsuttuja 1, käytetty 70 %, ylätaso edelleen 40 %', () => {
     const a = K.analysoiSkripti(lahde, F(3, 0));
-    expect(a.kutsuttuja).toBe(1); expect(a.kaytetty_pct).toBe(70); expect(a.ylataso_pct).toBe(40);
+    expect(a.kutsutut_nimet).toEqual(['a×3']); expect(a.kutsuttuja).toBe(1); expect(a.kaytetty_pct).toBe(70); expect(a.ylataso_pct).toBe(40);
   });
   it('ylatasonNimet: window.-asetus, function, var', () => {
     expect(K.ylatasonNimet('window.tmA = 1;\nfunction foo() {}\nvar bar = 2;\n')).toEqual(['tmA', 'foo', 'bar']);
   });
   it('analysoi: vain oman hostin .js (lib/, docs/, juuri); ulkoiset (gstatic) ja inline pois; luokat ja järjestys; koodattu kt resurssilistasta', () => {
     const H = 'https://talentmaster-staging--kuorma-x.web.app/';
-    const cov = [{ url: H + 'lib/tm_a.js?v=abc', source: lahde, functions: F(0, 0) }, { url: H + 'lib/tm_b.js', source: lahde, functions: F(3, 0) }, { url: H + 'harjoitelogiikka_v4.js', source: lahde, functions: [{ functionName: '', ranges: [{ startOffset: 0, endOffset: 100, count: 1 }] }, { functionName: 'k', ranges: [{ startOffset: 5, endOffset: 95, count: 9 }] }] },
+    const cov = [{ url: H + 'lib/tm_a.js?v=abc', source: lahde, functions: F(0, 0) }, { url: H + 'lib/tm_b.js', source: lahde, functions: F(3, 0) }, { url: H + 'harjoitelogiikka_v4.js', source: lahde, functions: [{ functionName: '', ranges: [{ startOffset: 0, endOffset: 100, count: 1 }] }, { functionName: 'k', ranges: [{ startOffset: 5, endOffset: 55, count: 9 }] }] },
       { url: 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js', source: lahde, functions: F(1, 1) }, { url: '', source: lahde, functions: F(1, 1) }];
     const res = [{ url: H + 'lib/tm_a.js', tyyppi: 'Script', koodattu: 51200 }, { url: H + 'lib/tm_b.js', tyyppi: 'Script', koodattu: 10240 }, { url: H + 'harjoitelogiikka_v4.js', tyyppi: 'Script', koodattu: 20480 }];
     const r = K.analysoi(cov, res);
@@ -47,5 +47,20 @@ describe('kattavuus_skriptit', () => {
     expect(await K.main(['--url=https://talentmaster-staging--k.web.app'], d({}))).toBe(2); expect(v.join('\n')).toMatch(/STAGING_APPCHECK_DEBUG_TOKEN/);
     expect(await K.main(['--url=https://talentmaster-staging--k.web.app', '--profiili=tabletti'], d({ STAGING_APPCHECK_DEBUG_TOKEN: 'x' }))).toBe(2);
     expect(v.join('\n')).not.toContain('x\n');
+  });
+  it('eratarkistus: ei riviä = EI_LADATTU (ok); KAYTOSSA = ✗; EI_KUTSUTTU = ladattu mutta ei käytetty', () => {
+    const r = K.eratarkistus([{ skripti: 'lib/a.js', luokka: 'KAYTOSSA' }, { skripti: 'lib/b.js', luokka: 'EI_KUTSUTTU' }], ['lib/a.js', 'lib/b.js', 'lib/c.js']);
+    expect(r.map((x) => x.tila + ':' + x.ok)).toEqual(['KAYTOSSA:false', 'EI_KUTSUTTU:null', 'EI_LADATTU:true']);
+    expect(K.lueArgv(['--rooli=valmentaja1', '--era=lib/a.js,lib/b.js']).era).toEqual(['lib/a.js', 'lib/b.js']);
+  });
+  it('IIFE/UMD-kääre (≥ 80 % skriptistä) ei ole kutsu: pelkkä kääre ajettu → kutsuttuja 0 → EI_KUTSUTTU (korjaus 22.11.: aiemmin 1/N = vain kääre)', () => {
+    const f = [{ functionName: '', ranges: [{ startOffset: 0, endOffset: 100, count: 1 }] }, { functionName: '', ranges: [{ startOffset: 5, endOffset: 95, count: 1 }] }, { functionName: 'api', ranges: [{ startOffset: 10, endOffset: 30, count: 0 }] }];
+    const a = K.analysoiSkripti(lahde, f); expect(a.kutsuttuja).toBe(0); expect(a.funktioita).toBe(1);
+    expect(K.analysoi([{ url: 'https://talentmaster-staging.web.app/lib/u.js', source: lahde, functions: f }], [])[0].luokka).toBe('EI_KUTSUTTU');
+  });
+  it('kutsutut_nimet: nimetön kutsuttu funktio saa offset + lähdepätkän (tm_kehitystyopoyta-tyyppinen "1 kutsu" tunnistettavissa)', () => {
+    const f = [{ functionName: '', ranges: [{ startOffset: 0, endOffset: 100, count: 1 }] }, { functionName: '', ranges: [{ startOffset: 20, endOffset: 40, count: 2 }] }];
+    const a = K.analysoiSkripti('0123456789'.repeat(10), f);
+    expect(a.kutsutut_nimet).toEqual(['(anon@20) 012345678901234567890123456789012345678901234567×2']); expect(a.kutsuttuja).toBe(1);
   });
 });
