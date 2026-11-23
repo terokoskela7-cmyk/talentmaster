@@ -86,12 +86,13 @@ function yhdista(kierrokset) {   // kierrokset = [{ A: tulosJson, B: tulosJson }
   });
   return tulos;
 }
-/** Suuntajohdonmukaisuus: kaikilla kierroksilla (ilman null) sama etumerkki JA mediaanierotus ≥ kynnys → 'johdonmukainen'; muuten 'ei johdonmukainen'. */
+/** Suuntajohdonmukaisuus: kaikilla kierroksilla (ilman null) sama etumerkki JA mediaanierotus ≥ kynnys → 'johdonmukainen'; sama etumerkki mutta |ero| < kynnys → 'johdonmukainen, alle merkitsevyysrajan'; muuten 'ei johdonmukainen'. */
 function suunta(rivi, kynnysMs) {
   const k = (rivi.ero_kierroksittain || []).filter((x) => x != null);
   if (k.length < 2 || rivi.ero == null) return 'ei tarpeeksi dataa';
   const kaikkiPlus = k.every((x) => x > 0), kaikkiMiinus = k.every((x) => x < 0);
   if ((kaikkiPlus || kaikkiMiinus) && Math.abs(rivi.ero) >= (kynnysMs || 500)) return kaikkiPlus ? 'B hitaampi (johdonmukainen)' : 'A hitaampi (johdonmukainen)';
+  if (kaikkiPlus || kaikkiMiinus) return (kaikkiPlus ? 'B hitaampi' : 'A hitaampi') + ' (johdonmukainen, alle merkitsevyysrajan)';
   return 'ei johdonmukainen (kohinaa/ajankohtaa)';
 }
 const ms = (x) => (x == null ? '   –  ' : String(x).padStart(6));
