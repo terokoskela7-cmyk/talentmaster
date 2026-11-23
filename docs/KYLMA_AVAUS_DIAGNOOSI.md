@@ -311,3 +311,18 @@ Odotus: Masterissa kaikki erän skriptit `EI_LADATTU` (✓); VP:ssä (ei muutett
 - `l2_era1_kaavio_selain.test.js` lisätty `.github/chrome_testit.txt`:iin (chrome_testit_ci_vartija).
 - Kattavuusajo tallentaa funktioiden nimet: `kutsutut_nimet` (nimetön kutsuttu funktio = `(anon@offset) lähdepätkä`) JSONiin ja `KUTSUT:`-sarake tekstiraporttiin riveille joilla ≤ 4 kutsua → tm_kehitystyopoyta:n yksi avauskutsu selviää seuraavassa ajossa.
 - **Seuraavat erät (kumpikin oma PR + A/B):** (a) tm_lang.js sv/en kielipaketteihin (~45 kt, 7 sivua, §16.4); (b) modaali-/lomakemoduulit (~76 kt, §16.3).
+
+### 16.7 A/B-tulos (#1317, `ab_2026-11-23T19-39-20`, kierrokset AB/BA/AB)
+| mittari | A (main) → B (Erä 1) |
+|---|---|
+| tavut, työpöytä | 1,38 → 1,31 Mt |
+| tavut, puhelin | 1,41 → 1,34 Mt |
+| puhelin, kylmä: auth-haun alku | **−404 ms** (kierrokset −410 / −404 / −368; johdonmukainen) |
+| puhelin, kylmä: interaktiivinen | 11 090 → 10 782 ms (−308 ms; kohinan sisällä) |
+| työpöytä, lämmin | ei eroa |
+
+Ei taantumaa. **Arvio:** ~0,55 s / 100 kt ennen authia puhelimella → alle 10 s interaktiiviseen vaatii vielä ~200 kt.
+
+## 17. A/B 22.11. (kuorma-b, #1317): puhelin "ei kirjautunut" = mittarivika (ikkuna), ei sovellusvika
+`ab_2026-11-22T13-28-33`: B puhelin → `mittaus ei valmis (kirjautunut=false)`; A puhelin "interaktiivinen 0,4–0,5 s" 121 luvulla. Tero todensi käsin (iPhone 12 Pro + Slow 4G): kirjautuminen ja Master toimivat. #1316:n lataus­vartija ei riittänyt: kun kaikki skriptit on ladattu mutta auth/App Check vielä kesken, CPU on joutilas ja "rauhoittunut" laukeaa jo FCP:n kohdalla.
+Korjaus (`mittaa_sivut.js`, `mittaus_lib.js`): (1) `odotaKirjautunut` → silmukka ei pääty ennen kuin `currentUser` on olemassa (aikarajaan 90 s asti); (2) `laskeInteraktiivinen({alaraja})`: TTI ≥ kirjautumisen hetki (`auth_odottaa_pois`-merkki, muuten havaintohetki) → TTI ei voi olla FCP; (3) selaintesti: kirjautuminen 3 s FCP:n jälkeen → TTI ≥ 2,8 s. Aiemmat A:n puhelin-TTI-luvut (0,4–0,5 s) ovat virheellisiä.
