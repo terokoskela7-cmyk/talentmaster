@@ -90,14 +90,27 @@ async function mittaaAvaus(page, cdp, url, opt) {
      Silloin "lämmin" luki ENSIMMÄISEN dokumentin __tmM-mittarit → lämmin = kylmä (kehitys_1292: ~10 s / ~10 s). uusiDokumentti: about:blank ensin → oikea uudelleenlataus (HTTP-välimuisti säilyy). */
   if (opt && opt.uusiDokumentti) { try { await page.goto('about:blank', { timeout: aikaraja }); } catch (e) { virhe = 'about:blank: ' + String(e && e.message).split('\n')[0]; } }
   try { if (!virhe) await page.goto(url, { waitUntil: 'commit', timeout: aikaraja }); } catch (e) { virhe = 'navigointi: ' + String(e && e.message).split('\n')[0]; }
-  const alku = Date.now(); let tila = null;
+  const alku = Date.now(); let tila = null, alaraja = null; const silmukka = { polleja: 0, nollapolleja: 0, max_odottavat: 0, kirjautunut_t: null, merkki_t: null, alaraja_t: null, odottavat_urlit: [] }, silmukkaLoki = [];   // alaraja = hetki (ms navigaation alusta) jolloin istunto oli valmis (kirjautunut); odotaKirjautunut → mittaus ei pääty eikä TTI laske sitä ennen
   while (!virhe && Date.now() - alku < aikaraja) {
     await page.waitForTimeout(300);
-    try { tila = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; return { fcp: m.fcp, varit: m.varit.slice(), avoimet: m.avoimet, nyt: performance.now() }; }); } catch (e) { tila = null; continue; }   // navigointi kesken
+    try { tila = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {} return { fcp: m.fcp, varit: m.varit.slice(), avoimet: m.avoimet, nyt: performance.now(), kirjautunut: k, merkit: m.merkit }; }); } catch (e) { tila = null; continue; }   // navigointi kesken
     /* A/B 22.11. (#1315): hitaalla verkolla (Slow 4G) FCP tulee ennen skriptejä ja CPU on 2 s ajan joutilas, kun SDK:t/pääskripti vielä latautuvat → "rauhoittunut" FCP:n hetkellä (TTI = FCP, 0 lukua).
        Ei päätetä ennen kuin dokumentti/skriptit/tyylit on ladattu (Fetch/WebSocket ei: Firestore Listen pysyy auki). */
-    if (M.odottavatLataukset(pyynnot) > 0) continue;
-    if (tila && tila.fcp != null && tila.avoimet === 0 && M.laskeInteraktiivinen({ fcp: tila.fcp, varit: tila.varit, ikkuna, havaintoLoppu: tila.nyt }) != null) break;
+    const odottavat = M.odottavatLataukset(pyynnot);
+    /* A/B 23.11. (#1320 live): alaraja on pelkkä HAVAINTO (kirjautunut + odotusluokka poistunut) → se luetaan ENNEN lataus-vartijaa. Aiemmin `odottavat > 0 → continue` tuli ensin: puhelimella Script-lataus on lähes
+       jatkuvasti kesken (141 skriptiä, Slow 4G), alaraja ei koskaan asettunut → 90 s aikaraja ja TTI = FCP. Vartija estää vain silmukan PÄÄTTYMISEN, ei havaintoa. */
+    if (opt && opt.odotaKirjautunut && tila) {
+      if (alaraja == null) alaraja = M.kirjautumisAlaraja(tila);   // currentUser palautuu IndexedDB:stä heti → ei riitä; vasta odotusluokan poistuminen (A/B 22.11. puhelin: alaraja 0,3 s vs auth 7,9 s)
+    }
+    silmukka.polleja++; if (odottavat === 0) silmukka.nollapolleja++; if (odottavat > silmukka.max_odottavat) silmukka.max_odottavat = odottavat;
+    if (tila && tila.kirjautunut === true && silmukka.kirjautunut_t == null) silmukka.kirjautunut_t = Math.round(tila.nyt);
+    if (tila && tila.merkit && typeof tila.merkit.auth_odottaa_pois === 'number' && silmukka.merkki_t == null) silmukka.merkki_t = Math.round(tila.nyt);
+    if (alaraja != null && silmukka.alaraja_t == null) silmukka.alaraja_t = Math.round(tila.nyt);
+    if (odottavat > 0) silmukka.odottavat_urlit = M.odottavatUrlit(pyynnot, 5);
+    if (opt && opt.erittely && silmukkaLoki.length < 400) silmukkaLoki.push({ t: Math.round(tila ? tila.nyt : -1), k: !!(tila && tila.kirjautunut), od: !!(tila && tila.merkit && tila.merkit._nahtyOdotus), mk: tila && tila.merkit ? (tila.merkit.auth_odottaa_pois != null ? tila.merkit.auth_odottaa_pois : null) : null, odottavat, avoimet: tila ? tila.avoimet : null, ala: alaraja });
+    if (odottavat > 0) continue;
+    if (opt && opt.odotaKirjautunut && tila && alaraja == null) continue;   // istuntoa ei vielä valmis (Slow 4G + CPU 4×: auth/App Check kestää kymmeniä sekunteja) → jatka aikarajaan asti
+    if (tila && tila.fcp != null && tila.avoimet === 0 && M.laskeInteraktiivinen({ fcp: tila.fcp, alaraja, varit: tila.varit, ikkuna, havaintoLoppu: tila.nyt }) != null) break;
   }
   let lopullinen = null;
   try { lopullinen = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {}   /* window._auth = Pelaaja_v7:n nimetty app 'tm-pelaaja' (ei oletusappia) */ let ajat = null; try { const R = performance.getEntriesByType('resource'), os = (re) => { const r = R.filter((x) => re.test(x.name)).sort((x, y) => x.startTime - y.startTime)[0]; return r ? [Math.round(r.startTime), Math.round(r.responseEnd)] : null; }; ajat = { appcheck_vaihto: os(/firebaseappcheck\.googleapis\.com/), auth_haku: os(/identitytoolkit|securetoken/), firestore_ensimmainen: os(/firestore\.googleapis\.com/), recaptcha: os(/recaptcha/), appcheck_token_valimuistissa: m.acValimuistissa, tm_lang: os(/\/lib\/tm_lang\.js/) }; } catch (e) {} return { merkit: m.merkit, ajat, fcp: m.fcp, varit: m.varit.slice(), luvut: m.luvut, erittely: m.erittely, dokTavut: m.dokTavut, dokEiMitattu: m.dokEiMitattu, yht: m.yht, kiinnitetty: m.kiinnitetty, virheet: m.virheet, kirjautunut: k, nyt: performance.now() }; }); } catch (e) { virhe = virhe || 'luku: ' + String(e && e.message).split('\n')[0]; }
@@ -106,9 +119,11 @@ async function mittaaAvaus(page, cdp, url, opt) {
   kuuntelijat.forEach(([n, f]) => cdp.off && cdp.off(n, f)); if (opt && opt.erittely) page.off('console', konsoliKuuntelija);
   let tavut = wsTavut; pyynnot.forEach((p) => { tavut += p.valmis ? p.loppu : p.tavut; });
   if (!lopullinen) return { virhe: virhe || 'instrumentointi puuttuu', lopullinen_url: lopullinenUrl, tavut, resurssit: resurssiLista(pyynnot) };
-  const tti = M.laskeInteraktiivinen({ fcp: lopullinen.fcp, varit: lopullinen.varit, ikkuna, havaintoLoppu: lopullinen.nyt });
+  if (!virhe && opt && opt.odotaKirjautunut && alaraja == null) virhe = M.MITTAUS_TTI_ENNEN_AUTHIA + ': istunto ei valmistunut aikarajassa (' + Math.round(aikaraja / 1000) + ' s; odotusluokka ei poistunut / kirjautuminen jumissa) — TTI ei kuvaa avausta · ' + M.silmukkaTeksti(silmukka);
+  let tti = M.laskeInteraktiivinen({ fcp: lopullinen.fcp, alaraja, varit: lopullinen.varit, ikkuna, havaintoLoppu: lopullinen.nyt });
+  { const authAlku = lopullinen.ajat && lopullinen.ajat.auth_haku ? lopullinen.ajat.auth_haku[0] : null, tv = M.tarkistaTtiAuthiin({ odotaKirjautunut: !!(opt && opt.odotaKirjautunut), kirjautunut: lopullinen.kirjautunut, tti, authAlku }); if (tv && !virhe) { virhe = tv; tti = null; } }   // rivi virheelliseksi (A/B suodattaa virheelliset), ei hiljaista FCP-arvoa
   const LAISKAT = /\/(?:lib|docs)\/(tm_lib_i18n|tm_i18n_common|tm_master_i18n|tm_teknistaktiset_sv|tm_eerikkila_normit|tm_teknistaktiset|tm_kehityskaari|testit_indeksit|tm-microcycles|tm_laiska_kirjastot)\.js/, laiskat = []; pyynnot.forEach((p) => { const m = p.url && LAISKAT.exec(p.url); if (m) laiskat.push(m[1]); });   // L1/L2-kirjastot, jotka haettiin ennen mittauksen loppua (avauksessa odotus: ei yhtään, paitsi tm_laiska_kirjastot = itse lataaja)
-  return { laiskat, merkit: lopullinen.merkit, ajat: lopullinen.ajat, lopullinen_url: lopullinenUrl, resurssit: resurssiLista(pyynnot), fcp_ms: lopullinen.fcp != null ? Math.round(lopullinen.fcp) : null, tti_ms: tti != null ? Math.round(tti) : null, luvut: lopullinen.luvut, erittely: (opt && opt.erittely) ? lopullinen.erittely : undefined, konsoli: (opt && opt.erittely) ? konsoli : undefined, dokTavut: lopullinen.dokTavut, dokEiMitattu: lopullinen.dokEiMitattu, yht: lopullinen.yht, tavut, kirjautunut: lopullinen.kirjautunut, kiinnitetty: lopullinen.kiinnitetty, virheet: lopullinen.virheet.length, virhe };
+  return { silmukka, silmukka_loki: (opt && opt.erittely) ? silmukkaLoki : undefined, laiskat, merkit: lopullinen.merkit, ajat: lopullinen.ajat, lopullinen_url: lopullinenUrl, resurssit: resurssiLista(pyynnot), fcp_ms: lopullinen.fcp != null ? Math.round(lopullinen.fcp) : null, tti_ms: tti != null ? Math.round(tti) : null, luvut: lopullinen.luvut, erittely: (opt && opt.erittely) ? lopullinen.erittely : undefined, konsoli: (opt && opt.erittely) ? konsoli : undefined, dokTavut: lopullinen.dokTavut, dokEiMitattu: lopullinen.dokEiMitattu, yht: lopullinen.yht, tavut, kirjautunut: lopullinen.kirjautunut, kiinnitetty: lopullinen.kiinnitetty, virheet: lopullinen.virheet.length, virhe };
 }
 
 /** --erittely: lukemat polku ← kutsuja -järjestyksessä (suurin ensin) + osuus kokonaisluvusta + sovelluksen [lista]-konsoliviestit (esim. "[lista] vanha polku: <syy>"). */
@@ -117,6 +132,7 @@ function erittelyTeksti(sivu, profiili, avaus) {
   const ul = ['  ERITTELY ' + sivu + ' · ' + profiili + ' · 1. kylmä · ' + yht + ' lukua'];
   rivit.slice(0, 25).forEach((r) => ul.push('    ' + String(r.n).padStart(5) + ' ' + (yht ? (100 * r.n / yht).toFixed(1).padStart(5) + ' %' : '') + '  ' + r.k + (r.kutsuja > 1 ? '  (' + r.kutsuja + ' kutsua)' : '')));
   if (rivit.length > 25) ul.push('    … +' + (rivit.length - 25) + ' riviä (koko lista JSONissa)');
+  if (avaus.silmukka) ul.push('    ' + M.silmukkaTeksti(avaus.silmukka));
   (avaus.konsoli || []).forEach((t) => ul.push('    konsoli: ' + t));
   return ul.join('\n');
 }
@@ -205,7 +221,7 @@ async function main(argv, deps) {
           if (lampimasti.virhe && /^uudelleenohjaus/.test(lampimasti.virhe)) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ' (lämmin): ' + lampimasti.virhe + ' — mittaus keskeytetty.'); await ctx.close(); await selain.close(); return 1; }
           if (i === 1) resKylma = resurssiYhteenveto(kylma.resurssit); delete kylma.resurssit; delete lampimasti.resurssit;   // JSON pysyy pienenä: erittely vain 1. kylmästä
           kylmat.push(kylma); lampimat.push(lampimasti);
-          kirjaa('  ' + sivuAvain + ' · ' + pAvain + ' · ' + i + '/' + o.toistot + ' · ' + (kylma.lopullinen_url || '?') + ' · kylmä: interaktiivinen ' + (kylma.tti_ms != null ? (kylma.tti_ms / 1000).toFixed(1) + ' s' : (kylma.virhe || 'ei rauhoittunut')) + ', ' + (kylma.yht != null ? kylma.yht : '?') + ' lukua, ' + ((kylma.tavut || 0) / 1e6).toFixed(2) + ' MB · lämmin: ' + (lampimasti.tti_ms != null ? (lampimasti.tti_ms / 1000).toFixed(1) + ' s' : '?') + (kylma.kirjautunut === false && tila ? ' · ⚠ EI KIRJAUTUNUT' : ''));
+          kirjaa('  ' + sivuAvain + ' · ' + pAvain + ' · ' + i + '/' + o.toistot + ' · ' + (kylma.lopullinen_url || '?') + ' · kylmä: ' + (kylma.virhe ? '✗ ' + kylma.virhe : 'interaktiivinen ' + (kylma.tti_ms != null ? (kylma.tti_ms / 1000).toFixed(1) + ' s' : 'ei rauhoittunut')) + ', ' + (kylma.yht != null ? kylma.yht : '?') + ' lukua, ' + ((kylma.tavut || 0) / 1e6).toFixed(2) + ' MB · lämmin: ' + (lampimasti.virhe ? '✗ ' + lampimasti.virhe : (lampimasti.tti_ms != null ? (lampimasti.tti_ms / 1000).toFixed(1) + ' s' : '?')) + (kylma.kirjautunut === false && tila ? ' · ⚠ EI KIRJAUTUNUT' : ''));
           if (i === 1 && o.erittely) kirjaa(erittelyTeksti(sivuAvain, pAvain, kylma));
           if (i === 1 && kylma.kiinnitetty === false) { virhe('  ⚠ Firestore-instrumentointi ei kiinnittynyt (compat-SDK:n nimiavaruutta ei löytynyt) — lukuja ei lasketa; käytä Monitoring read_countia.'); }
           await ctx.close();

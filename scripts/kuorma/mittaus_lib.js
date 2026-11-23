@@ -36,8 +36,11 @@ function tilasto(arvot) {
 /** TTI-approksimaatio (Lighthouse-tyyli, lyhyt ikkuna): aikaisin hetki t ≥ fcp, josta eteenpäin ikkunan (ms) ajan ei ole yhtään "kiireistä" jaksoa
  *  (pitkä tehtävä > 50 ms tai avoin Firestore-luku). varit = [[alku, loppu], …] (ms navigaation alusta); havaintoLoppu = viimeisin havaintohetki. → t tai null (ei rauhoittunut). */
 function laskeInteraktiivinen(o) {
-  const fcp = o && o.fcp, ikkuna = (o && o.ikkuna) || 2000, loppu = o && o.havaintoLoppu;
-  if (typeof fcp !== 'number' || typeof loppu !== 'number') return null;
+  const fcp0 = o && o.fcp, ikkuna = (o && o.ikkuna) || 2000, loppu = o && o.havaintoLoppu;
+  if (typeof fcp0 !== 'number' || typeof loppu !== 'number') return null;
+  /* alaraja (A/B 22.11. kuorma-b): hitaalla verkolla FCP (kuori) tulee ennen kirjautumista; kun CPU odottaa verkkoa, "rauhoittunut" laukeaa jo FCP:n hetkellä (TTI 0,4–0,5 s, 121 lukua).
+     alaraja = hetki, jolloin sivu oli kirjautunut/auth valmis → TTI ei voi olla sitä aiempi. */
+  const fcp = typeof (o && o.alaraja) === 'number' ? Math.max(fcp0, o.alaraja) : fcp0;
   const varit = ((o && o.varit) || []).filter((v) => v && v[1] > fcp).map((v) => [Math.max(v[0], fcp), v[1]]).sort((a, b) => a[0] - b[0]);
   let t = fcp;
   for (const [a, b] of varit) { if (a - t >= ikkuna) break; if (b > t) t = b; }   // seuraava kiireinen jakso alkaa vasta ikkunan jälkeen → t kelpaa
@@ -116,7 +119,33 @@ function odottavatLataukset(pyynnot) {
   let n = 0; pyynnot.forEach((p) => { if (p && !p.valmis && (p.tyyppi === 'Script' || p.tyyppi === 'Document' || p.tyyppi === 'Stylesheet')) n++; });
   return n;
 }
+/** Kesken olevien latausten URLit (enintään n; query/fragmentti pois) — diagnostiikka, miksi silmukka ei päättynyt. */
+function odottavatUrlit(pyynnot, n) {
+  const ulos = []; pyynnot.forEach((p) => { if (ulos.length < n && p && !p.valmis && (p.tyyppi === 'Script' || p.tyyppi === 'Document' || p.tyyppi === 'Stylesheet')) ulos.push(p.tyyppi + ' ' + String(p.url || '?').split('?')[0].split('#')[0].slice(0, 120)); }); return ulos;
+}
+/** Silmukan yhteenveto yhdelle riville (virheviestiin / --erittelyyn). */
+function silmukkaTeksti(s) {
+  if (!s) return 'silmukka: ei tietoa';
+  return 'silmukka: ' + s.polleja + ' pollausta, kirjautunut ensin ' + s.kirjautunut_t + ' ms, odotusluokka pois ' + s.merkki_t + ' ms, alaraja asetettu ' + s.alaraja_t + ' ms, pollauksia ilman kesken olevia latauksia ' + s.nollapolleja + ', kesken max ' + s.max_odottavat + (s.odottavat_urlit && s.odottavat_urlit.length ? ' [' + s.odottavat_urlit.join(' | ') + ']' : '');
+}
 const MITTAUS_EI_VALMIS = 'mittaus ei valmis';
+const MITTAUS_TTI_ENNEN_AUTHIA = 'mittaus virheellinen';
+
+/** Kirjautumisen alaraja (ms navigaation alusta) yhdestä mittaustilasta. A/B 22.11. puhelin: Firebase palauttaa currentUserin IndexedDB:stä heti (~0,3 s), vaikka auth-haku (securetoken) alkaa vasta ~8 s:ssa
+ *  → `kirjautunut` yksin ei kerro istunnon valmistumista. Alaraja = vasta sivun oman odotusluokan poistumisen merkki (auth_odottaa_pois); odotusluokka vielä näkyvissä → null (ei vielä). */
+function kirjautumisAlaraja(tila) {
+  if (!tila || tila.kirjautunut !== true) return null;
+  const mk = tila.merkit || {};
+  if (typeof mk.auth_odottaa_pois === 'number') return Math.min(tila.nyt, mk.auth_odottaa_pois);
+  return mk._nahtyOdotus ? null : tila.nyt;
+}
+/** Vartija: kirjautumista odottaneen avauksen TTI ei saa alittaa auth-haun alkua, ja kirjautunut=true. → virheteksti tai null (ei hiljaista FCP-arvoa). */
+function tarkistaTtiAuthiin(o) {
+  if (!o || o.odotaKirjautunut !== true) return null;
+  if (o.kirjautunut !== true) return MITTAUS_TTI_ENNEN_AUTHIA + ': kirjautunut != true — TTI ei kuvaa avausta';
+  if (typeof o.tti === 'number' && typeof o.authAlku === 'number' && o.tti < o.authAlku) return MITTAUS_TTI_ENNEN_AUTHIA + ': interaktiivinen ' + o.tti + ' ms < auth-haun alku ' + o.authAlku + ' ms — TTI laskettu ennen kirjautumista';
+  return null;
+}
 
 /** A/B-vartija: A:n ja B:n dokumentin purettu koko samalla profiililla. Jos suhde > 2 tai < 0,5, kanavat eivät ole samaa deploy-muotoa (esim. toisessa pääskripti inline, toisessa irrotettuna) → vertailu on sekoittunut.
  *  koot = { a, b } (tavua) → null | varoitusteksti. */
@@ -126,4 +155,4 @@ function dokumenttiKokoVaroitus(koot) {
   return 'Dokumentin koko eroaa ' + (r > 1 ? r.toFixed(1) + '× (A suurempi)' : (1 / r).toFixed(1) + '× (B suurempi)') + ' (A ' + Math.round(a / 1024) + ' kt, B ' + Math.round(b / 1024) + ' kt purettuna) — kanavat eivät ole samaa deploy-muotoa; A/B-vertailu on sekoittunut. Deployaa molemmat saman deploy-muunnoksen (versiotiiviste) läpi.';
 }
 
-module.exports = { odottavatLataukset, MITTAUS_EI_VALMIS, dokumenttiKokoVaroitus, RAJAT, rajaAika, rajaLuvut, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };
+module.exports = { odottavatUrlit, silmukkaTeksti, odottavatLataukset, MITTAUS_EI_VALMIS, MITTAUS_TTI_ENNEN_AUTHIA, kirjautumisAlaraja, tarkistaTtiAuthiin, dokumenttiKokoVaroitus, RAJAT, rajaAika, rajaLuvut, tilasto, mediaani, prosenttipiste, laskeInteraktiivinen, firestoreDokKoko, nimiKoko, arvoKoko, kustannus, lueTunnukset, haeTunnus, haePalloId, piilota, kanavaUrlSallittu, parsiFunktioLoki };
