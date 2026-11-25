@@ -209,4 +209,35 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('mittaus · se
       await ctx.close();
     } finally { await selain.close(); palvelin.close(); }
   }, 60000);
+
+  it('onSnapshot: peruutus ennen 1. snapshotia ja virhe sulkevat operaation (ei roikkuvaa avointa); sormenjälki erottaa kyselyt; vain oikeasti auki jäänyt jää auki', async () => {
+    const SDK = `window.firebase = { apps: [], app: function () {} };
+(function () {
+  function Query(path, q) { this.path = path; this._query = q; }
+  Query.prototype.get = function () { return Promise.resolve({ size: 0, docs: [] }); };
+  Query.prototype.onSnapshot = function (a, b) { if (this.path === 'seurat/s1/vir') setTimeout(function () { b({ code: 'permission-denied' }); }, 20); return function () {}; };
+  function DocumentReference(path) { this.path = path; }
+  DocumentReference.prototype.get = function () { return Promise.resolve({ exists: true }); };
+  DocumentReference.prototype.onSnapshot = function () { return function () {}; };
+  firebase.firestore = { Query: Query, DocumentReference: DocumentReference, CollectionReference: Query };
+})();`;
+    const HTML = `<!doctype html><meta charset="utf-8"><script src="/sdk.js"></script><script>
+ var fs = firebase.firestore, f = function (n, op) { return { field: { canonicalString: function () { return n; } }, op: op }; };
+ var q1 = new fs.Query('seurat/s1/viestit', { filters: [f('vastaanottajaUid', '==')], explicitOrderBy: [{ field: { canonicalString: function () { return 'aika'; } }, dir: 'desc' }], limit: 20 });
+ var u1 = q1.onSnapshot(function () {}, function () {}); u1();
+ new fs.Query('seurat/s1/vir', {}).onSnapshot(function () {}, function () {});
+ new fs.Query('seurat/s1/viestit', { filters: [f('vastaanottajaUid', '=='), f('tyyppi', 'in')], limit: 600 }).onSnapshot(function () {}, function () {});
+</script>`;
+    const palvelin = createServer((rq, rs) => { if (rq.url === '/sdk.js') { rs.setHeader('content-type', 'text/javascript'); rs.end(SDK); } else { rs.setHeader('content-type', 'text/html'); rs.end(HTML); } });
+    await new Promise((r) => palvelin.listen(0, '127.0.0.1', r)); const portti = palvelin.address().port;
+    const { chromium } = require('playwright-core'), selain = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    try {
+      const ctx = await selain.newContext(), page = await ctx.newPage(); await ctx.addInitScript(instrumentointi, { token: 'TESTI-TOKEN' });
+      await page.goto('http://127.0.0.1:' + portti + '/'); await page.waitForTimeout(400);
+      const m = await page.evaluate(() => ({ avoimet: window.__tmM.avoimet, auki: Object.values(window.__tmM.auki), peruttu: window.__tmM.peruttu, vir: window.__tmM.kuuntelijavirheet }));
+      expect(m.avoimet).toBe(1); expect(m.auki).toHaveLength(1); expect(m.auki[0].q).toBe('where[vastaanottajaUid == & tyyppi in] limit 600'.replace('where[', 'where[').replace('] limit', '] orderBy[] limit'));
+      expect(m.peruttu).toHaveLength(1); expect(m.peruttu[0].q).toBe('where[vastaanottajaUid ==] orderBy[aika:desc] limit 20');
+      expect(m.vir).toHaveLength(1); expect(m.vir[0].koodi).toBe('permission-denied');
+    } finally { await selain.close(); palvelin.close(); }
+  }, 60000);
 });
