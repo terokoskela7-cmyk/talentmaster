@@ -2221,6 +2221,7 @@ let _kirjaukset = [];        // seurat/{sid}/pelaajat/{pid}/kirjaukset — omato
 let _kirjauksetLadattu = false;
 let _vpViestit = [];         // seurat/{sid}/viestit — VP:n mentorointi valmentajalle
 let _vpViestitUnsub = null;  // onSnapshot unsubscribe
+let _vpViestitAvain = null;  // seuraId|uid, jolle kuuntelija on käynnissä (idempotentti käynnistys: _lataaPelaajat voi ajaa kahdesti avauksessa → ei tuplatilausta)
 let _kalenteriTapahtumat = []; // seurat/{sid}/tapahtumat — harjoitukset, ottelut, muut
 
 
@@ -3114,7 +3115,9 @@ async function _lataaKirjaukset() {
 
 function _kuunteleVpViestit() {
   if (!_seuraId || _demo || !_uid) return;
+  const _avain = _seuraId + '|' + _uid; if (_vpViestitUnsub && _vpViestitAvain === _avain) return;   // jo käynnissä samalle seuralle+käyttäjälle
   if (_vpViestitUnsub) _vpViestitUnsub();
+  _vpViestitAvain = _avain;
   _vpViestitUnsub = _db.collection('seurat').doc(_seuraId)
     .collection('viestit')
     .where('vastaanottajaUid', '==', _uid)
@@ -3145,7 +3148,7 @@ function _kuunteleVpViestit() {
       _vpViestit = _vpViestit.filter(Boolean);
       renderInbox();
       if (_ws === 'koti') renderKoti();   // §IA Koti-refresh kun VP-viestit saapuvat
-    }, function(e) { console.warn('[v16] VP-viestit:', e.message); });
+    }, function(e) { _vpViestitUnsub = null; console.warn('[v16] VP-viestit:', e.message); });   // virhe → kuuntelija kuollut → seuraava käynnistys saa tilata uudelleen
 }
 
 async function _lataaTestitulokset(tapahtumaId) {
@@ -7253,11 +7256,12 @@ function _mvC() {
     verkko: function () { return _mVerkkoEnnenSulkua(); }, token: function () { return _mTuoreToken(firebase.auth().currentUser); }, mvToast: function (t, k) { if (typeof toast === 'function') toast(t, k); },
     virhe: function (e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e); } };
 }
-let _mvUnsub = null;
+let _mvUnsub = null, _mvAvain = null;
 function _mvKuuntele() {   // Inbox: omat klippi-/vastaus-/kuittausdokumentit (vastaanottajaUid == uid → Rules todistettavasti sallii); klippejä on paljon (monistus) → oma kysely, ei Inboxin 20 rivin rajaa
-  if (!_seuraId || _demo || !_uid) return; if (_mvUnsub) _mvUnsub();
+  if (!_seuraId || _demo || !_uid) return; const _avain = _seuraId + '|' + _uid; if (_mvUnsub && _mvAvain === _avain) return; if (_mvUnsub) _mvUnsub();   // idempotentti: jo käynnissä samalle seuralle+käyttäjälle
+  _mvAvain = _avain;
   _mvUnsub = _db.collection('seurat').doc(_seuraId).collection('viestit').where('vastaanottajaUid', '==', _uid).where('tyyppi', 'in', ['klippi', 'klippi_vastaus', 'klippi_kuittaus']).limit(600)
-    .onSnapshot(function (snap) { window._mvDokit = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); renderInbox(); }, function (e) { console.warn('[mv] klipit:', e && e.message); });
+    .onSnapshot(function (snap) { window._mvDokit = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); renderInbox(); }, function (e) { _mvUnsub = null; console.warn('[mv] klipit:', e && e.message); });
 }
 function _mvPaivitaNaytot() { if (typeof renderInbox === 'function') renderInbox(); if (typeof _ktS !== 'undefined' && _ktS.pid && document.getElementById('mvKlipit')) { const p = (_pelaajatData || []).filter(function (x) { return x.id === _ktS.pid; })[0]; if (p) _mvLataaKlipit(p); } }
 function _mKlippiKorttiHTML(e) { return '<div class="inbox-card' + (_inboxNahty(e) ? '' : ' unseen') + '" data-viesti-tyyppi="klippi" style="display:block">' + window.TM_MEDIAVIESTI.tmMvRiviHTML(e.rivi, _mvOpts()) + '</div>'; }
