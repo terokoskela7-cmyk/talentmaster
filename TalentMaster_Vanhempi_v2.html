@@ -145,6 +145,8 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_appcheck.js"></script>
 <script src="lib/tm_verkko.js"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script type="text/plain" data-tm-kielipaketti src="lib/tm_lang_sv.js"></script><script type="text/plain" data-tm-kielipaketti src="lib/tm_lang_en.js"></script>   <!-- erä (a): fi-sivu ei lataa; sv/en ladataan tarvittaessa -->
+<script>/* erä (a): tallennettu sv/en-kieli → paketti ladataan synkronisesti heti (kuten ennen jakoa: ei fi-hetkeä käynnistyskoodille); fi ei lataa mitään. Paketti on järjestysriippumaton (TM_LANG_PAKETIT). */(function(){try{var k=localStorage.getItem('tm_kieli');if(k==='sv'||k==='en'){var a=document.querySelectorAll('script[data-tm-kielipaketti]'),i,s;for(i=0;i<a.length;i++){s=a[i].getAttribute('src')||'';if(s.indexOf('tm_lang_'+k+'.js')>=0)document.write('<script src'+"='"+s+"'><\/script>");}}}catch(e){}})();</script>
 <script src="lib/tm_lib_i18n.js"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="docs/testit_indeksit.js"></script>
 <script src="lib/tm_alusta.js"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
@@ -310,6 +312,7 @@ window._vanhVaihdaKieli = function(k){
 };
 
 function draw(){
+  if (typeof tmLangValmis === 'function' && !tmLangValmis()) { tmLangLataa().then(function () { draw(); }); return; }   // erä (a): sv/en-haarukka ennen renderiä (ei fi-vilahdusta); fi → ei tee mitään
   const pb=document.getElementById('phBody');
   let html='';
   if(_sc==='login') html=rLogin();

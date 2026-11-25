@@ -7,6 +7,7 @@
    Idempotentti; virhe → mitään ei kirjoiteta. Ajo: node scripts/i18n_vie_sv_era98.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const { sopii, lataaSv, lisaaKarttaan } = require('./i18n_vie_sv_era53_19.cjs');
 const { lueKuori } = require('./kuoren_lahde.js');
@@ -47,7 +48,7 @@ function johda(malli, fi, sv) {
 }
 
 function vie(opts) {
-  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [], tmLang = [], eiKaanneta = [];
+  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => LL.lueTied(juuri, f), virheet = [], ohitettu = [], tmLang = [], eiKaanneta = [];
   const P = JSON.parse(lue(PALAUTUS)).osiot, G = JSON.parse(lue(LAHETYS)).osiot;
   if (JSON.stringify(Object.keys(P)) !== '["seura"]' || JSON.stringify(Object.keys(G)) !== '["seura"]') return { virheet: ['osiot ≠ [seura]'], lisatty: 0, ohitettu, kirjoitettu: false };
   const PR = P.seura.rivit, GR = G.seura.rivit;
@@ -86,7 +87,7 @@ function vie(opts) {
   const uusi = uudet.length ? lisaaKarttaan(src, uudet, OTSAKE) : src, V = lataaSv(uusi, NIMI);
   for (const [k, sv] of uudet) if (V[k] !== sv) virheet.push('verifiointi: ' + k);
   if (virheet.length) return { virheet, lisatty: 0, ohitettu, kirjoitettu: false };
-  const kirjoita = !!(opts.kirjoita && uudet.length); if (kirjoita) fs.writeFileSync(path.join(juuri, KARTTA), uusi);
+  const kirjoita = !!(opts.kirjoita && uudet.length); if (kirjoita) LL.kt(juuri, KARTTA, uusi);
   return { virheet, lisatty: uudet.length, ohitettu, tmLang, eiKaanneta, kirjoitettu: kirjoita, parit: parit.map(([a, s]) => [a, s]) };
 }
 module.exports = { vie, johda, tayta, ERIKOIS, PALAUTUS, LAHETYS };

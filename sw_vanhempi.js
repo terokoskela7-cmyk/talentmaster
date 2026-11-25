@@ -54,6 +54,7 @@ function onAllowlist(url) {
   if (url.indexOf('/manifest_vanhempi.json') !== -1) return true;
   if (url.indexOf('/tm_sentry.js') !== -1) return true;             // B2 Sentry-wrapper (?v= → cache-first)
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;           // i18n V0 — käännöstaulukko offline-cacheen
+  if (url.indexOf('/lib/tm_lang_sv.js') !== -1 || url.indexOf('/lib/tm_lang_en.js') !== -1) return true;   // erä (a): kielipaketit (tm_lang.js:stä erotetut sv/en) offline-cacheen
   if (url.indexOf('/lib/tm_alusta.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
   if (url.indexOf('/lib/tm_ennatykset.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
   if (url.indexOf('/lib/tm_merkki_nakyma.js') !== -1) return true;   // palaute-näkyvyys 0a: merkkisääntö

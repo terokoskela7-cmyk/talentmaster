@@ -6,6 +6,7 @@
    Virhe → mitään ei kirjoiteta. Ajo: node scripts/i18n_vie_sv_korjaus_b5.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const vm = require('vm');
 const { lataaSv, q } = require('./i18n_vie_sv_era53_19.cjs');
@@ -29,7 +30,7 @@ function korvaaKerran(src, vanhaRivi, uusiRivi, virheet, nimi) {
 }
 
 function vie(opts) {
-  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [], tehty = [];
+  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => LL.lueTied(juuri, f), virheet = [], ohitettu = [], tehty = [];
   const E = JSON.parse(lue(KORJAUS)).osiot || {};
   let sLang = lue(F_LANG), sLib = lue(F_LIB);
   const L = lataaLang(sLang), LIB = lataaLibFi(sLib);
@@ -60,7 +61,7 @@ function vie(opts) {
   }
   if (virheet.length) return { virheet, korvattu: 0, ohitettu, kirjoitettu: false };
   const nLang = tehty.filter((x) => x[0] === 'tm_lang').length, nLib = tehty.length - nLang;
-  if (opts.kirjoita && tehty.length) { if (nLang) fs.writeFileSync(path.join(juuri, F_LANG), sLang); if (nLib) fs.writeFileSync(path.join(juuri, F_LIB), sLib); }
+  if (opts.kirjoita && tehty.length) { if (nLang) LL.kt(juuri, F_LANG, sLang); if (nLib) LL.kt(juuri, F_LIB, sLib); }
   return { virheet, korvattu: tehty.length, tmLang: nLang, lib: nLib, ohitettu, kirjoitettu: !!(opts.kirjoita && tehty.length) };
 }
 module.exports = { vie, KORJAUS };

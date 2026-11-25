@@ -10,6 +10,7 @@ import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { createRequire } from 'module';
 import { createRequire as _kuoriReq } from 'module';
+import LL from '../scripts/lang_lahde.cjs';
 const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require_ = createRequire(import.meta.url);
 
@@ -40,7 +41,7 @@ describe('vartija · vammahistoria poistettu (GDPR 9 art.)', () => {
   });
   it('suostumuslomakkeella ei ole vammakorttia eikä -tekstiä (fi); tm_lang ei sisällä vamma-avaimia (fi/en/sv)', () => {
     expect(LOMAKE).not.toMatch(/Vammahistoria|Aiemmat vammat|textarea id="i_vam"|vain valmentajat nähtävissä/);
-    const lang = lue('lib/tm_lang.js');
+    const lang = LL.lue(ROOT);
     expect(lang).not.toMatch(/vammahist|i_vam|vammat_|skadehistorik|injury.?history/i);
   });
   it('poistunut piilosuostumus c7/ei_kaytossa ei ole enää lomakkeella', () => {

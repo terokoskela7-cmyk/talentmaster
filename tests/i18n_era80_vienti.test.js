@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createHash } from 'crypto';
 import { createRequire } from 'module';
+import LL from '../scripts/lang_lahde.cjs';
 const require = createRequire(import.meta.url);
 const teksti = (f) => readFileSync(new URL('../docs/i18n/' + f, import.meta.url), 'utf8');
 const P = JSON.parse(teksti('sv_kaannoserae_80_palautus.json')).osiot, G = JSON.parse(teksti('sv_kaannoserae_80_gemini.json')).osiot;
@@ -21,7 +22,7 @@ describe('sv-erä 80 — vienti', () => {
   });
   it('koodin sv = palautus merkki merkiltä (lib, VP, Master, yhteiset; tm_lang erikseen)', () => {
     for (const o of Object.keys(P)) for (const [k, r] of Object.entries(P[o].rivit)) { if (o === 'tm_lang') continue; expect((KOHDE[o] || LIB)[k], o + ':' + k).toBe(r.sv); }
-    const src = readFileSync(new URL('../lib/tm_lang.js', import.meta.url), 'utf8'), sv = src.slice(src.search(/\n {2}sv: \{/), src.search(/\n {2}en: \{/)); expect(sv).toContain("adar_nimi_pelaaja_r: '" + P.tm_lang.rivit['pelaaja.adar_nimi_pelaaja_r'].sv + "'");
+    const src = LL.lue(new URL('..', import.meta.url).pathname), sv = src.slice(src.search(/\n {2}sv: \{/), src.search(/\n {2}en: \{/)); expect(sv).toContain("adar_nimi_pelaaja_r: '" + P.tm_lang.rivit['pelaaja.adar_nimi_pelaaja_r'].sv + "'");
   });
   it('idempotentti: uusintakuiva-ajo ei lisää mitään eikä löydä virheitä', () => { const t = V.vie({ kirjoita: false }); expect(t.virheet).toEqual([]); expect(t.lisatty).toBe(0); });
   it('vanhoja sv_nyt-arvoja (Avsluta period, Utvärdering, Granskning…) ei ole enää korvattujen avainten alla', () => {

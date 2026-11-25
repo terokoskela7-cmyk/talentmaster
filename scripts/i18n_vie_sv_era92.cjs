@@ -8,6 +8,7 @@
    Sama malli kuin scripts/i18n_vie_sv_era91.cjs. Ajo: node scripts/i18n_vie_sv_era92.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const { sopii, lataaSv, lisaaKarttaan, q } = require('./i18n_vie_sv_era53_19.cjs');
 const ROOT = path.join(__dirname, '..');
@@ -25,7 +26,7 @@ function lataaLang(src) {   // tm_lang.js: TM_LANG = { fi, sv, en } → koko oli
 }
 
 function vie(opts) {
-  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [];
+  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => LL.lueTied(juuri, f), virheet = [], ohitettu = [];
   const P = JSON.parse(lue(PALAUTUS)).osiot || {}, G = JSON.parse(lue(LAHETYS)).osiot || {};
   const s = { vp: lue(F.vp), master: lue(F.master), lib: lue(F.lib), lang: lue(F.lang) };
   const ol = { vp: lataaSv(s.vp, 'TM_VP_I18N'), master: lataaSv(s.master, 'TM_MASTER_I18N'), lib: lataaSv(s.lib, 'TM_LIB_I18N') }, L = lataaLang(s.lang);
@@ -84,7 +85,7 @@ function vie(opts) {
   for (const [k, sv] of uudet.lang) { const [ryhma, a] = k.split('.'); if (!vL.sv[ryhma] || vL.sv[ryhma][a] !== sv) virheet.push('verifiointi tm_lang ' + k); }
   if (virheet.length) return { virheet, lisatty: {}, kopiot: [], ohitettu, kirjoitettu: false };
   const muuttui = n.vp + n.master + n.lib + n.lang > 0;
-  if (opts.kirjoita && muuttui) for (const k0 of Object.keys(F)) if (s[k0] !== lue(F[k0])) fs.writeFileSync(path.join(juuri, F[k0]), s[k0]);
+  if (opts.kirjoita && muuttui) for (const k0 of Object.keys(F)) if (s[k0] !== lue(F[k0])) LL.kt(juuri, F[k0], s[k0]);
   return { virheet, lisatty: n, kopiot: kopiot.map(([k]) => k), ohitettu, kirjoitettu: !!(opts.kirjoita && muuttui) };
 }
 module.exports = { vie, PALAUTUS, KOPIOT_MASTER_VP };

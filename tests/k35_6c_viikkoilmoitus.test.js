@@ -1,7 +1,8 @@
 /* K35-6c (D192): viikkoilmoitus — client: Täytä viikko leimaa erän (viikko_era), ilmoitusrivi 'viikko' (ei nimiä), näkyy viikon loppuun, tm_lang-avaimet. Functions: functions/test/kalenteri_viikko_notif.test.js. */
+const LL = require('../scripts/lang_lahde.cjs');
 const fs = require('fs'), path = require('path');
 const IL = require('../lib/tm_kalenteri_ilmoitus.js'), VP = require('../lib/tm_viikkopohja.js');
-const LANG = fs.readFileSync(path.join(__dirname, '..', 'lib', 'tm_lang.js'), 'utf8'), FN = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8'), KV = fs.readFileSync(path.join(__dirname, '..', 'functions', 'kalenteri_viikko.js'), 'utf8');
+const LANG = LL.lue(path.join(__dirname, '..')), FN = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8'), KV = fs.readFileSync(path.join(__dirname, '..', 'functions', 'kalenteri_viikko.js'), 'utf8');
 const t = (k) => k;   // tm_lang ei vielä tunne avainta → t palauttaa avaimen → fi-varateksti
 
 describe('tmEhdotusDoc: viikko_era', () => {

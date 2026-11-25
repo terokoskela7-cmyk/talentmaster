@@ -13,6 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import LL from '../scripts/lang_lahde.cjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
@@ -127,7 +128,7 @@ describe('§7.22 — hero näyttää TILAN, ei numeroa (vaihtoehto B)', () => {
     const vm = await import('vm');
     const sb = { console: { log() {}, warn() {} }, localStorage: { getItem: () => null, setItem() {} } };
     sb.window = sb; vm.createContext(sb);
-    vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_lang.js'), 'utf8'), sb);
+    vm.runInContext(LL.lue(ROOT), sb);
     const avaimet = ['valmiustila_valmis', 'valmiustila_kehittyy', 'valmiustila_huolto', 'valmiustila_ei_dataa'];
     const fi = avaimet.map((k) => sb.t('mittarit.' + k));
     expect(fi).toEqual(['Valmis treenaamaan', 'Kehittyy', 'Tarvitsee huoltoa', 'Ei mitattu vielä']);

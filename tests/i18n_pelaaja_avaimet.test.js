@@ -13,6 +13,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import LL from '../scripts/lang_lahde.cjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HTML = readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
@@ -22,7 +23,7 @@ function lang() {
   const sb = { console: { log() {}, warn() {}, error() {} } };
   sb.window = sb;
   vm.createContext(sb);
-  vm.runInContext(readFileSync(join(juuri, 'lib/tm_lang.js'), 'utf8'), sb);
+  vm.runInContext(LL.lue(juuri), sb);
   return sb;
 }
 
