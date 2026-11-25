@@ -7,7 +7,7 @@
  *   3. App Check -debug-token (vain jos annettu; ei tulosteeseen): self.FIREBASE_APPCHECK_DEBUG_TOKEN + localStorage (lib/tm_appcheck.js sallii vain preview/staging-kanavan hostit).
  * Koukku: window.firebase-asetin → firebase.firestore-asetin (compat-SDK rekisteröi nimiavaruuden sijoituksella) → kietominen heti kun Query/DocumentReference ovat olemassa. __tmM.kiinnitetty = true kun kietominen onnistui. */
 function instrumentointi(a) {
-  var M = window.__tmM = { luvut: {}, erittely: {}, konsoli: [], dokTavut: {}, dokEiMitattu: 0, yht: 0, varit: [], avoimet: 0, kiinnitetty: false, snapshotit: 0, virheet: [] };
+  var M = window.__tmM = { luvut: {}, erittely: {}, konsoli: [], dokTavut: {}, dokEiMitattu: 0, yht: 0, varit: [], avoimet: 0, auki: {}, seq: 0, kiinnitetty: false, snapshotit: 0, virheet: [], kuuntelijavirheet: [], peruttu: [] };
   /* appcheck_vaihto oli ennen AINA null: "kylmä" konteksti saa kirjautumisen storageStatesta (indexedDB: true) myös App Check -tokenin → SDK lukee voimassa olevan tokenin eikä vaihda mitään (todennettu paikallisesti: login 1 vaihtopyyntöä, storageStatella 0).
      Mittari kirjaa nyt (1) ettei Resource Timing -puskuri (oletus 250) täyty ja (2) onko voimassa oleva token IndexedDB:ssä alussa (→ ajat.appcheck_token_valimuistissa). null + true = ei vaihtoa, ei mittarivika. */
   try { performance.setResourceTimingBufferSize(2000); } catch (e) {}
@@ -35,6 +35,16 @@ function instrumentointi(a) {
   } catch (e) {}
   function lisaa(nimi, n, er) { M.luvut[nimi] = (M.luvut[nimi] || 0) + n; M.yht += n; if (er) { var e = M.erittely[er] = M.erittely[er] || { n: 0, kutsuja: 0 }; e.n += n; e.kutsuja++; } }
   /* --erittely (a.erittely): polku normalisoituna (id-segmentit → *) + kutsuja (sovelluskoodin ensimmäinen pinokehys) → M.erittely["polku ← funktio tiedosto:rivi"] = { n: dokumenttia, kutsuja: kutsuja }. Pino luetaan SYNKRONISESTI get()/onSnapshot()-kutsuhetkellä. */
+  /* Kyselyn sormenjälki (Tehtävä 1/1): where/orderBy/limit -kentät (ei arvoja → ei tunnisteita) → erottaa samannimiset kuuntelijat (esim. viestit: vastaanottajaUid+aika vs. vastaanottajaUid+tyyppi in). */
+  function kyselyMerkki(o, onDoc) {
+    if (onDoc) return 'doc';
+    try {
+      var d = o._delegate || o, q = d._query || d, fn = function (x) { return x && x.canonicalString ? x.canonicalString() : String(x); };
+      var f = (q.filters || []).map(function (x) { return x.filters ? '(' + x.filters.map(function (y) { return fn(y.field) + ' ' + y.op; }).join(',') + ')' : fn(x.field) + ' ' + x.op; });
+      var ob = (q.explicitOrderBy || q.orderBy || []).map(function (x) { return fn(x.field) + ':' + x.dir; });
+      return 'where[' + f.join(' & ') + '] orderBy[' + ob.join(',') + ']' + (q.limit != null ? ' limit ' + q.limit : '');
+    } catch (e) { return '?'; }
+  }
   function erKey(o, onDoc) {
     if (!(a && a.erittely)) return null;
     try {
@@ -63,8 +73,8 @@ function instrumentointi(a) {
   function kietoGet(proto, onDoc) {
     var alku = proto.get; if (typeof alku !== 'function' || alku.__tm) return;
     proto.get = function () {
-      var t0 = performance.now(), nimi = kokoelma(this, onDoc), er = erKey(this, onDoc); M.avoimet++;
-      var p = alku.apply(this, arguments), valmis = function () { M.avoimet--; M.varit.push([t0, performance.now()]); };
+      var t0 = performance.now(), nimi = kokoelma(this, onDoc), er = erKey(this, onDoc), oid = ++M.seq; M.avoimet++; M.auki[oid] = { tyyppi: 'get', n: nimi, e: er, t: Math.round(t0) };
+      var p = alku.apply(this, arguments), valmis = function () { M.avoimet--; delete M.auki[oid]; M.varit.push([t0, performance.now()]); };
       return p.then(function (s) { valmis(); lisaa(nimi, onDoc ? 1 : Math.max(1, s.size != null ? s.size : (s.docs ? s.docs.length : 1)), er); tavuta(nimi, onDoc ? (s && s.exists ? [s] : []) : (s && s.docs ? s.docs : [])); return s; }, function (e) { valmis(); throw e; });
     };
     proto.get.__tm = true;
@@ -72,17 +82,23 @@ function instrumentointi(a) {
   function kietoSnapshot(proto, onDoc) {
     var alku = proto.onSnapshot; if (typeof alku !== 'function' || alku.__tm) return;
     proto.onSnapshot = function () {
-      var args = Array.prototype.slice.call(arguments), nimi = kokoelma(this, onDoc), er = erKey(this, onDoc), t0 = performance.now(), ensin = true; M.avoimet++;
+      var thisK = this, args = Array.prototype.slice.call(arguments), nimi = kokoelma(this, onDoc), er = erKey(this, onDoc), t0 = performance.now(), ensin = true, oid = ++M.seq; M.avoimet++; M.auki[oid] = { tyyppi: 'snapshot', n: nimi, e: er, q: kyselyMerkki(this, onDoc), t: Math.round(t0), virhekutsu: false };
       function laske(s) {
         try {
-          if (ensin) { ensin = false; M.avoimet--; M.varit.push([t0, performance.now()]); }
+          if (ensin) { ensin = false; M.avoimet--; delete M.auki[oid]; M.varit.push([t0, performance.now()]); }
           M.snapshotit++; var cache = s && s.metadata && s.metadata.fromCache;
           if (!cache) { lisaa(nimi, onDoc ? 1 : Math.max(1, (typeof s.docChanges === 'function' ? s.docChanges().length : (s.size || 0))), er); tavuta(nimi, onDoc ? (s && s.exists ? [s] : []) : (typeof s.docChanges === 'function' ? s.docChanges().map(function (c) { return c.doc; }) : (s.docs || []))); }
         } catch (e) { M.virheet.push(String(e && e.message || e)); }
       }
       var i = args.findIndex(function (x) { return typeof x === 'function' || (x && typeof x.next === 'function'); });
       if (i >= 0) { var f = args[i]; if (typeof f === 'function') args[i] = function (s) { laske(s); return f.apply(this, arguments); }; else { var n = f.next; args[i] = Object.assign({}, f, { next: function (s) { laske(s); return n.apply(f, arguments); } }); } }
-      return alku.apply(this, args);
+      /* DIAGNOSTIIKKA (Tehtävä 2/1): virhe ennen ensimmäistä snapshotia EI vähennä avoimet-laskuria → silmukka ei pääty. Kirjataan virhekoodi auki-merkintään (ei muuta käytöstä). */
+      function virheMerkki(e) { try { var k = (e && (e.code || e.message)) || 'tuntematon'; if (M.auki[oid]) { M.auki[oid].virhekutsu = true; M.auki[oid].koodi = k; } if (ensin) { ensin = false; M.avoimet--; M.kuuntelijavirheet.push({ n: nimi, e: er, q: kyselyMerkki(thisK, onDoc), koodi: k, t: Math.round(performance.now()) }); delete M.auki[oid]; M.varit.push([t0, performance.now()]); } } catch (x) {} }   /* virhe sulkee operaation (Tehtävä 1/4c): silmukka ei jää odottamaan; virhe kirjataan kuuntelijavirheet-listaan */
+      if (i >= 0) { var g = args[i]; if (typeof g === 'function') { var ev = args[i + 1]; if (typeof ev === 'function') args[i + 1] = function (e) { virheMerkki(e); return ev.apply(this, arguments); }; else if (ev == null) M.auki[oid].ilman_virhekuuntelijaa = true; } else if (g && typeof g.error === 'function') { var ge = g.error; args[i] = Object.assign({}, g, { error: function (e) { virheMerkki(e); return ge.apply(g, arguments); } }); } else M.auki[oid].ilman_virhekuuntelijaa = true; }
+      var uns = alku.apply(this, args);
+      /* Peruttu ennen ensimmäistä snapshotia (unsubscribe) = ei roikkuva kuuntelija: sulje operaatio ja kirjaa (päällekkäinen tilaus on oma havaintonsa). */
+      if (typeof uns !== 'function') return uns;
+      return function () { try { if (ensin) { ensin = false; M.avoimet--; delete M.auki[oid]; M.peruttu.push({ n: nimi, q: kyselyMerkki(thisK, onDoc), alku: Math.round(t0), peruttu: Math.round(performance.now()) }); M.varit.push([t0, performance.now()]); } } catch (x) {} return uns.apply(this, arguments); };
     };
     proto.onSnapshot.__tm = true;
   }
