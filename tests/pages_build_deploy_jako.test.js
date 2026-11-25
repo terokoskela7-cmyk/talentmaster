@@ -26,9 +26,14 @@ describe('deploy-pages.yml · build + deploy erillisinä jobeina', () => {
     expect(deploy).toMatch(/needs:\s*build/);
     expect(deploy).toMatch(/name:\s*github-pages/);
   });
-  it('upload-pages-artifact ja deploy-pages samassa major-versiossa (v5 + v5)', () => {
-    const up = /upload-pages-artifact@v(\d+)/.exec(wf)[1], dp = /deploy-pages@v(\d+)/.exec(wf)[1];
-    expect(up).toBe(dp);
+  it('upload-pages-artifact + deploy-pages ovat julkaistu ja tarkistettu pari', () => {
+    // Todennettu 25.11.2026 (gh api): upload-pages-artifact v5.0.0 (10.4.2026, upload-artifact v7) ja
+    // deploy-pages v5.0.0/v5.0.1 (Node 24) ovat julkaistuja. Kummankaan README ei kuitenkaan dokumentoi
+    // yhteensopivuusparia v5:lle (esimerkit näyttävät deploy-pages@v4) -> "sama major" ei ole sääntö.
+    // Sallitut parit ovat eksplisiittinen lista; uusi pari lisätään tähän vasta kun se on todennettu.
+    const PARIT = ['v4+v4', 'v5+v5'];
+    const up = /upload-pages-artifact@(v\d+)/.exec(wf)[1], dp = /deploy-pages@(v\d+)/.exec(wf)[1];
+    expect(PARIT, `pari ${up}+${dp} ei ole todennettujen listalla`).toContain(`${up}+${dp}`);
   });
   it('concurrency "pages" ja permissions säilyvät', () => {
     expect(wf).toMatch(/group:\s*"pages"/);
