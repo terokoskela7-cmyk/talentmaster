@@ -61,3 +61,20 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('haePelaajaKoh
     expect((await aja({ 'seurat/s01/kayttajat/u1': { joukkueet: [] } })).virhe).toMatch(/ei joukkuetta/);
   }, 60000);
 });
+
+describe('mittaa_sivut --esta', () => {
+  it('lueArgv kerää toistettavat --esta-globit; tarkista hylkää tyhjän; tuntematon ei vuoda', () => {
+    const o = S.lueArgv(['--url=https://talentmaster-staging.web.app', '--esta=https://apis.google.com/**', '--esta=https://x.test/*']);
+    expect(o.esta).toEqual(['https://apis.google.com/**', 'https://x.test/*']);
+    expect(o.tuntematon).toEqual([]);
+    expect(S.lueArgv([]).esta).toEqual([]);
+    expect(S.tarkista(Object.assign({}, o, { esta: [''], kuiva: true }), {})).toMatch(/--esta/);
+    expect(S.tarkista(Object.assign({}, o, { kuiva: true }), {})).toBeNull();
+  });
+  it('yhdistaTulokset ei yhdistä eri --esta-asetuksilla (estetty vs. estämätön ei sekoitu)', () => {
+    const m = (esta) => ({ meta: { isanta: 'h', seura: 1, toistot: 3, aika: 'a', kesto_s: 1, esta }, mittaukset: [{ sivu: 'master', profiili: 'puhelin' }] });
+    expect(S.yhdistaTulokset(m(undefined), m(['g']), null).mittaukset).toHaveLength(1);
+    expect(S.yhdistaTulokset(m(undefined), m(['g']), null).meta.yhdistetty).toBeUndefined();
+  });
+});
+
