@@ -3,7 +3,7 @@
  * Lähde: deploy-pages.yml kaatui 5/7 ajosta ("No artifacts named github-pages") kun upload ja deploy-pages olivat samassa jobissa.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const juuri = join(__dirname, '..');
@@ -39,9 +39,15 @@ describe('deploy-pages.yml · build + deploy erillisinä jobeina', () => {
     expect(wf).toMatch(/group:\s*"pages"/);
     expect(wf).toMatch(/pages:\s*write/); expect(wf).toMatch(/id-token:\s*write/);
   });
-  it('docs/design/ ja docs/data/ rajataan pois ja ovat jo Hostingin ignoressa (sovellus ei lataa niitä)', () => {
-    expect(build).toMatch(/rm -rf archive docs\/ui-kuvat docs\/design docs\/data/);
+  it('docs/ui-kuvat/ ja docs/data/ rajataan pois ja ovat Hostingin ignoressa; docs/design/ on ignoressa mutta jää Pagesiin', () => {
+    expect(build).toMatch(/rm -rf archive docs\/ui-kuvat docs\/data\s*$/m);
     const ign = JSON.parse(readFileSync(join(juuri, 'firebase.json'), 'utf8')).hosting.ignore;
     expect(ign).toContain('docs/design/**'); expect(ign).toContain('docs/data/**');
+  });
+  it('VARTIJA: docs/design/ (esim. idp-v2/09_pelaaja_kentta.html) EI saa olla rm-listalla: Pages on designin katselupolku', () => {
+    const rmRivit = wf.split('\n').filter((r) => /^\s*run:.*\brm\b/.test(r)).join('\n');
+    expect(rmRivit).not.toMatch(/docs\/design/);
+    expect(rmRivit).not.toMatch(/docs\/idp-v2|09_pelaaja_kentta/);
+    expect(existsSync(join(juuri, 'docs/design/idp-v2/09_pelaaja_kentta.html'))).toBe(true);
   });
 });

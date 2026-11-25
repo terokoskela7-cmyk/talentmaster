@@ -36,10 +36,12 @@ jobs:
       # inbound-linkkiä arkistoon (viittaukset ovat arkiston sisäisiä tai docs-proosaa).
       # docs/ui-kuvat/ (laatuportin PR-kuvat, D168) EI Pagesiin: kuvat ovat PR-katselmointia varten, ei julkista sisältöä, ja ne kasvattaisivat artefaktia
       # jokaisen näkymä-PR:n myötä. Poisto kohdistuu vain CI:n efemeeriseen checkoutiin — kuvat säilyvät versionhallinnassa.
-      # docs/design/ (suunnittelumateriaali, ~50 Mt = 80 % artefaktista) ja docs/data/ (analyysidata) EI Pagesiin: ne ovat jo firebase.json:in
-      # Hosting-ignoressa, eli yksikään sovellus-HTML ei lataa niitä (todennettu: ei viittauksia juuren HTML/JS/CSS-tiedostoista).
-      - name: Rajaa archive/, docs/ui-kuvat/, docs/design/ ja docs/data/ pois julkaisusta
-        run: rm -rf archive docs/ui-kuvat docs/design docs/data
+      # docs/ui-kuvat/ (PR-kuvat) ja docs/data/ (analyysidata) EI Pagesiin: ne ovat jo firebase.json:in Hosting-ignoressa, eli yksikään
+      # sovellus-HTML ei lataa niitä. docs/design/ JÄÄ Pagesiin: Pages on designin katselupolku (Tero vertaa esim.
+      # docs/design/idp-v2/09_pelaaja_kentta.html -linkistä Pelaaja-appiin). Hosting ignoraa designin edelleen; se ei siis ole Hostingissa,
+      # vain Pagesissa. Artefakti on ~55 Mt; kaatumisen juurisyy oli upload+deploy samassa jobissa, ja se on korjattu build/deploy-jaolla.
+      - name: Rajaa archive/, docs/ui-kuvat/ ja docs/data/ pois julkaisusta
+        run: rm -rf archive docs/ui-kuvat docs/data
       - uses: actions/setup-node@v5
         with:
           node-version: 20
