@@ -108,7 +108,7 @@ describe('YAML-rakenne (ilman yaml-kirjastoa: rivipohjainen)', () => {
   });
 
   it('docs/ui-kuvat/ (laatuportin PR-kuvat, D168) ei kulje julkaisuun: Pages-artefakti (rm -rf) ja Hostingin ignore', () => {
-    expect(lue('deploy-pages.yml')).toMatch(/^\s*run:\s*rm -rf archive docs\/ui-kuvat\s*$/m);
+    expect(lue('deploy-pages.yml')).toMatch(/^\s*run:\s*rm -rf archive docs\/ui-kuvat docs\/design docs\/data\s*$/m);
     expect(JSON.parse(readFileSync(new URL('../firebase.json', import.meta.url), 'utf8')).hosting.ignore).toContain('docs/ui-kuvat/**');
   });
 });

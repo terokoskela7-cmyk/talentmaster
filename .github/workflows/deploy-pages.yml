@@ -18,10 +18,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  # build ja deploy erillisiin jobeihin (GitHubin vakiomalli): artefakti ladataan build-jobissa ja deploy-pages hakee sen
+  # omassa jobissaan, eikä enää 0,5 s upload-vaiheen jälkeen samasta jobista ("No artifacts named github-pages", 5/7 ajoa 23.–25.11.).
+  # Latausaction v5 = deploy-pages@v5:n pari (v3 oli versioepäsopu: v3 → upload-artifact v4, deploy-pages v5 odottaa uutta).
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,8 +36,10 @@ jobs:
       # inbound-linkkiä arkistoon (viittaukset ovat arkiston sisäisiä tai docs-proosaa).
       # docs/ui-kuvat/ (laatuportin PR-kuvat, D168) EI Pagesiin: kuvat ovat PR-katselmointia varten, ei julkista sisältöä, ja ne kasvattaisivat artefaktia
       # jokaisen näkymä-PR:n myötä. Poisto kohdistuu vain CI:n efemeeriseen checkoutiin — kuvat säilyvät versionhallinnassa.
-      - name: Rajaa archive/ ja docs/ui-kuvat/ pois julkaisusta
-        run: rm -rf archive docs/ui-kuvat
+      # docs/design/ (suunnittelumateriaali, ~50 Mt = 80 % artefaktista) ja docs/data/ (analyysidata) EI Pagesiin: ne ovat jo firebase.json:in
+      # Hosting-ignoressa, eli yksikään sovellus-HTML ei lataa niitä (todennettu: ei viittauksia juuren HTML/JS/CSS-tiedostoista).
+      - name: Rajaa archive/, docs/ui-kuvat/, docs/design/ ja docs/data/ pois julkaisusta
+        run: rm -rf archive docs/ui-kuvat docs/design docs/data
       - uses: actions/setup-node@v5
         with:
           node-version: 20
@@ -46,9 +48,17 @@ jobs:
       - name: Versiotiivisteet
         run: node scripts/versiotiiviste.js --kirjoita
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: '.'
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
