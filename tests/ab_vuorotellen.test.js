@@ -58,4 +58,13 @@ describe('ab_vuorotellen', () => {
     expect(await AB.main(['--a=' + A, '--b=' + B, '--kuiva'], { ajaa: () => { kutsuttu = true; return 0; }, env: {}, kirjaa: (r) => rivit.push(r), virhe: () => {} })).toBe(0);
     expect(kutsuttu).toBe(false); expect(rivit.join('\n')).toMatch(/kierros 2: B → A/);
   });
+  it('--esta-a / --esta-b: välitetään --esta:ksi vain omalle puolelle, näkyy otsikossa ja yhteenvedon metassa; tyhjä glob hylätään', async () => {
+    const G = '**/apis.google.com/**', kutsut = [], rivit = [], ulos = join(mkdtempSync(join(tmpdir(), 'abesta-')), 'ab');
+    const ajaa = (argit) => { kutsut.push(argit); const u = argit.find((a) => a.startsWith('--ulos=')).slice(7); writeFileSync(u, JSON.stringify(tulos([2000], [1000]))); return 0; };
+    expect(await AB.main(['--a=' + A, '--b=' + B, '--kierrokset=2', '--esta-b=' + G, '--ulos=' + ulos], { ajaa, env: { STAGING_APPCHECK_DEBUG_TOKEN: 'x' }, kirjaa: (r) => rivit.push(r), virhe: () => {} })).toBe(0);
+    kutsut.forEach((argit) => { const b = argit.includes('--url=' + B); expect(argit.filter((a) => a.startsWith('--esta=')))[b ? 'toEqual' : 'toEqual'](b ? ['--esta=' + G] : []); });
+    const t = rivit.join('\n'); expect(t).toMatch(/B = .*estetty: \*\*\/apis\.google\.com/); expect(t).toMatch(/esto A: – · esto B: /);
+    expect(JSON.parse(readFileSync(join(ulos, 'yhteenveto.json'), 'utf8')).meta.esta_b).toEqual([G]);
+    let v = ''; expect(await AB.main(['--a=' + A, '--b=' + B, '--esta-a=', '--kuiva'], { env: {}, kirjaa: () => {}, virhe: (r) => { v = r; } })).toBe(2); expect(v).toMatch(/esta/);
+  });
 });
