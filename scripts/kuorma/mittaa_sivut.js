@@ -93,7 +93,7 @@ async function mittaaAvaus(page, cdp, url, opt) {
   const alku = Date.now(); let tila = null, alaraja = null; const silmukka = { polleja: 0, nollapolleja: 0, max_odottavat: 0, kirjautunut_t: null, merkki_t: null, alaraja_t: null, odottavat_urlit: [] }, silmukkaLoki = [];   // alaraja = hetki (ms navigaation alusta) jolloin istunto oli valmis (kirjautunut); odotaKirjautunut → mittaus ei pääty eikä TTI laske sitä ennen
   while (!virhe && Date.now() - alku < aikaraja) {
     await page.waitForTimeout(300);
-    try { tila = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {} return { fcp: m.fcp, varit: m.varit.slice(), avoimet: m.avoimet, nyt: performance.now(), kirjautunut: k, merkit: m.merkit }; }); } catch (e) { tila = null; continue; }   // navigointi kesken
+    try { tila = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {} return { fcp: m.fcp, varit: m.varit.slice(), avoimet: m.avoimet, auki: Object.keys(m.auki || {}).map(function (k) { return m.auki[k]; }), nyt: performance.now(), kirjautunut: k, merkit: m.merkit }; }); } catch (e) { tila = null; continue; }   // navigointi kesken
     /* A/B 22.11. (#1315): hitaalla verkolla (Slow 4G) FCP tulee ennen skriptejä ja CPU on 2 s ajan joutilas, kun SDK:t/pääskripti vielä latautuvat → "rauhoittunut" FCP:n hetkellä (TTI = FCP, 0 lukua).
        Ei päätetä ennen kuin dokumentti/skriptit/tyylit on ladattu (Fetch/WebSocket ei: Firestore Listen pysyy auki). */
     const odottavat = M.odottavatLataukset(pyynnot);
@@ -107,7 +107,7 @@ async function mittaaAvaus(page, cdp, url, opt) {
     if (tila && tila.merkit && typeof tila.merkit.auth_odottaa_pois === 'number' && silmukka.merkki_t == null) silmukka.merkki_t = Math.round(tila.nyt);
     if (alaraja != null && silmukka.alaraja_t == null) silmukka.alaraja_t = Math.round(tila.nyt);
     if (odottavat > 0) silmukka.odottavat_urlit = M.odottavatUrlit(pyynnot, 5);
-    if (opt && opt.erittely && silmukkaLoki.length < 400) silmukkaLoki.push({ t: Math.round(tila ? tila.nyt : -1), k: !!(tila && tila.kirjautunut), od: !!(tila && tila.merkit && tila.merkit._nahtyOdotus), mk: tila && tila.merkit ? (tila.merkit.auth_odottaa_pois != null ? tila.merkit.auth_odottaa_pois : null) : null, odottavat, avoimet: tila ? tila.avoimet : null, ala: alaraja });
+    if (opt && opt.erittely && silmukkaLoki.length < 400) silmukkaLoki.push({ t: Math.round(tila ? tila.nyt : -1), k: !!(tila && tila.kirjautunut), od: !!(tila && tila.merkit && tila.merkit._nahtyOdotus), mk: tila && tila.merkit ? (tila.merkit.auth_odottaa_pois != null ? tila.merkit.auth_odottaa_pois : null) : null, odottavat, avoimet: tila ? tila.avoimet : null, auki: (tila && tila.avoimet > 0 && tila.avoimet <= 6) ? tila.auki : undefined, ala: alaraja });
     if (odottavat > 0) continue;
     if (opt && opt.odotaKirjautunut && tila && alaraja == null) continue;   // istuntoa ei vielä valmis (Slow 4G + CPU 4×: auth/App Check kestää kymmeniä sekunteja) → jatka aikarajaan asti
     if (tila && tila.fcp != null && tila.avoimet === 0 && M.laskeInteraktiivinen({ fcp: tila.fcp, alaraja, varit: tila.varit, ikkuna, havaintoLoppu: tila.nyt }) != null) break;
