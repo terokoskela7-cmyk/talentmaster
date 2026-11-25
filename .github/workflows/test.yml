@@ -64,14 +64,32 @@ jobs:
           TM_CHROME_TESTS: '1'
         run: TM_CHROME_PATH="$(which google-chrome)" npx vitest run $(cat .github/chrome_testit.txt) --shard=${{ matrix.osa }}/4
 
+  # Laiskat kirjastot DEPLOY-MUODOSSA (versiotiiviste: pääskripti tm_master_main.js + defer = staging/tuotanto). Repon inline-muoto ei paljasta deferin järjestysvikoja
+  # (26.11.2026: laiskat portit eivät asentuneet deploy-muodossa). TM_DEPLOY_MUOTO=1 → tests/helpers/kalenteri_sivu.mjs rakentaa sivun deploy-muotoon. Lista: .github/chrome_laiska_deploy.txt (vartija: tests/laiska_deploy_muoto_vartija.test.js).
+  chrome-laiska-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Laiska-selaintestit deploy-muodossa
+        env:
+          TM_CHROME_TESTS: '1'
+          TM_DEPLOY_MUOTO: '1'
+        run: TM_CHROME_PATH="$(which google-chrome)" npx vitest run $(cat .github/chrome_laiska_deploy.txt)
+
   # Yksi tarkistus nimellä chrome-tests (pakollisen tarkistuksen nimi ei muutu) — vihreä vain kun kaikki neljä osaa ovat vihreitä.
   chrome-tests:
     runs-on: ubuntu-latest
-    needs: chrome-osat
+    needs: [chrome-osat, chrome-laiska-deploy]
     if: always()
     steps:
       - name: Kaikki osat vihreinä
-        run: test "${{ needs.chrome-osat.result }}" = success
+        run: test "${{ needs.chrome-osat.result }}" = success && test "${{ needs.chrome-laiska-deploy.result }}" = success
 
   # sv-läpiajo (docs/CODE_BRIEF_I18N_SV_LAPIAJO.md): mittaa, paljonko suomea käyttäjä näkee sv-tilassa.
   # QG-1 · kielivartija: uusi käyttöliittymän suomi sv-tilassa (ui-luokka) KAATAA; data? raportoidaan. Kolme rinnakkaista osaa (≤ 5 min):

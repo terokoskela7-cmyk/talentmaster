@@ -9145,6 +9145,8 @@ window.avaaHarjoitusarviointi = async function () {
   if (typeof TM_HARJOITUS === 'undefined') { if (typeof toast === 'function') toast(masterT('Lomake ei latautunut — päivitä sivu'), 'error'); return; }
   const cu = _auth.currentUser;
   if (!cu || !_seuraId) { if (typeof toast === 'function') toast(masterT('Kirjaudu ensin'), 'error'); return; }
+  /* L2-korjaus: normit (normiIka → ikävaihe, laskeValmentajaHarjoitusKooste → pikakentät) ladataan ENNEN lomakkeen avausta. Epäonnistuminen: lataaja näyttää ohjetoastin, lomaketta ei avata. */
+  if (!(await window.tmLaiska.varmista())) return;
   const vd = window._valmentajaData || {};
   const nimi = ((vd.etunimi || '') + ' ' + (vd.sukunimi || '')).trim() || 'Valmentaja';
   let config = null;
@@ -9157,6 +9159,7 @@ window.avaaHarjoitusarviointi = async function () {
   TM_HARJOITUS.avaa({
     db: _db, firebase: firebase, seuraId: _seuraId, config: config, brandi: brandi,
     joukkueet: joukkueet.length ? joukkueet : null,
+    varmista: function () { return window.tmLaiska.varmista(); },   // tallennus varmistaa normit ennen pikakenttälaskentaa (lib ei riipu Masterin globaaleista)
     malliLukko: 'valmennustaidot', tapaLukko: true, otsikko: masterT('Itsearvio'), t: masterT,   // t: lomakkeen tekstit sv-reitille (lib/tm_harjoitusarviointi.js _T)
     konteksti: { joukkue: _joukkue || '', valmentaja: nimi, valmentajaUid: cu.uid, arvioija: nimi, arvioijaUid: cu.uid, arviointitapa: 'itsearvio' }
   });
@@ -9201,10 +9204,15 @@ window.avaaValmentajaKehitys = async function () {
   document.body.appendChild(m);
   const sis = document.getElementById('mkSisalto');
   try {
+    /* L2-korjaus: normit (omaKehitysKooste, cpdKooste) PAKKO olla ladattuna ennen laskentaa. Ei nollia eikä "Ei vielä"-tekstiä tiedon puuttuessa → näkyvä virhe (lataaja näyttää lisäksi toastin). */
+    if (!(await window.tmLaiska.varmista())) {
+      sis.innerHTML = '<div style="font-size:13px;color:var(--amber);padding:16px 0;text-align:center">' + _mEsc(window.tmLaiska.virheTeksti()) + '</div>';   // loaderin oma teksti (sama kuin toastissa)
+      return;
+    }
     // Omat arvioinnit (where valmentajaUid==self; ilman orderBy → ei komposiitti-indeksiä)
     const snap = await _db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').where('valmentajaUid', '==', cu.uid).limit(100).get();
     const arvioinnitKaikki = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const k = (typeof omaKehitysKooste === 'function') ? omaKehitysKooste(arvioinnitKaikki, cu.uid) : { n_A: 0, n_B: 0, trendA: [], trendB: [], kalib: null, reflektiot: [], seuraavaAskel: null };
+    const k = omaKehitysKooste(arvioinnitKaikki, cu.uid);
     const vd = window._valmentajaData || {};
     const vtKa = (vd.valmennustaito_ka != null) ? vd.valmennustaito_ka : k.viimB;   // ROOLIMALLI: vain B-numero näytetään valmentajalle
     // Standalone-reflektiot (oma päiväkirja) + CPD-vaatimuskonfiguraatio — ladataan kerran, käytetään CPD-osiossa + päiväkirjassa
@@ -9254,7 +9262,7 @@ window.avaaValmentajaKehitys = async function () {
     // 4.5) CPD-TODISTE — reflektio-CPD + koulutus/kurssi-CPD; edistymäpalkki vain jos vaatimus asetettu (datagate)
     const _lis = vd.lisenssitaso || '';
     const _vaatH = (cpdVaatimusKonf && _lis && cpdVaatimusKonf[_lis] != null) ? cpdVaatimusKonf[_lis] : null;
-    const cpd = (typeof cpdKooste === 'function') ? cpdKooste(standalone, vd.cpd_tunnit_kausi, _vaatH) : { reflektio_h: 0, koulutus_h: 0, kertynyt_h: 0, vaatimus_h: null, edistyma_pct: null };
+    const cpd = cpdKooste(standalone, vd.cpd_tunnit_kausi, _vaatH);
     window._mkCpdData = { cpd: cpd, lisenssitaso: _lis, koulutukset: (vd.koulutukset || []), nimi: ((vd.etunimi || '') + ' ' + (vd.sukunimi || '')).trim(), merkinnat: standalone.slice() };
     window._mkCpdVaatimusKonf = cpdVaatimusKonf;
     const _LIS_NIMI = { grassroots: 'Grassroots', c: 'UEFA C', b: 'UEFA B', a: 'UEFA A', pro: 'UEFA Pro' };
