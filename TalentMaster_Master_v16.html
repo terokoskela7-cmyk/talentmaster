@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1795637454173';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1795694775151';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <style>/* K1b: kirjautumislomaketta ei näytetä ennen kuin Firebase on kertonut istunnon tilan (deeplink ?ws=…&toiminto=… ei saa vilauttaa "kirjautumista ulos"). _naytaLogin() poistaa luokan. */
 html.tm-auth-odottaa #sLogin{display:none!important}
 html.tm-auth-odottaa body::after{content:"";position:fixed;left:50%;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid rgba(128,128,120,.3);border-top-color:#28B090;border-radius:50%;animation:tmAuthSpin .8s linear infinite}
@@ -9144,7 +9144,8 @@ function _renderNarrative(p) {
 // Harjoitusarviointi (HARJOITUSARVIOINTI_SPEC) — valmentajan itsearvio, oma sessio
 window.avaaHarjoitusarviointi = async function () {
   try { localStorage.setItem('tm_valmentaja_itsearvio_' + (typeof _vcaUid === 'function' ? _vcaUid() : 'anon'), '1'); } catch (e) {}   // Aloita tästä -checklist (itsearvio avattu)
-  if (typeof TM_HARJOITUS === 'undefined' && window.tmLaiska && !(await window.tmLaiska.varmista('modaalit'))) return;   // Erä 2: laiska 'modaalit'-ryhmä
+  /* Yksi await-ketju ennen lomakkeen avausta: Erä 2 'modaalit' (lomake-lib) → L2-korjaus normit (normiIka → ikävaihe, laskeValmentajaHarjoitusKooste → pikakentät). Ensimmäinen epäonnistuminen → lataaja näyttää ohjetoastin, ketju katkeaa (ei toista toastia), lomaketta ei avata. */
+  if (window.tmLaiska && !(await window.tmLaiska.varmista('modaalit') && await window.tmLaiska.varmista())) return;
   if (typeof TM_HARJOITUS === 'undefined') { if (typeof toast === 'function') toast(masterT('Lomake ei latautunut — päivitä sivu'), 'error'); return; }
   const cu = _auth.currentUser;
   if (!cu || !_seuraId) { if (typeof toast === 'function') toast(masterT('Kirjaudu ensin'), 'error'); return; }
@@ -9160,6 +9161,7 @@ window.avaaHarjoitusarviointi = async function () {
   TM_HARJOITUS.avaa({
     db: _db, firebase: firebase, seuraId: _seuraId, config: config, brandi: brandi,
     joukkueet: joukkueet.length ? joukkueet : null,
+    varmista: function () { return window.tmLaiska.varmista(); },   // tallennus varmistaa normit ennen pikakenttälaskentaa (lib ei riipu Masterin globaaleista)
     malliLukko: 'valmennustaidot', tapaLukko: true, otsikko: masterT('Itsearvio'), t: masterT,   // t: lomakkeen tekstit sv-reitille (lib/tm_harjoitusarviointi.js _T)
     konteksti: { joukkue: _joukkue || '', valmentaja: nimi, valmentajaUid: cu.uid, arvioija: nimi, arvioijaUid: cu.uid, arviointitapa: 'itsearvio' }
   });
@@ -9204,10 +9206,15 @@ window.avaaValmentajaKehitys = async function () {
   document.body.appendChild(m);
   const sis = document.getElementById('mkSisalto');
   try {
+    /* L2-korjaus: normit (omaKehitysKooste, cpdKooste) PAKKO olla ladattuna ennen laskentaa. Ei nollia eikä "Ei vielä"-tekstiä tiedon puuttuessa → näkyvä virhe (lataaja näyttää lisäksi toastin). */
+    if (!(await window.tmLaiska.varmista())) {
+      sis.innerHTML = '<div style="font-size:13px;color:var(--amber);padding:16px 0;text-align:center">' + _mEsc(window.tmLaiska.virheTeksti()) + '</div>';   // loaderin oma teksti (sama kuin toastissa)
+      return;
+    }
     // Omat arvioinnit (where valmentajaUid==self; ilman orderBy → ei komposiitti-indeksiä)
     const snap = await _db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').where('valmentajaUid', '==', cu.uid).limit(100).get();
     const arvioinnitKaikki = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const k = (typeof omaKehitysKooste === 'function') ? omaKehitysKooste(arvioinnitKaikki, cu.uid) : { n_A: 0, n_B: 0, trendA: [], trendB: [], kalib: null, reflektiot: [], seuraavaAskel: null };
+    const k = omaKehitysKooste(arvioinnitKaikki, cu.uid);
     const vd = window._valmentajaData || {};
     const vtKa = (vd.valmennustaito_ka != null) ? vd.valmennustaito_ka : k.viimB;   // ROOLIMALLI: vain B-numero näytetään valmentajalle
     // Standalone-reflektiot (oma päiväkirja) + CPD-vaatimuskonfiguraatio — ladataan kerran, käytetään CPD-osiossa + päiväkirjassa
@@ -9257,7 +9264,7 @@ window.avaaValmentajaKehitys = async function () {
     // 4.5) CPD-TODISTE — reflektio-CPD + koulutus/kurssi-CPD; edistymäpalkki vain jos vaatimus asetettu (datagate)
     const _lis = vd.lisenssitaso || '';
     const _vaatH = (cpdVaatimusKonf && _lis && cpdVaatimusKonf[_lis] != null) ? cpdVaatimusKonf[_lis] : null;
-    const cpd = (typeof cpdKooste === 'function') ? cpdKooste(standalone, vd.cpd_tunnit_kausi, _vaatH) : { reflektio_h: 0, koulutus_h: 0, kertynyt_h: 0, vaatimus_h: null, edistyma_pct: null };
+    const cpd = cpdKooste(standalone, vd.cpd_tunnit_kausi, _vaatH);
     window._mkCpdData = { cpd: cpd, lisenssitaso: _lis, koulutukset: (vd.koulutukset || []), nimi: ((vd.etunimi || '') + ' ' + (vd.sukunimi || '')).trim(), merkinnat: standalone.slice() };
     window._mkCpdVaatimusKonf = cpdVaatimusKonf;
     const _LIS_NIMI = { grassroots: 'Grassroots', c: 'UEFA C', b: 'UEFA B', a: 'UEFA A', pro: 'UEFA Pro' };

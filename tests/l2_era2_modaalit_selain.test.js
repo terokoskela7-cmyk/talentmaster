@@ -26,7 +26,7 @@ describe('L2 Erä 2 · staattiset', () => {
   });
   it('jokainen käyttöpolku varmistaa ryhmän ennen kutsua (ei hiljaista varapolkua)', () => {
     expect(MASTER).toMatch(/async function _masterPikakirjaus\(\) \{\s*\n\s*if \(!window\.TM_PIKAKIRJAUS && window\.tmLaiska && !\(await window\.tmLaiska\.varmista\('modaalit'\)\)\) return;/);
-    expect(MASTER).toMatch(/typeof TM_HARJOITUS === 'undefined' && window\.tmLaiska && !\(await window\.tmLaiska\.varmista\('modaalit'\)\)\) return;/);
+    expect(MASTER).toMatch(/window\.tmLaiska && !\(await window\.tmLaiska\.varmista\('modaalit'\) && await window\.tmLaiska\.varmista\(\)\)\) return;/);   // yksi await-ketju: modaalit → normit
     expect(MASTER).toMatch(/if \(!window\.TM_HARJOITUS && window\.tmLaiska\) await window\.tmLaiska\.varmista\('modaalit'\);/);
     expect((MASTER.match(/window\.tmLaiska\.varmista\('modaalit'\)\.then\(function \(ok\) \{ if \(ok && window\._mIdpPelaaja === p\)/g) || []).length).toBe(2);   // KT Polku + pelaajamodaali
   });
