@@ -326,3 +326,62 @@ Ei taantumaa. **Arvio:** ~0,55 s / 100 kt ennen authia puhelimella → alle 10 s
 ## 17. A/B 22.11. (kuorma-b, #1317): puhelin "ei kirjautunut" = mittarivika (ikkuna), ei sovellusvika
 `ab_2026-11-22T13-28-33`: B puhelin → `mittaus ei valmis (kirjautunut=false)`; A puhelin "interaktiivinen 0,4–0,5 s" 121 luvulla. Tero todensi käsin (iPhone 12 Pro + Slow 4G): kirjautuminen ja Master toimivat. #1316:n lataus­vartija ei riittänyt: kun kaikki skriptit on ladattu mutta auth/App Check vielä kesken, CPU on joutilas ja "rauhoittunut" laukeaa jo FCP:n kohdalla.
 Korjaus (`mittaa_sivut.js`, `mittaus_lib.js`): (1) `odotaKirjautunut` → silmukka ei pääty ennen kuin `currentUser` on olemassa (aikarajaan 90 s asti); (2) `laskeInteraktiivinen({alaraja})`: TTI ≥ kirjautumisen hetki (`auth_odottaa_pois`-merkki, muuten havaintohetki) → TTI ei voi olla FCP; (3) selaintesti: kirjautuminen 3 s FCP:n jälkeen → TTI ≥ 2,8 s. Aiemmat A:n puhelin-TTI-luvut (0,4–0,5 s) ovat virheellisiä.
+
+## 18. Pelaaja puhelimella: 7,9 s → < 5 s — Vaihe 0 -diagnoosi (26.11.2026, vain diagnoosi — EI koodia)
+
+Lähtö (A/B 24.11., kuorma): Pelaaja puhelin kylmä FCP ~4,9 s, auth-haun alku ~5,7 s, 1. Firestore ~6,4 s, interaktiivinen ~7,9 s; siirto ~0,99 MB, 12–14 lukua. Master FCP 0,44 s → Pelaajan FCP on poikkeuksellisen myöhään. **Alla oleva on staattinen analyysi repon tiedostoista + gstatic/Sentry-CDN:n todellisista pakatuista koista (curl, 26.11.) — ei uutta selainajoa.** Luvut merkitty: *mitattu* (tiedostokoko tai aiempi A/B) vs. *arvio* (malli ~5 ms/kt @ 1,6 Mbit/s ≈ 200 kt/s, §9.5).
+
+### 18.1 Päälöydös: Pelaaja ei ole saanut Masterin L6-hoitoa — kaikki raskas on synkronisesti `<head>`issa
+`scripts/versiotiiviste.js`: `PAASKRIPTI` ja `LYKKAYS` sisältävät **vain** `TalentMaster_Master_v16.html`:n. Pelaaja_v7 julkaistaan siis sellaisenaan: rivit 538–601 (`</head>` rivillä 602) ovat **~66 synkronista `<script src>`-tagia**, joista yksikään ei ole `defer`/`async`. Selain ei voi piirtää mitään ennen kuin kaikki on haettu ja ajettu. Esipiirtoa estävä siirto (*mitattu koot, gz*):
+
+| Osa | gz kt | Huomio |
+|---|---|---|
+| Omat `lib/`+juuri-skriptit (61 kpl, raakana 1 770 kt) | **539** | isoimmat: `harjoitelogiikka_v4.js` 73, `tm_eerikkila_normit` 43, `tm_teknistaktiset` 37, `tm_lib_i18n` 35, `tm_teknistaktiset_sv` 35, `tm_lang` 27, `testit_indeksit` 20, `tm_kehityskaari` 17, `tm-microcycles` 16 |
+| Firebase compat 9.22.1 (5 SDK:ta, gstatic) | **159** | firestore 101 · auth 38 · app 9 · app-check 8 · functions 3 |
+| Sentry-bundle (`browser.sentry-cdn.com`, SRI, **kolmas osapuoli**) | **30** | synkroninen heti title-tagin jälkeen |
+| HTML + inline-pääskripti (rivit 637–6745: 400 kt raakana) | **143** | pääskripti inline → HTML-tiedosto 472 kt raakana |
+| Google Fonts -CSS (`fonts.googleapis.com`, render-blocking `<link rel=stylesheet>`, 53 `@font-face`-lohkoa) | pieni, mutta 2 uutta origin-yhteyttä | ks. 18.3 |
+| **Yhteensä ennen 1. piirtoa (ei fontteja)** | **~870** | |
+
+**Mallin tarkistus:** 870 kt ÷ ~200 kt/s ≈ 4,3 s + fontti-CSS:n origin-kierros (DNS+TLS+CSS ≈ 0,5–0,7 s) ≈ **4,8–5,0 s = mitattu FCP 4,9 s.** Selitys täsmää; Pelaajan FCP on käytännössä "kaikki tavut perillä". Siirto 0,99 MB mittauksessa ≈ 870 kt + fontit + manifesti/ikonit + 12–14 Firestore-lukua → malli kattaa lähes koko siirron. (Masterilla sama muutos oli L6 vaihe 1+2, §11–§12: FCP 9,3 s → 0,44 s.)
+
+Huom: **FCP ≠ käyttövalmis.** Auth käynnistyy vasta inline-pääskriptissä (`firebase.initializeApp(…,'tm-pelaaja')` rivi ~4526, `onAuthStateChanged` ~4537), joka ajetaan vasta kun kaikki skriptit on haettu → auth-haun alku ~5,7 s (= FCP + ~0,8 s: 400 kt inline-skriptin jäsennys/ajo 4× CPU:lla). `defer` yksin siirtää FCP:n ~0,5 s:iin mutta **ei tuo interaktiivista alle 5 s**, ellei myös auth-polun tavuja vähennetä (vivut 2–3).
+
+### 18.2 Aikajana (mitattu A/B 24.11. + selitys 18.1:stä)
+```
+0,0 s   navigointi, HTML alkaa (143 kt gz)
+~0,2    <head>: version.json-fetch (no-store, ei estä), Sentry CDN (sync, 30 kt, +DNS/TLS) ← esto
+~0,5    fonts.googleapis.com -CSS (render-blocking, +DNS/TLS) ← esto
+~0,5–4,6  66 synkronista skriptiä (539 kt) + 5 Firebase-SDK:ta (159 kt) jonossa, yksi kerrallaan ← pääesto
+4,9     FCP  (vasta nyt kuori piirtyy — pelkkä spinneri/PIN-näkymä)
+~4,9–5,7  inline-pääskripti jäsentyy ja ajetaan (400 kt raakana)
+5,7     auth: initializeApp + tmAppCheckAktivoi + onAuthStateChanged
+6,4     1. Firestore-luku  (App Check -token + auth-token → luku)
+7,9     interaktiivinen (12–14 lukua, renderi)
+```
+SW (`sw_pelaaja.js`) rekisteröidään `load`-tapahtumassa → ei vaikuta FCP:hen. Manifesti ei estä piirtoa. `gapi_iframes`: Pelaaja kirjautuu custom tokenilla (`signInWithCustomToken`, rivi ~5535) → ei tarvetta `apis.google.com/js/api.js`-iframelle; **odottaa Teron gapi-A/B:tä (#1327)**, ei lisätä tähän.
+
+### 18.3 Kolme suurinta vipua (arvio ennen A/B:tä; ~0,5 s / 100 kt ennen authia)
+
+| # | Vipu | Vaikutus | Arvio | Riski / huomio |
+|---|---|---|---|---|
+| **1** | **Pääskripti ulos + kaikki skriptit `defer` DEPLOYSSA Pelaajalle** (lisää `TalentMaster_Pelaaja_v7.html` taulukoihin `PAASKRIPTI` + `LYKKAYS`; sama menetelmä kuin Master §11–§12: head-lohkot → `tm_pelaaja_alku.js`, kirjautumisnapit no-op-tynkillä kunnes pääskripti alkaa) | **FCP ~4,9 → ~0,5–0,8 s** (HTML ~143 kt gz + 1 kierros; skriptit eivät estä piirtoa). TTI ei muutu suoraan (sama 870 kt jonossa) | **−4 s FCP**, TTI ~0 | Pelaajassa inline-lohkoja head:ssä (version-tarkistus rivi 7, kielipaketin synkroninen lataus rivi 547, `TM_SENTRY`) ja useita pieniä lohkoja → ne kuuluvat samaan "ei saa ajaa ennen libejä" -analyysiin kuin Masterin §12. `go('pin')`/`setLoc`/`onclick`-handlerit kutsuvat globaaleja → no-op-tynkien lista pitää johtaa datasta (kuten Masterilla). Vartijat `tests/versiotiiviste.test.js` + deploy-muodon selaintesti (`laiska_deploy_muoto_vartija`) laajennettava Pelaajalle |
+| **2** | **Auth-polun tavut pois: laiskaksi se mitä ei kutsuta avauksessa** — ehdokkaat (kooltaan, *mitattu gz*): `tm_teknistaktiset_sv` 35 + `tm_lib_i18n` 35 (sv-kartta; fi-käyttäjä ei tarvitse — kielipaketti-malli sama kuin `tm_lang_sv`), `tm_teknistaktiset` 37 (konseptikortti, avataan klikkauksesta), `tm_kehityskaari` 17, `docs/testit_indeksit` 20, `tm_eerikkila_normit` 43 (tarvitaanko ennen 1. renderiä? kattavuus ratkaisee). **Pelkkä "varmasti turvallinen" osajoukko ≈ 100–110 kt** | **~0,5 s** auth-haun alkuun ja TTI:hin (100 kt) — jopa ~1,1 s jos normit+kehityskaari+testit_indeksit pääsevät mukaan (~215 kt) | ~0,5–1,1 s TTI | Erä 1/2 -menetelmä (`tmLaiska`, portit + tynkät, §16). Vaatii kattavuusajon Pelaajalle (18.4) ennen valintaa: `EI_KUTSUTTU` ≠ turvallinen (ylätason sivuvaikutus). `harjoitelogiikka_v4.js` (73 kt) on Pelaajan ydin (Tänään-näkymä) → todennäköisesti KAYTOSSA, ei ehdokas. Pelaajan sivun §7.22-/sv-polut: sv-kartta pitää latautua ennen 1. sv-renderiä (`tmKieliPaketit.lataa`-kohta jo olemassa) |
+| **3** | **Third-party + fontti pois kriittiseltä polulta:** (a) Google Fonts -`<link>` → itse-isännöidyt `@fontsource`-fontit (CLAUDE.md §5 D11: **alaikäisten IP-osoitteet eivät saa mennä Googlelle** — nykytila rikkoo periaatetta, siis sekä GDPR- että suorituskykykorjaus) tai vähintään `media=print onload` / `font-display:swap` + preload; (b) Sentry-bundle `defer`/`async` (tai vasta `load`-hetkellä; `tm_sentry.js` tukee jo "offline → no-op" -vartijaa) | (a) 2 origin-yhteyttä + render-blocking CSS pois; (b) 30 kt + 1 origin pois | (a) ~0,5–0,7 s FCP · (b) ~0,3–0,4 s (30 kt + DNS/TLS) | Vipu 1 poistaa saman FCP-vaikutuksen osin (fonttilinkki on silti render-blocking → pitää korjata erikseen!). Fontit: vain käytetyt painot (53 `@font-face`-lohkoa = kaikki subsetit; ä/ö/å vaativat `latin`+`latin-ext`). `gstatic`-Firebase-SDK:t (159 kt, 5 kpl): `firebase-functions-compat` (3 kt) tarvitaan vain PIN-kirjautumiseen, ei palaavalle käyttäjälle → mahdollinen lisäsäästö; firestore (101 kt) on pakollinen |
+
+**Ehdotettu järjestys (jokainen oma PR, jokainen vuorottelevalla A/B:llä, §8):**
+1. **Vipu 3b + 3a-minimi** (Sentry async, fonttilinkki ei-estäväksi) — pieni, riskitön, nopea voitto (FCP ~−0,5–1 s); fontin itse-isännöinti omana PR:nään (GDPR-korjaus, ei riipu muusta).
+2. **Vipu 1** (pääskripti ulos + defer) — suurin yksittäinen FCP-voitto (~−4 s); **Teron kaista** (HTML + `scripts/`), vaatii Masterin tapaan kuorma-b-A/B:n + selaintestit.
+3. **Vipu 2** (kattavuusajon jälkeen, erä ~100 kt kerrallaan).
+Tavoite: FCP ~0,6–1,0 s, auth-haun alku ~3,5–4 s (tavut 870 → ~760 kt, malli), **TTI ~4,5–5,3 s** — alle 5 s vaatii vivut 1+2 (+ vivun 3 ja mahdollisesti Firebase-functions-SDK:n lykkäyksen); *arvio, A/B vahvistaa*. Jos TTI jää yli 5 s: seuraava ehdokas on firestore-compat → modular (modulaarinen SDK on selvästi pienempi, mutta SDK-yhtenäistys `docs/FIREBASE_SDK_YHTENAISTYS.md` on oma työnsä).
+
+### 18.4 Mitä tarvitaan lisämittauksesta (Teron ajettavaksi; token vain env-muuttujana)
+Kattavuus Pelaajalle (mitä EI kutsuta avauksessa; V8 precise coverage). Työkalu käyttää `mittaa_sivut.js`:n kirjautumista; Pelaaja vaatii PalloID+PIN-tunnuksen stagingiin (`generoi_aineisto.js --pin-pelaaja`; ilman sitä sivu mitataan kirjautumattomana = vain PIN-näkymä, **ei edusta avausta**):
+```
+! STAGING_APPCHECK_DEBUG_TOKEN=<token> node scripts/kuorma/kattavuus_skriptit.js \
+    --url=https://talentmaster-staging--<kanava>.web.app --sivu=pelaaja --profiili=puhelin --seura=1 --era=100 \
+    --ulos=mittaus_tulokset/kattavuus_pelaaja.json
+```
+(Tarkista `--sivu=pelaaja`-lippu: `kattavuus_skriptit.js` hyväksyy `sivu`-valinnan (rivi 80) ja `mittaa_sivut.js` tuntee `pelaaja`-sivun; jos työkalu ei hyväksy `pelaaja`-arvoa, se on pieni lisäys erilliseen PR:ään.) Vertailu-A/B myöhemmin: `ab_vuorotellen.js --sivut=pelaaja --profiilit=puhelin --kierrokset=3 --toistot=3`. Mittaustulokset eivät saa sisältää PalloID:tä/PIN:iä (työkalun URL-vartija tulostaa vain polun).
+
+**Rajaus:** ei koodimuutoksia, ei uutta selainajoa; luvut "arvio" on merkitty. Seuraava askel: Teron päätös vivun 1 aloituksesta (suurin FCP-voitto) ja kattavuusajon ajo vivulle 2.
