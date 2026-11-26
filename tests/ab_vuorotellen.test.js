@@ -67,4 +67,44 @@ describe('ab_vuorotellen', () => {
     expect(JSON.parse(readFileSync(join(ulos, 'yhteenveto.json'), 'utf8')).meta.esta_b).toEqual([G]);
     let v = ''; expect(await AB.main(['--a=' + A, '--b=' + B, '--esta-a=', '--kuiva'], { env: {}, kirjaa: () => {}, virhe: (r) => { v = r; } })).toBe(2); expect(v).toMatch(/esta/);
   });
+  it('--esta-b=<isäntänimi>: välitetään, ja KUMMALLEKIN puolelle annetaan --reititys (sama välimuistikäytös); yhteenveto: reititys molemmat', async () => {
+    const kutsut = [], rivit = [], ulos = join(mkdtempSync(join(tmpdir(), 'abreit-')), 'ab');
+    const ajaa = (argit) => { kutsut.push(argit); const u = argit.find((a) => a.startsWith('--ulos=')).slice(7); writeFileSync(u, JSON.stringify(tulos([2000], [1000]))); return 0; };
+    expect(await AB.main(['--a=' + A, '--b=' + B, '--kierrokset=2', '--esta-b=apis.google.com', '--ulos=' + ulos], { ajaa, env: { STAGING_APPCHECK_DEBUG_TOKEN: 'x' }, kirjaa: (r) => rivit.push(r), virhe: () => {} })).toBe(0);
+    kutsut.forEach((argit) => { expect(argit).toContain('--reititys'); expect(argit.filter((a) => a.startsWith('--esta='))).toEqual(argit.includes('--url=' + B) ? ['--esta=apis.google.com'] : []); });
+    expect(rivit.join('\n')).toMatch(/reititys: molemmat/);
+    expect(JSON.parse(readFileSync(join(ulos, 'yhteenveto.json'), 'utf8')).meta.reititys).toBe('molemmat');
+    const ilman = []; await AB.main(['--a=' + A, '--b=' + B, '--ulos=' + ulos + '2'], { ajaa: (argit) => { ilman.push(argit); const u = argit.find((a) => a.startsWith('--ulos=')).slice(7); writeFileSync(u, JSON.stringify(tulos([1], [1]))); return 0; }, env: { STAGING_APPCHECK_DEBUG_TOKEN: 'x' }, kirjaa: () => {}, virhe: () => {} });
+    expect(ilman.every((a) => !a.includes('--reititys'))).toBe(true);
+  });
+  it('estoPredikaatti: isäntänimi osuu apis.google.com/js/api.js:ään ja gapi_iframes-URL:iin, ei muihin; vanha glob "*apis.google.com*" ei osu (regressio)', () => {
+    const S = require('../scripts/kuorma/mittaa_sivut.js'), p = S.estoPredikaatti('apis.google.com');
+    expect(p('https://apis.google.com/js/api.js')).toBe(true);
+    expect(p('https://apis.google.com/_/scs/abc-static/_/js/k=gapi.gapi.en.X/m=gapi_iframes/rt=j/sv=1/d=1/ed=1/cb=gapi.loaded_0?x=1')).toBe(true);
+    expect(p('https://www.apis.google.com/x')).toBe(true);   // aliverkkotunnus
+    expect(p('https://notapis.google.com/x')).toBe(false); expect(p('https://www.googleapis.com/x')).toBe(false); expect(p('https://talentmaster-staging.web.app/?u=apis.google.com')).toBe(false);
+    expect(S.estoPredikaatti('*apis.google.com*')('https://apis.google.com/js/api.js')).toBe(false);   // glob: * ei ylitä '/'
+    expect(S.estoPredikaatti('https://apis.google.com/**')('https://apis.google.com/js/api.js')).toBe(true);
+    expect(S.lueArgv(['--esta=apis.google.com', '--reititys']).reititys).toBe(true);
+  });
+  it('asennaReititys: esto → catch-all continue + abort-reitti; ilman estoa/--reititys ei reittejä; --reititys yksin → vain continue (A-puoli)', async () => {
+    const S = require('../scripts/kuorma/mittaa_sivut.js');
+    const teeCtx = () => { const reitit = []; return { reitit, route: async (m, h) => { reitit.push({ m, h }); } }; };
+    const c0 = teeCtx(); await S.asennaReititys(c0, [], false); expect(c0.reitit.length).toBe(0);
+    const cA = teeCtx(); await S.asennaReititys(cA, [], true); expect(cA.reitit.length).toBe(1); expect(cA.reitit[0].m).toBe('**/*');
+    const cB = teeCtx(), estetyt = await S.asennaReititys(cB, ['apis.google.com'], true);
+    expect(cB.reitit.length).toBe(2); expect(cB.reitit[0].m).toBe('**/*'); expect(typeof cB.reitit[1].m).toBe('function');
+    expect(cB.reitit[1].m(new URL('https://apis.google.com/js/api.js'))).toBe(true); expect(cB.reitit[1].m(new URL('https://x.web.app/a.js'))).toBe(false);
+    let abortattu = null; cB.reitit[1].h({ request: () => ({ url: () => 'https://apis.google.com/js/api.js?x=1' }), abort: (s) => { abortattu = s; return Promise.resolve(); } });
+    expect(abortattu).toBe('blockedbyclient'); expect(estetyt).toEqual(['https://apis.google.com/js/api.js']);
+    let jatkettu = false; cA.reitit[0].h({ continue: () => { jatkettu = true; return Promise.resolve(); } }); expect(jatkettu).toBe(true);
+  });
+  it('ab main: esto annettu mutta 0 estettyä → virheilmoitus (rivit virheellisiä, poimi ohittaa ne)', async () => {
+    const ulos = join(mkdtempSync(join(tmpdir(), 'abnolla-')), 'ab'), vir = [];
+    const huono = { mittaukset: [{ sivu: 'master', profiili: 'tyopoyta', kylma: [Object.assign(avaus(2000, 500, 900), { virhe: 'esto ei osunut: apis.google.com → 0 estettyä pyyntöä (rivi virheellinen, ei tulos)' })], lampimat: [avaus(1000, 250, 500)] }] };
+    const ajaa = (argit) => { const u = argit.find((a) => a.startsWith('--ulos=')).slice(7); writeFileSync(u, JSON.stringify(argit.includes('--url=' + B) ? huono : tulos([2000], [1000]))); return 0; };
+    await AB.main(['--a=' + A, '--b=' + B, '--kierrokset=2', '--esta-b=apis.google.com', '--ulos=' + ulos], { ajaa, env: { STAGING_APPCHECK_DEBUG_TOKEN: 'x' }, kirjaa: () => {}, virhe: (r) => vir.push(r) });
+    expect(vir.join('\n')).toMatch(/B: esto \(apis\.google\.com\) ei osunut/);
+    expect(AB.poimi(huono)['master|tyopoyta'].kylma.fcp).toEqual([]);
+  });
 });

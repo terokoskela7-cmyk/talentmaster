@@ -2,7 +2,7 @@
 'use strict';
 /* mittaa_sivut.js — projekti 06 PR 3: sivujen latausmittaus Playwrightilla stagingin Hosting-kanavalla `kuorma` (VAIHE0 3.1, P11). Tero ajaa; VAIN staging (URL-vartija).
  *   STAGING_APPCHECK_DEBUG_TOKEN=<token> ! node scripts/kuorma/mittaa_sivut.js --url=https://talentmaster-staging--kuorma-<tunniste>.web.app --tunnukset=.briefit/staging_tunnukset.txt
- * Valinnat: --seura=1 (kohdeseura, oletus 1 = suurin 500 pelaajaa) · --toistot=5 · --profiilit=tyopoyta,puhelin · --sivut=seura,vp,master,kehitys,testaus,pelaaja · --ulos=mittaus_tulokset/sivut.json · --erittely (Firestore-lukujen erittely polku ← kutsuja + sovelluksen [lista]-konsoliviestit; talletetaan 1. kylmän avauksen tulokseen ja tulostetaan) · --esta=<glob> (toistettava; page.route abort mittauskonteksteissa, esim. --esta='https://apis.google.com/**'; estetyt pyynnöt kirjataan avauksen tulokseen `estetyt` ja metaan `esta`; kirjautuminen tehdään ilman estoa, estetty vain mittaus → kirjautunut/App Check -tarkistus näkyy riveillä) · --kuiva (tulostaa suunnitelman, ei avaa selainta).
+ * Valinnat: --seura=1 (kohdeseura, oletus 1 = suurin 500 pelaajaa) · --toistot=5 · --profiilit=tyopoyta,puhelin · --sivut=seura,vp,master,kehitys,testaus,pelaaja · --ulos=mittaus_tulokset/sivut.json · --erittely (Firestore-lukujen erittely polku ← kutsuja + sovelluksen [lista]-konsoliviestit; talletetaan 1. kylmän avauksen tulokseen ja tulostetaan) · --esta=<isäntänimi|glob> (toistettava; pelkkä isäntänimi kuten apis.google.com osuu kaikkiin sen URL:eihin, glob: * ei ylitä '/'; --reititys = asenna sama reititys (continue) myös ilman estoa, A/B-vertailun reiluuteen; page.route abort mittauskonteksteissa, esim. --esta='https://apis.google.com/**'; estetyt pyynnöt kirjataan avauksen tulokseen `estetyt` ja metaan `esta`; kirjautuminen tehdään ilman estoa, estetty vain mittaus → kirjautunut/App Check -tarkistus näkyy riveillä) · --kuiva (tulostaa suunnitelman, ei avaa selainta).
  * Profiilit: tyopoyta = 1366×768, ei kuristusta (kaapeli) · puhelin = 390×844 mobiili + Slow 4G (CDP: 1,6 Mbit/s alas, 750 kbit/s ylös, 150 ms viive) + CPU 4×.
  * Per avaus (KYLMÄ = uusi konteksti ilman välimuistia; LÄMMIN = heti perään toinen avaus samassa kontekstissa): FCP, aika interaktiiviseksi (mittaus_lib.laskeInteraktiivinen: ei pitkiä tehtäviä eikä avoimia Firestore-lukuja 2 s ikkunassa),
  *   Firestore-lukujen määrä kokoelmittain (mittaus_instrumentointi.js), siirretyt tavut (CDP Network). Toisto 5× → mediaani + p95. Kirjautuminen @kuorma.test-tunnuksella (selain-SDK:n signInWithEmailAndPassword; salasana ei tulosteeseen/JSONiin).
@@ -27,13 +27,34 @@ const PROFIILIT = Object.freeze({
 const IKKUNA_MS = 2000, TIMEOUT_MS = 90000, SEURAAN_KIRJAUTUMINEN = 'TalentMaster_Seura.html';
 
 function lueArgv(argv) {
-  const o = { url: undefined, tunnukset: '.briefit/staging_tunnukset.txt', seura: 1, toistot: 5, profiilit: Object.keys(PROFIILIT), sivut: Object.keys(SIVUT), ulos: 'mittaus_tulokset/sivut.json', kuiva: false, erittely: false, esta: [], tuntematon: [] };
+  const o = { url: undefined, tunnukset: '.briefit/staging_tunnukset.txt', seura: 1, toistot: 5, profiilit: Object.keys(PROFIILIT), sivut: Object.keys(SIVUT), ulos: 'mittaus_tulokset/sivut.json', kuiva: false, erittely: false, esta: [], reititys: false, tuntematon: [] };
   (argv || []).forEach((a) => {
-    if (a === '--kuiva') o.kuiva = true; else if (a === '--erittely') o.erittely = true; else if (a.indexOf('--url=') === 0) o.url = a.slice(6).replace(/\/$/, ''); else if (a.indexOf('--tunnukset=') === 0) o.tunnukset = a.slice(12);
+    if (a === '--kuiva') o.kuiva = true; else if (a === '--erittely') o.erittely = true; else if (a === '--reititys') o.reititys = true; else if (a.indexOf('--url=') === 0) o.url = a.slice(6).replace(/\/$/, ''); else if (a.indexOf('--tunnukset=') === 0) o.tunnukset = a.slice(12);
     else if (a.indexOf('--seura=') === 0) o.seura = +a.slice(8); else if (a.indexOf('--toistot=') === 0) o.toistot = +a.slice(10); else if (a.indexOf('--profiilit=') === 0) o.profiilit = a.slice(12).split(',');
     else if (a.indexOf('--sivut=') === 0) o.sivut = a.slice(8).split(','); else if (a.indexOf('--ulos=') === 0) o.ulos = a.slice(7); else if (a.indexOf('--esta=') === 0) o.esta.push(a.slice(7)); else o.tuntematon.push(a);
   });
   return o;
+}
+/** Eston ehto: pelkkä isäntänimi (apis.google.com → isäntä on se tai sen aliverkkotunnus) TAI Playwright-glob. Playwrightin globissa * ei ylitä '/'-merkkiä ('*apis.google.com*' ei osu URL:iin https://apis.google.com/js/api.js) → isäntänimelle oma URL-predikaatti. Palauttaa (url:string) => boolean. */
+function estoPredikaatti(spec) {
+  const s = String(spec || '').trim();
+  if (/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i.test(s) && s.indexOf('.') > 0) {
+    const h = s.toLowerCase();
+    return (u) => { try { const x = new URL(u).hostname.toLowerCase(); return x === h || x.endsWith('.' + h); } catch (e) { return false; } };
+  }
+  const re = new RegExp('^' + s.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0000/g, '.*') + '$');
+  return (u) => re.test(u);
+}
+/** Asenna reititys kontekstiin. Reitti kytkee Playwrightissa HTTP-välimuistin pois, joten kun jompikumpi A/B-puoli käyttää estoa, MOLEMMILLE asennetaan sama reititys (A: continue kaikelle; B: abort estetyille + continue muille) → välimuistikäytös on sama. Palauttaa estettyjen URL-lista (≤50). */
+async function asennaReititys(ctx, esta, reititys) {
+  const estetyt = [];
+  if (!(esta.length || reititys)) return estetyt;
+  await ctx.route('**/*', (r) => { r.continue().catch(() => {}); });   // ensin asennettu = viimeisenä vuorossa (Playwright kokeilee uusimman ensin)
+  for (const spec of esta) {
+    const pred = estoPredikaatti(spec);
+    await ctx.route((u) => pred(u.toString()), (r) => { try { if (estetyt.length < 50) estetyt.push(r.request().url().split('?')[0].slice(0, 200)); r.abort('blockedbyclient').catch(() => {}); } catch (e) {} });
+  }
+  return estetyt;
 }
 function tarkista(o, env, urlSallittu) {
   if (o.tuntematon.length) return 'Tuntematon valinta (' + o.tuntematon.length + ' kpl).';
@@ -197,7 +218,7 @@ async function main(argv, deps) {
   let tunnukset, tunnusTeksti; try { tunnusTeksti = fs.readFileSync(o.tunnukset, 'utf8'); tunnukset = M.lueTunnukset(tunnusTeksti); } catch (e) { virhe('Tunnustiedostoa ei voitu lukea (' + o.tunnukset + ').'); return 2; }
   const chromePolku = env.TM_CHROME_PATH || ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => fs.existsSync(p));
   const { chromium } = d.playwright || require('playwright-core'), selain = await chromium.launch({ executablePath: chromePolku, args: ['--no-sandbox', '--hide-scrollbars'] });
-  const token = env.STAGING_APPCHECK_DEBUG_TOKEN, alkuAika = new Date().toISOString(), t0 = Date.now(), tulos = { meta: { aika: alkuAika, isanta: new URL(o.url).host, seura: o.seura, toistot: o.toistot, ikkuna_ms: IKKUNA_MS, esta: o.esta.length ? o.esta.slice() : undefined, kuristus: { puhelin: PROFIILIT.puhelin.verkko, cpu: PROFIILIT.puhelin.cpu } }, mittaukset: [] };
+  const token = env.STAGING_APPCHECK_DEBUG_TOKEN, alkuAika = new Date().toISOString(), t0 = Date.now(), tulos = { meta: { aika: alkuAika, isanta: new URL(o.url).host, seura: o.seura, toistot: o.toistot, ikkuna_ms: IKKUNA_MS, esta: o.esta.length ? o.esta.slice() : undefined, reititys: (o.esta.length || o.reititys) ? true : undefined, kuristus: { puhelin: PROFIILIT.puhelin.verkko, cpu: PROFIILIT.puhelin.cpu } }, mittaukset: [] };
   const tilat = {}, kohteet = {};
   try {
     for (const sivuAvain of o.sivut) {
@@ -216,7 +237,7 @@ async function main(argv, deps) {
         const prof = PROFIILIT[pAvain], kylmat = [], lampimat = []; let resKylma = null;
         for (let i = 1; i <= o.toistot; i++) {
           const ctx = await selain.newContext(Object.assign({}, prof.konteksti, tila ? { storageState: tila } : {})); await ctx.addInitScript(instrumentointi, { token, erittely: o.erittely });
-          const estetyt = []; for (const g of o.esta) await ctx.route(g, (r) => { try { if (estetyt.length < 50) estetyt.push(r.request().url().split('?')[0].slice(0, 200)); r.abort('blockedbyclient').catch(() => {}); } catch (e) {} });
+          const estetyt = await asennaReititys(ctx, o.esta, o.reititys);
           const page = await ctx.newPage(), cdp = await ctx.newCDPSession(page); await kuristus(cdp, prof);
           const kh = s.pelaajaHaku ? kohteet[s.rooli] : null; if (s.pelaajaHaku && !(kh && kh.pelaajaId)) { virhe('  mittauskohdetta (pelaaja) ei saatu — ' + sivuAvain + ' ei mitata ilman sitä.'); await ctx.close(); await selain.close(); return 1; }
           const url = o.url + '/' + s.tiedosto + (kh ? '#pelaaja/' + encodeURIComponent(kh.pelaajaId) + '/tanaan' : ''), kylma = await mittaaAvaus(page, cdp, url, { erittely: o.erittely, odotettuTiedosto: s.tiedosto, odotaKirjautunut: !!tila });
@@ -225,6 +246,7 @@ async function main(argv, deps) {
           if (o.esta.length) kylma.estetyt = estetyt.slice();
           const lampimasti = await mittaaAvaus(page, cdp, url, { odotettuTiedosto: s.tiedosto, uusiDokumentti: true, odotaKirjautunut: !!tila });
           if (lampimasti.virhe && /^uudelleenohjaus/.test(lampimasti.virhe)) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ' (lämmin): ' + lampimasti.virhe + ' — mittaus keskeytetty.'); await ctx.close(); await selain.close(); return 1; }
+          if (o.esta.length && !kylma.estetyt.length) { const sy = 'esto ei osunut: ' + o.esta.join(', ') + ' → 0 estettyä pyyntöä (rivi virheellinen, ei tulos)'; kylma.virhe = sy; lampimasti.virhe = lampimasti.virhe || sy; virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ': ' + sy); }
           if (o.esta.length) { lampimasti.estetyt = estetyt.slice(kylma.estetyt.length); kirjaa('    estetty: kylmä ' + kylma.estetyt.length + ' · lämmin ' + lampimasti.estetyt.length + ' pyyntöä' + (kylma.estetyt.length ? ' (esim. ' + kylma.estetyt[0] + ')' : '') + ' · appcheck_vaihto ' + (kylma.ajat && kylma.ajat.appcheck_vaihto ? 'kyllä' : 'EI') + ' · kirjautunut ' + kylma.kirjautunut); }
           if (i === 1) resKylma = resurssiYhteenveto(kylma.resurssit); delete kylma.resurssit; delete lampimasti.resurssit;   // JSON pysyy pienenä: erittely vain 1. kylmästä
           kylmat.push(kylma); lampimat.push(lampimasti);
@@ -244,4 +266,4 @@ async function main(argv, deps) {
   return 0;
 }
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c)).catch((e) => { console.error('Virhe: ' + String(e && e.message || e).split('\n')[0]); process.exit(2); });
-module.exports = { kirjaudu, kuristus, tarkistaLopullinenUrl, naytaUrl, haePelaajaKohde, main, erittelyTeksti, yhdistaTulokset, resurssiLista, resurssiYhteenveto, lueArgv, tarkista, mittaaAvaus, SIVUT, PROFIILIT, IKKUNA_MS };
+module.exports = { kirjaudu, kuristus, tarkistaLopullinenUrl, naytaUrl, haePelaajaKohde, main, erittelyTeksti, yhdistaTulokset, resurssiLista, resurssiYhteenveto, lueArgv, tarkista, estoPredikaatti, asennaReititys, mittaaAvaus, SIVUT, PROFIILIT, IKKUNA_MS };
