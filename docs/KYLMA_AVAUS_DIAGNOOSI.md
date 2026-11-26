@@ -326,3 +326,17 @@ Ei taantumaa. **Arvio:** ~0,55 s / 100 kt ennen authia puhelimella → alle 10 s
 ## 17. A/B 22.11. (kuorma-b, #1317): puhelin "ei kirjautunut" = mittarivika (ikkuna), ei sovellusvika
 `ab_2026-11-22T13-28-33`: B puhelin → `mittaus ei valmis (kirjautunut=false)`; A puhelin "interaktiivinen 0,4–0,5 s" 121 luvulla. Tero todensi käsin (iPhone 12 Pro + Slow 4G): kirjautuminen ja Master toimivat. #1316:n lataus­vartija ei riittänyt: kun kaikki skriptit on ladattu mutta auth/App Check vielä kesken, CPU on joutilas ja "rauhoittunut" laukeaa jo FCP:n kohdalla.
 Korjaus (`mittaa_sivut.js`, `mittaus_lib.js`): (1) `odotaKirjautunut` → silmukka ei pääty ennen kuin `currentUser` on olemassa (aikarajaan 90 s asti); (2) `laskeInteraktiivinen({alaraja})`: TTI ≥ kirjautumisen hetki (`auth_odottaa_pois`-merkki, muuten havaintohetki) → TTI ei voi olla FCP; (3) selaintesti: kirjautuminen 3 s FCP:n jälkeen → TTI ≥ 2,8 s. Aiemmat A:n puhelin-TTI-luvut (0,4–0,5 s) ovat virheellisiä.
+
+## 18. Erä 2 toteutettu (modaali-/lomakemoduulit → ryhmä `modaalit`, 25.11.2026, PR perf/laiska-era2-modaalit)
+
+**Siirretty (Master, `type="text/plain" data-tm-laiska data-tm-ryhma="modaalit"`, HTML-järjestys säilyy):** tm_idp_lomake 8,8 · tm_pikakirjaus 8,5 · tm_harjoitusarviointi 7,4 = **24,7 kt br** (gz 28,2 kt). Erä on OMA ryhmänsä, jotta käyttö ei vedä oletusryhmää (harjoitelogiikka 72 kt gz ym.) mukaan.
+**Käyttöpolut (kaikki varmistavat ryhmän ENNEN kutsua, ei hiljaista varapolkua):**
+- `_masterPikakirjaus` (async): `varmista('modaalit')` ennen `TM_PIKAKIRJAUS.avaa`.
+- `avaaHarjoitusarviointi`: `varmista('modaalit')` ennen `TM_HARJOITUS.avaa` (oletusryhmän portti säilyy); `_cpdTodistePDF`: sama ennen `_brandiVars` (muuten PDF:n brändiväri olisi hiljaa teal-vara).
+- IDP-kortti (`_mIdpReRender`/`_mIdpLataa`): KT-sivun Polku-välilehti ja pelaajamodaali (`_renderPinfoFirestore`) odottavat ryhmän (`_mIdpPelaaja === p` -vartija vanhentunutta kutsua vastaan). Ryhmän lataus piirtää näkymät uudelleen (`_paivitaKaikkiNakymat`).
+**EI siirretty (tarkistettu, jäävät eager) — Erä 2:n alkuperäisestä 76 kt:n listasta:**
+- **tm_joukkuejakso 11,0 + tm_aloita_jakso 12,2:** `renderKotiV2` (Koti) kutsuu `window.TM_JOUKKUEJAKSO.tmJoukkueenJakso(...)` suoraan ilman vartijaa → TypeError (itseparannus nappaa vain ReferenceErrorin); tm_aloita_jakso vaatii joukkuejakson (`_req`) ja `_ktKehys`/tm_tanaan_signaali/tm_joukkoaloitus lukevat sitä Kodin/KT-sivun piirrossa.
+- **tm_kevyt_katselmus 8,3:** `_ktSigCtx` (KT-signaali) → `_kvkProfiiliLataa` palaa hiljaa jos lib puuttuu → profiili jää oletukseksi `oto`; `_mJjRender` lukee profiilin samasta datasta. Hiljainen degrade, ei lataustriggeriä.
+- **tm_mediaviesti 14,3:** `_getInboxEvents` (Koti/Inbox) ohittaa klippirivit hiljaa jos `TM_MEDIAVIESTI` puuttuu; `_mvKuuntele`-listener, KT-sivun Polku (`_mvLataaKlipit`) ja V4 ⋯ "Lisää klippi" ovat usean eri portin takana. Vaatii oman fail-safe-työn (listener-trigger + KT-polku) → ehdotus Erä 2b, oma PR.
+**Testit:** `tests/l2_era2_modaalit_selain.test.js` (oikea Master Chromessa; lisätty `.github/chrome_testit.txt`): avaus ei lataa erää eikä anna pageerroria · `_masterPikakirjaus()` lataa ryhmän HTML-järjestyksessä, oletusryhmä ei lataudu · `setWs(cal)` lataa ryhmän vain jos IDP-kortti on piirretty · staattinen: kaikki polut varmistavat ryhmän.
+**Ei varmistettu stagingissa:** pikakirjaus/itsearvio/CPD-PDF/IDP-kortti ensiavauksella oikealla datalla + A/B (§14-vartijat, samat deploy-muodot) ennen mergeä. Odotus: ~25 kt br ≈ 0,14 s ennen authia puhelimella (0,55 s / 100 kt, §16.7).
