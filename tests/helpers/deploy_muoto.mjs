@@ -15,3 +15,15 @@ export function probeDclHun(html) {
   const i = html.lastIndexOf('<script>'), j = html.lastIndexOf('</script>');
   return html.slice(0, i) + '<script>document.addEventListener("DOMContentLoaded",function(){' + html.slice(i + 8, j) + '});</script>' + html.slice(j + 9);
 }
+
+/* PELAAJA (PM 27.11.2026): DEPLOY-muoto — pääskripti (tm_pelaaja_main.js) + P6 (tm_pelaaja_p6.js) irrotettu, kaikki skriptit defer, odotustilan tynkä (versiotiiviste.js LOHKOT_ULOS + LYKKAYS).
+   → { html, dir }: html viittaa irrotettuihin tiedostoihin file://-poluilla (?v poistettu, kuten Masterin deployHtml); `<base href>` = juuri, jotta lib/…-polut toimivat file://-osoitteesta. */
+export function deployPelaaja(juuri) {
+  const VT = require('../../scripts/versiotiiviste.js'), r = VT.laske(juuri), T = fs.mkdtempSync(path.join(os.tmpdir(), 'tm_deploy_pel_'));
+  let html = r.tiedostot['TalentMaster_Pelaaja_v7.html'];
+  for (const n of ['tm_pelaaja_main.js', 'tm_pelaaja_p6.js']) {
+    fs.writeFileSync(path.join(T, n), r.tiedostot[n]);
+    html = html.replace(new RegExp('<script src="' + n.replace('.', '\\.') + '\\?v=[0-9a-f]{8}" defer>'), '<script src="file://' + path.join(T, n) + '" defer>');
+  }
+  return { html: html.replace(/\?v=[0-9a-f]{8}/g, ''), dir: T, raportti: r.raportti };
+}

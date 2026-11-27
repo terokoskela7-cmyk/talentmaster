@@ -47,6 +47,32 @@ function irrotaPaaskripti(html, tiedosto) {
   return { html: html.slice(0, alku) + '<script src="' + tiedosto + '" defer></script>' + html.slice(loppu + 9), js: js.replace(/^\r?\n/, '') };
 }
 
+/* Pelaaja (PM 27.11.2026): sivulla on KAKSI isoa inline-pääskriptiä (pääskripti ~410 kt + P6-havaintokuuntelija ~12 kt), eikä viimeinen skripti ole pääskripti (SW-rekisteröinti on). Siksi irrotus tunnistetaan lohkon ALUSTA (alkaa) eikä sijainnista.
+   Jokainen lohko → oma tiedosto (`<script src defer>` samaan kohtaan → suoritusjärjestys säilyy: kirjastot → pääskripti → P6). Molemmat irrotetaan, koska synkroninen inline-P6 ajaisi muuten ENNEN deferattua pääskriptiä (sen funktiot puuttuisivat).
+   Lohko ei saa sisältää `</script`-merkkijonoa. Jo irrotettu sivu (src löytyy) ei muutu (idempotentti). Puuttuva / kahdesti löytyvä lohko → virhe (deploy kaatuu). Uusi sivu → lisää taulukkoon. */
+const LOHKOT_ULOS = {
+  'TalentMaster_Pelaaja_v7.html': [
+    { nimi: 'tm_pelaaja_main.js', alkaa: "'use strict';", min: PAASKRIPTI_MIN },
+    { nimi: 'tm_pelaaja_p6.js', alkaa: '// ═══════════════════════════════════════════════════════════════════════\n// P6 — VALMENTAJAN HAVAINTO', min: 5000 },
+  ],
+};
+/** → { html (lohkot paikanpitäjillä <!--@@LOHKO<i>@@-->), lohkot: [{nimi, js}], virhe } */
+function irrotaLohkot(html, maar) {
+  if (maar.every((m) => html.indexOf('src="' + m.nimi) >= 0)) return { html, lohkot: [], virhe: null };   // jo irrotettu
+  if (maar.some((m) => html.indexOf('src="' + m.nimi) >= 0)) return { html, lohkot: [], virhe: 'lohkot: vain osa irrotettu (' + maar.map((m) => m.nimi).join(', ') + ')' };
+  const osumat = [...html.matchAll(RE_PAIKALLINEN_INLINE)], kohteet = [];
+  for (let i = 0; i < maar.length; i++) {
+    const m = maar[i], x = osumat.filter((o) => o[1].replace(/^\s+/, '').startsWith(m.alkaa));
+    if (x.length !== 1) return { html, lohkot: [], virhe: 'lohkot: ' + m.nimi + ' — odotettiin täsmälleen 1 inline-lohkoa alkuun «' + m.alkaa.slice(0, 40).replace(/\n/g, ' ') + '…», löytyi ' + x.length };
+    if (x[0][1].length < m.min) return { html, lohkot: [], virhe: 'lohkot: ' + m.nimi + ' on ' + x[0][1].length + ' merkkiä (< ' + m.min + ') — väärä lohko?' };
+    if (x[0][1].indexOf('</script') >= 0) return { html, lohkot: [], virhe: 'lohkot: ' + m.nimi + ' sisältää </script' };
+    kohteet.push({ i, osuma: x[0], nimi: m.nimi });
+  }
+  const jarj = kohteet.slice().sort((a, b) => a.osuma.index - b.osuma.index); let ulos = '', kohta = 0;
+  for (const k of jarj) { ulos += html.slice(kohta, k.osuma.index) + '<!--@@LOHKO' + k.i + '@@-->'; kohta = k.osuma.index + k.osuma[0].length; }
+  return { html: ulos + html.slice(kohta), lohkot: kohteet.map((k) => ({ nimi: k.nimi, js: k.osuma[1].replace(/^\r?\n/, '') })), virhe: null };
+}
+
 /* L6 vaihe 2 (KYLMA_AVAUS_DIAGNOOSI §9.4, §12): kaikki synkroniset skriptilataukset `defer`iksi, jotta HTML jäsentyy ja kirjautumiskuori (spinneri) piirtyy ENNEN kuin kirjastot on haettu. DEPLOY-muunnos (repo ennallaan, kuten vaihe 1).
    Sisältö: (1) lib-riippumattomat head-lohkot (taktiikkataulun host-adapteri, __TM_SEURA, _lataaDemoScript) → yksi `tm_master_alku.js` (defer) ensimmäisen lohkon paikalle — suoritus ennen kaikkia muita deferattuja, joten
    "ennen tm_kaavio_ui / ennen tm-bus" säilyy; (2) kirjautumisnapit (login, kirjauduGooglella, loginDemo, _unohditSalasana) saavat no-op-tynkän + `tm-main-odottaa`-luokan (napit pois käytöstä) kunnes pääskripti alkaa ajaa;
@@ -56,6 +82,12 @@ const LYKKAYS = {
   'TalentMaster_Master_v16.html': {
     alku: 'tm_master_alku.js', luokka: 'tm-main-odottaa', tynkat: ['login', 'kirjauduGooglella', 'loginDemo', '_unohditSalasana'],
     lohkot: ['window.TM_KAAVIO_HOST = {', "window.__TM_SEURA = localStorage.getItem('tm-sa-seura')", 'function _lataaDemoScript(',],
+  },
+  /* Pelaaja: ei head-lohkoja siirrettävänä (alku=null; versiotarkistus + TM_SENTRY-asetus jäävät inline) eikä `tm-auth-odottaa`-lohkoa → odotustila-skripti lisätään ankkurin jälkeen.
+     PIN-kirjautumisen näkymä piirtyy pääskriptistä, joten ennen sitä klikattavaa on vain kielipalkki (setLoc) ja kehityspalkki (go): tynkä + pointer-events pois kunnes pääskripti alkaa. */
+  'TalentMaster_Pelaaja_v7.html': {
+    alku: null, luokka: 'tm-main-odottaa', tynkat: ['setLoc', 'go'], lohkot: [],
+    ankkuri: "<script>window.TM_SENTRY={app:'pelaaja'};</script>", tyyli: 'html.tm-main-odottaa body [onclick]{pointer-events:none}',
   },
 };
 const ODOTA_ALKU = "document.documentElement.classList.add('tm-auth-odottaa');";
@@ -69,7 +101,7 @@ function lisaaDefer(html) {
 /** Master (LYKKAYS): → { html, alku: js|null, virhe: string|null }. html sisältää paikanpitäjän `<!--@@ALKU@@-->` kun alku-tiedosto irrotettiin tällä ajolla. Idempotentti (jo muunnettu sivu ei muutu). */
 function lykkaaSivu(html, maar) {
   let alku = null;
-  if (html.indexOf('src="' + maar.alku) < 0) {
+  if (maar.alku && html.indexOf('src="' + maar.alku) < 0) {
     const osumat = [...html.matchAll(RE_PAIKALLINEN_INLINE)].filter((m) => maar.lohkot.some((x) => m[1].indexOf(x) >= 0));
     if (osumat.length !== maar.lohkot.length) return { html, alku: null, virhe: 'lykkäys: odotettiin ' + maar.lohkot.length + ' siirrettävää head-lohkoa, löytyi ' + osumat.length };
     for (const x of maar.lohkot) if (osumat.filter((m) => m[1].indexOf(x) >= 0).length !== 1) return { html, alku: null, virhe: 'lykkäys: lohkoa ei löydy täsmälleen kerran: ' + x };
@@ -80,10 +112,11 @@ function lykkaaSivu(html, maar) {
     html = ulos + html.slice(kohta);
   }
   if (html.indexOf(maar.luokka) < 0) {
-    const vanha = '<script>' + ODOTA_ALKU + '</script>';
-    if (html.split(vanha).length !== 2) return { html, alku, virhe: 'lykkäys: tm-auth-odottaa-lohkoa ei löydy täsmälleen kerran' };
+    const vanha = maar.ankkuri || '<script>' + ODOTA_ALKU + '</script>';
+    if (html.split(vanha).length !== 2) return { html, alku, virhe: 'lykkäys: ' + (maar.ankkuri ? 'ankkurilohkoa' : 'tm-auth-odottaa-lohkoa') + ' ei löydy täsmälleen kerran' };
     const tynkat = maar.tynkat.map((n) => 'window.' + n).join('=') + '=function(){};';
-    html = html.replace(vanha, '<script>' + ODOTA_ALKU.replace("'tm-auth-odottaa'", "'tm-auth-odottaa','" + maar.luokka + "'") + tynkat + '</script>\n'
+    if (maar.ankkuri) html = html.replace(vanha, () => vanha + '\n<script>document.documentElement.classList.add(\'' + maar.luokka + '\');' + tynkat + '</script>\n<style>' + maar.tyyli + '</style>');
+    else html = html.replace(vanha, '<script>' + ODOTA_ALKU.replace("'tm-auth-odottaa'", "'tm-auth-odottaa','" + maar.luokka + "'") + tynkat + '</script>\n'
       + '<style>html.' + maar.luokka + ' #sLogin button,html.' + maar.luokka + ' #sLogin [onclick]{pointer-events:none;opacity:.55}</style>');
   }
   return { html: lisaaDefer(html), alku, virhe: null };
@@ -146,6 +179,19 @@ function laske(juuri) {
         irrotettu = { nimi: PAASKRIPTI[sivu], js: js, t: tiiviste(js) }; html = x.html.replace('<script src="' + irrotettu.nimi + '" defer></script>', '<!--@@PAASKRIPTI@@-->');   // paikanpitäjä: korvaa-passi ei saa nähdä vielä-levyllä-puutt
       }
     }
+    let lohkoIrrotetut = [];
+    if (LOHKOT_ULOS[sivu]) {   // Pelaaja: pääskripti + P6 omiin tiedostoihinsa (paikanpitäjät <!--@@LOHKO<i>@@--> kunnes ?v on laskettu)
+      const x = irrotaLohkot(html, LOHKOT_ULOS[sivu]);
+      if (x.virhe) virheet.push(sivu + ': ' + x.virhe);
+      else {
+        html = x.html;
+        lohkoIrrotetut = x.lohkot.map((l, i) => {
+          let js = l.js;
+          if (i === 0 && lykkays) { if (!/^'use strict';/.test(js)) virheet.push(sivu + ": " + l.nimi + " ei ala 'use strict';-direktiivillä — vapautus ei voi mennä sen jälkeen"); else js = js.replace(/^'use strict';/, "'use strict';\ndocument.documentElement.classList.remove('" + lykkays.luokka + "');"); }
+          return { nimi: l.nimi, js, t: tiiviste(js) };
+        });
+      }
+    }
     if (lykkays) {
       const y = lykkaaSivu(html, lykkays);
       if (y.virhe) virheet.push(sivu + ': ' + y.virhe); else { html = y.html; if (y.alku) alkuIrrotettu = { nimi: lykkays.alku, js: y.alku, t: tiiviste(y.alku) }; }
@@ -164,8 +210,9 @@ function laske(juuri) {
       valmis = valmis.replace('<!--@@PAASKRIPTI@@-->', '<script src="' + irrotettu.nimi + '?v=' + irrotettu.t + '" defer></script>');
       tiedostot[irrotettu.nimi] = irrotettu.js; rivi[irrotettu.nimi] = irrotettu.t;
     }
+    lohkoIrrotetut.forEach((l, i) => { valmis = valmis.replace('<!--@@LOHKO' + i + '@@-->', '<script src="' + l.nimi + '?v=' + l.t + '" defer></script>'); tiedostot[l.nimi] = l.js; rivi[l.nimi] = l.t; });
     raportti.sivut[sivu] = rivi;
-    if (irrotettu || alkuIrrotettu || valmis !== fs.readFileSync(path.join(juuri, sivu), 'utf8')) tiedostot[sivu] = valmis;
+    if (irrotettu || alkuIrrotettu || lohkoIrrotetut.length || valmis !== fs.readFileSync(path.join(juuri, sivu), 'utf8')) tiedostot[sivu] = valmis;
   }
   for (const sw of swTiedostot(juuri)) {
     const maar = SW[sw];
@@ -197,6 +244,7 @@ function tarkistaJulkaisu(juuri) {
     }
   }
   for (const [sivu, maar] of Object.entries(LYKKAYS)) {   // alku-tiedoston dynaamiset lataukset (tm-demo.js) = nykyinen tiiviste
+    if (!maar.alku) continue;
     const p = path.join(juuri, maar.alku); if (!fs.existsSync(p)) continue;
     for (const m of fs.readFileSync(p, 'utf8').matchAll(RE_DYN)) if (paikallinen(m[3])) { const j = jasenna(m[3]), q = path.join(juuri, j.polku); if (!fs.existsSync(q)) ongelmat.push(maar.alku + ': puuttuu ' + j.polku); else if (j.v !== tiiviste(fs.readFileSync(q, 'utf8'))) ongelmat.push(maar.alku + ': ' + j.polku + ' ?v=' + j.v + ' ≠ nykyinen tiiviste'); }
   }
@@ -252,5 +300,5 @@ function main(args) {
   console.log('versiotiiviste: repo ok (ei käsin kirjoitettuja versioita)'); return 0;
 }
 
-module.exports = { PAASKRIPTI, LYKKAYS, lykkaaSivu, lisaaDefer, irrotaPaaskripti, SW, tiiviste, jasenna, lataukset, laske, kirjoita, tarkistaJulkaisu, tarkistaRepo };
+module.exports = { PAASKRIPTI, LOHKOT_ULOS, irrotaLohkot, LYKKAYS, lykkaaSivu, lisaaDefer, irrotaPaaskripti, SW, tiiviste, jasenna, lataukset, laske, kirjoita, tarkistaJulkaisu, tarkistaRepo };
 if (require.main === module) process.exit(main(process.argv.slice(2)));
