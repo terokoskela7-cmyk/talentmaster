@@ -1069,3 +1069,54 @@ test('K1e päiväkiintiö pysyy erillään: resource-exhausted ilman seurabudjet
   await h(kysymys('kysymys'), ctx('v1'));
   await assert.rejects(h(kysymys('kysymys'), ctx('v1')), (e) => e.code === 'resource-exhausted' && !(e.details && e.details.syy));
 });
+
+// ── Osa 0 (K2, Tero 2.11.2026): säilytys 6 kk — `vanhenee` Timestamp ─────────
+const { Timestamp } = require('firebase-admin').firestore;
+const VRK = 864e5;
+test('Säilytys: uusi lokidokumentti saa vanhenee-Timestampin = aika + 182 vrk', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv' } });
+  const { h } = teeK1(db, {});
+  await h(kysymys('kysymys'), ctx('v1'));
+  const l = lokit(db)[0];
+  assert.ok(l.vanhenee instanceof Timestamp, 'vanhenee on Firestore Timestamp');
+  assert.strictEqual(l.vanhenee.toDate().getTime() - new Date(l.aika).getTime(), 182 * VRK);
+  assert.strictEqual(va.LOKI_SAILYTYS_VRK, 182);
+});
+test('Säilytys: seurabudjetin laskuri saa vanhenee = päivitys + 400 vrk', async () => {
+  const db = budjettiDb(0.1);
+  const { h } = teeK1(db, { env: BUDJETTI_ENV, tokenit: TOK });
+  await h(kysymys('kysymys'), ctx('v1'));
+  const d = db.data['valmennusapuri_budjetti/kpv_' + KK];
+  assert.ok(d.vanhenee instanceof Timestamp);
+  assert.strictEqual(d.vanhenee.toDate().getTime() - new Date(d.paivitetty).getTime(), 400 * VRK);
+});
+test('Säilytys: vanheneeAika — ISO ja Date, rikki → null', () => {
+  assert.strictEqual(va.vanheneeAika('2026-11-02T10:00:00.000Z', 182).toISOString(), '2027-05-03T10:00:00.000Z');
+  assert.strictEqual(va.vanheneeAika(new Date('2026-01-01T00:00:00Z'), 1).toISOString(), '2026-01-02T00:00:00.000Z');
+  assert.strictEqual(va.vanheneeAika('ei päivä', 182), null);
+  assert.strictEqual(va.vanheneeAika(null, 182), null);
+});
+test('Säilytys: apuri_loki_vanhenee.suunnitelma — ohittaa valmiit, createTime-vara, laskee menneet', async () => {
+  const s = await import('../tools/apuri_loki_vanhenee.mjs');
+  const nyt = new Date('2026-11-02T00:00:00Z');
+  const t = s.suunnitelma([
+    { id: 'a', data: { aika: '2026-10-01T00:00:00.000Z' } },
+    { id: 'b', data: { aika: '2026-03-01T00:00:00.000Z' } },                       // yli 6 kk → jo mennyt
+    { id: 'c', data: { aika: '2026-10-01T00:00:00.000Z', vanhenee: { seconds: 1 } } },
+    { id: 'd', data: {}, luotu: new Date('2026-10-15T00:00:00Z') },
+    { id: 'e', data: { aika: 'rikki' } },
+  ], 'valmennusapuri_loki', nyt);
+  assert.strictEqual(t.jo, 1);
+  assert.strictEqual(t.ohitettu, 1);
+  assert.strictEqual(t.menneet, 1);
+  assert.deepStrictEqual(t.paivitettavat.map((p) => [p.id, p.lahde]), [['a', 'aika'], ['b', 'aika'], ['d', 'createTime']]);
+  assert.strictEqual(t.paivitettavat[0].vanhenee.toISOString(), '2027-04-01T00:00:00.000Z');
+  const b = s.suunnitelma([{ id: 'kpv_2026-10', data: { paivitetty: '2026-10-31T00:00:00.000Z' } }], 'valmennusapuri_budjetti', nyt);
+  assert.strictEqual(b.paivitettavat[0].vanhenee.getTime() - new Date('2026-10-31T00:00:00Z').getTime(), 400 * VRK);
+  assert.throws(() => s.suunnitelma([], 'muu'), /tuntematon kokoelma/);
+});
+test('Säilytys: kertaskripti on oletuksena kuiva (kirjoitus vain --kirjoita) eikä lue tekstikenttiä', () => {
+  const lahde = require('fs').readFileSync(require('path').join(__dirname, '../tools/apuri_loki_vanhenee.mjs'), 'utf8');
+  assert.match(lahde, /const kirjoita = a\.kirjoita === true;/);
+  assert.match(lahde, /\.select\(k\.kentta, 'vanhenee'\)/);
+});
