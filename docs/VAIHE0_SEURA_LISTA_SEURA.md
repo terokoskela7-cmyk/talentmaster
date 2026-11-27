@@ -184,3 +184,37 @@ STAGING_APPCHECK_DEBUG_TOKEN=<token> ! node scripts/kuorma/ab_vuorotellen.js \
 4. **Muut seurat yksi kerrallaan** (seura → tarkistusajo `--seura=<id>` 0 eroa → lippu päälle → live-vertailu). SJK / GrIFK / HJK / FCL / VIFK / Ylöjärvi vasta, kun ne otetaan muutenkin käyttöön.
 5. **Vanhan polun poisto** omana PR:nään, kun tarkistusajo (`--tarkista`, kaikki aktiiviset seurat) on **0 eroa kahtena peräkkäisenä viikkona**.
 Peruutus missä tahansa vaiheessa: lippu pois (Admin → Liput) → Seura lukee vanhaa polkua heti; kooste jää paikalleen.
+
+## 15. Seura B-puolen jäljelle jäävät ~46 lukua — mistä ne tulevat ja mitä niille voi tehdä (27.11.2026, vain analyysi, ei koodia)
+
+**Mitattu** (`ab_2026-11-27T21-29-42`, B = `kuorma_seura_01` lippu päällä, Yhteenveto-avaus, kylmä; laskuri `luvut` polun mukaan, sama joka kierroksella):
+
+| Polku | Lukuja | Mistä koodista (*koodista luettu*, ei erittelyajoa) | Lista_seurasta? |
+|---|---:|---|---|
+| `kayttajat` | 20 | `lataaYhteenvetoKPIt` (`TalentMaster_Seura.html` ~1180): koko henkilöstökokoelma pelkän KPI:n "valmentajia + hallinto" vuoksi (+ Henkilöstö-näkymä lukee saman erikseen vasta avattaessa, `source:'server'`) | Ei |
+| `joukkueet` | 25 | `onSnapshot` heti seuran avauksessa (~962): joukkuevalitsin, Joukkueet-näkymä, tyhjän tilan tarkistus (`stats.joukkueet`) | Ei (rivillä vain `jk[]`-tunnisteet) |
+| `kutsut` | 2 | `lataaYhteenvetoKPIt`: `kutsutSnap.size` — koko kokoelma pelkän lukumäärän vuoksi | Ei |
+| `liput` | 2 | `_seuraListaLippu` (`seura_lista.js`) + toinen lukija, joka lukee samaa `liput/julkiset`-dokumenttia (todennäköisesti `tm_valmentaja_nav.js`/`tm_klippi_ryhma.js`-polku — **vahvistettava erittelyllä**) | — |
+| `seurat` | 1 | seuradokumentti (nimi, paketti, kieli) | — (välttämätön) |
+| `lista_seura` | 2 | `_meta` (KPI-laskurit); toinen luku **vahvistettava** (todennäköisesti `_meta` luetaan kahdesti tai sivu 1 esilataus) | on se itse |
+| **Yhteensä** | **52** | = 46 muuta kuin `lista_seura` + `liput` + `kutsut`-kokoelma (`seurat` 1 + `joukkueet` 25 + `kayttajat` 20) ja 6 pientä | |
+
+**Tärkeä varaus: staging aliarvioi `kutsut`-luvun.** Synteettisessä seurassa `kutsut` on 2 dokumenttia; todellisessa 500 pelaajan seurassa kutsuja on kymmeniä–satoja (yksi per huoltajakutsu). `kutsutSnap.size` lukee ne kaikki → tuotannossa tämä voi olla B-puolen **suurin** yksittäinen erä, jota staging ei näytä. Mittaa KPV:n (tuotanto, johtorooli) `--erittely`-ajolla ennen lopullista arviota.
+
+### Mitä voi siirtää tai lykätä
+
+| # | Toimenpide | Säästö (kpl) | Arvioitu ms-hyöty* | Työ / riski |
+|---|---|---:|---|---|
+| 1 | **`kutsut`-lukumäärä** `count()`-aggregaatilla tai `_meta.laskurit.kutsut`-kentällä (palvelin laskee samassa `laskeSeura`-ajossa) | stagingissa −1; **tuotannossa −(kutsujen määrä) ≈ −50…500** | puhelin ~ −0,1…−0,5 s (suuri seura) | Aggregaatti: client-muutos, ei Rules-muutosta (lukuoikeus `kutsut`iin jo). `_meta`-ratkaisu: `functions/`, versio nousee, viive ≤ ~1 min (Q8) |
+| 2 | **`kayttajat`-KPI `_metaan`** (`henkilosto: {operatiiviset, hallinto}`; palvelin laskee `aktiivinen !== false` -rajauksella kuten client) — Henkilöstö-näkymä jää lukemaan koko kokoelman vasta avattaessa | −20 (staging) · seuran koko henkilöstö (~20–60) | puhelin ~ −0,1 s | `functions/` + `tmListaSeuraKelpaa`/versio; trigger: `kayttajat`-muutos ei nykyisin merkitse `lista_likainen`-merkkiä → joko uusi `onWrite` tai pelkkä yöajo + "Päivitä nyt" (henkilöstömuutokset harvinaisia). Rivillä EI sähköpostia/nimiä (vain laskurit) |
+| 3 | **`joukkueet`-kuuntelija lykkäys**: avauksessa `_meta.joukkueet_lkm` (tyhjän tilan tarkistus) ja `onSnapshot` vasta kun joukkuevalitsin/Joukkueet-näkymä/Yhteenvedon joukkuekortit tarvitsevat | −25 avauksessa (siirtyy ensimmäiseen käyttöön) | puhelin ~ −0,1…0,2 s | **Suurin riski:** `tila.joukkueet` on globaali tila, jota moni näkymä lukee synkronisesti → lykkäys vaatii "joukkueet ladattu" -portin; vain jos Yhteenveto ei itse näytä joukkuelistaa (tarkistettava ennen). Ei palvelinmuutosta |
+| 4 | **Lippu kerran**: jaettu `liput/julkiset`-luku (yksi lukija välimuistiin, muut lukevat välimuistista) | −1 | merkityksetön | pieni client-muutos; säästö lähinnä siisteyttä |
+| 5 | `lista_seura`-kaksoisluku selvitettävä (jos `_meta` luetaan kahdesti → yksi jaettu `Promise`) | −1 | merkityksetön | pieni |
+
+\* **ms-arvio on karkea ja ylärajaa:** staging-A/B:ssä −498 lukua antoi puhelimella −2,3 s TTI (≈ 4,6 ms/lukua), mutta siitä suuri osa on 500 rivin renderöinnin ja pelaajasnapshotin purun poisto, ei puhdas lukuaika → samaa kerrointa ei voi soveltaa lineaarisesti pieniin kokoelmiin. Realistinen yhteishyöty toimenpiteistä 2–3 on **~0,2–0,4 s puhelimella (kylmä)**, työpöydällä alle 0,1 s; **kustannusmielessä** (luvut/avaus) ero on selvempi (52 → ~6 stagingissa; tuotannossa riippuu `kutsut`-määrästä).
+
+### Suositus
+1. **Ensin mittaa** KPV:llä (tuotanto, johtorooli) `mittaa_sivut.js --erittely --sivut=seura` ja kirjaa polut + `kutsuja`-määrät → vahvistaa `kutsut`-koon, `liput`-kaksoisluvun ja `lista_seura`-toisen luvun.
+2. **Toteuta 1 (`kutsut`-count) ja 2 (`kayttajat` → `_meta`) yhdessä** pienenä PR:nä (Tero-kaista: `functions/` + versio); ne ovat riskittömiä (pelkkiä laskureita, ei näkymälogiikkaa) ja kattavat suurimman tuotantosäästön.
+3. **3 (`joukkueet`-lykkäys) vain jos** erittely näyttää, että 25 lukua + snapshot-käsittely näkyy TTI:ssä; muuten jää (riski > hyöty).
+4. 4 ja 5 samaan PR:ään, jos kohta 1–2 avataan joka tapauksessa.
