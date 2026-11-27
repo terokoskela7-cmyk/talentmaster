@@ -87,6 +87,14 @@ async function _haeArkistoidut() {
   tulos.forEach((t) => { if (t.täynnä) rajaTaynna = true; t.docs.forEach((d) => { (mapa[d.id] = mapa[d.id] || { id: d.id, data: d.data(), syyt: [] }).syyt.push(t.syy); }); });
   return { rivit: Object.values(mapa).sort((a, b) => String(a.data.sukunimi || '').localeCompare(String(b.data.sukunimi || ''), 'fi')), rajaTaynna };
 }
+/* Palautussääntö (PM 27.11.2026): arkistoitu / aktiivinen===false → palautus johdolle. poistettu===true → VAIN SA, eikä lainkaan jos suostumus on peruttu (tmSuostumusPeruttu: poisto voi olla suostumuksen perumisen / oikeuden tulla unohdetuksi seuraus).
+   Huom: poistaPelaajaGDPR poistaa dokumentin kokonaan (ei jää poistettu-lippua); poistettu-lipun asettajaa pelaajalle ei löydy koodista → varovaisuus kunnes varmistuu. Palauttaa { sallittu, syy (tmHT-avain) }. */
+function _palautusSalli(x, rooli) {
+  x = x || {}; if (x.poistettu !== true) return { sallittu: true, syy: '' };
+  if (_suostumusPeruttu(x)) return { sallittu: false, syy: 'Suostumus peruttu — poistettua pelaajaa ei palauteta.' };
+  if (rooli !== 'superadmin' && rooli !== 'super_admin') return { sallittu: false, syy: 'Poistetun pelaajan palauttaa vain Super Admin.' };
+  return { sallittu: true, syy: '' };
+}
 async function avaaArkistoidut() {
   document.getElementById('arkistoModaali')?.remove();
   const m = document.createElement('div'); m.id = 'arkistoModaali'; m.className = 'modalTausta auki';
@@ -99,17 +107,19 @@ async function avaaArkistoidut() {
     const syyTeksti = { poistettu: tmHT('Poistettu'), arkistoitu: tmHT('Arkistoitu'), aktiivinen: tmHT('Ei aktiivinen') };
     sis.innerHTML = (rajaTaynna ? '<div style="color:var(--amber);margin-bottom:8px;">' + tmHT('Näytetään enintään {n} pelaajaa / syy.').replace('{n}', ARKISTO_RAJA) + '</div>' : '')
       + '<table style="width:100%;"><tbody>' + rivit.map((r) => '<tr><td style="font-weight:600;">' + esc(henkiloNimi(r.data)) + '</td><td>' + esc(r.data.joukkue || '—') + '</td><td>' + esc(r.data.syntymaVuosi || '—') + '</td><td style="font-size:11px;">' + r.syyt.map((x) => syyTeksti[x]).join(', ') + '</td>'
-        + '<td><button class="toimNappi" onclick="palautaArkistoitu(\'' + r.id + '\')">' + tmHT('Palauta') + '</button></td></tr>').join('') + '</tbody></table>';
+        + '<td>' + (() => { const p = _palautusSalli(r.data, tila.rooli); return p.sallittu ? '<button class="toimNappi" data-pid="' + esc(r.id) + '" onclick="palautaArkistoitu(this.dataset.pid)">' + tmHT('Palauta') + '</button>' : '<span style="font-size:11px;color:var(--ink3);">' + tmHT(p.syy) + '</span>'; })() + '</td></tr>').join('') + '</tbody></table>';
   } catch (e) { sis.textContent = tmHT('Lataus epäonnistui:') + ' ' + ((e && (e.code || e.message)) || e); }
 }
 async function palautaArkistoitu(pid) {
   const ref = db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pid);
   try {
     const d = await ref.get(); if (!d.exists) { naytaToast(tmHT('Pelaajan tietoja ei löydy.'), 'virhe'); return; }
-    const x = d.data(), upd = {}; if (x.poistettu === true) upd.poistettu = false; if (x.arkistoitu === true) upd.arkistoitu = false; if (x.aktiivinen === false) upd.aktiivinen = true;
+    const x = d.data(), upd = {}; { const p = _palautusSalli(x, tila.rooli); if (!p.sallittu) { naytaToast(tmHT(p.syy), 'varoitus'); return; } }   // sama sääntö kuin napissa (ei vain UI-esto)
+    if (x.poistettu === true) upd.poistettu = false; if (x.arkistoitu === true) upd.arkistoitu = false; if (x.aktiivinen === false) upd.aktiivinen = true;
     if (!Object.keys(upd).length) return;
     if (!confirm(tmHT('Palautetaanko pelaaja listalle?') + ' ' + henkiloNimi(x))) return;
     tmPelaajatEsiTyhjenna();
+    if (tila.kayttaja) await tila.kayttaja.getIdToken(true);   // §7.2: tuore token ennen kirjoitusta (roolimuutos / vanhentunut istunto)
     await ref.update(Object.assign(upd, { muokattu: firebase.firestore.FieldValue.serverTimestamp() }));
     document.getElementById('arkistoModaali')?.remove();
     naytaToast(tmHT('Pelaaja palautettu.') + ' ' + tmHT('Lista päivittyy noin minuutissa.'), 'ok');
