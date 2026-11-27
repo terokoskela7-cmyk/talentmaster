@@ -16,8 +16,13 @@ export const VARTIOITU = [
   'TalentMaster_Player_Home.html',
   'sw_pelaaja.js',
   'sw_vanhempi.js',
+  // Pelaajille/huoltajille näkyvät lomake- ja kyselysivut (fonttien itse-isännöinti, 2. PR)
+  'TalentMaster_Rekisterointi_Suostumus.html',
+  'TalentMaster_Kysely_v2.html',
+  'TalentMaster_Solo_Koti.html',
+  'TalentMaster_Solo_Profiili.html',
 ];
-const ALARAJA = 5;   // #1333. Nosta, kun lisäät sivuja; älä koskaan laske.
+const ALARAJA = 9;   // #1333: 5, fonttien 2. PR: 9. Nosta, kun lisäät sivuja; älä koskaan laske.
 const KIELLETTY = /fonts\.(googleapis|gstatic)\.com/;
 
 describe('ei Google Fontsia pelaaja-/huoltajasivuilla', () => {
@@ -31,7 +36,7 @@ describe('ei Google Fontsia pelaaja-/huoltajasivuilla', () => {
       expect(readFileSync(join(juuri, f), 'utf8')).not.toMatch(KIELLETTY);
     });
   }
-  it('vartijan lista sisältää #1333:n perustason', () => {
-    for (const f of ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Player_Home.html', 'sw_pelaaja.js', 'sw_vanhempi.js']) expect(VARTIOITU).toContain(f);
+  it('vartijan lista sisältää aiempien PR:ien perustason', () => {
+    for (const f of ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Player_Home.html', 'sw_pelaaja.js', 'sw_vanhempi.js', 'TalentMaster_Rekisterointi_Suostumus.html', 'TalentMaster_Kysely_v2.html', 'TalentMaster_Solo_Koti.html', 'TalentMaster_Solo_Profiili.html']) expect(VARTIOITU).toContain(f);
   });
 });
