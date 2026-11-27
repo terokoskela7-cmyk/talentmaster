@@ -107,6 +107,7 @@ function onAllowlist(url) {
   // allowlistissa — attestointi on tuore-kutsu, ei cachettavaa. 'gstatic.com/firebasejs/'
   // -match on kapea eikä osu recaptchaan; app-check-compat.js cachettuu versioidulla URL:lla.
   if (url.indexOf('/lib/tm_teknistaktiset.js') !== -1) return true;   // 4b pelaajan cue-kerros
+  if (/\/tm_pelaaja_(main|p6)\.js/.test(url)) return true;   // L6 (deploy-muunnos): pääskripti + P6 irrotettu omiin tiedostoihinsa (versiotiiviste.js LOHKOT_ULOS) — offline-avaus vaatii ne cacheen
   if (url.indexOf('/docs/testit_indeksit.js') !== -1) return true;
   if (url.indexOf('gstatic.com/firebasejs/') !== -1) return true;         // Firebase SDK (versioitu URL)
   return false;
