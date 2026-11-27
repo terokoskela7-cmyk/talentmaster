@@ -75,14 +75,13 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_klippi_perhe.js') !== -1) return true;   // R6.4 PR 2: Valmentajalta klippi / Katsokaa yhdessä
   if (url.indexOf('/lib/tm_kentta.js') !== -1) return true;   // K0: Kenttä-komponentti
   if (url.indexOf('/assets/fonts/archivo-latin-wdth-normal.woff2') !== -1) return true;   // D11: Archivo omalta palvelimelta (ei Google Fonts)
+  if (/\/assets\/fonts\/(cormorant-garamond|dm-sans|dm-mono)-latin-[a-z0-9-]+\.woff2/.test(url)) return true;   // fontit omalta palvelimelta (GDPR)
   // HUOM: reCAPTCHA Enterprise (www.google.com/recaptcha/, gstatic.com/recaptcha/) EI ole
   // allowlistissa — attestointi on tuore-kutsu, ei cachettavaa. 'gstatic.com/firebasejs/'
   // -match on kapea eikä osu recaptchaan; app-check-compat.js cachettuu versioidulla URL:lla.
   if (url.indexOf('/docs/testit_indeksit.js') !== -1) return true;  // TKI-laskenta (?v= → cache-first ei vanhene väärin)
   if (url.indexOf('/assets/pwa/') !== -1) return true;       // omat ikonit
   if (url.indexOf('gstatic.com/firebasejs/') !== -1) return true;         // Firebase SDK (versioitu URL)
-  if (url.indexOf('fonts.googleapis.com') !== -1) return true;            // Google Fonts CSS
-  if (url.indexOf('fonts.gstatic.com') !== -1) return true;               // Google Fonts -fontit
   // HUOM: Sentry CDN (browser.sentry-cdn.com) + ingest (*.ingest.*.sentry.io) EIVÄT ole allowlistissa
   // → suora verkko, EI cachea (cross-origin telemetria ei kuulu PWA-cacheen). Tietoinen valinta.
   return false;
