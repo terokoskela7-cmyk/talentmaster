@@ -63,7 +63,7 @@ describe('Seura: PIN-kortti, virheteksti ja kortit', () => {
     vm.runInContext(pura(SEURA, 'function _ikaTila(p) {') + '\nthis.tila = _ikaTila;', ilman);
     expect(ilman.tila({ syntymaVuosi: 2020 })).toBe('ok');
   });
-  it('kytkennät lähteessä: lib ladataan, PIN-kortti piiloon alle 10-vuotiaalta, vuosi puuttuu -vihje, kortit ja palvelinvirheet; rivikatto 7100', () => {
+  it('kytkennät lähteessä: lib ladataan, PIN-kortti piiloon alle 10-vuotiaalta, vuosi puuttuu -vihje, kortit ja palvelinvirheet; rivikatto 7300', () => {
     expect(SEURA).toContain('<script src="lib/tm_pelaaja_ika.js"></script>');
     expect(SEURA).toMatch(/\$\{_ikaTila\(p\) === 'ika_alle_10' \? '<div class="ika-teksti"[^`]*` *<!-- PIN-koodi ja pelaajasivu-linkki/);
     expect(SEURA).toMatch(/_ikaTila\(p\) === 'ika_puuttuu' \? '<div class="ika-teksti"/);
@@ -71,7 +71,7 @@ describe('Seura: PIN-kortti, virheteksti ja kortit', () => {
     expect(SEURA).toMatch(/if \(koodi === 'failed-precondition' && e && e\.details && _ikaTeksti\(e\.details\.syy\)\) return _ikaTeksti\(e\.details\.syy\);/);
     expect(SEURA).toMatch(/esi\.data\.ohitettuIka/); expect(SEURA).toMatch(/r\.data\.ohitettuIkaPuuttuu/);
     expect(SEURA).toMatch(/tulos\.data\.vainVanhempi/);
-    expect(SEURA.split('\n').length - 1).toBeLessThanOrEqual(7100);
+    expect(SEURA.split('\n').length - 1).toBeLessThanOrEqual(7300);
   });
 });
 

@@ -161,7 +161,7 @@ describe('Seura · tunnustyökalut ilman suostumusta (ajettu)', () => {
     ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
     vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
       + ['function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
-        'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {'].map(pura).join('\n')
+        'function _tunnusKohde() {', 'async function _taydennaKohde(k) {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {'].map(pura).join('\n')
       + '\nthis.luo = luoPuuttuvatPinit; this.laheta = lahetaTunnuksetHuoltajille; this.virhe = _pinVirheTeksti;', ctx);
     return { ctx, loki };
   }

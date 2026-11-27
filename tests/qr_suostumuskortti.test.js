@@ -112,7 +112,7 @@ function seuraYmp(pelaajat, palvelin) {
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
     + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _pinVirheTeksti(e) {',
-      'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
+      'function _tunnusKohde() {', 'async function _taydennaKohde(k) {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
       'function _suostumusLinkki(pelaajaId, kutsuId) {', 'function _pinKortitHtml(kortit) {', 'async function tulostaKortit() {'].map(pura).join('\n')
     + '\nthis.linkki = _suostumusLinkki; this.html = _pinKortitHtml; this.tulosta = tulostaKortit;', ctx);
   return { ctx, loki };

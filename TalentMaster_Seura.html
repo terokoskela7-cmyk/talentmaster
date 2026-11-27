@@ -17,6 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <script src="lib/tm_pelaajat_esilataus.js"></script><script src="lib/tm_pvm.js"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
+<script src="lib/tm_liput.js"></script><script src="lib/tm_lista_yhteenveto.js"></script><script src="lib/tm_lista_lataus.js"></script>   <!-- lista_seura (27.11.2026): lippu + palvelimen seurakooste; lippu pois / virhe → vanha polku -->
 <script src="lib/tm_sisainen.js"></script>   <!-- PR 2d: terveys + talentti* (A) VAIN sisainen; talenttiOhjelma (C) jää pelaajalle -->
 <script src="lib/tm_idp_pelaaja_dok.js"></script>   <!-- Vaihe 1 · PR 1f-2: sitoumuksen dual-read (lippu pois = idp_kausi kuten ennen) -->
 <script src="lib/tm_appcheck.js"></script>
@@ -714,6 +715,7 @@
 <script src="seura/seura_tuonti.js"></script>   <!-- rivikattojen purku S2b: Excel-pohja, massakutsu ja Excel-tuonti siirretty sellaisenaan; ennen inline-lohkoa = funktioiden hoistauskohta -->
 <script src="seura/seura_pelaajahallinta.js"></script>   <!-- rivikattojen purku S3: SA:n pelaajan muokkaus/vaihto/poisto, PIN-hallinta, naytaPelaajaTiedot ja lahetaPelaajaLinkki siirretty sellaisenaan; ennen inline-lohkoa = funktioiden hoistauskohta -->
 <script src="seura/seura_hallinta.js"></script>   <!-- rivikattojen purku S4: henkilöstö, brändi, sopimukset, joukkueiden toiminnot ja henkilöhallinta siirretty sellaisenaan (joukkuelomakkeen DOMContentLoaded-kuuntelija jää kuoreen, PM 7.11.); ennen inline-lohkoa = funktioiden hoistauskohta -->
+<script src="seura/seura_lista.js"></script>   <!-- lista_seura (27.11.2026): lipun luku, koosteen lataus, Päivitä nyt, Arkistoidut, tekohetken täydennys; ennen inline-lohkoa = funktioiden hoistauskohta -->
 <script>
 // ─────────────────────────────────────────────────────────────────
 // FIREBASE INIT — double-init estetty (kriittinen)
@@ -1171,8 +1173,10 @@ function renderYhteenveto() {
 
 async function lataaYhteenvetoKPIt() {
   try {
+    const _lippu = _seuraListaLippuTiedossa();   // välimuistissa → ei ylimääräistä odotusta ennen pelaajalukua (jaettu esilataus säilyy synkronisena)
+    const _meta = ((_lippu === undefined ? await _seuraListaLippu() : _lippu) && window.TM_LISTA_LATAUS) ? await window.TM_LISTA_LATAUS.tmListaSeuraMeta(db, tila.seuraId) : null;   // lista_seura: laskurit yhdestä dokumentista (1 luku), ei koko pelaajaluvun
     const [pelaajatSnap, henkilostoSnap, kutsutSnap] = await Promise.all([
-      tmLuePelaajatKpi(db, tila.seuraId),
+      _meta && _meta.ok ? Promise.resolve(null) : tmLuePelaajatKpi(db, tila.seuraId),
       db.collection('seurat').doc(tila.seuraId).collection('kayttajat').get(),
       db.collection('seurat').doc(tila.seuraId).collection('kutsut').get(),
     ]);
@@ -1181,11 +1185,11 @@ async function lataaYhteenvetoKPIt() {
     const h = document.getElementById('kpiHenkilosto');
     const k = document.getElementById('kpiKutsut');
 
-    const pelaajatData = pelaajatSnap.docs.map(d => d.data());
-    const kaikki    = pelaajatData.length;
-    const annettu   = pelaajatData.filter(_suostumusAnnettu).length;
-    const pilottiLkm = pelaajatData.filter(d => d.suostumusTila === 'pilotti').length;
-    const odottaaLkm = pelaajatData.filter(d => d.suostumusTila === 'odottaa' || d.suostumusTila === 'luotu').length;
+    const pelaajatData = pelaajatSnap ? pelaajatSnap.docs.map(d => d.data()) : [];
+    const kaikki    = _meta && _meta.ok ? _meta.laskurit.kaikki : pelaajatData.length;
+    const annettu   = _meta && _meta.ok ? _meta.laskurit.annettu : pelaajatData.filter(_suostumusAnnettu).length;
+    const pilottiLkm = _meta && _meta.ok ? _meta.laskurit.pilotti : pelaajatData.filter(d => d.suostumusTila === 'pilotti').length;
+    const odottaaLkm = _meta && _meta.ok ? _meta.laskurit.odottaa : pelaajatData.filter(d => d.suostumusTila === 'odottaa' || d.suostumusTila === 'luotu').length;
     const suostumusPct = kaikki > 0 ? Math.round(annettu / kaikki * 100) : 0;
 
     if (p) p.textContent = kaikki;
@@ -1245,7 +1249,7 @@ async function lataaYhteenvetoKPIt() {
     if (typeof TMEmptyState !== 'undefined' && tila.aktiivNakyma === 'yhteenveto') {
       const stats = {
         joukkueet:  tila.joukkueet ? tila.joukkueet.length : 0,
-        pelaajat:   pelaajatSnap.size,
+        pelaajat:   _meta && _meta.ok ? kaikki : pelaajatSnap.size,
         valmentajat: (() => {
           const op = ['valmentaja','talenttivalmentaja','fysiikkavalmentaja',
                       'testivastaava','fysioterapeutti'];
@@ -1331,7 +1335,6 @@ function pelaajaRivi(p) {
     + '<td>' + syntVuosi + '</td>'
     + palloIdSolu
     + '<td><span class="badge ' + tilaLuokka + '">' + tilaIkoni + ' ' + tilaTeksti + '</span></td>'
-    + (kaytettavyysNakyy() ? '<td>' + _renderKaytettavyys(p) + '</td>' : '')
     + '<td><button class="toimNappi" onclick="naytaPelaajaTiedot(\'' + p.id + '\')">' + tmHT('Tiedot') + '</button></td>'
     + '</tr>';
 }
@@ -1594,6 +1597,7 @@ async function renderPelaajat(alue) {
           ${tmHT('📨 Lähetä tunnukset huoltajille')}
         </button>
         <span id="tunnusTila" style="font-size:11px;color:var(--ink3);"></span>
+        <span id="listaTilaRivi" style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:11px;color:var(--ink3);"></span>
       </div>
       <div id="pelaajaListaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
         <div style="display:flex;align-items:center;gap:10px;">
@@ -1604,12 +1608,13 @@ async function renderPelaajat(alue) {
   `;
 
   try {
-    const snap = await tmLuePelaajatSnap(db, tila.seuraId);
+    const lataus = await _lataaSeuranLista();   // lista_seura (lippu päällä, 5 lukua / 1 000 pelaajaa) TAI vanha pelaajaluku; EI koko seuran sisainen/terveys-lukua (Q3)
 
     const alueEl = document.getElementById('pelaajaListaAlue');
     if (!alueEl) return;
+    _paivitaListaTilaRivi();
 
-    if (snap.empty) {
+    if (!lataus.pelaajat.length) {
       alueEl.innerHTML = `
         <div class="tyhjaAlue">
           <div class="tyhjaIkoni">👥</div>
@@ -1621,11 +1626,7 @@ async function renderPelaajat(alue) {
       return;
     }
 
-    const pelaajat = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a,b) => (a.sukunimi || '').localeCompare(b.sukunimi || ''));
-
-    await _seuraYhdista(pelaajat);   // PR 2a/2c: sisainen/tiedot (talentti*, ⭐) + käytettävyys sisainen/terveys:stä (SA/VP/UTJ)
+    const pelaajat = lataus.pelaajat;
     // Tallennetaan kaikki pelaajat suodatinta varten
     window._pelaajatKaikki = pelaajat;
     window._aktiiviSuodatin = 'kaikki';
@@ -1715,7 +1716,7 @@ async function renderPelaajat(alue) {
       <table>
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="pelValitseKaikki" onchange="_pelValitseKaikki(this.checked)" title="${tmHT('Valitse kaikki näkyvät')}"></th>
-          <th>${tmHT('Nimi')}</th><th>${tmHT('Joukkue')}</th><th>${tmHT('Synt.')}</th><th>PalloID</th><th>${tmHT('Tila')}</th>${kaytettavyysNakyy() ? '<th>Käytettävyys</th>' : ''}<th>${tmHT('Toiminnot')}</th>
+          <th>${tmHT('Nimi')}</th><th>${tmHT('Joukkue')}</th><th>${tmHT('Synt.')}</th><th>PalloID</th><th>${tmHT('Tila')}</th><th>${tmHT('Toiminnot')}</th>
         </tr></thead>
         <tbody>
           ${pelaajat.map(p => {
@@ -1769,10 +1770,14 @@ async function renderPelaajat(alue) {
                 <td>${syntVuosi}</td>
                 ${palloIdSolu}
                 <td><span class="badge ${tilaLuokka}">${tilaIkoni} ${tilaTeksti}</span></td>
-                ${kaytettavyysNakyy() ? '<td>' + _renderKaytettavyys(p) + '</td>' : ''}
                 <td>
                   <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">${tmHT('Tiedot')}</button>
-                  ${p.huoltajaEmail
+                  ${p._listaRivi && p._onHuoltaja
+                    ? `<button class="toimNappi" style="background:rgba(0,212,170,.12);color:#00D4AA;margin-left:4px"${_lkAttr(_lkPelaaja(p))}
+                        onclick="lahetaPelaajaLinkkiRivilta('${p.id}')">
+                        ${tmHT('📨 Linkki')}
+                      </button>`
+                    : p.huoltajaEmail
                     ? `<button class="toimNappi" style="background:rgba(0,212,170,.12);color:#00D4AA;margin-left:4px"${_lkAttr(_lkPelaaja(p))}
                         onclick="lahetaPelaajaLinkki('${p.id}','${tila.seuraId}','${p.etunimi||''}','${p.sukunimi||''}','${p.huoltajaEmail||''}','${p.joukkue||''}')">
                         ${tmHT('📨 Linkki')}
@@ -1844,16 +1849,30 @@ function _renderKaytettavyys(p) {
 /* PR 2a (vaihe 1 PR 2, terveys): TERVEYS_VAIN_SISAINEN — käytettävyys luetaan ja kirjoitetaan vain sisainen/terveys-dokumentissa (siivousskripti tarkistaa tämän merkin tuotannosta).
    PR 2c: lista, muokkausikkuna ja Kehitystilanne yhdistävät sisainen/tiedot-kopion (talentti*, signaali, adar …) + terveyden (oikeutetuille rooleille). Latausvirhe näytetään ja palautetaan (kutsuja estää tallennuksen). */
 const TERVEYS_VAIN_SISAINEN = true;
-async function _seuraYhdista(lista) {
+async function _seuraYhdista(lista, asetus) {
   if (!lista.length) return null; const T = window.TM_SISAINEN; if (!T) { naytaToast(tmHT('Lataus epäonnistui:') + ' TM_SISAINEN', 'virhe'); return 'TM_SISAINEN'; }
+  if (asetus && asetus.yksi && lista.length === 1) {   /* Q3 (27.11.2026): yksi pelaaja (muokkausikkuna, käytettävyys pelaajakortilta; kutsuja antaa {yksi:true}) → vain hänen sisainen/tiedot + terveys; EI koko seuran collectionGroup-lukua. Koko seura vain Kehitystilanne (oma Vaihe 0). */
+    let virhe1 = null; const p1 = await T.tmSisainenLataaJaYhdistaYksi(db, tila.seuraId, lista[0], Object.assign(kaytettavyysNakyy() ? { terveysLuku: [lista[0].id] } : {}, { onVirhe: (k) => { virhe1 = k; } }));
+    if (virhe1) naytaToast(tmHT('Lataus epäonnistui:') + ' ' + virhe1, 'virhe');
+    lista[0] = p1; return virhe1;
+  }
   const r = await T.tmSisainenLataaSeura(db, tila.seuraId, kaytettavyysNakyy() ? T.tmTerveysLukuOpts(tila.rooli, lista) : {}), virhe = r.virhe || r.terveysVirhe || null;
   if (virhe) naytaToast(tmHT('Lataus epäonnistui:') + ' ' + virhe, 'virhe');
   T.tmSisainenYhdistaLista(lista, r.mapa, r.terveysMapa ? { terveysMapa: r.terveysMapa } : {}).forEach((p, i) => { lista[i] = p; }); return virhe;
 }
+/* Pelaajakortin käytettävyys-solu (Q3): vain tälle pelaajalle luettu sisainen/terveys; ei koko seuran lukua. p annettu → ei uutta pelaajaluvun hakua. */
+async function _paivitaKorttiKaytettavyys(pid, p) {
+  if (!kaytettavyysNakyy()) return;
+  try {
+    if (!p) { const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pid).get(); if (!snap.exists) return; p = { id: pid, ...snap.data() }; }
+    const l = [p], virhe = await _seuraYhdista(l, { yksi: true }), el = document.getElementById('pkd-kaytettavyys-' + pid);
+    if (el) el.innerHTML = virhe ? '<span style="color:var(--ink3);">—</span>' : _renderKaytettavyys(l[0]);
+  } catch (e) { console.warn('[Seura] käytettävyys-solu:', e && (e.code || e.message)); }
+}
 async function avaaKaytettavyysModal(pelaajaId) {
   if (!kaytettavyysNakyy()) return;
-  let p = (window._pelaajatKaikki || []).find(x => x.id === pelaajaId);
-  if (!p) { const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get(); const l = [{ id: pelaajaId, ...snap.data() }]; await _seuraYhdista(l); p = l[0]; }
+  /* Q3: käytettävyys on terveystieto → luetaan vain pelaajakortilta avattaessa YHDEN pelaajan dokumentista (+ hänen sisainen/terveys), ei listarivistä. */
+  let p = null; { const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get(); if (!snap.exists) { naytaToast(tmHT('Pelaajan tietoja ei löydy.'), 'virhe'); return; } const l = [{ id: pelaajaId, ...snap.data() }]; if (await _seuraYhdista(l, { yksi: true })) return; p = l[0]; }
   const k = p.kaytettavyys || null;   // asettamaton → mitään tilaa ei valita valmiiksi (ei oletusta "aktiivinen")
 
   // Poista vanha modaali
@@ -1977,9 +1996,8 @@ async function tallennakKaytettavyys(pelaajaId) {
     if (!window.TM_SISAINEN) throw new Error('TM_SISAINEN puuttuu');
     await window.TM_SISAINEN.tmTerveysKirjoita(db, tila.seuraId, pelaajaId, data, {});   // PR 2a: vain sisainen/terveys (ei pelaajadokumenttia)
     document.getElementById('kaytettavyysModaali')?.remove();
-    // Paikallinen data synkkaan (kuten joukkuesiirrossa) → lista päivittyy, suodatin ja haku säilyvät.
-    const p = (window._pelaajatKaikki || []).find(x => x.id === pelaajaId);
-    if (p) { Object.keys(data).forEach(k => { if (tila_val === 'aktiivinen' && k !== 'kaytettavyys') delete p[k]; else p[k] = data[k]; }); suodataPelaajat(window._aktiiviSuodatin || 'kaikki'); }
+    // Q3: käytettävyys (terveystieto) ei kuulu listariville eikä listan muistiin → päivitetään vain pelaajakortin solu (luetaan tuoreena yhden pelaajan dokumenteista).
+    _paivitaKorttiKaytettavyys(pelaajaId);
     naytaToast('Käytettävyys tallennettu', 'ok');
   } catch(e) {
     naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe');

@@ -1133,6 +1133,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
 
   // Päivitetään pelaajalistaus
   setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 1000);
+  if (typeof ehdotaListanPaivitysta === 'function' && (tuotu > 0 || paivitetty > 0)) ehdotaListanPaivitysta();   // lista_seura: kooste päivittyy ~1 min; "Päivitä nyt" pakottaa heti
 }
 
 
