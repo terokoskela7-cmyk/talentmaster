@@ -3,7 +3,7 @@
  *
  * Aiempi skripti lintasi vain `TalentMaster_*.html` → `tm_dna_builder.html` (kuollut JS,
  * mojibake-korruptio), `TM_*.html`, `index.html`, `404.html` ja `talentmaster_player_demo_1.html`
- * eivät olleet KOSKAAN lintauksessa. Juuri sen aukon läpi tarjoiltavaan joukkoon pääsi sivu jonka
+ * (arkistoitu archive/-kansioon 27.11.2026, ei enää tarjoiltu) eivät olleet KOSKAAN lintauksessa. Juuri sen aukon läpi tarjoiltavaan joukkoon pääsi sivu jonka
  * koko JS oli kuollut parse-virheeseen.
  *
  * Kohdejoukko johdetaan datasta (scripts/tarjoiltavat_appit.js) + kirjastot.
