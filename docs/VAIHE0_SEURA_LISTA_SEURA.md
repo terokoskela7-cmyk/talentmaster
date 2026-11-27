@@ -157,3 +157,30 @@ Sama kolmen tavan malli kuin `lista_joukkue` (valmis `functions/lista_yhteenveto
 **Ei muutu tässä PR:ssä (kirjattu jatkoon).** (1) Excel-tuonnin esikatselu lukee edelleen koko pelaajakokoelman duplikaattitarkistukseen — tuonti, ei avaus. (2) Talentit-näkymä käyttää jo rajattua kyselyä (`talenttiOhjelma == true`), ei koosteen riviä. (3) KPI:n `kutsut`-kokoelman luku (`kutsutSnap.size`) on yhä koko kokoelma — ei pelaajalista; erillinen laskuri/aggregaatti jatkoon, jos mittaus näyttää sen merkittäväksi. (4) Seuran Pelaajat-lista ei näytä enää nimenä sähköpostia nimettömälle pelaajalle ("Keskeneräinen kutsu") — koskee vain lippu päällä -tilaa.
 
 **Testit.** `tests/lista_seura_nakyma.test.js` (lukija, lukumäärä, sovitin, HTML-vartijat), `tests/lista_seura_nakyma_selain.test.js` (oikea Chrome, deploy-muoto, synteettinen 500 pelaajan seura, roolit SA/VP/UTJ/seurasihteeri, SA-seurapoimija, varapolku, Arkistoidut). Päivitetyt: `seura_kaytettavyys_muokkaus` (käytettävyys listalta kortille), `seura_pelaajaluku_jako` (rivikatto 7100 → 7300, KPI-ympäristön lippustubi), `d1_liput_hallinta` (uusi lippu). sv-avaimet tyhjinä: `docs/i18n/sv_kaannoserae_107_gemini.json` (Q7).
+
+## 14. PR 3 (rollout + A/B-mittaus, kaista: auto/scripts) — 27.11.2026
+
+**Tila ennen PR 3:a.** Staging-backfill OK (`kuorma_seura_01/02`: 500 riviä, tarkistus 0 eroa). Tuotannon kuiva-ajo OK (7 aktiivista seuraa, 0 virhettä; SJK / GrIFK / HJK / FCL / VIFK / Ylöjärvi tarkoituksella pois käytöstä).
+
+**A/B-mittaus samalla URL:lla, eri seura.** `scripts/kuorma/ab_vuorotellen.js --seura-a=<n> --seura-b=<n>` (molemmat pakollisia yhdessä): sama `--a`/`--b`-URL kelpaa, kun seurat eroavat; jokainen puoli ajaa `mittaa_sivut.js`:n omalla `--seura`-arvollaan (`<n>` = `kuorma_seura_<nn>`). Järjestys vaihtuu kuten ennen (AB / BA …). Ilman valintoja käytös on ennallaan (yhteinen `--seura`). Yhteenveto kirjaa `meta.seura_a/seura_b`, ja uusi mittari **Firestore-luvut (kpl)** (`yht`, kylmä ja lämmin) näkyy raportissa ja `yhteenveto.json`issa — lipun vaikutus näkyy suoraan lukumäärissä (odotus: A ≈ 1 000+, B ≈ 6).
+
+Mittaus (Tero ajaa; A = `kuorma_seura_02` lippu pois, B = `kuorma_seura_01` lippu päällä; seurojen datan on oltava samanlainen — 500 riviä kummassakin):
+```
+! node scripts/kuorma/lippu_aseta.js --projekti=talentmaster-staging --seura=1 --lippu=lista_seura --arvo=paalle --aja
+! node scripts/kuorma/lippu_aseta.js --projekti=talentmaster-staging --seura=2 --lippu=lista_seura --arvo=pois    # varmistus (oletus on pois)
+STAGING_APPCHECK_DEBUG_TOKEN=<token> ! node scripts/kuorma/ab_vuorotellen.js \
+  --a=<staging-URL> --b=<sama staging-URL> --seura-a=2 --seura-b=1 --sivut=seura --profiilit=tyopoyta --kierrokset=3 --toistot=3
+```
+`--sivut=seura` käyttää `TalentMaster_Seura.html`-sivua johtotunnuksella (`vp.sNN@kuorma.test`, `mittaa_sivut.js` SIVUT.seura); molemmilla seuroilla on oltava VP-tunnus tunnustiedostossa. Tulkinta: Firestore-luvut A ≫ B kaikilla kierroksilla ja FCP/TTI B ≤ A; `[lista_seura] ok` -konsoliviesti `--erittely`-ajossa vahvistaa, että B lukee koosteesta.
+
+**Lipun asetus.**
+- **Staging:** `scripts/kuorma/lippu_aseta.js` — kuiva-ajo oletuksena, `--aja` kirjoittaa. Sama logiikka kuin Admin → Liput (`functions/liput_hallinta.js`: transaktio, `liput/julkiset` + audit-rivi `lippu_muutettu`, tekijä `skripti:kuorma_lippu_aseta`). Projektilukko (`lukko.js`) hyväksyy vain stagingin; vain synteettiset kuorma-seurat.
+- **Tuotanto:** Admin-paneelin **Liput**-näkymä tukee seurakohtaista arvoa (seura × lippu, vahvistus, muutosloki) → lippu `lista_seura` asetetaan siellä seura kerrallaan. Skriptiä ei käytetä tuotannossa.
+
+**Rollout-järjestys.**
+1. **Staging A/B** (yllä): `kuorma_seura_01` lippu päällä vs. `kuorma_seura_02` pois; tulos kirjataan tähän (luvut, FCP/TTI, suunta).
+2. **Tuotanto: KPV (testiseura)** — lippu päälle Admin → Liput; johtorooli (ei SA) avaa Seuran: KPI-laskurit ja suodatinlukumäärät identtiset lippu päällä/pois (§7.3), konsolissa `[lista_seura] ok`.
+3. **Tarkistusajo 0 eroa:** `node scripts/lista_seura_backfill.js --tarkista --seura=kpv` (Tero ajaa, ADC) — poistumiskoodi 0.
+4. **Muut seurat yksi kerrallaan** (seura → tarkistusajo `--seura=<id>` 0 eroa → lippu päälle → live-vertailu). SJK / GrIFK / HJK / FCL / VIFK / Ylöjärvi vasta, kun ne otetaan muutenkin käyttöön.
+5. **Vanhan polun poisto** omana PR:nään, kun tarkistusajo (`--tarkista`, kaikki aktiiviset seurat) on **0 eroa kahtena peräkkäisenä viikkona**.
+Peruutus missä tahansa vaiheessa: lippu pois (Admin → Liput) → Seura lukee vanhaa polkua heti; kooste jää paikalleen.

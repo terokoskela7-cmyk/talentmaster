@@ -7,7 +7,7 @@
  *   STAGING_APPCHECK_DEBUG_TOKEN=<token> ! node scripts/kuorma/ab_vuorotellen.js \
  *     --a=https://talentmaster-staging--kuorma-<tunniste>.web.app --b=https://talentmaster-staging--kuorma-b-<tunniste>.web.app \
  *     --kierrokset=3 --sivut=master --profiilit=tyopoyta --toistot=3 [--tunnukset=.briefit/staging_tunnukset.txt] [--seura=1] [--ulos=mittaus_tulokset/ab_<aika>] [--kuiva]
- *     [--esta-a=<isäntä|glob>] [--esta-b=<isäntä|glob>]  (toistettavissa; välitetään mittaa_sivut.js:n --esta:lle vain kyseiselle puolelle, esim. gapi-mittaukseen: --esta-b=apis.google.com = isäntänimi (osuu kaikkiin sen URL:eihin; glob '*apis.google.com*' EI osu, * ei ylitä /). Kun jompikumpi puoli estää, MOLEMMILLE asennetaan sama reititys (--reititys), jotta HTTP-välimuistikäytös on sama; esto joka ei osu mihinkään = rivit virheellisiä)
+ *     [--seura-a=<n> --seura-b=<n>] [--esta-a=<isäntä|glob>] [--esta-b=<isäntä|glob>]  (toistettavissa; välitetään mittaa_sivut.js:n --esta:lle vain kyseiselle puolelle, esim. gapi-mittaukseen: --esta-b=apis.google.com = isäntänimi (osuu kaikkiin sen URL:eihin; glob '*apis.google.com*' EI osu, * ei ylitä /). Kun jompikumpi puoli estää, MOLEMMILLE asennetaan sama reititys (--reititys), jotta HTTP-välimuistikäytös on sama; esto joka ei osu mihinkään = rivit virheellisiä)
  * Token VAIN ympäristömuuttujasta (ei komentoriviltä, ei tulosteeseen). Jokainen ajo = oma mittaa_sivut.js-prosessi (sen URL-vartija: vain staging) → <ulos>/kierros<N>_<A|B>.json.
  * Lopuksi: mediaanit A ja B, erotus B−A ja per-kierros-erotus (kylmä/lämmin: FCP, TTI, auth-haun alku, ensimmäisen Firestore-pyynnön alku) + <ulos>/yhteenveto.json.
  * Tulkinta: muutos on syy vain jos B−A on SAMAA suuntaa myös kierroksilla, joilla järjestys on käännetty. Eri suunta tai ~0 → kohinaa/ajankohtaa. */
@@ -19,16 +19,19 @@ const MITTARIT = Object.freeze([
   { avain: 'tti', nimi: 'interaktiivinen', ots: 'tti_ms', ms: true },
   { avain: 'auth', nimi: 'auth-haun alku', ots: 'ajat.auth_haku.0', ms: true },
   { avain: 'fs', nimi: '1. Firestore alkaa', ots: 'ajat.firestore_ensimmainen.0', ms: true },
+  { avain: 'luvut', nimi: 'Firestore-luvut (kpl)', ots: 'yht', ms: false },   // dokumenttilukujen määrä avauksessa (lista_seura-lipun vertailu: A ≫ B)
 ]);
 const TILAT = Object.freeze([{ avain: 'kylma', nimi: 'KYLMÄ' }, { avain: 'lampimat', nimi: 'LÄMMIN' }]);
 
 function lueArgv(argv) {
-  const o = { a: undefined, b: undefined, kierrokset: 3, sivut: 'master', profiilit: 'tyopoyta', toistot: 3, tunnukset: '.briefit/staging_tunnukset.txt', seura: 1, ulos: undefined, kuiva: false, estaA: [], estaB: [], tuntematon: [] };
+  const o = { a: undefined, b: undefined, kierrokset: 3, sivut: 'master', profiilit: 'tyopoyta', toistot: 3, tunnukset: '.briefit/staging_tunnukset.txt', seura: 1, ulos: undefined, kuiva: false, estaA: [], estaB: [], seuraA: undefined, seuraB: undefined, tuntematon: [] };
   (argv || []).forEach((x) => {
     const kv = /^--([a-z]+(?:-[ab])?)=(.*)$/.exec(x);
     if (x === '--kuiva') o.kuiva = true;
     else if (kv && kv[1] === 'esta-a') o.estaA.push(kv[2]);
     else if (kv && kv[1] === 'esta-b') o.estaB.push(kv[2]);
+    else if (kv && kv[1] === 'seura-a') o.seuraA = +kv[2];
+    else if (kv && kv[1] === 'seura-b') o.seuraB = +kv[2];
     else if (kv && ['a', 'b', 'sivut', 'profiilit', 'tunnukset', 'ulos'].indexOf(kv[1]) >= 0) o[kv[1]] = kv[1] === 'a' || kv[1] === 'b' ? kv[2].replace(/\/$/, '') : kv[2];
     else if (kv && ['kierrokset', 'toistot', 'seura'].indexOf(kv[1]) >= 0) o[kv[1]] = +kv[2];
     else o.tuntematon.push(/token/i.test(x) ? '--token…(token ei kuulu komentoriviltä)' : x.split('=')[0]);
@@ -40,7 +43,9 @@ function tarkista(o, env, urlSallittu) {
   const sallittu = urlSallittu || M.kanavaUrlSallittu;
   if (!o.a || !o.b) return 'Anna molemmat: --a=<url> --b=<url>.';
   if (!sallittu(o.a) || !sallittu(o.b)) return 'URL ei ole stagingin Hosting (https://talentmaster-staging[--kanava].web.app) — ajo keskeytetty (tuotantoa ei mitata).';
-  if (o.a === o.b) return '--a ja --b ovat sama URL — vertailu ei kerro mitään.';
+  if (o.a === o.b && !(o.seuraA != null && o.seuraB != null && o.seuraA !== o.seuraB)) return '--a ja --b ovat sama URL — vertailu ei kerro mitään (sama URL kelpaa vain, jos --seura-a ja --seura-b ovat eri seurat).';
+  if ((o.seuraA != null) !== (o.seuraB != null)) return 'Anna --seura-a ja --seura-b yhdessä (lipun A/B vertaa kahta seuraa).';
+  if ([o.seuraA, o.seuraB].some((n) => n != null && !(Number.isInteger(n) && n >= 1 && n <= 99))) return 'Virheellinen --seura-a / --seura-b (kokonaisluku 1–99; 1 = kuorma_seura_01).';
   if (!(o.kierrokset >= 2 && o.kierrokset <= 10)) return '--kierrokset 2–10 (vähintään 2, jotta järjestys ehtii vaihtua).';
   if (!(o.toistot >= 1 && o.toistot <= 20) || !(o.seura >= 1 && o.seura <= 99)) return 'Virheellinen --toistot tai --seura.';
   if (o.estaA.concat(o.estaB).some((g) => !g || g.length > 300)) return 'Tyhjä tai liian pitkä --esta-a/--esta-b-glob.';
@@ -48,6 +53,9 @@ function tarkista(o, env, urlSallittu) {
   return null;
 }
 /** Kierros k (0-alkuinen): parillinen A,B · pariton B,A. */
+/** Puolen (A|B) kohdeseura: --seura-a/--seura-b, muuten yhteinen --seura. */
+const seuraPuolelle = (o, v) => { const n = v === 'A' ? o.seuraA : o.seuraB; return n != null ? n : o.seura; };
+const seuraTxt = (n) => 'kuorma_seura_' + String(n).padStart(2, '0');
 const jarjestys = (k) => (k % 2 === 0 ? ['A', 'B'] : ['B', 'A']);
 const tiedostonimi = (k, v) => 'kierros' + (k + 1) + '_' + v + '.json';
 
@@ -103,7 +111,8 @@ const ms = (x) => (x == null ? '   –  ' : String(x).padStart(6));
 function raporttiTeksti(yht, o) {
   const reitTxt = (o.estaA.length || o.estaB.length) ? ' · reititys: molemmat' : '';
   const estoTxt = (g) => (g && g.length ? ' · estetty: ' + g.join(', ') : '');
-  const ul = ['A = ' + o.a + estoTxt(o.estaA), 'B = ' + o.b + estoTxt(o.estaB) + reitTxt, 'kierroksia ' + o.kierrokset + ' · järjestys: ' + Array.from({ length: o.kierrokset }, (_, k) => jarjestys(k).join('')).join(' / ') + ' · ' + o.toistot + ' toistoa / ajo · mediaanit ms'];
+  const seuraTekstiA = o.seuraA != null ? ' · ' + seuraTxt(o.seuraA) : '', seuraTekstiB = o.seuraB != null ? ' · ' + seuraTxt(o.seuraB) : '';
+  const ul = ['A = ' + o.a + seuraTekstiA + estoTxt(o.estaA), 'B = ' + o.b + seuraTekstiB + estoTxt(o.estaB) + reitTxt, 'kierroksia ' + o.kierrokset + ' · järjestys: ' + Array.from({ length: o.kierrokset }, (_, k) => jarjestys(k).join('')).join(' / ') + ' · ' + o.toistot + ' toistoa / ajo · mediaanit ms'];
   Object.keys(yht).forEach((avain) => {
     ul.push('', '== ' + avain);
     TILAT.forEach((t) => {
@@ -137,8 +146,8 @@ async function main(argv, deps) {
     const kr = {};
     for (const x of jarjestys(k)) {
       const tiedosto = path.join(ulos, tiedostonimi(k, x)), url = x === 'A' ? o.a : o.b;
-      kirjaa('\n--- kierros ' + (k + 1) + '/' + o.kierrokset + ' · ' + x + ' · ' + url);
-      const koodi = ajaa(['--url=' + url, '--tunnukset=' + o.tunnukset, '--seura=' + o.seura, '--toistot=' + o.toistot, '--sivut=' + o.sivut, '--profiilit=' + o.profiilit, '--ulos=' + tiedosto].concat((o.estaA.length || o.estaB.length) ? ['--reititys'] : []).concat((x === 'A' ? o.estaA : o.estaB).map((g) => '--esta=' + g)), env);
+      kirjaa('\n--- kierros ' + (k + 1) + '/' + o.kierrokset + ' · ' + x + ' · ' + url + ' · ' + seuraTxt(seuraPuolelle(o, x)));
+      const koodi = ajaa(['--url=' + url, '--tunnukset=' + o.tunnukset, '--seura=' + seuraPuolelle(o, x), '--toistot=' + o.toistot, '--sivut=' + o.sivut, '--profiilit=' + o.profiilit, '--ulos=' + tiedosto].concat((o.estaA.length || o.estaB.length) ? ['--reititys'] : []).concat((x === 'A' ? o.estaA : o.estaB).map((g) => '--esta=' + g)), env);
       if (koodi !== 0) { virhe('mittaa_sivut.js päättyi koodiin ' + koodi + ' (kierros ' + (k + 1) + ', ' + x + ') — A/B keskeytetty; aiemmat kierrokset: ' + ulos); return koodi; }
       try { kr[x] = JSON.parse(fs.readFileSync(tiedosto, 'utf8')); } catch (e) { virhe('Tulostiedostoa ei voitu lukea: ' + tiedosto); return 1; }
     }
@@ -153,9 +162,9 @@ async function main(argv, deps) {
     tulokset.push(kr);
   }
   const yht = yhdista(tulokset), teksti = raporttiTeksti(yht, o);
-  fs.writeFileSync(path.join(ulos, 'yhteenveto.json'), JSON.stringify({ meta: { a: o.a, b: o.b, kierrokset: o.kierrokset, toistot: o.toistot, sivut: o.sivut, profiilit: o.profiilit, esta_a: o.estaA, esta_b: o.estaB, reititys: (o.estaA.length || o.estaB.length) ? 'molemmat' : undefined, aika: new Date().toISOString() }, tulos: yht }, null, 2) + '\n');
+  fs.writeFileSync(path.join(ulos, 'yhteenveto.json'), JSON.stringify({ meta: { a: o.a, b: o.b, seura_a: seuraPuolelle(o, 'A'), seura_b: seuraPuolelle(o, 'B'), kierrokset: o.kierrokset, toistot: o.toistot, sivut: o.sivut, profiilit: o.profiilit, esta_a: o.estaA, esta_b: o.estaB, reititys: (o.estaA.length || o.estaB.length) ? 'molemmat' : undefined, aika: new Date().toISOString() }, tulos: yht }, null, 2) + '\n');
   kirjaa('\n' + teksti + '\n\nTallennettu: ' + path.join(ulos, 'yhteenveto.json'));
   return 0;
 }
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c)).catch((e) => { console.error('Virhe: ' + String(e && e.message || e).split('\n')[0]); process.exit(2); });
-module.exports = { lueArgv, tarkista, jarjestys, tiedostonimi, poimi, yhdista, suunta, raporttiTeksti, main, MITTARIT };
+module.exports = { seuraPuolelle, lueArgv, tarkista, jarjestys, tiedostonimi, poimi, yhdista, suunta, raporttiTeksti, main, MITTARIT };

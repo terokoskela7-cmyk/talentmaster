@@ -47,11 +47,30 @@ describe('ab_vuorotellen', () => {
     expect(kutsut.map((k) => k.argit.find((a) => a.startsWith('--url=')).slice(6) === A ? 'A' : 'B').join('')).toBe('ABBAAB');
     expect(kutsut.every((k) => k.token === 'tok-xyz' && !k.argit.join(' ').includes('tok-xyz'))).toBe(true);
     expect(existsSync(join(ulos, 'yhteenveto.json'))).toBe(true);
-    expect(JSON.parse(readFileSync(join(ulos, 'yhteenveto.json'), 'utf8')).tulos['master|tyopoyta'].rivit.length).toBe(8);
+    expect(JSON.parse(readFileSync(join(ulos, 'yhteenveto.json'), 'utf8')).tulos['master|tyopoyta'].rivit.length).toBe(10);   // 5 mittaria (ml. Firestore-luvut) × kylmä/lämmin
     expect(rivit.join('\n')).toContain('B−A');
     let n = 0; const ajaaVirhe = (argit) => { n++; if (n === 2) return 3; const u = argit.find((a) => a.startsWith('--ulos=')).slice(7); writeFileSync(u, JSON.stringify(tulos([1], [1]))); return 0; };
     expect(await AB.main(['--a=' + A, '--b=' + B, '--ulos=' + ulos], { ajaa: ajaaVirhe, env, kirjaa: () => {}, virhe: () => {} })).toBe(3);
     expect(n).toBe(2);   // keskeytyy heti
+  });
+  it('--seura-a/--seura-b: sama URL kelpaa vain eri seuroilla; puoli saa oman --seura-arvon; luvut raportoidaan', async () => {
+    const env = { STAGING_APPCHECK_DEBUG_TOKEN: 'x' };
+    expect(AB.tarkista(AB.lueArgv(['--a=' + A, '--b=' + A, '--seura-a=2', '--seura-b=1']), env)).toBeNull();
+    expect(AB.tarkista(AB.lueArgv(['--a=' + A, '--b=' + A, '--seura-a=1', '--seura-b=1']), env)).toMatch(/sama URL/);
+    expect(AB.tarkista(AB.lueArgv(['--a=' + A, '--b=' + B, '--seura-a=2']), env)).toMatch(/yhdessä/);
+    expect(AB.tarkista(AB.lueArgv(['--a=' + A, '--b=' + A, '--seura-a=0', '--seura-b=1']), env)).toMatch(/Virheellinen --seura-a/);
+    const kutsut = [], rivit = [], ulos = mkdtempSync(join(tmpdir(), 'ab-seura-'));
+    const luvut = (n) => ({ mittaukset: [{ sivu: 'seura', profiili: 'tyopoyta', kylma: [{ ...avaus(2000, 500, 900), yht: n }], lampimat: [{ ...avaus(1000, 500, 900), yht: n }] }] });
+    const ajaa = (argit) => { kutsut.push(argit); const seura = argit.find((a) => a.startsWith('--seura=')).slice(8); writeFileSync(argit.find((a) => a.startsWith('--ulos=')).slice(7), JSON.stringify(luvut(seura === '2' ? 1048 : 6))); return 0; };
+    expect(await AB.main(['--a=' + A, '--b=' + A, '--seura-a=2', '--seura-b=1', '--kierrokset=2', '--sivut=seura', '--ulos=' + ulos], { ajaa, env, kirjaa: (r) => rivit.push(r), virhe: () => {} })).toBe(0);
+    expect(kutsut.map((k) => k.find((a) => a.startsWith('--seura=')).slice(8)).join('')).toBe('2112');   // A=2, B=1; järjestys AB/BA
+    expect(kutsut.every((k) => k.includes('--sivut=seura') && k.includes('--url=' + A))).toBe(true);
+    const y = JSON.parse(readFileSync(join(ulos, 'yhteenveto.json'), 'utf8'));
+    expect(y.meta.seura_a).toBe(2); expect(y.meta.seura_b).toBe(1);
+    const r = y.tulos['seura|tyopoyta'].rivit.find((x) => x.tila === 'kylma' && x.mittari === 'luvut');
+    expect(r).toMatchObject({ a: 1048, b: 6, ero: -1042 });
+    expect(rivit.join('\n')).toContain('kuorma_seura_02');
+    expect(AB.seuraPuolelle(AB.lueArgv(['--seura=3']), 'A')).toBe(3);   // ilman --seura-a/b yhteinen --seura
   });
   it('kuiva-ajo ei kutsu ajajaa eikä vaadi tokenia', async () => {
     let kutsuttu = false; const rivit = [];
