@@ -1851,6 +1851,7 @@ exports.paivitaSeuranKooste = functions
 /* ═══ Listayhteenveto (Vaihe 0 B.4; kaista Tero) ═══
    seurat/{sid}/lista_joukkue/{jid} = joukkueen pelaajarivit (Master lukee 1 dokumentin / joukkue). Vain palvelin kirjoittaa (Rules v3.83). Ei sisainen/terveys/PIN/huoltajan sähköposti.
    · laskeListaYhteenvedot   yöajo 03:30 Europe/Helsinki — kaikki aktiiviset seurat
+   · paivitaListaSeura      callable (vain johto + SA, App Check) — Seuran lista_seura "Päivitä nyt"; lista_seura (_meta + sivut) rakentuu samalla pelaajaluvulla kuin lista_joukkue (Rules v3.85)
    · paivitaListaYhteenveto  callable (johto/talenttivalmentaja/valmentaja/SA oma seura, App Check) — "Päivitä nyt", 30 s jäähy
    · merkitseListaLikaiseksi pelaajadokumentin onWrite → lista_likainen/{pid} vain jos listariviin vaikuttava kenttä muuttui
    · siivoaListaLikaiset     minuutin ajastus — rakentaa seuran uudelleen kun merkit ovat hiljenneet (30 s) tai odottaneet 5 min (debounce) */

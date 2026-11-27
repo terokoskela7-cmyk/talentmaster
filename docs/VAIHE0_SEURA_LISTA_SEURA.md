@@ -112,3 +112,30 @@ Sama kolmen tavan malli kuin `lista_joukkue` (valmis `functions/lista_yhteenveto
 2. Palvelin: `functions/lista_yhteenveto.js` laajennus + Rules v3.xx + Rules-testit + backfill-skripti (**Teron kaista**: `functions/`, Rules, `scripts/`).
 3. Client: `tmListaSeuraLataa` + Seuran Yhteenveto/Pelaajat/Talentit lippu + varapolku (**Teron kaista**: HTML).
 4. Tero ajaa backfillin (kuiva → kirjoita), vertailu 7.3, lippu päälle seurakohtaisesti; vanhan polun poisto vasta puhtaan viikon jälkeen.
+
+## 12. Päätetty 27.11.2026 (Tero) ja PR 1:n toteutus
+
+**Päätökset** (korvaavat §10:n avoimet kohdat):
+
+| | Päätös |
+|---|---|
+| Q1 Luku | Vain johto (vp, urheilutoimenjohtaja, seurasihteeri) + SA. Valmentajat ja talenttivalmentajat eivät lue. |
+| Q2 Sivutus | `_meta` (laskurit, päivitetty) + sivut, ≤ 250 riviä/sivu. |
+| Q3 Terveystieto | EI listalle: ei `loukkaantuminen_*`, `paluu_arvio`, `kaytettavyys` eikä boolean-merkkiä. Käytettävyys näytetään vasta pelaajakortissa. Seuran nykyinen koko seuran `sisainen/terveys`-luku POISTETAAN listanäkymästä kokonaan, myös varapolulta (PR 2). |
+| Q4 PIN-lista/kortit | Ennallaan (luku tulostushetkellä). Palvelinversio backlogiin. |
+| Q5 Kehitystilanne | Oma Vaihe 0 heti tämän jälkeen. |
+| Q6 Rules | v3.85, oma `match`-blokki, Rules-testi. |
+| Q7 sv | Uudet tekstit ("päivitetty hh:mm", "Päivitä nyt") → sv-avaimet tyhjinä erätiedostoon, PM kirjoittaa. PR 1:ssä ei käyttäjälle näkyviä tekstejä. |
+| Q8 Tuoreus | ≤ ~1 min viive. Excel-tuonnin jälkeen "Päivitä nyt" pakottaa uudelleenkoosteen. |
+
+**PR 1 (palvelin + Rules, ei käyttäjälle näkyvää muutosta) — toteutus:**
+- Lib `lib/tm_lista_yhteenveto.js` (+ jaettu `functions/`-kopio): `tmListaSeuraRivi`, `tmListaSeuraSuostumus`, `tmListaSeuraLaskurit`, `tmListaSeuraDokumentit`, `tmListaSeuraKelpaa`. `KIELLETYT_AVAIMET` laajeni: `kaytettavyys`, `paluu_arvio`, `ky`.
+- Rivin avaimet: `id, e, s, nm, jk, jn, sv, nv, pid, st, hk, pa, to, tt, ta, lh`. **Poikkeama §2:n taulukosta:** PIN-boolean on `pa` eikä `pin`, koska `pin` on vartijan kielletty avain (arvon vuotoa ei voi erottaa avaimen nimestä). `nv` = syntymävuosi puuttuu (`tmSeuraPuuttuuVuosi`). `nm` = `p.nimi` vain jos etu- ja sukunimi puuttuvat; sähköpostia ei koskaan käytetä nimen varana (Seuran nykyinen `henkiloNimi` tekee niin, joten client näyttää nimettömälle "Keskeneräinen kutsu").
+- `st` = Seuran `pelaajaRivi`-badge-sääntö: `peruttu` voittaa, sitten `annettu` (kanoninen `lib/tm_suostumus.js`), `pilotti`, `odottaa` (odottaa/luotu/tuotu), `ei_kutsua`.
+- Palvelin `functions/lista_yhteenveto.js`: `laskeSeura` kirjoittaa `lista_seura` samasta pelaajaluvusta kuin `lista_joukkue` (yksi `pelaajat.get()`). Sivut kirjoitetaan ensin ja `_meta` viimeisenä; kaikilla `kierros`-tunniste, jonka lukija vaatii täsmäämään (kaikki tai ei mitään). `lista_seura`-virhe heitetään vasta `lista_joukkue`-kirjoituksen jälkeen, joten tuotannossa oleva `lista_joukkue` ei kaadu uuteen.
+- Debounce: `merkitseListaLikaiseksi` vertaa nyt myös seurarivin kenttiä (suostumus, huoltaja-/PIN-olemassaolo, PalloID, lähde, talentti). Minuuttiajastus ja yöajo rakentavat molemmat listat.
+- Callable `paivitaListaSeura({ seuraId })` (europe-west1, App Check, `tarkistaOikeus`): vain johto + SA. 30 s jäähy, MUTTA odottava `lista_likainen`-merkki ohittaa jäähyn ja merkit siivotaan rakennuksen jälkeen (Q8).
+- Rules v3.85: `match /lista_seura/{doc}` luku `onSuperAdmin() || (onOmaSeura && onJohtoRooli())`, kirjoitus `false`.
+- `scripts/lista_seura_backfill.js`: kuiva-ajo (oletus), `--kirjoita`, `--tarkista` (pariteettivertailu koosteen ja pelaajadokumenttien välillä; vain lukumäärät seuroittain).
+- Poissuljetut: `poistettu`/`arkistoitu`/`aktiivinen === false`. Seuran nykyinen lista näyttää myös ne, joten tarkistusajo ja PR 2:n vertailu käyttävät samaa rajausta.
+- Tunnettu ero vanhaan: Seuran KPI-banneri ei laske `tuotu`-pelaajaa "kutsu lähetetty" -luokkaan, mutta listan badge ja suodatin laskevat. Kooste noudattaa listan sääntöä.
