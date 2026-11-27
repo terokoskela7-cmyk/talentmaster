@@ -234,4 +234,4 @@ Lukumäärä on vakio (−498 joka kierroksella, kylmä ja lämmin): 550 → 52.
 3. **3 (`joukkueet`-lykkäys) vain jos** erittely näyttää, että 25 lukua + snapshot-käsittely näkyy TTI:ssä; muuten jää (riski > hyöty).
 4. 4 ja 5 samaan PR:ään, jos kohta 1–2 avataan joka tapauksessa.
 
-**Päätetty 28.11.:** kohta 1 (`kutsut` count()) toteutetaan nyt; kohdat 2–5 backlogiin; ei tuotantomittausta johtotunnuksella.
+**Päätetty 28.11.:** `kutsut`-laskuri backlogiin — compat-SDK:ssa ei ole `count()`-aggregaattia (varmistettu Chromessa: `collection(…).count` on `undefined` versioissa 9.22.0 ja 10.7.1). Kun palataan, kohdat 1+2 toteutetaan yhdessä `_meta`-laskureina (`kutsut` + henkilöstö), kaista Tero (`functions/` + versio; viive ≤ ~1 min, Q8). Kohdat 3–5 backlogiin; ei tuotantomittausta johtotunnuksella. Ei muuta toteutettavaa Seuraan nyt.
