@@ -183,7 +183,7 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
     const k1 = (h) => { const i = h.indexOf('/* ═══ K1 osa 2b'), j = h.indexOf('/* JOUKKUE-tab */'); return i < 0 ? h : h.slice(0, i) + h.slice(j); };
     [k1(PE), VH].forEach((h) => {
       expect((h.match(/var\(--(chalk2?|amber-dim|font-k)\b/g) || []).length).toBe(0);
-      expect(h.replace(/@font-face[^}]*}/, '')).not.toMatch(/font-family:\s*'?Archivo/);
+      expect(h.replace(/@font-face[^}]*}/g, '')).not.toMatch(/font-family:\s*'?Archivo/);
       expect(h).not.toMatch(/tmKentta\(|TM_KENTTA\./);
     });
     expect(VH).not.toMatch(/K1 osa 2b/);   // Vanhempi_v2 ei saa K1:tä (K5)
