@@ -168,9 +168,11 @@ Mittaus (Tero ajaa; A = `kuorma_seura_02` lippu pois, B = `kuorma_seura_01` lipp
 ```
 ! node scripts/kuorma/lippu_aseta.js --projekti=talentmaster-staging --seura=1 --lippu=lista_seura --arvo=paalle --aja
 ! node scripts/kuorma/lippu_aseta.js --projekti=talentmaster-staging --seura=2 --lippu=lista_seura --arvo=pois    # varmistus (oletus on pois)
-STAGING_APPCHECK_DEBUG_TOKEN=<token> ! node scripts/kuorma/ab_vuorotellen.js \
-  --a=<staging-URL> --b=<sama staging-URL> --seura-a=2 --seura-b=1 --sivut=seura --profiilit=tyopoyta --kierrokset=3 --toistot=3
+! read -s STAGING_APPCHECK_DEBUG_TOKEN && export STAGING_APPCHECK_DEBUG_TOKEN        # token vain ympäristöön, ei komentoriville eikä historiaan
+! node scripts/kuorma/ab_vuorotellen.js \
+  --a=<staging-URL> --b=<sama staging-URL> --seura-a=2 --seura-b=1 --sivut=seura --profiilit=tyopoyta,puhelin --kierrokset=3 --toistot=3
 ```
+(`ab_vuorotellen.js` lukee tokenin vain ympäristömuuttujasta ja hylkää `--token`-valinnan.) Firestore-luvut-rivin suunta: ≥ 10 % A:sta ja sama suunta kaikilla kierroksilla (ei ms-rajaa).
 `--sivut=seura` käyttää `TalentMaster_Seura.html`-sivua johtotunnuksella (`vp.sNN@kuorma.test`, `mittaa_sivut.js` SIVUT.seura); molemmilla seuroilla on oltava VP-tunnus tunnustiedostossa. Tulkinta: Firestore-luvut A ≫ B kaikilla kierroksilla ja FCP/TTI B ≤ A; `[lista_seura] ok` -konsoliviesti `--erittely`-ajossa vahvistaa, että B lukee koosteesta.
 
 **Lipun asetus.**
@@ -184,3 +186,16 @@ STAGING_APPCHECK_DEBUG_TOKEN=<token> ! node scripts/kuorma/ab_vuorotellen.js \
 4. **Muut seurat yksi kerrallaan** (seura → tarkistusajo `--seura=<id>` 0 eroa → lippu päälle → live-vertailu). SJK / GrIFK / HJK / FCL / VIFK / Ylöjärvi vasta, kun ne otetaan muutenkin käyttöön.
 5. **Vanhan polun poisto** omana PR:nään, kun tarkistusajo (`--tarkista`, kaikki aktiiviset seurat) on **0 eroa kahtena peräkkäisenä viikkona**.
 Peruutus missä tahansa vaiheessa: lippu pois (Admin → Liput) → Seura lukee vanhaa polkua heti; kooste jää paikalleen.
+
+**Staging A/B -tulos (27.11.2026, `ab_2026-11-27T21-29-42`; A = `kuorma_seura_02` lippu pois, B = `kuorma_seura_01` lippu päällä, sama URL, 3 kierrosta × 3 toistoa, AB/BA/AB).**
+
+| Mittari (mediaani, kylmä) | A (lippu pois) | B (lippu päällä) | B−A | Per kierros |
+|---|---|---|---|---|
+| Firestore-luvut, työpöytä ja puhelin | 550 | 52 | −498 | −498 / −498 / −498 |
+| TTI, puhelin | 8,1 s | 5,8 s | −2,3 s | −2,2 / −2,6 / −2,3 s (johdonmukainen) |
+| TTI, työpöytä | 2,4 s | 1,8 s | −0,6 s | −0,66 / **+0,11** / −0,62 s (ei johdonmukainen: kierros 2 vastakkainen) |
+| FCP (molemmat) | ≈ sama | ≈ sama | ≈ 0 | kohinaa — lippu ei koske FCP:tä |
+
+Lukumäärä on vakio (−498 joka kierroksella, kylmä ja lämmin): 550 → 52. Puhelimen TTI-hyöty on johdonmukainen; työpöydällä suunta on sama kahdella kolmesta kierroksesta, joten sitä ei vielä väitetä varmaksi. FCP:tä lippu ei muuta, joten seuraava FCP-hyöty tulee muualta (deploy-muunnos, ks. Pelaaja/Master).
+
+**Tuotannon tila (27.11.2026).** Backfill 7 aktiiviselle seuralle: 0 virhettä, tarkistusajo 0 eroa (SJK / GrIFK / HJK / FCL / VIFK / Ylöjärvi tarkoituksella pois käytöstä). **KPV: lippu `lista_seura` päällä 27.11.** (rollout-vaihe 2). Seuraavat: KPV-tarkistusajo ja live-vertailu seurakäyttäjällä (§14 vaihe 3), sitten muut seurat yksi kerrallaan.
