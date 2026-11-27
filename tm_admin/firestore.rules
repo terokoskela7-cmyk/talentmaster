@@ -1,10 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.84
+// TalentMaster™ — firestore.rules v3.85
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.84 → v3.85 (seuran lista_seura, Vaihe 0 -päätökset Tero 27.11.2026 — LAAJENTAA kapeasti, additiivinen; client ei kirjoita):
+//   · seurat/{sid}/lista_seura/{doc} (`_meta` + sivut `sNNNN`): seuran pelaajalistan rivit + laskurit (palvelin rakentaa: functions/lista_yhteenveto.js). Luku VAIN SA | oman seuran johto
+//     (vp / urheilutoimenjohtaja / seurasihteeri, onJohtoRooli) — EI valmentajalle eikä talenttivalmentajalle (heillä lista_joukkue; Q1). Kirjoitus `false` (Admin SDK ohittaa). Pelaaja/huoltaja/toinen seura ei lue (§7.22).
+//   · Sisältö: vain listanäkymien käyttämät kentät; ei PIN:iä, huoltajan sähköpostia (vain boolean-merkit), ei terveystietoa (Q3). Vartija tmListaRikkomukset ennen kirjoitusta.
 // Muutokset v3.83 → v3.84 (sähköpostin vaihto #1290, KIRISTÄÄ): seurat/{sid}/kayttajat/{uid}.`email` vain palvelimella (vaihdaKayttajanSahkoposti) — kayttajaPaasyKentatEnnallaan; myös SA/johto/oma uid estetty.
 //
 // Muutokset v3.82 → v3.83 (Vaihe 0 / B.4, listayhteenveto — LAAJENTAA kapeasti, additiivinen; client ei kirjoita):
@@ -1632,6 +1636,11 @@ service cloud.firestore {
                          && (onJohtoRooli()
                              || request.auth.token.rooli == 'talenttivalmentaja'
                              || (request.auth.token.rooli == 'valmentaja' && jid in valmentajanJoukkueet(seuraId))));
+        allow write: if false;
+      }
+      match /lista_seura/{doc} {
+        // v3.85: seuran pelaajalista (_meta + sivut). Luku SA + oman seuran johto; kirjoittaa vain palvelin.
+        allow read:  if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId) && onJohtoRooli());
         allow write: if false;
       }
       match /lista_likainen/{pid} {

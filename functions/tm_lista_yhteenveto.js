@@ -8,10 +8,12 @@
   'use strict';
   var VERSIO = 2;   // v2: rivin `x` = luokittelun raakasyötteet alkuperäisillä nimillä (tmRyhmat-pariteetti selaimessa) + tmListaRiviPelaajaksi
   var RIVI_ENINT_TAVUA = 1200;   // yhden rivin yläraja (vartija; tyypillisesti 200–300 B)
-  var KIELLETYT_AVAIMET = ['pin', '_pelaajaPin', 'huoltajaEmail', 'huoltajaemail', 'email', 'sahkoposti', 'puhelin', 'terveys', 'sisainen', 'loukkaantuminen', 'jaksofokus_historia', 'kirjaukset', 'havainnot', 'omatTavoitteet', 'kausikuvat'];
+  var KIELLETYT_AVAIMET = ['pin', '_pelaajaPin', 'huoltajaEmail', 'huoltajaemail', 'email', 'sahkoposti', 'puhelin', 'terveys', 'sisainen', 'loukkaantuminen', 'jaksofokus_historia', 'kirjaukset', 'havainnot', 'omatTavoitteet', 'kausikuvat', 'kaytettavyys', 'paluu_arvio', 'ky'];   // + lista_seura (Q3, 27.11.2026): ei terveystietoa edes boolean-merkkinä
 
+  var SEURA_VERSIO = 1, SEURA_SIVU = 250;   // lista_seura: _meta + sivut s0001… (≤ 250 riviä/sivu, Q2)
   function _req(g, f) { try { if (typeof module !== 'undefined' && module.exports && typeof require === 'function') return require(f); } catch (e) { /* selain */ } return root && root[g]; }
   function _J() { return _req('TM_JOUKKUE', './tm_joukkue.js') || {}; }
+  function _S() { return _req('TM_SUOSTUMUS', './tm_suostumus.js') || {}; }
   function _P() { return _req('TM_PHV_TILA', './tm_phv_tila.js') || {}; }
   function _R() { return _req('TM_NAKYMA_RYHMAT', './tm_nakyma_ryhmat.js') || {}; }
 
@@ -122,10 +124,65 @@
     return p;
   }
 
+  /* ── lista_seura (Vaihe 0 / seuran lista, 27.11.2026): seuran pelaajalistan rivit + laskurit. Rivi = VAIN listanäkymien käyttämät kentät (Seura: Yhteenveto/Pelaajat/Talentit).
+     EI PIN:iä (vain `pa`-boolean), EI huoltajan sähköpostia (vain `hk`-boolean), EI terveystietoa (ei käytettävyys-/loukkaantumismerkkiä edes booleanina, Q3), ei nimeä sähköpostista (nimetön → e/s tyhjät, client näyttää "Keskeneräinen kutsu"). ── */
+  function _vuosi(p) {
+    var a = p.syntymaaika, ms = null;
+    if (a && typeof a.toDate === 'function') { try { ms = a.toDate().getTime(); } catch (e) { ms = null; } } else if (a && typeof a.seconds === 'number') ms = a.seconds * 1000; else if (a instanceof Date) ms = a.getTime();
+    if (ms != null && !isNaN(ms)) return new Date(ms).getFullYear();   // sama kuin Seuran pelaajaRivi (paikallinen vuosi)
+    return p.syntymaVuosi != null && p.syntymaVuosi !== '' ? _skal(p.syntymaVuosi) : null;
+  }
+  function _eiVuotta(p) { var v = p.syntymaVuosi; return v == null || v === '' || isNaN(Number(v)); }   // = tm_seura_tuonti.tmSeuraPuuttuuVuosi
+  /* Suostumuskoodi st = Seuran pelaajaRivi-badge (peruttu voittaa; annettu = kanoninen lib/tm_suostumus.js): 'peruttu' | 'annettu' | 'pilotti' | 'odottaa' (odottaa|luotu|tuotu) | 'ei_kutsua'. */
+  function tmListaSeuraSuostumus(p) {
+    p = p || {}; var S = _S();
+    if (S.tmSuostumusPeruttu && S.tmSuostumusPeruttu(p)) return 'peruttu';
+    if (S.tmSuostumusAnnettu && S.tmSuostumusAnnettu(p)) return 'annettu';
+    if (p.suostumusTila === 'pilotti') return 'pilotti';
+    if (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu) return 'odottaa';
+    return 'ei_kutsua';
+  }
+  function tmListaSeuraRivi(id, p) {
+    p = p || {};
+    var e = _skal(p.etunimi), s = _skal(p.sukunimi), pid = p.palloID || p.palloid || p.palloId || p.tunniste;
+    return _poista({
+      id: String(id), e: e, s: s, nm: (!e && !s) ? _skal(p.nimi) : null, jn: _skal(p.joukkue), sv: _vuosi(p), nv: _eiVuotta(p) ? 1 : null,
+      pid: pid != null && pid !== '' ? String(pid) : null, st: tmListaSeuraSuostumus(p),
+      hk: p.huoltajaEmail ? 1 : null, pa: p.pin ? 1 : null, to: p.talenttiOhjelma === true ? 1 : null, tt: _skal(p.talenttiTaso), ta: _skal(p.talenttiAlku), lh: _skal(p.lahde)
+    });
+  }
+  function _jarj(a, b) { return String(a.s || a.nm || '').localeCompare(String(b.s || b.nm || ''), 'fi') || String(a.e || '').localeCompare(String(b.e || ''), 'fi') || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); }
+  /* Laskurit uniikeista pelaajista (§7.18). ilman_pin = suostumus annettu mutta PIN puuttuu (Seuran "PIN puuttuu" -tarkistus). */
+  function tmListaSeuraLaskurit(rivit) {
+    var l = { kaikki: rivit.length, annettu: 0, pilotti: 0, odottaa: 0, peruttu: 0, ei_kutsua: 0, ilman_vuotta: 0, ilman_palloid: 0, ilman_pin: 0 };
+    rivit.forEach(function (r) {
+      l[r.st] = (l[r.st] || 0) + 1;
+      if (r.nv) l.ilman_vuotta++; if (!r.pid) l.ilman_palloid++; if (r.st === 'annettu' && !r.pa) l.ilman_pin++;
+    });
+    return l;
+  }
+  /* pelaajat: [{id, data}] (aktiiviset), joukkueet: [{id, nimi}], kierros: yhteinen tunniste (esim. nytMs) → [{ id: '_meta'|'s0001'…, data }]. Sivut ensin, _meta viimeisenä (luku: kierros täsmää kaikissa tai ei mitään). */
+  function tmListaSeuraDokumentit(pelaajat, joukkueet, kierros) {
+    var J = _J(), docs = (Array.isArray(joukkueet) ? joukkueet : []).map(function (j) { return { id: String(j.id), nimi: j.nimi || '' }; });
+    var rivit = pelaajat.map(function (x) { var r = tmListaSeuraRivi(x.id, x.data); r.jk = J.tmPelaajanJoukkueet ? J.tmPelaajanJoukkueet(x.data, docs) : []; if (!r.jk.length) delete r.jk; return r; }).sort(_jarj);
+    var sivuja = Math.ceil(rivit.length / SEURA_SIVU), ulos = [];
+    for (var i = 0; i < sivuja; i++) { var os = rivit.slice(i * SEURA_SIVU, (i + 1) * SEURA_SIVU); ulos.push({ id: 's' + String(i + 1).padStart(4, '0'), data: { versio: SEURA_VERSIO, kierros: kierros, sivu: i + 1, n: os.length, rivit: os } }); }
+    ulos.push({ id: '_meta', data: { versio: SEURA_VERSIO, kierros: kierros, n: rivit.length, sivuja: sivuja, laskurit: tmListaSeuraLaskurit(rivit) } });
+    return ulos;
+  }
+  /* Client: kaikki tai ei mitään — _meta + kaikki sivut samalla versiolla/kierroksella, sivuluku täsmää, rivimäärä täsmää. dokt = { _meta: data, s0001: data, … } */
+  function tmListaSeuraKelpaa(dokt) {
+    var m = dokt && dokt._meta; if (!m || m.versio !== SEURA_VERSIO || typeof m.sivuja !== 'number' || !m.laskurit) return false;
+    var n = 0;
+    for (var i = 1; i <= m.sivuja; i++) { var d = dokt['s' + String(i).padStart(4, '0')]; if (!d || d.versio !== SEURA_VERSIO || d.kierros !== m.kierros || d.sivu !== i || !Array.isArray(d.rivit)) return false; n += d.rivit.length; }
+    return n === m.n;
+  }
+
   /* Client: onko dokumentti käyttökelpoinen? (puuttuu / vanha versio → vanha polku). */
   function tmListaKelpaa(data) { return !!data && typeof data === 'object' && data.versio === VERSIO && Array.isArray(data.rivit); }
 
-  var API = { VERSIO: VERSIO, KIELLETYT_AVAIMET: KIELLETYT_AVAIMET, tmListaRivi: tmListaRivi, tmListaJoukkueDokumentit: tmListaJoukkueDokumentit, tmListaRikkomukset: tmListaRikkomukset, tmListaKelpaa: tmListaKelpaa, tmListaRiviPelaajaksi: tmListaRiviPelaajaksi };
+  var API = { VERSIO: VERSIO, KIELLETYT_AVAIMET: KIELLETYT_AVAIMET, tmListaRivi: tmListaRivi, tmListaJoukkueDokumentit: tmListaJoukkueDokumentit, tmListaRikkomukset: tmListaRikkomukset, tmListaKelpaa: tmListaKelpaa, tmListaRiviPelaajaksi: tmListaRiviPelaajaksi,
+    SEURA_VERSIO: SEURA_VERSIO, SEURA_SIVU: SEURA_SIVU, tmListaSeuraRivi: tmListaSeuraRivi, tmListaSeuraSuostumus: tmListaSeuraSuostumus, tmListaSeuraLaskurit: tmListaSeuraLaskurit, tmListaSeuraDokumentit: tmListaSeuraDokumentit, tmListaSeuraKelpaa: tmListaSeuraKelpaa };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (root) root.TM_LISTA_YHTEENVETO = API;
 })(typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : null));
