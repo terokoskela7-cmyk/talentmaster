@@ -185,10 +185,10 @@ describe('a) Excel_Tuonti: pujottelu/syöttö-protokollavalinta reititetään TU
 describe('a) VP-mittauslista/rebuild: vanha Excel-H-H-dokki ei valu TK-polulle', () => {
   const S = lue('TalentMaster_VP_v25.html');
   const lines = S.split('\n');
-  const s = lines.findIndex((l) => l.includes('var _VPM_KEYNORM'));
+  const s = lines.findIndex((l) => l.includes('function _vpMittausProtokollaId'));   // B3: kääreet jaettuun libiin
   const e = lines.findIndex((l) => l.includes('window._vpMittausRebuildMerkinnat = _vpMittausRebuildMerkinnat'));
-  const ctx = vm.createContext({ window: { TM_TESTIKATALOGI: K } });
-  vm.runInContext(lines.slice(s, e).join('\n') + '\nthis.f = _vpMittausRebuildMerkinnat;', ctx);
+  const ctx = vm.createContext({ window: { TM_TESTIKATALOGI: K, TM_MITTAUS_KORJAA: require('../lib/tm_mittaus_korjaa.js') } });
+  vm.runInContext('function _vpMK() { return window.TM_MITTAUS_KORJAA; }\n' + lines.slice(s, e).join('\n') + '\nthis.f = _vpMittausRebuildMerkinnat;', ctx);
   it('legacy {pujottelu + _protokolla:hh} TK-dokissa → hh_viimeisin.pujottelu; tk_lajit ilman pujottelua', () => {
     const cache = [{ __id: 'a', data: { testauspvm: '2026-09-01', protokolla: 'tekniikkakilpailu',
       testit: Object.assign({}, TK_TAYSI, { pujottelu: 12.1, pujottelu_protokolla: 'hh' }) } }];

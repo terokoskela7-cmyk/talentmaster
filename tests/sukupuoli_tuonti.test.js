@@ -7,7 +7,7 @@ import { createRequire } from 'module';
 import { lataaSivu } from './helpers/sivu_ajuri.mjs';
 const require = createRequire(import.meta.url);
 const S = require('../lib/tm_sukupuoli.js');
-const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+const lue = (f) => lueKuori(f);
 
 describe('lib/tm_sukupuoli.js', () => {
   it('P/M/poika → M; T/N/tyttö → N (kirjainkoko, ääkköset, välilyönnit); tunnistamaton/tyhjä → null (EI oletusta)', () => {
@@ -63,6 +63,8 @@ describe('scripts/backfill_sukupuoli.js (Tero ajaa): dry-run oletus, vain yksimi
 
 /* ── Selaimen SA-nappi: ydin lib/tm_sukupuoli.js:ssä (sama kuin skripti) ── */
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 function funktio(src, alku) { const i = src.indexOf(alku); if (i < 0) throw new Error('ei löydy ' + alku); let d = 0; for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}') { d--; if (d === 0) return src.slice(i, j + 1); } } throw new Error('ei päättynyt'); }
 const PEL = [
   { id: 'a', nimi: 'Aino A', sukupuoli: undefined, tulokset: ['N', 'T', 'N'] }, { id: 'b', nimi: 'Eero B', tulokset: ['M'] }, { id: 'c', nimi: 'Risti C', tulokset: ['M', 'N'] },

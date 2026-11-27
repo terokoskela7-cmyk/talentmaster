@@ -18,11 +18,11 @@ let _vpMittausRebuildMerkinnat;
 beforeAll(() => {
   const html = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
   const lines = html.split('\n');
-  const s = lines.findIndex(l => l.includes('var _VPM_KEYNORM'));
+  const s = lines.findIndex(l => l.includes('function _vpMittausProtokollaId'));   // B3: kääreet jaettuun libiin
   const e = lines.findIndex(l => l.includes('window._vpMittausRebuildMerkinnat = _vpMittausRebuildMerkinnat'));
   if (s < 0 || e < 0) throw new Error('_vpMittausRebuildMerkinnat lohkoa ei löytynyt VP_v25.html:stä');
   // eslint-disable-next-line no-eval
-  _vpMittausRebuildMerkinnat = eval('(function(){ ' + lines.slice(s, e).join('\n') + '\n return _vpMittausRebuildMerkinnat; })()');
+  _vpMittausRebuildMerkinnat = eval('(function(){ var window = { TM_MITTAUS_KORJAA: require("../lib/tm_mittaus_korjaa.js") };\nfunction _vpMK() { return window.TM_MITTAUS_KORJAA; }\n' + lines.slice(s, e).join('\n') + '\n return _vpMittausRebuildMerkinnat; })()');
 });
 
 describe('_vpMittausRebuildMerkinnat — puhdas rebuild-syöte', () => {

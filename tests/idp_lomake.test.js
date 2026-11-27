@@ -51,10 +51,11 @@ describe('kentät ja logiikka (sama kuin Master)', () => {
     expect(L.tmIdpOpts({ id: 'p1' }, 0, { ikaSp: () => ({ ika: 12, sp: 'M' }) }).spTk).toBe('P');
   });
 });
-/* Muistissa oleva Firestore: doc/collection/get/set/runTransaction */
+/* Muistissa oleva Firestore: doc/collection/get/set/runTransaction + batch (PR 2d: pikakentät tm_sisainen.js:n tmHenkilokuntaKirjoita-batchilla; mergeFields ~ merge) */
 function db(dokit) {
   const kirj = [], ref = (path) => ({ path, get: async () => ({ exists: dokit[path] !== undefined, data: () => JSON.parse(JSON.stringify(dokit[path])) }), set: async (v, o) => { kirj.push({ path, v: JSON.parse(JSON.stringify(v)), o }); dokit[path] = o && o.merge ? { ...(dokit[path] || {}), ...v } : v; }, collection: (c) => col(path + '/' + c) }), col = (path) => ({ doc: (id) => ref(path + '/' + id) });
-  return { kirj, collection: (c) => col(c), runTransaction: async (fn) => fn({ get: (r) => r.get(), set: (r, v, o) => r.set(v, o) }) };
+  const batch = () => { const ops = []; return { set: (r, v, o) => ops.push(() => r.set(v, o && o.mergeFields ? { merge: true } : o)), update: (r, v) => ops.push(() => r.set(v, { merge: true })), commit: async () => { for (const f of ops) await f(); } }; };
+  return { kirj, collection: (c) => col(c), batch, runTransaction: async (fn) => fn({ get: (r) => r.get(), set: (r, v, o) => r.set(v, o) }) };
 }
 const PK = 'seurat/demo/pelaajat/p1';
 describe('lataus ja kirjoitus (idp_kausi, A3)', () => {
@@ -68,7 +69,10 @@ describe('lataus ja kirjoitus (idp_kausi, A3)', () => {
     const vanha = T({ status: 'aktiivinen', luotu: 'A', arviot: [{ pvm: 'x', arvo: 2 }] }), d = db({ [PK + '/idp_kausi/2026']: { tavoitteet: [vanha] } });
     const uusi = T({ status: 'aktiivinen', luotu: 'B' }), r = await L.tmIdpKirjoitaKausi({ db: d, sid: 'demo', pid: 'p1', t: uusi, ankkurit: { _idpVuosi: '2026', _idpVuosiLuotu: 'A' }, nyt: NYT });
     const arr = d.kirj.filter((k) => k.path === PK + '/idp_kausi/2026')[0].v.tavoitteet; expect(arr.map((x) => [x.luotu, x.status])).toEqual([['A', 'vaihdettu'], ['B', 'aktiivinen']]); expect(arr[0].arviot).toHaveLength(1);
-    expect(d.kirj.filter((k) => k.path === PK)[0].v).toMatchObject({ idp_tila: 'aktiivinen', idp_fokus: { alue: 'acceleration' } }); expect(r.pk.idp_tila).toBe('aktiivinen'); expect(r.ankkurit).toMatchObject({ _idpVuosi: '2026', _idpVuosiLuotu: 'B' });
+    expect(d.kirj.filter((k) => k.path === PK)[0].v).toMatchObject({ idp_tila: 'aktiivinen', idp_fokus: { alue: 'acceleration' } });
+    /* PR 2d: henkilökunnan IDP-pikakentät (idp_edistyma/_lahde/_viim_review) VAIN sisainen/tiedot:iin — pelaajadokumentissa ei A-avaimia */
+    ['idp_edistyma', 'idp_lahde', 'idp_viim_review'].forEach((k) => expect(k in d.kirj.filter((x) => x.path === PK)[0].v, k).toBe(false));
+    expect(Object.keys(d.kirj.filter((k) => k.path === PK + '/sisainen/tiedot')[0].v)).toEqual(expect.arrayContaining(['seuraId', 'idp_edistyma', 'idp_lahde', 'idp_viim_review'])); expect(r.pk.idp_tila).toBe('aktiivinen'); expect(r.ankkurit).toMatchObject({ _idpVuosi: '2026', _idpVuosiLuotu: 'B' });
     const muok = { ...uusi, tavoitearvo: 1.7 }; await L.tmIdpKirjoitaKausi({ db: d, sid: 'demo', pid: 'p1', t: muok, ankkurit: r.ankkurit, nyt: NYT });
     const arr2 = d.kirj.filter((k) => k.path === PK + '/idp_kausi/2026').pop().v.tavoitteet; expect(arr2).toHaveLength(2); expect(arr2[1].tavoitearvo).toBe(1.7);
   });

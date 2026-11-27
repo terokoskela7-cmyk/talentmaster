@@ -9,10 +9,12 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { lataaSivu } from './helpers/sivu_ajuri.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const I = require('../lib/tm_istunto.js');
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (f) => readFileSync(join(juuri, f), 'utf8');
+const lue = (f) => lueKuori(f);
 const SIVUT = { Seura: lue('TalentMaster_Seura.html'), Admin: lue('TalentMaster_Admin.html'), Master: lue('TalentMaster_Master_v16.html'), VP: lue('TalentMaster_VP_v25.html'), Valmennusapuri: lue('TalentMaster_Valmennusapuri.html'), Excel_Tuonti: lue('TalentMaster_Excel_Tuonti.html') };
 
 describe('lib/tm_istunto.js', () => {
@@ -115,5 +117,25 @@ describe('Excel_Tuonti: tallennusfunktiot pysähtyvät istuntovirheeseen (lähde
       expect(f, nimi).toContain('TM_ISTUNTO.tmTuontiYhteenveto(');
     }
     const i = s.indexOf('async function tallennaFirestoreen() {'); expect(s.slice(i, s.indexOf('\n}\n', i))).toContain("nappi.innerHTML = '💾 Yritä uudelleen'");
+  });
+});
+
+describe('Käyttäjän vaihto samassa välilehdessä (SA → VP) — sivun uudelleenlataus', () => {
+  const kutsut = () => { let n = 0; return { f: () => { n++; }, n: () => n }; };
+  it('ensimmäinen uid vain muistetaan; sama uid uudelleen ei lataa; eri uid lataa', () => {
+    I._tmNollaaKayttajaMuisti();
+    const k = kutsut();
+    expect(I.tmKayttajaVaihtui('sa', { lataaUudelleen: k.f })).toBe(false);
+    expect(I.tmKayttajaVaihtui('sa', { lataaUudelleen: k.f })).toBe(false);   // token-päivitys / uudelleenkirjautuminen samalla uid:llä
+    expect(I.tmKayttajaVaihtui(null, { lataaUudelleen: k.f })).toBe(false);   // uloskirjautuminen ei kutsu / ei nollaa
+    expect(I.tmKayttajaVaihtui('vp', { lataaUudelleen: k.f })).toBe(true);    // SA → ulos → VP
+    expect(k.n()).toBe(1);
+    I._tmNollaaKayttajaMuisti();
+  });
+  it.each(['Seura', 'Admin', 'Master', 'VP'])('%s kutsuu tmKayttajaVaihtui onAuthStateChanged-callbackin alussa', (nimi) => {
+    expect(SIVUT[nimi]).toMatch(/TM_ISTUNTO\.tmKayttajaVaihtui\(\w+\.uid\)\) return;/);
+  });
+  it('Seura nollaa käyttäjäkohtaisen tilan uloskirjautuessa', () => {
+    expect(SIVUT.Seura).toMatch(/Object\.assign\(tila, \{ kayttaja: null, claims: null, rooli: null, seuraId: null/);
   });
 });

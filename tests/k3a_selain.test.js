@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
-import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT } from './helpers/kt_sivu.mjs';
+import { kaynnista, selainKaynnista, CHROME, JUURI, PELAAJAT, SISAINEN, kirjoitukset } from './helpers/kt_sivu.mjs';
 const KUVAT = join(JUURI, 'docs', 'ui-kuvat', 'k3a');
 const odota = (p) => p.waitForSelector('.kt-nimi', { timeout: 15000 });
 const HAV = { ball_control: 2, short_passing: 3 };   // heikoin ensin: ball_control → y_h1 (jakson nykyinen, jää pois), short_passing → y_h2; täydennys tulee muista sallituista
@@ -86,7 +86,9 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K3a · Anna p
         expect(await p.locator('[data-k3-kortti="0"] input[type=checkbox]').isChecked()).toBe(true);   // esitäytetty nykyisillä vaihtoehdoilla
         await p.locator('[data-hk-laheta]').click(); await p.waitForTimeout(400); expect(await p.evaluate(() => (window.__batch || []).length)).toBe(0); expect(await p.locator('#toast-wrap').innerText()).toMatch(/Kirjoita perustelu/);   // perustelu pakollinen myös sisäisenä
         await p.locator('[data-hk-perustelu]').fill('Sisäinen muistiinpano.'); await p.locator('[data-hk-laheta]').click(); await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 });
-        const b = await p.evaluate(() => window.__batch[0]), k = b.find((o) => o.update), sis = b.find((o) => o.set); expect(b).toHaveLength(2); expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0);
+        const b = await p.evaluate(() => window.__batch[0]), k = b.find((o) => o.path === 'seurat/demo/pelaajat/p1'), sis = b.find((o) => /\/reviewit\//.test(o.path)), st = b.find((o) => SISAINEN.test(o.path)); expect(b).toHaveLength(3); expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0);   // sisainen/tiedot dual-write samassa batchissa (#1144–#1147)
+        expect(st.path).toBe('seurat/demo/pelaajat/p1/sisainen/tiedot'); expect(Object.keys(st.set).sort()).toEqual(['jaksofokus_sisainen', 'paivitetty', 'seuraId']); expect([...st.opts.mergeFields].sort()).toEqual(['jaksofokus_sisainen', 'paivitetty', 'seuraId']);
+        expect(sis.opts).toEqual({ merge: true });
         expect(k.path).toBe('seurat/demo/pelaajat/p1'); expect(Object.keys(k.update).sort()).toEqual(['jaksofokus', 'ydinvahvuus_valinta']); expect(k.update.ydinvahvuus_valinta).toBe('DEL');
         expect(sis.path).toMatch(/^seurat\/demo\/pelaajat\/p1\/reviewit\/\d{4}-\d{2}-\d{2}$/); expect(Object.keys(sis.set)).toEqual(['hylkays_sisainen']); expect(sis.set.hylkays_sisainen).toMatchObject({ teksti: 'Sisäinen muistiinpano.', lahde: rooli === 'vp' ? 'vp' : 'valmentaja' }); expect(JSON.stringify(k.update)).not.toContain('Sisäinen muistiinpano');
         expect(k.update.jaksofokus.tila).toBe('valittavana'); expect(k.update.jaksofokus.hylatty.perustelu).toBeUndefined(); expect(k.update.jaksofokus.hylatty.pvm).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -100,9 +102,12 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('K3a · Anna p
     await avaa(); try {
       const { sk, p } = await kaynnista(selain, { rooli: 'valmentaja', hash: '#pelaaja/p1/polku', pelaajat: pelaajat() }); await odota(p); await p.waitForSelector('[data-kt-hylkaa]');
       await p.locator('[data-kt-hylkaa]').click(); await p.waitForSelector('[data-k3-osio]'); await p.locator('#hkNayta').check(); await p.waitForSelector('[data-hk-perustelu]');   // päällä: perustelu pelaajalle (hylatty.perustelu), ei sisäistä kopiota
-      await p.locator('[data-hk-laheta]').click(); await p.waitForTimeout(400); expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0); expect(await p.locator('#toast-wrap').innerText()).toMatch(/Kirjoita perustelu/);
-      await p.locator('[data-hk-perustelu]').fill('Mietitään vielä yhdessä.'); await p.locator('[data-hk-laheta]').click(); await p.waitForFunction(() => (window.__kirj || []).length === 1, null, { timeout: 8000 });
-      const k = await p.evaluate(() => window.__kirj[0]); expect(k.update.jaksofokus.hylatty.perustelu).toBe('Mietitään vielä yhdessä.'); expect(await p.evaluate(() => (window.__batch || []).length)).toBe(0); await sk.close();
+      await p.locator('[data-hk-laheta]').click(); await p.waitForTimeout(400); expect(await kirjoitukset(p)).toEqual([]); expect(await p.locator('#toast-wrap').innerText()).toMatch(/Kirjoita perustelu/);
+      await p.locator('[data-hk-perustelu]').fill('Mietitään vielä yhdessä.'); await p.locator('[data-hk-laheta]').click(); await p.waitForFunction(() => (window.__batch || []).length === 1, null, { timeout: 8000 });
+      const b = await p.evaluate(() => window.__batch[0]); expect(b).toHaveLength(2); expect(await p.evaluate(() => (window.__kirj || []).length)).toBe(0);   // suora update → batch: sisainen/tiedot dual-write (#1144–#1147)
+      const k = b.find((o) => o.path === 'seurat/demo/pelaajat/p1'), st = b.find((o) => SISAINEN.test(o.path)); expect(Object.keys(k.update).sort()).toEqual(['jaksofokus', 'ydinvahvuus_valinta']);
+      expect(k.update.jaksofokus.hylatty.perustelu).toBe('Mietitään vielä yhdessä.'); expect(b.some((o) => /\/reviewit\//.test(o.path))).toBe(false);   // päällä: ei sisäistä reviewit-kopiota
+      expect(st.path).toBe('seurat/demo/pelaajat/p1/sisainen/tiedot'); expect(Object.keys(st.set).sort()).toEqual(['jaksofokus_sisainen', 'paivitetty', 'seuraId']); await sk.close();
     } finally { await selain.close(); }
   }, 60000);
   it('luonnos: Hylkää-sheetin perustelu säilyy kun sheet suljetaan ja avataan uudelleen; ilman valintaa (p4) Hylkää-toimintoa ei ole', async () => {

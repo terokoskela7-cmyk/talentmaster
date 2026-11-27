@@ -42,7 +42,7 @@ describe('2 · yksi tyyppirekisteri (D186, D171)', () => {
   it('selite rekisteristä: yksi rivi per merkki; tauko-rivi kaikille (joukkueen_vapaa), seuran_tauko vain johdolle', () => {
     expect(TY.tmKalSelite(false).map((x) => x.merkki)).toEqual(['harj', 'ott', 'test', 'pal', 'muu', 'tauko']); expect(TY.tmKalSelite(true).map((x) => x.merkki)).toEqual(['harj', 'ott', 'test', 'pal', 'muu', 'tauko']);
   });
-  it('nimi = masterT(nimiAvain), fallback = rekisterin nimi', () => { expect(MASTER).toMatch(/function _calTyyppiNimi\(ty\) \{ var s = masterT\(ty\.nimiAvain\); return \(s && s !== ty\.nimiAvain\) \? s : ty\.nimi; \}/); });
+  it('nimi = masterT(nimiAvain), fallback = rekisterin nimi (erä 92: reititettynä masterT:llä)', () => { expect(MASTER).toMatch(/function _calTyyppiNimi\(ty\) \{ var s = masterT\(ty\.nimiAvain\); return \(s && s !== ty\.nimiAvain\) \? s : masterT\(ty\.nimi\); \}/); });
 });
 
 describe('3 · tuntiruudukko ei pudota tapahtumia', () => {

@@ -1,4 +1,5 @@
 'use strict';
+const laskutusEsto = require('./laskutus_esto');
 /**
  * Huoltajakutsu (Tero 10.10.2026; #919:n jatko) — OMA kutsulinkki huoltajalle, koska Firebasen salasanalinkki on voimassa vain 1 tunnin (ei konfiguroitavissa) ja suostumus annetaan kentällä, sähköposti luetaan illalla.
  *
@@ -105,6 +106,7 @@ function luoPyydaUusi(deps) {
     if (!email) return { tila: 'ei_loydy' };
     let user = null; try { user = await auth.getUserByEmail(email); } catch (e) { user = null; }
     if (user && (onKirjautunut(user) || salasanaAsetettu(user, doc))) return { tila: 'kaytetty' };   // tunnus on jo käytössä → ei uutta kutsua, ohjataan kirjautumaan
+    await laskutusEsto.vaadiPelaajaSallittu(deps, { funktio: 'pyydaUusiHuoltajakutsu', seuraId: doc.seuraId, pelaajaId: doc.pelaajaId, pelaaja: p });   // L1c (PM 3.11.): kuten lahetaHuoltajaKutsu
     const rajaRef = db.collection('huoltajakutsu_rajat').doc(hash(doc.seuraId + '/' + doc.pelaajaId));
     const rs = await rajaRef.get(); const vanhat = rs && rs.exists ? ((rs.data() || {}).pyynnot || []).filter((t) => nyt - t < VRK_MS) : [];
     if (vanhat.length >= MAKS_UUSIA_24H) return { tila: 'raja' };

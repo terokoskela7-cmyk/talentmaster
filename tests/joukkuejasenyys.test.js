@@ -15,12 +15,14 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
 const J = vaadi('../lib/tm_joukkue.js');
 const ADMIN = readFileSync(join(juuri, 'TalentMaster_Admin.html'), 'utf8');
-const SEURA = readFileSync(join(juuri, 'TalentMaster_Seura.html'), 'utf8');
+const SEURA = lueKuori('TalentMaster_Seura.html');
 
 const LISTA = [
   { id: 'sibbo_2014_bla', nimi: 'Sibbo-Vargarna 2014 Blå' },

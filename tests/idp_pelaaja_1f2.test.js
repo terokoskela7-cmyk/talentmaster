@@ -7,6 +7,8 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { vi, beforeEach, afterAll } from 'vitest';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 // Kiinteä kello (sama hetki kuin NYT; kausi = kuluva vuosi). Vain Date — setTimeout pysyy aitona.
 const KELLO = new Date('2026-10-19T06:00:00.000Z');
 vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
@@ -14,7 +16,8 @@ beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELL
 afterEach(() => { vi.useRealTimers(); });
 afterAll(() => { vi.useRealTimers(); });
 const require = createRequire(import.meta.url);
-const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+const lue = (f) => lueKuori(f);
+const SISL = require('../lib/tm_sisainen.js');   // PR 2d: IDP-pikakenttien henkilökunta-osa kulkee tm_sisainen.js:n kautta (fail-closed: ilman libiä tallennus epäonnistuu)
 const D = require('../lib/tm_idp_pelaaja_dok.js'), I = require('../lib/tm_idp.js'), L = require('../lib/tm_idp_lomake.js'), M = require('../scripts/migroi_idp_pelaaja.js');
 afterEach(() => { D.LIPPU.kirjoitus = false; });
 
@@ -56,7 +59,7 @@ describe('lib/tm_idp_lomake tmIdpKirjoitaKausi (Kehitystyöpöytä + muut lomake
 describe('Master _mIdpTallennaDok + VP _vpTallennaIdpDok (OIKEA sivukoodi)', () => {
   const ympar = (db, extra) => {
     const c = Object.assign({ console, Promise, JSON, Object, Array, String, Date, Error, Math, _demo: false, _isDemoMode: false, _seuraId: SID, _db: db, db: db, firebase: { auth: () => ({ currentUser: { uid: 'u1', getIdToken: async () => 't' } }) },
-      _mTuoreToken: async () => {}, toast() {}, masterT: (x) => x, vpT: (x) => x, _dvi: null, _vpIdpDvi: () => null, _vpKausitavoiteReRender() {}, TM_IDP_PELAAJA_DOK: D, TM_SISAINEN: undefined }, I, extra || {});
+      _mTuoreToken: async () => {}, toast() {}, masterT: (x) => x, vpT: (x) => x, _dvi: null, _vpIdpDvi: () => null, _vpKausitavoiteReRender() {}, TM_IDP_PELAAJA_DOK: D, TM_SISAINEN: SISL }, I, extra || {});
     c.window = c; return vm.createContext(c);
   };
   const MASTER = lue('TalentMaster_Master_v16.html'), VP = lue('TalentMaster_VP_v25.html');
@@ -66,6 +69,15 @@ describe('Master _mIdpTallennaDok + VP _vpTallennaIdpDok (OIKEA sivukoodi)', () 
       D.LIPPU.kirjoitus = false;
       const { db, D: docs } = fakeDb({ [PK]: { etunimi: 'X' } }); const p = { id: PID, _idpTavoite: T(), _mIdpTavoite: T() };
       const ok = await aja(src, fn, fn, db, p); expect(ok).toBe(true); expect(docs.get(KAUSI).tavoitteet).toHaveLength(1); expect([...docs.keys()].some((k) => /idp_pelaaja/.test(k))).toBe(false);
+      /* PR 2d: pikakenttien A-osa (idp_edistyma/_lahde/_viim_review) VAIN sisainen/tiedot:iin; pelaajalle idp_tila (B) */
+      ['idp_edistyma', 'idp_lahde', 'idp_viim_review'].forEach((k) => expect(k in docs.get(PK), k).toBe(false)); expect(docs.get(PK).idp_tila).toBe('aktiivinen');
+      expect(docs.get(PK + '/sisainen/tiedot')).toMatchObject({ seuraId: SID }); expect('idp_viim_review' in docs.get(PK + '/sisainen/tiedot')).toBe(true);
+    });
+    it(nimi + ': PR 2d fail-closed — tm_sisainen.js puuttuu → tallennus ei onnistu eikä pelaajadokumenttiin kirjoiteta A-kenttiä raakana', async () => {
+      D.LIPPU.kirjoitus = false; const { db, D: docs } = fakeDb({ [PK]: { etunimi: 'X' } }); const p = { id: PID, _idpTavoite: T(), _mIdpTavoite: T() };
+      const c = ympar(db, { TM_SISAINEN: undefined }); vm.runInContext(viipale(src, 'async function ' + fn + '(') + `\nthis.f = ${fn};`, c);
+      let ok; try { ok = await c.f(p, 'Tallennettu'); } catch (e) { ok = false; }
+      expect(ok).not.toBe(true); ['idp_edistyma', 'idp_lahde', 'idp_viim_review'].forEach((k) => expect(k in docs.get(PK), k).toBe(false));
     });
     it(nimi + ': lippu päällä → idp_kausi raakana + idp_pelaaja puhdistettuna samassa transaktiossa', async () => {
       D.LIPPU.kirjoitus = true; const { db, D: docs, loki } = fakeDb({ [PK]: { etunimi: 'X' } }); const p = { id: PID, _idpTavoite: T(), _mIdpTavoite: T() };

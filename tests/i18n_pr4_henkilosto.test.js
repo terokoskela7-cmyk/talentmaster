@@ -6,10 +6,12 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { skannaaHtml, lataaSallitut, onSallittu } from '../tools/i18n/sv_staattinen.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (f) => readFileSync(join(juuri, f), 'utf8');
+const lue = (f) => lueKuori(f);
 const ERA = JSON.parse(lue('docs/i18n/sv_kaannoserae_2.json'));
 const { poimi } = require('../tools/i18n/reititin_avaimet.cjs');
 
@@ -22,8 +24,16 @@ describe('tmHT — henkilöstösivujen teksti-avainreititin', () => {
   it('sv-kartta on viety Gemini-erästä 2 (scripts/i18n_vie_sv_era2.cjs) ja vastaa erää (tests/i18n_era2_vienti.test.js)', () => {
     // erän 2 rivit − käytöstä poistetut (sv_era2_palautetaan.json: "Seuraava askel:" → Pikakortti käyttää "Harjoitusvinkki:", erä 59)
     const poistetut = JSON.parse(lue('docs/i18n/sv_era2_palautetaan.json')).rivit.filter((r) => r.osio === 'henkilosto_kartta' && r.syy.indexOf('poistettu') >= 0).length;
-    const lisatyt = ['59', '60', '62', '63', '82', '86'].reduce((a, n) => a + Object.keys(JSON.parse(lue('docs/i18n/sv_kaannoserae_' + n + '_palautus.json')).osiot.henkilosto_kartta.rivit).length, 0);   // erät 59–63: uudet Pikakortin avaimet; erä 82: Seura-tuonti; erä 86: STATUS-merkit
-    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length - poistetut + lisatyt);
+    const lisatyt = ['59', '60', '62', '63', '82', '86', '93', '94'].reduce((a, n) => a + Object.keys(JSON.parse(lue('docs/i18n/sv_kaannoserae_' + n + '_palautus.json')).osiot.henkilosto_kartta.rivit).length, 0);   // erät 59–63: uudet Pikakortin avaimet; erä 82: Seura-tuonti; erä 86: STATUS-merkit; erä 93: 8–9 v -esto; erä 94: B9 suostumuksen peruminen
+    const lainat = (lue('lib/tm_henkilosto_i18n.js').match(/^\s*'(?:[^'\\]|\\.)*':\s*'(?:[^'\\]|\\.)*',\s*\/\/ laina:/gm) || []).length;   // B12: VP-/Master-kartasta sellaisenaan kopioidut rivit (tests/b12_seura_reititys.test.js)
+    expect(lainat).toBe(9);
+    const s98 = lue('lib/tm_henkilosto_i18n.js'), a98 = s98.indexOf('// sv-käännöserä 98 '), a99 = s98.indexOf('// sv-käännöserä 99 '), era98 = (s98.slice(a98, a99).match(/^\s*'(?:[^'\\]|\\.)*':\s*'/gm) || []).length;   // erä 98 (B12 Seura): vienti scripts/i18n_vie_sv_era98.cjs (tests/i18n_era98_vienti.test.js)
+    const a100 = s98.indexOf('// sv-käännöserä 100 '), avain = /^\s*'(?:[^'\\]|\\.)*':\s*'/gm;
+    const era99 = (s98.slice(a99, a100).match(avain) || []).length;   // erä 99 (B12 Seuran muodot): scripts/i18n_vie_sv_era99.cjs (tests/i18n_era99_vienti.test.js)
+    const a103 = s98.indexOf('// sv-käännöserä 103 '), era100 = (s98.slice(a100, a103).match(avain) || []).length, a104 = s98.indexOf('// sv-käännöserä 104 '), era103 = (s98.slice(a103, a104).match(avain) || []).length, a107 = s98.indexOf('// sv-käännöserä 107 '), era104 = (s98.slice(a104, a107).match(avain) || []).length, a108 = s98.indexOf('// sv-käännöserä 108 '), era107 = (s98.slice(a107, a108).match(avain) || []).length, era108 = (s98.slice(a108, s98.indexOf('\n  },', a108)).match(avain) || []).length;   // erä 108 (Arkistoidut-estoselitteet, 2 riviä): scripts/i18n_vie_sv_era108.cjs   // erä 107 (lista_seura, 18 riviä, joista 'Ei aktiivinen' jo kartassa → 17 uutta): scripts/i18n_vie_sv_era107.cjs   // erä 103 (sähköpostin vaihto): scripts/i18n_vie_sv_era103.cjs (tests/i18n_era103_vienti.test.js)
+    //   // erä 100 (B12 Kaikki luvut): scripts/i18n_vie_sv_era100.cjs (tests/i18n_era100_vienti.test.js)
+    expect(era98).toBe(57); expect(era99).toBe(121); expect(era100).toBe(127); expect(era103).toBe(7); expect(era104).toBe(1); expect(era107).toBe(17); expect(era108).toBe(2);
+    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length - poistetut + lisatyt + lainat + era98 + era99 + era100 + era103 + era104 + era107 + era108);
     expect(H.tmHT('Ei vielä pelaajia')).toBe('Ei vielä pelaajia');   // ilman kieltä (fi) teksti ennallaan
   });
   it('kolme henkilöstösivua lataa tmHT:n ennen ensimmäistä käyttöä', () => {
@@ -93,7 +103,7 @@ describe('Gemini-erä 2 — PR 4 -osiot (VP, henkilöstö, jäännökset)', () =
   });
   it('henkilosto_kartta kattaa Seuran, ADARin ja Pelihavainnon tmHT/phT-avaimet', () => {
     const p = poimi({ juuri, tiedostot: ['TalentMaster_Seura.html', 'TalentMaster_ADAR_Pikakortti.html', 'TalentMaster_Pelihavainto_Kentta.html'], routerit: ['tmHT', 'phT'], kartat: KARTAT_HENK });
-    const rivit = ERA.osiot.henkilosto_kartta.rivit, E59 = Object.assign({}, JSON.parse(lue('docs/i18n/sv_kaannoserae_59_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_60_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_62_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_63_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_82_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_86_gemini.json')).osiot.henkilosto_kartta.rivit);   // erät 59 + 60 + 62 + 82 (Seura-tuonti; sv odottaa PM:ää): uudet Pikakortin avaimet (62: sv odottaa)
+    const rivit = ERA.osiot.henkilosto_kartta.rivit, E59 = Object.assign({}, JSON.parse(lue('docs/i18n/sv_kaannoserae_59_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_60_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_62_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_63_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_82_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_86_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_93_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_103_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_104_gemini.json')).osiot.henkilosto_kartta.rivit, JSON.parse(lue('docs/i18n/sv_kaannoserae_107_gemini.json')).osiot.henkilosto_kartta.rivit);   // 104: Google-tunnus (sv odottaa Geminiä)   // 103: sähköpostin vaihto (sv odottaa Geminiä)   // 93: 8–9 v -esto (sv odottaa Geminiä)   // erät 59 + 60 + 62 + 82 (Seura-tuonti; sv odottaa PM:ää): uudet Pikakortin avaimet (62: sv odottaa)
     expect(p.puuttuu.filter((t) => !ei(t) && !rivit[t] && !E59[t])).toEqual([]);
   });
   it('#892:n jäännökset mukana: ts_otsikko, Förening-rivit, kausifokus, VP×Master', () => {

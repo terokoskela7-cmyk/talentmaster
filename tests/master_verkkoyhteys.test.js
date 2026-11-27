@@ -42,12 +42,13 @@ function ymparisto({ online = true, pelaajat = [{ id: 'm93GBdOaGCUuenMiCL0I', da
   const kysely = { get: async () => { kutsut.push('get'); return { docs: pelaajat }; }, where: () => kysely };
   const ctx = {
     document, navigator: { onLine: online }, console: { warn() {}, error() {} },
-    window: { addEventListener: (t, f) => { kuuntelijat[t] = f; } },
+    window: { addEventListener: (t, f) => { kuuntelijat[t] = f; }, TM_SISAINEN: require('../lib/tm_sisainen.js') },   // PR 2c: lib puuttuu = näkyvä virhe → harness lataa oikean libin
     location: { reload: () => kutsut.push('reload') },
     masterT: (t) => t, Date,
     tmPhvKoodi: require('../lib/tm_phv_tila.js').tmPhvKoodi, tmPhvIlmoitettuPH: require('../lib/tm_phv_tila.js').tmPhvIlmoitettuPH, tmPhvEiMitattu: require('../lib/tm_phv_tila.js').tmPhvEiMitattu,   // PR C (+ päätös B)
     _demo: false, _seuraId: 'kpv', _joukkue: null, _pelaajatData: [{ id: 'vanha' }],
-    _db: { collection: () => ({ doc: () => ({ collection: () => kysely }) }) },
+    _db: { collection: () => ({ doc: () => ({ collection: () => kysely }) }), collectionGroup: () => ({ where: () => ({ get: async () => ({ forEach() {} }) }) }) },
+    _rooli: 'valmentaja', _mSisainenVirhe: (v) => kutsut.push('sisainen-virhe:' + v),
     lataaKonseptikerros: async () => {}, _paivitaKaikkiNakymat: () => kutsut.push('render'),
     _lataaKirjaukset() {}, _kuunteleVpViestit() {}, _lataaTestitapahtumat: async () => kutsut.push('testit'),
     toast: (m, k) => toastit.push([m, k]),

@@ -1,0 +1,269 @@
+#!/usr/bin/env node
+'use strict';
+/* mittaa_sivut.js — projekti 06 PR 3: sivujen latausmittaus Playwrightilla stagingin Hosting-kanavalla `kuorma` (VAIHE0 3.1, P11). Tero ajaa; VAIN staging (URL-vartija).
+ *   STAGING_APPCHECK_DEBUG_TOKEN=<token> ! node scripts/kuorma/mittaa_sivut.js --url=https://talentmaster-staging--kuorma-<tunniste>.web.app --tunnukset=.briefit/staging_tunnukset.txt
+ * Valinnat: --seura=1 (kohdeseura, oletus 1 = suurin 500 pelaajaa) · --toistot=5 · --profiilit=tyopoyta,puhelin · --sivut=seura,vp,master,kehitys,testaus,pelaaja · --ulos=mittaus_tulokset/sivut.json · --erittely (Firestore-lukujen erittely polku ← kutsuja + sovelluksen [lista]-konsoliviestit; talletetaan 1. kylmän avauksen tulokseen ja tulostetaan) · --esta=<isäntänimi|glob> (toistettava; pelkkä isäntänimi kuten apis.google.com osuu kaikkiin sen URL:eihin, glob: * ei ylitä '/'; --reititys = asenna sama reititys (continue) myös ilman estoa, A/B-vertailun reiluuteen; page.route abort mittauskonteksteissa, esim. --esta='https://apis.google.com/**'; estetyt pyynnöt kirjataan avauksen tulokseen `estetyt` ja metaan `esta`; kirjautuminen tehdään ilman estoa, estetty vain mittaus → kirjautunut/App Check -tarkistus näkyy riveillä) · --kuiva (tulostaa suunnitelman, ei avaa selainta).
+ * Profiilit: tyopoyta = 1366×768, ei kuristusta (kaapeli) · puhelin = 390×844 mobiili + Slow 4G (CDP: 1,6 Mbit/s alas, 750 kbit/s ylös, 150 ms viive) + CPU 4×.
+ * Per avaus (KYLMÄ = uusi konteksti ilman välimuistia; LÄMMIN = heti perään toinen avaus samassa kontekstissa): FCP, aika interaktiiviseksi (mittaus_lib.laskeInteraktiivinen: ei pitkiä tehtäviä eikä avoimia Firestore-lukuja 2 s ikkunassa),
+ *   Firestore-lukujen määrä kokoelmittain (mittaus_instrumentointi.js), siirretyt tavut (CDP Network). Toisto 5× → mediaani + p95. Kirjautuminen @kuorma.test-tunnuksella (selain-SDK:n signInWithEmailAndPassword; salasana ei tulosteeseen/JSONiin).
+ * Token: vain ympäristömuuttujasta; ei tulosteeseen, ei JSONiin. Cloud Monitoring read_count (laskutuksen totuus) liitetään jälkikäteen: mittaa_monitoring.js. */
+const fs = require('fs'), path = require('path');
+const M = require('./mittaus_lib.js');
+const { instrumentointi } = require('./mittaus_instrumentointi.js');
+
+const SIVUT = Object.freeze({
+  seura: { tiedosto: 'TalentMaster_Seura.html', rooli: 'vp' },
+  vp: { tiedosto: 'TalentMaster_VP_v25.html', rooli: 'vp' },
+  master: { tiedosto: 'TalentMaster_Master_v16.html', rooli: 'talenttivalmentaja' },
+  kehitys: { tiedosto: 'TalentMaster_Kehitystyopoyta.html', rooli: 'valmentaja1', pelaajaHaku: true },   // ilman #pelaaja/<id>-hashia sivu ohjaa Masterin Pelaajat-listalle (_ktListalle) → mitattaisiin väärää sivua
+  testaus: { tiedosto: 'TalentMaster_Testaus_v9.html', rooli: 'talenttivalmentaja' },
+  pelaaja: { tiedosto: 'TalentMaster_Pelaaja_v7.html', rooli: 'pelaaja' },   // PalloID + PIN → pelaajaKirjaudu → custom token (generoi_aineisto.js --pin-pelaaja luo tunnuksen); puuttuva tunnus → mitataan kirjautumattomana + varoitus
+});
+const PROFIILIT = Object.freeze({
+  tyopoyta: { nimi: 'tyopoyta', konteksti: { viewport: { width: 1366, height: 768 } }, verkko: null, cpu: 1 },
+  puhelin: { nimi: 'puhelin', konteksti: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' },
+    verkko: { offline: false, latency: 150, downloadThroughput: 1.6e6 / 8, uploadThroughput: 750e3 / 8 }, cpu: 4 },
+});
+const IKKUNA_MS = 2000, TIMEOUT_MS = 90000, SEURAAN_KIRJAUTUMINEN = 'TalentMaster_Seura.html';
+
+function lueArgv(argv) {
+  const o = { url: undefined, tunnukset: '.briefit/staging_tunnukset.txt', seura: 1, toistot: 5, profiilit: Object.keys(PROFIILIT), sivut: Object.keys(SIVUT), ulos: 'mittaus_tulokset/sivut.json', kuiva: false, erittely: false, esta: [], reititys: false, tuntematon: [] };
+  (argv || []).forEach((a) => {
+    if (a === '--kuiva') o.kuiva = true; else if (a === '--erittely') o.erittely = true; else if (a === '--reititys') o.reititys = true; else if (a.indexOf('--url=') === 0) o.url = a.slice(6).replace(/\/$/, ''); else if (a.indexOf('--tunnukset=') === 0) o.tunnukset = a.slice(12);
+    else if (a.indexOf('--seura=') === 0) o.seura = +a.slice(8); else if (a.indexOf('--toistot=') === 0) o.toistot = +a.slice(10); else if (a.indexOf('--profiilit=') === 0) o.profiilit = a.slice(12).split(',');
+    else if (a.indexOf('--sivut=') === 0) o.sivut = a.slice(8).split(','); else if (a.indexOf('--ulos=') === 0) o.ulos = a.slice(7); else if (a.indexOf('--esta=') === 0) o.esta.push(a.slice(7)); else o.tuntematon.push(a);
+  });
+  return o;
+}
+/** Eston ehto: pelkkä isäntänimi (apis.google.com → isäntä on se tai sen aliverkkotunnus) TAI Playwright-glob. Playwrightin globissa * ei ylitä '/'-merkkiä ('*apis.google.com*' ei osu URL:iin https://apis.google.com/js/api.js) → isäntänimelle oma URL-predikaatti. Palauttaa (url:string) => boolean. */
+function estoPredikaatti(spec) {
+  const s = String(spec || '').trim();
+  if (/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i.test(s) && s.indexOf('.') > 0) {
+    const h = s.toLowerCase();
+    return (u) => { try { const x = new URL(u).hostname.toLowerCase(); return x === h || x.endsWith('.' + h); } catch (e) { return false; } };
+  }
+  const re = new RegExp('^' + s.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0000/g, '.*') + '$');
+  return (u) => re.test(u);
+}
+/** Asenna reititys kontekstiin. Reitti kytkee Playwrightissa HTTP-välimuistin pois, joten kun jompikumpi A/B-puoli käyttää estoa, MOLEMMILLE asennetaan sama reititys (A: continue kaikelle; B: abort estetyille + continue muille) → välimuistikäytös on sama. Palauttaa estettyjen URL-lista (≤50). */
+async function asennaReititys(ctx, esta, reititys) {
+  const estetyt = [];
+  if (!(esta.length || reititys)) return estetyt;
+  await ctx.route('**/*', (r) => { r.continue().catch(() => {}); });   // ensin asennettu = viimeisenä vuorossa (Playwright kokeilee uusimman ensin)
+  for (const spec of esta) {
+    const pred = estoPredikaatti(spec);
+    await ctx.route((u) => pred(u.toString()), (r) => { try { if (estetyt.length < 50) estetyt.push(r.request().url().split('?')[0].slice(0, 200)); r.abort('blockedbyclient').catch(() => {}); } catch (e) {} });
+  }
+  return estetyt;
+}
+function tarkista(o, env, urlSallittu) {
+  if (o.tuntematon.length) return 'Tuntematon valinta (' + o.tuntematon.length + ' kpl).';
+  if (!(urlSallittu || M.kanavaUrlSallittu)(o.url)) return 'URL ei ole stagingin Hosting (https://talentmaster-staging[--kanava].web.app) — ajo keskeytetty (tuotantoa ei mitata).';
+  if (!(o.seura >= 1 && o.seura <= 99) || !(o.toistot >= 1 && o.toistot <= 50)) return 'Virheellinen --seura tai --toistot.';
+  if (o.esta.some((g) => !g || g.length > 300)) return 'Tyhjä tai liian pitkä --esta-glob.';
+  if (o.profiilit.some((p) => !PROFIILIT[p]) || o.sivut.some((s) => !SIVUT[s])) return 'Tuntematon profiili tai sivu.';
+  if (!o.kuiva && !(env && env.STAGING_APPCHECK_DEBUG_TOKEN)) return 'STAGING_APPCHECK_DEBUG_TOKEN puuttuu ympäristöstä (GitHub Secret → export; ei repoon, ei tulosteeseen).';
+  return null;
+}
+
+/** Resurssikohtainen erittely (P1): url ilman kyselyosaa (ei tunnisteita), tyyppi, koodattu (verkko) ja purettu tavumäärä, pakkaus. data:-URL:t ohitetaan. */
+function resurssiLista(pyynnot) {
+  const out = [];
+  pyynnot.forEach((p) => { if (!p.url || p.url.indexOf('data:') === 0) return; out.push({ url: String(p.url).split('?')[0].split('#')[0], tyyppi: p.tyyppi, koodattu: p.valmis ? p.loppu : p.tavut, purettu: p.purettu, pakkaus: p.pakkaus || null }); });
+  return out;
+}
+/** Tallennettava tiivistelmä yhdestä avauksesta: ryhmät tyypeittäin + 60 suurinta resurssia. */
+function resurssiYhteenveto(lista) {
+  const ryhmat = {}; (lista || []).forEach((r) => { const g = ryhmat[r.tyyppi] = ryhmat[r.tyyppi] || { n: 0, koodattu: 0, purettu: 0 }; g.n++; g.koodattu += r.koodattu; g.purettu += r.purettu; });
+  return { ryhmat, top: (lista || []).slice().sort((a, b) => b.koodattu - a.koodattu).slice(0, 60) };
+}
+
+/** Vartija (kaikille sivuille): lopullisen URL:n polun pitää päättyä mitattavaan tiedostoon. Uudelleenohjaus toiseen sivuun = virhe (ei hiljaista mittausta väärästä sivusta). → null | virheteksti. */
+function tarkistaLopullinenUrl(odotettuTiedosto, lopullinen) {
+  let u; try { u = new URL(lopullinen); } catch (e) { return 'uudelleenohjaus: lopullinen URL ei jäsenny (' + String(lopullinen).slice(0, 120) + ')'; }
+  const tiedosto = decodeURIComponent(u.pathname.split('/').pop() || '');
+  return tiedosto === odotettuTiedosto ? null : 'uudelleenohjaus: mitattavaksi tarkoitettu ' + odotettuTiedosto + ', mutta lopullinen sivu on ' + (tiedosto || u.pathname) + ' (' + naytaUrl(lopullinen) + ')';
+}
+/** Tulostettava URL: ilman kyselyosaa (ei tunnisteita/tokeneita), hash mukana (#pelaaja/<id>/… on mittauksen kohde). */
+function naytaUrl(url) { try { const u = new URL(url); return u.origin + u.pathname + (u.hash || ''); } catch (e) { return String(url).split('?')[0]; } }
+/** Kehitystyöpöydän kohde: kirjautuneen valmentajan ensimmäisen joukkueen ensimmäinen pelaaja (lista_joukkue-koosteesta, varalla pelaajat-kysely; ei kovakoodattua id:tä). Ajetaan kirjautuneessa sivussa (selain-SDK). → { seuraId, pelaajaId } | { virhe }. */
+async function haePelaajaKohde(page) {
+  return page.evaluate(async () => {
+    try {
+      const au = firebase.auth(), u = au.currentUser, tok = await u.getIdTokenResult(true), sid = tok.claims && tok.claims.seuraId; if (!sid) return { virhe: 'seuraId puuttuu claimeista' };
+      const db = firebase.firestore(), seura = db.collection('seurat').doc(sid), k = await seura.collection('kayttajat').doc(u.uid).get(), d = k.exists ? k.data() : {}, jid = (d.joukkueet || [])[0];
+      if (!jid) return { virhe: 'valmentajalla ei joukkuetta (kayttajat.joukkueet tyhjä)' };
+      const ls = await seura.collection('lista_joukkue').doc(jid).get(); let pid = ls.exists && ls.data() && Array.isArray(ls.data().rivit) && ls.data().rivit[0] ? ls.data().rivit[0].id : null;
+      if (!pid) { const q = await seura.collection('pelaajat').where('joukkueet', 'array-contains', jid).limit(1).get(); pid = q.docs[0] ? q.docs[0].id : null; }
+      return pid ? { seuraId: sid, pelaajaId: pid } : { virhe: 'joukkueelta ' + jid + ' ei löydy pelaajaa' };
+    } catch (e) { return { virhe: 'haku epäonnistui (' + (e && e.code || e && e.message) + ')' }; }
+  });
+}
+
+/** Yksi avaus (kylmä tai lämmin) sivulle `page`. → { fcp_ms, tti_ms, luvut, dokTavut, dokEiMitattu, yht, tavut, kirjautunut, kiinnitetty, virhe } */
+async function mittaaAvaus(page, cdp, url, opt) {
+  const ikkuna = (opt && opt.ikkuna) || IKKUNA_MS, aikaraja = (opt && opt.aikaraja) || TIMEOUT_MS, pyynnot = new Map();
+  let wsTavut = 0; const konsoli = [], konsoliKuuntelija = (m) => { try { const t = m.text(); if (/^\[(lista|kt|sisainen)[^\]]*\]/i.test(t) && konsoli.length < 40) konsoli.push(t.slice(0, 200)); } catch (e) {} }; const konsoliVirheet = [], virheKuuntelija = (m) => { try { if (m.type() === 'error' && konsoliVirheet.length < 40) konsoliVirheet.push(m.text().slice(0, 300)); } catch (e) {} }, sivuVirheKuuntelija = (e) => { if (konsoliVirheet.length < 40) konsoliVirheet.push('pageerror: ' + String(e && e.message).slice(0, 300)); }; if (opt && opt.erittely) { page.on('console', konsoliKuuntelija); page.on('console', virheKuuntelija); page.on('pageerror', sivuVirheKuuntelija); }
+  const kuuntelijat = [['Network.requestWillBeSent', (e) => pyynnot.set(e.requestId, { valmis: false, tavut: 0, loppu: 0, purettu: 0, url: e.request && e.request.url, tyyppi: e.type || 'Other' })], ['Network.responseReceived', (e) => { const p = pyynnot.get(e.requestId); if (p) { const h = (e.response && e.response.headers) || {}, k = Object.keys(h).find((x) => x.toLowerCase() === 'content-encoding'); p.pakkaus = k ? String(h[k]) : null; if (e.type) p.tyyppi = e.type; } }], ['Network.dataReceived', (e) => { const p = pyynnot.get(e.requestId); if (p) { p.tavut += e.encodedDataLength || 0; p.purettu += e.dataLength || 0; } }],
+    ['Network.loadingFinished', (e) => { const p = pyynnot.get(e.requestId); if (p) { p.valmis = true; p.loppu = e.encodedDataLength || 0; } }], ['Network.webSocketFrameReceived', (e) => { wsTavut += (e.response && e.response.payloadData ? e.response.payloadData.length : 0); }]];
+  kuuntelijat.forEach(([n, f]) => cdp.on(n, f));
+  let virhe = null;
+  /* LÄMMIN avaus samaan hash-URL:iin (#pelaaja/<id>/tanaan, Kehitystyöpöytä) EI lataa sivua uudelleen: identtinen URL + fragmentti = same-document-navigointi (Chrome; todennettu timeOrigin ei muutu).
+     Silloin "lämmin" luki ENSIMMÄISEN dokumentin __tmM-mittarit → lämmin = kylmä (kehitys_1292: ~10 s / ~10 s). uusiDokumentti: about:blank ensin → oikea uudelleenlataus (HTTP-välimuisti säilyy). */
+  if (opt && opt.uusiDokumentti) { try { await page.goto('about:blank', { timeout: aikaraja }); } catch (e) { virhe = 'about:blank: ' + String(e && e.message).split('\n')[0]; } }
+  try { if (!virhe) await page.goto(url, { waitUntil: 'commit', timeout: aikaraja }); } catch (e) { virhe = 'navigointi: ' + String(e && e.message).split('\n')[0]; }
+  const alku = Date.now(); let tila = null, alaraja = null; const silmukka = { polleja: 0, nollapolleja: 0, max_odottavat: 0, kirjautunut_t: null, merkki_t: null, alaraja_t: null, odottavat_urlit: [] }, silmukkaLoki = [];   // alaraja = hetki (ms navigaation alusta) jolloin istunto oli valmis (kirjautunut); odotaKirjautunut → mittaus ei pääty eikä TTI laske sitä ennen
+  while (!virhe && Date.now() - alku < aikaraja) {
+    await page.waitForTimeout(300);
+    try { tila = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {} return { fcp: m.fcp, varit: m.varit.slice(), avoimet: m.avoimet, auki: Object.keys(m.auki || {}).map(function (k) { return m.auki[k]; }), nyt: performance.now(), kirjautunut: k, merkit: m.merkit }; }); } catch (e) { tila = null; continue; }   // navigointi kesken
+    /* A/B 22.11. (#1315): hitaalla verkolla (Slow 4G) FCP tulee ennen skriptejä ja CPU on 2 s ajan joutilas, kun SDK:t/pääskripti vielä latautuvat → "rauhoittunut" FCP:n hetkellä (TTI = FCP, 0 lukua).
+       Ei päätetä ennen kuin dokumentti/skriptit/tyylit on ladattu (Fetch/WebSocket ei: Firestore Listen pysyy auki). */
+    const odottavat = M.odottavatLataukset(pyynnot);
+    /* A/B 23.11. (#1320 live): alaraja on pelkkä HAVAINTO (kirjautunut + odotusluokka poistunut) → se luetaan ENNEN lataus-vartijaa. Aiemmin `odottavat > 0 → continue` tuli ensin: puhelimella Script-lataus on lähes
+       jatkuvasti kesken (141 skriptiä, Slow 4G), alaraja ei koskaan asettunut → 90 s aikaraja ja TTI = FCP. Vartija estää vain silmukan PÄÄTTYMISEN, ei havaintoa. */
+    if (opt && opt.odotaKirjautunut && tila) {
+      if (alaraja == null) alaraja = M.kirjautumisAlaraja(tila);   // currentUser palautuu IndexedDB:stä heti → ei riitä; vasta odotusluokan poistuminen (A/B 22.11. puhelin: alaraja 0,3 s vs auth 7,9 s)
+    }
+    silmukka.polleja++; if (odottavat === 0) silmukka.nollapolleja++; if (odottavat > silmukka.max_odottavat) silmukka.max_odottavat = odottavat;
+    if (tila && tila.kirjautunut === true && silmukka.kirjautunut_t == null) silmukka.kirjautunut_t = Math.round(tila.nyt);
+    if (tila && tila.merkit && typeof tila.merkit.auth_odottaa_pois === 'number' && silmukka.merkki_t == null) silmukka.merkki_t = Math.round(tila.nyt);
+    if (alaraja != null && silmukka.alaraja_t == null) silmukka.alaraja_t = Math.round(tila.nyt);
+    if (odottavat > 0) silmukka.odottavat_urlit = M.odottavatUrlit(pyynnot, 5);
+    if (opt && opt.erittely && silmukkaLoki.length < 400) silmukkaLoki.push({ t: Math.round(tila ? tila.nyt : -1), k: !!(tila && tila.kirjautunut), od: !!(tila && tila.merkit && tila.merkit._nahtyOdotus), mk: tila && tila.merkit ? (tila.merkit.auth_odottaa_pois != null ? tila.merkit.auth_odottaa_pois : null) : null, odottavat, avoimet: tila ? tila.avoimet : null, auki: (tila && tila.avoimet > 0 && tila.avoimet <= 6) ? tila.auki : undefined, ala: alaraja });
+    if (odottavat > 0) continue;
+    if (opt && opt.odotaKirjautunut && tila && alaraja == null) continue;   // istuntoa ei vielä valmis (Slow 4G + CPU 4×: auth/App Check kestää kymmeniä sekunteja) → jatka aikarajaan asti
+    if (tila && tila.fcp != null && tila.avoimet === 0 && M.laskeInteraktiivinen({ fcp: tila.fcp, alaraja, varit: tila.varit, ikkuna, havaintoLoppu: tila.nyt }) != null) break;
+  }
+  let lopullinen = null;
+  try { lopullinen = await page.evaluate(() => { const m = window.__tmM; if (!m) return null; let k = null; try { k = !!(window._auth ? window._auth.currentUser : (window.firebase && firebase.auth && firebase.auth().currentUser)); } catch (e) {}   /* window._auth = Pelaaja_v7:n nimetty app 'tm-pelaaja' (ei oletusappia) */ let ajat = null; try { const R = performance.getEntriesByType('resource'), os = (re) => { const r = R.filter((x) => re.test(x.name)).sort((x, y) => x.startTime - y.startTime)[0]; return r ? [Math.round(r.startTime), Math.round(r.responseEnd)] : null; }; ajat = { appcheck_vaihto: os(/firebaseappcheck\.googleapis\.com/), auth_haku: os(/identitytoolkit|securetoken/), firestore_ensimmainen: os(/firestore\.googleapis\.com/), recaptcha: os(/recaptcha/), appcheck_token_valimuistissa: m.acValimuistissa, tm_lang: os(/\/lib\/tm_lang\.js/) }; } catch (e) {} return { merkit: m.merkit, ajat, fcp: m.fcp, varit: m.varit.slice(), luvut: m.luvut, erittely: m.erittely, dokTavut: m.dokTavut, dokEiMitattu: m.dokEiMitattu, yht: m.yht, kiinnitetty: m.kiinnitetty, virheet: m.virheet, kuuntelijavirheet: m.kuuntelijavirheet, peruttu: m.peruttu, kirjautunut: k, nyt: performance.now() }; }); } catch (e) { virhe = virhe || 'luku: ' + String(e && e.message).split('\n')[0]; }
+  const lopullinenUrl = naytaUrl(page.url()), urlVirhe = opt && opt.odotettuTiedosto ? tarkistaLopullinenUrl(opt.odotettuTiedosto, page.url()) : null; if (urlVirhe && !virhe) virhe = urlVirhe;
+  if (!virhe && opt && opt.odotaKirjautunut && lopullinen && lopullinen.kirjautunut === false) virhe = M.MITTAUS_EI_VALMIS + ': sivu ei ehtinyt kirjautua mittausikkunassa (kirjautunut=false) — luvut/TTI eivät kuvaa avausta';
+  kuuntelijat.forEach(([n, f]) => cdp.off && cdp.off(n, f)); if (opt && opt.erittely) { page.off('console', konsoliKuuntelija); page.off('console', virheKuuntelija); page.off('pageerror', sivuVirheKuuntelija); }
+  let tavut = wsTavut; pyynnot.forEach((p) => { tavut += p.valmis ? p.loppu : p.tavut; });
+  if (!lopullinen) return { virhe: virhe || 'instrumentointi puuttuu', lopullinen_url: lopullinenUrl, tavut, resurssit: resurssiLista(pyynnot) };
+  if (!virhe && opt && opt.odotaKirjautunut && alaraja == null) virhe = M.MITTAUS_TTI_ENNEN_AUTHIA + ': istunto ei valmistunut aikarajassa (' + Math.round(aikaraja / 1000) + ' s; odotusluokka ei poistunut / kirjautuminen jumissa) — TTI ei kuvaa avausta · ' + M.silmukkaTeksti(silmukka);
+  let tti = M.laskeInteraktiivinen({ fcp: lopullinen.fcp, alaraja, varit: lopullinen.varit, ikkuna, havaintoLoppu: lopullinen.nyt });
+  { const authAlku = lopullinen.ajat && lopullinen.ajat.auth_haku ? lopullinen.ajat.auth_haku[0] : null, tv = M.tarkistaTtiAuthiin({ odotaKirjautunut: !!(opt && opt.odotaKirjautunut), kirjautunut: lopullinen.kirjautunut, tti, authAlku }); if (tv && !virhe) { virhe = tv; tti = null; } }   // rivi virheelliseksi (A/B suodattaa virheelliset), ei hiljaista FCP-arvoa
+  const LAISKAT = /\/(?:lib|docs)\/(tm_lib_i18n|tm_i18n_common|tm_master_i18n|tm_teknistaktiset_sv|tm_eerikkila_normit|tm_teknistaktiset|tm_kehityskaari|testit_indeksit|tm-microcycles|tm_laiska_kirjastot)\.js/, laiskat = []; pyynnot.forEach((p) => { const m = p.url && LAISKAT.exec(p.url); if (m) laiskat.push(m[1]); });   // L1/L2-kirjastot, jotka haettiin ennen mittauksen loppua (avauksessa odotus: ei yhtään, paitsi tm_laiska_kirjastot = itse lataaja)
+  return { silmukka, silmukka_loki: (opt && opt.erittely) ? silmukkaLoki : undefined, laiskat, merkit: lopullinen.merkit, ajat: lopullinen.ajat, lopullinen_url: lopullinenUrl, resurssit: resurssiLista(pyynnot), fcp_ms: lopullinen.fcp != null ? Math.round(lopullinen.fcp) : null, tti_ms: tti != null ? Math.round(tti) : null, luvut: lopullinen.luvut, erittely: (opt && opt.erittely) ? lopullinen.erittely : undefined, konsoli: (opt && opt.erittely) ? konsoli : undefined, konsoli_virheet: (opt && opt.erittely) ? konsoliVirheet : undefined, kuuntelijavirheet: lopullinen.kuuntelijavirheet && lopullinen.kuuntelijavirheet.length ? lopullinen.kuuntelijavirheet : undefined, peruttu: lopullinen.peruttu && lopullinen.peruttu.length ? lopullinen.peruttu : undefined, dokTavut: lopullinen.dokTavut, dokEiMitattu: lopullinen.dokEiMitattu, yht: lopullinen.yht, tavut, kirjautunut: lopullinen.kirjautunut, kiinnitetty: lopullinen.kiinnitetty, virheet: lopullinen.virheet.length, virhe };
+}
+
+/** --erittely: lukemat polku ← kutsuja -järjestyksessä (suurin ensin) + osuus kokonaisluvusta + sovelluksen [lista]-konsoliviestit (esim. "[lista] vanha polku: <syy>"). */
+function erittelyTeksti(sivu, profiili, avaus) {
+  const e = avaus.erittely || {}, yht = avaus.yht || 0, rivit = Object.keys(e).map((k) => ({ k, n: e[k].n, kutsuja: e[k].kutsuja })).sort((a, b) => b.n - a.n);
+  const ul = ['  ERITTELY ' + sivu + ' · ' + profiili + ' · 1. kylmä · ' + yht + ' lukua'];
+  rivit.slice(0, 25).forEach((r) => ul.push('    ' + String(r.n).padStart(5) + ' ' + (yht ? (100 * r.n / yht).toFixed(1).padStart(5) + ' %' : '') + '  ' + r.k + (r.kutsuja > 1 ? '  (' + r.kutsuja + ' kutsua)' : '')));
+  if (rivit.length > 25) ul.push('    … +' + (rivit.length - 25) + ' riviä (koko lista JSONissa)');
+  if (avaus.silmukka) ul.push('    ' + M.silmukkaTeksti(avaus.silmukka));
+  (avaus.konsoli || []).forEach((t) => ul.push('    konsoli: ' + t));
+  (avaus.kuuntelijavirheet || []).forEach((v) => ul.push('    KUUNTELIJAVIRHE ' + v.n + ' [' + v.koodi + '] ' + (v.q || '') + ' @' + v.t + ' ms'));
+  (avaus.peruttu || []).forEach((v) => ul.push('    PERUTTU ennen 1. snapshotia: ' + v.n + ' ' + (v.q || '') + ' ' + v.alku + '→' + v.peruttu + ' ms'));
+  (avaus.konsoli_virheet || []).forEach((t) => ul.push('    console.error: ' + t));
+  return ul.join('\n');
+}
+
+async function kuristus(cdp, profiili) {
+  await cdp.send('Network.enable');
+  if (profiili.verkko) await cdp.send('Network.emulateNetworkConditions', profiili.verkko);
+  if (profiili.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: profiili.cpu });
+}
+
+/** Kirjautuminen: avaa Seura-sivu, kirjaudu SDK:lla (default app), palauta storageState MUISTISSA (sisältää tunnisteet — ei levylle). */
+async function kirjaudu(selain, base, tunnus, token, M2, sivu, kohde) {   // kohde (valinnainen objekti): täytetään { seuraId, pelaajaId } kirjautuneessa sivussa ennen sulkemista
+  const ctx = await selain.newContext({ viewport: { width: 1366, height: 768 } }); await ctx.addInitScript(instrumentointi, { token });
+  const page = await ctx.newPage();
+  try {
+    await page.goto(base + '/' + (tunnus.palloId ? sivu : SEURAAN_KIRJAUTUMINEN), { waitUntil: 'load', timeout: TIMEOUT_MS });
+    await page.waitForFunction(() => window.firebase && firebase.auth && firebase.apps && firebase.apps.length > 0, null, { timeout: 30000 });
+    if (tunnus.palloId) await page.waitForFunction(() => window._fbApp && window._auth, null, { timeout: 30000 });
+    /* Pelaaja (tunnus.palloId): sama polku kuin Pelaaja_v7 _kirjaudu() — pelaajaKirjaudu({ liittoTunnus, pin }) europe-west1 (App Check: debug-token) → signInWithCustomToken. Henkilökunta: sähköposti + salasana. */
+    const r = await page.evaluate(async (t) => {
+      try {
+        if (t.palloId) { const app = window._fbApp || firebase.app(), au = window._auth || firebase.auth(); const v = await app.functions('europe-west1').httpsCallable('pelaajaKirjaudu')({ liittoTunnus: t.palloId, pin: t.salasana }); await au.signInWithCustomToken(v.data.token); }
+        else await firebase.auth().signInWithEmailAndPassword(t.email, t.salasana);
+        return { ok: true };
+      } catch (e) { return { ok: false, koodi: e && e.code }; }
+    }, tunnus);
+    if (!r.ok) throw new Error('kirjautuminen epäonnistui (' + (r.koodi || 'tuntematon') + ')');
+    await page.waitForFunction(() => (window._auth || firebase.auth()).currentUser, null, { timeout: 15000 }); await page.waitForTimeout(1500);   // anna IndexedDB-persistenssin kirjoittaa
+    if (kohde) { const k = await haePelaajaKohde(page); if (k.virhe) throw new Error('mittauskohteen haku: ' + k.virhe); Object.assign(kohde, k); }
+    return await ctx.storageState({ indexedDB: true });
+  } catch (e) { throw new Error(M.piilota(e && e.message, M2)); } finally { await ctx.close(); }
+}
+
+function yhteenveto(avaukset) {
+  const ok = avaukset.filter((a) => !a.virhe);
+  return { n: avaukset.length, virheita: avaukset.length - ok.length, tti_s: stats(ok.map((a) => a.tti_ms), 1000), fcp_s: stats(ok.map((a) => a.fcp_ms), 1000), lukuja: stats(ok.map((a) => a.yht), 1), mb: stats(ok.map((a) => a.tavut), 1e6) };
+}
+function stats(arvot, jakaja) { const s = M.tilasto(arvot.filter((x) => typeof x === 'number')); const k = (x) => (x == null ? null : Math.round(x / jakaja * 1000) / 1000); return { n: s.n, mediaani: k(s.mediaani), p95: k(s.p95), min: k(s.min), max: k(s.max) }; }
+
+// Osa-ajo (--sivut=pelaaja) EI saa korvata aiempia sivuja: yhdistetään (sivu, profiili) -parein, uusi mittaus korvaa saman parin. Eri isäntä/seura/toistot → ei yhdistetä (vertailukelvoton), aiempi tiedosto ylikirjoitetaan.
+function lueAiempi(polku) { try { const j = JSON.parse(fs.readFileSync(polku, 'utf8')); return j && j.meta && Array.isArray(j.mittaukset) ? j : null; } catch (e) { return null; } }
+function yhdistaTulokset(aiempi, uusi, kirjaa) {
+  if (!aiempi) return uusi;
+  const sama = aiempi.meta.isanta === uusi.meta.isanta && aiempi.meta.seura === uusi.meta.seura && aiempi.meta.toistot === uusi.meta.toistot && JSON.stringify(aiempi.meta.esta || []) === JSON.stringify(uusi.meta.esta || []);
+  if (!sama) { if (kirjaa) kirjaa('  ⚠ Aiempi tulostiedosto on eri isännältä/seuralta/toistoilta → ei yhdistetä, ylikirjoitetaan.'); return uusi; }
+  const avain = (m) => m.sivu + '|' + m.profiili, uudet = new Set(uusi.mittaukset.map(avain));
+  const mittaukset = aiempi.mittaukset.filter((m) => !uudet.has(avain(m))).concat(uusi.mittaukset);
+  const meta = Object.assign({}, uusi.meta, { aika: aiempi.meta.aika < uusi.meta.aika ? aiempi.meta.aika : uusi.meta.aika, kesto_s: (aiempi.meta.kesto_s || 0) + uusi.meta.kesto_s, yhdistetty: true });   // ikkuna kattaa kaikki ajot (Monitoring read_count)
+  if (kirjaa) kirjaa('  Yhdistetty aiempaan tulostiedostoon: ' + mittaukset.length + ' sivu×profiili-riviä (uusia ' + uusi.mittaukset.length + '). Aja mittaa_monitoring.js uudelleen koko ikkunalle.');
+  return { meta, mittaukset };   // monitoring-lohko jätetään pois: vanha summa ei kata uutta ajoa
+}
+async function main(argv, deps) {
+  const d = deps || {}, kirjaa = d.kirjaa || ((r) => console.log(r)), virhe = d.virhe || ((r) => console.error(r)), env = d.env || process.env, o = lueArgv(argv), v = tarkista(o, env, d.urlSallittu);   // d.urlSallittu = vain testien injektio (CLI ei aseta)
+  if (v) { virhe(v); return 2; }
+  const suunnitelma = o.sivut.length * o.profiilit.length * o.toistot * 2;
+  kirjaa('SIVUMITTAUS ' + (o.kuiva ? '(KUIVA-AJO, ei avaa selainta)' : '') + ' · ' + o.url + ' · seura s' + String(o.seura).padStart(2, '0') + ' · sivut ' + o.sivut.join(',') + ' · profiilit ' + o.profiilit.join(',') + ' · ' + o.toistot + ' toistoa → ' + suunnitelma + ' avausta (kylmä+lämmin)');
+  if (o.kuiva) { o.sivut.forEach((s) => kirjaa('  ' + s + ' → ' + SIVUT[s].tiedosto + ' · rooli ' + (SIVUT[s].rooli || 'ei kirjautumista'))); return 0; }
+  let tunnukset, tunnusTeksti; try { tunnusTeksti = fs.readFileSync(o.tunnukset, 'utf8'); tunnukset = M.lueTunnukset(tunnusTeksti); } catch (e) { virhe('Tunnustiedostoa ei voitu lukea (' + o.tunnukset + ').'); return 2; }
+  const chromePolku = env.TM_CHROME_PATH || ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => fs.existsSync(p));
+  const { chromium } = d.playwright || require('playwright-core'), selain = await chromium.launch({ executablePath: chromePolku, args: ['--no-sandbox', '--hide-scrollbars'] });
+  const token = env.STAGING_APPCHECK_DEBUG_TOKEN, alkuAika = new Date().toISOString(), t0 = Date.now(), tulos = { meta: { aika: alkuAika, isanta: new URL(o.url).host, seura: o.seura, toistot: o.toistot, ikkuna_ms: IKKUNA_MS, esta: o.esta.length ? o.esta.slice() : undefined, reititys: (o.esta.length || o.reititys) ? true : undefined, kuristus: { puhelin: PROFIILIT.puhelin.verkko, cpu: PROFIILIT.puhelin.cpu } }, mittaukset: [] };
+  const tilat = {}, kohteet = {};
+  try {
+    for (const sivuAvain of o.sivut) {
+      const s = SIVUT[sivuAvain]; let tila;
+      if (s.rooli) {
+        if (!(s.rooli in tilat)) {
+          let t = M.haeTunnus(tunnukset, s.rooli, o.seura);
+          if (t && s.rooli === 'pelaaja') { const pid = M.haePalloId(tunnusTeksti, o.seura); t = pid ? Object.assign({ palloId: pid }, t) : null; }
+          if (!t && s.rooli === 'pelaaja') { virhe('  ⚠ Pelaajan PalloID + PIN -tunnusta ei löydy (seura ' + o.seura + ') — pelaaja-sivu mitataan KIRJAUTUMATTOMANA (vain kirjautumisnäkymä). Luo tunnus: generoi_aineisto.js --pin-pelaaja (tai --vain-pinit).'); tilat[s.rooli] = null; }
+          else if (!t) { virhe('Tunnusta ei löydy (rooli ' + s.rooli + ', seura ' + o.seura + ').'); await selain.close(); return 2; }
+          else { kirjaa('  kirjaudutaan: rooli ' + s.rooli); try { const kohde = s.pelaajaHaku ? {} : null; tilat[s.rooli] = await kirjaudu(selain, o.url, t, token, tunnukset, s.tiedosto, kohde); if (kohde) kohteet[s.rooli] = kohde; } catch (e) { virhe('  ' + e.message); await selain.close(); return 1; } }
+        }
+        tila = tilat[s.rooli] || undefined;
+      }
+      for (const pAvain of o.profiilit) {
+        const prof = PROFIILIT[pAvain], kylmat = [], lampimat = []; let resKylma = null;
+        for (let i = 1; i <= o.toistot; i++) {
+          const ctx = await selain.newContext(Object.assign({}, prof.konteksti, tila ? { storageState: tila } : {})); await ctx.addInitScript(instrumentointi, { token, erittely: o.erittely });
+          const estetyt = await asennaReititys(ctx, o.esta, o.reititys);
+          const page = await ctx.newPage(), cdp = await ctx.newCDPSession(page); await kuristus(cdp, prof);
+          const kh = s.pelaajaHaku ? kohteet[s.rooli] : null; if (s.pelaajaHaku && !(kh && kh.pelaajaId)) { virhe('  mittauskohdetta (pelaaja) ei saatu — ' + sivuAvain + ' ei mitata ilman sitä.'); await ctx.close(); await selain.close(); return 1; }
+          const url = o.url + '/' + s.tiedosto + (kh ? '#pelaaja/' + encodeURIComponent(kh.pelaajaId) + '/tanaan' : ''), kylma = await mittaaAvaus(page, cdp, url, { erittely: o.erittely, odotettuTiedosto: s.tiedosto, odotaKirjautunut: !!tila });
+          if (kylma.virhe && kylma.virhe.indexOf(M.MITTAUS_EI_VALMIS) === 0) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ': ' + kylma.virhe + ' — mittaus keskeytetty (ei raportoida nollalukuja).'); await ctx.close(); await selain.close(); return 1; }
+          if (kylma.virhe && /^uudelleenohjaus/.test(kylma.virhe)) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ': ' + kylma.virhe + ' — mittaus keskeytetty (väärää sivua ei mitata).'); await ctx.close(); await selain.close(); return 1; }
+          if (o.esta.length) kylma.estetyt = estetyt.slice();
+          const lampimasti = await mittaaAvaus(page, cdp, url, { odotettuTiedosto: s.tiedosto, uusiDokumentti: true, odotaKirjautunut: !!tila });
+          if (lampimasti.virhe && /^uudelleenohjaus/.test(lampimasti.virhe)) { virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ' (lämmin): ' + lampimasti.virhe + ' — mittaus keskeytetty.'); await ctx.close(); await selain.close(); return 1; }
+          if (o.esta.length && !kylma.estetyt.length) { const sy = 'esto ei osunut: ' + o.esta.join(', ') + ' → 0 estettyä pyyntöä (rivi virheellinen, ei tulos)'; kylma.virhe = sy; lampimasti.virhe = lampimasti.virhe || sy; virhe('  ✗ ' + sivuAvain + ' · ' + pAvain + ': ' + sy); }
+          if (o.esta.length) { lampimasti.estetyt = estetyt.slice(kylma.estetyt.length); kirjaa('    estetty: kylmä ' + kylma.estetyt.length + ' · lämmin ' + lampimasti.estetyt.length + ' pyyntöä' + (kylma.estetyt.length ? ' (esim. ' + kylma.estetyt[0] + ')' : '') + ' · appcheck_vaihto ' + (kylma.ajat && kylma.ajat.appcheck_vaihto ? 'kyllä' : 'EI') + ' · kirjautunut ' + kylma.kirjautunut); }
+          if (i === 1) resKylma = resurssiYhteenveto(kylma.resurssit); delete kylma.resurssit; delete lampimasti.resurssit;   // JSON pysyy pienenä: erittely vain 1. kylmästä
+          kylmat.push(kylma); lampimat.push(lampimasti);
+          kirjaa('  ' + sivuAvain + ' · ' + pAvain + ' · ' + i + '/' + o.toistot + ' · ' + (kylma.lopullinen_url || '?') + ' · kylmä: ' + (kylma.virhe ? '✗ ' + kylma.virhe : 'interaktiivinen ' + (kylma.tti_ms != null ? (kylma.tti_ms / 1000).toFixed(1) + ' s' : 'ei rauhoittunut')) + ', ' + (kylma.yht != null ? kylma.yht : '?') + ' lukua, ' + ((kylma.tavut || 0) / 1e6).toFixed(2) + ' MB · lämmin: ' + (lampimasti.virhe ? '✗ ' + lampimasti.virhe : (lampimasti.tti_ms != null ? (lampimasti.tti_ms / 1000).toFixed(1) + ' s' : '?')) + (kylma.kirjautunut === false && tila ? ' · ⚠ EI KIRJAUTUNUT' : ''));
+          if (i === 1 && o.erittely) kirjaa(erittelyTeksti(sivuAvain, pAvain, kylma));
+          if (i === 1 && kylma.kiinnitetty === false) { virhe('  ⚠ Firestore-instrumentointi ei kiinnittynyt (compat-SDK:n nimiavaruutta ei löytynyt) — lukuja ei lasketa; käytä Monitoring read_countia.'); }
+          await ctx.close();
+        }
+        tulos.mittaukset.push({ sivu: sivuAvain, profiili: pAvain, rooli: tila ? s.rooli : null, kylma: kylmat, lampimat, resurssit_kylma: resKylma, yhteenveto: { kylma: yhteenveto(kylmat), lampimat: yhteenveto(lampimat) } });
+      }
+    }
+  } finally { await selain.close(); }
+  tulos.meta.loppu = new Date().toISOString(); tulos.meta.kesto_s = Math.round((Date.now() - t0) / 1000);
+  const yhdistetty = yhdistaTulokset(lueAiempi(o.ulos), tulos, kirjaa);
+  fs.mkdirSync(path.dirname(o.ulos), { recursive: true }); fs.writeFileSync(o.ulos, JSON.stringify(yhdistetty, null, 2) + '\n');
+  kirjaa('Valmis ' + tulos.meta.kesto_s + ' s · ' + o.ulos + ' · seuraava: mittaa_monitoring.js --tulos=' + o.ulos + ' (read_count, viive muutama min) → mittaus_raportti.js');
+  return 0;
+}
+if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c)).catch((e) => { console.error('Virhe: ' + String(e && e.message || e).split('\n')[0]); process.exit(2); });
+module.exports = { kirjaudu, kuristus, tarkistaLopullinenUrl, naytaUrl, haePelaajaKohde, main, erittelyTeksti, yhdistaTulokset, resurssiLista, resurssiYhteenveto, lueArgv, tarkista, estoPredikaatti, asennaReititys, mittaaAvaus, SIVUT, PROFIILIT, IKKUNA_MS };

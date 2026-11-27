@@ -21,7 +21,8 @@ beforeAll(() => {
   const s = html.findIndex(l => l.includes('function _vpKuljetusRangaistukset'));
   const e = html.findIndex(l => l.includes('window._vpKomposiittiSyotteesta = _vpKomposiittiSyotteesta;'));
   if (s < 0 || e < 0) throw new Error('lohkoa ei löytynyt');
-  const api = new Function('var window = {};\n' + html.slice(s, e + 1).join('\n') + '\n return { _vpKuljetusNetto, _vpKomposiittiSyotteesta, _vpKuljetusRangaistukset };')();
+  // B3: VP:n nimet ovat kääreitä jaettuun libiin (lib/tm_mittaus_korjaa.js) → sama logiikka testataan VP:n kääreiden läpi.
+  const api = new Function('__MK', 'var window = { TM_MITTAUS_KORJAA: __MK };\nfunction _vpMK() { return window.TM_MITTAUS_KORJAA; }\n' + html.slice(s, e + 1).join('\n') + '\n return { _vpKuljetusNetto, _vpKomposiittiSyotteesta, _vpKuljetusRangaistukset };')(require('../lib/tm_mittaus_korjaa.js'));
   _vpKuljetusNetto = api._vpKuljetusNetto;
   _vpKomposiittiSyotteesta = api._vpKomposiittiSyotteesta;
   _vpKuljetusRangaistukset = api._vpKuljetusRangaistukset;

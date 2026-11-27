@@ -33,6 +33,7 @@ import { createRequire } from 'module';
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
 const IDP = vaadi('../lib/tm_idp.js');
+const SISL = vaadi('../lib/tm_sisainen.js');   // PR 2d: pikakenttien henkilökunta-osa (idp_edistyma/_viim_review/_dvi/_lahde) tm_sisainen.js:n kautta VAIN sisainen/tiedot:iin
 
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
@@ -83,8 +84,12 @@ function stubDb(dokit, loki, opts) {
     collection: () => ({ doc: (v) => kausiRef(String(v)) }),
     set: async (data) => { if (opts.kaadaPikakentat) throw new Error('pikakentat kaatui'); loki.pikakentat.push(data); },
   };
+  loki.sisainen = loki.sisainen || [];
   return {
     collection: () => ({ doc: () => ({ collection: () => ({ doc: () => pelaajaRef }) }) }),
+    /* PR 2d: tmHenkilokuntaKirjoita-batch — pelaajadokumentin osa → loki.pikakentat, sisainen/tiedot → loki.sisainen (kaikki tai ei mitään) */
+    batch: () => { const ops = []; return { set: (ref, data) => ops.push([ref, data]), update: (ref, data) => ops.push([ref, data]),
+      commit: async () => { if (opts.kaadaPikakentat) throw new Error('pikakentat kaatui'); ops.forEach(([ref, data]) => (ref === pelaajaRef ? loki.pikakentat : loki.sisainen).push(data)); } }; },
     runTransaction: async (fn) => {
       if (opts.kaada) throw new Error('transaktio kaatui');
       const tx = {
@@ -118,6 +123,7 @@ function ajaTallennus(mikä, p, dokit, opts) {
     idpTallennusVuosi: IDP.idpTallennusVuosi, idpMerkitseVaihdetuksi: IDP.idpMerkitseVaihdetuksi,
     idpOnVoimassa: IDP.idpOnVoimassa,
     toast: () => {}, vpT: (s) => s, masterT: (s) => s,
+    window: { TM_SISAINEN: SISL },
   }, opts.ymp || {}));
   // eslint-disable-next-line no-new-func
   const fn = new Function('__ymp', 'with(__ymp){' + src + '\nreturn ' + (onVP ? '_vpTallennaIdpDok' : '_mIdpTallennaDok') + ';}')(ymp);
@@ -152,6 +158,18 @@ describe('(A1) Pikakentat asetetaan vasta onnistuneen kirjoituksen jalkeen', () 
       expect(ok).toBe(true);
       expect(p.idp_fokus.nimi).toBe('Kolmas mies');
       expect(aja.loki.pikakentat).toHaveLength(1);
+      /* PR 2d: pelaajadokumenttiin vain B (idp_tila/idp_fokus); henkilökunnan osa VAIN sisainen/tiedot:iin */
+      ['idp_edistyma', 'idp_viim_review', 'idp_dvi', 'idp_lahde'].forEach((k) => expect(k in aja.loki.pikakentat[0], k).toBe(false));
+      expect(aja.loki.pikakentat[0]).toMatchObject({ idp_tila: 'aktiivinen', idp_fokus: { nimi: 'Kolmas mies' } });
+      expect(aja.loki.sisainen).toHaveLength(1); expect(aja.loki.sisainen[0]).toMatchObject({ seuraId: 's1' }); expect('idp_viim_review' in aja.loki.sisainen[0]).toBe(true);
+    });
+
+    it(app + ': PR 2d fail-closed — tm_sisainen.js puuttuu → tallennus epaonnistuu, pikakentat ennallaan, ei raakaa pelaajakirjoitusta', async () => {
+      const p = { id: 'p1', idp_tila: 'aktiivinen', idp_fokus: { nimi: 'VANHA', alue: 'vanha' } };
+      p[kentta] = C();
+      const aja = ajaTallennus(app, p, {}, { ymp: { window: {} } });
+      expect(await aja.fn(p, 'Tavoite tallennettu')).toBe(false);
+      expect(p.idp_fokus.nimi).toBe('VANHA'); expect(aja.loki.pikakentat).toHaveLength(0);
     });
   }
 

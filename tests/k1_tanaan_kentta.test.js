@@ -2,6 +2,13 @@
  * K1 osa 2b — lib/tm_tanaan_kentta.js (tilat, osat, HTML) ja Pelaaja_v7-adapteri (rA1Kentta, lippu, päivän treeni). Fixturet keksittyjä; Topias K. = KPV U13 -testipelaaja.
  */
 import { describe, it, expect } from 'vitest';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (QG-1b, #1162:n jatko): ikä, kausi ja vuosi lasketaan samasta kellosta → testi ei vanhene. Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-15T09:00:00');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 import { readFileSync } from 'fs';
 import { createHash } from 'crypto';
 import { createRequire } from 'module';

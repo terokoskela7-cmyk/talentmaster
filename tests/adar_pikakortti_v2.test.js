@@ -326,7 +326,7 @@ describe('(4) tallennus: yksi polku, ei omaa offline-jonoa', () => {
   });
 
   it('permission-denied kertoo SYYN, ei "katso konsoli"', () => {
-    expect(f()).toContain('_adarEstonSyy()');
+    expect(f()).toContain('_adarEstonSyy(pelaajaId)');
     expect(f()).toContain('_showToast(');
   });
 });

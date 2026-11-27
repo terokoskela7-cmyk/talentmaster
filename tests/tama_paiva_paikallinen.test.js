@@ -11,9 +11,11 @@ import { readFileSync, readdirSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (p) => readFileSync(join(juuri, p), 'utf8');
+const lue = (p) => lueKuori(p);
 
 function ajaTz(tz, koodi) {
   return execFileSync(process.execPath, ['-e', koodi], { env: { ...process.env, TZ: tz }, encoding: 'utf8' }).trim();
@@ -67,6 +69,7 @@ const SALLITTU = [
   ['TalentMaster_Excel_Tuonti.html', "console.log('PDF-parseri", 'C', 'konsoliloki'],
   ['TalentMaster_Harjoitettavuus_Lomake_v4.html', 'pvmSlug', 'C', 'tiedostonimen fallback (kaksi riviä)'],
   ['TalentMaster_Seura.html', "const pvm = new Date().toISOString().slice(0,10);", 'C', 'tiedostonimi (rivi ennen XLSX.writeFile)'],
+  ['lib/tm_valvonta.js', 'toISOString().slice(0, 10)', 'C', 'ikkunanAlku: sama UTC-päivälaskenta kuin seuran_kooste.js (kooste-ikkunan 30 pv; ±1 pv ei vaikuta mittariin); siirretty diag_hiljaiset_rajat.js:stä ennallaan (projekti 07 / PR 1)'],
   ['lib/tm_syntymavuosi.js', 'toISOString().slice(0, 10)', 'C', 'syntymäaika Timestampista (UTC-keskiyö → sama päivä); siirretty Seurasta, ei muutosta'],
   ['TalentMaster_VP_v25.html', 'alkoi ? loppuD.toISOString()', 'C', 'UTC-päivälaskenta merkkijonosta alkoi; fallback on jo tmPaivaIso'],
   ['TalentMaster_Master_v16.html', 'alkoi ? loppuD.toISOString()', 'C', 'sama kuin VP'],

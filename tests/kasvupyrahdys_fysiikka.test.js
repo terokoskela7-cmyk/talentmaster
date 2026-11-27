@@ -4,6 +4,8 @@ import { readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url), JUURI = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KP = require('../lib/tm_kasvupyrahdys.js'), TK = require('../lib/tm_kt_toimintakortti.js'), GEN = require('../scripts/phv_kasvupyrahdys_vie.cjs');
 const D = JSON.parse(readFileSync(GEN.JSONF, 'utf8'));
@@ -133,7 +135,7 @@ describe('VARTIJA: tunnisteet, ketjukoodit ja perustelut eivät näy renderöidy
   });
   it('jokainen sivu joka lataa toimintakortin lataa myös kasvupyrähdystaulun ENNEN sitä (muuten suodatus puuttuisi hiljaa)', () => {
     for (const f of readdirSync(JUURI).filter((x) => /\.html$/.test(x))) {
-      const h = readFileSync(join(JUURI, f), 'utf8'), a = h.indexOf('lib/tm_kt_toimintakortti.js'); if (a < 0) continue;
+      const h = lueKuori(f), a = h.indexOf('lib/tm_kt_toimintakortti.js'); if (a < 0) continue;
       const b = h.indexOf('lib/tm_kasvupyrahdys.js'); expect(b, f).toBeGreaterThan(-1); expect(b, f).toBeLessThan(a);
     }
   });

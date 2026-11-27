@@ -15,6 +15,8 @@ const require = createRequire(import.meta.url);
 const VP = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_VP_v25.html'), 'utf8');
 const K = require('../lib/tm_kehityssilmukka.js');
 const N = require('../lib/tm_eerikkila_normit.js');
+const SIS = require('../lib/tm_sisainen.js');   // PR 2d: review_viimeisin_* / review_tagit (A, henkilokunta) VAIN sisainen/tiedot:iin — rytmi luetaan yhdistetystä (dual-read) dokumentista
+const SISP = 'seurat/kpv/pelaajat/m93GBdOaGCUuenMiCL0I/sisainen/tiedot';
 function pura(tunniste) {
   const i = VP.indexOf(tunniste); expect(i, tunniste).toBeGreaterThan(-1);
   let syv = 0;
@@ -33,10 +35,11 @@ function mockDb({ kaada = false, alku = {} } = {}) {
   const docs = JSON.parse(JSON.stringify(alku)), kirj = [];
   const ref = (polku) => ({ path: polku, collection: (c) => ({ doc: (id) => ref(polku + '/' + c + '/' + id) }) });
   const db = { collection: (c) => ({ doc: (id) => ref(c + '/' + id) }),
-    batch: () => { const ops = []; return { set: (r, d, o) => ops.push({ polku: r.path, data: d, merge: !!(o && o.merge) }),
+    batch: () => { const ops = []; return { set: (r, d, o) => ops.push({ polku: r.path, data: d, merge: !!(o && (o.merge || o.mergeFields)) }),   // mergeFields (tm_sisainen) = top-level-merge tässä tyngässä
       commit: async () => { if (kaada) throw new Error('permission-denied'); ops.forEach((o) => { docs[o.polku] = o.merge ? Object.assign({}, docs[o.polku], o.data) : o.data; kirj.push(o); }); } }; } };
   return { db, docs, kirj };
 }
+const yhd = (m) => SIS.tmSisainenYhdista(m.docs[POLKU], m.docs[SISP]);   // henkilökunnan näkymä (sisainen voittaa)
 
 describe('lib tmKirjaaKatselmus — yksi tietue kummallekin polulle', () => {
   const MDR = { tyyppi: 'mdr', pvm: PVM, tekija_uid: 'vp-uid', tekija_rooli: 'vp', paatos: 'p', idp_paivitetty: false };
@@ -74,7 +77,7 @@ function ymp({ kaada = false, idpOk = true, demo = false, pelaaja = {} } = {}) {
   const p = Object.assign(pelaajaDoc(pelaaja), { _idpTavoite: { arviot: [] } });
   const arvot = { _rvArvo: '4.5', _rvNote: 'Pelaajan oma sana', _rvKomm: 'Valmentajan kommentti', _rvTagit: 'oikea-jalka, paineensieto', _vpReviewModal: null, mdtPaatos: 'päätös' };
   const c = { db: m.db, _seuraId: 'kpv', _isDemoMode: demo, _uid: 'vp-uid', _pelaajat: [p], _mdtPid: PID, Object, Array, Math, console: { warn() {} },
-    window: { TM_KEHITYSSILMUKKA: K, _rvArvioVal: 4, _vpRooli: 'vp' }, vpT: (x) => x, toast: (t, k) => log.toastit.push([t, k]),
+    window: { TM_SISAINEN: SIS, TM_KEHITYSSILMUKKA: K, _rvArvioVal: 4, _vpRooli: 'vp' }, vpT: (x) => x, toast: (t, k) => log.toastit.push([t, k]),
     tmPaivaIso: () => PVM, firebase: { auth: () => ({ currentUser: { uid: 'vp-uid', getIdToken: async () => 't', getIdTokenResult: async () => ({ claims: { rooli: 'vp' } }) } }) },
     document: { getElementById: (id) => (id in arvot ? (arvot[id] == null ? null : { value: arvot[id], remove() {} }) : null) },
     _vpIdpPelaaja: () => p, idpLisaaArvio() {}, _vpReviewTagitSanitoi: (a) => a.filter((x) => ['oikea-jalka', 'paineensieto'].includes(x)),
@@ -90,15 +93,16 @@ describe('RYTMI NOLLAUTUU MOLEMMISTA POLUISTA (A cockpit · B MDT)', () => {
   it('lähtötilanne: katselmus MYÖHÄSSÄ', () => { expect(kadenssi(pelaajaDoc()).status).toBe('myohassa'); });
   it('A · cockpit "Kirjaa kehityskeskustelu": pelaajadokin review_viimeisin_pvm = tänään → rytmi ajantasalla (ennen: jäi myöhäiseksi)', async () => {
     const e = ymp(); await e.c.window._vpTallennaReview(PID);
-    const doc = e.m.docs[POLKU];
+    const doc = yhd(e.m);
     expect(doc.review_viimeisin_pvm).toBe(PVM); expect(doc.review_viimeisin_tyyppi).toBe('kehityskeskustelu');
+    expect(e.m.docs[POLKU].review_viimeisin_pvm).toBe('2026-06-01');   // PR 2d: pelaajadokumenttiin ei kirjoiteta A-kenttää (vanha arvo siivotaan PR 3:ssa; dual-read ohittaa sen)
     expect(kadenssi(doc).status).toBe('ajantasalla'); expect(kadenssi(doc).viimeisinPvm).toBe(PVM);
     expect(e.p.review_viimeisin_pvm).toBe(PVM);   // lokaali päivittyi onnistumisen jälkeen
     expect(e.log.renderit).toBeGreaterThanOrEqual(3);   // askel + reviewit + tilanne piirretty uudelleen
   });
   it('B · MDT-review ("Merkitse tehdyksi"): sama nollaus', async () => {
     const e = ymp(); await e.c.window._mdtMerkitseReview();
-    expect(kadenssi(e.m.docs[POLKU]).status).toBe('ajantasalla'); expect(e.m.docs[POLKU].review_viimeisin_tyyppi).toBe('mdr');
+    expect(kadenssi(yhd(e.m)).status).toBe('ajantasalla'); expect(yhd(e.m).review_viimeisin_tyyppi).toBe('mdr');
   });
   it('päätös (_pdcPaatos): review_myohassa ennen → ei enää A- eikä B-polun jälkeen', () => {
     const aja = (doc) => { const LAS = (p, n) => N.laskeReviewKadenssi(p, n); const c = { window: { TM_SEURAAVA_ASKEL: { tmSeuraavaAskel: (p, o) => require('../lib/tm_seuraava_askel.js').tmSeuraavaAskel(p, Object.assign({}, o, { deps: { laskeReviewKadenssi: LAS, idpJumissa: () => false, sitoumusOdottaa: () => false, jaksoUmpeutunut: () => false } })) } }, laskeReviewKadenssi: LAS, vpT: (x) => x, tmPvmFi: (x) => x, _rvcSitoumusOdottaa: () => false, idpJumissa: () => false, Date, Object };   // R6.2b: _pdcPaatos = kääre → lib
@@ -106,7 +110,7 @@ describe('RYTMI NOLLAUTUU MOLEMMISTA POLUISTA (A cockpit · B MDT)', () => {
     expect(aja(pelaajaDoc()).avain).toBe('review_myohassa');
     return Promise.all([ymp(), ymp()]).then(async ([a, b]) => {
       await a.c.window._vpTallennaReview(PID); await b.c.window._mdtMerkitseReview();
-      expect(aja(a.m.docs[POLKU]).avain).not.toBe('review_myohassa'); expect(aja(b.m.docs[POLKU]).avain).not.toBe('review_myohassa');
+      expect(aja(yhd(a.m)).avain).not.toBe('review_myohassa'); expect(aja(yhd(b.m)).avain).not.toBe('review_myohassa');
     });
   });
 });
@@ -117,11 +121,11 @@ describe('cockpit-polku (A): tietue, virheet, rajat', () => {
     const r = e.m.docs[POLKU + '/reviewit/' + PVM];
     expect(r).toMatchObject({ tyyppi: 'kehityskeskustelu', pvm: PVM, tekija_uid: 'vp-uid', tekija_rooli: 'vp', idp_paivitetty: true, arvio: { arvo: 4.5, pelaajan_arvio: 4 }, tagit: ['oikea-jalka', 'paineensieto'] });
     expect(JSON.stringify(r)).not.toMatch(/Pelaajan oma sana|Valmentajan kommentti|pelaajan_note|valmentajan_kommentti/);
-    expect(e.m.docs[POLKU].review_tagit).toEqual(['oikea-jalka', 'paineensieto']);
+    expect(e.m.docs[SISP].review_tagit).toEqual(['oikea-jalka', 'paineensieto']); expect(e.m.docs[POLKU].review_tagit).toBeUndefined();   // PR 2d: vain sisainen
   });
-  it('YKSI batch, polut tasan seurat/kpv/pelaajat/<pid> + /reviewit/<pvm> (KPV U13), ei erillistä review_tagit-kirjoitusta', async () => {
+  it('YKSI batch, polut tasan seurat/kpv/pelaajat/<pid>/sisainen/tiedot + /reviewit/<pvm> (KPV U13), ei erillistä review_tagit-kirjoitusta', async () => {
     const e = ymp(); await e.c.window._vpTallennaReview(PID);
-    expect(e.m.kirj.map((o) => o.polku)).toEqual([POLKU + '/reviewit/' + PVM, POLKU]); expect(e.m.kirj.every((o) => o.merge)).toBe(true);
+    expect(e.m.kirj.map((o) => o.polku)).toEqual([SISP, POLKU + '/reviewit/' + PVM]); expect(e.m.kirj.every((o) => o.merge)).toBe(true);   // PR 2d: pikakentät sisainen/tiedot:iin samassa batchissa, pelaajadokumenttia ei kirjoiteta
     expect(pura('window._vpTallennaReview = async function')).not.toMatch(/set\(\{ review_tagit/);
   });
   it('arvo ei numero → arvio.arvo null (ei NaN/undefined Firestoreen)', async () => {
@@ -131,7 +135,7 @@ describe('cockpit-polku (A): tietue, virheet, rajat', () => {
   });
   it('IDP-kirjoitus epäonnistuu (_vpTallennaIdpDok → false): EI katselmusmerkintää, EI paikallista päivitystä', async () => {
     const e = ymp({ idpOk: false }); await e.c.window._vpTallennaReview(PID);
-    expect(e.m.kirj).toEqual([]); expect(e.p.review_viimeisin_pvm).toBe('2026-06-01'); expect(kadenssi(e.m.docs[POLKU]).status).toBe('myohassa');
+    expect(e.m.kirj).toEqual([]); expect(e.p.review_viimeisin_pvm).toBe('2026-06-01'); expect(kadenssi(yhd(e.m)).status).toBe('myohassa');
   });
   it('katselmus-batch epäonnistuu: virheilmoitus (error), lokaali tila ja rytmi ENNALLAAN (ei valeonnistumista)', async () => {
     const e = ymp({ kaada: true }); await e.c.window._vpTallennaReview(PID);
@@ -144,7 +148,7 @@ describe('cockpit-polku (A): tietue, virheet, rajat', () => {
   });
   it('myöhäisempi review_viimeisin_pvm säilyy (ei vanhene): cockpit-kirjaus ei siirrä rytmiä taaksepäin', async () => {
     const e = ymp({ pelaaja: { review_viimeisin_pvm: '2026-12-01' } }); await e.c.window._vpTallennaReview(PID);
-    expect(e.m.docs[POLKU].review_viimeisin_pvm).toBe('2026-12-01'); expect(e.m.docs[POLKU].review_tagit).toEqual(['oikea-jalka', 'paineensieto']);
+    expect(yhd(e.m).review_viimeisin_pvm).toBe('2026-12-01'); expect(yhd(e.m).review_tagit).toEqual(['oikea-jalka', 'paineensieto']); expect((e.m.docs[SISP] || {}).review_viimeisin_pvm).toBeUndefined();
   });
 });
 

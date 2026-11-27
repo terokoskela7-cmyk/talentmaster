@@ -13,10 +13,14 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
-const lue = (n) => readFileSync(join(ROOT, n), 'utf8');
+const lue = (n) => lueKuori(n);
 const { tmEsc } = require_(join(ROOT, 'lib', 'tm_esc.js'));
 const ADMIN = lue('TalentMaster_Admin.html');
 
@@ -78,8 +82,8 @@ async function seuraKortti(pelaaja, kutsut) {
     encodeURIComponent, window: { tmEsc }, document: { getElementById: () => modal, createElement: () => modal, body: { appendChild() {} } },
   };
   ctx.TM_SEURA_TUONTI = require_(join(ROOT, 'lib', 'tm_seura_tuonti.js'));   // kutsuhistorian tilateksti (21.10.2026)
-  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(pura(S, 'function _suostumusAnnettu(p) {') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; ctx.kaytettavyysNakyy = ctx.kaytettavyysNakyy || function () { return false; }; vm.createContext(ctx);
+  vm.runInContext(['function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _lkPelaaja(p) {', 'function _lkAttr(estetty) {'].map((t) => pura(S, t)).join('\n') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
   await ctx.nayta('p1');
   return { h: modal.innerHTML, pkd: ctx.window._pkd };
 }
@@ -105,18 +109,17 @@ describe('Seura-kortti (ajettu) · haitallinen sisältö ei suoriudu', () => {
 /* ── vahvistaSuostumus (ajettu): antajan nimi + lomakekenttien siivous ── */
 class HttpsError extends Error { constructor(c, m, d) { super(m); this.code = c; this.details = d; } }
 function vahvista() {
-  const CF = lue('functions/index.js');
-  const i = CF.indexOf('exports.vahvistaSuostumus = functions');
+  const CF = lueFunctionsLahde(ROOT);
   const f = fakeDb({ 'seurat/kpv/pelaajat/m93': { etunimi: 'Topias', sukunimi: 'K', huoltajaEmail: 'h@x.fi', syntymaVuosi: 2013, suostumusTila: 'odottaa', pin: '591217' } });
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
   const ctx = {
     functions: ketju, exports: {}, db: f.db, console: { log() {}, warn() {}, error() {} }, String, Object, Array, JSON, Date, encodeURIComponent, parseFloat, isFinite,
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' }, Timestamp: { fromDate: (d) => d } } },
     auth: { generatePasswordResetLink: async () => 'r' }, haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
-    TM_BASE_URL: 'https://tm', sisainenLuku: require_(join(ROOT, 'functions', 'sisainen_luku.js')), tmSisainen: require_(join(ROOT, 'functions', 'tm_sisainen.js')), suostumusTarkistus: require_(join(ROOT, 'functions', 'suostumus_tarkistus.js')), suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
+    TM_BASE_URL: 'https://tm', sisainenLuku: require_(join(ROOT, 'functions', 'sisainen_luku.js')), tmSisainen: require_(join(ROOT, 'functions', 'tm_sisainen.js')), suostumusTarkistus: require_(join(ROOT, 'functions', 'suostumus_tarkistus.js')), suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, suostumusPeruminen: require_(join(ROOT, 'functions', 'suostumus_peruminen.js')), pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
-  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(CF.slice(i, CF.indexOf('\n  });', i) + 6), ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; ctx.kaytettavyysNakyy = ctx.kaytettavyysNakyy || function () { return false; }; vm.createContext(ctx);
+  vm.runInContext(_fnRunko(CF, 'vahvistaSuostumus'), ctx);
   return { f, fn: ctx.exports.vahvistaSuostumus };
 }
 const L = (o) => Object.assign({ seuraId: 'kpv', pelaajaId: 'm93', hEmail: 'h@x.fi', antaja: 'Tero Koskela', antajaRooli: 'huoltaja', etunimi: 'Topias', syntyma: '2013-03-15',
@@ -134,7 +137,9 @@ describe('vahvistaSuostumus (ajettu) · tyhjä = ei muutosta', () => {
     const ref = 'seurat/kpv/pelaajat/m93';
     v.f.D.set(ref, Object.assign({}, v.f.D.get(ref), { isa_pituus_cm: 182 }));
     await v.fn(L({ bioPituudet: { aiti_pituus_cm: 170, vanhempi_pituus_pvm: '2026-10-01' } }), {});
-    expect(v.f.D.get(ref)).toMatchObject({ isa_pituus_cm: 182, aiti_pituus_cm: 170, vanhempi_pituus_pvm: '2026-10-01', vanhempi_pituus_puuttuu: false });
+    /* PR 2d (K8): pituudet (A) VAIN sisainen/tiedot:iin; puuttuu-lippu lasketaan lopputilasta (vanha isän pituus pelaajadokumentissa = siirtymän varalukema). */
+    expect(v.f.D.get(ref + '/sisainen/tiedot')).toMatchObject({ aiti_pituus_cm: 170, vanhempi_pituus_pvm: '2026-10-01', vanhempi_pituus_puuttuu: false });
+    expect(v.f.D.get(ref)).not.toHaveProperty('aiti_pituus_cm'); expect(v.f.D.get(ref)).not.toHaveProperty('vanhempi_pituus_pvm');
   });
 });
 
@@ -160,7 +165,8 @@ describe('vahvistaSuostumus (ajettu) · P1', () => {
     expect(x.suostumukset).toEqual(['rekisteri']);
     expect(x.suostumus.aikaleima).toBe('b1.10/b');
     expect(x.suostumusTeksti).toBe('ok script');
-    expect(x).not.toHaveProperty('isa_pituus_cm');   // virheellinen = ei muutosta (ei null-kirjoitusta)
-    expect(x.aiti_pituus_cm).toBe(165);
+    const sis = v.f.D.get('seurat/kpv/pelaajat/m93/sisainen/tiedot');   // PR 2d (K8): pituudet VAIN sisainen/tiedot:iin
+    expect(sis).not.toHaveProperty('isa_pituus_cm');   // virheellinen = ei muutosta (ei null-kirjoitusta)
+    expect(sis.aiti_pituus_cm).toBe(165); expect(x).not.toHaveProperty('aiti_pituus_cm');
   });
 });

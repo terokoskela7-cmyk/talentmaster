@@ -4,6 +4,7 @@
    Code EI kirjoita ruotsia (§0): arvot kopioidaan merkki merkiltä ja vienti VERIFIOIDAAN lataamalla kartta uudelleen. Idempotentti; virhe → ei kirjoiteta mitään. Ajo: node scripts/i18n_vie_sv_era55.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const vm = require('vm');
 const { sopii, q } = require('./i18n_vie_sv_era53_19.cjs');
@@ -16,7 +17,7 @@ function lataaLang(src) {
   return (sb.module.exports && sb.module.exports.TM_LANG) || sb.__m;
 }
 function vie(opts) {
-  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [], langU = [];
+  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => LL.lueTied(juuri, f), virheet = [], ohitettu = [], langU = [];
   const P = JSON.parse(lue(PALAUTUS)).osiot.tm_lang;
   let sLang = lue('lib/tm_lang.js'); const L = lataaLang(sLang), hae = (k, p) => p.split('.').reduce((o, x) => (o == null ? undefined : o[x]), L[k]);
   let korvattu = new Set(); try { korvattu = new Set(Object.keys(JSON.parse(lue('docs/i18n/sv_kaannoserae_56_gemini.json')).osiot.tm_lang.rivit)); } catch (e) { /* ei erää 56 */ }   // erä 56 korvaa muuttuneet rivit (tietosuojaikkuna) → ei viedä vanhaa sisältöä
@@ -40,8 +41,8 @@ function vie(opts) {
   let odotusPoistettu = 0, sOd = lue('tests/tm_lang_sv_odotuslista.cjs');
   for (const [avain] of Object.entries(P.rivit)) { if (korvattu.has(avain)) continue; const rivi = "  '" + avain + "',\n"; if (sOd.includes(rivi)) { sOd = sOd.replace(rivi, ''); odotusPoistettu++; } }
   sOd = sOd.replace(/  \/\/ Sibbo 1\.11\. vaihe 1: lomakkeen staattisen markupin avaimet \(erä 55; sv Geminiltä\)\n(?!  ')/, '');
-  if (opts.kirjoita && langU.length) { fs.writeFileSync(path.join(juuri, 'lib/tm_lang.js'), sLang); }
-  if (opts.kirjoita && odotusPoistettu) fs.writeFileSync(path.join(juuri, 'tests/tm_lang_sv_odotuslista.cjs'), sOd);
+  if (opts.kirjoita && langU.length) { LL.kt(juuri, 'lib/tm_lang.js', sLang); }
+  if (opts.kirjoita && odotusPoistettu) LL.kt(juuri, 'tests/tm_lang_sv_odotuslista.cjs', sOd);
   return { virheet, lisatty: langU.length, ohitettu, odotusPoistettu, kirjoitettu: !!(opts.kirjoita && langU.length) };
 }
 if (require.main === module) {

@@ -9,6 +9,9 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import vm from 'vm';
 import { PT_WINDOW } from './helpers/pelitilanne_lib.mjs';
+import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire } from 'module';
+const SIS = createRequire(import.meta.url)('../lib/tm_sisainen.js');
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ADAR = readFileSync(join(juuri, 'TalentMaster_ADAR_Pikakortti.html'), 'utf8');
@@ -22,25 +25,28 @@ function pura(src, tunniste) {
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 describe('ADAR · _phKirjoitaHavaintoJaPikakentat kertoo pikakenttien tuloksen', () => {
+  /* PR 2d: oikea lib/tm_sisainen.js (window.TM_SISAINEN) + muistinvarainen Firestore. Havainto (+ havainto_viimeisin_pvm → sisainen/tiedot) omassa batchissaan;
+     adar_*-pikakentät tmS4Kirjoita:lla (yksi batch: riisuttu pelaajaosa + sisainen/tiedot). pikakenttaHylkaa → pikakenttä-batch hylätään (Rules). */
   function aja({ pikakenttaHylkaa, kentat }) {
     const kirjatut = [];
-    const pRef = { id: 'p1', collection: () => ({ get: async () => ({ docs: [] }) }), get: async () => ({ exists: true, data: () => ({}) }),
-      set: async (d) => { if (pikakenttaHylkaa) throw Object.assign(new Error('denied'), { code: 'permission-denied' }); kirjatut.push('pelaaja'); } };
-    const havRef = { id: 'h1' };
-    // R6.2b-jatko: havainto kirjoitetaan BATCHILLA (+ havainto_viimeisin_pvm); adar_*-pikakentät erillisellä setillä
-    const _PH_DB = { batch: () => { const ops = []; return { set: (ref) => { ops.push(ref); }, commit: async () => { ops.forEach((r) => { if (r === havRef) kirjatut.push('havainto'); else { if (pikakenttaHylkaa) throw Object.assign(new Error('denied'), { code: 'permission-denied' }); kirjatut.push('pelaaja'); } }); } }; } };
-    const ctx = { _PH_DB, _phPelaajaRef: () => pRef, _phIka: () => 13, console: { warn() {} }, window: { _pelaajaMap: {} }, Date,
+    const { db, D } = fakeDb({ 'seurat/kpv/pelaajat/p1': { etunimi: 'Topias' } });
+    const pRef = db.collection('seurat').doc('kpv').collection('pelaajat').doc('p1'), havRef = pRef.collection('havainnot').doc('h1');
+    const _PH_DB = { collection: db.collection, batch: () => { const b = db.batch(), polut = [];
+      return { set: (r, d, o) => { polut.push(r._path); b.set(r, d, o); }, update: (r, d) => { polut.push(r._path); b.update(r, d); },
+        commit: async () => { const hav = polut.includes(havRef._path); if (!hav && pikakenttaHylkaa) throw Object.assign(new Error('denied'), { code: 'permission-denied' }); await b.commit(); kirjatut.push(hav ? 'havainto' : 'pelaaja'); } }; } };
+    const ctx = { _PH_DB, _phPelaajaRef: () => pRef, _phIka: () => 13, console: { warn() {} }, window: { _pelaajaMap: {}, TM_SISAINEN: SIS }, Date, Promise,
       tmAdarPikakentat: () => kentat };
     vm.createContext(ctx);
-    vm.runInContext(pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'function _phS4Valmista(') + '\n' + pura(ADAR, 'function _phS4Sisainen(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
-    return { p: ctx.f(havRef, { pisteet: { A: 2 } }, 'kpv', 'p1', 1, false), kirjatut };
+    vm.runInContext(pura(ADAR, 'function _phJaaPelaajalle(') + '\n' + pura(ADAR, 'function _phS4Valmista(') + '\n' + pura(ADAR, 'function _phS4Kirjoita(') + '\n' + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
+    return { p: ctx.f(havRef, { pisteet: { A: 2 } }, 'kpv', 'p1', 1, false), kirjatut, D };
   }
-  it('onnistuu → pikakentat {ok:true}', async () => {
-    const r = aja({ kentat: { adar_havaintoja: 1, adar_pvm: 'x' } });
+  it('onnistuu → pikakentat {ok:true}; adar_* VAIN sisainen/tiedot:iin (pelaajadokumentti ei saa A-kenttiä)', async () => {
+    const r = aja({ kentat: { adar_havaintoja: 1, adar_pvm: 'x', adar_vahvin: 'a' } });
     expect(await r.p).toEqual({ ok: true });
     expect(r.kirjatut).toEqual(['havainto', 'pelaaja']);
+    expect(r.D.get('seurat/kpv/pelaajat/p1').adar_vahvin).toBeUndefined(); expect(r.D.get('seurat/kpv/pelaajat/p1/sisainen/tiedot').adar_vahvin).toBe('a');
   });
-  it('pelaajadokin kirjoitus hylätään (Rules) → havainto silti tallessa, tulos {ok:false, code:permission-denied}', async () => {
+  it('pikakenttä-batch hylätään (Rules) → havainto silti tallessa, tulos {ok:false, code:permission-denied}', async () => {
     const r = aja({ kentat: { adar_havaintoja: 1 }, pikakenttaHylkaa: true });
     expect(await r.p).toEqual({ ok: false, code: 'permission-denied' });
     expect(r.kirjatut).toEqual(['havainto']);
@@ -53,7 +59,7 @@ describe('ADAR · _phKirjoitaHavaintoJaPikakentat kertoo pikakenttien tuloksen',
 
 describe('ADAR · _phTallenna ilmoittaa isännälle VASTA kuittauksen jälkeen', () => {
   function aja({ havaintoHylkaa, pikakentat, offline }) {
-    const viestit = [];
+    const viestit = [], merkinnat = [];
     let vapauta;
     const odota = new Promise((r) => { vapauta = r; });
     const kirjoitus = odota.then(() => { if (havaintoHylkaa) throw Object.assign(new Error('x'), { code: 'permission-denied' }); return pikakentat; });
@@ -65,15 +71,16 @@ describe('ADAR · _phTallenna ilmoittaa isännälle VASTA kuittauksen jälkeen',
       window: { ...PT_WINDOW, _tmSeuraId: 'kpv', _tmRooli: 'valmentaja', _pelaajaMap: { p1: {} }, firebase: { firestore: { FieldValue: { serverTimestamp: () => 1 } } },
         _phTila: { pelaajaId: 'p1', porras: 1, porrasTallennettu: null, porrasNostettu: false, konteksti: 'harjoitus', pisteet: { A: 2 }, havaitut: {}, teksti: '', nakyvyys: false, tehdyt: {}, naytto: 'havainto', viimeisin: null, odottaa: false },
         parent: { postMessage: (m) => viestit.push(m) } },
-      tmPaivaIso: () => '2026-10-04', _phDimit: () => ['A'], _nakArvo: () => 'valmentajat', _adarTekijaNimi: () => 'V', _adarEstonSyy: () => 'syy',
+      tmPaivaIso: () => '2026-10-04', _phDimit: () => ['A'], _nakArvo: () => 'valmentajat', _adarTekijaNimi: () => 'V', _adarPeruttu: () => false, _adarEstonSyy: () => 'syy',
       _showToast() {}, _phRender() {}, _phSeuraaKirjoitusta() {}, tmAdarBand: () => ['a'],
       _phJarjesta: (x) => x, _adarNakyvatPelaajat: () => ['p1'], _phIlmoita() {}, _phIlmSulje() {}, _phAvaaPelaaja() {},
-      _luonnosKeraa: () => ({}), _luonnosMerkitse() {}, _luonnosTyhjenna() {}, _luonnosAvaa() {},
+      _luonnosKeraa: () => ({}), _luonnosMerkitse: (pid, tila, lisa) => merkinnat.push([pid, tila, lisa && lisa.virhe]), _luonnosTyhjenna() {}, _luonnosAvaa() {},
       _phPelaajaRef: () => dok, _phKirjoitaHavaintoJaPikakentat: () => kirjoitus,
     });
     ctx.window.window = ctx.window; ctx.window.parent.parent = null;
-    vm.runInContext(pura(ADAR, 'async function _phTallenna(') + '\nthis.f = _phTallenna;', ctx);
-    return { ctx, viestit, vapauta, kirjoitus };
+    /* B9b (ADAR b): virhepolku kutsuu oikeaa _adarPeruttuTuore:a (tynkä-dokissa ei get:iä → lukuvirhe → false → syy ennallaan). */
+    vm.runInContext(pura(ADAR, 'async function _adarPeruttuTuore(') + '\n' + pura(ADAR, 'async function _phTallenna(') + '\nthis.f = _phTallenna;', ctx);
+    return { ctx, viestit, vapauta, kirjoitus, merkinnat };
   }
   it('EI VIESTIÄ ennen kuittausta (Master sulkisi iframen ja virhe jäisi näkymättömiin)', async () => {
     const y = aja({ pikakentat: { ok: true } });
@@ -91,6 +98,8 @@ describe('ADAR · _phTallenna ilmoittaa isännälle VASTA kuittauksen jälkeen',
     const y = aja({ havaintoHylkaa: true, pikakentat: { ok: true } });
     await y.ctx.f(); y.vapauta(); await tick(); await tick();
     expect(y.viestit).toEqual([{ type: 'tm:adar:failed', pelaajaId: 'p1', koodi: 'permission-denied' }]);
+    /* EI VACUOUS: virhepolku ajettiin loppuun (luonnos 'epaonnistui' + syy) — keskeytynyt catch jäisi muuten huomaamatta. */
+    expect(y.merkinnat.filter((m) => m[1] === 'epaonnistui')).toEqual([['p1', 'epaonnistui', 'syy']]);
   });
   it('offline → ilmoitus heti (jonossa:true), ei kuittausta jäädä odottamaan', async () => {
     const y = aja({ offline: true, pikakentat: { ok: true } });
@@ -146,7 +155,7 @@ describe('ADAR · _phTallenna kirjaa pelitilanteen (Vaihe 1)', () => {
       window: { ...PT_WINDOW, _tmSeuraId: 'kpv', _tmRooli: 'valmentaja', _pelaajaMap: { p1: {} }, firebase: { firestore: { FieldValue: { serverTimestamp: () => 1 } } },
         _phTila: Object.assign({ pelaajaId: 'p1', porras: 1, porrasTallennettu: null, porrasNostettu: false, konteksti: 'ottelu', pisteet: { A: 2 }, havaitut: {}, teksti: '', nakyvyys: false, tehdyt: {}, naytto: 'havainto', viimeisin: null, pelitilanne: { vaihe: [], paine: null, otos: null } }, tila),
         parent: { postMessage() {} } },
-      tmPaivaIso: () => '2026-10-04', _phDimit: () => ['A'], _nakArvo: () => 'valmentajat', _adarTekijaNimi: () => 'V', _adarEstonSyy: () => '',
+      tmPaivaIso: () => '2026-10-04', _phDimit: () => ['A'], _nakArvo: () => 'valmentajat', _adarTekijaNimi: () => 'V', _adarPeruttu: () => false, _adarEstonSyy: () => '',
       _showToast() {}, _phRender() {}, _phSeuraaKirjoitusta() {}, tmAdarBand: () => ['a'],
       _phJarjesta: (x) => x, _adarNakyvatPelaajat: () => ['p1'], _phIlmoita() {}, _phIlmSulje() {}, _phAvaaPelaaja() {},
       _luonnosKeraa: () => ({}), _luonnosMerkitse() {}, _luonnosTyhjenna() {}, _luonnosAvaa() {},

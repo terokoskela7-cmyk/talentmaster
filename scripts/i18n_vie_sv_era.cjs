@@ -9,12 +9,13 @@
    Idempotentti: jo olemassa oleva avain ohitetaan (ei ylikirjoiteta) ja raportoidaan, jos arvo eroaa. */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const KUIVA = process.argv.includes('--kuiva');
 const J = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/i18n/sv_kaannoserae_2026-10-08.json'), 'utf8'));
-const lue = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const kirjoita = (f, s) => { if (!KUIVA) fs.writeFileSync(path.join(ROOT, f), s); };
+const lue = (f) => LL.lueTied(ROOT, f);
+const kirjoita = (f, s) => { if (!KUIVA) LL.kt(ROOT, f, s); };
 const q = (s) => "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + "'";
 const raportti = { lisatty: {}, ohitettuOlemassa: {}, eroaa: {}, tyhjat: [] };
 const rap = (k, v) => { (raportti[k[0]][k[1]] = raportti[k[0]][k[1]] || []).push(v); };

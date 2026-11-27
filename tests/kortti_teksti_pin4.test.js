@@ -6,10 +6,12 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
-const lue = (n) => readFileSync(join(ROOT, n), 'utf8');
+const lue = (n) => lueKuori(n);
 const PEL = lue('TalentMaster_Pelaaja_v7.html');
 
 describe('tekstit', () => {

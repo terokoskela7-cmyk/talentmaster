@@ -17,5 +17,14 @@ export function lisaaPaikkamerkki(ctx) {
   ctx.onPaikkamerkkiOsoite = onPaikkamerkkiOsoite;
   ctx.onYksiOsoite = require_(join(ROOT, 'functions', 'sahkoposti_turva.js')).onYksiOsoite;   // lahetaRekisteriKutsu: yksi osoite per kutsu (21.10.2026)
   if (typeof ctx.estaPaikkamerkkiOsoite !== 'function') vm.runInContext(ESTA_LAHDE, ctx);
+  lisaaLaskutusEstoPilotti(ctx);
+  return ctx;
+}
+
+/** Laskutus L1c: index.js:n kutsufunktiot kutsuvat laskutusEsto-moduulia (functions/laskutus_esto.js). Nämä harnessit ajavat
+    pilottiseuran polkua (ei estoa); itse esto testataan functions/test/laskutus_esto.test.js:ssä. Nimet = tuotannon muuttujat. */
+export function lisaaLaskutusEstoPilotti(ctx) {
+  if (!ctx.laskutusEsto) ctx.laskutusEsto = { vaadiPelaajaSallittu: async () => {}, vaadiPelaajaDocSallittu: async () => {}, kirjaaEsto: async () => {}, luoEsto: () => ({ pelaajaEstetty: async () => false, joukkueEstetty: async () => false }) };
+  if (!ctx._estoDeps) ctx._estoDeps = () => ({});
   return ctx;
 }

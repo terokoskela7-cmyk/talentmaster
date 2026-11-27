@@ -29,9 +29,9 @@ describe('dual-read: tmSisainenYhdista', () => {
     const p = { id: 'p1', d3_viimeisin: { pisteet: { focus: { valmentaja: 3, avg: 3 } } }, d3_taso: 3 };
     expect(S.tmSisainenYhdista(p, null)).toEqual(p); expect(S.tmSisainenYhdista(p, undefined)).toEqual(p); expect(S.tmSisainenYhdista(p, {})).toEqual(p);
   });
-  it('ei-kytketyt ryhmät eivät yhdisty (tuoja sisainen:ssä ei nouse pelaajaolioon vielä)', () => {
+  it('ei-kytketyt ryhmät eivät yhdisty (tuoja sisainen:ssä ei nouse pelaajaolioon vielä); PR 2d: henkilokunta yhdistyy aina (lippu ei enää ohita)', () => {
     expect(S.tmSisainenYhdista({ id: 'p' }, { tuoja: 'x@y.fi' })).toEqual({ id: 'p' });   // tuoja_meta ei kytketty
-    expect(S.tmSisainenYhdista({ id: 'p' }, { vastuuhenkilo: { uid: 'u' } }, { henkilokuntaKirjoitus: false })).toEqual({ id: 'p' });   // henkilokunta: lippu pois (peruutus) → ei yhdisty
+    expect(S.tmSisainenYhdista({ id: 'p' }, { vastuuhenkilo: { uid: 'u' } }, { henkilokuntaKirjoitus: false })).toEqual({ id: 'p', vastuuhenkilo: { uid: 'u' } });   // PR 2d: lippuriippuvuus poistettu → A-kenttä luetaan sisainen:sta
   });
   it('pelaajan d3_itsearvio yhdistyy pisteet[dim].pelaaja:ksi; muut D3-osat sisainen:stä', () => {
     const m = S.tmSisainenYhdista({ id: 'p', d3_itsearvio: { pisteet: { focus: 5 }, pvm: '2026-10-20' } }, { d3_viimeisin: { pisteet: { focus: { valmentaja: 3 } }, lahteet: ['valmentaja'] } });
@@ -86,10 +86,11 @@ describe('tmSisainenKirjoita', () => {
     const d2 = db({ batchVirhe: Object.assign(new Error('denied'), { code: 'permission-denied' }) }); await expect(S.tmSisainenKirjoita(d2, 'sjk', 'p1', { d3_taso: 2, nimi: 'X' })).rejects.toThrow('denied'); expect(d2.ops).toEqual([]);
     expect(w).not.toHaveBeenCalled(); w.mockRestore();
   });
-  it('varapolku säilyy vain tuleville dual-write-ryhmille (ei vainSisainen): permission-denied → vain vanha kenttä + console.warn', async () => {
+  it('PR 2d: myös tulevien (ei vainSisainen) ryhmien A-kenttä VAIN sisainen:iin (pelaajaIlmanA aina); permission-denied heitetään — ei varapolkua vanhaan kenttään', async () => {
     const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const d = db({ batchVirhe: Object.assign(new Error('denied'), { code: 'permission-denied' }) }); const r = await S.tmSisainenKirjoita(d, 'sjk', 'p1', { a_kentta: 2 }, { ryhmat: MUU_RYHMA });
-    expect(r).toMatchObject({ ok: true, sisainenOhitettu: true }); expect(d.ops.map((o) => o[1])).toEqual(['seurat/sjk/pelaajat/p1']); expect(w).toHaveBeenCalled(); w.mockRestore();
+    const ok = db({}); await S.tmSisainenKirjoita(ok, 'sjk', 'p1', { a_kentta: 2 }, { ryhmat: MUU_RYHMA }); expect(ok.ops.map((o) => o[1])).toEqual(['seurat/sjk/pelaajat/p1/sisainen/tiedot']);
+    const d = db({ sisainenSetVirhe: Object.assign(new Error('denied'), { code: 'permission-denied' }) });
+    await expect(S.tmSisainenKirjoita(d, 'sjk', 'p1', { a_kentta: 2 }, { ryhmat: MUU_RYHMA })).rejects.toThrow('denied'); expect(d.ops.map((o) => o[1])).not.toContain('seurat/sjk/pelaajat/p1'); expect(w).not.toHaveBeenCalled(); w.mockRestore();
   });
   it('muu virhe heitetään eteenpäin; ilman A-kenttiä vain pelaajadokumentti', async () => {
     await expect(S.tmSisainenKirjoita(db({ batchVirhe: new Error('verkko') }), 's', 'p', { d3_taso: 1, nimi: 'X' })).rejects.toThrow('verkko');

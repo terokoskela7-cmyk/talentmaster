@@ -25,7 +25,7 @@ const MV = require('../lib/tm_mediaviesti.js'), KP = require('../lib/tm_klippi_p
 /* Klippipolun lib-avaimet, joille sv puuttuu (docs/i18n/sv_kaannoserae_36.json → Gemini; 15.10.2026 erät 51+52 vietiin). Elävä: sv saapui → poista rivi (testi alla kaatuu muuten). */
 export const SV_ODOTTAA = [];   // A (18.10.2026): klippikortin painike + Uusi-merkki saapuivat erässä 68 ja vietiin (scripts/i18n_vie_sv_era68.cjs) · aiemmin erä 42: ryhmäklippi + oma videoklippi -varaus
 /* Valmentajan pelaajanäkymän Masterin fi-tekstiavaimet (masterT), joille sv puuttuu Master-kartasta (docs/i18n/sv_kaannoserae_37.json → Gemini). Elävä: sv saapui → poista rivi. */
-export const MASTER_SV_ODOTTAA = ['ei asetettu'];   // lib/tm_vastuuhenkilo.js t('ei asetettu') masterT:n kautta (IDP-kortin Vastuuhenkilö-rivi)
+export const MASTER_SV_ODOTTAA = [];   // 'ei asetettu' sai sv:n Masteriin (fix/vastuuhenkilo-sv-avain) → pois listalta
 /* K1c (erä 78): lib-tekstit joiden sv odottaa Geminiä ja jotka näkyvät valmentajan pelaajanäkymässä; poista kun sv saapuu (LIB_SV_ODOTTAA: tests/i18n_sv_era_lib.test.js) */
 const LIB_FI_ODOTTAA = require('./helpers/k1d_korvaukset.cjs').era80FiOdottaa();   // erä 78 vietiin 20.10.; K1d: erän 80 uudet lib-tekstit odottavat Geminiä
 const MA_SV = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv;
@@ -180,6 +180,8 @@ async function pelaajanakymaPolku(selain, kieli) {
     + 'masterVaihdaKieli("' + kieli + '");window._ktLippu=true;';
   await p.goto('file://' + sivu(lue('TalentMaster_Master_v16.html'), JUURI, { rooli: 'valmentaja', pohjat: false, kutsu: alku })); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 20000 });
   expect(await p.locator('#probe-out').textContent()).toBe('ok');
+  await p.evaluate(() => window.tmKieliPaketit.valmiit());   // AJOITUSRIIPPUMATON: masterVaihdaKieli lataa sv-paketit asynkronisesti (TM_TT_SV viimeisenä) → odota ENNEN renderiä; ilman tätä konseptinimi jäi ajoittain suomeksi (CI 20.11.)
+  expect(await p.evaluate(() => window.tmKieliPaketit.valmis()), 'kielipaketit ladattu ennen renderiä').toBe(true);
   for (const pid of ['p1', 'p2', 'p3', 'p4']) {
     for (const v of ['tanaan', 'polku']) {
       await p.evaluate(([pid, v]) => { _demo = true; _ktS.pid = pid; _ktS.valilehti = v; _ktS.ladattu = { polku: v === 'polku', naytto: false }; _ktNayta(); }, [pid, v]); await odota(p, 120);

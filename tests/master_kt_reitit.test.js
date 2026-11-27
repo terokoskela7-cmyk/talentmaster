@@ -23,7 +23,7 @@ function master(o) {
     console: { warn() {}, log() {} }, Promise, Boolean, _demo: !!o.demo, _seuraId: o.seura === undefined ? 'sjk' : o.seura, TM_KT_SIVU: KS, location: { href: '' },
     _mJjLataaLiput: () => (o.liputVirhe ? Promise.reject(new Error('x')) : Promise.resolve({ kehitystyopoyta_v2: o.lippuLuettuArvo === true })),
     renderDev: (pid, vanha) => kutsut.push(['renderDev', pid, vanha]), _avaaD3Arvio: (p) => kutsut.push(['d3', p]), _avaaPelaajaraportti: (p) => kutsut.push(['raportti', p]),
-    _ktKaynnista: () => Promise.resolve(), _ktAvaa: () => false, _ktLippu: false, _ktLippuLuettu: true };
+    _ktKaynnista: () => Promise.resolve(), _ktAvaa: () => false, _ktLippu: false, _ktLippuLuettu: true, _mListaOnRivi: () => false, _pelaajatData: [] };
   ctx.window = ctx; ctx._tmKtSivu = o.lippu; ctx._mDevVanha = o.vanha; ctx._kutsut = kutsut; vm.createContext(ctx);
   vm.runInContext(NIMET.filter((n) => n !== 'pickPlayer').map((n) => pura(MA, 'function ' + n + '(')).join('\n') + '\n' + pura(MA, 'function pickPlayer(') + '\nthis._f={' + NIMET.join(',') + '};', ctx);
   return ctx;
@@ -86,7 +86,7 @@ describe('Master · renderDev ei piirrä vanhaa pelaajanäkymää passiivisesti'
     const ctx = { console: { warn() {} }, Promise, _demo: false, _seuraId: 'sjk', _joukkue: 'U13', _devFetchKey: null, _activePelaaja: 'p1', _pelaajatData: [{ id: 'p1' }, { id: 'p2' }], TM_KT_SIVU: KS, _tmKtSivu: o.lippu, window: null,
       document: { getElementById: (id) => (id === 'devOtsikko' ? h : el(id)), querySelector: () => v }, masterT: (x) => x, _mJjLataaLiput: () => Promise.resolve({ kehitystyopoyta_v2: o.lippuLuettuArvo === true }),
       _renderPlayerPickerFirestore: () => k.push('lista'), _renderPinfoFirestore: () => k.push('pinfo'), _renderTimeline: (x) => k.push('aikajana:' + (x ? 'p' : 'tyhja')), _renderNarrative: () => k.push('narratiivi'),
-      _renderPlayerPicker: () => k.push('demo-lista'), _renderPinfo: () => {}, DEMO: { pelaajat: { teemu: {} } }, _lataaPelaajat: () => {} };
+      _renderPlayerPicker: () => k.push('demo-lista'), _renderPinfo: () => {}, DEMO: { pelaajat: { teemu: {} } }, _lataaPelaajat: () => {}, _mListaOnRivi: () => false };
     ctx.window = ctx; vm.createContext(ctx); vm.runInContext(pura(MA, 'function _mKtSivuTieto(') + pura(MA, 'function _mKtSivuPaatos(') + pura(MA, 'function _mDevLista(') + pura(MA, 'function renderDev(') + '\nthis._f={renderDev,_mDevLista};', ctx);
     return { ctx, k, h, v };
   }

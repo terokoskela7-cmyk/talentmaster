@@ -19,7 +19,7 @@ function luoYmparisto(src, o) {
   const ctx = {
     console, Date, JSON, Math, Promise, Object, Array, String, Number, isNaN, parseInt, setTimeout, clearTimeout,
     _seuraId: o.seuraId || 'demo-fc', _pelaajat: o.pelaajat || [], _kalenteriTapahtumat: o.kalenteri || [], _currentWs: 'koti', _vpJoukkueDocs: o.joukkueDocs || [], _joukkueNimet: o.joukkueNimet || {},
-    vpT: (x) => x, _jsvEsc: (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+    vpT: (x) => x, _vpKonseptiNimiNimella: (x) => x /* erä 102: Kodin/Joukkueiden konseptinimi sv-sidecarista; fi-tilassa identtinen */, _jsvEsc: (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     toast(m, t) { (o.toastit = o.toastit || []).push([m, t]); }, setWs() {}, renderVpAloitaKortti() { el('vpAloitaKortti').innerHTML = '<AOPAS/>'; },
     // klassisen Kodin riippuvuudet: kiinteät tynkät → vertailu on rakenteellinen (lippu pois → täsmälleen sama HTML kuin ennen)
     _vpSignaaliKortit: () => ({ kortit: [{ ik: 'I', sev: 'var(--teal)', txt: 'T1', cta: 'C1', fn: 'F1()' }, { ik: 'J', sev: 'var(--amber)', txt: 'T2', cta: 'C2', fn: 'F2()' }], tuotu: 10, kutsuttu: 6, odottaa: 4, annettu: 2, ilman: 8, konv: 33 }),
@@ -40,7 +40,7 @@ function luoYmparisto(src, o) {
   ctx._tapahtumat = o.tapahtumat || []; ctx._vpViestit = { rivit: o.viestit || [] }; ctx.TM_VP_NAVI = { tmNaviPikatoiminnot: () => [{ teksti: 'Uusi tapahtuma', fn: 'x' }] };   // PR D: Koti kulkee lib/tm_vp_koti.js:n kautta
   ctx.TM_ALOITA_JAKSO = require('../../lib/tm_aloita_jakso.js');
   ctx.TM_KAYTTOASTE = { tmKayttoasteLueKoosteet: async () => { if (o.lukuVirhe) throw new Error('permission-denied'); return o.koosteet || []; } };
-  vm.createContext(ctx);
+  vm.createContext(ctx); require('./vp_kilpatila.cjs').alusta(ctx);
   const nimet = ['_vpPaivitaToimenpideLaskuri', 'renderKotiVP', '_vpJaksoVk', '_vpSeuraavaKatselmus', '_vpKatselmusPv', '_vpPulssiLataa', '_renderKotiPulssi'].filter((n) => src.indexOf('function ' + n + '(') >= 0);
   vm.runInContext(nimet.map((n) => funktio(src, n)).join('\n'), ctx);
   const ikkunaFn = (nimi) => { const a = src.indexOf('window.' + nimi + ' = '); if (a < 0) return ''; let syv = 0, k = src.indexOf('{', src.indexOf(')', a)), l = -1; for (; k < src.length; k++) { if (src[k] === '{') syv++; else if (src[k] === '}') { syv--; if (syv === 0) { l = k + 1; break; } } } return src.slice(a, l) + ';'; };

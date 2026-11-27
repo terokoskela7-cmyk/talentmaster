@@ -8,11 +8,13 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const req = createRequire(import.meta.url);
 const PM = req(join(ROOT, 'lib', 'tm_paikkamerkki.js')), TJ = req(join(ROOT, 'lib', 'tm_joukkue.js')), TS = req(join(ROOT, 'lib', 'tm_seura_tuonti.js'));
-const S = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+const S = lueKuori('TalentMaster_Seura.html');
 
 function pura(tunniste) {
   const alku = S.indexOf(tunniste); if (alku < 0) throw new Error('ei löydy: ' + tunniste);
@@ -46,7 +48,7 @@ function seura(pelaajat, opts) {
   };
   ctx.tmHT = (s) => s; vm.createContext(ctx);
   const osat = ['function _rekBaseUrl() {', 'function avaaRekisteriModal() {', 'function avaaRekisteriModalPelaajalle(', 'function luoRekisteriLinkki() {', 'async function lahetaRekisteriSahkoposti() {',
-    'async function _tmKirjaaTuoja(', 'function _rekDuplikaatti(', 'function _suostumusAnnettu(', 'function _suostumusPvm(', 'function _tkKieli(', 'function _tk('].filter((o) => S.indexOf(o) >= 0);
+    'async function _tmKirjaaTuoja(', 'function _rekDuplikaatti(', 'function _suostumusPeruttu(', 'function _peruttuPvm(', 'function _suostumusAnnettu(', 'function _suostumusPvm(', 'function _tkKieli(', 'function _tk('].filter((o) => S.indexOf(o) >= 0);
   vm.runInContext(osat.map(pura).join('\n') + '\nthis.uusi=avaaRekisteriModal; this.vanha=avaaRekisteriModalPelaajalle; this.laheta=lahetaRekisteriSahkoposti;', ctx);
   const kentat = (m) => Object.keys(m).forEach((k) => { E(k).value = m[k]; });
   const D = (polku) => f.D.get(polku);

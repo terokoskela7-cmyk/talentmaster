@@ -50,6 +50,8 @@ const APP_GLOBALS = {
   lajitteleJoukkueetIkaluokittain: 'readonly',
   // lib/tm_pvm.js
   tmPaivaIso: 'readonly', tmSolustaPvm: 'readonly',
+  // lib/tm_pelaajat_esilataus.js (Seura: pelaajaluvun jako)
+  tmPelaajatEsiTalleta: 'readonly', tmPelaajatEsiTyhjenna: 'readonly', tmPelaajatEsiOta: 'readonly', tmLuePelaajatSnap: 'readonly', tmLuePelaajatKpi: 'readonly',
   // muut jaetut libit / globaalit
   // lib/tm_henkilosto_i18n.js (Seura, ADAR, Pelihavainto: tmHT-reititin) + lib/tm_adar_tekstit.js (ADAR-ulottuvuustekstit) — sv-läpiajo PR 4
   tmHT: 'readonly', tmHTL: 'readonly', TM_HENKILOSTO_I18N: 'readonly', TM_ADAR_TEKSTIT: 'readonly', tmLibT: 'readonly',
@@ -59,8 +61,8 @@ const APP_GLOBALS = {
   tmKalenteriOccurrences: 'readonly', tmToistuvuusPaiva: 'readonly', tmSarjaId: 'readonly', tmCadenceNimi: 'readonly',
   // lib/tm_aani.js (puhdas nauhoitin) + lib/tm_reflektio.js (jaettu äänireflektio: Master + VP)
   tmAani: 'readonly', tmReflektio: 'readonly',
-  // lib/tm_aktiivisuus.js (toimihenkilön kirjautumisaikaleima — 6 toimihenkilöappia)
-  tmAktiivisuus: 'readonly', tmMerkitseKirjautuminen: 'readonly',
+  // lib/tm_aktiivisuus.js (toimihenkilön kirjautumisaikaleiman LUKU: aikaMs, paiviaKirjautumisesta)
+  tmAktiivisuus: 'readonly',
   // lib/tm_infografiikka.js (jaetut raportointikomponentit — Oura × KISS)
   TM_INFO: 'readonly',
   // lib/tm_havainto_kaavio.js (pelihavainto ↔ taktiikkataulu -linkki, jälkirikastus)
@@ -155,6 +157,17 @@ module.exports = [
       ecmaVersion: 2022,
       sourceType: 'commonjs',
       globals: { ...globals.node, ...COMMON },
+    },
+    rules: { 'no-undef': 'error' },
+  },
+  // Kuorista siirretty selainkoodi (seura/*.js, rivikattojen purku): tavallisia <script src> -skriptejä samassa
+  // globaalissa näkymässä kuin kuoren inline-koodi → samat säännöt kuin HTML-lohkoille.
+  {
+    files: ['seura/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: COMMON,
     },
     rules: { 'no-undef': 'error' },
   },

@@ -16,10 +16,12 @@ import { fileURLToPath } from 'url';
 import { dirname, join, relative } from 'path';
 import vm from 'vm';
 import { PEL_APU } from './helpers/pelaaja_t.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (f) => readFileSync(join(juuri, f), 'utf8');
+const lue = (f) => lueKuori(f);
 const PHV = require('../lib/tm_phv_tila.js');
 const MIG = require('../scripts/migrate_phv_sanasto.js');
 

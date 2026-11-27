@@ -9,12 +9,14 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
 const A = require_(join(ROOT, 'functions', 'auditloki.js'));
 const NIMET = require_(join(ROOT, 'lib', 'tm_audit_nimet.js'));
-const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
+const CF = lueFunctionsLahde(ROOT);   // index.js + siirtomoduulit (F2: vahvistaSuostumus → suostumus_vahvistus.js)
 const ADMIN = readFileSync(join(ROOT, 'TalentMaster_Admin.html'), 'utf8');
 
 /* ── Firestore-tynkä: audit-kokoelma muistissa ── */

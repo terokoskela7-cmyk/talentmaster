@@ -9,10 +9,12 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
-const SEURA = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+const SEURA = lueKuori('TalentMaster_Seura.html');
 const SK = require_('../functions/suostumuskortit.js');
 const pura = (t) => { const a = SEURA.indexOf(t); if (a < 0) throw new Error(t); let d = 0; for (let j = SEURA.indexOf(') {', a) + 2; j < SEURA.length; j++) { if (SEURA[j] === '{') d++; else if (SEURA[j] === '}') { d--; if (!d) return SEURA.slice(a, j + 1); } } throw new Error(t); };
 
@@ -50,8 +52,8 @@ function ymp({ pelaajat, vastaus = 'jatka', estetty = false, palvelin }) {
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
     + 'var KORTTI_ERA = ' + SEURA.match(/const KORTTI_ERA = (\d+);/)[1] + ';\n'
-    + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {',
-      'function _pinVirheTeksti(e) {', 'function _tunnusKohde() {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {', 'function _suostumusLinkki(pelaajaId, kutsuId) {',
+    + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {',
+      'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _lkPelaaja(p) {', 'function _pinVirheTeksti(e) {', 'function _tunnusKohde() {', 'async function _taydennaKohde(k) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {', 'function _suostumusLinkki(pelaajaId, kutsuId) {',
       'function _pinKortitHtml(kortit) {', 'function _korttiIkkuna(w, otsikko, teksti, napit) {', 'function _korttiVahvistus(w, otsikko, teksti) {',
       'async function tulostaKortit() {'].map(pura).join('\n') + '\nthis.tulosta = tulostaKortit;', ctx);
   return { ctx, loki, w };

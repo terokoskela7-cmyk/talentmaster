@@ -69,6 +69,7 @@ const https = require('https');
 const lahetetyt = [];
 https.request = (opts, cb) => ({ on() {}, write(p) { lahetetyt.push(JSON.parse(p)); }, end() { cb({ statusCode: 202, on(ev, f) { if (ev === 'end') f(); } }); } });
 process.env.SENDGRID_API_KEY = 'SG.testikey123';
+process.env.GCLOUD_PROJECT = 'talentmaster-pilot';   // projekti 06 P6: tuotantoprojekti → sähköpostiesto ei estä (testi tarkistaa lähtevän viestin)
 
 const SIVU = 'https://talentmasterid.com/TalentMaster_Rekisterointi_Suostumus.html';
 test('lahetaRekisteriKutsu: selaimen seura=Väärä Seura ohitetaan → viestissä, fromNamessa ja linkissä seuran oikea nimi', async () => {

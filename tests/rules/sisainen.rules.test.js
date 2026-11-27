@@ -40,7 +40,7 @@ const staff = (uid, rooli, seuraId) => env.authenticatedContext(uid, { rooli, se
 const valm12 = () => staff('valm-12', 'valmentaja', A), valm14 = () => staff('valm-14', 'valmentaja', A), vp = () => staff('vp-a', 'vp', A), sihteeri = () => staff('sih-a', 'seurasihteeri', A);
 const valmB = () => staff('valm-b', 'valmentaja', B), sa = () => env.authenticatedContext('sa-1', { rooli: 'super_admin' }).firestore();
 const pelaaja = (pid) => env.authenticatedContext('pel_' + A + '_' + (pid || PID), { rooli: 'pelaaja', pelaajaSeuraId: A, pelaajaId: pid || PID, firebase: { sign_in_provider: 'custom' } }).firestore();
-const huoltaja = () => env.authenticatedContext('huolt-1', { email: 'huoltaja@test.fi' }).firestore();
+const huoltaja = () => env.authenticatedContext('huolt-1', { email: 'huoltaja@test.fi', email_verified: true }).firestore();
 const sis = (db, pid) => doc(db, 'seurat', A, 'pelaajat', pid || PID, 'sisainen', 'tiedot');
 const pel = (db, pid) => doc(db, 'seurat', A, 'pelaajat', pid || PID);
 const IT = (pisteet, extra) => Object.assign({ d3_itsearvio: Object.assign({ pisteet: pisteet || { inner_drive: 4, focus: 2 }, pvm: '2026-10-22' }, extra || {}) });
@@ -114,11 +114,12 @@ describe('v3.66 · pelaajan d3_itsearvio (B) ja siirtymäajan vanhat D3-avaimet'
   it('v3.67: huoltaja EI kirjoita mitään D3:a (vanhat kentät eikä d3_itsearvio) lapsen dokumenttiin', async () => {
     for (const k of [{ d3_viimeisin: { pisteet: {} } }, { d3_taso: 4 }, { d3_varmuus: 'itsearvio' }, IT()]) await assertFails(updateDoc(pel(huoltaja()), k));
   });
-  it('v3.67: valmentaja ja VP kirjoittavat D3:n sisainen/tiedot:iin; toisen seuran valmentaja/VP ei; pelaaja ei; henkilökunnan pelaajadokumentti-kirjoitus ei muutu (stale-asiakkaat)', async () => {
+  it('v3.67: valmentaja ja VP kirjoittavat D3:n sisainen/tiedot:iin; toisen seuran valmentaja/VP ei; pelaaja ei; v3.79 (PR 2e): henkilökunnan vanha pelaajadokumentti-polku hylätään', async () => {
     const d3 = { d3_viimeisin: { pisteet: { focus: { valmentaja: 3, avg: 3 } }, pvm: '2026-10-23', lahteet: ['valmentaja'] }, d3_taso: 3, d3_pvm: '2026-10-23', d3_varmuus: 'valmentaja', seuraId: A };
     await assertSucceeds(setDoc(sis(valm12()), d3, { merge: true })); await assertSucceeds(setDoc(sis(vp()), Object.assign({}, d3, { d3_vp_pvm: '2026-10-23' }), { merge: true }));
     await assertFails(setDoc(sis(valmB()), d3, { merge: true })); await assertFails(setDoc(sis(staff('vp-b', 'vp', B)), d3, { merge: true })); await assertFails(setDoc(sis(pelaaja()), d3, { merge: true }));
-    await assertSucceeds(setDoc(pel(valm12()), { d3_viimeisin: { pisteet: {} }, d3_taso: 3 }, { merge: true }));   // ei kiristetä (henkilökunnan vanha polku); siivous poistaa datan, koodi ei enää kirjoita sinne
+    await assertFails(setDoc(pel(valm12()), { d3_viimeisin: { pisteet: {} }, d3_taso: 3 }, { merge: true }));   // v3.79: D3 (A) ei enää pelaajadokumenttiin kenellekään
+    await assertFails(setDoc(pel(vp()), { d3_taso: 3 }, { merge: true }));
   });
   it('pelaaja lukee oman d3_itsearvio:nsa pelaajadokumentista, mutta ei sisainen/tiedot-dokumenttia', async () => {
     await env.withSecurityRulesDisabled(async (c) => { await setDoc(pel(c.firestore()), IT(), { merge: true }); });
@@ -234,6 +235,11 @@ describe('v3.70 · S4-ryhmät + tuojaUid sisainen/tiedot:ssa', () => {
     await assertFails(deleteDoc(sis(tv()))); await assertFails(setDoc(sis(tv()), Object.assign({ seuraId: B }, KYP_TV)));   // seuraId pakotettu == sid
   });
   it('toisen seuran testivastaava ei kirjoita eikä lue', async () => { const tvB = staff('tv-b', 'testivastaava', B); await assertFails(kirj(tvB, KYP_TV)); await assertFails(getDoc(sis(tvB))); });
+  it('v3.76 (PR 2d): testivastaava kirjoittaa myös biologinenIka_viimeisin:n (koko dokumentti; Testaus_v9 kasvumittaus samassa batchissa) — yksin ja kypsyysavainten kanssa; muut avaimet edelleen hylätään', async () => {
+    const BIO = { biologinenIka_viimeisin: { phv_tila_koodi: 'LAH', phv_ika: 13.1, maturity_offset: -0.4, mittauspaiva: '2026-11-04' } };
+    await assertSucceeds(kirj(tv(), Object.assign({}, KYP_TV, BIO), 'p-bio')); await assertSucceeds(kirj(tv(), BIO));
+    await assertFails(kirj(tv(), Object.assign({}, BIO, { talenttiTaso: 'perus' }))); await assertFails(kirj(staff('tv-b', 'testivastaava', B), BIO));
+  });
   it('JOHTO (vp, utj, seurasihteeri): tuojaUid + seuraId/paivitetty onnistuu; seurasihteeri: tuojaUid + mikä tahansa muu avain ei; fysio/testivastaava/toisen seuran johto tuojaUid:ia ei', async () => {
     let n = 0; for (const db of [vp(), utj(), sihteeri()]) { n++; await assertSucceeds(kirj(db, { tuojaUid: 'uid-x' + n }, 'p-uusi2')); await assertSucceeds(kirj(db, { tuojaUid: 'uid-y' + n })); await assertSucceeds(updateDoc(sis(db), { tuojaUid: 'uid-z' + n, seuraId: A })); }   // arvo muuttuu joka kerta: no-op-merge ei oikeuta (hasAny)
     await assertFails(kirj(sihteeri(), { tuojaUid: 'uid-q', talenttiTaso: 'perus' })); await assertFails(kirj(sihteeri(), { tuojaUid: 'uid-q2', d3_taso: 1 }));   // vp/utj kirjoittavat kaiken jo ennestään (onOmanJoukkueenValmentaja) → rajaus koskee vain seurasihteeriä

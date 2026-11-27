@@ -10,10 +10,14 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
-const lue = (n) => readFileSync(join(ROOT, n), 'utf8');
+const lue = (n) => lueKuori(n);
 const SK = require_('../functions/suostumuskortit.js');
 class HttpsError extends Error { constructor(c, m, d) { super(m); this.code = c; this.details = d; } }
 const FieldValue = { serverTimestamp: () => 'TS' };
@@ -107,8 +111,8 @@ function seuraYmp(pelaajat, palvelin) {
   ctx.open = ctx.window.open;
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
-    + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {',
-      'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
+    + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _pinVirheTeksti(e) {',
+      'function _tunnusKohde() {', 'async function _taydennaKohde(k) {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
       'function _suostumusLinkki(pelaajaId, kutsuId) {', 'function _pinKortitHtml(kortit) {', 'async function tulostaKortit() {'].map(pura).join('\n')
     + '\nthis.linkki = _suostumusLinkki; this.html = _pinKortitHtml; this.tulosta = tulostaKortit;', ctx);
   return { ctx, loki };
@@ -149,19 +153,19 @@ describe('Seura · QR-linkki ja kortit (ajettu)', () => {
 
 /* vahvistaSuostumus: väärä sähköposti hylätään syykoodilla, oikea tallentaa (lahde qr_kortti) + PIN syntyy. */
 function vahvista(alku) {
-  const CF = lue('functions/index.js');
-  const i = CF.indexOf('exports.vahvistaSuostumus = functions');
+  const CF = lueFunctionsLahde(ROOT);
   const f = fakeDb(alku);
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
   const ctx = {
     functions: ketju, exports: {}, db: f.db, console: { log() {}, warn() {}, error() {} }, String, Object, Array, JSON, Date, encodeURIComponent, parseFloat, isFinite,
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' }, Timestamp: { fromDate: (d) => d } } },
     auth: { generatePasswordResetLink: async () => 'r' }, haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
-    TM_BASE_URL: 'https://tm', sisainenLuku: require_('../functions/sisainen_luku.js'), tmSisainen: require_('../functions/tm_sisainen.js'), suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
-    pelaajapin: require_('../functions/pelaajapin.js'),
+    TM_BASE_URL: 'https://tm', sisainenLuku: require_('../functions/sisainen_luku.js'), tmSisainen: require_('../functions/tm_sisainen.js'), suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu, suostumusPeruminen: require_('../functions/suostumus_peruminen.js'),
+    IKA: require_('../functions/tm_pelaaja_ika.js'),   // 8–9 v -esto
+    pelaajapin: require_('../functions/pelaajapin.js'), laskutusEsto: require_('../functions/laskutus_esto.js'),   // L1c: oikea moduuli, pilottiseura (ei laskutus_asetuksia)
   };
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(CF.slice(i, CF.indexOf('\n  });', i) + 6), ctx);
+  vm.runInContext(_fnRunko(CF, 'vahvistaSuostumus'), ctx);
   const audit = () => [...f.D.entries()].filter(([k]) => k.startsWith('audit/')).map(([, v]) => v);
   return { f, fn: ctx.exports.vahvistaSuostumus, audit };
 }

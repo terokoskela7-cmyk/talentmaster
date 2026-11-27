@@ -6,6 +6,7 @@
    Ajo: node scripts/i18n_vie_sv_era67.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const I = require('./i18n_tranarchef_inventaario.cjs');
 const { sopii, lataaSv, q } = require('./i18n_vie_sv_era53_19.cjs');
@@ -15,7 +16,7 @@ const NIMET = { 'lib/tm_vp_i18n.js': 'TM_VP_I18N', 'lib/tm_henkilosto_i18n.js': 
 const UUSI = /tränarchef/i, LYHYT_OK = /^(TC|tränarchef)\b/i;
 
 function vie(opts) {
-  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [];
+  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => LL.lueTied(juuri, f), virheet = [], ohitettu = [];
   const P = JSON.parse(lue(PALAUTUS)).osiot, G = JSON.parse(lue(LAHETYS)).osiot, rivit = I.kerays(juuri), nyt = {};
   rivit.forEach((r) => { nyt[r.osio + '|' + r.avain] = r; });
   const tiedostot = {}; I.KARTAT.forEach(([osio, tied]) => { tiedostot[tied] = { osio, src: lue(tied).split('\n'), muutokset: [] }; });
@@ -61,7 +62,7 @@ function vie(opts) {
   }
   for (const [tied, t] of Object.entries(tiedostot)) if (t.muutokset.length) for (const m of t.muutokset) if (!t.uusi.includes(q(m.uusi))) virheet.push('verifiointi ' + tied + ' ' + m.avain + ' (literaali)');
   if (virheet.length) return { virheet, lisatty: 0, ohitettu, kirjoitettu: false };
-  if (opts.kirjoita) for (const [tied, t] of Object.entries(tiedostot)) if (t.muutokset.length) fs.writeFileSync(path.join(juuri, tied), t.uusi);
+  if (opts.kirjoita) for (const [tied, t] of Object.entries(tiedostot)) if (t.muutokset.length) LL.kt(juuri, tied, t.uusi);
   return { virheet, lisatty, ohitettu, kirjoitettu: !!(opts.kirjoita && lisatty) };
 }
 if (require.main === module) {

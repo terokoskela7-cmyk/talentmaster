@@ -9,10 +9,13 @@ import { dirname, join } from 'path';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { createRequire } from 'module';
+import { createRequire as _kuoriReq } from 'module';
+import LL from '../scripts/lang_lahde.cjs';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require_ = createRequire(import.meta.url);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (n) => readFileSync(join(ROOT, n), 'utf8');
+const lue = (n) => lueKuori(n);
 const LOMAKE = lue('TalentMaster_Rekisterointi_Suostumus.html');
 function pura(S, tunniste) {
   const alku = S.indexOf(tunniste);
@@ -38,7 +41,7 @@ describe('vartija · vammahistoria poistettu (GDPR 9 art.)', () => {
   });
   it('suostumuslomakkeella ei ole vammakorttia eikä -tekstiä (fi); tm_lang ei sisällä vamma-avaimia (fi/en/sv)', () => {
     expect(LOMAKE).not.toMatch(/Vammahistoria|Aiemmat vammat|textarea id="i_vam"|vain valmentajat nähtävissä/);
-    const lang = lue('lib/tm_lang.js');
+    const lang = LL.lue(ROOT);
     expect(lang).not.toMatch(/vammahist|i_vam|vammat_|skadehistorik|injury.?history/i);
   });
   it('poistunut piilosuostumus c7/ei_kaytossa ei ole enää lomakkeella', () => {
@@ -66,7 +69,7 @@ function lomake(arvot, ika) {
     window: {}, setTimeout: (f) => f(),
   };
   ctx.TM_SEURA_TUONTI = require_(new URL('../lib/tm_seura_tuonti.js', import.meta.url).pathname);   // 21.10.2026: kutsuhistorian tilateksti
-  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; ctx.kaytettavyysNakyy = ctx.kaytettavyysNakyy || function () { return false; }; vm.createContext(ctx);
   vm.runInContext('var _lahetysKaynnissa = false, _lahetettyOnnistuneesti = false;\n'
     + pura(LOMAKE, 'function val(id) {') + '\n' + pura(LOMAKE, 'function _ikaVuosina(d) {') + '\n' + pura(LOMAKE, 'function _naytaHuoltajakortti(age) {') + '\n'
     + 'var SYN_ALKUVUOSI = 1990;\n' + ['function _st(k, fi) {', 'function _synTt(k, fi) {', 'function _synVirheTeksti() {', 'function _synTila() {', 'function _synKorosta(paalla, teksti) {'].map((x) => pura(LOMAKE, x)).join('\n') + '\n'
@@ -132,8 +135,8 @@ async function seuraKortti(pelaaja, kutsut) {
     document: { getElementById: () => modal, createElement: () => modal, body: { appendChild() {} } },
   };
   ctx.TM_SEURA_TUONTI = require_(new URL('../lib/tm_seura_tuonti.js', import.meta.url).pathname);   // 21.10.2026: kutsuhistorian tilateksti
-  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(pura(S, 'function _suostumusAnnettu(p) {') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; ctx.kaytettavyysNakyy = ctx.kaytettavyysNakyy || function () { return false; }; vm.createContext(ctx);
+  vm.runInContext(['function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _lkPelaaja(p) {', 'function _lkAttr(estetty) {'].map((t) => pura(S, t)).join('\n') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
   await ctx.nayta('p1').catch(() => {});
   return modal.innerHTML;
 }

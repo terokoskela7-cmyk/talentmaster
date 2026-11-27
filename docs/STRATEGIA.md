@@ -186,6 +186,20 @@ Business Finland Tempo -hakemus (50–100 k€) · KIHU peer-reviewed artikkeli.
 - [ ] **Khamis-Roche -kertoimet** — katso "Seuraavat sprintit"
 - [ ] **Tyttöjen PHV** — katso "Tärkeät"
 - [ ] **Syntymäaika puuttuu 82 %:lta pelaajista** (2.10.2026: 501 / 612 pelaajaa kymmenessä seurassa ilman `syntymaaika`-Timestampia; 111 kpl kaikki UTC-keskiyö) → adoptio / täydennys tuonnissa
+- [ ] **Backlog (Tero 26.11.2026): VP saa ilmoituksen, kun valmentaja tekee itsearvion.** Vain kirjaus — **ei toteutusta**, Vaihe 0 ennen koodia. Lähtötilanne koodista: itsearvio tallentuu `seurat/{sid}/harjoitusarvioinnit/{id}` (`lib/tm_harjoitusarviointi.js`, `arviointitapa:'itsearvio'`, `valmentajaUid`); VP:n notifikaatiot luetaan `seurat/{sid}/kayttajat/{uid}/notifikaatiot` (VP_v25 `onSnapshot`; Rules: luku oma uid, `create` vain SA/CF) — kirjoittaja on siis jo palvelin, **Rules ennallaan**. Malli: `notifReviewEraantyy` (`functions/index.js`, `tyyppi`, `linkki:{nakyma,…}`, `luotu`, `luettu:false`, dedupe lukemattomista).
+  - **Sisältö (lukittu):** vain "<valmentaja> teki itsearvion · joukkue · pvm" + linkki arviodokumenttiin. **Reflektion tekstiä EI ilmoitukseen** (CLAUDE.md §4: valmentajan reflektiot ovat yksityisiä; reflektio näkyy johdolle vain arviodokumentissa). Rakenteiset kentät (`valmentaja`, `joukkue`, `pvm`), ei valmista fi-lausetta → selain kääntää.
+  - **Kanava (suunta):** palvelimen trigger (`onCreate` `harjoitusarvioinnit/{id}`, suodatus `arviointitapa=='itsearvio'`) kirjoittaa VP:n notifikaatioon — ei selaimesta. Idempotentti kiinteä doc-ID (`itsearvio_{arvioId}`), jotta trigger-uudelleenyritys ei tuplaa.
+  - **Avoimet kysymykset Vaihe 0:aa varten:**
+    1. Kenelle: kaikille seuran VP:ille vai myös UTJ:lle ja seurasihteerille? (`rooli=='vp'`-haku kuten `notifReviewEraantyy`, vai `onJohtoRooli`-joukko?)
+    2. Valmentajan oma valinta (opt-in/out) vai aina päällä? Jos aina: kerrotaanko valmentajalle ennen käyttöönottoa (luottamus: itsearvio on kehittymistyökalu, ei valvonta)?
+    3. Kooste vs. jokainen erikseen: yksi ilmoitus per arvio, vai viikkokooste ("3 valmentajaa teki itsearvion")? Seuran koko / kohina?
+    4. Joukkueeton valmentaja ja usean joukkueen valmentaja: mikä joukkue näytetään?
+    5. Muokkaus/poisto: päivittyykö ilmoitus, jos arviota muokataan? (Oletus: ei — vain luonti.)
+    6. Linkin kohde: VP_v25:ssä arviodokumentti vai valmentajan kehityskooste? Kuka VP:stä saa avata (VP-periaate: reflektio yksityinen)?
+    7. GDPR: ilmoitus on henkilötietoa valmentajasta (työnantajan seurantaa?) — Teron linjaus ennen toteutusta.
+    8. Rules/indeksit: ei muutosta oletettu; vahvista Vaihe 0:ssa (ei uutta Rules-versiota).
+  - **sv-tekstit:** PM kirjoittaa (CLAUDE.md §0). Code kokoaa fi-avaimet sv-erätiedostoon `sv: ""`.
+  - Kaista toteutukselle: Teron (`functions/`).
 
 ### Seuraavat sprintit
 - [ ] HH-testit Excel-kierto — testaa KPV:llä end-to-end

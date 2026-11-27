@@ -72,6 +72,7 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_taito_nimi.js') !== -1) return true;   // sv-aukot P7 kohta 8: taidon nimi pelaajan kielellä   // K1d: aikajanan tekstit käännösavaimilla (siirretty tm_idp.js:stä)
   if (url.indexOf('/lib/tm_koti_luvut.js') !== -1 || url.indexOf('/lib/tm_normisto.js') !== -1 || url.indexOf('/lib/tm_testipaiva.js') !== -1 || url.indexOf('/lib/tm_joukkuesaanto.js') !== -1 || url.indexOf('/lib/tm_tekniikka.js') !== -1 || url.indexOf('/lib/tm_fyysinen.js') !== -1) return true;   // PR 4 (K14): harjoitelogiikan kohdevalinta
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;   // i18n V0 — käännöstaulukko offline-cacheen
+  if (url.indexOf('/lib/tm_lang_sv.js') !== -1 || url.indexOf('/lib/tm_lang_en.js') !== -1) return true;   // erä (a): kielipaketit (tm_lang.js:stä erotetut sv/en) offline-cacheen
   if (url.indexOf('/lib/tm_ennatykset.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
   if (url.indexOf('/lib/tm_merkki_nakyma.js') !== -1) return true;   // palaute-näkyvyys 0a: merkkisääntö
   if (url.indexOf('/lib/tm_kalenteri_ilmoitus.js') !== -1) return true;
@@ -89,6 +90,7 @@ function onAllowlist(url) {
   if (/\/lib\/tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta|viikkokatsaus)\.js/.test(url)) return true;   // K1: Kenttä-näkymän libit (versioituja)
   if (url.indexOf('/lib/tm_reitin_valinta.js') !== -1) return true;   // K3: pelaaja valitsee seuraavan reitin (versioitu)
   if (url.indexOf('/assets/fonts/archivo-latin-wdth-normal.woff2') !== -1) return true;   // D11: Archivo omalta palvelimelta (ei Google Fonts)
+  if (/\/assets\/fonts\/(cormorant-garamond|dm-sans|dm-mono|barlow-condensed)-latin-[a-z0-9-]+\.woff2/.test(url)) return true;   // fontit omalta palvelimelta (GDPR) — offline-avaus
   // Kaavio erä D1: konseptin piirros pelaajan kortilla. Inline-SVG, ei ulkoisia origineja →
   // toimii offline kun libit ovat cachessa (itse spec tulee Firestoresta ja vaatii verkon).
   if (/\/lib\/tm_kaavio_(render|konsepti|policy)\.js/.test(url)) return true;
@@ -107,8 +109,6 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_teknistaktiset.js') !== -1) return true;   // 4b pelaajan cue-kerros
   if (url.indexOf('/docs/testit_indeksit.js') !== -1) return true;
   if (url.indexOf('gstatic.com/firebasejs/') !== -1) return true;         // Firebase SDK (versioitu URL)
-  if (url.indexOf('fonts.googleapis.com') !== -1) return true;            // Google Fonts CSS
-  if (url.indexOf('fonts.gstatic.com') !== -1) return true;               // Google Fonts -fontit
   return false;
 }
 

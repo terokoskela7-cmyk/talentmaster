@@ -68,7 +68,7 @@ describe('3 · suostumus eriteltynä', () => {
     Array.from({ length: 3 }, (_, i) => pel('o' + i, { suostumusTila: 'odottaa' })),
     [pel('a1', { suostumusTila: 'annettu' }), pel('a2', { suostumus: { annettu: true } })]);
   it('tuotu · kutsuttu · odottaa · annettu · ilman · ei kutsuttu', () => {
-    expect(L.suostumus(P)).toEqual({ tuotu: 13, kutsuttu: 5, odottaa: 3, annettu: 2, ilman: 11, eiKutsuttu: 8, konversio: 40 });
+    expect(L.suostumus(P)).toEqual({ tuotu: 13, kutsuttu: 5, odottaa: 3, annettu: 2, ilman: 11, eiKutsuttu: 8, konversio: 40, peruttu: 0 });   // B9: peruttu oma luku
   });
   it('puuttuva tila = tuotu (EI "odottaa"): vanha laskuri tuplasi kutsutut', () => {
     expect(L.suostumus([pel(1), pel(2)])).toMatchObject({ odottaa: 0, kutsuttu: 0, ilman: 2, konversio: null });
@@ -236,11 +236,17 @@ describe('8 · D134 ehdotusten rajaus', () => {
     expect(L.ehdotusEstetty(este, { signaali: 'tki_alhainen', joukkue: 'P15', teksti: 'P15 — 4 pelaajaa' })).toBe(false);   // data muuttui → uusi sallittu
     expect(L.ehdotusEstetty(este, { signaali: 'suunta_lasku', joukkue: 'P14', teksti: 'P14 — 3' })).toBe(true);             // tuore estää kuten ennen
   });
+  it('PR 2d: ehdotusEste normalisoi joukkueen kirjoitusasun (T12 / t12) → ei uutta varianttia; ehdotusEsteLisaa samalla avaimella', () => {
+    const este = L.ehdotusEste([{ signaali: 'tki_alhainen', joukkue: 'T12', teksti: 'x', luotu: new Date(NYT - 2 * PV).toISOString() }], NYT);
+    ['t12', ' T12 '].forEach((j) => expect(L.ehdotusEstetty(este, { signaali: 'tki_alhainen', joukkue: j, teksti: 'y' })).toBe(true));
+    expect(L.ehdotusEstetty(este, { signaali: 'tki_alhainen', joukkue: 'T13', teksti: 'y' })).toBe(false);
+    const e2 = {}; L.ehdotusEsteLisaa(e2, { signaali: 's', joukkue: 'SIBBO_VARGARNA P11' }); expect(L.ehdotusEstetty(e2, { signaali: 's', joukkue: 'sibbo-vargarna p11', teksti: 'z' })).toBe(true);
+  });
   it('VP: Kotiin 3 signaalia + "+N muuta", Tilanteeseen 5, vanhentuneet piiloon', () => {
     expect(VP).toContain('LU.rajaaEhdotukset(_sig.kortit, LU.KOTI_MAX_SIGNAALIT)');
     expect(VP).toContain('LU.rajaaEhdotukset(dedupKaikki, LU.TILANNE_MAX_EHDOTUKSET)');
     expect(VP).toContain('LU.ehdotusVanhentunut(t.luotu, nytMs)');
-    expect(VP).toContain('LU.ehdotusEste(avoimet, nytMs)');
+    expect(VP).not.toContain('LU.ehdotusEste(avoimet, nytMs)');   // projekti 03 PR C: VP ei generoi ehdotuksia (palvelin: functions/toimenpide_ehdotukset.js käyttää ehdotusEste)
   });
 });
 

@@ -4,12 +4,11 @@
  * Fixturet keksittyjä; KPV U13 -testipelaajat vain käsin (CLAUDE.md §0).
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync, mkdtempSync, writeFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { createRequire } from 'module';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { tmpdir } from 'os';
-import { spawn } from 'child_process';
+import { CHROME_KAYTOSSA, kaynnistaSelain, avaaSivu } from './helpers/chrome_ajo.mjs';
 import vm from 'vm';
 import { vi, beforeEach, afterEach, afterAll } from 'vitest';
 // Kiinteä kello (sama hetki kuin NYT; sivukoodi vm:ssä lukee Datea suoraan). Vain Date — setTimeout pysyy aitona.
@@ -150,21 +149,16 @@ describe('Kehys (lib/tm_kehitystyopoyta.js)', () => {
     expect(lue('lib/tm_kehitystyopoyta.js') + lue('lib/tm_hash_reititin.js')).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
     const h = KT.tmKtKehysHTML(x(), o); expect(h).not.toMatch(/Archivo|--font-k|font-family/);
   });
-  const CHROME = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((p) => existsSync(p));
-  ((CHROME && process.env.TM_CHROME_TESTS !== '0') ? it : it.skip)('headless-Chrome: laskettu tyyli — otsikkorivissä ja napeissa EI Archivoa, Kenttä-komponentissa on; 390 px: ei vaakavieritystä, otsikkorivi + ensisijainen nappi ensimmäisessä ruudussa', async () => {
+  /* Playwright (tests/helpers/chrome_ajo.mjs), ei `--dump-dom --virtual-time-budget` (jäi CI:ssä ajoittain ilman tulostetta); luku kun sivun skripti on asettanut data-ih:n. */
+  it.skipIf(!CHROME_KAYTOSSA)('headless-Chrome: laskettu tyyli — otsikkorivissä ja napeissa EI Archivoa, Kenttä-komponentissa on; 390 px: ei vaakavieritystä, otsikkorivi + ensisijainen nappi ensimmäisessä ruudussa', async () => {
     const kentta = require('../lib/tm_kentta.js').tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true });
     const html = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>:root{--bg:#111110;--card:#161614;--ink:#F2EFE6;--ink2:#C9C7BE;--ink3:#8C8B86;--teal:#28B090;--border:#333;--amber:#E0A040;--chalk:#999;--chalk2:#666}body{margin:0;font-family:Georgia}' + KT.tmKtCss() + require('../lib/tm_kentta.js').tmKenttaCss() + '</style>'
       + KT.tmKtKehysHTML(x({ tanaanHTML: KT.tmKtTanaanHTML({ pid: 'topias', kenttaHTML: kentta, rivitila: { teksti: 'Jakso käynnissä · vk 1/6' }, osat: [{ k: 'a', teksti: 'Laukaus vauhdista' }] }, o) }), o)
       + '<script>var q=function(s){var e=document.querySelector(s);return e?getComputedStyle(e).fontFamily:"EI_LÖYDY"};var b=document.body;'
       + 'b.setAttribute("data-ot",q(".kt-ot"));b.setAttribute("data-nimi",q(".kt-nimi"));b.setAttribute("data-nappi",q("[data-kt-ensisijainen]"));b.setAttribute("data-valilehti",q("[data-kt-valilehti]"));b.setAttribute("data-kt",q(".kt"));'
       + 'b.setAttribute("data-sw",document.documentElement.scrollWidth);b.setAttribute("data-iw",window.innerWidth);var r=document.querySelector("[data-kt-ensisijainen]").getBoundingClientRect();b.setAttribute("data-nappi-y",Math.round(r.bottom));b.setAttribute("data-ih",window.innerHeight);</script>';
-    const polku = join(mkdtempSync(join(tmpdir(), 'tm-v4a-')), 'kt.html'); writeFileSync(polku, html); const profiili = mkdtempSync(join(tmpdir(), 'tm-chrome-'));
-    const out = await new Promise((resolve, reject) => {
-      const lapsi = spawn(CHROME, ['--headless=new', '--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--user-data-dir=' + profiili, '--window-size=390,844', '--virtual-time-budget=2500', '--dump-dom', pathToFileURL(polku).href], { stdio: ['ignore', 'pipe', 'ignore'] });
-      let data = '', valmis = false; const lopeta = (fn) => { if (valmis) return; valmis = true; clearTimeout(ajastin); try { lapsi.kill('SIGKILL'); } catch (e) { /* päättynyt */ } fn(); };
-      const ajastin = setTimeout(() => lopeta(() => reject(new Error('Chrome ei tuottanut DOM:ia'))), 30000);
-      lapsi.stdout.setEncoding('utf8'); lapsi.stdout.on('data', (d) => { data += d; if (/<\/html>\s*$/i.test(data)) lopeta(() => resolve(data)); }); lapsi.on('close', () => lopeta(() => resolve(data)));
-    });
+    const selain = await kaynnistaSelain(); let out;
+    try { const s = await avaaSivu(selain, { html }, { viewport: { width: 390, height: 844 }, odota: 'body[data-ih]' }); out = await s.p.evaluate(() => document.body.outerHTML); await s.sulje(); } finally { await selain.close(); }
     const a = (n) => (new RegExp('data-' + n + '="([^"]*)"').exec(out) || [])[1];
     for (const n of ['ot', 'nimi', 'nappi', 'valilehti']) { expect(a(n), n).toBeTruthy(); expect(a(n), n).not.toMatch(/Archivo/i); expect(a(n), n).not.toBe('EI_LÖYDY'); }
     expect(a('nimi')).toMatch(/Cormorant/); expect(a('ot')).toMatch(/DM Sans/); expect(a('nappi')).toMatch(/DM Sans/); expect(a('kt')).toMatch(/Archivo/);

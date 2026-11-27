@@ -35,7 +35,8 @@ function aja(env) {
     }),
   };
   const ctx = { process: { env }, https, console: { log() {}, warn() {}, error() {} }, JSON, Promise, Buffer, String, Error,
-    rakennaSendGridPayload: require_SP().rakennaSendGridPayload };   // payload-moduuli (seuranta pois, 2.10.2026)
+    rakennaSendGridPayload: require_SP().rakennaSendGridPayload,   // payload-moduuli (seuranta pois, 2.10.2026)
+    sahkopostiEsto: createRequire(import.meta.url)('../functions/sahkoposti_esto.js') };   // projekti 06 P6: ilman projektimuuttujaa (CI-deploy) lähetys etenee
   vm.createContext(ctx);
   vm.runInContext(pura('async function lahetaSahkoposti(') + '\nthis.lahetaSahkoposti = lahetaSahkoposti;', ctx);
   return { loki, ajo: ctx.lahetaSahkoposti({ to: 'huoltaja@x.fi', subject: 'S', html: '<p>', fromName: 'Seura' }) };

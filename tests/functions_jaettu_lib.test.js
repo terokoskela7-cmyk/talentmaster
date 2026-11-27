@@ -27,5 +27,17 @@ describe('jaetut lib-kopiot', () => {
     const r = spawnSync('node', ['-e', koodi], { cwd: d, encoding: 'utf8' }); expect(r.status, r.stderr).toBe(0);
     const u = JSON.parse(r.stdout); expect(u.n_jaksolla).toBe(1); expect(u.n_vastausperusta).toBe(1); expect(u.n_vastanneet).toBe(1);
   });
+  it('toimenpide-signaalien ketju (projekti 03 PR B, PM P4) sulkeutuu eristettynä: fyysinen §28-vahti + tekniikka + signaalit ajetaan vain functions/-kopioilla', () => {
+    const d = mkdtempSync(join(tmpdir(), 'fn-signaalit-'));
+    for (const f of M.tiedostot) copyFileSync(join(juuri, 'functions', f), join(d, f));
+    for (const f of ['tm_phv_tila.js']) copyFileSync(join(juuri, 'functions', f), join(d, f));
+    const koodi = `const F=require('./tm_fyysinen.js'),T=require('./tm_tekniikka.js'),S=require('./tm_toimenpide_signaalit.js');
+      const pp=[{id:'a',syntymaVuosi:2012,joukkue:'J',_jNimet:['J'],sukupuoli:'M',hh_viimeisin:{lin30m:4.5,cmj:12,lin10m:2.4},tki_viimeisin:40,testipaivat:{fyysinen_hh:'2026-10-01',tekniikka:'2026-10-01'}}];
+      const ctx={nytMs:Date.UTC(2026,10,9),onJoukkueessa:(p,j)=>p._jNimet.indexOf(j)>=0,jasenNimet:(p)=>p._jNimet,fysinen:F,tekniikka:T};
+      const f=F.tmFyysinenJoukkueLuokka(pp,ctx.nytMs,{joukkueNimi:'J'});
+      process.stdout.write(JSON.stringify({kypsyys:f.kypsyysMittaamatta,n:S.laskeEhdotukset(pp,ctx).length}));`;
+    const r = spawnSync('node', ['-e', koodi], { cwd: d, encoding: 'utf8' }); expect(r.status, r.stderr).toBe(0);
+    const u = JSON.parse(r.stdout); expect(u.kypsyys).toBe(1); expect(u.n).toBeGreaterThanOrEqual(0);   // kypsyys=1 → LU.kypsyysEstetty (tm_koti_luvut → tm_idp) toimii eristettynä
+  });
   it('functions/seuran_kooste.js käyttää vain functions/-kansion tiedostoja (ei ../lib)', () => { expect(lue('functions/seuran_kooste.js')).not.toMatch(/require\(['"]\.\.\//); });
 });

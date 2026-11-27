@@ -13,13 +13,22 @@
  * laskentaa, ei merkkijonoja.
  */
 import { describe, it, expect } from 'vitest';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (QG-1b): fixtuurin "n päivää sitten" -päivät pysyvät kuluvassa kaudessa (vuodenvaihteessa ne osuivat edelliseen kauteen). Vain Date.
+const KELLO = new Date('2026-10-15T09:00:00');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 import vm from 'node:vm';
 import { readFileSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (p) => readFileSync(join(juuri, p), 'utf8');
+const lue = (p) => lueKuori(p);
 const VP = lue('TalentMaster_VP_v25.html');
 const MASTER = lue('TalentMaster_Master_v16.html');
 const REFLEKTIO = lue('lib/tm_reflektio.js');
@@ -61,6 +70,7 @@ async function aja(data) {
   const sandbox = {
     console, Date, Math, JSON, String, Number, Object, Array, Promise, isNaN, parseInt, parseFloat,
     db: teeDb(data),
+    firebase: { firestore: { Timestamp: { fromMillis: (ms) => ({ ms }) } } },   // projekti 06: laskeVAI hakee valmentajan mentoroinnit palvelinpuolella (aika >= ikkunan alku)
     _seuraId: 'testiseura',
     _valmentajat: [{ id: 'c1', joukkue: 'FCL P13' }],
     _pelaajat: [],

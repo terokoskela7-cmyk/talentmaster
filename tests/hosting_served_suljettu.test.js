@@ -14,9 +14,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (p) => readFileSync(join(juuri, p), 'utf8');
+const lue = (p) => lueKuori(p);
 const IGNORE = JSON.parse(lue('firebase.json')).hosting.ignore;
 const OMA_PAGES = 'terokoskela7-cmyk.github.io';
 
@@ -107,6 +109,23 @@ describe('tarjoiltava joukko (johdettu firebase.jsonista)', () => {
       });
       expect(parsiutumattomat.length, `${nimi}: parsiutuu nyt → korjattu? poista poikkeus ja palauta tarjoiluun`).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('rivikattojen purku · kuoren osatiedostot (seura/) tarjoillaan Hostingissa', () => {
+  /* lue() laajentaa kuoren osat, joten linkkiskanneri ei näe <script src="seura/x.js">- tai <link href="seura/x.css">-tagia.
+     Tarkistetaan osat suoraan raakakuoresta: jokainen on olemassa eikä ole ignoressa (muuten Seura 404:äisi custom-domainilla). */
+  const { kuorenOsat } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');
+  const osat = SERVED.flatMap((sivu) => kuorenOsat(readFileSync(join(juuri, sivu), 'utf8')).map((o) => ({ sivu, polku: o.polku })));
+  it('EI VACUOUS: Seura lataa seura/seura.css:n', () => {
+    expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura.css');
+    expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura_kutsut.js');
+    expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura_tuonti.js');
+    expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura_pelaajahallinta.js');
+    expect(osat.map((o) => o.sivu + ' → ' + o.polku)).toContain('TalentMaster_Seura.html → seura/seura_hallinta.js');
+  });
+  it('jokainen osa on olemassa eikä ignoressa', () => {
+    expect(osat.filter((o) => !existsSync(join(juuri, o.polku)) || ignoroitu(o.polku))).toEqual([]);
   });
 });
 

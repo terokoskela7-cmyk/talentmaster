@@ -16,11 +16,11 @@ describe('CF:n lippu = selaimen lippu', () => {
     const M = JSON.parse(lue('functions/jaettu_lib.json')); expect(M.tiedostot).toEqual(expect.arrayContaining(['tm_sisainen.js', 'tm_d3_itsearvio.js']));
     expect(liput(CF)).toEqual(liput(LIB)); expect(liput(LIB)).toEqual({ henkilokunta: true, jaksofokus_sisainen: true }); expect(LUKU.liputPaalla()).toBe(true);
   });
-  it('(b) CF:n tulkinta seuraa selaimen RYHMAT-lippuja kummassakin ryhmässä: kun lib-lippu käännetään (kopio rakennetaan samasta lähteestä), CF näkee saman', () => {
-    LIB.RYHMAT.s4.kirjoitus = CF.RYHMAT.s4.kirjoitus = false;   // eristä hk/js-yhdistelmät s4:stä
+  it('(b) PR 2d: CF:n tulkinta on lipuista riippumaton (aina päällä) — libin ja CF-kopion RYHMAT-lippujen yhdistelmät eivät muuta tulosta', () => {
+    LIB.RYHMAT.s4.kirjoitus = CF.RYHMAT.s4.kirjoitus = false;
     for (const [hk, js] of [[true, false], [false, true], [true, true], [false, false]]) {
       LIB.RYHMAT.henkilokunta.kirjoitus = hk; LIB.RYHMAT.jaksofokus_sisainen.kirjoitus = js;
-      const odotettu = hk || js;
+      const odotettu = true;   // PR 2d: lippuriippuvuus poistettu
       expect(LUKU.liputPaalla(LIB.RYHMAT), 'lib-liput ' + hk + '/' + js).toBe(odotettu);   // CF:n funktio libin lipuilla
       CF.RYHMAT.henkilokunta.kirjoitus = hk; CF.RYHMAT.jaksofokus_sisainen.kirjoitus = js; expect(LUKU.liputPaalla(), 'cf-kopion liput').toBe(odotettu);
     }

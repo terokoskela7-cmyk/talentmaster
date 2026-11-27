@@ -5,6 +5,7 @@
    Rivin avain jo jossakin kartassa (vanha sv, sv_nyt) → arvo KORVATAAN paikallaan (kaikki esiintymät); ei missään → lisätään osion oletuskarttaan. Ajo: node scripts/i18n_vie_sv_era80.cjs [--kuiva] */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const { sopii, lataaSv, q } = require('./i18n_vie_sv_era53_19.cjs');
 const ROOT = path.join(__dirname, '..');
@@ -33,7 +34,7 @@ function lisaaKarttaan(src, rivit, otsake) {   // fi-/lib-avaimiset kartat: sv-l
   return src.slice(0, loppu) + '\n' + ind + '// ' + otsake + '\n' + rivit.map(([x, y]) => ind + q(x) + ': ' + q(y) + ',').join('\n') + src.slice(loppu);
 }
 function vie(opts) {
-  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => fs.readFileSync(path.join(juuri, f), 'utf8'), virheet = [], ohitettu = [];
+  opts = opts || {}; const juuri = opts.juuri || ROOT, lue = (f) => LL.lueTied(juuri, f), virheet = [], ohitettu = [];
   const P = JSON.parse(lue(PALAUTUS)).osiot, G = JSON.parse(lue(LAHETYS)).osiot;
   const src = {}; for (const k of Object.keys(KARTAT)) src[k] = lue(KARTAT[k].f); let lang = lue('lib/tm_lang.js');
   const lisattavat = { lib: [], vp: [], master: [], common: [] }, odotus = []; let korvattu = 0;
@@ -59,7 +60,7 @@ function vie(opts) {
   }
   if (virheet.length) return { virheet, korvattu: 0, lisatty: 0, kirjoitettu: false };
   const lisatty = Object.values(lisattavat).reduce((s, x) => s + x.length, 0), muuttui = lisatty > 0 || korvattu > 0 && Object.keys(KARTAT).some((k) => src[k] !== lue(KARTAT[k].f)) || lang !== lue('lib/tm_lang.js');
-  if (opts.kirjoita && muuttui) { for (const k of Object.keys(KARTAT)) fs.writeFileSync(path.join(juuri, KARTAT[k].f), src[k]); fs.writeFileSync(path.join(juuri, 'lib/tm_lang.js'), lang); }
+  if (opts.kirjoita && muuttui) { for (const k of Object.keys(KARTAT)) LL.kt(juuri, KARTAT[k].f, src[k]); LL.kt(juuri, 'lib/tm_lang.js', lang); }
   return { virheet, korvattu, lisatty, kirjoitettu: !!(opts.kirjoita && muuttui), rivit: odotus.length };
 }
 if (require.main === module) {

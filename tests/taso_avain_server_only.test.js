@@ -1,7 +1,7 @@
 /* Turvallisuus-PR: integraatioavaimet server-only (Rules v3.62 salaiset/{dokId}), migraatioskripti, UI ei lue eikä kirjoita avainta selaimella. Emulaattoritestit: tests/rules (v3.62). functions/test/salaiset.test.js. */
 const fs = require('fs'), path = require('path');
 const M = require('../scripts/siirra_integraatioavaimet.js');
-const RULES = fs.readFileSync(path.join(__dirname, '..', 'tm_admin', 'firestore.rules'), 'utf8'), UI = fs.readFileSync(path.join(__dirname, '..', 'taso_seura_ui.html'), 'utf8'), IDX = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
+const RULES = fs.readFileSync(path.join(__dirname, '..', 'tm_admin', 'firestore.rules'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'docs', 'RULES_CHANGELOG.md'), 'utf8'), UI = fs.readFileSync(path.join(__dirname, '..', 'taso_seura_ui.html'), 'utf8'), IDX = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
 const DEL = Symbol('del'), fv = { serverTimestamp: () => 'TS', delete: () => DEL };
 function fakeDb(alku) {
   const store = new Map(Object.entries(alku || {})), kirj = [];
@@ -10,7 +10,7 @@ function fakeDb(alku) {
 }
 describe('Rules v3.62', () => {
   it('versio + changelog + salaiset-blokki (read, write: if false) seurat-blokin sisällä', () => {
-    expect(RULES).toMatch(/firestore\.rules v3\.(6[23456789]|70|71)/); expect(RULES).toContain('Muutokset v3.61 → v3.62'); expect(RULES).toMatch(/match \/salaiset\/\{dokId\} \{\s*allow read, write: if false;\s*\}/);
+    expect(RULES).toMatch(/firestore\.rules v3\.(6[23456789]|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85)/); expect(RULES).toContain('Muutokset v3.61 → v3.62'); expect(RULES).toMatch(/match \/salaiset\/\{dokId\} \{\s*allow read, write: if false;\s*\}/);
     const i = RULES.indexOf('match /salaiset/{dokId}'), j = RULES.indexOf('match /seurat/{seuraId} {'); expect(i).toBeGreaterThan(j);
   });
 });

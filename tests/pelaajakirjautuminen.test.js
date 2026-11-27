@@ -392,3 +392,45 @@ describe('S1.1 · pelaajaKirjaudu kirjoittaa viimeisinKirjautuminen palvelimella
     expect(K.helsinginPaiva(Date.UTC(2026, 9, 11, 22, 30))).toBe('2026-10-12');   // 22:30Z = 01:30 Helsinki (EEST)
   });
 });
+
+/* 8–9 v -esto (LASKUTUS_L1_VAIHE0 §7.6, PM päätös 8): ikä ≤ 9 → ei tokenia oikean PIN:n jälkeen; syntymävuosi puuttuu → kirjautuminen sallitaan + audit. */
+describe('pelaajakirjautuminen · 8–9 v -esto', () => {
+  const VUOSI = 2026, kesa = Date.UTC(VUOSI, 5, 1);
+  const kayta = (data) => { const e = tynka([{ seuraId: 'kpv', pelaajaId: 'm93', data: Object.assign({ tunniste: '12345678', pin: '9278' }, data) }]); e.siirra(kesa - 1_000_000); return e; };
+  it('ikä 9 (PalloID-reitti) → failed-precondition, ei tokenia, audit pelaaja_kirjautuminen_estetty_ika', async () => {
+    const e = kayta({ syntymaVuosi: VUOSI - 9 });
+    const err = await virhe(e.f({ liittoTunnus: '12345678', pin: '9278' }, ctx));
+    expect(err && err.code).toBe('failed-precondition'); expect(err.message).toMatch(/10 vuoden/);
+    expect(e.tokenit).toEqual([]);
+    expect(e.audit.find((a) => a[0] === 'pelaaja_kirjautuminen_estetty_ika')[1]).toMatchObject({ syy: 'ika_alle_10', seuraId: 'kpv', pelaajaId: 'm93' });
+    expect(e.paivitykset).toEqual([]);
+  });
+  it('linkkireitti: sama esto', async () => {
+    const e = kayta({ syntymaVuosi: VUOSI - 8 });
+    const err = await virhe(e.f({ seuraId: 'kpv', pelaajaId: 'm93', pin: '9278' }, ctx));
+    expect(err && err.code).toBe('failed-precondition'); expect(e.tokenit).toEqual([]);
+  });
+  it('väärä PIN alle 10-vuotiaalle → sama unauthenticated kuin muille (ikää ei paljasteta arvaajalle)', async () => {
+    const e = kayta({ syntymaVuosi: VUOSI - 9 });
+    const err = await virhe(e.f({ liittoTunnus: '12345678', pin: '1111' }, ctx));
+    expect(err && err.code).toBe('unauthenticated');
+    expect(e.audit.find((a) => a[0] === 'pelaaja_kirjautuminen_estetty_ika')).toBeUndefined();
+  });
+  it('ikä 10 (myös syntymaaika-varalla) → token', async () => {
+    const e = kayta({ syntymaVuosi: VUOSI - 10 });
+    await e.f({ liittoTunnus: '12345678', pin: '9278' }, ctx); expect(e.tokenit.length).toBe(1);
+    const t = kayta({ syntymaaika: { seconds: Date.UTC(VUOSI - 10, 2, 1) / 1000 } });
+    await t.f({ liittoTunnus: '12345678', pin: '9278' }, ctx); expect(t.tokenit.length).toBe(1);
+  });
+  it('syntymävuosi puuttuu → kirjautuminen sallitaan + audit-varoitus (PM päätös 8)', async () => {
+    const e = kayta({});
+    await e.f({ liittoTunnus: '12345678', pin: '9278' }, ctx);
+    expect(e.tokenit.length).toBe(1);
+    expect(e.audit.find((a) => a[0] === 'pelaaja_kirjautuminen_ika_puuttuu')[1]).toMatchObject({ severity: 'warn', syy: 'ika_puuttuu' });
+  });
+  it('suostumus puuttuu voittaa (sama järjestys kuin ennen): alle 10 ilman suostumusta → suostumusvirhe', async () => {
+    const e = kayta({ syntymaVuosi: VUOSI - 9, suostumusTila: 'odottaa' });
+    const err = await virhe(e.f({ liittoTunnus: '12345678', pin: '9278' }, ctx));
+    expect(err.message).toMatch(/lupaa/);
+  });
+});

@@ -7,6 +7,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
+const __MK = createRequire(import.meta.url)('../lib/tm_mittaus_korjaa.js');   // B3: VP:n nimet = kääreet jaettuun libiin
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
@@ -16,7 +18,7 @@ beforeAll(() => {
   const s = lines.findIndex(l => l.includes('function _vpMittausOnkoKomposiitti'));
   const e = lines.findIndex(l => l.includes('window._vpMittausKorjaaArvo = _vpMittausKorjaaArvo;'));
   if (s < 0 || e < 0) throw new Error('lohkoa ei löytynyt');
-  const api = eval('(function(){ var window = {};\n' + lines.slice(s, e + 1).join('\n') + '\n return { _vpMittausKorjaaArvo, _vpMittausOnkoKomposiitti }; })()');
+  const api = eval('(function(){ var window = { TM_MITTAUS_KORJAA: __MK };\nfunction _vpMK() { return window.TM_MITTAUS_KORJAA; }\n' + lines.slice(s, e + 1).join('\n') + '\n return { _vpMittausKorjaaArvo, _vpMittausOnkoKomposiitti }; })()');
   _vpMittausKorjaaArvo = api._vpMittausKorjaaArvo;
   _vpMittausOnkoKomposiitti = api._vpMittausOnkoKomposiitti;
 });

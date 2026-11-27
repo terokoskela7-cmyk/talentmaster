@@ -14,17 +14,16 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { lisaaPaikkamerkki, onPaikkamerkkiOsoite } from './_paikkamerkkiCtx.mjs';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
-const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
+const CF = lueFunctionsLahde(ROOT);
 const { tunnisteTyyppi, kuittausPaatos } = require_(join(ROOT, 'functions', 'authz_paatos.js'));
 
 function cfRunko(nimi) {
-  const i = CF.indexOf('exports.' + nimi + ' = functions');
-  if (i < 0) throw new Error('ei löydy: ' + nimi);
-  const j = CF.indexOf('\n  });', i);
-  return CF.slice(i, j + 6);
+  return _fnRunko(CF, nimi);   // index.js- tai siirtomoduulimuoto (rivikattojen purku F1/F2); heittää, jos ei löydy
 }
 
 class HttpsError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
@@ -120,7 +119,7 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
     const loki = { reset: 0, luotu: 0, sposti: 0 };
     const fn = ajaCf('lahetaPelaajaSivuLinkki', {
       db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({
-        get: async () => { const d = { huoltajaEmail: tallennettu, pin: '482915', tunniste: '12345678' }; return { exists: true, get: (k) => d[k], data: () => d }; },
+        get: async () => { const d = { huoltajaEmail: tallennettu, pin: '482915', tunniste: '12345678', syntymaVuosi: 2013 }; return { exists: true, get: (k) => d[k], data: () => d }; },
         update: () => Promise.resolve(),
       }) }) }) }) },
       admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
@@ -130,7 +129,8 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
       haeOrLuoHuoltajaAuth: async () => { loki.luotu++; },
       lahetaSahkoposti: async (m) => { loki.sposti++; loki.viesti = m; },
       pohjaPelaajaSivu: (o) => JSON.stringify(o),
-      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
+      pelaajapin: require_('../functions/pelaajapin.js'),   // 8–9 v -esto (ikaTilaNyt)
+      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu, suostumusPeruminen: require_('../functions/suostumus_peruminen.js'),
       TM_BASE_URL: 'https://tm',
     });
     const data = { hEmail: 'Huoltaja@tm-testi.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A', seura: 'Väärä Seura' };
@@ -198,7 +198,7 @@ describe('muut callablet: henkilökuntatarkistus lähteessä', () => {
 describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
   function aja({ tallennettu = 'huoltaja@tm-testi.fi', pin = '4821', sposti = 'ok', kutsuTila = false } = {}) {
     const loki = { sposti: [], reset: 0 };
-    const DATA = { huoltajaEmail: tallennettu, pin, etunimi: 'Aa', sukunimi: 'Bb', suostumusTila: 'odottaa' };
+    const DATA = { huoltajaEmail: tallennettu, pin, etunimi: 'Aa', sukunimi: 'Bb', syntymaVuosi: 2013, suostumusTila: 'odottaa' };
     const snap = { exists: true, empty: true, docs: [], get: (k) => DATA[k], data: () => DATA };
     // Yleistynkä: mikä tahansa ketju (collection/doc/where/limit/batch…) → sama tynkä; päätteet palauttavat lupauksen.
     const tynka = new Proxy(function () {}, {
@@ -219,7 +219,8 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
       lahetaSahkoposti: async (m) => { if (sposti !== 'ok') throw new Error('sendgrid'); loki.sposti.push(m); },
       pohjaSuostumusLinkki: (o) => JSON.stringify(o),
       TM_BASE_URL: 'https://tm', Date, Math, JSON, Number, isNaN, parseInt, parseFloat,
-      sisainenLuku: require_('../functions/sisainen_luku.js'), tmSisainen: require_('../functions/tm_sisainen.js'), suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
+      pelaajapin: require_('../functions/pelaajapin.js'),
+      sisainenLuku: require_('../functions/sisainen_luku.js'), tmSisainen: require_('../functions/tm_sisainen.js'), suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu, suostumusPeruminen: require_('../functions/suostumus_peruminen.js'),
     });
     const data = { seuraId: 'fcl', pelaajaId: 'p1', hEmail: 'Huoltaja@tm-testi.fi', suostumusTeksti: 'x', antaja: 'A', kutsuId: null,
       suostumukset: [], suostumusMap: {}, antajaRooli: 'huoltaja', aikaleima: '2026-10-01' };
