@@ -65,7 +65,7 @@ function seura(SEURA_LAHDE, lisat) {
     confirm: (t) => { loki.confirm.push(t); return ctx._confirmVastaus !== false; },
   };
   ctx.tmJoukkueJasenyysIdlla = ctx.tmJoukkueJasenyysIdlla || require_(join(ROOT, 'lib', 'tm_joukkue.js')).tmJoukkueJasenyysIdlla;
-  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; ctx.kaytettavyysNakyy = ctx.kaytettavyysNakyy || function () { return false; }; vm.createContext(ctx);
   const osat = ['function _rekBaseUrl() {', 'function avaaRekisteriModal() {', 'function avaaRekisteriModalPelaajalle(',
     'function luoRekisteriLinkki() {', 'async function lahetaRekisteriSahkoposti() {'];
   if (S.indexOf('function _rekDuplikaatti(') >= 0) osat.push('function _rekDuplikaatti(');
@@ -224,7 +224,7 @@ function vahvista(pelaaja) {
     TM_BASE_URL: 'https://tm', sisainenLuku: require_(join(ROOT, 'functions', 'sisainen_luku.js')), tmSisainen: require_(join(ROOT, 'functions', 'tm_sisainen.js')), suostumusTarkistus: T, suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, suostumusPeruminen: require_(join(ROOT, 'functions', 'suostumus_peruminen.js')), pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')), laskutusEsto: require_(join(ROOT, 'functions', 'laskutus_esto.js')),   // L1c: pilottiseura
   };
   ctx.tmJoukkueJasenyysIdlla = ctx.tmJoukkueJasenyysIdlla || require_(join(ROOT, 'lib', 'tm_joukkue.js')).tmJoukkueJasenyysIdlla;
-  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; ctx.kaytettavyysNakyy = ctx.kaytettavyysNakyy || function () { return false; }; vm.createContext(ctx);
   vm.runInContext(runko, ctx);
   const audit = () => [...f.D.entries()].filter(([k]) => k.startsWith('audit/')).map(([, v]) => v);
   return { f, fn: ctx.exports.vahvistaSuostumus, audit };

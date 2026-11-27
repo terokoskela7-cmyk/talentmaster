@@ -15,7 +15,7 @@ describe('Seura: pelaajaluvun jako (B.6 #1, lib/tm_pelaajat_esilataus.js)', () =
     expect(html).toMatch(/tmLuePelaajatKpi\(db, tila\.seuraId\)/);
   });
   it('lista ja Kehitystilanne käyttävät jaettua lukua', () => {
-    expect(html).toMatch(/const snap = await tmLuePelaajatSnap\(db, tila\.seuraId\)/);
+    expect(html).toMatch(/const snap = await tmLuePelaajatSnap\(db, sid\)/);   // lista_seura (27.11.2026): vanha polku on _lataaSeuranLista():ssa (lippu pois / kooste virheellinen)
     expect(html).toMatch(/tmLuePelaajatSnap\(db, sid\),/);
   });
   it('kertakäyttöinen: ota() tyhjentää, vieras seura hylätään, tyhjennä() nollaa, vanha (>20 s) hylätään, muuten varapolku lukee Firestoresta', async () => {
@@ -34,8 +34,8 @@ describe('Seura: pelaajaluvun jako (B.6 #1, lib/tm_pelaajat_esilataus.js)', () =
     }
     expect(html).toMatch(/tmPelaajatEsiTyhjenna\(\);\s*\n\s*await db\.collection\('seurat'\)\.doc\(tila\.seuraId\)\.collection\('pelaajat'\)\.doc\(pid\)\.update/);
   });
-  it('rivikatto (Seura + seura/-osat) alle 7100 pysyy', () => {
-    expect(lueKuori('TalentMaster_Seura.html').split('\n').length - 1).toBeLessThanOrEqual(7100);
+  it('rivikatto (Seura + seura/-osat) alle 7300 pysyy', () => {   // 7100 → 7300 (27.11.2026): lista_seura-näkymä (lukija, tilarivi, Päivitä nyt, Arkistoidut, tekohetken täydennys) ≈ +150 riviä; käytettävyys-sarakkeen purku −
+    expect(lueKuori('TalentMaster_Seura.html').split('\n').length - 1).toBeLessThanOrEqual(7300);
   });
 });
 
@@ -45,7 +45,7 @@ describe('Seura: Firestore-lukujen määrä OIKEALLA sivukoodilla (vm; regressio
     const luvut = {};
     const kokoelma = (nimi) => ({ get: async () => { luvut[nimi] = (luvut[nimi] || 0) + 1; await new Promise((r) => setTimeout(r, 5)); return { docs: [], empty: true, size: 0 }; } });
     const db = { collection: () => ({ doc: () => ({ collection: kokoelma }) }) };
-    const c = vm.createContext({ console, Promise, Date, setTimeout, db, tila: { seuraId: 's1' }, document: { getElementById: () => null }, _suostumusAnnettu: () => false });
+    const c = vm.createContext({ console, Promise, Date, setTimeout, db, tila: { seuraId: 's1' }, document: { getElementById: () => null }, _suostumusAnnettu: () => false, _seuraListaLippu: async () => false, _seuraListaLippuTiedossa: () => false });   // lista_seura-lippu pois → vanha KPI-luku (lippu päällä: tests/lista_seura_nakyma.test.js)
     vm.runInContext(require('fs').readFileSync(path.join(juuri, 'lib/tm_pelaajat_esilataus.js'), 'utf8') + '\n' + koodi + '\nthis.kpi = lataaYhteenvetoKPIt;', c);
     return { c, luvut, db };
   }

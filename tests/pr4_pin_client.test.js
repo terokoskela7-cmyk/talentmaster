@@ -59,7 +59,7 @@ function ajaSeura({ valitut = [], joukkue = '', vahvista = true } = {}) {
   };
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   const osat = ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
-    'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
+    'function _tunnusKohde() {', 'async function _taydennaKohde(k) {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
     'async function luoPuuttuvatPinit() {', 'function _pinKortitHtml(kortit) {', 'async function lahetaTunnuksetHuoltajille() {'];
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n' + osat.map((o) => pura(SEURA, o)).join('\n')
     + '\nthis.kohde=_tunnusKohde; this.luo=luoPuuttuvatPinit; this.kortit=_pinKortitHtml; this.laheta=lahetaTunnuksetHuoltajille; this.linkki=_pelaajaLinkki;', ctx);

@@ -56,9 +56,9 @@ describe('Seura: _seuraYhdista (ajo)', () => {
   });
 });
 describe('Seura: kytkentä (lähdekoodi)', () => {
-  it('lista yhdistää terveyden ennen tallennusta suodattimelle; muokkausikkuna ei lue raakaa pelaajadokumenttia ohi yhdistämisen', () => {
-    const r = funktio('renderPelaajat'); expect(r.indexOf('await _seuraYhdista(pelaajat)')).toBeGreaterThan(0); expect(r.indexOf('await _seuraYhdista(pelaajat)')).toBeLessThan(r.indexOf('window._pelaajatKaikki = pelaajat'));
-    const m = funktio('avaaKaytettavyysModal'); expect(m).toContain('await _seuraYhdista(l)'); expect(m).not.toMatch(/kaytettavyys \|\| 'aktiivinen'/); expect(m).toContain("${k ? '' : 'disabled'}");
+  it('Q3 (27.11.2026): lista EI yhdistä koko seuran terveyttä/sisainen-dataa; käytettävyysmodaali ja muokkausikkuna yhdistävät vain yhden pelaajan ({ yksi: true })', () => {
+    const r = funktio('renderPelaajat'); expect(r).not.toContain('_seuraYhdista'); expect(r).not.toContain('tmSisainenLataaSeura');
+    const m = funktio('avaaKaytettavyysModal'); expect(m).toContain('await _seuraYhdista(l, { yksi: true })'); expect(m).not.toMatch(/kaytettavyys \|\| 'aktiivinen'/); expect(m).toContain("${k ? '' : 'disabled'}");
   });
   it('tallennus: ei oletusta "aktiivinen", ei muokattu-kenttää, ei suoraa pelaajadokumentin updatea, merkki TERVEYS_VAIN_SISAINEN', () => {
     const t = funktio('tallennakKaytettavyys'); expect(t).not.toMatch(/\|\| 'aktiivinen'/); expect(t).not.toContain('muokattu'); expect(t).not.toMatch(/\.update\(data\)/); expect(t).toContain('tmTerveysKirjoita(db, tila.seuraId, pelaajaId, data, {})');

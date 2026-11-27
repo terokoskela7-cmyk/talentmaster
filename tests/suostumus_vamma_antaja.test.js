@@ -69,7 +69,7 @@ function lomake(arvot, ika) {
     window: {}, setTimeout: (f) => f(),
   };
   ctx.TM_SEURA_TUONTI = require_(new URL('../lib/tm_seura_tuonti.js', import.meta.url).pathname);   // 21.10.2026: kutsuhistorian tilateksti
-  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; ctx.kaytettavyysNakyy = ctx.kaytettavyysNakyy || function () { return false; }; vm.createContext(ctx);
   vm.runInContext('var _lahetysKaynnissa = false, _lahetettyOnnistuneesti = false;\n'
     + pura(LOMAKE, 'function val(id) {') + '\n' + pura(LOMAKE, 'function _ikaVuosina(d) {') + '\n' + pura(LOMAKE, 'function _naytaHuoltajakortti(age) {') + '\n'
     + 'var SYN_ALKUVUOSI = 1990;\n' + ['function _st(k, fi) {', 'function _synTt(k, fi) {', 'function _synVirheTeksti() {', 'function _synTila() {', 'function _synKorosta(paalla, teksti) {'].map((x) => pura(LOMAKE, x)).join('\n') + '\n'
@@ -135,7 +135,7 @@ async function seuraKortti(pelaaja, kutsut) {
     document: { getElementById: () => modal, createElement: () => modal, body: { appendChild() {} } },
   };
   ctx.TM_SEURA_TUONTI = require_(new URL('../lib/tm_seura_tuonti.js', import.meta.url).pathname);   // 21.10.2026: kutsuhistorian tilateksti
-  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; ctx.kaytettavyysNakyy = ctx.kaytettavyysNakyy || function () { return false; }; vm.createContext(ctx);
   vm.runInContext(['function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _lkPelaaja(p) {', 'function _lkAttr(estetty) {'].map((t) => pura(S, t)).join('\n') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
   await ctx.nayta('p1').catch(() => {});
   return modal.innerHTML;

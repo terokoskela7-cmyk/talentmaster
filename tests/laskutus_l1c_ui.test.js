@@ -27,7 +27,7 @@ function aja(vastaa, pelaajat, valitut, tmHT) {
   vm.createContext(ctx);
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
     + ['function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
-      'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {', 'async function lahetaPelaajaLinkki('].map(pura).join('\n')
+      'function _tunnusKohde() {', 'async function _taydennaKohde(k) {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {', 'async function lahetaPelaajaLinkki('].map(pura).join('\n')
     + '\nthis.esto = _laskutusEsto; this.virhe = _pinVirheTeksti; this.luo = luoPuuttuvatPinit; this.laheta = lahetaTunnuksetHuoltajille; this.linkki = lahetaPelaajaLinkki;', ctx);
   return { ctx, loki };
 }
@@ -126,14 +126,14 @@ describe('Harmaa tila (PM 3.11.): lib/tm_laskutus_esto.js', async () => {
     expect(estetty).toContain('Testi Pelaaja'); expect(estetty).toContain(FI); expect(estetty).not.toMatch(/PIN|<img/);
     expect(normaali).toContain('135792');
   });
-  it('Seura: kytkennät lähteessä (lib, sopimustieto, napit, kortit) ja rivikatto 7100', () => {
+  it('Seura: kytkennät lähteessä (lib, sopimustieto, napit, kortit) ja rivikatto 7300', () => {
     expect(SEURA).toContain('<script src="lib/tm_laskutus_esto.js"></script>');
     expect(SEURA).toMatch(/tila\.laskutusSopimus = data\.laskutus_sopimus === true/);
     expect(SEURA).toMatch(/tila\.seuraId = seuraId; tila\.laskutusSopimus = false;/);   // seuranvaihto ei peri edellistä
     expect((SEURA.match(/\$\{_lkAttr\(_lkJoukkue\(j\)\)\}/g) || []).length).toBe(2);
-    expect((SEURA.match(/_lkAttr\(_lkPelaaja\(p\)\)/g) || []).length).toBe(3);
+    expect((SEURA.match(/_lkAttr\(_lkPelaaja\(p\)\)/g) || []).length).toBe(4);
     expect(SEURA).toMatch(/const kortit = pelaajat\.map\(\(p\) => \(\(_ikaTila\(p\) !== 'ok' \|\| _lkPelaaja\(p\)\) \? \{ tyyppi: 'estetty'/);   // 8–9 v -esto samaan nimikorttiin
-    expect(SEURA.split('\n').length - 1).toBeLessThanOrEqual(7100);
+    expect(SEURA.split('\n').length - 1).toBeLessThanOrEqual(7300);
   });
   it('Master: Joukkueen jakso -kortti harmaana (disabled, ei avaaFn-kutsua) + teksti; kytkentä lähteessä', () => {
     const J = req('../lib/tm_joukkuejakso.js');

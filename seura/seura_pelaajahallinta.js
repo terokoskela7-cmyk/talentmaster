@@ -261,6 +261,13 @@ async function naytaPelaajaTiedot(pelaajaId) {
         </button>` : ''}
       </div>
 
+      <!-- Käytettävyys (Q3, 27.11.2026): terveystieto näkyy VAIN pelaajakortilla (SA, VP, UTJ) — ei listalla; luetaan vasta kortin avautuessa tämän pelaajan dokumenteista -->
+      ${kaytettavyysNakyy() ? `
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08);">
+        <div style="font-size:10px;color:var(--ink3);margin-bottom:6px;">${tmHT('Käytettävyys')}</div>
+        <div id="pkd-kaytettavyys-${pelaajaId}"><span style="color:var(--ink3);font-size:12px;">…</span></div>
+      </div>` : ''}
+
       <!-- Muokkaa tietoja — VP, seuran admin ja Super Admin -->
       ${['superadmin','vp','seurasihteeri','urheilutoimenjohtaja'].includes(tila.rooli) ? `
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08);">
@@ -291,6 +298,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
     </div>`;
 
   modal.classList.add('auki');
+  if (typeof _paivitaKorttiKaytettavyys === 'function') _paivitaKorttiKaytettavyys(pelaajaId, p);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -305,7 +313,8 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
     const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
     if (snap.exists) p = { id: snap.id, ...snap.data() };
   } catch(e) { naytaToast(tmHT('Tietojen haku epäonnistui.'), 'virhe'); return; }
-  if (!p) return; { const l = [p]; if (await _seuraYhdista(l)) return; p = l[0]; }   // PR 2c (R2): sisainen/tiedot yhdistetään; latausvirhe → ikkuna ei aukea (tallennus kirjoittaisi väärän talenttiOhjelma-arvon)
+  if (!p) return; { const l = [p]; if (await _seuraYhdista(l, { yksi: true })) return; p = l[0]; }
+  window._muokkausHuoltajaVanha = p.huoltajaEmail || '';   // lista_seura: listarivillä ei ole sähköpostia → tallennus vertaa tähän (ikkunan lataamaan dokumenttiin)   // PR 2c (R2): sisainen/tiedot yhdistetään; latausvirhe → ikkuna ei aukea (tallennus kirjoittaisi väärän talenttiOhjelma-arvon)
 
   // Syntymäaika → date-kentäksi (YYYY-MM-DD)
   // Date-kenttää EI esitäytetä pelkästä vuodesta (ei keksittyä 1.1.); vuosi näkyy omassa kentässään.
@@ -619,7 +628,7 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
     /* PR 2d: talentti* (A) VAIN sisainen/tiedot:iin, muu (myös talenttiOhjelma = C) pelaajadokumenttiin — YKSI batch (tm_sisainen riisuu). Ei raakaa varapolkua: lib puuttuu → virhe näkyy. */
     await window.TM_SISAINEN.tmS4Kirjoita(db, tila.seuraId, pelaajaId, paivitys, {});
     const _hUusi = hEmail ? hEmail.trim().toLowerCase() : null;
-    const _hVanha = (((window._pelaajatKaikki || []).find((x) => x.id === pelaajaId) || {}).huoltajaEmail || '').trim().toLowerCase() || null;
+    const _hVanha = ((window._muokkausHuoltajaVanha != null ? window._muokkausHuoltajaVanha : (((window._pelaajatKaikki || []).find((x) => x.id === pelaajaId) || {}).huoltajaEmail)) || '').trim().toLowerCase() || null;   // lista_seura-rivillä ei sähköpostia → muokkausikkunan lataama dokumentti
     if (_hUusi !== _hVanha) {
       if (typeof tmPelaajatEsiTyhjenna === 'function') tmPelaajatEsiTyhjenna();
       await firebase.app().functions('europe-west1').httpsCallable('asetaHuoltajaEmail')({ seuraId: tila.seuraId, pelaajaId, huoltajaEmail: _hUusi });
@@ -917,7 +926,7 @@ function _pinPalloId(p) { const v = p.palloID || p.palloId || p.tunniste; return
 /* Luo puuttuvat PIN-koodit (luoPinitSeuralle): kuiva-ajo → vahvistus lukumäärällä → luonti. Valituille
    pelaajille ajetaan asetaPelaajanPin yksitellen (vain niille, joilta PIN puuttuu). */
 async function luoPuuttuvatPinit() {
-  const k = _tunnusKohde();
+  const k = await _taydennaKohde(_tunnusKohde());   // lista_seura: PIN-tilanne luetaan dokumenteista tekohetkellä (Q4)
   try {
     if (k.valitut) {
       const eiSuostumusta = k.lista.filter((p) => !p.pin && !_suostumusAnnettu(p)).length;
@@ -1053,7 +1062,7 @@ async function tulostaKortit() {
   const w = window.open('', '_blank');   // HETI napinpainalluksessa — ennen mitään awaitia tai dialogia
   if (!w) { naytaToast(_tk('seura.kortit_ponnahdus_estetty', 'Selain esti tulostusikkunan. Salli ponnahdusikkunat tälle sivulle ja paina uudelleen.'), 'virhe'); return; }
   _korttiIkkuna(w, _tk('seura.kortit_valmistellaan', 'Valmistellaan kortteja…'));
-  const k = _tunnusKohde();
+  const k = await _taydennaKohde(_tunnusKohde());   // lista_seura: PIN ja huoltajan sähköposti luetaan dokumenteista tekohetkellä (Q4)
   const jarj = (a, b) => ((a.sukunimi || '') + (a.etunimi || '')).localeCompare((b.sukunimi || '') + (b.etunimi || ''), 'fi');
   const pelaajat = k.lista.filter((p) => _suostumusAnnettu(p) && p.pin).sort(jarj);
   const ilmanPinia = k.lista.filter((p) => _suostumusAnnettu(p) && !p.pin).length;
@@ -1098,7 +1107,7 @@ async function tulostaKortit() {
 /* Lähetä tunnukset huoltajille: lahetaPelaajaSivuLinkki sarjassa (sähköpostissa PalloID + PIN + linkki).
    Ohitetaan pelaajat ilman huoltajaEmailia tai PIN:iä — lukumäärät näytetään. */
 async function lahetaTunnuksetHuoltajille() {
-  const k = _tunnusKohde();
+  const k = await _taydennaKohde(_tunnusKohde());   // lista_seura: PIN ja huoltajan sähköposti luetaan dokumenteista tekohetkellä (Q4)
   const eiEmailia = k.lista.filter((p) => !p.huoltajaEmail).length;
   // Suostumus ennen kirjautumista (1.10.2026): tunnukset vain suostumuksen antaneille; muille suostumuskutsu.
   const eiSuostumusta = k.lista.filter((p) => p.huoltajaEmail && !_suostumusAnnettu(p)).length;
@@ -1136,7 +1145,7 @@ async function uusiPelaajaPIN(pelaajaId) {
     return;
   }
   const p = (window._pelaajatKaikki || []).find((x) => x.id === pelaajaId);
-  if (p && p.pin && !confirm('Luodaanko uusi PIN? Vanha PIN (' + p.pin + ') lakkaa toimimasta heti.')) return;
+  if (p && (p.pin || p._onPin) && !confirm(p.pin ? 'Luodaanko uusi PIN? Vanha PIN (' + p.pin + ') lakkaa toimimasta heti.' : 'Luodaanko uusi PIN? Vanha PIN lakkaa toimimasta heti.')) return;
   try {
     const r = await _pinFn('asetaPelaajanPin')(Object.assign({ seuraId: tila.seuraId, pelaajaId: pelaajaId }, oma ? { pin: oma } : {}));
     _paivitaPinPaikallisesti(pelaajaId, r.data.pin);

@@ -75,7 +75,7 @@ describe('R2 Seura muokkausikkuna + oliTalentti', () => {
   const ikkuna = runko(SEURA, 'async function avaaMuokkaaPelaajaModal(');
   const tallennus = SEURA.slice(SEURA.indexOf("const onTalentti = document.getElementById('mp_talentti')"), SEURA.indexOf('const synt = tmSyntymaPaivitys(syntymaaika_str'));
   it('ikkuna yhdistää sisainen/tiedot ennen talenttiOhjelma-arvon lukua; latausvirhe → ikkuna ei aukea', () => {
-    const y = ikkuna.indexOf('if (await _seuraYhdista(l)) return; p = l[0];');
+    const y = ikkuna.indexOf('if (await _seuraYhdista(l, { yksi: true })) return; p = l[0];');
     expect(y).toBeGreaterThan(0); expect(y).toBeLessThan(ikkuna.indexOf('const onTalentti = !!p.talenttiOhjelma'));
   });
   it('valintaruutu kantaa data-oli-talentti → talenttiAlku vain ensiaktivoinnissa, talenttiPaattyi vain kun ohjelma päättyy', () => {

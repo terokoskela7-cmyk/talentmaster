@@ -185,7 +185,8 @@ async function lahetaRekisteriSahkoposti() {
      vahvistus ennen lähetystä. Linkkiin päivämäärä (suostumusAnnettu=YYYY-MM-DD), jotta suostumussivu kertoo
      huoltajalle, että lomakkeella uusitaan suostumus. vahvistaSuostumus hyväksyy uusinnan avoimella kutsulla (kutsuId). */
   let _uusintaParam = null;
-  const _uusP = tila._rekPelaajaId ? (window._pelaajatKaikki || []).find((x) => x.id === tila._rekPelaajaId) : null;
+  let _uusP = tila._rekPelaajaId ? (window._pelaajatKaikki || []).find((x) => x.id === tila._rekPelaajaId) : null;
+  if (_uusP && _uusP._listaRivi) { try { const _sn = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(_uusP.id).get(); if (_sn.exists) _uusP = { id: _sn.id, ..._sn.data() }; } catch (_e) { /* ilman päivämäärää: vahvistus silti */ } }   // lista_seura: suostumuksen päivä vain dokumentissa
   if (_uusP && _suostumusAnnettu(_uusP)) {
     const _pvm = _suostumusPvm(_uusP);
     const _pvmTeksti = _pvm ? _pvm.getDate() + '.' + (_pvm.getMonth() + 1) + '.' + _pvm.getFullYear() : '';

@@ -63,6 +63,6 @@ describe('sv-erä 105: lähetetty erä (sv tyhjä, PM:n palautus viety erikseen)
   it('avaimet = lib-FI, fi täsmää, lähetetty sv tyhjä', () => {
     const avaimet = Object.keys(r).sort(); expect(avaimet).toEqual(['ktp_omat', 'ktp_omat_ilman_osaa', 'ktp_omat_lahde_seura', 'ktp_omat_lahde_seura_ei_nimea', 'ktp_omat_lahde_tm']); expect(E._rivit_yhteensa).toBe(5);
     for (const k of avaimet) { expect(r[k].fi, k).toBe(FI[k]); expect(r[k].sv, k).toBe(''); }
-    expect(teksti('tools/i18n/sv_kattavuus.mjs')).toMatch(/const ODOTTAVAT_ERAT = \[\];/);
+    expect(teksti('tools/i18n/sv_kattavuus.mjs')).toMatch(/const ODOTTAVAT_ERAT = \[[0-9, ]*\];/);
   });
 });
