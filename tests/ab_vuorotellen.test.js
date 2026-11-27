@@ -72,6 +72,15 @@ describe('ab_vuorotellen', () => {
     expect(rivit.join('\n')).toContain('kuorma_seura_02');
     expect(AB.seuraPuolelle(AB.lueArgv(['--seura=3']), 'A')).toBe(3);   // ilman --seura-a/b yhteinen --seura
   });
+  it('suunta: Firestore-luvut käyttää suhteellista rajaa (≥ 10 % A:sta, sama suunta kaikilla kierroksilla), ei 500 ms:n rajaa', () => {
+    const r = (a, b, ero_kierroksittain) => ({ mittari: 'luvut', a, b, ero: b - a, ero_kierroksittain });
+    expect(AB.suunta(r(550, 52, [-498, -500]))).toBe('A enemmän lukuja (johdonmukainen)');   // 550 → 52: ero < 500 ms-raja ei haittaa
+    expect(AB.suunta(r(100, 90, [-10, -10]))).toBe('A enemmän lukuja (johdonmukainen)');      // täsmälleen 10 %
+    expect(AB.suunta(r(100, 95, [-5, -5]))).toMatch(/alle 10 %/);
+    expect(AB.suunta(r(100, 150, [50, 40]))).toBe('B enemmän lukuja (johdonmukainen)');       // ero 50 < 500 mutta ≥ 10 %
+    expect(AB.suunta(r(100, 150, [50, -3]))).toMatch(/ei johdonmukainen/);
+    expect(AB.suunta({ mittari: 'fcp', a: 2000, b: 2100, ero: 100, ero_kierroksittain: [100, 100] })).toMatch(/alle merkitsevyysrajan/);   // ms-mittarit ennallaan
+  });
   it('kuiva-ajo ei kutsu ajajaa eikä vaadi tokenia', async () => {
     let kutsuttu = false; const rivit = [];
     expect(await AB.main(['--a=' + A, '--b=' + B, '--kuiva'], { ajaa: () => { kutsuttu = true; return 0; }, env: {}, kirjaa: (r) => rivit.push(r), virhe: () => {} })).toBe(0);

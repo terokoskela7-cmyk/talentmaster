@@ -21,6 +21,7 @@ const MITTARIT = Object.freeze([
   { avain: 'fs', nimi: '1. Firestore alkaa', ots: 'ajat.firestore_ensimmainen.0', ms: true },
   { avain: 'luvut', nimi: 'Firestore-luvut (kpl)', ots: 'yht', ms: false },   // dokumenttilukujen määrä avauksessa (lista_seura-lipun vertailu: A ≫ B)
 ]);
+const LUKU_KYNNYS_OSUUS = 0.1;   // lukumäärämittarin (Firestore-luvut) merkitsevyysraja: ≥ 10 % A:sta
 const TILAT = Object.freeze([{ avain: 'kylma', nimi: 'KYLMÄ' }, { avain: 'lampimat', nimi: 'LÄMMIN' }]);
 
 function lueArgv(argv) {
@@ -103,6 +104,12 @@ function suunta(rivi, kynnysMs) {
   const k = (rivi.ero_kierroksittain || []).filter((x) => x != null);
   if (k.length < 2 || rivi.ero == null) return 'ei tarpeeksi dataa';
   const kaikkiPlus = k.every((x) => x > 0), kaikkiMiinus = k.every((x) => x < 0);
+  if (rivi.mittari === 'luvut') {   // lukumäärämittari: ei ms-rajaa → suhteellinen: |B−A| ≥ LUKU_KYNNYS_OSUUS × A ja sama suunta kaikilla kierroksilla
+    const samaSuunta = kaikkiPlus || kaikkiMiinus, riittava = rivi.a != null && rivi.a > 0 && Math.abs(rivi.ero) >= LUKU_KYNNYS_OSUUS * rivi.a;
+    if (samaSuunta && riittava) return kaikkiPlus ? 'B enemmän lukuja (johdonmukainen)' : 'A enemmän lukuja (johdonmukainen)';
+    if (samaSuunta) return (kaikkiPlus ? 'B enemmän' : 'A enemmän') + ' (johdonmukainen, alle ' + Math.round(LUKU_KYNNYS_OSUUS * 100) + ' %)';
+    return 'ei johdonmukainen (kohinaa/ajankohtaa)';
+  }
   if ((kaikkiPlus || kaikkiMiinus) && Math.abs(rivi.ero) >= (kynnysMs || 500)) return kaikkiPlus ? 'B hitaampi (johdonmukainen)' : 'A hitaampi (johdonmukainen)';
   if (kaikkiPlus || kaikkiMiinus) return (kaikkiPlus ? 'B hitaampi' : 'A hitaampi') + ' (johdonmukainen, alle merkitsevyysrajan)';
   return 'ei johdonmukainen (kohinaa/ajankohtaa)';
@@ -123,7 +130,7 @@ function raporttiTeksti(yht, o) {
       });
     });
   });
-  ul.push('', 'Tulkinta: muutos on syy vain jos B−A on samaa suuntaa myös kierroksilla, joilla järjestys on käännetty (erotus ≥ 500 ms kaikilla kierroksilla).');
+  ul.push('', 'Tulkinta: muutos on syy vain jos B−A on samaa suuntaa myös kierroksilla, joilla järjestys on käännetty (erotus ≥ 500 ms kaikilla kierroksilla; Firestore-luvut: ≥ 10 % A:sta ja sama suunta kaikilla kierroksilla).');
   return ul.join('\n');
 }
 
@@ -167,4 +174,4 @@ async function main(argv, deps) {
   return 0;
 }
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c)).catch((e) => { console.error('Virhe: ' + String(e && e.message || e).split('\n')[0]); process.exit(2); });
-module.exports = { seuraPuolelle, lueArgv, tarkista, jarjestys, tiedostonimi, poimi, yhdista, suunta, raporttiTeksti, main, MITTARIT };
+module.exports = { LUKU_KYNNYS_OSUUS, seuraPuolelle, lueArgv, tarkista, jarjestys, tiedostonimi, poimi, yhdista, suunta, raporttiTeksti, main, MITTARIT };
