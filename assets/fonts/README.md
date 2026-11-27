@@ -21,4 +21,4 @@ Pelaaja ei enää lataa mitään Google Fontsista (aiemmin Cormorant, DM Sans, D
 | `barlow-condensed-latin-{700,800,900}-normal.woff2` | `@fontsource/barlow-condensed` | |
 | `*-OFL-LICENSE.txt` | samat paketit | SIL OFL |
 
-Vanhempi_v2, Master, VP ym. käyttävät yhä Google Fontsia — omat PR:t.
+Vanhempi_v2 käyttää samoja Cormorant/DM Sans/DM Mono -tiedostoja; Player_Home käyttää `dm-sans-latin-opsz-normal.woff2` (opsz 9–40 + wght, 61 kt) + dm-mono-500. Henkilökunnan sivut (Master, VP, Seura jne.) käyttävät yhä Google Fontsia — omat PR:t.
