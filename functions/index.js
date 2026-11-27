@@ -14,16 +14,16 @@ const admin     = require('firebase-admin');
 const https     = require('https');
 const crypto    = require('crypto');
 const { kayttajaRooliSallittu, kayttajaRooliClaimeista, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
-const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
+const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI, ALIKOKOELMAT: GDPR_ALIKOKOELMAT, pseudonymisoiSeuranVienti } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const { rakennaPaivitys } = require('./testipvm_korjaus');   // korjaaJoukkueenTestipvm: *_pvm + *_pvm_arvio poisto
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
 const pelaajapin = require('./pelaajapin');
 const { rakennaSendGridPayload } = require('./sahkoposti_payload');   // SendGrid-seuranta pois (§39)
+const sahkopostiEsto = require('./sahkoposti_esto');   // projekti 06 P6: ei oikeaa sähköpostia muissa kuin tuotantoprojektissa
 const huoltajaemail = require('./huoltajaemail');   // Rules v3.33: huoltajaEmail vain palvelimella
 const suostumuskortit = require('./suostumuskortit');   // PR B: QR-suostumuskortit   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
-const suostumusTarkistus = require('./suostumus_tarkistus');
-const { suostumusAnnettu, suostumusTilaKutsunJalkeen } = require('./suostumus');   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
+const { suostumusAnnettu, suostumusTilaKutsunJalkeen } = require('./suostumus'); const suostumusPeruminen = require('./suostumus_peruminen');   // B9   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
 const tmSisainen = require('./tm_sisainen');   // PR 1e-2: S4-kirjoitusapurit (tmS4Lisaa) — jaettu kopio, sama lippu kuin selaimessa
 const sisainenLuku = require('./sisainen_luku');   // PR 1c-2: dual-read sisainen/tiedot (jaettu lippu)
@@ -53,7 +53,12 @@ const TM_BASE_URL = (process.env.TM_BASE_URL || 'https://talentmasterid.com').re
 // ─────────────────────────────────────────────────────────────────────────────
 // APUFUNKTIO: Lähetä sähköposti SendGridin HTTP API:n kautta
 // ─────────────────────────────────────────────────────────────────────────────
-async function lahetaSahkoposti({ to, subject, html, fromName }) {
+async function lahetaSahkoposti({ to, subject, html, fromName, hiljainen }) {   // hiljainen: ei vastaanottajaa eikä vastauksen runkoa lokiin (projekti 07 valvonta)
+  // Projekti 06 P6: muu kuin tuotantoprojekti (esim. staging) ei lähetä oikeaa sähköpostia. Tämä on ENSIMMÄINEN tarkistus (ennen avainta),
+  // jotta staging ei kaadu puuttuvaan avaimeen. Lokiin vain projekti (ei vastaanottajaa/otsikkoa). Vartija: tests/sahkoposti_esto_kytkenta.test.js.
+  const _esto = sahkopostiEsto.sahkopostiEsto(process.env);
+  console.log('[SendGrid] projekti=' + (_esto.projekti || 'tuntematon') + (_esto.estetty ? ' — lähetys ESTETTY (ei tuotantoprojekti)' : ''));
+  if (_esto.estetty) return { ok: true, estetty: true };
   const apiKey    = process.env.SENDGRID_API_KEY;
   // Ei salainen → oletus koodissa: CI-deploy (deploy-functions.yml) ei luo functions/.env-tiedostoa,
   // joten ilman oletusta lähettäjä oli tyhjä ja jokainen lähetys kaatui "SendGrid-credentiaalit puuttuvat".
@@ -89,11 +94,11 @@ async function lahetaSahkoposti({ to, subject, html, fromName }) {
         res.on('data', chunk => { body += chunk; });
         res.on('end', () => {
           if (res.statusCode === 202) {
-            console.log('[SendGrid] Lähetetty onnistuneesti:', to);
+            console.log('[SendGrid] Lähetetty onnistuneesti:', hiljainen ? '(vastaanottaja ei lokiin)' : to);
             resolve({ ok: true });
           } else {
-            console.error('[SendGrid] Virhe:', res.statusCode, body);
-            reject(new Error(`SendGrid palautti ${res.statusCode}: ${body}`));
+            console.error('[SendGrid] Virhe:', res.statusCode, hiljainen ? '(runko ei lokiin)' : body);
+            reject(hiljainen ? Object.assign(new Error('SendGrid ' + res.statusCode), { koodi: 'sendgrid_' + res.statusCode }) : new Error(`SendGrid palautti ${res.statusCode}: ${body}`));
           }
         });
       }
@@ -183,48 +188,6 @@ async function onSuperAdminUid(uid) {
   const x = d.exists ? (d.data() || {}) : null;
   return !!(x && (x.superAdmin === true || x.rooli === 'super_admin' || x.rooli === 'superadmin'));
 }
-const _authEiLoydy = (e) => !!(e && (e.code === 'auth/user-not-found' || (e.errorInfo && e.errorInfo.code === 'auth/user-not-found')));
-async function poistaKirjautumisoikeus(uid) {
-  try {
-    await auth.updateUser(uid, { disabled: true });
-    await auth.setCustomUserClaims(uid, {});
-    await auth.revokeRefreshTokens(uid);
-    return { authOlemassa: true };
-  } catch (e) {
-    if (_authEiLoydy(e)) return { authOlemassa: false };
-    throw e;
-  }
-}
-/* tarkistaOikeus myöntää oikeudet seuran vp_uid-kentän perusteella tarkistamatta aktiivinen-kenttää →
-   deaktivoitu/poistettu VP vapautetaan vp_uid:stä. */
-async function vapautaVpUid(seuraId, uid) {
-  const sRef = db.collection('seurat').doc(seuraId);
-  const sDoc = await sRef.get();
-  if (sDoc.exists && sDoc.get('vp_uid') === uid) await sRef.update({ vp_uid: null });
-}
-/* Yhteinen tarkistus deaktivoinnille/aktivoinnille/poistolle: kutsuja = SA tai seuran johto (tarkistaOikeus),
-   kohde on seuran kayttajat-dokumentti, johto ei kohdista SA:han eikä itseensä. Palauttaa { oikeus, kRef, kDoc }. */
-async function tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, vainSA) {
-  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
-  if (!kohdeUid || !seuraId) throw new functions.https.HttpsError('invalid-argument', 'kohdeUid ja seuraId pakollisia.');
-  const oikeus = await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token);
-  if (!oikeus.sallittu || (vainSA && oikeus.rooli !== 'superadmin')) {
-    throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän käyttäjään.');
-  }
-  if (kohdeUid === context.auth.uid) {
-    throw new functions.https.HttpsError('failed-precondition', 'Omaa tunnusta ei voi muuttaa tällä toiminnolla.');
-  }
-  if (await onSuperAdminUid(kohdeUid)) {
-    throw new functions.https.HttpsError('permission-denied', 'Super-adminin tunnusta ei voi muuttaa tällä toiminnolla.');
-  }
-  const kRef = db.collection('seurat').doc(seuraId).collection('kayttajat').doc(kohdeUid);
-  const kDoc = await kRef.get();
-  if (!kDoc.exists) throw new functions.https.HttpsError('not-found', 'Käyttäjää ei löydy tästä seurasta.');
-  if (kDoc.get('seuraId') && kDoc.get('seuraId') !== seuraId) {
-    throw new functions.https.HttpsError('permission-denied', 'Käyttäjän seura ei täsmää.');
-  }
-  return { oikeus, kRef, kDoc };
-}
 // ─────────────────────────────────────────────────────────────────────────────
 // APUFUNKTIO: Hae tai luo Auth-käyttäjä huoltajalle
 //
@@ -276,7 +239,7 @@ async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
 /* Huoltajakutsu (functions/huoltajakutsu.js): sähköpostiin OMA 7 pv:n kutsulinkki (kutsu → tuore 1 h:n salasanalinkki avattaessa). Kutsun luonnin virhe → varalinkki suoraan (1 h, kuten ennen). */
 const huoltajakutsu = require('./huoltajakutsu');
 async function seuranKieli(seuraId) { try { const d = await db.collection('seurat').doc(seuraId).get(); return d.exists ? (d.get('kieli') || null) : null; } catch (e) { return null; } }
-const _kutsuDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, haeOrLuoHuoltajaAuth, lahetaSahkoposti, pohja: pohjaHuoltajakutsu, base: TM_BASE_URL,
+const _kutsuDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, FieldValue: admin.firestore.FieldValue, haeOrLuoHuoltajaAuth, lahetaSahkoposti, pohja: pohjaHuoltajakutsu, base: TM_BASE_URL,
   jatkoUrl: `${TM_BASE_URL}/TalentMaster_Vanhempi_v2.html`, seuranKieli });
 async function huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmail, jatkoUrl) {
   try { return { linkki: huoltajakutsu.kutsuUrl(TM_BASE_URL, await huoltajakutsu.luoKutsu(_kutsuDeps(), { seuraId, pelaajaId })), kutsu: true }; }
@@ -285,12 +248,14 @@ async function huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmail, jatkoUrl) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SÄHKÖPOSTIPOHJAT
 // ─────────────────────────────────────────────────────────────────────────────
-const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaVahvistusLinkki, pohjaHuoltajakutsu, pohjaSoloLupa } = require('./sahkoposti_pohjat');
+const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaVahvistusLinkki, pohjaHuoltajakutsu, pohjaSoloLupa } = require('./sahkoposti_pohjat');
 const { otsikkoPuhdas, rakennaKutsuLinkki, onYksiOsoite } = require('./sahkoposti_turva');
 const { muodostaPalauteNotif } = require('./palaute_notif');
 const { huomisenRajat } = require('./helsinki_paiva');
 const kalenteriPelaajalle = require('./tm_kalenteri_pelaajalle');   // B4: ilmoitusjoukko = sama sääntö kuin pelaajan kalenteri
-const { muistutusPaatos, muutosPaatos, kirjoitaNotif } = require('./kalenteri_notif');   // V2 P0.4: kiinteät dokumenttitunnisteet + tapahtuma_alkaa
+const { muistutusPaatos, muutosPaatos, kirjoitaNotif } = require('./kalenteri_notif');
+const laskutusEsto = require('./laskutus_esto');   // L1c: sopimusseuran passiivinen joukkue → ei kutsuja / PIN:iä / pelaajalinkkiä
+const _estoDeps = () => ({ db, FieldValue: admin.firestore.FieldValue, HttpsError: functions.https.HttpsError });   // V2 P0.4: kiinteät dokumenttitunnisteet + tapahtuma_alkaa
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaRekisteriKutsu
 // ─────────────────────────────────────────────────────────────────────────────
@@ -331,6 +296,8 @@ exports.lahetaRekisteriKutsu = functions
     // Sisarusbugi: audit-riville AINA pelaajaId (datasta tai linkin pelaajaId-parametrista).
     let pelaajaIdKutsu = data.pelaajaId ? String(data.pelaajaId) : null;
     if (!pelaajaIdKutsu) { try { pelaajaIdKutsu = new URL(String(linkki)).searchParams.get('pelaajaId'); } catch (e) { pelaajaIdKutsu = null; } }
+    /* L1c: pelaaja ilman dokumenttia (uusi kutsu) tulkitaan kutsun joukkueen mukaan; ei joukkuetta → esto sopimusseurassa. */
+    await laskutusEsto.vaadiPelaajaDocSallittu(_estoDeps(), { funktio: 'lahetaRekisteriKutsu', seuraId, pelaajaId: pelaajaIdKutsu, varapelaaja: { joukkue: joukkue || null } });
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     try {
       await lahetaSahkoposti({
@@ -403,9 +370,13 @@ exports.lahetaMuistutukset = functions
     const nyt = Date.now();
     const lahetettavat = [];
     const ohitettu = [];
+    /* L1c (PM 3.11.): kutsumuistutus kuten kutsut — yksittäinen pelaaja → esto (failed-precondition), massalähetys → ohitetaan + ohitettuPassiivinen. */
+    const esto = laskutusEsto.luoEsto(db); let ohitettuPassiivinen = 0;
+    if (pelaajaId && docs.length) await laskutusEsto.vaadiPelaajaSallittu(Object.assign(_estoDeps(), { esto }), { funktio: 'lahetaMuistutukset', seuraId, pelaajaId, pelaaja: docs[0].data() || {} });
     for (const d of docs) {
       const p = d.data();
       const etunimi = p.etunimi || '';
+      if (await esto.pelaajaEstetty(seuraId, p)) { ohitettuPassiivinen++; ohitettu.push({ pelaajaId: d.id, etunimi, syy: laskutusEsto.SYY }); continue; }
       const hEmail = String(p.huoltajaEmail || '').trim();   // server-side luettu = vain korjattu osoite
       if (!hEmail) { ohitettu.push({ pelaajaId: d.id, etunimi, syy: 'ei_emailia' }); continue; }
       const mPvm = p.muistutus_pvm;
@@ -420,8 +391,9 @@ exports.lahetaMuistutukset = functions
     if (dry) {
       return { ok: true, kuivaAjo: true, lahetetty: lahetettavat.length,
         lahetettavat: lahetettavat.map(x => ({ pelaajaId: x.pelaajaId, etunimi: x.etunimi })),
-        ohitettu, yhteensa: docs.length };
+        ohitettu, ohitettuPassiivinen, yhteensa: docs.length };
     }
+    if (ohitettuPassiivinen) await laskutusEsto.kirjaaEsto(db, admin.firestore.FieldValue, { funktio: 'lahetaMuistutukset', seuraId, ohitettuPassiivinen });
 
     let lahetetty = 0;
     for (const x of lahetettavat) {
@@ -448,7 +420,7 @@ exports.lahetaMuistutukset = functions
         ohitettu.push({ pelaajaId: x.pelaajaId, etunimi: x.etunimi, syy: 'lahetys_epaonnistui' });
       }
     }
-    return { ok: true, kuivaAjo: false, lahetetty, ohitettu, yhteensa: docs.length };
+    return { ok: true, kuivaAjo: false, lahetetty, ohitettu, ohitettuPassiivinen, yhteensa: docs.length };
   });
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaHuoltajaKutsu
@@ -469,6 +441,7 @@ exports.lahetaHuoltajaKutsu = functions
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
     }
     estaPaikkamerkkiOsoite(huoltajaEmail);   // ei kutsudokumenttia esimerkkiosoitteelle
+    await laskutusEsto.vaadiPelaajaDocSallittu(_estoDeps(), { funktio: 'lahetaHuoltajaKutsu', seuraId, pelaajaId });   // L1c
     const suostumusLinkki =
       `${TM_BASE_URL}/` +
       `TalentMaster_Rekisterointi_Suostumus.html` +
@@ -491,308 +464,22 @@ exports.lahetaHuoltajaKutsu = functions
     return { ok: true, linkki: suostumusLinkki };
   });
 // ─────────────────────────────────────────────────────────────────────────────
-// luoKayttaja
+// Käyttäjähallinta (henkilökunta) → functions/kayttajahallinta.js (rivikattojen purku F1): luoKayttaja ·
+// vaihdaKayttajanRooli · lahetaResetLinkki · deaktivioiKayttaja · aktivoiKayttaja · poistaKayttaja.
+// Käsittelijä moduulissa; vienti, region, runWith ja secrets pysyvät tässä (vedos: test/fixtures/viennit.json).
 // ─────────────────────────────────────────────────────────────────────────────
+const kayttajahallinta = require('./kayttajahallinta');
+kayttajahallinta.kytke({ db, auth, tarkistaOikeus, onSuperAdminUid, estaPaikkamerkkiOsoite, uusiValiaikainenSalasana, lahetaSahkoposti, pohjaSalasanaAsetus, TM_BASE_URL });
 exports.luoKayttaja = functions
   .region('europe-west1')
   .runWith({ secrets: ['SENDGRID_API_KEY'] })
-  .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
-    }
-    const kutsujaUid = context.auth.uid;
-    const { email, rooli, seuraId, etunimi, sukunimi, joukkue, joukkueNimi,
-            joukkueet: joukkueetIn, joukkueetNimet: joukkueetNimetIn, joukkueNimet: joukkueNimetVanha,
-            suuntakoodi, puhelin } = data || {};
-    if (!email || !email.includes('@')) {
-      throw new functions.https.HttpsError('invalid-argument', 'Virheellinen sähköposti.');
-    }
-    estaPaikkamerkkiOsoite(email);
-    if (!rooli)   throw new functions.https.HttpsError('invalid-argument', 'Rooli pakollinen.');
-    if (!seuraId) throw new functions.https.HttpsError('invalid-argument', 'Seura pakollinen.');
-    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId, context.auth && context.auth.token);
-    if (!oikeus.sallittu) {
-      throw new functions.https.HttpsError('permission-denied',
-        `Ei oikeuksia seuralle "${seuraId}".`);
-    }
-    /* HOTFIX 1.10.2026 — oikeuksien korotus: rooli meni tarkistamatta claimeihin, ja Rules pitää claimia
-       rooli:'super_admin'/'superadmin' super-adminina → seuran johto pystyi tekemään kenestä tahansa (myös
-       itsestään, olemassa olevan sähköpostin kautta) super-adminin. Nyt vain seuran henkilöstöroolit. */
-    if (!SALLITUT_ROOLIT_VAIHTO.includes(rooli)) {
-      await db.collection('audit').add({
-        toiminto: 'kayttaja_rooli_estetty', severity: 'alert', yritetty_rooli: String(rooli).slice(0, 40),
-        seuraId, tekija_uid: kutsujaUid, lahde: 'luoKayttaja',
-        aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-      }).catch(() => {});
-      throw new functions.https.HttpsError('invalid-argument', `Virheellinen rooli: ${String(rooli).slice(0, 40)}`);
-    }
-    // ── KORJAUS 2026-04-06: sama henkilö voi toimia useassa roolissa ──────────
-    // Aikaisempi koodi heitti 'already-exists'-virheen jos sähköposti löytyi jo
-    // Authista. Tämä kaatoi prosessin tilanteessa jossa esim. henkilö on ensin
-    // rekisteröitynyt huoltajana ja hänet yritetään myöhemmin lisätä VP:ksi.
-    //
-    // Ratkaisu: sama logiikka kuin haeOrLuoHuoltajaAuth()-funktiossa.
-    // Jos email löytyy → käytetään olemassaolevaa UID:tä ja päivitetään vain
-    // rooli/seura Firestoreen. Jos ei löydy → luodaan uusi tili normaalisti.
-    // Molemmissa tapauksissa lähetetään salasanalinkki (vanhat käyttäjät saavat
-    // linkin joka ohjaa heidät uuteen rooliin).
-    let uid;
-    let onOlemassaOleva = false;
-    try {
-      const olemassaOleva = await auth.getUserByEmail(email);
-      // Käyttäjä löytyi — käytetään hänen UID:tään, ei luoda uutta tiliä
-      uid = olemassaOleva.uid;
-      onOlemassaOleva = true;
-      /* Haamuvalmentaja (1.10.2026): SA-tunnukselle EI luoda seuran kayttajat-dokumenttia eikä sen claimeja
-         ylikirjoiteta seuraroolilla. SA näkee kaiken ilman seurajäsenyyttä. */
-      if (await onSuperAdminUid(uid)) {
-        throw new functions.https.HttpsError('failed-precondition', 'sa_tunnus',
-          { syy: 'sa_tunnus', viesti: 'Super-admin-tunnusta ei lisätä seuran henkilöstöön.' });
-      }
-      /* Toisen seuran käyttäjä (1.10.2026): claimeissa on yksi seuraId, ja Rules avaavat datan sen mukaan
-         (onOmaSeura). Ylikirjoitus siirtäisi henkilön hiljaa tähän seuraan ja katkaisisi pääsyn hänen omaan
-         seuraansa. Estetään ennen kirjoituksia → ei puolivalmista tilaa (dokumentti ilman claimeja). */
-      const vanhaSeura = (olemassaOleva.customClaims || {}).seuraId;
-      if (vanhaSeura && vanhaSeura !== seuraId) {
-        await db.collection('audit').add({
-          toiminto: 'kayttaja_toisen_seuran_estetty', severity: 'alert', kohde_uid: uid, kohde_email: email,
-          seuraId, toinen_seuraId: vanhaSeura, tekija_uid: kutsujaUid, lahde: 'luoKayttaja',
-          aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-        }).catch(() => {});
-        throw new functions.https.HttpsError('failed-precondition', 'toisen_seuran_kayttaja',
-          { syy: 'toisen_seuran_kayttaja',
-            viesti: 'Tämä sähköposti on jo toisen seuran henkilöstössä. Sama tunnus voi toimia vain yhdessä seurassa — käytä eri sähköpostia tai ota yhteyttä TalentMaster-tukeen.' });
-      }
-      console.log(`[luoKayttaja] ${email} löytyi jo Authista (uid: ${uid}) — lisätään rooli ${rooli} seuralle ${seuraId}`);
-    } catch (e) {
-      if (e instanceof functions.https.HttpsError) throw e;
-      // auth/user-not-found on normaali tapaus — luodaan uusi tili
-      if (e.errorInfo && e.errorInfo.code !== 'auth/user-not-found') {
-        throw new functions.https.HttpsError('internal', `Auth-haku epäonnistui: ${e.message}`);
-      }
-      const valiaikainenSalasana = uusiValiaikainenSalasana();
-      try {
-        const uusiKayttaja = await auth.createUser({
-          email, password: valiaikainenSalasana,
-          displayName: etunimi && sukunimi ? `${etunimi} ${sukunimi}` : (etunimi || email),
-          emailVerified: false, disabled: false,
-        });
-        uid = uusiKayttaja.uid;
-        console.log(`[luoKayttaja] Uusi Auth-tili luotu: ${email} (uid: ${uid})`);
-      } catch (createErr) {
-        throw new functions.https.HttpsError('internal', `Auth-luonti epäonnistui: ${createErr.message}`);
-      }
-    }
-    const nyt = admin.firestore.FieldValue.serverTimestamp();
-    /* Kayttajat-dokumentti luodaan VAIN täällä (Rules v3.32: selaimen create estetty). Seura-sivun kutsu
-       välittää joukkueet[] + nimet + puhelimen, jotka se ennen kirjoitti selaimesta perään.
-       Kanoninen kenttä on joukkueetNimet (Seura-muokkaus kirjoittaa ja Master lukee sitä). #693 kirjoitti
-       väärällä nimellä joukkueNimet → otetaan vastaan molemmat, kirjoitetaan vain kanoninen. */
-    const nimetIn = Array.isArray(joukkueetNimetIn) ? joukkueetNimetIn : joukkueNimetVanha;
-    const jIds = Array.isArray(joukkueetIn) ? joukkueetIn.filter((x) => typeof x === 'string' && x).slice(0, 30)
-      : (joukkue ? [joukkue] : []);
-    const jNimet = Array.isArray(nimetIn) ? nimetIn.map((x) => String(x || '').slice(0, 80)).slice(0, 30)
-      : (joukkueNimi ? [joukkueNimi] : []);
-    try {
-      await db.collection('seurat').doc(seuraId)
-        .collection('kayttajat').doc(uid).set({
-          uid, email, etunimi: etunimi || '', sukunimi: sukunimi || '',
-          nimi: etunimi && sukunimi ? `${etunimi} ${sukunimi}` : (etunimi || email),
-          rooli, seuraId,
-          joukkue: joukkue || jIds[0] || null, joukkueNimi: joukkueNimi || jNimet[0] || null,
-          joukkueet: jIds, joukkueetNimet: jNimet,
-          suuntakoodi: String(suuntakoodi || '+358').slice(0, 6),
-          puhelin: String(puhelin || '').replace(/[^\d]/g, '').slice(0, 15),
-          aktiivinen: true, luotu: nyt, kutsuttu: nyt, luonut_uid: kutsujaUid,
-          kutsuja: (context.auth.token && context.auth.token.email) || '',
-        });
-      if (rooli === 'vp') {
-        const seuraDoc = await db.collection('seurat').doc(seuraId).get();
-        if (seuraDoc.exists && !seuraDoc.data().vp_uid) {
-          await db.collection('seurat').doc(seuraId)
-            .update({ vp_uid: uid, vp_email: email });
-        }
-      }
-    } catch (e) {
-      // Rollback: poistetaan Auth-tili VAIN jos se luotiin juuri nyt.
-      // Olemassaolevaa käyttäjää ei koskaan poisteta — hänellä voi olla
-      // muita rooleja muissa seuroissa.
-      if (!onOlemassaOleva) {
-        await auth.deleteUser(uid).catch(() => {});
-      }
-      throw new functions.https.HttpsError('internal', `Firestore-kirjoitus epäonnistui: ${e.message}`);
-    }
-
-    // ── CUSTOM CLAIMS ──────────────────────────────────────────────────────────
-    // Asetetaan rooli ja seuraId JWT-tokeniin jotta Firestore Rules tunnistaa
-    // käyttäjän ilman erillistä Firestore-hakua. Ilman tätä valmentaja/VP ei
-    // pääse Firestore-dataan koska Rules lukee request.auth.token.rooli:a.
-    //
-    // TÄRKEÄÄ: Käyttäjän täytyy kirjautua ulos ja uudelleen sisään (tai päivittää
-    // token) ennen kuin uudet claims astuvat voimaan selaimessa. Salasanalinkin
-    // kautta kirjautuminen hoitaa tämän automaattisesti — linkki pakottaa uuden
-    // tokenin, joten valmentajan ensimmäinen kirjautuminen toimii heti oikein.
-    try {
-      await auth.setCustomUserClaims(uid, {
-        rooli:   rooli,
-        seuraId: seuraId,
-      });
-      console.log(`[luoKayttaja] Custom claims asetettu: ${email} → rooli=${rooli}, seuraId=${seuraId}`);
-      // Lippu kayttajat-dokumenttiin → UI näyttää ✓ heti (ei odota tokenin uusiutumista)
-      await db.collection('seurat').doc(seuraId).collection('kayttajat').doc(uid)
-        .set({ claimsAsetettu: true }, { merge: true });
-    } catch (e) {
-      // Claims-virhe ei estä käyttäjän luontia — lokitetaan mutta jatketaan
-      console.warn('[luoKayttaja] Custom claims -asetus epäonnistui:', e.message);
-    }
-
-    // ── SALASANALINKKI + SÄHKÖPOSTI (ERIYTETTY) ────────────────────────────────
-    // Linkki generoidaan AINA ja palautetaan clientille — myös silloin kun
-    // sähköpostilähetys epäonnistuu (esim. SendGrid "Maximum credits exceeded").
-    // Näin kutsuja voi jakaa kirjautumislinkin manuaalisesti (sähköposti/
-    // WhatsApp/kopioi) eikä uusi käyttäjä jää koskaan ilman pääsyä.
-    let resetLinkki = null;
-    let emailSent   = false;
-    let emailError  = null;
-    try {
-      const roolitusUrl = {
-        valmentaja:           'TalentMaster_Master_v16.html',
-        talenttivalmentaja:   'TalentMaster_Master_v16.html',
-        fysiikkavalmentaja:   'TalentMaster_Master_v16.html',
-        fysioterapeutti:      'TalentMaster_Master_v16.html',
-        testivastaava:        'TalentMaster_Master_v16.html',
-        vp:                   'TalentMaster_Seura.html',
-        seurasihteeri:        'TalentMaster_Seura.html',
-        urheilutoimenjohtaja: 'TalentMaster_Seura.html',
-      };
-      const kohdeSimu = roolitusUrl[rooli] || 'TalentMaster_Seura.html';
-      const kohdeUrl  = `${TM_BASE_URL}/${kohdeSimu}`;
-      resetLinkki = await auth.generatePasswordResetLink(email, {
-        url: kohdeUrl,
-        handleCodeInApp: false,
-      });
-    } catch (e) {
-      console.warn('[luoKayttaja] Salasanalinkin generointi epäonnistui:', e.message);
-      emailError = e.message;
-    }
-    // Sähköposti lähetetään vain jos linkki saatiin — virhe ei kaada luontia.
-    if (resetLinkki) {
-      try {
-        await lahetaSahkoposti({
-          to: email,
-          subject: 'TalentMaster™ — Tervetuloa! Aseta salasanasi',
-          fromName: 'TalentMaster™',
-          html: pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }),
-        });
-        emailSent = true;
-      } catch (e) {
-        emailError = e.message;
-        console.warn('[luoKayttaja] Sähköposti epäonnistui:', e.message);
-      }
-    }
-    await db.collection('audit').add({
-      toiminto: 'kayttaja_luotu', severity: 'info', kohde_uid: uid, kohde_email: email,
-      kohde_rooli: rooli, seuraId, tekija_uid: kutsujaUid, aikaleima: nyt,
-    }).catch(() => {});
-    return {
-      uid,
-      email,
-      rooli,
-      etunimi: etunimi || '',
-      resetLinkki,                      // backward compat (Admin/Seura lukevat tätä)
-      passwordResetLink: resetLinkki,   // sama linkki — AINA mukana jakamista varten
-      emailSent,                        // true/false
-      emailError,                       // virheen syy jos sähköposti ei lähtenyt
-      viesti: `${etunimi || email} lisätty onnistuneesti.`,
-    };
-  });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// vaihdaKayttajanRooli — vaihtaa olemassa olevan käyttäjän roolin TURVALLISESTI:
-// Firestore.update + setCustomUserClaims + revokeRefreshTokens. Korjaa bugin jossa
-// pelkkä Firestore-kentän muutos jätti Rules-oikeudet vanhaan rooliin (Rules lukee
-// request.auth.token.rooli -claimia, ei Firestore-kenttää).
-// HUOM: kayttajat on alikokoelma seurat/{seuraId}/kayttajat/{uid} (EI top-level).
-// ─────────────────────────────────────────────────────────────────────────────
-const SALLITUT_ROOLIT_VAIHTO = ['vp', 'valmentaja', 'talenttivalmentaja', 'urheilutoimenjohtaja', 'seurasihteeri', 'testivastaava',
-  'fysiikkavalmentaja', 'fysioterapeutti'];   // P0: Adminin roolivalikon roolit (Admin käyttää nyt tätä callablea)
+  .https.onCall(kayttajahallinta.luoKayttaja);
 exports.vaihdaKayttajanRooli = functions
   .region('europe-west1')
-  .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
-    }
-    const kutsujaUid = context.auth.uid;
-    const { uid, seuraId, uusiRooli } = data;
-    if (!uid)     throw new functions.https.HttpsError('invalid-argument', 'uid pakollinen.');
-    if (!seuraId) throw new functions.https.HttpsError('invalid-argument', 'seuraId pakollinen.');
-    if (!SALLITUT_ROOLIT_VAIHTO.includes(uusiRooli)) {
-      throw new functions.https.HttpsError('invalid-argument', `Virheellinen rooli: ${uusiRooli}`);
-    }
-
-    // 1. Oikeustarkistus — vain SA, VP, UTJ tai seurasihteeri (sama tarkistaOikeus kuin muualla)
-    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId, context.auth && context.auth.token);
-    if (!oikeus.sallittu) {
-      throw new functions.https.HttpsError('permission-denied', `Ei oikeuksia seuralle "${seuraId}".`);
-    }
-
-    // 2. Varmista että kohdekäyttäjä kuuluu seuraId:hen
-    const kRef = db.collection('seurat').doc(seuraId).collection('kayttajat').doc(uid);
-    const kDoc = await kRef.get();
-    if (!kDoc.exists) {
-      throw new functions.https.HttpsError('not-found', `Käyttäjää ${uid} ei löydy seurasta ${seuraId}.`);
-    }
-    if (kDoc.data().seuraId && kDoc.data().seuraId !== seuraId) {
-      throw new functions.https.HttpsError('permission-denied', 'Käyttäjän seuraId ei täsmää parametriin.');
-    }
-    // P0: johto ei vaihda omaa eikä super-adminin roolia; deaktivoidulle ei palauteta claimeja roolinvaihdolla.
-    if (oikeus.rooli !== 'superadmin' && uid === kutsujaUid) {
-      throw new functions.https.HttpsError('failed-precondition', 'Omaa roolia ei voi vaihtaa.');
-    }
-    if (await onSuperAdminUid(uid)) {
-      throw new functions.https.HttpsError('permission-denied', 'Super-adminin roolia ei voi vaihtaa.');
-    }
-    if (kDoc.data().aktiivinen === false) {
-      throw new functions.https.HttpsError('failed-precondition', 'Käyttäjä on deaktivoitu — aktivoi ensin.');
-    }
-    const vanhaRooli = kDoc.data().rooli || null;
-
-    // 3. Firestore-rooli
-    await kRef.update({ rooli: uusiRooli });
-
-    // 4. Custom claims — PUUTTUVA PALA: pitää tokenin ja Firestore-dokumentin synkrona
-    await auth.setCustomUserClaims(uid, { rooli: uusiRooli, seuraId: seuraId });
-    // Lippu kayttajat-dokumenttiin → roolinvaihto näkyy ✓ heti (ei odota tokenin uusiutumista)
-    await kRef.set({ claimsAsetettu: true }, { merge: true });
-
-    // 5. vp_uid-hallinta (hyväksytty kompromissi)
-    const sRef = db.collection('seurat').doc(seuraId);
-    if (uusiRooli === 'vp') {
-      await sRef.update({ vp_uid: uid });
-    } else {
-      const sDoc = await sRef.get();
-      if (sDoc.exists && sDoc.data().vp_uid === uid) {
-        await sRef.update({ vp_uid: null });
-      }
-      // muuten: stale vp_uid jätetään koskematta (tietoinen kompromissi — ei demota toista VP:tä)
-    }
-
-    // 6. Mitätöi vanhat refresh-tokenit. HUOM: aktiivinen sessio kestää ~1h ellei client
-    //    pakota refreshiä → OSA 3 (defensiivinen claims-vs-Firestore-tarkistus) on välttämätön pari.
-    await auth.revokeRefreshTokens(uid);
-
-    await db.collection('audit').add({
-      toiminto: 'rooli_vaihdettu', severity: 'info', kohde_uid: uid, seuraId,
-      vanha_rooli: vanhaRooli, uusi_rooli: uusiRooli, tekija_uid: kutsujaUid,
-      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-    }).catch(() => {});
-    console.log(`[vaihdaKayttajanRooli] ${uid} → ${uusiRooli} (seura ${seuraId}): Firestore+claims+revoke OK`);
-    return {
-      ok: true,
-      uusiRooli,
-      huomio: 'Käyttäjän tulee kirjautua uudelleen oikeuksien aktivoimiseksi'
-    };
-  });
+  .https.onCall(kayttajahallinta.vaihdaKayttajanRooli);
+exports.vaihdaKayttajanSahkoposti = functions
+  .region('europe-west1')
+  .https.onCall(kayttajahallinta.vaihdaKayttajanSahkoposti);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // korjaaJoukkueenTestipvm — bulk-korjaa joukkueen testipäivä (väärin tuotu historiadata).
@@ -881,130 +568,18 @@ exports.korjaaJoukkueenTestipvm = functions
     return { ok: true, paivitetty, kentat };
   });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// lahetaResetLinkki — generoi salasanan reset-linkin OLEMASSA OLEVALLE henkilöstölle.
-// Authz: kutsuja = super_admin TAI kohdeseuran johto (tarkistaOikeus) JA kohde-email
-// kuuluu kyseisen seuran kayttajat-kokoelmaan. Ei kirjoita dataa eikä lähetä sähköpostia
-// — palauttaa vain linkin jaettavaksi (📧/💬/📋). generatePasswordResetLink ei muuta salasanaa.
-// ─────────────────────────────────────────────────────────────────────────────
 exports.lahetaResetLinkki = functions
   .region('europe-west1')
-  .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
-    }
-    const { email, seuraId } = data;
-    if (!email || !email.includes('@')) {
-      throw new functions.https.HttpsError('invalid-argument', 'Virheellinen sähköposti.');
-    }
-    if (!seuraId) {
-      throw new functions.https.HttpsError('invalid-argument', 'Seura pakollinen.');
-    }
-    // 1) Kutsujalla oltava oikeus tähän seuraan (SA tai seuran johto)
-    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token);
-    if (!oikeus.sallittu) {
-      throw new functions.https.HttpsError('permission-denied',
-        `Ei oikeuksia seuralle "${seuraId}".`);
-    }
-    // 2) Kohde-email kuuluttava tämän seuran henkilöstöön (estää mielivaltaiset resetit)
-    const kSnap = await db.collection('seurat').doc(seuraId)
-      .collection('kayttajat').where('email', '==', email).limit(1).get();
-    if (kSnap.empty) {
-      throw new functions.https.HttpsError('permission-denied',
-        'Sähköposti ei kuulu tämän seuran henkilöstöön.');
-    }
-    // 3) Generoi reset-linkki (ei muuta salasanaa, ei kirjoita dataa, ei lähetä sähköpostia)
-    // actionCodeSettings vaatii validin continue-url:n (kuten luoKayttaja) — muuten 500.
-    try {
-      const kohdeUrl = `${TM_BASE_URL}/TalentMaster_Seura.html`;
-      const resetLinkki = await auth.generatePasswordResetLink(email, { url: kohdeUrl, handleCodeInApp: false });
-      return { passwordResetLink: resetLinkki, resetLinkki: resetLinkki, email: email };
-    } catch (e) {
-      throw new functions.https.HttpsError('internal',
-        `Reset-linkin generointi epäonnistui: ${e.message}`);
-    }
-  });
-// ─────────────────────────────────────────────────────────────────────────────
-// deaktivioiKayttaja
-// ─────────────────────────────────────────────────────────────────────────────
+  .https.onCall(kayttajahallinta.lahetaResetLinkki);
 exports.deaktivioiKayttaja = functions
   .region('europe-west1')
-  .https.onCall(async (data, context) => {
-    const { kohdeUid, seuraId } = data || {};
-    const { kRef } = await tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, false);
-    const { authOlemassa } = await poistaKirjautumisoikeus(kohdeUid);
-    await vapautaVpUid(seuraId, kohdeUid);
-    await kRef.update({
-      aktiivinen: false,
-      deaktivoitu: admin.firestore.FieldValue.serverTimestamp(),
-      deaktivoija_uid: context.auth.uid,
-      claimsAsetettu: false,
-    });
-    await db.collection('audit').add({
-      toiminto: 'kayttaja_deaktivoitu', severity: 'info', kohde_uid: kohdeUid,
-      seuraId, tekija_uid: context.auth.uid, auth_olemassa: authOlemassa,
-      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-    }).catch(() => {});
-    return { ok: true, viesti: 'Käyttäjä deaktivoitu: kirjautuminen estetty ja oikeudet poistettu.' };
-  });
-
-/* aktivoiKayttaja (P0): SA tai seuran johto. Auth käyttöön, claimit Firestoren rooli + seuraId -kentistä. */
+  .https.onCall(kayttajahallinta.deaktivioiKayttaja);
 exports.aktivoiKayttaja = functions
   .region('europe-west1')
-  .https.onCall(async (data, context) => {
-    const { kohdeUid, seuraId } = data || {};
-    const { kRef, kDoc } = await tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, false);
-    const rooli = kDoc.get('rooli');
-    if (!rooli) throw new functions.https.HttpsError('failed-precondition', 'Käyttäjällä ei ole roolia — aseta rooli ensin.');
-    // HOTFIX 1.10.2026: dokumentin rooli palautetaan claimeihin vain, jos se on seuran henkilöstörooli (ei super_admin)
-    if (!SALLITUT_ROOLIT_VAIHTO.includes(rooli)) {
-      throw new functions.https.HttpsError('failed-precondition', `Rooli "${String(rooli).slice(0, 40)}" ei ole sallittu seuraroolina.`);
-    }
-    try {
-      await auth.updateUser(kohdeUid, { disabled: false });
-    } catch (e) {
-      if (_authEiLoydy(e)) throw new functions.https.HttpsError('not-found', 'Käyttäjän kirjautumistiliä ei ole — luo käyttäjä uudelleen.');
-      throw e;
-    }
-    await auth.setCustomUserClaims(kohdeUid, { rooli, seuraId });
-    if (rooli === 'vp') {   // palauta seuran vp_uid vain jos se on tyhjä (ei syrjäytetä toista VP:tä)
-      const sRef = db.collection('seurat').doc(seuraId);
-      const sDoc = await sRef.get();
-      if (sDoc.exists && !sDoc.get('vp_uid')) await sRef.update({ vp_uid: kohdeUid });
-    }
-    await kRef.update({
-      aktiivinen: true,
-      aktivoitu: admin.firestore.FieldValue.serverTimestamp(),
-      aktivoija_uid: context.auth.uid,
-      claimsAsetettu: true,
-    });
-    await db.collection('audit').add({
-      toiminto: 'kayttaja_aktivoitu', severity: 'info', kohde_uid: kohdeUid, rooli,
-      seuraId, tekija_uid: context.auth.uid,
-      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-    }).catch(() => {});
-    return { ok: true, viesti: 'Käyttäjä aktivoitu. Hän voi kirjautua uudelleen.' };
-  });
-
-/* poistaKayttaja (P0): VAIN SA. Ensin pääsy pois (kuten deaktivointi), sitten Auth-tili ja kayttajat-dokumentti. */
+  .https.onCall(kayttajahallinta.aktivoiKayttaja);
 exports.poistaKayttaja = functions
   .region('europe-west1')
-  .https.onCall(async (data, context) => {
-    const { kohdeUid, seuraId } = data || {};
-    const { kRef } = await tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, true);
-    const { authOlemassa } = await poistaKirjautumisoikeus(kohdeUid);
-    await vapautaVpUid(seuraId, kohdeUid);
-    if (authOlemassa) {
-      try { await auth.deleteUser(kohdeUid); } catch (e) { if (!_authEiLoydy(e)) throw e; }
-    }
-    await kRef.delete();
-    await db.collection('audit').add({
-      toiminto: 'kayttaja_poistettu', severity: 'warn', kohde_uid: kohdeUid,
-      seuraId, tekija_uid: context.auth.uid, auth_olemassa: authOlemassa,
-      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-    }).catch(() => {});
-    return { ok: true, viesti: 'Käyttäjä poistettu pysyvästi.' };
-  });
+  .https.onCall(kayttajahallinta.poistaKayttaja);
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaPelaajaSivuLinkki
 //
@@ -1041,12 +616,16 @@ exports.lahetaPelaajaSivuLinkki = functions
       throw new functions.https.HttpsError('failed-precondition',
         'Sähköposti ei vastaa pelaajan tallennettua huoltajasähköpostia. Tallenna huoltajan sähköposti ensin.');
     }
+    await laskutusEsto.vaadiPelaajaSallittu(_estoDeps(), { funktio: 'lahetaPelaajaSivuLinkki', seuraId, pelaajaId, pelaaja: pelSnap.data() || {} });   // L1c
+    /* 8–9 v -esto (vaihe 0 §7.6): alle 10 → vain Vanhemman sivu (ei pelaajalinkkiä eikä PIN:iä); syntymävuosi puuttuu → fail-closed. */
+    const ikaTila = pelaajapin.ikaTilaNyt(pelSnap.data()), vainVanhempi = ikaTila === 'ika_alle_10';
+    if (ikaTila === 'ika_puuttuu') { await pelaajapin.kirjaaIkaEsto(db, admin.firestore.FieldValue, 'pelaajalinkki_estetty_ika', { syy: ikaTila, seuraId, pelaajaId }); throw pelaajapin.ikaVirhe(functions.https.HttpsError, pelSnap.data(), pelaajapin.vuosiNyt()); }
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
     const seuraNimi   = await haeSeuraNimi(seuraId);   // palvelimelta, ei selaimen `seura`-arvoa
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     const baseUrl = TM_BASE_URL;
     // PR 4: henkilökohtainen linkki ?p=&seura= (Pelaaja_v7 → pelkkä PIN-näppäimistö), ei nimiä URL:iin.
-    const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v7.html` +
+    const pelaajaLinkki = vainVanhempi ? null : `${baseUrl}/TalentMaster_Pelaaja_v7.html` +
       `?p=${encodeURIComponent(pelaajaId)}&seura=${encodeURIComponent(seuraId)}`;
     const pd = pelSnap.data() || {};
     // Suostumus ennen kirjautumista (1.10.2026): ilman suostumusta PIN ei toimi → ei sähköpostiin.
@@ -1072,325 +651,34 @@ exports.lahetaPelaajaSivuLinkki = functions
         fromName: seuraNimi,
         html: pohjaPelaajaSivu({
           seuraNimi, pelaajaNimi, joukkueNimi,
-          salasanaLinkki, salasanaKutsu, vanhempiLinkki, pelaajaLinkki, hEmail, palloId: palloIdNyt, pin: pinNyt,
+          salasanaLinkki, salasanaKutsu, vanhempiLinkki, pelaajaLinkki, hEmail, palloId: palloIdNyt, pin: vainVanhempi ? null : pinNyt,
         }),
       });
       await db.collection('seurat').doc(seuraId)
         .collection('pelaajat').doc(pelaajaId)
-        .update({
+        .update(vainVanhempi ? { salasanaLinkLahetetty: salasanaLinkki ? admin.firestore.FieldValue.serverTimestamp() : null } : {
           pelaajaLinkki,
           pelaajaLinkLahetetty: admin.firestore.FieldValue.serverTimestamp(),
           salasanaLinkLahetetty: salasanaLinkki
             ? admin.firestore.FieldValue.serverTimestamp() : null,
         }).catch(() => {});
-      return { ok: true, linkki: pelaajaLinkki, salasanaLinkkiLahetetty: !!salasanaLinkki };
+      if (vainVanhempi) await pelaajapin.kirjaaIkaEsto(db, admin.firestore.FieldValue, 'pelaajalinkki_estetty_ika', { syy: ikaTila, seuraId, pelaajaId, vanhempiLahetetty: true });
+      return { ok: true, linkki: pelaajaLinkki, salasanaLinkkiLahetetty: !!salasanaLinkki, vainVanhempi, syy: vainVanhempi ? ikaTila : null };
     } catch (e) {
       console.error('lahetaPelaajaSivuLinkki virhe:', e.message);
       throw new functions.https.HttpsError('internal', `Lähetys epäonnistui: ${e.message}`);
     }
   });
 // ─────────────────────────────────────────────────────────────────────────────
-// vahvistaSuostumus — huoltajan suostumuksen palvelinvarmennettu vahvistus
-//
-// MIKSI CF: suostumustilan ('annettu') merkitseminen on turvakriittinen — sitä
-// ei saa voida tehdä suoralla selainkirjoituksella. Tämä funktio varmistaa
-// Admin SDK:lla että kutsuja todella on pelaajaan liitetty huoltaja (hEmail ===
-// tallennettu huoltajaEmail) ennen kuin suostumus merkitään. Kirjoittaa palvelinpuolella
-// KAIKKI kutsuflow'n kirjoitukset (suostumusTila + aux-kentät tila/antaja/bio-pituudet +
-// kutsut→'hyvaksytty'), koska sivu on autentikoimaton eikä saa kirjoittaa Firestoreen suoraan.
-// Lisäksi luo/hakee huoltajan Auth-tilin ja LÄHETTÄÄ salasanan asetuslinkin + pelaajan PIN:in
-// huoltajan sähköpostiin (url PAKOLLINEN, muuten 500, ks. §13). PR 3b: linkkiä/PIN:iä EI palauteta.
-// Käytössä: TalentMaster_Rekisterointi_Suostumus.html (kutsuflow).
+// vahvistaSuostumus → functions/suostumus_vahvistus.js (rivikattojen purku F2). Käsittelijä moduulissa;
+// vienti, region, runWith ja secrets pysyvät tässä (vedos: test/fixtures/viennit.json).
 // ─────────────────────────────────────────────────────────────────────────────
+const suostumusVahvistus = require('./suostumus_vahvistus');
+suostumusVahvistus.kytke({ db, TM_BASE_URL, lahetaSahkoposti, haeOrLuoHuoltajaAuth, huoltajaSalasanaLinkki });
 exports.vahvistaSuostumus = functions
   .region('europe-west1')
   .runWith({ secrets: ['SENDGRID_API_KEY'] })   // §13: salasanalinkki-email → SENDGRID_API_KEY Secret Managerista process.env:iin
-  .https.onCall(async (data, context) => {
-    // antaja/bioPituudet/kutsuId + syntyma/sukupuoli/suostumukset/suostumusMap/antajaRooli/aikaleima:
-    // ei-arkaluonteiset kentät jotka lomake kirjoitti ennen suoraan client-puolelta — siirretty tänne,
-    // koska Rekisterointi_Suostumus.html on autentikoimaton ja Rules estää sen suorat update-kirjoitukset.
-    const { seuraId, pelaajaId, hEmail, suostumusTeksti, antaja, bioPituudet, kutsuId,
-            syntyma, sukupuoli, suostumukset, suostumusMap, antajaRooli, aikaleima, etunimi } = data || {};
-    if (!seuraId || !pelaajaId || !hEmail) {
-      throw new functions.https.HttpsError('invalid-argument',
-        'seuraId, pelaajaId ja hEmail ovat pakollisia.');
-    }
-    /* Suostumuksen antajan nimi pakollinen (1.10.2026): lomakkeen huoltajakortti ei näkynyt koskaan, joten
-       alaikäisten suostumuksista puuttui antaja. Kanoninen kenttä = suostumus.antaja (EI enää suostumuksenAntaja;
-       lukijat käyttävät sitä vain vanhan datan varalla). */
-    const antajaNimi = String(antaja == null ? '' : antaja).replace(/\s+/g, ' ').trim();
-    if (!antajaNimi) {
-      throw new functions.https.HttpsError('invalid-argument', 'antaja_puuttuu', { syy: 'antaja_puuttuu' });
-    }
-    /* P1 (1.10.2026): julkiselta lomakkeelta tuleva vapaa teksti näytetään henkilökunnan sivuilla → ei HTML:ää,
-       enintään 100 merkkiä. Hylätään (ei siivota hiljaa), jotta lomake voi pyytää korjausta. */
-    if (antajaNimi.length > 100 || /[<>]/.test(antajaNimi)) {
-      throw new functions.https.HttpsError('invalid-argument', 'antaja_virheellinen', { syy: 'antaja_virheellinen' });
-    }
-    // Syvyyssuojaus (Sibbo-korjaus): mikä tahansa odottamaton poikkeus → spesifi, lokitettu
-    // viesti, ei paljasta "internal":ia vanhemmalle. HttpsError-koodit menevät läpi sellaisenaan.
-    try {
-    const hEmailNorm = String(hEmail).trim().toLowerCase();
-
-    // 2. Varmenna huoltajan sähköposti Admin SDK:lla pelaajadokumentista
-    const pelRef = db.collection('seurat').doc(seuraId)
-      .collection('pelaajat').doc(pelaajaId);
-    let snap;
-    try {
-      snap = await pelRef.get();
-    } catch (e) {
-      throw new functions.https.HttpsError('unavailable',
-        'Pelaajan tietojen luku epäonnistui, yritä hetken kuluttua uudelleen.');
-    }
-    if (!snap.exists) {
-      throw new functions.https.HttpsError('not-found', 'Pelaajaa ei löytynyt.');
-    }
-    const tallennettuEmail = String(snap.get('huoltajaEmail') || '').trim().toLowerCase();
-    if (!tallennettuEmail || tallennettuEmail !== hEmailNorm) {
-      // Onboarding-integriteetti B1 — väärä-lapsi-yritys (email-ristiriita) → HÄLYTYS. Best-effort ENNEN throwia.
-      db.collection('audit').add({
-        toiminto: 'suostumus_estetty_email_ristiriita', severity: 'alert',
-        pelaajaId, seuraId, yritettyEmail: hEmailNorm,
-        aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-      }).catch(() => {});
-      // syy-koodi lomakkeelle (QR-kortti, 1.10.2026): selkeä ohje, EI tallennettua osoitetta.
-      throw new functions.https.HttpsError('permission-denied',
-        'Huoltajan sähköposti ei täsmää pelaajan tietoihin.', { syy: 'email_ristiriita' });
-    }
-
-    /* 2b. Sisarusbugi (30.9.2026): sähköposti täsmää myös SISARUKSELLE (sama huoltaja). Lomakkeen etunimi ja
-       syntymävuosi verrataan tunnisteen osoittamaan pelaajaan ENNEN kirjoituksia (salliva täsmäys,
-       functions/suostumus_tarkistus.js). Hylätään vain, jos MOLEMMAT eroavat → ei kirjoituksia, audit (warn,
-       ei nimiä), failed-precondition 'pelaaja_ristiriita'. Yksittäinen poikkeama → hyväksytään + lomake_poikkeama. */
-    const kohde = suostumusTarkistus.tarkistaSuostumusKohde(snap.data() || {}, { etunimi, syntyma, sukupuoli });
-    if (kohde.ristiriita) {
-      await db.collection('audit').add({
-        toiminto: 'suostumus_estetty_pelaaja_ristiriita', severity: 'warn',
-        pelaajaId, seuraId, syyt: kohde.syyt,
-        aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-      }).catch(() => {});
-      throw new functions.https.HttpsError('failed-precondition', 'pelaaja_ristiriita', { syy: 'pelaaja_ristiriita' });
-    }
-
-    /* 2c. Avoimet kutsut (1.10.2026): käytetty tai korvattu kutsu EI saa ylikirjoittaa annettua suostumusta.
-       - kutsuId annettu ja kutsu löytyy: kutsun on oltava avoin (odottaa/lahetetty/luotu) ja samalle pelaajalle.
-       - ei (löytyvää) kutsua = vanha tunnisteeton linkki: hylätään, jos suostumus on jo annettu.
-       Uusi kutsu ("Lähetä uudelleen") on avoin → uusi suostumus sallitaan sen kautta. Ei kirjoituksia ennen tätä. */
-    const AVOIMET_KUTSUTILAT = ['odottaa', 'lahetetty', 'luotu'];
-    const joAnnettu = suostumusAnnettu(snap.data());
-    let kutsuRef = null;
-    let kutsuTyyppi = null;   // 'qr_kortti' → suostumus.lahde + audit (PR B)
-    if (kutsuId) {
-      const kr = db.collection('seurat').doc(seuraId).collection('kutsut').doc(String(kutsuId));
-      const ks = await kr.get();
-      if (ks.exists) {
-        kutsuRef = kr;
-        const kd = ks.data() || {};
-        kutsuTyyppi = kd.tyyppi || null;
-        if (kd.pelaajaId && kd.pelaajaId !== pelaajaId) {
-          await db.collection('audit').add({ toiminto: 'suostumus_estetty_kutsu_ristiriita', severity: 'warn', pelaajaId, seuraId,
-            kutsuId: String(kutsuId), aikaleima: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
-          throw new functions.https.HttpsError('failed-precondition', 'kutsu_ristiriita', { syy: 'kutsu_ristiriita' });
-        }
-        if (!AVOIMET_KUTSUTILAT.includes(kd.tila || 'odottaa')) {
-          await db.collection('audit').add({ toiminto: 'suostumus_estetty_kutsu_kaytetty', severity: 'warn', pelaajaId, seuraId,
-            kutsuId: String(kutsuId), kutsun_tila: String(kd.tila || ''), aikaleima: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
-          throw new functions.https.HttpsError('failed-precondition', 'kutsu_kaytetty', { syy: 'kutsu_kaytetty' });
-        }
-      }
-    }
-    if (!kutsuRef && joAnnettu) {
-      await db.collection('audit').add({ toiminto: 'suostumus_estetty_jo_annettu', severity: 'info', pelaajaId, seuraId,
-        kutsuId_annettu: !!kutsuId, aikaleima: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
-      throw new functions.https.HttpsError('failed-precondition', 'suostumus_jo_annettu', { syy: 'suostumus_jo_annettu' });
-    }
-
-    // 3. Merkitse suostumus annetuksi + kirjoita ei-arkaluonteiset aux-kentät palvelinpuolella.
-    const TS = admin.firestore.FieldValue.serverTimestamp();
-    // P1: lomakkeen muut merkkijonot/rakenteet siivotaan (julkinen lomake → näkyy henkilökunnan sivuilla).
-    const SUOSTUMUS_AVAIMET = ['rekisteri', 'tietosuoja', 'testaaminen', 'biologinen_ika', 'valmentajajako', 'anon_data'];
-    const puhdasTeksti = (v, max) => (v == null || v === '') ? null : String(v).replace(/[<>]/g, '').slice(0, max);
-    const pituusNumero = (v) => { const n = typeof v === 'number' ? v : parseFloat(v); return (isFinite(n) && n >= 100 && n <= 250) ? n : null; };
-    const puhdasSuostumusMap = (suostumusMap && typeof suostumusMap === 'object' && !Array.isArray(suostumusMap))
-      ? SUOSTUMUS_AVAIMET.reduce((o, k) => { if (k in suostumusMap) o[k] = suostumusMap[k] === true; return o; }, {})
-      : null;
-    const paivitys = {
-      suostumusTila:    'annettu',
-      suostumusAnnettu: TS,
-      tila:             'aktiivinen',
-      muokattu:         TS,
-    };
-    /* Tyhjä = "ei muutosta" (1.10.2026): valinnainen kenttä kirjoitetaan VAIN kun lomakkeella on arvo —
-       tyhjä lomakekenttä ei nollaa tallennettua arvoa (sama periaate kuin syntymäajan täytössä). */
-    const teksti = puhdasTeksti(suostumusTeksti, 500);
-    if (teksti != null) paivitys.suostumusTeksti = teksti;
-    if (bioPituudet && typeof bioPituudet === 'object') {
-      const isa = pituusNumero(bioPituudet.isa_pituus_cm), aiti = pituusNumero(bioPituudet.aiti_pituus_cm);
-      if (isa != null) paivitys.isa_pituus_cm = isa;
-      if (aiti != null) paivitys.aiti_pituus_cm = aiti;
-      if (isa != null || aiti != null) {
-        const pvm = puhdasTeksti(bioPituudet.vanhempi_pituus_pvm, 40);
-        if (pvm != null) paivitys.vanhempi_pituus_pvm = pvm;
-      }
-      // puuttuu-lippu lopputilasta (tallennettu + uusi), ei pelkästä lomakkeesta
-      /* PR 1e-2 (S4) dual-read: tallennettu pituus luetaan sisainen/tiedot:ista (sisainen voittaa) kun s4-lippu on päällä; lippu pois → ei lisälukua, pelkkä pelaajadokumentti kuten ennen. */
-      const tallennettu = (isa != null && aiti != null) ? {} : (await sisainenLuku.yhdistaYksi(db, seuraId, pelaajaId, snap.data() || {}) || {});
-      const isaLopuksi = isa != null ? isa : (tallennettu.isa_pituus_cm != null ? tallennettu.isa_pituus_cm : null);
-      const aitiLopuksi = aiti != null ? aiti : (tallennettu.aiti_pituus_cm != null ? tallennettu.aiti_pituus_cm : null);
-      paivitys.vanhempi_pituus_puuttuu = (isaLopuksi == null || aitiLopuksi == null);
-    }
-
-    // huoltajaEmail — vahvistus että varmennettu osoite tallentuu pelaajaprofiiliin
-    paivitys.huoltajaEmail = hEmailNorm;
-
-    /* syntymäaika + sukupuoli (sisarusbugi 30.9.2026): suostumus saa VAIN TÄYTTÄÄ tyhjän kentän — ei koskaan
-       ylikirjoittaa olemassa olevaa eri arvolla (muutos tehdään Seura-sivulla henkilökunnan toimesta).
-       Date.UTC() (§7 #11), vain validi 1990–2025; sukupuoli P/T → M/N (§7 #12). */
-    const tt = kohde.tayttoKentat;
-    if (tt.syntymaPaiva) paivitys.syntymaaika = admin.firestore.Timestamp.fromDate(tt.syntymaPaiva);
-    if (tt.syntymaVuosi) paivitys.syntymaVuosi = tt.syntymaVuosi;
-    if (tt.sukupuoli) paivitys.sukupuoli = tt.sukupuoli;
-
-    // suostumukset — array kaikista hyväksytyistä suostumuksista + täysi suostumus-objekti
-    // (sama rakenne kuin uusi-rekisteröinti-haaran .set(), §14: raakadata talteen).
-    if (Array.isArray(suostumukset)) paivitys.suostumukset = suostumukset.filter((x) => SUOSTUMUS_AVAIMET.includes(x));
-    paivitys.suostumus = {
-      ...(kutsuTyyppi === 'qr_kortti' ? { lahde: 'qr_kortti' } : {}),
-      annettu:     TS,
-      antaja:      antajaNimi,
-      antajaRooli: antajaRooli === 'itse' ? 'itse' : (antajaRooli ? 'huoltaja' : null),
-      versio:      '2026-v1',
-      hyvaksytyt:  puhdasSuostumusMap,
-      aikaleima:   puhdasTeksti(aikaleima, 40),
-    };
-
-    // PIN: käytä olemassa olevaa validia (idempotentti; sama logiikka kuin Seura.html luoPelaajaPIN). UUDEN PIN:in generointi (Firestore-kyselyt)
-    // siirretty kriittisen update-kirjoituksen JÄLKEEN best-effortiksi (Sibbo-korjaus) — ei-kriittinen
-    // PIN-haku ei saa enää kaataa pelaajan aktivointia.
-    // PR 4: olemassa oleva 4- tai 6-numeroinen PIN kelpaa sellaisenaan (ei kirjoiteta uudelleen).
-    let pin = (snap.get('pin') && /^(\d{4}|\d{6})$/.test(String(snap.get('pin')))) ? String(snap.get('pin')) : null;
-
-    try {
-      /* PR 1e-2 (S4): vanhempien pituudet (kypsyys_sisainen) kirjoitetaan myös sisainen/tiedot:iin, kun RYHMAT.s4.kirjoitus on päällä (oletus POIS → täsmälleen kuten ennen).
-         YKSI batch: pelaajan update + sisainen set mergeFields (tmS4Lisaa poimii paivitys-oliosta vain S4-kentät: isa_pituus_cm, aiti_pituus_cm, vanhempi_pituus_pvm, vanhempi_pituus_puuttuu).
-         Admin SDK ohittaa Rulesin → ei permission-denied-varapolkua; virhe → sama 'internal' kuin ennen (suostumus ei tallennu puoliksi). */
-      const kirjBatch = db.batch();
-      kirjBatch.update(pelRef, paivitys);
-      tmSisainen.tmS4Lisaa(kirjBatch, db, seuraId, pelaajaId, paivitys, {});
-      await kirjBatch.commit();
-    } catch (e) {
-      throw new functions.https.HttpsError('internal',
-        `Suostumuksen tallennus epäonnistui: ${e.message}`);
-    }
-
-    // PIN-generointi best-effort — pelaaja on jo aktivoitu yllä, tämä ei saa kaataa mitään (Sibbo-korjaus).
-    // PR 4: 6-numeroinen PIN samalla apufunktiolla kuin asetaPelaajanPin (hajautus + selväkielinen samassa
-    // erässä, lukitukset nollataan). Yksilöllisyyttä seuran sisällä ei enää tarvita (kirjautumisessa aina
-    // PalloID tai linkki mukana).
-    if (!pin) {
-      try {
-        const uusi = pelaajapin.generoiPin();
-        const b = db.batch();
-        pelaajapin.lisaaPinKirjoitukset(db, b, { seuraId, pelaajaId, data: snap.data() || {}, pin: uusi, lahde: 'vahvistaSuostumus', TS });
-        await b.commit();
-        pin = uusi;
-      } catch (e) {
-        pin = null;
-        console.warn('[vahvistaSuostumus] PIN-generointi epäonnistui (ei-kriittinen):', e.message);
-      }
-    }
-
-    // 3b. Merkitse kutsu hyväksytyksi ja saman pelaajan MUUT avoimet kutsut korvatuiksi (best-effort —
-    //     kutsujen tila ei saa kaataa jo tallennettua suostumusta). Korvattu kutsu ei enää kelpaa (2c).
-    if (kutsuRef) {
-      try {
-        await kutsuRef.update({ tila: 'hyvaksytty', hyvaksyttyPvm: TS, pelaajaId, muokattu: TS });
-      } catch (e) {
-        console.warn('[vahvistaSuostumus] kutsut-update epäonnistui:', e.message);
-      }
-    }
-    try {
-      const muut = await db.collection('seurat').doc(seuraId).collection('kutsut').where('pelaajaId', '==', pelaajaId).get();
-      const b = db.batch();
-      let n = 0;
-      muut.docs.forEach((d) => {
-        if (kutsuRef && d.id === kutsuRef.id) return;
-        if (!AVOIMET_KUTSUTILAT.includes((d.data() || {}).tila || 'odottaa')) return;
-        b.update(d.ref, { tila: 'korvattu', korvattu: TS, korvattu_kutsulla: kutsuRef ? kutsuRef.id : null, muokattu: TS });
-        n++;
-      });
-      if (n) await b.commit();
-    } catch (e) {
-      console.warn('[vahvistaSuostumus] muiden kutsujen korvaus epäonnistui:', e.message);
-    }
-
-    // Onboarding-integriteetti B1 — suostumus annettu (best-effort). Autentikoimaton sivu → uid usein null,
-    // siksi kirjataan hEmail jäljitettävyyttä varten (antajan nimeä EI audit-riville, vain antajaNimi_annettu).
-    db.collection('audit').add({
-      // Sisarusbugi: yksittäinen poikkeama (etunimi TAI vuosi) hyväksytään, mutta kirjataan warn-tasolla,
-      // jotta seura voi tarkistaa tiedot jälkikäteen (esim. kaksoset samalla kutsulinkillä).
-      toiminto: 'suostumus_annettu', severity: kohde.poikkeama.length ? 'warn' : 'info',
-      pelaajaId, seuraId, hEmail: hEmailNorm, antajaNimi_annettu: !!antajaNimi,   // ei nimeä audit-riville
-      lomakeEtunimi_tasmasi: kohde.etunimiTasmasi,   // true/false/null (ei nimeä)
-      lomake_poikkeama: kohde.poikkeama,             // [] | ['etunimi'] | ['vuosi']
-      tekija_uid: (context.auth && context.auth.uid) || null,
-      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-      ...(kutsuTyyppi === 'qr_kortti' ? { lahde: 'qr_kortti' } : {}),   // QR-suostumuskortti (PR B)
-    }).catch(() => {});
-
-    // 4. + 5. Luo/hae huoltajan Auth-tili ja generoi salasanan asetuslinkki.
-    // Suostumus on jo tallennettu — linkin generoinnin epäonnistuminen ei saa
-    // hukata sitä (graceful: emailLahetetty:false → sivu ohjaa pyytämään seuralta uuden linkin).
-    try {
-      const etunimi  = snap.get('etunimi')  || '';
-      const sukunimi = snap.get('sukunimi') || '';
-      await haeOrLuoHuoltajaAuth(hEmailNorm, etunimi, sukunimi);
-      const baseUrl = TM_BASE_URL;
-      const continueUrl = `${baseUrl}/TalentMaster_Vanhempi_v2.html` +
-        `?pelaajaId=${encodeURIComponent(pelaajaId)}&seuraId=${encodeURIComponent(seuraId)}`;
-      const { linkki: passwordResetLink, kutsu: kutsuLinkki } = await huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmailNorm, continueUrl);   // 7 pv:n kutsu (varalla suora 1 h:n linkki)
-      // 6. Lähetä salasanalinkki sähköpostiin (best-effort §13). EI kaadeta suostumusta jos lähetys
-      //    epäonnistuu — suostumus on jo tallennettu yllä; seura lähettää linkin uudelleen (Seura.html).
-      let emailLahetetty = false, emailVirhe = null;
-      try {
-        const lapsiNimi = String(snap.get('etunimi') || '').trim();
-        await lahetaSahkoposti({
-          to: hEmailNorm,
-          subject: 'Aseta TalentMaster-salasanasi',
-          fromName: 'TalentMaster',
-          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink, pin, kutsu: kutsuLinkki, vanhempiLinkki: `${baseUrl}/TalentMaster_Vanhempi_v2.html` }),
-        });
-        emailLahetetty = true;
-        db.collection('audit').add({
-          toiminto: 'suostumuslinkki_lahetetty', severity: 'info',
-          pelaajaId, seuraId, hEmail: hEmailNorm,
-          aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-        }).catch(() => {});
-      } catch (mailErr) {
-        emailVirhe = String((mailErr && mailErr.message) || mailErr || 'tuntematon');
-        console.warn('[vahvistaSuostumus] Salasanalinkki-email epäonnistui:', emailVirhe);
-        db.collection('audit').add({
-          toiminto: 'suostumuslinkki_epaonnistui', severity: 'warn',
-          pelaajaId, seuraId, hEmail: hEmailNorm, virhe: emailVirhe.slice(0, 200),
-          aikaleima: admin.firestore.FieldValue.serverTimestamp(),
-        }).catch(() => {});
-      }
-      /* Vaihe 0 / PR 3b: salasanalinkkiä ja PIN:iä EI palauteta kutsujalle. Funktio toimii ilman
-         kirjautumista, ja seuraId + pelaajaId + huoltajaEmail olivat anonyymisti luettavissa v3.28:aan
-         asti → vastauksesta sai huoltajan tilin ja lapsen PIN:in. Nyt ne menevät VAIN tallennettuun
-         huoltajaEmailiin (tarkistettu yllä). Epäonnistunut lähetys → seura lähettää uudelleen. */
-      return { ok: true, emailLahetetty, emailVirhe, linkkiPv: kutsuLinkki ? 7 : 0 };   // linkkiPv: 7 = oma kutsulinkki, 0 = varalinkki (1 h)
-    } catch (e) {
-      console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
-      return { ok: true, emailLahetetty: false, linkkiVirhe: e.message };
-    }
-    } catch (_wrapErr) {
-      if (_wrapErr instanceof functions.https.HttpsError) throw _wrapErr;
-      console.error('[vahvistaSuostumus] odottamaton virhe:', _wrapErr);
-      throw new functions.https.HttpsError('internal',
-        'Palvelinvirhe: ' + ((_wrapErr && _wrapErr.message) || _wrapErr));
-    }
-  });
+  .https.onCall(suostumusVahvistus.vahvistaSuostumus);
 // ─────────────────────────────────────────────────────────────────────────────
 // haeAuditLoki — SA-only audit-loki-lukija (Admin "Audit-loki / Hälytykset" -näkymä).
 // Audit pysyy EI-client-luettavana (Rules); SA lukee VAIN tämän callable-CF:n kautta.
@@ -1522,7 +810,7 @@ exports.tasoHaeSeuranOttelut = functions
     const kalenteri = await _tasoKal.ajaSeura(_tasoDeps, seuraId, Date.now()).catch((e) => ({ virhe: e.message }));   // K35-5: sama haku kalenteriin (yhdistetyt joukkueet)
     return { ok: true, ottelut: lkm, seuraId, kalenteri };
   });
-Object.assign(exports, _tasoKal.luo(_tasoDeps), _salaiset.luo({ functions, db, admin, tarkistaOikeus }));   // kalenteriTasoSynkka (K35-5) + asetaTasoAsetukset (avain kirjoitetaan vain palvelimella)
+Object.assign(exports, _tasoKal.luo(_tasoDeps), _salaiset.luo({ functions, db, admin, tarkistaOikeus }), require('./liput_hallinta').luo({ functions, db, admin, onSuperAdminUid }));   // kalenteriTasoSynkka (K35-5) + asetaTasoAsetukset (avain vain palvelimella) + asetaSeuranLippu (D1: vain SA, loki audit)
 // ============================================================
 // AI PROXY — SULJETTU
 // ============================================================
@@ -1561,6 +849,11 @@ exports.haeLapsiHuoltajalle = functions
     if (!context.auth || !context.auth.token.email) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjautuminen vaaditaan.');
     }
+    // email_verified PR c (Rules v3.81, PM 6.11.2026): vahvistamaton sähköposti ei näe lasten nimiä, seuraa eikä joukkuetta.
+    // Ei virhettä (Vanhempi_v2:n portti näyttää ohjeen); ei Firestore-hakua.
+    if (context.auth.token.email_verified !== true) {
+      return { found: false, lapset: [], vahvistamatta: true };
+    }
     // Firebase Auth -tokenin email on jo lowercase; data normalisoitu samaan (migraatio).
     const email = String(context.auth.token.email).toLowerCase().trim();
     try {
@@ -1589,7 +882,7 @@ exports.haeLapsiHuoltajalle = functions
         }));
       return { found: lapset.length > 0, lapset };
     } catch (e) {
-      console.error('[haeLapsiHuoltajalle]', email, e.message);
+      console.error('[haeLapsiHuoltajalle]', context.auth.uid, e.message);   // ei sähköpostia lokiin (email_verified a, PM 6.11.2026)
       throw new functions.https.HttpsError('internal', 'Lapsen haku epäonnistui.');
     }
   });
@@ -2100,16 +1393,12 @@ exports.viePelaajanDataGDPR = functions
     const soloAli = manifesti.solo
       ? Object.keys(manifesti.solo.alikokoelmat).reduce((o, k) => { o[k] = dataMap(manifesti.solo.alikokoelmat[k]); return o; }, {})
       : null;
-    const vienti = {
+    const vienti = await pseudonymisoiSeuranVienti(db, seuraId, { suojatut: [pelaajaId], varoitukset: manifesti.varoitukset }, {   // art. 15(4): henkilökunnan uid → rooli koko viennissä (gdpr_locator)
       _meta: { standardi: 'GDPR Art. 20 (koneluettava)', luotu: new Date().toISOString(),
         seuraId, pelaajaId, palloID: manifesti.palloID, viejaUid: context.auth.uid, lukumaarat: manifesti.lukumaarat },
       pelaaja: Object.assign({ _id: manifesti.paaDoc.id }, manifesti.paaDoc.data),
-      havainnot: dataMap(manifesti.alikokoelmat.havainnot),
-      kirjaukset: dataMap(manifesti.alikokoelmat.kirjaukset),
-      testitulokset: dataMap(manifesti.alikokoelmat.testitulokset),
-      biologinen_ika: dataMap(manifesti.alikokoelmat.biologinen_ika),
-      pelidata: dataMap(manifesti.alikokoelmat.pelidata),
-      kehut: dataMap(manifesti.alikokoelmat.kehut),
+      // Pelaajadokumentin alikokoelmat SUORAAN locatorin listasta (PR 2a: + sisainen = tiedot + terveys) → uusi alikokoelma ei voi jäädä viennistä pois, kun se lisätään listaan.
+      ...Object.fromEntries(GDPR_ALIKOKOELMAT.map((n) => [n, dataMap(manifesti.alikokoelmat[n])])),
       lasnaolo: dataMap(manifesti.ristiviitteet.lasnaolo),
       testitapahtuma_tulokset: dataMap(manifesti.ristiviitteet.testitapahtuma_tulokset),
       palloID_viitteet: dataMap(manifesti.ristiviitteet.palloID_viitteet),
@@ -2117,7 +1406,7 @@ exports.viePelaajanDataGDPR = functions
       kausikuvat: dataMap(manifesti.ristiviitteet.kausikuvat),   // vain pelaajan oma rivi per kausi (locator)
       solo: manifesti.solo ? Object.assign({ _id: manifesti.solo.id }, manifesti.solo.data, { _alikokoelmat: soloAli }) : null,
       media: manifesti.media,
-    };
+    });
 
     // Toimitus: JSON Storageen + signed URL (24 h). Iso data → ei inline.
     const ts    = new Date().toISOString().replace(/[:.]/g, '-');
@@ -2341,8 +1630,7 @@ exports.arviointikertaOnWrite = functions
          YKSI batch; sisainen-puolella tmS4Lisaa käyttää mergeFields (korvaa nimetyt kentät kokonaan — sama syy kuin yllä: ikkunasta pudonnut kohde ei jää karttaan). */
       const kirjoitus = { arviointi_kooste: kooste, potentiaali_kooste: potKooste, arviointi_kooste_pvm: new Date().toISOString() };
       const dbA = admin.firestore(), batch = dbA.batch();
-      batch.set(pelaajaRef, kirjoitus, { mergeFields: ['arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'] });
-      tmSisainen.tmS4Lisaa(batch, dbA, seuraId, pelaajaId, kirjoitus, {});
+      tmSisainen.tmS4Lisaa(batch, dbA, seuraId, pelaajaId, kirjoitus, {});   // PR 2d (K9): VAIN sisainen/tiedot:iin (ei pelaajadokumenttiin)
       await batch.commit();
     } catch (e) {
       console.error('[arviointikertaOnWrite]', seuraId, pelaajaId, e && e.message);
@@ -2437,6 +1725,8 @@ exports.asetaPelaajanPin = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })
   .https.onCall(pelaajapin.luoAsetaPelaajanPin(pinDeps));
+exports.peruSuostumus = functions.region('europe-west1').runWith({ enforceAppCheck: true, secrets: ['SENDGRID_API_KEY'] })   // B9 (GDPR art. 7(3)): functions/suostumus_peruminen.js
+  .https.onCall(suostumusPeruminen.luoKasittelija(Object.assign({ auth, lahetaSahkoposti }, pinDeps)));
 /* PR B (1.10.2026) — QR-suostumuskortit: kutsu luodaan palvelimella (functions/suostumuskortit.js). */
 exports.luoSuostumusKortit = functions
   .region('europe-west1')
@@ -2540,7 +1830,7 @@ exports.luoPinitSeuralle = functions
    · laskeSeuranKooste    su 21:00 Europe/Helsinki — kuluva viikko        · laskeSeuranKoosteMa  ma 06:00 — edellinen viikko uudelleen (sunnuntain klo 21–24 vastaukset mukaan; sama set → idempotentti)
    · paivitaSeuranKooste  callable (johto/SA oma seura, App Check) — kuluvan viikon "Päivitä nyt".  Takaisinlaskenta (3 vk, arvio:true): scripts/kooste_takaisinlasku.js (Tero ajaa). */
 const seuranKooste = require('./seuran_kooste');
-const _koosteDeps = { db, FieldValue: admin.firestore.FieldValue, FieldPath: admin.firestore.FieldPath, HttpsError: functions.https.HttpsError, tarkistaOikeus };
+const _koosteDeps = { db, FieldValue: admin.firestore.FieldValue, FieldPath: admin.firestore.FieldPath, HttpsError: functions.https.HttpsError, tarkistaOikeus, ehdotukset: require('./toimenpide_ehdotukset').luoEhdotukset };   // projekti 03 PR B: toimenpide-ehdotukset koosteen yhteydessä
 exports.laskeSeuranKooste = functions
   .region('europe-west1')
   .runWith({ timeoutSeconds: 540, memory: '512MB' })
@@ -2557,3 +1847,38 @@ exports.paivitaSeuranKooste = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true, timeoutSeconds: 300, memory: '512MB' })   // S1.1: + käyttöasteen lähdekyselyt (2/pelaaja + kalenteri)
   .https.onCall(seuranKooste.paivitaKasittelija(_koosteDeps));
+
+/* ═══ Listayhteenveto (Vaihe 0 B.4; kaista Tero) ═══
+   seurat/{sid}/lista_joukkue/{jid} = joukkueen pelaajarivit (Master lukee 1 dokumentin / joukkue). Vain palvelin kirjoittaa (Rules v3.83). Ei sisainen/terveys/PIN/huoltajan sähköposti.
+   · laskeListaYhteenvedot   yöajo 03:30 Europe/Helsinki — kaikki aktiiviset seurat
+   · paivitaListaSeura      callable (vain johto + SA, App Check) — Seuran lista_seura "Päivitä nyt"; lista_seura (_meta + sivut) rakentuu samalla pelaajaluvulla kuin lista_joukkue (Rules v3.85)
+   · paivitaListaYhteenveto  callable (johto/talenttivalmentaja/valmentaja/SA oma seura, App Check) — "Päivitä nyt", 30 s jäähy
+   · merkitseListaLikaiseksi pelaajadokumentin onWrite → lista_likainen/{pid} vain jos listariviin vaikuttava kenttä muuttui
+   · siivoaListaLikaiset     minuutin ajastus — rakentaa seuran uudelleen kun merkit ovat hiljenneet (30 s) tai odottaneet 5 min (debounce) */
+Object.assign(exports, require('./lista_yhteenveto').luoFunktiot(functions, { db, FieldValue: admin.firestore.FieldValue, HttpsError: functions.https.HttpsError, tarkistaOikeus }));   // laskeListaYhteenvedot, paivitaListaYhteenveto, merkitseListaLikaiseksi, siivoaListaLikaiset
+
+/* ═══ Laskutus L1b (.briefit/CODE_BRIEF_LASKUTUS_L1.md §3; kaista Tero) ═══
+   laskutusKuukausi: kuun 1. päivä klo 6.00 Europe/Helsinki → EDELLISEN kuukauden snapshot laskutus/{YYYY-MM}/seurat/{sid} (create(), ei ylikirjoitusta).
+   Laskenta = jaettu tm_laskutus.js (sama kuin Adminin "Tilanne nyt"). Yhden seuran virhe ei kaada muita (loki + audit). Myöhässä ajo → myohassa: true.
+   Rules v3.72: client ei kirjoita laskutus/-kokoelmaan, luku vain SA. Myöhästynyt ajo: SA-varapolku alla (Admin "Laskutus") tai Cloud Scheduler "Force run". */
+const laskutusKuukausi = require('./laskutus_kuukausi');
+exports.laskutusKuukausi = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .pubsub.schedule('0 6 1 * *')
+  .timeZone('Europe/Helsinki')
+  .onRun(laskutusKuukausi.ajastettuKasittelija({ db, FieldValue: admin.firestore.FieldValue }));
+/* SA-varapolku (vaihe 0 §9): Admin "Laskutus" → "Luo snapshot". Vain SA, vain päättynyt kuukausi, myohassa: true, ei korvaa olemassa olevaa. */
+exports.laskutusKuukausiVarapolku = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true, timeoutSeconds: 540, memory: '512MB' })
+  .https.onCall(laskutusKuukausi.varapolkuKasittelija({ db, FieldValue: admin.firestore.FieldValue, HttpsError: functions.https.HttpsError, onSuperAdminUid }));
+
+/* Avauskirjoitukset palvelimelle, PR A (PM 8.11.2026 P2 = c2): henkilökunnan viimeisinKirjautuminen = max(Auth lastRefreshTime, lastSignInTime), kerran yössä. */
+exports.kirjautumisaikaYo = functions.region('europe-west1').runWith({ timeoutSeconds: 300, memory: '256MB' }).pubsub.schedule('30 3 * * *').timeZone('Europe/Helsinki')
+  .onRun(require('./kirjautumisaika').ajastettuKasittelija({ db, auth: admin.auth(), Timestamp: admin.firestore.Timestamp }));
+
+/* Projekti 07 / PR 3: erottelun valvonta (functions/valvonta.js; P1). Kuiva-ajo ennen VALVONTA_KIRJOITUS_ALKAA (koodivakio, 17.11.2026); kirjoittaa vain audit-rivin (kirjaaAudit). */
+const _valvDeps = { db, FieldValue: admin.firestore.FieldValue, posti: require('./valvonta_posti').luoLahetin({ laheta: lahetaSahkoposti }) };   // PR 4: virhesähköposti
+exports.valvontaPaivittain = functions.region('europe-west1').runWith({ timeoutSeconds: 540, memory: '1GB', secrets: ['SENDGRID_API_KEY', 'VALVONTA_VASTAANOTTAJA'] }).pubsub.schedule('30 5 * * *').timeZone('Europe/Helsinki').onRun(require('./valvonta').ajastettuKasittelija(_valvDeps, 'paivittain'));
+exports.valvontaViikko = functions.region('europe-west1').runWith({ timeoutSeconds: 540, memory: '1GB', secrets: ['SENDGRID_API_KEY', 'VALVONTA_VASTAANOTTAJA'] }).pubsub.schedule('0 5 * * 1').timeZone('Europe/Helsinki').onRun(require('./valvonta').ajastettuKasittelija(_valvDeps, 'viikko'));

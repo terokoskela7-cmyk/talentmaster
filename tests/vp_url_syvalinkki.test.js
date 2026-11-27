@@ -11,6 +11,8 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
@@ -80,7 +82,7 @@ describe('VP_v25 URL-sisääntulo ?seura=&pelaaja=&nakyma=kehitys', () => {
     expect(VP).toContain('_seuraId = token.claims.seuraId || null;');
   });
   it('Seurahallinta ja UTJ eivät enää avaa vanhaa IDP-korttia; Seuran nappi osoittaa VP:n sisääntuloon', () => {
-    const seura = readFileSync(join(juuri, 'TalentMaster_Seura.html'), 'utf8');
+    const seura = lueKuori('TalentMaster_Seura.html');
     expect(seura).not.toContain('TalentMaster_IDP_Kortti_v4.html');
     expect(seura).toContain("window.open('TalentMaster_VP_v25.html?seura=${encodeURIComponent(tila.seuraId)}&pelaaja=${encodeURIComponent(pelaajaId)}&nakyma=kehitys', '_blank');");
   });

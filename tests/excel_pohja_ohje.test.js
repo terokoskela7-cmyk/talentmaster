@@ -8,9 +8,11 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SEURA = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+const SEURA = lueKuori('TalentMaster_Seura.html');
 const require_ = createRequire(import.meta.url);
 const pura = (t) => { const a = SEURA.indexOf(t); if (a < 0) throw new Error(t); let d = 0; for (let j = SEURA.indexOf(') {', a) + 2; j < SEURA.length; j++) { if (SEURA[j] === '{') d++; else if (SEURA[j] === '}') { d--; if (!d) return SEURA.slice(a, j + 1); } } throw new Error(t); };
 
@@ -33,7 +35,7 @@ describe('lataaRekisteriPohja (ajettu SheetJS-tyngällä)', () => {
     const XLSX = { utils: { book_new: () => ({}), aoa_to_sheet: (aoa) => ({ aoa }), book_append_sheet: (wb, ws, nimi) => { lehdet[nimi] = ws.aoa; } }, writeFile() {} };
     const joukkueet = { docs: [{ id: 'kpv_u13', data: () => ({ nimi: 'KPV U13' }) }, { id: 'kpv_t18', data: () => ({ nimi: 'KPV T18' }) }] };
     const ctx = {
-      XLSX, tila: { seuraId: 'kpv', seuraNimi: 'KPV' }, naytaToast: (t, l) => toastit.push([t, l]), console: { error() {} },
+      XLSX, window: { tmXlsxLataa: async () => XLSX }, tila: { seuraId: 'kpv', seuraNimi: 'KPV' }, naytaToast: (t, l) => toastit.push([t, l]), console: { error() {} },
       document: { querySelector: () => nappi }, Date, Set, Promise, Object, String, Array, Number, RegExp,
       db: { collection: () => ({ doc: () => ({ collection: (k) => (k === 'joukkueet'
         ? { orderBy: () => ({ get: async () => joukkueet }), get: async () => joukkueet }

@@ -5,7 +5,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
+const lue = (f) => lueKuori(f);
 const SOVELLUKSET = ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Seura.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'];
 
 // Koodirivit ilman //-kommentteja; palauttaa [rivinro, rivi] -parit joissa kenttä kirjoitetaan (avain `muistiinpanot:` tai sijoitus `.muistiinpanot =`)
@@ -32,8 +34,8 @@ describe('vartija: tapahtumadokumentin muistiinpanot-kenttää ei kirjoiteta', (
     expect(kirjoitukset('upd.muistiinpanot = firebase.firestore.FieldValue.delete();').length).toBe(1);   // havaitaan, mutta suodatetaan pois vartijassa
   });
   it('Rules v3.52: create ja update kieltävät kentän; poistava update mahdollinen (kielto request.resource.data-puolella)', () => {
-    const r = lue('tm_admin/firestore.rules');
-    expect(r).toMatch(/firestore.rules v3\.(5[23456789]|60|61|62|63|64|65|66|67|68|69|70|71)/); expect(r).toContain('Muutokset v3.51 → v3.52');
+    const r = (lue('tm_admin/firestore.rules') + lue('docs/RULES_CHANGELOG.md'));
+    expect(r).toMatch(/firestore.rules v3\.(5[23456789]|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85)/); expect(r).toContain('Muutokset v3.51 → v3.52');
     expect(r).toMatch(/allow create: if !\('muistiinpanot' in request\.resource\.data\)/);
     expect(r).toMatch(/allow update: if !\('muistiinpanot' in request\.resource\.data\)/);
     expect(r).toContain('match /henkilokunta/{dokId}');

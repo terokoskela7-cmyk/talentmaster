@@ -15,6 +15,7 @@
    docs/i18n/sv_era3_palautetaan.json:iin (→ PR:n kohta "palautetaan Geminille"). */
 'use strict';
 const fs = require('fs');
+const LL = require('./lang_lahde.cjs');
 const path = require('path');
 const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
@@ -23,7 +24,7 @@ const KUIVA = process.argv.includes('--kuiva');
 const ERA = path.join(ROOT, arg('era', 'docs/i18n/sv_kaannoserae_3.json'));
 const PALAUTUS = path.join(ROOT, 'docs/i18n/sv_era3_palautetaan.json');
 const J = JSON.parse(fs.readFileSync(ERA, 'utf8'));
-const lue = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+const lue = (f) => LL.lueTied(ROOT, f);
 const tallenna = {};   // tiedosto → uusi sisältö (kirjoitetaan lopuksi)
 const src = (f) => (f in tallenna ? tallenna[f] : lue(f));
 const aseta = (f, s) => { tallenna[f] = s; };
@@ -190,7 +191,7 @@ vieJaannokset();
 vieTermisto();
 
 if (!KUIVA) {
-  for (const [f, s] of Object.entries(tallenna)) fs.writeFileSync(path.join(ROOT, f), s);
+  for (const [f, s] of Object.entries(tallenna)) LL.kt(ROOT, f, s);
   fs.writeFileSync(PALAUTUS, JSON.stringify({ _kuvaus: 'Rivit jotka eivät sovi koodiin (scripts/i18n_vie_sv_era3.cjs): EI viety karttaan, fi-fallback jää. Palautetaan Geminille.', _era: path.relative(ROOT, ERA), rivit: R.palautetaan }, null, 1) + '\n');
 }
 if (KUIVA) console.error(JSON.stringify(R.palautetaan,null,1));

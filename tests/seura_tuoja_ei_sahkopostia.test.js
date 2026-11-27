@@ -5,6 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { lataaSivu } from './helpers/sivu_ajuri.mjs';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const SPOSTI = 'vp@tm-testi.fi';
 const JOUKKUEET = [{ id: 'demo_p9', nimi: 'P9' }, { id: 'demo_p10', nimi: 'P10' }];
@@ -48,6 +50,6 @@ describe('tuoja-sähköposti pois pelaajadokumentista', () => {
     expect(t.loki.fn.map((x) => x[0])).toContain('lahetaRekisteriKutsu');
   });
   it('lähdekoodissa ei ole `tuoja:`-kirjoitusta pelaajadokumenttiin', () => {
-    expect(readFileSync(new URL('../TalentMaster_Seura.html', import.meta.url), 'utf8')).not.toMatch(/\btuoja\s*:/);
+    expect(lueKuori('TalentMaster_Seura.html')).not.toMatch(/\btuoja\s*:/);
   });
 });

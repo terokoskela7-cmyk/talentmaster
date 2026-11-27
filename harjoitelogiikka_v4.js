@@ -3167,6 +3167,8 @@ function _seuranHarjoitteet(seuraPankki, pelaaja, ehto) {
     if (ehto.kehityskohde != null && h.kehityskohde !== ehto.kehityskohde) return false;
     if (ehto.ketju != null && String(h.ketju || '').toUpperCase() !== String(ehto.ketju).toUpperCase()) return false;
     if (ehto.konsepti != null && String(h.konsepti || '') !== String(ehto.konsepti)) return false;   // K1: jakson konsepti_avain
+    if (ehto.osa != null && String(h.konsepti_osa || '').toLowerCase() !== String(ehto.osa).toLowerCase()) return false;   // PR A: viikon osa (a/b/c…) — rivin konsepti_osa
+    if (ehto.ilmanOsaa === true && h.konsepti_osa != null && h.konsepti_osa !== '') return false;   // PR A: konseptitason rivi (ei osakohdistusta)
     if (ika != null) { if (h.ika_min != null && ika < Number(h.ika_min)) return false; if (h.ika_max != null && ika > Number(h.ika_max)) return false; }
     return true;
   });
@@ -3208,15 +3210,21 @@ function valitsePaivanHarjoite(pelaaja, pankki, pvm, seuraPankki, opts) {
   var kohde = kk.kohde;
   var iv = _laskeIkavaihe(pelaaja);
 
-  // K1 (lippu liput/julkiset.kentta; kutsuja antaa opts.jaksoEnsin): JAKSO ENSIN, sitten testit. Jos pelaajan jaksofokuksen konsepti_avain täsmää seuran hyväksytyn (ei joukkue-käyttöisen) pankkiharjoitteen `konsepti`-kenttään,
-  // päivän treeni tulee siitä (jaksosta: true). Ei osumaa → alla oleva testipolku täsmälleen ennallaan. Ilman opts.jaksoEnsin === true tämä lohko ei tee mitään (characterization-testit lukitsevat vanhan polun).
-  if (opts && opts.jaksoEnsin === true) {
+  // JAKSO ENSIN (PR A, Teron päätös 20.11.2026): lähdejärjestys (1) seuran kotiharjoite, joka vastaa jakson konseptia / viikon osaa, (2) muuten testidata (TKI → SM → H-H → oletus; polku täsmälleen ennallaan).
+  // OLETUS kun kutsuja antaa seuraPankin (opts.jaksoEnsin === false kytkee pois). ILMAN seuraPankkia tämä lohko ei tee mitään → tulos bitti bitiltä entinen (characterization-testit).
+  // Seuran rivi: hyväksytty, kaytto ≠ 'joukkue', ikä- ja seurarajat (_seuranHarjoitteet). Osatasolla (opts.viikonOsa = 'a'…'e'): ensin rivit joiden konsepti_osa = viikon osa; sitten konseptitason rivit (ei konsepti_osa);
+  // pelkästään muiden osien rivejä → ei osumaa (testidata). Ilman opts.viikonOsa: kaikki konseptin rivit kuten K1:ssä. Tulos: lahde 'seura', jaksosta: true, osa: osan kirjain | null.
+  if (seuraPankki && !(opts && opts.jaksoEnsin === false)) {
     var jkAvain = pelaaja && pelaaja.jaksofokus && pelaaja.jaksofokus.konsepti_avain;
     if (jkAvain) {
-      var jakso = _seuranHarjoitteet(seuraPankki, pelaaja, { konsepti: jkAvain });
+      var osaK = opts && typeof opts.viikonOsa === 'string' && opts.viikonOsa ? opts.viikonOsa.toLowerCase() : null, jakso = [], osaTulos = null;
+      if (osaK) {
+        jakso = _seuranHarjoitteet(seuraPankki, pelaaja, { konsepti: jkAvain, osa: osaK });
+        if (jakso.length) osaTulos = osaK; else jakso = _seuranHarjoitteet(seuraPankki, pelaaja, { konsepti: jkAvain, ilmanOsaa: true });
+      } else jakso = _seuranHarjoitteet(seuraPankki, pelaaja, { konsepti: jkAvain });
       if (jakso.length) {
         var pij = _paivaIndeksi(pelaaja, pvm, iv, jakso.length);
-        return Object.assign(_seuranHarjoiteTulos(jakso[pij.indeksi], kohde, pij), { jaksosta: true });
+        return Object.assign(_seuranHarjoiteTulos(jakso[pij.indeksi], kohde, pij), { jaksosta: true, osa: osaTulos });
       }
     }
   }

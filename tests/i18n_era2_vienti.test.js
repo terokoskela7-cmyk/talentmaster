@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { S67, E80AVAIN } from './helpers/era67_korvatut.mjs';
+import { S67, E80AVAIN, KB5 } from './helpers/era67_korvatut.mjs';   // KB5: sv-korjauserä B5 (Aktion → Utförande)
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -37,10 +37,10 @@ describe('Gemini-erä 2 — vienti', () => {
     const tmLangTyhjat = tyhjat.filter(([o]) => o === 'tm_lang').map(([o, a]) => o + '::' + a).sort();
     expect(tmLangTyhjat).toEqual(ODOTTAA.slice().sort());
   });
-  it('tm_lang', () => { for (const [p, r] of rivit('tm_lang')) if (r.sv && !palautettu('tm_lang', p)) expect(polku(L, p), p).toBe(E80AVAIN(p, S67(r.sv))); });
+  it('tm_lang', () => { for (const [p, r] of rivit('tm_lang')) if (r.sv && !palautettu('tm_lang', p)) expect(polku(L, p), p).toBe(KB5('tm_lang', p, E80AVAIN(p, S67(r.sv)))); });
   it('lib-osiot → TM_LIB_I18N.sv', () => {
     for (const o of ['lib_adar_nimet', 'lib.rubriikit', 'lib.tm_kentta', 'lib.tm_adar_tekstit', 'lib.tm_pelihavainto_valinta', 'lib.tm_havaintohistoria', 'lib.tm_tanaan_signaali'])
-      for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(LIB[a], o + ' ' + a).toBe(E80AVAIN(a, S67(r.sv)));
+      for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(LIB[a], o + ' ' + a).toBe(KB5('lib', a, E80AVAIN(a, S67(r.sv))));
   });
   it('vp_kartta / master_kartta / henkilosto_kartta', () => {
     for (const [o, M] of [['vp_kartta', VP], ['master_kartta', MA], ['henkilosto_kartta', HE]]) for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(M[a], o + ' ' + a).toBe(E80AVAIN(a, S67(r.sv)));

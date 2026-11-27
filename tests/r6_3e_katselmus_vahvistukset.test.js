@@ -23,7 +23,8 @@ function pura(t) {
 const PID = 'm93GBdOaGCUuenMiCL0I', POLKU = 'seurat/kpv/pelaajat/' + PID, PVM = '2026-10-05';
 const YV = { kuvaus: 'Tempokuljetus', havaittu_pvm: '2026-09-12', rooli: 'valmentaja' };
 const TT = { alue: 'voima', merkitty_pvm: '2026-06-20', rooli: 'vp' };   // 15 viikkoa → vanhentunut
-const DEL = { __delete: true };
+const DEL = { __poista: true };   // FieldValue.delete()-tynkä (tm_sisainen tunnistaa poiston → menee myös pelaajadokumenttiin, PR 2d)
+const SIS = require('../lib/tm_sisainen.js');   // PR 2d: tukitarve + review_* (A, henkilokunta) VAIN sisainen/tiedot:iin samassa batchissa
 const pel = (o) => Object.assign({ id: PID, joukkue: 'KPV U13', syntymaVuosi: 2013, sukupuoli: 'M', review_viimeisin_pvm: '2026-06-01', review_viimeisin_tyyppi: 'mdr' }, o);
 
 describe('lib: tmMerkinnatTila / tmVahvistaMerkinnat', () => {
@@ -52,7 +53,7 @@ describe('lib: tmMerkinnatTila / tmVahvistaMerkinnat', () => {
   it('vahvista: ydinvahvuus.havaittu_pvm = tänään (kuvaus + rooli säilyvät); tukitarve vahvista = merkitty_pvm tänään; poista = POISTA; syötettä ei mutatoida', () => {
     const p = pel({ ydinvahvuus: YV, tukitarve: TT }), kopio = JSON.parse(JSON.stringify(p));
     const a = M.tmVahvistaMerkinnat(p, { ydinvahvuus: 'vahvista', tukitarve: 'vahvista' }, PVM);
-    expect(a.kirjoitus).toEqual({ ydinvahvuus: { havaittu_pvm: PVM }, tukitarve: { merkitty_pvm: PVM } }); expect(a.paikallinen.ydinvahvuus).toEqual(Object.assign({}, YV, { havaittu_pvm: PVM })); expect(a.paikallinen.tukitarve).toEqual(Object.assign({}, TT, { merkitty_pvm: PVM }));
+    expect(a.kirjoitus).toEqual({ ydinvahvuus: { havaittu_pvm: PVM }, tukitarve: Object.assign({}, TT, { merkitty_pvm: PVM }) });   // PR 2d: tukitarve KOKO kartta (A-kenttä, sisainen mergeFields korvaa) expect(a.paikallinen.ydinvahvuus).toEqual(Object.assign({}, YV, { havaittu_pvm: PVM })); expect(a.paikallinen.tukitarve).toEqual(Object.assign({}, TT, { merkitty_pvm: PVM }));
     expect(a.muutokset).toEqual(['ydinvahvuus_vahvistettu', 'tukitarve_vahvistettu']);
     const b = M.tmVahvistaMerkinnat(p, { tukitarve: 'poista' }, PVM); expect(b.kirjoitus).toEqual({ tukitarve: M.POISTA }); expect(b.paikallinen.tukitarve).toBe(M.POISTA); expect(b.kirjoitus.ydinvahvuus).toBeUndefined();
     expect(p).toEqual(kopio); expect(M.tmVahvistaMerkinnat(p, {}, PVM).kirjoitus).toEqual({}); expect(M.tmVahvistaMerkinnat(p, null, PVM).muutokset).toEqual([]);
@@ -73,13 +74,14 @@ function syvaMerge(a, b) {
 function ymp({ kaada = false, pelaaja = {}, valinnat = null, demo = false } = {}) {
   const docs = { [POLKU]: JSON.parse(JSON.stringify(pel(pelaaja))) }, kirj = [];
   const ref = (p) => ({ path: p, collection: (c) => ({ doc: (id) => ref(p + '/' + c + '/' + id) }) });
-  const db = { collection: (c) => ({ doc: (id) => ref(c + '/' + id) }), batch: () => { const ops = []; return { set: (r, d, o) => ops.push({ p: r.path, d, merge: !!(o && o.merge) }),
-    commit: async () => { if (kaada) throw new Error('permission-denied'); ops.forEach((x) => { docs[x.p] = x.merge ? syvaMerge(docs[x.p] || {}, x.d) : x.d; kirj.push(x); }); } }; } };
+  const kentat = (o, d) => { const v = Object.assign({}, o); Object.keys(d).forEach((k) => { if (d[k] === DEL) delete v[k]; else v[k] = d[k]; }); return v; };   // mergeFields: kenttä korvataan kokonaan
+  const db = { collection: (c) => ({ doc: (id) => ref(c + '/' + id) }), batch: () => { const ops = []; return { set: (r, d, o) => ops.push({ p: r.path, d, merge: !!(o && o.merge), mf: !!(o && o.mergeFields) }),
+    commit: async () => { if (kaada) throw new Error('permission-denied'); ops.forEach((x) => { docs[x.p] = x.mf ? kentat(docs[x.p] || {}, x.d) : x.merge ? syvaMerge(docs[x.p] || {}, x.d) : x.d; kirj.push(x); }); } }; } };
   const p = Object.assign(pel(pelaaja), { _idpTavoite: { arviot: [] } });
   const log = { toastit: [], el: null };
   const arvot = { _rvArvo: '4.5', _rvNote: '', _rvKomm: '', _rvTagit: '', _vpReviewModal: null };
   const c = { db, _seuraId: 'kpv', _isDemoMode: demo, _uid: 'vp-uid', _pelaajat: [p], Object, Array, Math, console: { warn() {} }, tmPaivaIso: () => PVM, tmPvmFi: (iso) => iso.split('-').reverse().join('.'), _jsvEsc: (x) => String(x == null ? '' : x),
-    window: { TM_KEHITYSSILMUKKA: K, TM_JAKSO_MALLI: M, tmVarhainKypsynyt: PHV.tmVarhainKypsynyt, _rvArvioVal: 4, _vpRooli: 'vp', _rvVahvista: valinnat, _rvPid: PID }, vpT: (x) => x, toast: (t, k) => log.toastit.push([t, k]),
+    window: { TM_SISAINEN: SIS, TM_KEHITYSSILMUKKA: K, TM_JAKSO_MALLI: M, tmVarhainKypsynyt: PHV.tmVarhainKypsynyt, _rvArvioVal: 4, _vpRooli: 'vp', _rvVahvista: valinnat, _rvPid: PID }, vpT: (x) => x, toast: (t, k) => log.toastit.push([t, k]),
     tmPhvKoodi: PHV.tmPhvKoodi,
     firebase: { firestore: { FieldValue: { delete: () => DEL } }, auth: () => ({ currentUser: { uid: 'vp-uid' } }) },
     document: { getElementById: (id) => (id === '_rvMerkinnat' ? { replaceWith(n) { log.el = n; } } : (id in arvot ? (arvot[id] == null ? null : { value: arvot[id], remove() {} }) : null)), createElement: () => ({ set innerHTML(h) { this._h = h; this.firstChild = h ? { html: h } : null; } }) },
@@ -88,6 +90,8 @@ function ymp({ kaada = false, pelaaja = {}, valinnat = null, demo = false } = {}
   vm.runInContext([pura('function _vpRvMerkinnatHTML('), pura('window._vpRvVahvista = function'), pura('async function _vpKirjoitaReview('), pura('window._vpTallennaReview = async function')].join(';\n') + ';', c);
   return { c, p, docs, kirj, log };
 }
+const SISP = POLKU + '/sisainen/tiedot';
+const yhd = (e) => SIS.tmSisainenYhdista(e.docs[POLKU], e.docs[SISP]);   // henkilökunnan näkymä (dual-read)
 const teksti = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
 describe('VP_v25 · lohko "Vahvista merkinnät" (09 §6)', () => {
@@ -119,19 +123,24 @@ describe('VP_v25 · _vpTallennaReview: vahvistukset SAMASSA BATCHISSA katselmuks
   it('Vahvista + Kyllä: yksi batch {reviewit/{pvm}, pelaajadokki}; ydinvahvuus.havaittu_pvm + tukitarve.merkitty_pvm päivittyvät, kuvaus/rooli/alue säilyvät; katselmusrytmi nollautuu', async () => {
     const e = ymp({ pelaaja: { ydinvahvuus: YV, tukitarve: TT }, valinnat: { ydinvahvuus: 'vahvista', tukitarve: 'vahvista' } });
     await e.c.window._vpTallennaReview(PID);
-    expect(e.kirj.length).toBe(2); expect(e.kirj.map((k) => k.p)).toEqual([POLKU + '/reviewit/' + PVM, POLKU]);   // yksi batch: katselmus + pelaajadokki
-    const d = e.docs[POLKU]; expect(d.ydinvahvuus).toEqual(Object.assign({}, YV, { havaittu_pvm: PVM })); expect(d.tukitarve).toEqual(Object.assign({}, TT, { merkitty_pvm: PVM }));
+    expect(e.kirj.length).toBe(3); expect(e.kirj.map((k) => k.p)).toEqual([POLKU, SISP, POLKU + '/reviewit/' + PVM]);   // yksi batch: pelaajadokki (B: ydinvahvuus) + sisainen (A: tukitarve, review_*) + katselmus
+    expect(Object.keys(e.kirj[0].d)).toEqual(['ydinvahvuus']); expect(e.docs[POLKU].ydinvahvuus).toEqual(Object.assign({}, YV, { havaittu_pvm: PVM }));   // PR 2d: ei A-avaimia pelaajadokumenttiin (set-merge: kuvaus/rooli säilyvät)
+    const d = yhd(e); expect(d.ydinvahvuus).toEqual(Object.assign({}, YV, { havaittu_pvm: PVM })); expect(d.tukitarve).toEqual(Object.assign({}, TT, { merkitty_pvm: PVM }));
+    expect(e.docs[SISP].tukitarve).toEqual(Object.assign({}, TT, { merkitty_pvm: PVM })); expect(e.docs[POLKU].tukitarve).toEqual(TT);   // vanha (siivoamaton) kopio pelaajalla ei muutu; sisainen voittaa
     expect(d.review_viimeisin_pvm).toBe(PVM); expect(e.p.ydinvahvuus.havaittu_pvm).toBe(PVM); expect(e.c.window._rvVahvista).toBeNull();
   });
   it('Poista: tukitarve poistuu pelaajadokista (FieldValue.delete) ja paikallisesta tilasta; ydinvahvuus koskematon', async () => {
     const e = ymp({ pelaaja: { ydinvahvuus: YV, tukitarve: TT }, valinnat: { ydinvahvuus: null, tukitarve: 'poista' } });
     await e.c.window._vpTallennaReview(PID);
-    expect('tukitarve' in e.docs[POLKU]).toBe(false); expect('tukitarve' in e.p).toBe(false); expect(e.docs[POLKU].ydinvahvuus).toEqual(YV); expect(e.docs[POLKU].review_viimeisin_pvm).toBe(PVM);
+    expect('tukitarve' in e.docs[POLKU]).toBe(false); expect('tukitarve' in e.docs[SISP]).toBe(false); expect('tukitarve' in yhd(e)).toBe(false);   // PR 2d: poisto molempiin → ei palaa dual-readissa
+    expect('tukitarve' in e.p).toBe(false); expect(e.docs[POLKU].ydinvahvuus).toEqual(YV); expect(yhd(e).review_viimeisin_pvm).toBe(PVM);
   });
   it('ei valintoja → batchissa vain katselmus + review-pikakentät (ennallaan); ydinvahvuus/tukitarve koskemattomat', async () => {
     const e = ymp({ pelaaja: { ydinvahvuus: YV, tukitarve: TT }, valinnat: { ydinvahvuus: null, tukitarve: null } });
     await e.c.window._vpTallennaReview(PID);
-    expect(e.docs[POLKU].ydinvahvuus).toEqual(YV); expect(e.docs[POLKU].tukitarve).toEqual(TT); expect(e.kirj[1].d).not.toHaveProperty('ydinvahvuus'); expect(e.kirj[1].d).not.toHaveProperty('tukitarve');
+    expect(e.docs[POLKU].ydinvahvuus).toEqual(YV); expect(e.docs[POLKU].tukitarve).toEqual(TT);
+    expect(e.kirj.map((k) => k.p)).toEqual([SISP, POLKU + '/reviewit/' + PVM]);   // PR 2d: vain review-pikakentät → ei pelaajadokumentin kirjoitusta
+    expect(e.kirj[0].d).not.toHaveProperty('ydinvahvuus'); expect(e.kirj[0].d).not.toHaveProperty('tukitarve');
   });
   it('batch kaatuu → EI vahvistuksia, EI paikallista päivitystä (atomisuus), virheilmoitus', async () => {
     const e = ymp({ kaada: true, pelaaja: { ydinvahvuus: YV, tukitarve: TT }, valinnat: { ydinvahvuus: 'vahvista', tukitarve: 'poista' } });
@@ -141,7 +150,7 @@ describe('VP_v25 · _vpTallennaReview: vahvistukset SAMASSA BATCHISSA katselmuks
   it('vahvistus ilman merkintää (vanhentunut tila) → ei kaada katselmusta: varoitus, katselmus kirjautuu ilman vahvistusta; demo: vain paikallinen', async () => {
     const e = ymp({ pelaaja: {}, valinnat: { ydinvahvuus: null, tukitarve: 'poista' } });
     await e.c.window._vpTallennaReview(PID);
-    expect(e.log.toastit.some(([, k]) => k === 'error')).toBe(true); expect(e.docs[POLKU].review_viimeisin_pvm).toBe(PVM);
+    expect(e.log.toastit.some(([, k]) => k === 'error')).toBe(true); expect(yhd(e).review_viimeisin_pvm).toBe(PVM);
     const d = ymp({ demo: true, pelaaja: { tukitarve: TT }, valinnat: { ydinvahvuus: null, tukitarve: 'poista' } }); await d.c.window._vpTallennaReview(PID);
     expect(d.kirj).toEqual([]); expect('tukitarve' in d.p).toBe(false);
   });

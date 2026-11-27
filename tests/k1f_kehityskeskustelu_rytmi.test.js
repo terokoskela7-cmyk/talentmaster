@@ -1,12 +1,13 @@
 /* K1f · Masterin "Kirjaa kehityskeskustelu" ja VP:n "Merkitse kehityskeskustelu tehdyksi" (yksittäin + bulk) nollaavat rytmin samalla säännöllä kuin Jakson yhteenveto (K1d).
    Ajetaan OIKEA kuorikoodi (Master _mIdpTallennaReview, VP _mdtMerkitseReview / _vpCockpitBulkMerkitse) vm:ssä + muistinvarainen Firestore; sen jälkeen
-   sovellus (laskeReviewKadenssi → tmRytmi) ja push (functions/rytmi_notif.js) lukevat SAMAN pelaajadokumentin ja ovat samaa mieltä. Kuoren kello: 7.10.2026 (lataaSivu). */
+   sovellus (laskeReviewKadenssi → tmRytmi) ja push (functions/rytmi_notif.js) lukevat SAMAN yhdistetyn pelaajan ja ovat samaa mieltä. Kuoren kello: 7.10.2026 (lataaSivu).
+   PR 2d: review_viimeisin_* (henkilokunta = A) kirjoitetaan VAIN sisainen/tiedot:iin; sovellus (tmSisainenYhdista) ja push (functions/sisainen_luku.js yhdistaLista) lukevat yhdistetyn muodon. */
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import { lataaSivu } from './helpers/sivu_ajuri.mjs';
 import { fakeDb } from './_fakeFirestore.mjs';
 const require = createRequire(import.meta.url);
-const N = require('../lib/tm_eerikkila_normit.js'), RN = require('../functions/rytmi_notif.js');
+const N = require('../lib/tm_eerikkila_normit.js'), RN = require('../functions/rytmi_notif.js'), SIS = require('../lib/tm_sisainen.js');
 globalThis.normiIka = N.normiIka;
 const NYT = new Date(2026, 9, 8, 12, 0).getTime();   // 8.10.2026: päivä kuoren kellon (7.10.) jälkeen
 const PVM = '2026-10-07';   // kuoren paikallinen päivä
@@ -31,10 +32,11 @@ function ymp(sivu, pelaaja, opts) {
     toast: (t, l) => loki.toast.push([t, l]),
   });
   c.document = Object.assign({}, c.document, { getElementById: E });
-  if (c.window && c.window.TM_SISAINEN) c.window.TM_SISAINEN.RYHMAT.henkilokunta.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_henkilokunta*.test.js
   return { c, f, loki, E };
 }
-const pel = (t) => t.f.D.get(POLKU);
+const pel = (t) => t.f.D.get(POLKU);   // raaka pelaajadokumentti
+const yhd = (t) => SIS.tmSisainenYhdista(t.f.D.get(POLKU), t.f.D.get(POLKU + '/sisainen/tiedot'));   // yhdistetty (sovellus + push lukevat tämän)
+const eiARytmia = (t) => { expect(pel(t).review_viimeisin_pvm).toBe(PEL.review_viimeisin_pvm); expect(pel(t).review_viimeisin_tyyppi).toBe(PEL.review_viimeisin_tyyppi); };   // PR 2d: pelaajadokumentin vanha arvo ei muutu
 const rev = (t) => t.f.D.get(POLKU + '/reviewit/' + PVM);
 /* pariteetti: kirjauksen jälkeen sovellus ja push ovat samaa mieltä — rytmi ajantasalla, ei muistutusta */
 function pariteetti(p) {
@@ -56,23 +58,23 @@ describe('K1f · Master: "Kirjaa kehityskeskustelu" nollaa rytmin', () => {
   it('IDP onnistuu → reviewit/{pvm} + review_viimeisin_pvm/-tyyppi samassa batchissa; sovellus ja push samaa mieltä', async () => {
     const t = masterYmp(PEL); await t.c._mIdpTallennaReview('p1');
     expect(t.f.D.get(POLKU + '/idp_kausi/2026').tavoitteet[0].arviot).toHaveLength(1);   // IDP-arvio ennallaan
-    expect(pel(t)).toMatchObject({ review_viimeisin_pvm: PVM, review_viimeisin_tyyppi: 'kehityskeskustelu', idp_viim_review: PVM });
+    expect(yhd(t)).toMatchObject({ review_viimeisin_pvm: PVM, review_viimeisin_tyyppi: 'kehityskeskustelu', idp_viim_review: PVM }); eiARytmia(t); expect('idp_viim_review' in pel(t)).toBe(false);
     expect(rev(t)).toMatchObject({ tyyppi: 'kehityskeskustelu', pvm: PVM, tekija_uid: 'u1', tekija_rooli: 'valmentaja', idp_paivitetty: true, arvio: { arvo: null, pelaajan_arvio: 4 } });
     expect(rev(t).valmentajan_kommentti).toBeUndefined();   // kommentti jää IDP-arvioon
-    expect(t.f.loki.batchOps).toEqual([2]);   // YKSI batch: reviewit + pelaajadokumentti
+    expect(t.f.loki.batchOps.slice(-1)).toEqual([2]);   // katselmus YHDESSÄ batchissa: reviewit + sisainen/tiedot (pelaajadokumenttiin ei A-kenttiä)
     expect(t.p.review_viimeisin_pvm).toBe(PVM);   // paikallinen tila
-    pariteetti(pel(t));
+    pariteetti(yhd(t));
   });
   it('aiempaa myöhäisempi review_viimeisin_pvm säilyy (pikakenttiä ei vanhenneta), reviewit/{pvm} silti kirjoitetaan', async () => {
     const t = masterYmp(Object.assign({}, PEL, { review_viimeisin_pvm: '2026-10-07T00:00:00', review_viimeisin_tyyppi: 'mdr' }));
     t.p.review_viimeisin_pvm = '2026-10-09'; t.f.D.set(POLKU, Object.assign({}, PEL, { review_viimeisin_pvm: '2026-10-09', review_viimeisin_tyyppi: 'mdr' }));
     await t.c._mIdpTallennaReview('p1');
-    expect(pel(t)).toMatchObject({ review_viimeisin_pvm: '2026-10-09', review_viimeisin_tyyppi: 'mdr' }); expect(rev(t).tyyppi).toBe('kehityskeskustelu');
+    expect(yhd(t)).toMatchObject({ review_viimeisin_pvm: '2026-10-09', review_viimeisin_tyyppi: 'mdr' }); expect(rev(t).tyyppi).toBe('kehityskeskustelu');
   });
   it('IDP-tallennus epäonnistuu → mitään katselmusta ei kirjoiteta (ei valeonnistumista)', async () => {
     const t = masterYmp(PEL, { idpKaatuu: true }); await t.c._mIdpTallennaReview('p1');
-    expect(rev(t)).toBeUndefined(); expect(pel(t).review_viimeisin_pvm).toBe('2026-08-01'); expect(t.p.review_viimeisin_pvm).toBe('2026-08-01');
-    expect(t.loki.toast.some(([x, l]) => l === 'error')).toBe(true); expect(sovellus(pel(t)).status).toBe('myohassa');
+    expect(rev(t)).toBeUndefined(); expect(yhd(t).review_viimeisin_pvm).toBe('2026-08-01'); expect(t.p.review_viimeisin_pvm).toBe('2026-08-01');
+    expect(t.loki.toast.some(([x, l]) => l === 'error')).toBe(true); expect(sovellus(yhd(t)).status).toBe('myohassa');
   });
   it('katselmus-batch epäonnistuu → virhetoast, paikallinen tila ennallaan', async () => {
     const t = masterYmp(PEL, { batchKaatuu: true }); await t.c._mIdpTallennaReview('p1');
@@ -97,16 +99,16 @@ describe('K1f · VP: "Merkitse kehityskeskustelu tehdyksi" nollaa rytmin samalla
   };
   it('yksittäinen _mdtMerkitseReview: reviewit/{pvm} + pikakentät (mdr), yksi batch; sovellus ja push samaa mieltä', async () => {
     const t = vpYmp(PEL); await t.c._mdtMerkitseReview();
-    expect(pel(t)).toMatchObject({ review_viimeisin_pvm: PVM, review_viimeisin_tyyppi: 'mdr' }); expect(rev(t)).toMatchObject({ tyyppi: 'mdr', pvm: PVM, idp_paivitetty: false });
-    expect(t.f.loki.batchOps).toEqual([2]); expect(t.p.review_viimeisin_pvm).toBe(PVM); pariteetti(pel(t));
+    expect(yhd(t)).toMatchObject({ review_viimeisin_pvm: PVM, review_viimeisin_tyyppi: 'mdr' }); eiARytmia(t); expect(rev(t)).toMatchObject({ tyyppi: 'mdr', pvm: PVM, idp_paivitetty: false });
+    expect(t.f.loki.batchOps).toEqual([2]); expect(t.p.review_viimeisin_pvm).toBe(PVM); pariteetti(yhd(t));   // yksi batch: reviewit + sisainen/tiedot
   });
   it('bulk _vpCockpitBulkMerkitse: sama tulos', async () => {
     const t = vpYmp(PEL); t.c.confirm = () => true; t.c.window.confirm = () => true; await t.c._vpCockpitBulkMerkitse();
-    expect(pel(t)).toMatchObject({ review_viimeisin_pvm: PVM, review_viimeisin_tyyppi: 'mdr' }); expect(rev(t).tyyppi).toBe('mdr'); pariteetti(pel(t));
+    expect(yhd(t)).toMatchObject({ review_viimeisin_pvm: PVM, review_viimeisin_tyyppi: 'mdr' }); eiARytmia(t); expect(rev(t).tyyppi).toBe('mdr'); pariteetti(yhd(t));
   });
   it('aiempaa myöhäisempi review_viimeisin_pvm säilyy myös VP:n merkinnässä', async () => {
     const t = vpYmp(Object.assign({}, PEL, { review_viimeisin_pvm: '2026-10-09', review_viimeisin_tyyppi: 'kehityskeskustelu' })); await t.c._mdtMerkitseReview();
-    expect(pel(t)).toMatchObject({ review_viimeisin_pvm: '2026-10-09', review_viimeisin_tyyppi: 'kehityskeskustelu' }); expect(rev(t).tyyppi).toBe('mdr');
+    expect(yhd(t)).toMatchObject({ review_viimeisin_pvm: '2026-10-09', review_viimeisin_tyyppi: 'kehityskeskustelu' }); expect(rev(t).tyyppi).toBe('mdr');
   });
   it('batch epäonnistuu → ei kirjoitusta, paikallinen tila ennallaan, virhetoast (ei ✓)', async () => {
     const t = vpYmp(PEL, { batchKaatuu: true }); await t.c._mdtMerkitseReview();

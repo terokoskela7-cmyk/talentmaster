@@ -1,8 +1,8 @@
 /**
- * Gemini-ruotsinnokset + seurahallinta suomeksi (1.10.2026).
+ * Gemini-ruotsinnokset + seurahallinnan kieli (1.10.2026; B12 8.11.2026: linjaus "aina suomeksi" purettu → sivun kieli).
  *  - sv-arvot viety tm_lang.js:ään SELLAISENAAN (tests/fixtures/sv_kaannokset_2026-10-01.json = Claude outputs -kopio).
  *    Poikkeus: vanhempi.kirj_jakoteksti ({gen} = suomen genetiivi, V1-B2 kieltää sv/en:ssä) → odotuslistalle.
- *  - Seura-sivun käyttöliittymä on aina suomeksi, myös ruotsinkielisellä seuralla; perheille menevät kortit seuran kielellä.
+ *  - Seura-sivun käyttöliittymä on sivun kielellä (tm_kieli → seuran kieli → fi, tmKieliInitSeura); perheille menevät kortit seuran kielellä.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -10,10 +10,13 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+import LL from '../scripts/lang_lahde.cjs';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
-const lue = (n) => readFileSync(join(ROOT, n), 'utf8');
+const lue = (n) => lueKuori(n);
 const SV = require_('./fixtures/sv_kaannokset_2026-10-01.json');
 const SEURA = lue('TalentMaster_Seura.html');
 const pura = (t) => { const a = SEURA.indexOf(t); if (a < 0) throw new Error(t); let d = 0; for (let j = SEURA.indexOf(') {', a) + 2; j < SEURA.length; j++) { if (SEURA[j] === '{') d++; else if (SEURA[j] === '}') { d--; if (!d) return SEURA.slice(a, j + 1); } } throw new Error(t); };
@@ -25,7 +28,7 @@ function sivu({ seuraKieli, aktiivinenKieli }) {
     document: { documentElement: {} }, navigator: { language: 'fi' }, String, Object, Array, RegExp };
   ctx.window = ctx;
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  vm.runInContext(lue('lib/tm_lang.js'), ctx);
+  vm.runInContext(LL.lue(ROOT), ctx);
   if (aktiivinenKieli && typeof ctx.tmAsetaKieli === 'function') ctx.tmAsetaKieli(aktiivinenKieli, true);
   ctx.tila = { seuraId: 'sibbovargarna', seuraKieli };
   vm.runInContext([pura('function _tkKieli(avain, kieli, fi, muuttujat) {'), pura('function _tk(avain, fi, muuttujat) {'), pura('function _pinKortitHtml(kortit) {')].join('\n'), ctx);
@@ -59,13 +62,15 @@ describe('Gemini-ruotsinnokset (sellaisenaan)', () => {
   });
 });
 
-describe('Seura: käyttöliittymä suomeksi, kortit seuran kielellä (ajettu)', () => {
-  it('ruotsinkielinen seura (ja selaimessa sv valittuna) → käyttöliittymä "Tuo pelaajat Excelistä", ei ruotsia eikä englantia', () => {
+describe('Seura: käyttöliittymä sivun kielellä (B12), kortit seuran kielellä (ajettu)', () => {
+  it('B12: sivu ruotsiksi → _tk antaa tm_langin ruotsin (ei englantia); sivu suomeksi → suomi', () => {
     const ctx = sivu({ seuraKieli: 'sv', aktiivinenKieli: 'sv' });
-    expect(ctx.t('seura.tuo_pelaajat_excelista')).toBe(SV['seura.tuo_pelaajat_excelista']);   // ympäristö on oikeasti ruotsiksi
-    expect(ctx._tk('seura.tuo_pelaajat_excelista', 'Tuo pelaajat Excelistä')).toBe('Tuo pelaajat Excelistä');
-    expect(ctx._tk('seura.lataa_excel_pohja', 'Lataa Excel-pohja')).toBe('Lataa Excel-pohja');
-    expect(ctx._tk('seura.excel_pohja_ladattu', '?', { n: 3 })).toBe('Excel-pohja ladattu – 3 joukkuetta Asetukset-välilehdellä');
+    expect(ctx._tk('seura.tuo_pelaajat_excelista', 'Tuo pelaajat Excelistä')).toBe(SV['seura.tuo_pelaajat_excelista']);
+    expect(ctx._tk('seura.lataa_excel_pohja', 'Lataa Excel-pohja')).toBe(SV['seura.lataa_excel_pohja']);
+    expect(ctx._tk('seura.excel_pohja_ladattu', '?', { n: 3 })).toBe(ctx.TM_LANG.sv.seura.excel_pohja_ladattu.replace('{n}', 3));
+    const fi = sivu({ seuraKieli: 'sv', aktiivinenKieli: 'fi' });
+    expect(fi._tk('seura.tuo_pelaajat_excelista', 'Tuo pelaajat Excelistä')).toBe('Tuo pelaajat Excelistä');
+    expect(fi._tk('seura.excel_pohja_ladattu', '?', { n: 3 })).toBe('Excel-pohja ladattu – 3 joukkuetta Asetukset-välilehdellä');
   });
   it('saman seuran suostumuskortti on ruotsiksi (Geminin teksti), html lang="sv"', () => {
     const ctx = sivu({ seuraKieli: 'sv', aktiivinenKieli: 'fi' });
@@ -83,11 +88,11 @@ describe('Seura: käyttöliittymä suomeksi, kortit seuran kielellä (ajettu)', 
       expect(h).toContain('Näytä tämä vanhemmallesi'); expect(h).toContain('<title>Kortit</title>');
     }
   });
-  it('Seura ei enää vaihda sivun kieltä seuran kielen mukaan; tila.seuraKieli säilyy (A3)', () => {
+  it('B12: Seura asettaa sivun kielen seuran kielestä (käyttäjän valinta voittaa) ja kääntää staattisen markupin vain kielen vaihtuessa; tila.seuraKieli säilyy (A3)', () => {
     const i = SEURA.indexOf('async function asetaAktiivinenSeura(');
     const runko = SEURA.slice(i, SEURA.indexOf('\n}\n', i));
     expect(runko).toContain('tila.seuraKieli   = data.kieli || null;');
-    expect(runko).not.toMatch(/^\s*if \(typeof tmKieliInitSeura === 'function'\) tmKieliInitSeura/m);
+    expect(runko).toMatch(/^\s*if \(typeof tmKieliInitSeura === 'function'\) \{ const ennen = _seuraKieli\(\); tmKieliInitSeura\(data\.kieli\); if \(_seuraKieli\(\) !== ennen\) seuraLokalisoi\(\); \}$/m);
     expect(SEURA).not.toMatch(/^\s*[^/*\s].*\btmAsetaKieli\(/m);
   });
 });

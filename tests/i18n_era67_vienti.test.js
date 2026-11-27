@@ -5,6 +5,7 @@ import { cpSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } f
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { createRequire } from 'module';
+import LL from '../scripts/lang_lahde.cjs';
 const require = createRequire(import.meta.url);
 const ROOT = join(__dirname, '..'), tmp = [];
 const V = require('../scripts/i18n_vie_sv_era67.cjs');
@@ -23,7 +24,7 @@ describe('sv-erä 67 — vienti (testidata, tilapäinen kopio)', () => {
   it('oikea palautus on viety: kuiva-ajo repoa vasten ei muuta mitään (89 ohitettu), inventaario tyhjä; tilapäisessä kopiossa mekaaninen palautus on idempotentti', () => {
     const I = require('../scripts/i18n_tranarchef_inventaario.cjs'); expect(I.kerays()).toEqual([]);
     const k = V.vie({ juuri: ROOT, kirjoita: false }); expect(k.virheet).toEqual([]); expect(k.lisatty).toBe(0); expect(k.ohitettu.length).toBe(89);
-    const lang = readFileSync(join(ROOT, 'lib/tm_lang.js'), 'utf8'); expect(lang).toMatch(/vp:\s+'Tränarchef'/); expect(readFileSync(join(ROOT, 'lib/tm_i18n_common.js'), 'utf8')).toMatch(/'Valmennuspäällikkö': 'Tränarchef',   \/\/ kanoni \(Teron päätös 18\.10\.2026\): tränarchef/);   // arvo kopioitu palautuksesta sellaisenaan (otsikkomuoto isolla)
+    const lang = LL.lue(ROOT); expect(lang).toMatch(/vp:\s+'Tränarchef'/); expect(readFileSync(join(ROOT, 'lib/tm_i18n_common.js'), 'utf8')).toMatch(/'Valmennuspäällikkö': 'Tränarchef',   \/\/ kanoni \(Teron päätös 18\.10\.2026\): tränarchef/);   // arvo kopioitu palautuksesta sellaisenaan (otsikkomuoto isolla)
   });
   it('muu lause ennallaan: vain VP-termi vaihtuu (rivimäärä ja avaimet samat)', () => {
     palautus(d); const rivit = (f) => readFileSync(join(d, f), 'utf8').split('\n').length, a = rivit('lib/tm_vp_i18n.js'), b = rivit('lib/tm_master_i18n.js'); V.vie({ juuri: d, kirjoita: true }); expect(rivit('lib/tm_vp_i18n.js')).toBe(a); expect(rivit('lib/tm_master_i18n.js')).toBe(b);

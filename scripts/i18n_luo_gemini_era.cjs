@@ -2,13 +2,92 @@
 /* Gemini-erän 2 pohja (sv-läpiajo; docs/CODE_BRIEF_I18N_SV_LAPIAJO.md kohta 4). Code EI kirjoita ruotsia (CLAUDE.md §0): sv jää tyhjäksi, Gemini täyttää.
    Lähde: tests/tm_lang_sv_odotuslista.cjs (uudet fi+en-avaimet) → osio "tm_lang" (fi/en tm_lang.js:stä). Ohje + termistö kopioidaan 8.10. erästä sellaisenaan.
    Idempotentti: jo täytetty sv (aiempi ajo + Geminin paluu) säilyy; vain puuttuvat rivit lisätään; poistuneet (ei enää odotuslistalla) pudotetaan jos sv tyhjä.
+   B11 (7.11.2026): skripti kieltäytyy (exit 1, ei kirjoitusta), jos kohde-erällä on palautus (sv_kaannoserae_N_palautus.json tai sv_eraN_palautetaan.json
+   kohteen kansiossa tai docs/i18n/:ssä) tai jos yksikin kohteen täytetty sv katoaisi tai muuttuisi. Erä 2 on palautettu ja suljettu: uudet tekstit
+   menevät uuteen erään docs/i18n/sv_kaannoserae_N_gemini.json + poissulku tests/i18n_gemini_era2.test.js:ään (ERA54/55/56/69-malli).
    Ajo: node scripts/i18n_luo_gemini_era.cjs [--tiedosto=docs/i18n/sv_kaannoserae_2.json] */
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const arg = (n, d) => { const a = process.argv.find((x) => x.startsWith('--' + n + '=')); return a ? a.slice(n.length + 3) : d; };
-const OUT = path.join(ROOT, arg('tiedosto', 'docs/i18n/sv_kaannoserae_2.json'));
+const OUT = path.resolve(ROOT, arg('tiedosto', 'docs/i18n/sv_kaannoserae_2.json'));
+const kieltaydy = (syy) => { console.error('i18n_luo_gemini_era: EI KIRJOITETTU ' + path.relative(ROOT, OUT) + ' — ' + syy + '\nPalautettua erää ei luoda uudelleen. Uudet tekstit: uusi docs/i18n/sv_kaannoserae_N_gemini.json + poissulku tests/i18n_gemini_era2.test.js:ään (ERA54/55/56/69-malli).'); process.exit(1); };
+// --osio ilman kohdetta osuisi oletukseen (erä 2, palautettu) → selkeä käyttövirhe ennen B11-suojaa
+if (process.argv.some((x) => x.startsWith('--osio=')) && !process.argv.some((x) => x.startsWith('--tiedosto='))) {
+  console.error('i18n_luo_gemini_era: --osio vaatii kohteen --tiedosto=docs/i18n/sv_kaannoserae_N_gemini.json (uusi erä; erää 2 ei rajata)'); process.exit(2);
+}
+// (1) palautettu erä: kohteen numero tiedostonimestä → palautustiedosto kohteen kansiossa tai docs/i18n/:ssä
+{
+  const m = path.basename(OUT).match(/^sv_kaannoserae_(.+?)(?:_gemini)?\.json$/);
+  if (m) {
+    const nimet = ['sv_kaannoserae_' + m[1] + '_palautus.json', 'sv_era' + m[1] + '_palautetaan.json'];
+    const kansiot = [...new Set([path.dirname(OUT), path.join(ROOT, 'docs/i18n')])];
+    for (const k of kansiot) for (const n of nimet) if (fs.existsSync(path.join(k, n))) kieltaydy('erällä on palautus ' + path.relative(ROOT, path.join(k, n)));
+  }
+}
+// (2) täytetty sv ei saa kadota eikä muuttua: jokainen kohteen ei-tyhjä sv-kenttä (polku → arvo) on tulosteessa samana
+function tarkistaSvSailyy(ennenO, jalkeenO) {
+  const svt = (o, pre, acc) => { if (o && typeof o === 'object') for (const k of Object.keys(o)) { const p = pre ? pre + ' › ' + k : k; if (k === 'sv' && typeof o[k] === 'string' && o[k] !== '') acc.set(p, o[k]); else svt(o[k], p, acc); } return acc; };
+  const ennen = svt(ennenO, '', new Map()), jalkeen = svt(jalkeenO, '', new Map());
+  const katoaa = [...ennen].filter(([p, v]) => jalkeen.get(p) !== v).map(([p]) => p);
+  if (katoaa.length) kieltaydy(katoaa.length + ' täytettyä sv-kenttää katoaisi tai muuttuisi, esim. ' + katoaa.slice(0, 3).join(' · '));
+}
+/* B12 (8.11.2026): rajausvalinta --osio=<nimi>[,<nimi>] → erään VAIN nimetyt osiot (uusi erä N; erän 2 osioita ei rakenneta, kohde pakollinen).
+   Osio "seura" (scripts/i18n_era_seura.cjs): Seurahallinnan suomenkieliset tekstit sv-läpiajon tuloksesta --lapiajo=<tulos.json>
+   (node tools/i18n/sv_lapiajo.mjs --sovellus=fx_seura --sovellus=fx_seura_lage --ulos=<tulos.json>); --juuri=<puu> = lähderivit ja kartat
+   samasta puusta, jossa mittaus ajettiin (oletus tämä repo). Ajo: node scripts/i18n_luo_gemini_era.cjs --osio=seura --lapiajo=… --tiedosto=docs/i18n/sv_kaannoserae_N_gemini.json
+   Osio "seura_muodot" (scripts/i18n_era_seura_muodot.cjs, erä 99): tekstit, joita mittaus ei näe fixture-tiloista (lista skriptissä, jokainen
+   tarkistetaan koodista); --savutesti=<savutestin tulos.json> lisää tuotannon Seura-näkymien sv-löydökset. Ei vaadi --lapiajo:a.
+   Osio "vp_kentta" (scripts/i18n_era_vp_kentta.cjs, erä 101): VP:n Kenttä-lippu, --lapiajo=<fx_vp_kentta-tulos>.
+   Osio "vp_kentta_b" (scripts/i18n_era_vp_kentta_b.cjs, erä 102): VP:n Kenttä-näkymän vierekkäiset tekstit (kypsyyskortti, kehityskaari) + liikkuvuusliikkeiden nimet; ei mittausta.
+   Osio "seura_kaikki" (scripts/i18n_era_seura_kaikki.cjs, erä 100): Kehitystilanne › "Kaikki luvut ›" (Lohko 1–4 + selitteet), sama koneisto, ei savutestiä. */
+const OSIOT = process.argv.filter((x) => x.startsWith('--osio=')).flatMap((x) => x.slice(7).split(',')).map((s) => s.trim()).filter(Boolean);
+if (OSIOT.length) {
+  const virhe = (s) => { console.error('i18n_luo_gemini_era: ' + s); process.exit(2); };
+  const RAKENTAJAT = { seura: 'scripts/i18n_era_seura.cjs', seura_muodot: 'scripts/i18n_era_seura_muodot.cjs', seura_kaikki: 'scripts/i18n_era_seura_kaikki.cjs', vp_kentta: 'scripts/i18n_era_vp_kentta.cjs', vp_kentta_b: 'scripts/i18n_era_vp_kentta_b.cjs' };
+  const tuntemattomat = OSIOT.filter((o) => !RAKENTAJAT[o]);
+  if (tuntemattomat.length) virhe('tuntematon --osio ' + tuntemattomat.join(', ') + ' (tunnetut: ' + Object.keys(RAKENTAJAT).join(', ') + ')');
+  if (!process.argv.some((x) => x.startsWith('--tiedosto='))) virhe('--osio vaatii kohteen --tiedosto=docs/i18n/sv_kaannoserae_N_gemini.json (uusi erä; erää 2 ei rajata)');
+  const lue = (nimi) => { const a = arg(nimi, null); if (!a) return null; try { return JSON.parse(fs.readFileSync(path.resolve(ROOT, a), 'utf8')); } catch (e) { return virhe('--' + nimi + ' ei luettavissa: ' + e.message); } };
+  const lapiajo = arg('lapiajo', null);
+  if (OSIOT.includes('seura') && !lapiajo) virhe('--osio=seura vaatii --lapiajo=<sv_lapiajo.mjs:n tulos.json> (--sovellus=fx_seura --sovellus=fx_seura_lage)');
+  const tulos = lue('lapiajo'), savutesti = lue('savutesti');
+  const juuri = path.resolve(ROOT, arg('juuri', ROOT));
+  let nyk = null; try { nyk = JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch (e) { /* uusi */ }
+  const n = (path.basename(OUT).match(/^sv_kaannoserae_(.+?)(?:_gemini)?\.json$/) || [])[1] || '?';
+  const osiot = {};
+  for (const o of OSIOT) {
+    const R = require(path.join(ROOT, RAKENTAJAT[o])), vanhat = (nyk && nyk.osiot && nyk.osiot[o] && nyk.osiot[o].rivit) || {};
+    if (o === 'seura_muodot' || o === 'seura_kaikki' || o === 'vp_kentta_b') {   // listapohjaiset osiot (sama koneisto)
+      const t = R.muotoRivit({ juuri, vanhat, savutesti });
+      if (t.virheet.length) virhe('osio ' + o + ':\n- ' + t.virheet.join('\n- '));
+      if (!Object.keys(t.rivit).length) virhe('osio ' + o + ': ei uusia rivejä (kaikki jo kartassa, josta Seura lukee; savutestistä ei löydöksiä)');
+      osiot[o] = { _konteksti: R.KONTEKSTI, _lahde: { lista: RAKENTAJAT[o] + (o === 'seura_kaikki' ? ' (KAIKKI)' : o === 'vp_kentta_b' ? ' (LISTA)' : ' (MUODOT)'), savutesti: o === 'seura_muodot' && savutesti ? (savutesti.url || 'annettu') : null, jo_kartassa_vain_reititys: t.reititettavat }, rivit: t.rivit };
+      continue;
+    }
+    if (o === 'vp_kentta') {   // erä 101: VP:n Kenttä-lippu (sv-läpiajo fx_vp_kentta)
+      if (!tulos) virhe('--osio=vp_kentta vaatii --lapiajo=<tulos.json> (node tools/i18n/sv_lapiajo.mjs --sovellus=fx_vp_kentta --ulos=<tulos.json>)');
+      const t = R.vpKenttaRivit(tulos, { juuri, vanhat });
+      if (t.virheet.length) virhe('osio ' + o + ':\n- ' + t.virheet.join('\n- '));
+      osiot[o] = { _konteksti: R.KONTEKSTI, _lahde: { mittaus: 'node tools/i18n/sv_lapiajo.mjs --sovellus=fx_vp_kentta', luotu: tulos.luotu || null, sovellukset: R.SOVELLUKSET, rajattu_pois: t.rajattu }, rivit: t.rivit };
+      continue;
+    }
+    const { rivit } = R.seuraRivit(tulos, { juuri, vanhat });
+    if (!Object.keys(rivit).length) virhe('osio ' + o + ': mittauksessa ei ole rivejä (' + R.SOVELLUKSET.join(', ') + ')');
+    osiot[o] = { _konteksti: R.KONTEKSTI, _lahde: { mittaus: 'node tools/i18n/sv_lapiajo.mjs ' + R.SOVELLUKSET.map((s) => '--sovellus=' + s).join(' '), luotu: tulos.luotu || null, sovellukset: R.SOVELLUKSET }, rivit };
+  }
+  const yht = Object.values(osiot).reduce((s, o) => s + Object.keys(o.rivit).length, 0);
+  const ulos = {
+    _otsikko: (nyk && nyk._otsikko) || ('Käännöserä ' + n + ' (osiot: ' + OSIOT.join(', ') + ', ' + new Date().toISOString().slice(0, 10) + ') — sv kirjoittaa PM (.sv_palautukset/), ei Code'),
+    _rivit_yhteensa: yht,
+    osiot,
+  };
+  tarkistaSvSailyy(nyk, ulos);
+  fs.writeFileSync(OUT, JSON.stringify(ulos, null, 1) + '\n');
+  console.log('kirjoitettu ' + path.relative(ROOT, OUT) + ': ' + OSIOT.map((o) => o + ' ' + Object.keys(osiot[o].rivit).length).join(', ') + ' riviä');
+  process.exit(0);
+}
 const E1 = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/i18n/sv_kaannoserae_2026-10-08.json'), 'utf8'));
 const L = require('../lib/tm_lang.js').TM_LANG;
 const ODOTTAA = require('../tests/tm_lang_sv_odotuslista.cjs');
@@ -170,5 +249,6 @@ if (nyk && nyk.osiot && nyk.osiot.lib_adar_nimet) ulos.lib_adar_nimet = nyk.osio
 // lib_adar_nimet osioksi (samaan muotoon kuin muut osiot): osiot-objektiin
 ulos.osiot.lib_adar_nimet = ulos.lib_adar_nimet; delete ulos.lib_adar_nimet;
 ulos._rivit_yhteensa = Object.values(ulos.osiot).reduce((s, o) => s + Object.keys(o.rivit || {}).length, 0);
+tarkistaSvSailyy(nyk, ulos);   // (2)
 fs.writeFileSync(OUT, JSON.stringify(ulos, null, 1) + '\n');
 console.log('kirjoitettu ' + path.relative(ROOT, OUT) + ': tm_lang ' + Object.keys(rivit).length + ' riviä (uusia ' + uusia + '), yhteensä ' + ulos._rivit_yhteensa);

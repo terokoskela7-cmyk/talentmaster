@@ -8,11 +8,13 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
 const { tmHenkiloJoukkueNimet, tmHenkiloJoukkueTeksti } = require_(join(ROOT, 'lib', 'tm_joukkue.js'));
-const lue = (f) => readFileSync(join(ROOT, f), 'utf8');
+const lue = (f) => lueKuori(f);
 
 describe('tmHenkiloJoukkueNimet / tmHenkiloJoukkueTeksti', () => {
   it('kaksi joukkuetta kanonisesta kentästä → molemmat järjestyksessä', () => {

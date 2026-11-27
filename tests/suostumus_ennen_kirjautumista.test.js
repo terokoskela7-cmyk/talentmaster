@@ -11,14 +11,18 @@ import { dirname, join } from 'path';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
 import { PEL_APU } from './helpers/pelaaja_t.mjs';
+import { createRequire as _kuoriReq } from 'module';
+import { createRequire as _fnReq } from 'module';
+const { lueFunctionsLahde, runko: _fnRunko } = _fnReq(import.meta.url)('../scripts/functions_lahde.js');   // index.js + siirtomoduulit (rivikattojen purku F1/F2)
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const require_ = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const K = require_('../functions/pelaajakirjautuminen.js');
 const P = require_('../functions/pelaajapin.js');
 const { suostumusAnnettu } = require_('../functions/suostumus.js');
-const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
-const lue = (f) => readFileSync(join(ROOT, f), 'utf8');
+const CF = lueFunctionsLahde(ROOT);
+const lue = (f) => lueKuori(f);
 
 class HttpsError extends Error { constructor(code, msg, details) { super(msg); this.code = code; this.details = details; } }
 const FieldValue = { serverTimestamp: () => 'TS', increment: (n) => ({ __inc: n }) };
@@ -27,17 +31,17 @@ const VP = { auth: { uid: 'vp-kpv', token: { seuraId: 'kpv', rooli: 'vp', fireba
 
 function data() {
   return {
-    'seurat/kpv/pelaajat/ok': { etunimi: 'Topias', tunniste: '12345678', pin: '482915', joukkueet: ['kpv_u13'], suostumusTila: 'annettu' },
-    'seurat/kpv/pelaajat/ei': { etunimi: 'Testi', tunniste: '87654321', pin: '135790', joukkueet: ['kpv_u13'], suostumusTila: 'odottaa' },
-    'seurat/kpv/pelaajat/pilotti': { etunimi: 'Tuotu', tunniste: '11112222', joukkueet: ['kpv_u13'], suostumusTila: 'pilotti' },
-    'seurat/kpv/pelaajat/uusi': { etunimi: 'Uusi', tunniste: '33334444', joukkueet: ['kpv_u13'], suostumus: { annettu: 'TS' } },
+    'seurat/kpv/pelaajat/ok': { etunimi: 'Topias', tunniste: '12345678', pin: '482915', joukkueet: ['kpv_u13'], syntymaVuosi: 2013, suostumusTila: 'annettu' },
+    'seurat/kpv/pelaajat/ei': { etunimi: 'Testi', tunniste: '87654321', pin: '135790', joukkueet: ['kpv_u13'], syntymaVuosi: 2013, suostumusTila: 'odottaa' },
+    'seurat/kpv/pelaajat/pilotti': { etunimi: 'Tuotu', tunniste: '11112222', joukkueet: ['kpv_u13'], syntymaVuosi: 2013, suostumusTila: 'pilotti' },
+    'seurat/kpv/pelaajat/uusi': { etunimi: 'Uusi', tunniste: '33334444', joukkueet: ['kpv_u13'], syntymaVuosi: 2013, suostumus: { annettu: 'TS' } },
   };
 }
 function ymp(alku) {
   const f = fakeDb(alku || data());
   const audit = [];
   const deps = { db: f.db, HttpsError, FieldValue, tarkistaOikeus: async (uid) => ({ sallittu: uid === 'vp-kpv' }), audit: async (t, x) => audit.push([t, x]) };
-  const kirjaudu = K.luoKasittelija({ db: f.db, auth: { createCustomToken: async (uid) => 'TOKEN:' + uid }, HttpsError, FieldValue, nyt: () => 1_000_000,
+  const kirjaudu = K.luoKasittelija({ db: f.db, auth: { createCustomToken: async (uid) => 'TOKEN:' + uid }, HttpsError, FieldValue, nyt: () => Date.UTC(2026, 10, 3),
     audit: async (t, x) => audit.push([t, x]) });
   return { f, audit, kirjaudu, aseta: P.luoAsetaPelaajanPin(deps), luo: P.luoLuoPinitSeuralle(deps) };
 }
@@ -108,15 +112,14 @@ describe('PIN vain suostumuksen jälkeen', () => {
 });
 
 describe('vahvistaSuostumus luo PIN:n (best-effort) ja säilyttää olemassa olevan', () => {
-  const i = CF.indexOf('exports.vahvistaSuostumus');
-  const runko = CF.slice(i, CF.indexOf('\n  });', i));
+  const runko = _fnRunko(CF, 'vahvistaSuostumus', true);
   it('PIN luodaan suostumuksen tallennuksen JÄLKEEN vain jos puuttuu, samalla apurilla kuin luoPinitSeuralle; virhe ei kaada', () => {
     const tallennus = runko.indexOf('await kirjBatch.commit();');
     const pinLuonti = runko.indexOf("pelaajapin.lisaaPinKirjoitukset(db, b, { seuraId, pelaajaId, data: snap.data() || {}, pin: uusi, lahde: 'vahvistaSuostumus', TS });");
     expect(tallennus).toBeGreaterThan(-1);
     expect(pinLuonti).toBeGreaterThan(tallennus);
     expect(runko).toMatch(/let pin = \(snap\.get\('pin'\) && \/\^\(\\d\{4\}\|\\d\{6\}\)\$\/\.test/);   // olemassa oleva säilyy
-    expect(runko.slice(pinLuonti - 300, pinLuonti)).toContain('if (!pin) {');
+    expect(runko.slice(pinLuonti - 300, pinLuonti)).toMatch(/if \(!pin( && !laskutusEstetty)?\) \{/);   // L1c: + sopimusseuran passiivinen joukkue → ei uutta PIN:iä
     expect(runko.slice(pinLuonti, pinLuonti + 400)).toMatch(/catch \(e\) \{\s*pin = null;/);
   });
 });
@@ -124,7 +127,7 @@ describe('vahvistaSuostumus luo PIN:n (best-effort) ja säilyttää olemassa ole
 describe('Seura / Pelaaja / Vanhempi', () => {
   const SEURA = lue('TalentMaster_Seura.html');
   it('Seura: sama ehto, PIN-luonti / kortit / tunnukset vain suostumuksella; uusi pelaaja ei kutsu asetaPelaajanPin', () => {
-    expect(SEURA).toContain("function _suostumusAnnettu(p) { return !!p && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); }");
+    expect(SEURA).toContain("function _suostumusAnnettu(p) { return !!p && !_suostumusPeruttu(p) && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); }");   // B9: peruttu voittaa
     expect(SEURA).toContain("const PIN_SUOSTUMUS_PUUTTUU = 'Huoltajan suostumus puuttuu – PIN luodaan suostumuksen jälkeen.';");
     expect(SEURA).toContain('const pelaajat = k.lista.filter((p) => _suostumusAnnettu(p) && p.pin).sort(jarj);');   // PR B: pelaajakortti vain suostumuksella
     expect(SEURA).toContain('const kohteet = k.lista.filter((p) => p.huoltajaEmail && p.pin && _suostumusAnnettu(p));');
@@ -157,8 +160,8 @@ describe('Seura · tunnustyökalut ilman suostumusta (ajettu)', () => {
     };
     ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
     vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
-      + ['function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
-        'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {'].map(pura).join('\n')
+      + ['function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _laskutusEsto(e) {', 'function _ikaTila(p) {', 'function _ikaTeksti(syy) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
+        'function _tunnusKohde() {', 'async function _taydennaKohde(k) {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {'].map(pura).join('\n')
       + '\nthis.luo = luoPuuttuvatPinit; this.laheta = lahetaTunnuksetHuoltajille; this.virhe = _pinVirheTeksti;', ctx);
     return { ctx, loki };
   }

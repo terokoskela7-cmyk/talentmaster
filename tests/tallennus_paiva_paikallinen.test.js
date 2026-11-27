@@ -12,9 +12,11 @@ import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (p) => readFileSync(join(juuri, p), 'utf8');
+const lue = (p) => lueKuori(p);
 const PVM = JSON.stringify(join(juuri, 'lib/tm_pvm.js'));
 const ajaTz = (koodi, tz = 'Europe/Helsinki') => execFileSync(process.execPath, ['-e', koodi], { env: { ...process.env, TZ: tz }, encoding: 'utf8' }).trim();
 /* Kiinnitetty kello: new Date() = FIXED, TZ säilyy (tmPaivaIso lukee paikallisen ajan). */
@@ -121,7 +123,7 @@ describe('lähdekontrakti — tallentavat kohdat eivät käytä UTC-päivää', 
     // review: pari yhdessä set-kutsussa atomisen batch-apurin sisällä (§26), jota MDT-review + bulk kutsuvat
     // R6.2a: pari rakentuu lib/tm_kehityssilmukka.js tmKirjaaKatselmus:ssa (kummallekin polulle sama) ja kirjoitetaan YHDESSÄ set-kutsussa batchissa
     expect(S('lib/tm_kehityssilmukka.js')).toContain("pk.review_viimeisin_pvm = pvm; pk.review_viimeisin_tyyppi = tyyppi;");
-    expect(S('TalentMaster_VP_v25.html')).toContain("b.set(pRef, pk, { merge: true });");   // pk = plan.pikakentat + R6.3-E lisäkentät (sama batch)
+    expect(S('TalentMaster_VP_v25.html')).toContain("await window.TM_SISAINEN.tmHenkilokuntaKirjoita(db, _seuraId, pid, pk, { pelaajaSet: true, taydenna: _rv });");   // pk = plan.pikakentat + R6.3-E lisäkentät; PR 2d: pari yhdessä (sisainen/tiedot), samassa batchissa reviewin kanssa
     expect(S('TalentMaster_VP_v25.html').split('await _vpKirjoitaReview(').length - 1).toBe(3);   // MDT + bulk + cockpit (R6.2a)
   });
   it('kirjaukset/{pvm}-lukijat vertaavat samaan paikalliseen päivään (Pelaaja _paivaIso; VP-viikkonäkymä paikallinen iso; PHV-raja _paivaIso)', () => {

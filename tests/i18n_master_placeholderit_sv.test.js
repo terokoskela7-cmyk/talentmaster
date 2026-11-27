@@ -69,8 +69,9 @@ describe('Master sv · pyyhkäisyn johdotus', () => {
   });
 
   it('masterLokalisoi ajetaan myös kielenvaihdossa', () => {
-    const fn = HTML.slice(HTML.indexOf('function masterVaihdaKieli'), HTML.indexOf('function masterVaihdaKieli') + 400);
-    expect(fn).toContain('masterLokalisoi()');
+    /* L1: vaihto lataa sv/en-paketit ensin (tmKieliPaketit.vaihda: render vasta latauksen jälkeen) — masterLokalisoi() on vaihda()-callbackissa. */
+    const i = HTML.indexOf('function masterVaihdaKieli('), fn = HTML.slice(i, i + 900);
+    expect(fn).toContain('tmKieliPaketit.vaihda(lang, function () { if (typeof masterLokalisoi'); expect(fn).toContain('masterLokalisoi()');
   });
 
   it('pyyhkäisy ajetaan KAIKISSA auth-haaroissa (kirjautunut · demo · login)', () => {
@@ -92,6 +93,6 @@ describe('Master sv · pyyhkäisyn johdotus', () => {
 
   it('kartan cache-bustin on noustava kun avaimia lisätään (stale-klientit)', () => {
     // QG-2: ?v = sisällön tiiviste deployssa → uusi sisältö saa aina uuden URL:n (tests/versiotiiviste.test.js).
-    expect(HTML, 'i18n-kartta ladataan').toContain('<script src="lib/tm_master_i18n.js"></script>');
+    expect(HTML, 'i18n-kartta ladataan').toContain('<script type="text/plain" data-tm-kielipaketti src="lib/tm_master_i18n.js"></script>');   // L1: laiska paketti
   });
 });

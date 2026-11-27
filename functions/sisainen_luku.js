@@ -6,10 +6,8 @@
    Virhe sisainen-luvussa EI kaada ajoa: tmSisainenLataaSeura palauttaa tyhjän mapin → vanhat kentät (console.warn). */
 const S = require('./tm_sisainen.js');
 
-function liputPaalla(ryhmat) {
-  const r = ryhmat || S.RYHMAT;
-  return !!((r.henkilokunta && r.henkilokunta.kirjoitus) || (r.jaksofokus_sisainen && r.jaksofokus_sisainen.kirjoitus) || (r.s4 && r.s4.kirjoitus));
-}
+/* PR 2d: lippuriippuvuus poistettu — A-kentät ovat vain sisainen-kopiossa, joten CF:t yhdistävät aina. Funktio säilyy API:ssa. */
+function liputPaalla() { return true; }
 /* rivit: [{ id, data }] → sama muoto, data yhdistettynä. YKSI collectionGroup-kysely per seura (indeksi sisainen.seuraId).
    opts.aina = true: ohita lippu — D3-ryhmä (d3_pvm, d3_taso …) EI ole lipun takana (PR 1d/2a: kirjoitetaan vain sisainen:iin), joten D3:a lukevat CF:t (seuran_kooste) yhdistävät aina. */
 async function yhdistaLista(db, sid, rivit, opts) {

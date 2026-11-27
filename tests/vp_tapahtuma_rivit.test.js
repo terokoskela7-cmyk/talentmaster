@@ -25,8 +25,8 @@ beforeAll(() => {
   const rivitBlock = grab('function _vpTapahtumaRivit(pelaajat', 'window._vpTapahtumaRivit = _vpTapahtumaRivit;');
   const aggBlock = grab('function _vpSiivousTapahtumat(pelaajat', 'window._vpSiivousTapahtumat = _vpSiivousTapahtumat;');
   const K = require('../lib/tm_testikatalogi.js');
-  const src = 'var window = { TM_TESTIKATALOGI: __K };\n' + nimiBlock + '\n' + katBlock + '\n' + arvoBlock + '\n' + rivitBlock + '\n' + aggBlock + '\n return { _vpTapahtumaRivit, _vpSiivousTapahtumat };';
-  const api = new Function('__K', src)(K);
+  const src = 'var window = { TM_TESTIKATALOGI: __K, TM_MITTAUS_KORJAA: __MK };\nfunction _vpMK() { return window.TM_MITTAUS_KORJAA; }\n' + nimiBlock + '\n' + katBlock + '\n' + arvoBlock + '\n' + rivitBlock + '\n' + aggBlock + '\n return { _vpTapahtumaRivit, _vpSiivousTapahtumat };';
+  const api = new Function('__K', '__MK', src)(K, require('../lib/tm_mittaus_korjaa.js'));   // B3: _vpMittausKatTesti/_vpMittausArvo = kääreet jaettuun libiin
   _vpTapahtumaRivit = api._vpTapahtumaRivit;
   _vpSiivousTapahtumat = api._vpSiivousTapahtumat;
 });

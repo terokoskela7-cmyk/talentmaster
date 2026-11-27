@@ -51,3 +51,22 @@ CI-palvelutililtä puuttuu `cloudscheduler.jobs.update` → ajastettujen funktio
 - Toiminnallinen: aiProxy (litterointi/narratiivi) toimii · sähköposti (kutsu / N2-kooste) lähtee (Logs `[SendGrid] ... OK`).
 - Vanhat plaintext-env-varit poistuneet funktioilta.
 - §13 päivitettävä: "avaimet Secret Managerissa (runWith), ei .env" — korjaa CLAUDE.md §13 + functions/index.js -kommentti (rivi 7 "EI Secret Manager runWith" vanhentuu).
+
+## Uusi salaisuus (aina nämä kaksi komentoa yhdessä)
+
+Kun koodiin tulee uusi `runWith({ secrets: ['UUSI_NIMI'] })`, **ennen kuin PR mergetään / deployataan** (Tero, omassa terminaalissa; arvo luetaan piilotettuna, ei shell-historiaan):
+
+```sh
+PROJEKTI=talentmaster-pilot   # staging: talentmaster-staging
+read -s "ARVO?Arvo UUSI_NIMI: "; echo
+printf '%s' "$ARVO" | gcloud secrets create UUSI_NIMI --project=$PROJEKTI --replication-policy=automatic --data-file=-
+unset ARVO
+gcloud secrets add-iam-policy-binding UUSI_NIMI --project=$PROJEKTI \
+  --member=serviceAccount:$PROJEKTI@appspot.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+```
+
+- **Miksi molemmat:** firebase deploy validoi salaisuuden version ja yrittää itse antaa ajotilille (`<projekti>@appspot.gserviceaccount.com`) oikeuden. CI-tunnuksella ei ole (eikä saa olla) `secretmanager.setIamPolicy` → 403 ja koko functions-deploy kaatuu (10.11.2026 kahdesti: ensin puuttuva salaisuus, sitten puuttuva oikeus). Siksi oikeus annetaan käsin luonnin yhteydessä.
+- **CI-esitarkistus** (`scripts/tarkista_salaisuudet.js`, `deploy-functions.yml` + `deploy-staging.yml`) tarkistaa ennen Firebasea jokaiselle koodin salaisuudelle: (1) olemassa + versio (`gcloud secrets versions describe latest`), (2) ajotilillä `roles/secretmanager.secretAccessor` kyseiseen salaisuuteen (`gcloud secrets get-iam-policy`). Puute kaataa ajon ja viesti tulostaa valmiit komennot. CI:lle ei anneta lisäoikeuksia: esitarkistus vain lukee.
+- **Arvon vaihto** (uusi versio, ei oikeutta uudelleen): `printf '%s' "$ARVO" | gcloud secrets versions add UUSI_NIMI --project=$PROJEKTI --data-file=-`, sitten functions-deploy, jotta funktiot poimivat uuden version.
+- **Staging:** lisää nimi myös `docs/STAGING_ASENNUS.md` B:n dummy-listaan (`for S in …`); vartijatesti `tests/staging_salaisuudet_ohje.test.js` kaatuu muuten.
+

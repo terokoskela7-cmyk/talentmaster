@@ -9,12 +9,14 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const L = require('../lib/tm_lang.js');
 const SV_ODOTTAA = require('./tm_lang_sv_odotuslista.cjs');
-const root = (f) => readFileSync(join(__dir, '..', f), 'utf8');
+const root = (f) => lueKuori(f);
 
 describe('lib/tm_lang.js — node-turva + exportit + fallback (fi ei rikkoudu)', () => {
   it('require OK, exportit paikallaan', () => {

@@ -10,6 +10,7 @@ import { dirname, join } from 'path';
 import vm from 'vm';
 import { lisaaP7Offline } from './_p7OfflineCtx.mjs';
 import { lisaaVerkko } from './_verkkoCtx.mjs';
+import LL from '../scripts/lang_lahde.cjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SIVU = readFileSync(join(ROOT, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
@@ -172,7 +173,7 @@ describe('rakenne', () => {
     expect(omat.filter((s) => !onAllowlist('https://x/talentmaster/' + s))).toEqual([]);
   });
   it('tekstit tm_langissa fi + en (+ sv Geminiltä)', () => {
-    const L = readFileSync(join(ROOT, 'lib', 'tm_lang.js'), 'utf8');
+    const L = LL.lue(ROOT);
     expect(L).toContain("ei_yhteytta_kirjaus:    '" + EI_YHTEYTTA + "'");
     expect(L).toContain("ei_yhteytta_kirjaus:    'No connection – your entry was not saved. Log it again when you are back online.'");
     expect(readFileSync(join(ROOT, 'tests', 'tm_lang_sv_odotuslista.cjs'), 'utf8')).not.toContain("'pelaaja.ei_yhteytta_kirjaus'");   // sv Geminiltä 1.10.2026

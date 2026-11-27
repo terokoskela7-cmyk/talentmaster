@@ -7,9 +7,11 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lue = (n) => readFileSync(join(ROOT, n), 'utf8');
+const lue = (n) => lueKuori(n);
 const SEURA = lue('TalentMaster_Seura.html');
 const ADMIN = lue('TalentMaster_Admin.html');
 const PEL = lue('TalentMaster_Pelaaja_v7.html');
@@ -56,8 +58,8 @@ function ajaSeura({ valitut = [], joukkue = '', vahvista = true } = {}) {
     } }) }) },
   };
   ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
-  const osat = ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
-    'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
+  const osat = ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusPeruttu(p) {', 'function _peruttuPvm(p) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
+    'function _tunnusKohde() {', 'async function _taydennaKohde(k) {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
     'async function luoPuuttuvatPinit() {', 'function _pinKortitHtml(kortit) {', 'async function lahetaTunnuksetHuoltajille() {'];
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n' + osat.map((o) => pura(SEURA, o)).join('\n')
     + '\nthis.kohde=_tunnusKohde; this.luo=luoPuuttuvatPinit; this.kortit=_pinKortitHtml; this.laheta=lahetaTunnuksetHuoltajille; this.linkki=_pelaajaLinkki;', ctx);

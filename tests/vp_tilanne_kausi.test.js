@@ -133,7 +133,7 @@ describe('adapteri vm-sandboxissa (oikeat VP-funktiot, ympäristö tynkinä)', (
       _vpPulssiLataa: async () => { if (o.lukuVirhe) throw new Error('permission-denied'); return { koosteet: o.koosteet || [], ensin: '2026-W20' }; }, setWs() {} };
     ctx.window = ctx; if (o.liput !== undefined) ctx._vpLiput = { 'demo-fc': o.liput };
     ctx.TM_VP_TILANNE = TT; ctx.TM_SEURAN_PULSSI = require('../lib/tm_seuran_pulssi.js'); ctx.TM_KOTI_LUVUT = require('../lib/tm_koti_luvut.js'); ctx.TM_KT_KOMPONENTIT = { tmKtKomponentitLisaa() { o.cssLisatty = true; } };
-    vm.createContext(ctx);
+    vm.createContext(ctx); require('./helpers/vp_kilpatila.cjs').alusta(ctx);
     ['_vpTilanneUusi', '_vpTilanneKausi', '_vpTilanneSiirraTyotilat', '_vpTilanneAvaa'].forEach((n) => vm.runInContext(funktio(VP, n), ctx));
     return { ctx, els, o };
   };

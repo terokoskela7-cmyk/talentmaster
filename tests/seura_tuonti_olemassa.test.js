@@ -4,6 +4,8 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import { lataaSivu } from './helpers/sivu_ajuri.mjs';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url);
 const TS = require('../lib/tm_seura_tuonti.js');
 
@@ -125,9 +127,9 @@ describe('4 · tarkistusnäkymän suodattimet', () => {
   it('Puuttuu: syntymävuosi ja Ei kutsua: oikeat pelaajat ja lukumäärät; suodatinpainikkeet sivulla', () => {
     const P = [{ id: 'a', syntymaVuosi: 2016, suostumusTila: 'odottaa' }, { id: 'b', suostumusTila: 'pilotti' }, { id: 'c', syntymaVuosi: 2015 }, { id: 'd', syntymaVuosi: '', suostumusTila: 'annettu' }, { id: 'e', syntymaVuosi: 2016, suostumus: { annettu: true } }];
     expect(P.filter(TS.tmSeuraPuuttuuVuosi).map((x) => x.id)).toEqual(['b', 'd']); expect(P.filter((x) => TS.tmSeuraSuostumus(x) === 'ei_kutsua').map((x) => x.id)).toEqual(['b', 'c']);
-    const S = require('fs').readFileSync(new URL('../TalentMaster_Seura.html', import.meta.url), 'utf8'); expect(S).toContain("suodataPelaajat('puuttuu-vuosi')"); expect(S).toContain("suodataPelaajat('ei-kutsua')"); expect(S).toContain("case 'puuttuu-vuosi': return TM_SEURA_TUONTI.tmSeuraPuuttuuVuosi(p);");
+    const S = lueKuori('TalentMaster_Seura.html'); expect(S).toContain("suodataPelaajat('puuttuu-vuosi')"); expect(S).toContain("suodataPelaajat('ei-kutsua')"); expect(S).toContain("case 'puuttuu-vuosi': return TM_SEURA_TUONTI.tmSeuraPuuttuuVuosi(p);");
   });
   it('Excel-pohjan Ohje: kohta "Yksi sähköposti per solu. Toinen huoltaja lisätään myöhemmin sovelluksessa."', () => {
-    const S = require('fs').readFileSync(new URL('../TalentMaster_Seura.html', import.meta.url), 'utf8'); expect(S).toContain("tmHT('8.  Yksi sähköposti per solu. Toinen huoltaja lisätään myöhemmin sovelluksessa.')");
+    const S = lueKuori('TalentMaster_Seura.html'); expect(S).toContain("tmHT('8.  Yksi sähköposti per solu. Toinen huoltaja lisätään myöhemmin sovelluksessa.')");
   });
 });

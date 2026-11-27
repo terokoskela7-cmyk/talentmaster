@@ -11,10 +11,18 @@
  *   D) §7.22 — kortissa ei ole lukuja eikä vertailua (ennallaan)
  */
 import { describe, it, expect } from 'vitest';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// Kiinteä kello (QG-1b, #1162:n jatko): ikä, kausi ja vuosi lasketaan samasta kellosta → testi ei vanhene. Vain Date — setTimeout pysyy aitona.
+const KELLO = new Date('2026-10-15T09:00:00');
+vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO);   // moduulitason päivät
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(KELLO); });
+afterEach(() => { vi.useRealTimers(); });
+afterAll(() => { vi.useRealTimers(); });
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import LL from '../scripts/lang_lahde.cjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
@@ -37,7 +45,7 @@ function renderoi(kieli, avain) {
   const LANG = (() => {
     const sb = { window: {}, console, localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} } };
     vm.createContext(sb);
-    vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_lang.js'), 'utf8'), sb);
+    vm.runInContext(LL.lue(ROOT), sb);
     return sb.window.TM_LANG || sb.TM_LANG;
   })();
 
@@ -84,7 +92,7 @@ describe('A — SWEEP: kortin renderissä ei ole kovakoodattua näyttötekstiä'
     expect(fn).not.toMatch(/'[🌱⚽] ?(Leikkijän|Rakentajan|Pelipaikan) vaihe'/);
   });
   it('kaikilla chrome-avaimilla on rivi fi JA sv JA en', () => {
-    const lang = readFileSync(join(ROOT, 'lib', 'tm_lang.js'), 'utf8');
+    const lang = LL.lue(ROOT);
     const avaimet = [...new Set([...PEL.matchAll(/_tKonsepti\('([a-z_]+)'\)/g)].map((m) => m[1]))];
     expect(avaimet.length).toBeGreaterThanOrEqual(9);
     const lohkot = [...lang.matchAll(/konseptikortti: \{([\s\S]*?)\n    \}/g)].map((m) => m[1]);

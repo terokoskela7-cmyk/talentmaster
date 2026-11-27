@@ -22,6 +22,7 @@
 'use strict';
 const path = require('path');
 const EN = require(path.join(__dirname, '..', 'lib', 'tm_eerikkila_normit.js'));
+const SIS = require(path.join(__dirname, '..', 'lib', 'tm_sisainen.js'));   // PR 2d (K10): A-kentät VAIN sisainen/tiedot:iin, kuten tuotannon kirjoittajat
 
 const SEURA_ID = 'demo-fc';
 const SEURA_POLKU = 'seurat/' + SEURA_ID;
@@ -301,8 +302,11 @@ pelaajat.forEach((p) => {
   }
   if (p.i % 3 === 0) pelaaja.jaksofokus = { konsepti_avain: 'nopeus', konsepti_nimi: 'Nopeus', konsepti_koodi: null, domeeni: 'fyysinen',
     alkoi: '2026-09-01T08:00:00.000Z', kesto_vk: 4, lahde: 'valmentaja' };
-  kirjoita(P, pelaaja);
-  kirjoita(P + '/sisainen/tiedot', { seuraId: SEURA_ID, d3_taso: ka('D3'), d3_pvm: ARVIOINTIPVM[1].slice(0, 10), paivitetty: serverTs(), demo: true });   // PR 1b-1 (PM #1129): demo-D3 VAIN sisainen/tiedot:iin (ei pelaajadokumenttiin)
+  /* PR 2d (K10): pelaajadokumenttiin vain B/C (tmSisainenRiisu: talentti*, adar-konsensus, arviointi_*, kypsyys, idp-henkilökunta, signaali-talenttiarvo pois; biologinenIka_viimeisin B-muodossa).
+     A-osat (S4 + henkilökunta) + demo-D3 → sisainen/tiedot (PR 1b-1, PM #1129). */
+  const sisA = Object.assign({}, (SIS.tmS4Osa(SEURA_ID, pelaaja) || { data: {} }).data, (SIS.tmHenkilokuntaOsa(SEURA_ID, pelaaja) || { data: {} }).data);
+  kirjoita(P, SIS.tmSisainenRiisu(pelaaja));
+  kirjoita(P + '/sisainen/tiedot', Object.assign(sisA, { seuraId: SEURA_ID, d3_taso: ka('D3'), d3_pvm: ARVIOINTIPVM[1].slice(0, 10), paivitetty: serverTs(), demo: true }));
   bio.forEach((b) => kirjoita(P + '/biologinen_ika/' + b.mittauspaiva, b));
   if (idp) kirjoita(P + '/idp_kausi/' + VUOSI, idp);
   kerrat.forEach((k) => {
@@ -321,7 +325,7 @@ pelaajat.forEach((p) => {
     kirjoita(P + '/testitulokset/' + h.pvm + '_hh_laaja', {
       testit, pelaajaId: p.id, tunnistetyyppi: 'demo', sukunimi: p.suku, etunimi: p.etu, phv_tila: '', testauspvm: h.pvm,
       kausi: h.pvm.slice(0, 4) + (h.pvm.slice(5, 7) < '07' ? '-kevat' : '-syksy'), protokolla: 'hh_laaja', tallennettu: serverTs(),
-      tallensiUid: 'setup_demo_kehitys', lahde: 'historiapohja', tuotu: isoAika(DEMO_NYT), tuojaUid: 'setup_demo_kehitys',
+      lahde: 'historiapohja', tuotu: isoAika(DEMO_NYT),
       sukupuoli: j.sp, joukkue: j.nimi, demo: true,
     });
   });
@@ -331,8 +335,8 @@ pelaajat.forEach((p) => {
     LIIKKEET.forEach((l) => { const v = 1 + Math.floor(rnd() * 3); testit[l] = v; summa += v; });
     kirjoita(P + '/testitulokset/2026-05-12_harjoitettavuus_u12', {
       testit, pelaajaId: p.id, tunnistetyyppi: 'demo', sukunimi: p.suku, etunimi: p.etu, phv_tila: '', testauspvm: '2026-05-12', kausi: '2026-kevat',
-      protokolla: 'harjoitettavuus_u12', tallennettu: serverTs(), tallensiUid: 'setup_demo_kehitys', lahde: 'historiapohja',
-      tuotu: isoAika(DEMO_NYT), tuojaUid: 'setup_demo_kehitys', flei_pct: Math.round(summa / (3 * LIIKKEET.length) * 100),
+      protokolla: 'harjoitettavuus_u12', tallennettu: serverTs(), lahde: 'historiapohja',
+      tuotu: isoAika(DEMO_NYT), flei_pct: Math.round(summa / (3 * LIIKKEET.length) * 100),
       sukupuoli: j.sp, joukkue: j.nimi, demo: true,
     });
     // K8 omatoimiset kirjaukset kolmelle T12-pelaajalle (viimeiset 4 viikkoa, 3–6 päivää / vk)

@@ -57,6 +57,7 @@ const AIDOT = [
   'function _taksAvainNimi(avain) {',
   'function _ttSvKartta() {',
   'function _ttSvPaalla() {',
+  'function _ttKaanonSv(avain) {',
   'function _ttSv(avain, kentta) {',
   'function _vpKtArvoTeksti(arvo, yks) {',
   'function _vpKtAlariviHTML(t, inline) {',

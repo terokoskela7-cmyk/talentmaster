@@ -21,6 +21,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import LL from '../scripts/lang_lahde.cjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
@@ -84,7 +85,7 @@ function require_mod() {
   if (_langCache) return _langCache;
   const shim = { window: {}, console, localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} } };
   vm.createContext(shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_lang.js'), 'utf8'), shim);
+  vm.runInContext(LL.lue(ROOT), shim);
   _langCache = shim.window.TM_LANG || shim.TM_LANG;
   return _langCache;
 }

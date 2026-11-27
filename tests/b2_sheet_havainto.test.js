@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-require('../lib/tm_sisainen.js').RYHMAT.jaksofokus_sisainen.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_jaksofokus_kirjoitus.test.js
+/* PR 2d: osa_havainnot* = A → VAIN sisainen/tiedot.jaksofokus_sisainen (tmJaksofokusKirjoita: YKSI batch). Tynkä kokoaa loogisen pistepolkunäkymän (kirj/vk, kuten ennen) + pelaajan osan (pel). */
+const _litista = (o, pre, ulos) => { Object.keys(o).forEach((k) => { const v = o[k], q = pre + '.' + k; if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length && !Object.keys(v).some((x) => x.indexOf('__') === 0)) _litista(v, q, ulos); else ulos[q] = v; }); return ulos; };
 const SH = require('../lib/tm_sheet.js'), HV = require('../lib/tm_kt_havainto.js'), KT = require('../lib/tm_kehitystyopoyta.js'), KS = require('../lib/tm_kehityssilmukka.js');
 const lue = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const OSA = { k: 'a', koodi: 'k1', nimi: 'Katse ylös', havainnot: [{ uid: 'u1', arvo: 2, pvm: '2026-10-01', rooli: 'valmentaja', lause: 'Hyvä' }] };
@@ -43,14 +44,18 @@ describe('tmKtTallennaOsaArvio: lause + Kumoa', () => {
     const _s = (u) => { const o = {}, v = {}; Object.keys(u).forEach((k) => { (/osa_havainnot_vk/.test(k) ? v : o)[k] = u[k]; }); return [o, v]; };   // B2c: viikkohistoria-polut erillään (vanhat odotukset koskevat nykytilaa)
 
     const p = { id: 'p1', jaksofokus: JSON.parse(JSON.stringify(jf)) };
-    const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ update: async (u) => { const [o, v] = _s(u); kirj.push(o); vk.push(v); } }) }) }) }) };
+    const pel = [], kirjaa = (u, pu) => { const [o, v] = _s(u); kirj.push(o); vk.push(v); pel.push(pu); };
+    const ref = { update: async (u) => kirjaa(u, u), collection: () => ({ doc: () => ({}) }) };
+    const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ref }) }) }),
+      batch: () => { let u = null, sd = null; return { update: (r, x) => { u = x; }, set: (r, x) => { sd = x; }, commit: async () => { const y = Object.assign({}, u || {}); if (sd && sd.jaksofokus_sisainen) _litista(sd.jaksofokus_sisainen, 'jaksofokus', y); kirjaa(y, u || {}); } }; } };
     const cu = { uid, getIdToken: async () => 't', getIdTokenResult: async () => ({ claims: { rooli } }) };
     const d = { db, sid: 's', auth: () => cu, KS, rooli, uid, nyt: () => new Date(2026, 9, 19), eiToastia: true, poista: 'DEL', kumoaFn: (f) => { kumoa = f; }, toast: (m) => ilm.push(m), nayta: () => { naytetty++; }, t: (k) => k };
-    return { p, d, kirj, vk, kumoa: () => kumoa, naytetty: () => naytetty, ilm };
+    return { p, d, kirj, vk, pel, kumoa: () => kumoa, naytetty: () => naytetty, ilm };
   };
   const JF = { konsepti_avain: 'kons', alkoi: '2026-10-05T08:00:00', kesto_vk: 6, osa_havainnot: {}, osa_arviot: {} };
   it('lause tallentuu omaan riviin (trimmattuna); ilman lausetta ei lause-kenttää; eiToastia → ei oma toast', async () => {
     const a = mk(JF, 'valmentaja', 'u1'); expect(await KT.tmKtTallennaOsaArvio(a.d, a.p, 'kons', 'k1', 2, '  Hyvä  ')).toBe(true);
+    expect(Object.keys(a.pel[0]).filter((k) => /osa_havainnot/.test(k))).toEqual([]); expect(Object.keys(a.pel[0])).toEqual(['jaksofokus.osa_arviot.kons']);   // PR 2d: lause + rivi VAIN sisainen:iin
     const P = 'jaksofokus.osa_havainnot.kons.k1.u1.'; expect(a.kirj[0][P + 'arvo']).toBe(2); expect(a.kirj[0][P + 'pvm']).toBe('2026-10-19'); expect(a.kirj[0][P + 'rooli']).toBe('valmentaja'); expect(a.kirj[0][P + 'lause']).toBe('Hyvä'); expect(a.p.jaksofokus.osa_havainnot.kons.k1.u1).toEqual({ arvo: 2, pvm: '2026-10-19', rooli: 'valmentaja', lause: 'Hyvä' }); expect(a.ilm).toEqual([]);
     const b = mk(JF, 'valmentaja', 'u1'); await KT.tmKtTallennaOsaArvio(b.d, b.p, 'kons', 'k1', 3); expect(Object.keys(b.kirj[0]).filter((k) => /\.lause$/.test(k))).toEqual([]); expect(b.p.jaksofokus.osa_havainnot.kons.k1.u1.lause).toBeUndefined();
   });

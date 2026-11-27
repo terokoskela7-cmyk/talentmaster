@@ -10,7 +10,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const require = createRequire(import.meta.url);
-require('../lib/tm_sisainen.js').RYHMAT.jaksofokus_sisainen.kirjoitus = false;   // lipun käännön jälkeen: tämä testi koskee vanhaa (pelaajadokumentti-)polkua; sisainen-polku: tests/sisainen_jaksofokus_kirjoitus.test.js
+/* PR 2d: osa_havainnot* = A → VAIN sisainen/tiedot.jaksofokus_sisainen (tmJaksofokusKirjoita: YKSI batch). Varasto pitää loogisen (dual-read-yhdistetyn) näkymän `doc` + pelaajadokumentin oman osan `pel`. */
+const _litista = (o, pre, ulos) => { Object.keys(o).forEach((k) => { const v = o[k], q = pre + '.' + k; if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length && !Object.keys(v).some((x) => x.indexOf('__') === 0)) _litista(v, q, ulos); else ulos[q] = v; }); return ulos; };
 const KT = require('../lib/tm_kehitystyopoyta.js');
 const KS = require('../lib/tm_kehityssilmukka.js');
 const AJ = require('../lib/tm_aloita_jakso.js');
@@ -24,10 +25,13 @@ const ESC = (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</
 
 /* Muistissa oleva "Firestore": update(dot-polut) sulautetaan dokumenttiin; jokainen kirjoitus lukee tuoreen kopion (ei luoteta paikalliseen tilaan). */
 function varasto(alku) {
-  const doc = JSON.parse(JSON.stringify(alku)), kirj = [];
+  const doc = JSON.parse(JSON.stringify(alku)), kirj = [], pel = [];
   const aseta = (o, polku, arvo) => { const k = polku.split('.'); let x = o; for (let i = 0; i < k.length - 1; i++) { if (x[k[i]] == null || typeof x[k[i]] !== 'object') x[k[i]] = {}; x = x[k[i]]; } x[k[k.length - 1]] = JSON.parse(JSON.stringify(arvo)); };
-  const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ update: async (polut) => { kirj.push(Object.fromEntries(Object.entries(polut).filter(([k]) => !/osa_havainnot_vk/.test(k)))); Object.keys(polut).forEach((k) => aseta(doc, k, polut[k])); } }) }) }) }) };
-  return { doc, kirj, db };
+  const kirjaa = (polut, pelOsa) => { pel.push(pelOsa); kirj.push(Object.fromEntries(Object.entries(polut).filter(([k]) => !/osa_havainnot_vk/.test(k)))); Object.keys(polut).forEach((k) => aseta(doc, k, polut[k])); };
+  const ref = { update: async (polut) => kirjaa(polut, polut), collection: () => ({ doc: () => ({}) }) };
+  const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ref }) }) }),
+    batch: () => { let u = null, sd = null; return { update: (r, d) => { u = d; }, set: (r, d) => { sd = d; }, commit: async () => { const y = Object.assign({}, u || {}); if (sd && sd.jaksofokus_sisainen) _litista(sd.jaksofokus_sisainen, 'jaksofokus', y); kirjaa(y, u || {}); } }; } };
+  return { doc, kirj, pel, db };
 }
 const pelaaja0 = (jf) => ({ id: PID, etunimi: 'Topias', joukkue: 'KPV P13', jaksofokus: Object.assign({ konsepti_avain: KONS, konsepti_nimi: 'Haltuunotto', alkoi: '2026-10-05T08:00:00', kesto_vk: 6 }, jf || {}) });
 const kirjoita = (v, uid, claimRooli, arvo, o) => KT.tmKtTallennaOsaArvio(Object.assign({ db: v.db, sid: 'kpv', auth: () => ({ uid, getIdToken: async () => 't', getIdTokenResult: async () => ({ claims: claimRooli ? { rooli: claimRooli } : {} }) }), KS, demo: false, toast() {}, t: (k) => k, nyt: () => NYT, rooli: o && o.shellRooli }, o || {}), JSON.parse(JSON.stringify(v.doc)), KONS, 'k1', arvo);   // p = tuore kopio
@@ -36,6 +40,8 @@ describe('D108 · kirjoitus: rinnakkaiset merkinnät, voimassa oleva arvo', () =
   it('valmentaja merkitsee ohjatusti, sitten VP itsenäisesti → osa_arviot = 2 (valmentajan), osa_havainnot kaksi riviä', async () => {
     const v = varasto(pelaaja0());
     expect(await kirjoita(v, 'valm1', 'valmentaja', 2)).toBe(true); expect(await kirjoita(v, 'vp1', 'vp', 3)).toBe(true);
+    v.pel.forEach((u) => expect(Object.keys(u).filter((k) => /^jaksofokus\.osa_havainnot/.test(k)), 'PR 2d: osa_havainnot ei pelaajadokumenttiin').toEqual([]));
+    expect(Object.keys(v.pel[0])).toEqual(['jaksofokus.osa_arviot.' + KONS]);   // pelaajalle vain voimassa oleva arvo (B)
     const jf = v.doc.jaksofokus;
     expect(jf.osa_arviot[KONS].k1).toBe(2);
     expect(jf.osa_havainnot[KONS].k1).toEqual({ valm1: { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' }, vp1: { arvo: 3, pvm: '2026-10-09', rooli: 'vp' } });

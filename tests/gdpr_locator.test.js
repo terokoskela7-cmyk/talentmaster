@@ -231,7 +231,7 @@ describe('GDPR-locator — kerääPelaajanManifesti', () => {
     const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'functions', 'index.js'), 'utf8');
     const rtbf = src.slice(src.indexOf('exports.poistaPelaajaGDPR'), src.indexOf('exports.viePelaajanDataGDPR'));
     expect(rtbf).toMatch(/omat_kirjaukset[\s\S]*batch\.update\(r, OMA_KIRJAUS_PSEUDONYMISOINTI\)/);
-    expect(src).toMatch(/OMA_KIRJAUS_PSEUDONYMISOINTI \} = require\('\.\/gdpr_locator'\)/);
+    expect(src).toMatch(/OMA_KIRJAUS_PSEUDONYMISOINTI[^}]*\} = require\('\.\/gdpr_locator'\)/);
     expect(rtbf).not.toMatch(/omat_kirjaukset[^\n]*batch\.delete/);
     expect(src.slice(src.indexOf('exports.viePelaajanDataGDPR'))).toMatch(/omat_kirjaukset: dataMap\(manifesti\.ristiviitteet\.omat_kirjaukset\)/);
   });

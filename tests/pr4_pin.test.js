@@ -23,9 +23,9 @@ const PEL = 'seurat/kpv/pelaajat/m93';
 function perusData() {
   return {
     // Suostumus ennen PIN:iä (1.10.2026): fixturet ovat suostumuksen antaneita (uudet testit: tests/suostumus_ennen_kirjautumista.test.js).
-    [PEL]: { etunimi: 'Topias', tunniste: '12345678', pin: '9278', joukkueet: ['kpv_u13'], joukkue: 'KPV U13', suostumusTila: 'annettu' },
-    'seurat/kpv/pelaajat/x2': { etunimi: 'Muu', tunniste: '87654321', joukkueet: ['kpv_u15'], joukkue: 'KPV U15', suostumusTila: 'annettu' },
-    'seurat/kpv/pelaajat/x3': { etunimi: 'Vanha', joukkue: 'KPV U13', suostumusTila: 'annettu' },   // vain nimikenttä (§18)
+    [PEL]: { etunimi: 'Topias', tunniste: '12345678', pin: '9278', joukkueet: ['kpv_u13'], joukkue: 'KPV U13', suostumusTila: 'annettu', syntymaVuosi: 2013 },
+    'seurat/kpv/pelaajat/x2': { etunimi: 'Muu', tunniste: '87654321', joukkueet: ['kpv_u15'], joukkue: 'KPV U15', suostumusTila: 'annettu', syntymaVuosi: 2013 },
+    'seurat/kpv/pelaajat/x3': { etunimi: 'Vanha', joukkue: 'KPV U13', suostumusTila: 'annettu', syntymaVuosi: 2013 },   // vain nimikenttä (§18)
     'seurat/kpv/joukkueet/kpv_u13': { nimi: 'KPV U13' },
     'seurat/kpv/kayttajat/valm-u13': { rooli: 'valmentaja', joukkueet: ['kpv_u13'] },
     'seurat/kpv/kayttajat/valm-pois': { rooli: 'valmentaja', joukkueet: ['kpv_u13'], aktiivinen: false },
@@ -46,7 +46,7 @@ function ymparisto(alku) {
     tarkistaOikeus: async (uid) => ({ sallittu: uid === 'vp-kpv' || uid === 'sa' }),
     audit: async (t, x) => audit.push([t, x]),
   };
-  const kirjaudu = K.luoKasittelija({ db: f.db, auth: { createCustomToken: async (uid) => 'TOKEN:' + uid }, HttpsError, FieldValue, nyt: () => 1_000_000 });
+  const kirjaudu = K.luoKasittelija({ db: f.db, auth: { createCustomToken: async (uid) => 'TOKEN:' + uid }, HttpsError, FieldValue, nyt: () => Date.UTC(2026, 10, 3) });
   return { f, audit, aseta: P.luoAsetaPelaajanPin(deps), luo: P.luoLuoPinitSeuralle(deps), kirjaudu };
 }
 
@@ -145,7 +145,7 @@ describe('luoPinitSeuralle', () => {
   it('erät ≤ 400 kirjoitusta', async () => {
     const alku = perusData();
     // 5 kirjoitusta / pelaaja (hajautus + pin + 3 lukitusavainta) → 80 pelaajaa / erä. scrypt ~35 ms / PIN.
-    for (let i = 0; i < 100; i++) alku['seurat/kpv/pelaajat/p' + i] = { tunniste: String(10000000 + i), joukkueet: ['kpv_u13'], suostumusTila: 'annettu' };
+    for (let i = 0; i < 100; i++) alku['seurat/kpv/pelaajat/p' + i] = { tunniste: String(10000000 + i), joukkueet: ['kpv_u13'], suostumusTila: 'annettu', syntymaVuosi: 2013 };
     const y = ymparisto(alku);
     const r = await y.luo({ seuraId: SID }, VP);
     expect(r.luotu).toBe(102);

@@ -12,6 +12,8 @@ import { readFileSync, readdirSync } from 'fs';
 import { createRequire } from 'module';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire as _kuoriReq } from 'module';
+const { lueKuori } = _kuoriReq(import.meta.url)('../scripts/kuoren_lahde.js');   // Seura.html + seura/-osat (rivikattojen purku)
 const require = createRequire(import.meta.url), JUURI = join(dirname(fileURLToPath(import.meta.url)), '..');
 const POIS = /^lib\/tm_(henkilosto_i18n|reflektio|teknistaktiset|teknistaktiset_sv|lang|vp_i18n|master_i18n|lib_i18n)\.js$/;   // i18n-kartat: sv-arvot sisältävät vanhaa termiä (erä 80 korvaa); avaimet katetaan alla
 const SIVUT = ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Kehitystyopoyta.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_ADAR_Pikakortti.html', 'TalentMaster_ADAR_Koulutus.html'];   // K1e: + ADAR-koulutus
@@ -27,7 +29,7 @@ function segmentit(rivi) {
   return ulos;
 }
 function loydot(tiedosto) {
-  const rivit = readFileSync(join(JUURI, tiedosto), 'utf8').split('\n'), ulos = []; let lohko = false;
+  const rivit = lueKuori(tiedosto).split('\n'), ulos = []; let lohko = false;
   rivit.forEach((l, i) => {
     const t = l.trim();
     if (lohko) { if (t.includes('*/')) lohko = false; return; }

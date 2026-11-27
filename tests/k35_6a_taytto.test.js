@@ -10,7 +10,7 @@ const tap = (id, tyyppi, pvm, a, p, o) => Object.assign({ id, tyyppi, nimi: '', 
 const OTTELU = tap('o1', 'ottelu', '2026-10-24', '12:00', '13:30', { vastustaja: 'Demo Juniorit' });
 const HIST = [tap('h1', 'harjoitus', '2026-10-13', '17:30', '19:00', { paikka: 'Kenttä 2' }), tap('h2', 'harjoitus', '2026-10-15', '17:30', '19:00', { paikka: 'Halli' })];
 
-function mock({ viikkopohjat, joukkueDocit, tapahtumat, johto = true, demo = false, paivitysVirhe = false, kirjoitus = true, commitVirhe = 0 }) {
+function mock({ viikkopohjat, joukkueDocit, tapahtumat, johto = true, demo = false, paivitysVirhe = false, kirjoitus = true, commitVirhe = 0, varmista = null }) {
   const kirj = [], paiv = [], haut = [], DOCS = { 'seurat/demo/valmennuslinja/viikkopohjat': viikkopohjat };
   const mkDoc = (p) => ({ get: async () => { haut.push(p); return DOCS[p] ? { exists: true, data: () => DOCS[p] } : { exists: false }; }, update: async (d) => { if (paivitysVirhe) throw new Error('permission-denied'); paiv.push([p, d]); }, collection: (c) => mkCol(p + '/' + c) });
   let n = 0; const mkCol = (p) => ({ doc: (id) => mkDoc(p + '/' + (id || 'auto' + (++n))) });
@@ -18,10 +18,25 @@ function mock({ viikkopohjat, joukkueDocit, tapahtumat, johto = true, demo = fal
   const viestit = [], tilaRef = { tap: tapahtumat, docit: joukkueDocit, renders: 0, ladattu: 0 };
   const env = { db, seuraId: () => 'demo', uid: () => 'u1', demo: () => demo, joukkue: () => 'Demo U13', joukkueDocit: () => tilaRef.docit, lataaJoukkueDocit: async () => tilaRef.docit, tapahtumat: () => tilaRef.tap, pelaajat: () => ['p1', 'p2', 'p3', 'p4'],
     johto: () => johto, saaKirjoittaa: () => kirjoitus, ts: (pvm, hhmm) => ({ ms: ms(pvm, hhmm) }), palvelinAika: () => 'TS', toast: (m, t) => viestit.push([m, t]), t: (x) => x, rerender: () => { tilaRef.renders++; }, lataaTapahtumat: async () => { tilaRef.ladattu++; }, maanantai: () => MA, avaaUusi: (p) => viestit.push(['uusi', p]) };
+  if (varmista) env.varmistaHistoria = varmista;
   return { ctrl: TT.tmKalTayttoLuo(env), kirj, paiv, haut, viestit, tilaRef };
 }
 const POHJA_DOC = { pohjat: POHJAT };
 const DOCIT = [{ id: 'demo_u13', nimi: 'Demo U13', ika: 'U13', pelimuoto: '8v8' }];
+
+describe('PR A · varmistaHistoria: oletusikkuna −2 vk → täyttö/monista odottaa 8 vk historian ennen laskentaa', () => {
+  it('Monista: ilman ladattua historiaa ei ehdotuksia; env.varmistaHistoria(ma) lisää historian → ehdotukset ilmestyvät vasta sen jälkeen', async () => {
+    const a = mock({ viikkopohjat: POHJA_DOC, joukkueDocit: DOCIT, tapahtumat: [], varmista: async (ma) => { a.kutsut.push(ma); a.tilaRef.tap = HIST; } }); a.kutsut = [];
+    await a.ctrl.lataa(); a.ctrl.monista(); expect(a.ctrl.tila(MA)).not.toMatchObject({ tyyppi: 'vahvista' });   // asynkroninen: ei vielä
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(a.kutsut).toEqual([MA]); expect(a.ctrl.tila(MA)).toMatchObject({ tyyppi: 'vahvista', n: 2 });
+  });
+  it('varmistaHistoria hylätään → laskenta silti (ei jumiin); puuttuva env.varmistaHistoria → synkroninen kuten ennen', async () => {
+    const a = mock({ viikkopohjat: POHJA_DOC, joukkueDocit: DOCIT, tapahtumat: HIST, varmista: async () => { throw new Error('verkko'); } }); await a.ctrl.lataa(); a.ctrl.monista(); await new Promise((r) => setTimeout(r, 0));
+    expect(a.ctrl.tila(MA)).toMatchObject({ tyyppi: 'vahvista', n: 2 });
+    const b = mock({ viikkopohjat: POHJA_DOC, joukkueDocit: DOCIT, tapahtumat: HIST }); await b.ctrl.lataa(); b.ctrl.monista(); expect(b.ctrl.tila(MA)).toMatchObject({ tyyppi: 'vahvista', n: 2 });
+  });
+});
 
 describe('tmMonistaViikko / tmEhdotusDoc', () => {
   it('Monista: edellisen viikon harjoitukset +7 pv samalla ajalla ja paikalla; tauko ja olemassa ohitetaan; ei muiden joukkueiden harjoituksia', () => {

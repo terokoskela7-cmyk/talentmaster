@@ -58,6 +58,7 @@ async function aja(data) {
   const sandbox = {
     console, Date, Math, JSON, String, Number, Object, Array, Promise, isNaN, parseInt, parseFloat,
     db: teeDb(data),
+    firebase: { firestore: { Timestamp: { fromMillis: (ms) => ({ ms }) } } },   // projekti 06: laskeVAI hakee valmentajan mentoroinnit palvelinpuolella (aika >= ikkunan alku)
     _seuraId: 'testiseura',
     _valmentajat: [{ id: 'c1', joukkue: 'FCL P13' }],
     _pelaajat: [],

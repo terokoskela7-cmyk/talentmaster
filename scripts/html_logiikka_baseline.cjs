@@ -17,7 +17,8 @@ const KUVIOT = {
 function laske() {
   const ulos = {};
   fs.readdirSync(juuri).filter((f) => /^TalentMaster_.*\.html$/.test(f)).sort().forEach((f) => {
-    const s = fs.readFileSync(path.join(juuri, f), 'utf8'), o = {}; Object.keys(KUVIOT).forEach((k) => { o[k] = (s.match(KUVIOT[k]) || []).length; }); ulos[f] = o;
+    // seura/-osat lasketaan kuorelle (siirto ei nollaa baselinea)
+    const s = require('./kuoren_lahde.js').lueKuori(f, juuri), o = {}; Object.keys(KUVIOT).forEach((k) => { o[k] = (s.match(KUVIOT[k]) || []).length; }); ulos[f] = o;
   });
   return ulos;
 }

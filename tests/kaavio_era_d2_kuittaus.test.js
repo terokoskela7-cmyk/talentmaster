@@ -21,6 +21,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import LL from '../scripts/lang_lahde.cjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const require_ = createRequire(import.meta.url);
@@ -158,7 +159,7 @@ describe('D — client: optimistinen kuittaus ja palautus', () => {
   it('kuittaustekstit kulkevat t():n läpi ja ovat fi/sv/en', () => {
     expect(fn('_p7KuittausNappiHTML')).toMatch(/_tKaavio\('kuitattu'\)/);
     expect(fn('_p7KuittausNappiHTML')).toMatch(/_tKaavio\('kuittaa'\)/);
-    const lang = readFileSync(join(ROOT, 'lib', 'tm_lang.js'), 'utf8');
+    const lang = LL.lue(ROOT);
     ['Ymmärsin tämän', 'Jag förstod det här', 'I understood this'].forEach((x) => expect(lang).toContain(x));
   });
 });

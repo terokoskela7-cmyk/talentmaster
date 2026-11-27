@@ -2,16 +2,27 @@
 const L = require('../lib/tm_kalenteri_lataus.js');
 const NYT = Date.parse('2026-10-14T12:00:00+03:00'), VK = 7 * 864e5;
 describe('ikkuna', () => {
-  it('oletus −8 vk … +26 vk nykyviikosta (viikkorajoilla)', () => {
+  it('oletus −2 vk … +6 vk nykyviikosta (viikkorajoilla; PR A)', () => {
     const w = L.tmLatausIkkuna({ nyt: NYT });
-    expect(Math.round((Date.parse('2026-10-12T00:00:00+03:00') - w.alku) / VK)).toBe(8); expect(Math.round((w.loppu - Date.parse('2026-10-12T00:00:00+03:00')) / VK)).toBe(27);
-    expect(w.alku).toBeLessThan(NYT - 8 * VK + 1); expect(w.loppu).toBeGreaterThan(NYT + 26 * VK);
+    expect(Math.round((Date.parse('2026-10-12T00:00:00+03:00') - w.alku) / VK)).toBe(2); expect(Math.round((w.loppu - Date.parse('2026-10-12T00:00:00+03:00')) / VK)).toBe(7);
+    expect(w.alku).toBeLessThan(NYT - 2 * VK + 1); expect(w.loppu).toBeGreaterThan(NYT + 6 * VK);
   });
   it('viikon selaus ikkunan sisällä ei laajenna; ulkopuolella (taakse/eteen) laajenee kattamaan viikon + marginaali; ladattua ei kavenneta', () => {
     const w = L.tmLatausIkkuna({ nyt: NYT });
-    expect(L.tmLatausIkkuna({ nyt: NYT, valittuViikko: '2026-12-01', ladattu: w })).toEqual(w);
+    expect(L.tmLatausIkkuna({ nyt: NYT, valittuViikko: '2026-10-26', ladattu: w })).toEqual(w);
     const e = L.tmLatausIkkuna({ nyt: NYT, valittuViikko: '2027-06-01', ladattu: w }); expect(e.alku).toBe(w.alku); expect(e.loppu).toBeGreaterThan(Date.parse('2027-06-14T00:00:00+03:00'));
     const t = L.tmLatausIkkuna({ nyt: NYT, valittuViikko: '2026-05-01', ladattu: e }); expect(t.alku).toBeLessThan(Date.parse('2026-05-01')); expect(t.loppu).toBe(e.loppu);
+  });
+  it('PR A: kuukausinäkymän ruudukon loppu (valittuLoppu) laajentaa vain eteenpäin; ilman sitä ikkuna ei kasva', () => {
+    const w = L.tmLatausIkkuna({ nyt: NYT });
+    expect(L.tmLatausIkkuna({ nyt: NYT, valittuViikko: '2026-10-05', valittuLoppu: '2026-11-02', ladattu: w })).toEqual(w);   // lokakuun ruudukko mahtuu
+    const jou = L.tmLatausIkkuna({ nyt: NYT, valittuViikko: '2026-11-30', valittuLoppu: '2027-01-04', ladattu: w });   // joulukuun ruudukko
+    expect(jou.alku).toBe(w.alku); expect(jou.loppu).toBeGreaterThanOrEqual(Date.parse('2027-01-11T00:00:00+02:00'));
+    expect(L.tmLatausPuuttuva(w, jou)).toHaveLength(1);   // vain puuttuva eteen-väli
+  });
+  it('PR A: täytön 8 vk historia (ma − 56 pv) laajentaa taakse vain puuttuvan välin', () => {
+    const w = L.tmLatausIkkuna({ nyt: NYT }), h = L.tmLatausIkkuna({ nyt: NYT, valittuViikko: '2026-08-17', ladattu: w }), p = L.tmLatausPuuttuva(w, h);
+    expect(p).toHaveLength(1); expect(p[0].loppu).toBe(w.alku - 1); expect(h.loppu).toBe(w.loppu);
   });
 });
 describe('puuttuva väli', () => {
