@@ -44,6 +44,8 @@
  *
  * LOKI: jokainen kysymys + vastaus → `valmennusapuri_loki/{id}` (laadunseuranta, NotebookLM-
  *   pistokokeet). Ei client-pääsyä (Firestore Rules: ei match-blokkia = deny); SA lukee Consolesta.
+ *   Säilytys 6 kk (Tero 2.11.2026): kenttä `vanhenee` (Timestamp, aika + 182 vrk) + Firestore TTL -käytäntö.
+ *   Vanhat lokit: functions/tools/apuri_loki_vanhenee.mjs. Seurabudjetti: `vanhenee` = päivitys + 400 vrk.
  *
  * Tämä moduuli EI koske firebase-adminiin latausvaiheessa → index.js:n offline-testit (e2e_node22)
  * lataavat sen ilman GCP-projektia. Kaikki I/O tulee kasittelija()-tehtaan riippuvuuksina.
@@ -57,6 +59,9 @@ const MAX_MERKKEJA_VASTAUS = 12000;                          // apurin aiempi va
 const MAX_MERKKEJA_YHTEENSA = 40000;
 const MAX_TOKENS = 7000;
 const TIETOPOHJA_CACHE_MS = 10 * 60 * 1000;
+// Säilytys (Tero 2.11.2026): Firestore TTL poistaa dokumentin, kun `vanhenee` (Timestamp) on ohitettu.
+const LOKI_SAILYTYS_VRK = 182;       // valmennusapuri_loki: 6 kk
+const BUDJETTI_SAILYTYS_VRK = 400;   // valmennusapuri_budjetti: kuukausilaskuri, ei henkilötietoa, mutta ei turhaa säilytystä
 
 // Sama koodisto kuin testiajurissa (valmennusapuri/testaus/aja_testit.mjs)
 const KOODI = /\b(?:Y|J)-[HPSE]\d{1,2}[a-h]?\b|\b(?:T|LP|KK|KY|KH|LA|MV)-[HP]\d[a-h]?\b/g;
@@ -246,6 +251,18 @@ function suodataAihe(tiedostot, aihe, onHP) {
 function ohjeVersio(ohjeistus) {
   const m = ohjeistus.match(/\(versio ([\d.]+)\)/);
   return m ? m[1] : '?';
+}
+
+/** Puhdas: vanhenemishetki = aika + vrk vuorokautta. aika: Date tai ISO-merkkijono. Virheellinen → null. */
+function vanheneeAika(aika, vrk) {
+  const d = aika instanceof Date ? aika : new Date(aika);
+  if (!aika || isNaN(d.getTime())) return null;
+  return new Date(d.getTime() + vrk * 864e5);
+}
+
+/** Firestoren Timestamp-luokka: administa (tuotanto, testit) tai laiskasti firebase-administa (moduulin lataus ei koske siihen). */
+function _timestampLuokka(admin) {
+  return (admin && admin.firestore && admin.firestore.Timestamp) || require('firebase-admin').firestore.Timestamp;
 }
 
 /** Päiväkiintiön avain: uid + päivämäärä (Suomen aika). */
@@ -881,14 +898,19 @@ async function tarkistaSeurabudjetti(db, seuraId, oletusUsd, kieli, nyt) {
   return raja;
 }
 
-/** Kutsun jälkeen transaktiolla. 80 %:n raja → console.warn + varoitettu80 (kerran kuussa: uusi kuukausi = uusi dokumentti). */
-async function kirjaaSeurabudjetti(db, seuraId, usd, raja, nyt) {
+/**
+ * Kutsun jälkeen transaktiolla. 80 %:n raja → console.warn + varoitettu80 (kerran kuussa: uusi kuukausi = uusi dokumentti).
+ * Timestamp (valinnainen): Firestoren Timestamp-luokka → `vanhenee` = viimeisin päivitys + 400 vrk (TTL).
+ */
+async function kirjaaSeurabudjetti(db, seuraId, usd, raja, nyt, Timestamp) {
   const ref = db.collection('valmennusapuri_budjetti').doc(budjettiAvain(seuraId, nyt));
+  const hetki = nyt || new Date();
   return db.runTransaction(async function (tx) {
     const snap = await tx.get(ref);
     const d = snap.exists ? snap.data() : {};
     const uusi = Math.round(((Number(d.usd) || 0) + (usd || 0)) * 1e6) / 1e6;
-    const paivitys = { seuraId: seuraId, usd: uusi, kysymyksia: (Number(d.kysymyksia) || 0) + 1, paivitetty: (nyt || new Date()).toISOString() };
+    const paivitys = { seuraId: seuraId, usd: uusi, kysymyksia: (Number(d.kysymyksia) || 0) + 1, paivitetty: hetki.toISOString() };
+    if (Timestamp) paivitys.vanhenee = Timestamp.fromDate(vanheneeAika(hetki, BUDJETTI_SAILYTYS_VRK));
     const varoita = !d.varoitettu80 && uusi >= 0.8 * raja;
     if (varoita) {
       paivitys.varoitettu80 = true;
@@ -1050,7 +1072,7 @@ function kasittelija(admin, functions, riip) {
       const hintaArvioUsd = OSIOT.hintaArvio(malli.tokenit, hinnat);
       if (budjettiSeura) {
         try {
-          await kirjaaSeurabudjetti(db, budjettiSeura, hintaArvioUsd, budjettiRaja);
+          await kirjaaSeurabudjetti(db, budjettiSeura, hintaArvioUsd, budjettiRaja, null, _timestampLuokka(admin));
         } catch (e) {
           // Vastaus on jo maksettu: ei kaadeta käyttäjän kysymystä, mutta virhe näkyy lokissa.
           console.error('[valmennusapuri] seurabudjettia ei kirjattu (' + budjettiSeura + '):', e && e.message);
@@ -1062,6 +1084,7 @@ function kasittelija(admin, functions, riip) {
         console.warn('[valmennusapuri] koodit poistettu vastauksesta:', suodatettu.poistettu.join(', '));
       }
 
+      const lokiAika = new Date();
       const loki = await db.collection('valmennusapuri_loki').add({
         uid: uid,
         seuraId: seuraId || null,
@@ -1091,7 +1114,9 @@ function kasittelija(admin, functions, riip) {
         stopReason: malli.syy,
         poistetutKoodit: suodatettu.poistettu,
         kestoMs: Date.now() - alku,
-        aika: new Date().toISOString(),
+        aika: lokiAika.toISOString(),
+        // TTL (6 kk): Firestore poistaa dokumentin tämän jälkeen. Timestamp, ei ISO-merkkijono (TTL vaatii Timestampin).
+        vanhenee: _timestampLuokka(admin).fromDate(vanheneeAika(lokiAika, LOKI_SAILYTYS_VRK)),
         palaute: null,
       });
 
@@ -1142,4 +1167,7 @@ module.exports = {
   BUDJETTI_VIESTI,
   bedrockPyynto,
   kutsuMallia,
+  vanheneeAika,
+  LOKI_SAILYTYS_VRK,
+  BUDJETTI_SAILYTYS_VRK,
 };
