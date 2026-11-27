@@ -90,6 +90,7 @@ function onAllowlist(url) {
   if (/\/lib\/tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta|viikkokatsaus)\.js/.test(url)) return true;   // K1: Kenttä-näkymän libit (versioituja)
   if (url.indexOf('/lib/tm_reitin_valinta.js') !== -1) return true;   // K3: pelaaja valitsee seuraavan reitin (versioitu)
   if (url.indexOf('/assets/fonts/archivo-latin-wdth-normal.woff2') !== -1) return true;   // D11: Archivo omalta palvelimelta (ei Google Fonts)
+  if (/\/assets\/fonts\/(cormorant-garamond|dm-sans|dm-mono|barlow-condensed)-latin-[a-z0-9-]+\.woff2/.test(url)) return true;   // fontit omalta palvelimelta (GDPR) — offline-avaus
   // Kaavio erä D1: konseptin piirros pelaajan kortilla. Inline-SVG, ei ulkoisia origineja →
   // toimii offline kun libit ovat cachessa (itse spec tulee Firestoresta ja vaatii verkon).
   if (/\/lib\/tm_kaavio_(render|konsepti|policy)\.js/.test(url)) return true;
@@ -108,8 +109,6 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_teknistaktiset.js') !== -1) return true;   // 4b pelaajan cue-kerros
   if (url.indexOf('/docs/testit_indeksit.js') !== -1) return true;
   if (url.indexOf('gstatic.com/firebasejs/') !== -1) return true;         // Firebase SDK (versioitu URL)
-  if (url.indexOf('fonts.googleapis.com') !== -1) return true;            // Google Fonts CSS
-  if (url.indexOf('fonts.gstatic.com') !== -1) return true;               // Google Fonts -fontit
   return false;
 }
 
