@@ -135,4 +135,23 @@ describe('ab_vuorotellen', () => {
     expect(vir.join('\n')).toMatch(/B: esto \(apis\.google\.com\) ei osunut/);
     expect(AB.poimi(huono)['master|tyopoyta'].kylma.fcp).toEqual([]);
   });
+
+  it('--odotettu-dokero="<syy>": dokumentin kokoero kirjataan odotettuna (ℹ + meta), ei ⚠-varoitusta; ilman valintaa ⚠ säilyy; syy pakollinen', async () => {
+    const dok = (purettu) => ({ resurssit_kylma: { ryhmat: { Document: { purettu } } } });
+    const tul = (koko) => ({ mittaukset: [Object.assign({ sivu: 'pelaaja', profiili: 'puhelin', kylma: [avaus(2000, 500, 900)], lampimat: [avaus(1000, 250, 500)] }, dok(koko))] });
+    const aja = async (lisa) => {
+      const ulos = join(mkdtempSync(join(tmpdir(), 'abdok-')), 'ab'), vir = [], kir = [];
+      const ajaa = (argit) => { const u = argit.find((a) => a.startsWith('--ulos=')).slice(7); writeFileSync(u, JSON.stringify(tul(argit.includes('--url=' + A) ? 486000 : 66000))); return 0; };
+      const koodi = await AB.main(['--a=' + A, '--b=' + B, '--kierrokset=2', '--sivut=pelaaja', '--profiilit=puhelin', '--ulos=' + ulos].concat(lisa), { ajaa, env: { STAGING_APPCHECK_DEBUG_TOKEN: 'x' }, kirjaa: (r) => kir.push(r), virhe: (r) => vir.push(r) });
+      return { koodi, vir: vir.join('\n'), kir: kir.join('\n'), meta: koodi === 0 ? JSON.parse(readFileSync(join(ulos, 'yhteenveto.json'), 'utf8')).meta : null };
+    };
+    const ilman = await aja([]);
+    expect(ilman.vir).toMatch(/⚠ pelaaja · puhelin: Dokumentin koko eroaa 7\.4× \(A suurempi\)/); expect(ilman.meta.odotettu_dokero).toBeUndefined();
+    const kanssa = await aja(['--odotettu-dokero=pääskriptin irrotus #1342']);
+    expect(kanssa.koodi).toBe(0); expect(kanssa.vir).not.toMatch(/⚠|sekoittunut/);
+    expect(kanssa.kir).toMatch(/ℹ pelaaja · puhelin: Dokumentin koko eroaa 7\.4× \(A suurempi\) .* ODOTETTU: pääskriptin irrotus #1342/);
+    expect(kanssa.kir).toMatch(/Dokumentin kokoero ODOTETTU \(pääskriptin irrotus #1342\) — havaittu 2 rivillä/);
+    expect(kanssa.meta.odotettu_dokero.syy).toBe('pääskriptin irrotus #1342'); expect(kanssa.meta.odotettu_dokero.havaittu.length).toBe(2);
+    for (const huono of [['--odotettu-dokero'], ['--odotettu-dokero=']]) { const r = await aja(huono); expect(r.koodi).toBe(2); expect(r.vir).toMatch(/--odotettu-dokero="<syy>"/); }
+  });
 });
