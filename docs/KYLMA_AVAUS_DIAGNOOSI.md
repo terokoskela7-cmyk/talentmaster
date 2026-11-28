@@ -421,3 +421,27 @@ Kattavuus Pelaajalle (mitä EI kutsuta avauksessa; V8 precise coverage). Työkal
 **Testit (`tests/pelaaja_deploy_muoto_selain.test.js`, chrome-tests + chrome-laiska-deploy).** Staattiset: ei muunnosvirheitä, järjestys (SDK:t app → app-check → auth; Sentry-asetus ennen `tm_sentry.js`:ää; `tm_appcheck.js` ennen pääskriptiä; pääskripti → P6 viimeisinä), jokainen ajettava skripti `defer`, inline-lohkot pieniä ja ilman lib-riippuvuuksia, odotustilan tynkä + vapautus, idempotenssi, virhepolut, SW-allowlist, CSP. Selain (oikea Chrome + oikea Firebase-compat-SDK, verkko estetty): sama sivu **inline vs. deploy** → samat sivuvirheet, ennen pääskriptiä tynkä + luokka / jälkeen oikeat funktiot + luokka pois, P6 ja kirjaus määritelty, **sama PIN-näkymän teksti** fi-, sv- ja kutsulinkki-tilassa.
 
 **Tero ajaa A/B:n** (kuorma-b-kanava, deploy-muoto): `--sivut=pelaaja --profiilit=puhelin`; tavoite FCP 4,9 s → ~1 s. Muista: FCP ≠ käyttövalmis (§19.1) — auth-haun alku ja interaktiivinen paranevat vasta kun myös Auth-polku kevenee (Vaihe 0, `docs/VAIHE0_PELAAJA_MODULAARINEN_AUTH.md`).
+
+### 19.7 A/B-tulos — deploy-muunnos (#1342), 28.11.2026
+
+**Ajo:** `ab_2026-11-28T08-22-11` (Tero, staging; vuorotteleva A/B, 3 kierrosta × 3 toistoa, `--sivut=pelaaja --profiilit=tyopoyta,puhelin`, seura `kuorma_seura_01` molemmilla). **A = ennen** (`vertailu/ennen-pelaaja-defer` = main ennen #1342, kanava `kuorma-b-chay448i`; haara poistettu A/B:n jälkeen), **B = jälkeen** (main #1342:n kanssa, kanava `kuorma-7tm6a9na`). Mediaanit, ms; B−A, sulkeissa per kierros (järjestys ABBAAB).
+
+| Profiili · tila | Mittari | A (ennen) | B (jälkeen) | B−A | per kierros | Tulkinta |
+|---|---|---|---|---|---|---|
+| **puhelin · kylmä** | **FCP** | **5 108** | **384** | **−4 724** | −4 724 / −4 728 / −4 716 | **johdonmukainen, ~−4,7 s joka kierros** |
+| puhelin · kylmä | interaktiivinen (TTI) | 7 675 | 7 682 | +7 | −577 / +266 / +19 | ennallaan (kohinaa) |
+| puhelin · kylmä | auth-haun alku | 5 879 | 5 942 | +63 | +63 / +55 / +64 | ennallaan (pieni) |
+| puhelin · kylmä | 1. Firestore alkaa | 6 627 | 6 683 | +56 | +60 / +92 / +53 | ennallaan (pieni) |
+| puhelin · kylmä | Firestore-luvut | 14 | 14 | 0 | 0 / 0 / 0 | sama |
+| puhelin · lämmin | FCP / TTI | 208 / 1 891 | 128 / 1 835 | −80 / −56 | FCP −72 / −200 / −76; TTI −202 / −138 / +10 | FCP sama suunta, pieni; TTI ei johdonmukainen |
+| työpöytä · kylmä | FCP / TTI | 216 / 1 931 | 228 / 1 944 | +12 / +13 | FCP −112 / +16 / −72 | ei muutosta (kohinaa; ei regressiota) |
+| työpöytä · lämmin | FCP / TTI | 140 / 1 316 | 116 / 1 294 | −24 / −22 | FCP −116 / +72 / 0 | ei muutosta |
+
+**Tavut (puhelin, kylmä, kt = 1 024 t):** dokumentti **492 → 65 kt purettuna** (koodattu 120 → 17 kt); skriptit 2 377 → 2 804 kt purettuna (koodattu 682 → 788 kt; 67 → 69 tiedostoa = + `tm_pelaaja_main.js` + `tm_pelaaja_p6.js`). **Yhteensä sama:** purettu 2 869 vs. 2 869 kt, koodattu 801 vs. 805 kt (+0,5 %: kaksi uutta pyyntöä, ei uutta sisältöä) → muunnos siirsi tavut dokumentista skripteihin, ei lisännyt eikä vähentänyt niitä.
+
+**Päätelmä.**
+- **Tavoite täyttyi:** puhelimen kylmä FCP 5,1 → **0,38 s** (tavoite ~1 s), joka kierroksella ja molemmassa järjestyksessä. Työpöydällä ja lämpimällä ei regressiota.
+- **TTI ei muutu — odotetusti** (§19.1, §19.6): sama 870 kt ajetaan samassa jonossa, ja käyttövalmius odottaa Authia. Mitattu: TTI **7,7 s ≈ auth-haun alku 5,9 s + ~1,8 s**. Nopea FCP on odotustilan (staattinen PIN-/latausnäkymä, `tm-main-odottaa`) ensimmäinen piirto — se **ei ole käyttövalmis näkymä**. Käyttäjän kokema hyöty: sivu ei ole enää tyhjä ~5 s; varsinainen avautuminen on yhtä hidas kuin ennen.
+- **Seuraava vipu on auth-haun alku (5,9 s):** sen siirtäminen ennen raskaita skriptejä vaatii (1) Auth-polun tavujen laiskaksi siirron (kattavuus, ~0,5 s / 100 kt ennen authia) ja (2) gapi/popupRedirectResolver pois (−0,7 s, gapi-A/B). Vaihe 0 -suunnitelmat: `docs/VAIHE0_PELAAJA_KATTAVUUS.md` ja `docs/VAIHE0_PELAAJA_MODULAARINEN_AUTH.md`. **Tavoite TTI 7,7 → < 5 s.**
+
+**Mittarin huomautus.** A/B-skriptin vartija ⚠ "Dokumentin koko eroaa 7,6× (A suurempi) … vertailu on sekoittunut" laukesi — oikein, ja tässä ajossa **odotettu** (pääskriptin irrotus on muutoksen tarkoitus; kanavat olivat oikeat). Jatkossa `ab_vuorotellen.js --odotettu-dokero="<syy>"` (PR #1344) kirjaa syyn (`ℹ … ODOTETTU`, `meta.odotettu_dokero`) eikä merkitse vertailua sekoittuneeksi; vartija ennallaan ilman valintaa.
