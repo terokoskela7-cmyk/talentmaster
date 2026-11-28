@@ -17,7 +17,7 @@ const SDK = { 'firebase-app-compat.js': 1, 'firebase-app-check-compat.js': 1, 'f
 /* Parsinta-aikainen probe heti Sentry-asetuksen / odotustilan jälkeen (ENNEN yhtään deferattua skriptiä) + DCL-probe (kaikki deferatut ajettu). */
 const PROBE = '<script>window.__tmEnnen={luokka:document.documentElement.classList.contains("tm-main-odottaa"),setLoc:typeof setLoc,go:typeof go,tynka:/^function\\s*\\(\\)\\s*\\{\\s*\\}$/.test(String(window.setLoc||"")),lang:typeof TM_LANG};'
   + 'document.addEventListener("DOMContentLoaded",function(){setTimeout(function(){var b=document.getElementById("phBody");window.__tmJalkeen={luokka:document.documentElement.classList.contains("tm-main-odottaa"),setLoc:typeof setLoc,go:typeof go,'
-  + 'tynka:/^function\\s*\\(\\)\\s*\\{\\s*\\}$/.test(String(window.setLoc||"")),p6:typeof _suljeHavainnot,kirjaus:typeof _tallennaKirjaus,lang:typeof TM_LANG,sv:!!(window.TM_LANG&&TM_LANG.sv),'
+  + 'tynka:/^function\\s*\\(\\)\\s*\\{\\s*\\}$/.test(String(window.setLoc||"")),p6:typeof _suljeHavainnot,kirjaus:typeof _tallennaKirjaus,lang:typeof TM_LANG,sv:!!(window.TM_LANG&&TM_LANG.sv),libT:typeof tmLibT,ttSv:typeof TM_TT_SV,'
   + 'teksti:b?b.innerText.replace(/\\s+/g," ").trim():null,sc:typeof _sc==="string"?_sc:null,url:typeof _URL==="object"?JSON.stringify(_URL):null};},400)});</script>';
 
 function sivuTiedosto(html, T, nimi) {
@@ -26,8 +26,9 @@ function sivuTiedosto(html, T, nimi) {
   const ulos = html.slice(0, j) + '<base href="file://' + JUURI + '/">' + html.slice(j, kohta) + PROBE + html.slice(kohta);
   const p = join(T, nimi); writeFileSync(p, ulos); return p;
 }
-async function aja(selain, tiedosto, { kieli, haku } = {}) {
-  const sk = await selain.newContext({ viewport: { width: 390, height: 800 } }), p = await sk.newPage(), virheet = [];
+async function aja(selain, tiedosto, { kieli, haku, vaihda } = {}) {
+  const sk = await selain.newContext({ viewport: { width: 390, height: 800 } }), p = await sk.newPage(), virheet = [], ladatut = [];
+  p.on('request', (r) => { const m = /\/lib\/(tm_lib_i18n|tm_teknistaktiset_sv)\.js/.exec(r.url()); if (m) ladatut.push(m[1]); });
   if (kieli) await sk.addInitScript((k) => { try { localStorage.setItem('tm_kieli', k); } catch (e) {} }, kieli);
   p.on('pageerror', (e) => virheet.push(String(e && e.message)));
   await p.route(/^https?:\/\//, (r) => {
@@ -39,8 +40,14 @@ async function aja(selain, tiedosto, { kieli, haku } = {}) {
   });
   await p.goto('file://' + tiedosto + (haku || ''), { waitUntil: 'load', timeout: 30000 });
   await p.waitForFunction(() => window.__tmJalkeen, null, { timeout: 20000 });
-  const ennen = await p.evaluate(() => window.__tmEnnen), jalkeen = await p.evaluate(() => window.__tmJalkeen);
-  await sk.close(); return { virheet, ennen, jalkeen };
+  const ennen = await p.evaluate(() => window.__tmEnnen), jalkeen = await p.evaluate(() => window.__tmJalkeen), ladatutAluksi = ladatut.slice();
+  let vaihdon = null;
+  if (vaihda) {   // ajonaikainen kielenvaihto fi → sv: draw()-portti lataa paketin + kielilisät (K1)
+    await p.evaluate((k) => { window.tmAsetaKieli(k, false); if (typeof window.draw === 'function') window.draw(); }, vaihda);
+    await p.waitForFunction(() => typeof window.tmLibT === 'function' && typeof window.TM_TT_SV === 'object' && !!window.TM_LANG.sv, null, { timeout: 15000 });
+    vaihdon = await p.evaluate(() => ({ libT: window.tmLibT('sn_y_h1', 'sv'), ttSvAvaimia: Object.keys(window.TM_TT_SV).length }));
+  }
+  await sk.close(); return { virheet, ennen, jalkeen, ladatut: ladatutAluksi, ladatutLopuksi: ladatut.slice(), vaihdon };
 }
 
 describe('Pelaaja deploy-muoto (staattinen)', () => {
@@ -119,5 +126,36 @@ describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('Pelaaja deplo
   it('kutsulinkki (?seura=&p=): _URL ja ruudun teksti samat kuin inline', async () => {
     const { a, b } = await vertaa({ haku: '?seura=kpv&p=testi1' });
     expect(b.virheet).toEqual(a.virheet); expect(JSON.parse(b.jalkeen.url)).toMatchObject({ seuraId: 'kpv', pelaajaId: 'testi1' }); expect(b.jalkeen.url).toBe(a.jalkeen.url); expect(b.jalkeen.teksti).toBe(a.jalkeen.teksti);
+  }, 120000);
+});
+
+describe.skipIf(!(process.env.TM_CHROME_TESTS !== '0' && CHROME))('Pelaaja K1: sv-libikartat vain sv-kielellä (data-tm-kielilisa)', () => {
+  const kaynnista = () => require('playwright-core').chromium.launch({ executablePath: CHROME, args: ['--no-sandbox', '--allow-file-access-from-files', '--hide-scrollbars'] });
+  const PERUSVIRHEET = ['no recaptcha'];   // verkoton ympäristö: App Check -alustuksen virhe on kaikissa muodoissa sama (vrt. vertaa-testit: deploy = inline)
+  const aja2 = async (opts) => {
+    const selain = await kaynnista(), T = mkdtempSync(join(tmpdir(), 'pel_k1_'));
+    try { const d = deployPelaaja(JUURI); return await aja(selain, sivuTiedosto(d.html, T, 'deploy.html'), opts); } finally { await selain.close(); rmSync(T, { recursive: true, force: true }); }
+  };
+  it('staattinen: tm_lib_i18n + tm_teknistaktiset_sv ovat type=text/plain kielilisiä (sv), eivät ajettavia skriptejä; tm_tt_sv_valinta pysyy ajettavana; deployssa ei defer-tagia niille', () => {
+    expect(REPO).toContain('<script type="text/plain" data-tm-kielilisa="sv" src="lib/tm_lib_i18n.js"></script>');
+    expect(REPO).toContain('<script type="text/plain" data-tm-kielilisa="sv" src="lib/tm_teknistaktiset_sv.js"></script>');
+    expect(REPO).not.toMatch(/<script src="lib\/(tm_lib_i18n|tm_teknistaktiset_sv)\.js"/); expect(REPO).toContain('<script src="lib/tm_tt_sv_valinta.js"></script>');
+    const ulos = require('../scripts/versiotiiviste.js').laske(JUURI).tiedostot['TalentMaster_Pelaaja_v7.html'];
+    expect(ulos).not.toMatch(/<script[^>]*\bdefer\b[^>]*tm_(lib_i18n|teknistaktiset_sv)\.js/); expect(ulos).toMatch(/data-tm-kielilisa="sv" src="lib\/tm_lib_i18n\.js\?v=[0-9a-f]{8}"/);
+  });
+  it('fi: kumpaakaan ei ladata (−70 kt gz); tmLibT/TM_TT_SV puuttuvat ja kuluttajat kestävät sen (ei sivuvirheitä)', async () => {
+    const f = await aja2({});
+    expect(f.ladatut).toEqual([]); expect(f.ladatutLopuksi).toEqual([]); expect(f.jalkeen).toMatchObject({ libT: 'undefined', ttSv: 'undefined' }); expect(f.virheet).toEqual(PERUSVIRHEET);   // sama perustaso kuin ennen K1:tä (ei verkkoa → 'no recaptcha')
+  }, 120000);
+  it('en: ei lataa (en-karttaa ei ole)', async () => {
+    const e = await aja2({ kieli: 'en' }); expect(e.ladatut).toEqual([]); expect(e.jalkeen).toMatchObject({ libT: 'undefined', ttSv: 'undefined' });
+  }, 120000);
+  it('sv (tallennettu): molemmat ladataan kerran ennen käynnistystä (document.write) → tmLibT ja TM_TT_SV määritelty, TM_LANG.sv paikallaan', async () => {
+    const v = await aja2({ kieli: 'sv' });
+    expect(v.ladatut.sort()).toEqual(['tm_lib_i18n', 'tm_teknistaktiset_sv']); expect(v.jalkeen).toMatchObject({ libT: 'function', ttSv: 'object', sv: true }); expect(v.virheet).toEqual(PERUSVIRHEET);
+  }, 120000);
+  it('ajonaikainen fi → sv: draw()-portti lataa paketin + kielilisät (kerran); sv-teksti saatavilla vaihdon jälkeen', async () => {
+    const x = await aja2({ vaihda: 'sv' });
+    expect(x.ladatut).toEqual([]); expect(x.ladatutLopuksi.sort()).toEqual(['tm_lib_i18n', 'tm_teknistaktiset_sv']); expect(x.vaihdon.ttSvAvaimia).toBeGreaterThan(100); expect(typeof x.vaihdon.libT === 'string' || x.vaihdon.libT === undefined).toBe(true); expect(x.virheet).toEqual(PERUSVIRHEET);
   }, 120000);
 });
