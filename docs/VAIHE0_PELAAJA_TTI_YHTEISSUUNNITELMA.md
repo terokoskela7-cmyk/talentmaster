@@ -60,11 +60,20 @@ Jos B-prototyyppi epäonnistuu (< −1,5 s tai pääskriptin ylätaso riippuu ki
 ## 6. Mittaus ja hyväksymisportit
 
 - Jokainen PR: `ab_vuorotellen.js --sivut=pelaaja --profiilit=puhelin` (3 kierrosta; sama suunta kaikilla); tavoite per PR: K1 ≥ −0,25 s; B ≥ −1,5 s; M2 ≥ −0,6 s (auth-alku ja interaktiivinen). Dokumentin koon muutoksesta ei tarvitse varoittaa kun muutos on odotettu: `--odotettu-dokero="<syy>"` (PR #1344).
-- **Tuotanto ≠ staging:** staging käyttää debug-tokenia → ei reCAPTCHA Enterprise -latausta; tuotannon kylmällä ensikäynnillä (~353 kt gz, ensimmäisessä backend-kutsussa) TTI on hitaampi kuin A/B näyttää. **Ehdotus:** erillinen mittaus ilman debug-tokenia (tai Real User Monitoring/Sentry-perf, jos käytössä) ennen kuin TTI < 5 s kirjataan "saavutetuksi tuotannossa".
+- **Tuotanto ≠ staging:** staging käyttää debug-tokenia → ei reCAPTCHA Enterprise -latausta; tuotannon kylmällä ensikäynnillä (~353 kt gz, ensimmäisessä backend-kutsussa) TTI on hitaampi kuin A/B näyttää. **Päätetty 28.11.: ei automaattista mittausta tuotannossa.** "< 5 s" kirjataan saavutetuksi vasta kun Tero on mitannut käsin kerran oikealla puhelimella (ohje alla).
+- **Ohje: tuotantomittaus käsin (Tero, kerran, kun B/M2-vaiheet on julkaistu):**
+  1. **Laite ja tunnus:** oikea puhelin (se jolla pelaajat oikeasti käyttävät: iPhone/Safari tai Android/Chrome — kirjaa malli ja yhteys); KPV:n **nimetty testipelaaja** (ei oikeaa pelaajaa), tuotannon osoite.
+  2. **Kylmä avaus:** sulje kaikki välilehdet; tyhjennä sivuston tiedot ja SW-cache (Safari: Asetukset → Safari → Lisäasetukset → Verkkosivuston tiedot → poista; Chrome: sivuston asetukset → Tyhjennä tiedot; PWA: poista kuvake ja asenna uudelleen jos testataan asennettuna). **Ei debug-tokenia** (ei `FIREBASE_APPCHECK_DEBUG_TOKEN`-asetusta), jotta reCAPTCHA Enterprise latautuu kuten oikealla käyttäjällä.
+  3. **Mittaus:** avaa sivu ja kirjaudu PIN:llä **tai** avaa kutsulinkillä (mitataan molemmat erikseen). Mittari = aika sivun avaamisesta (osoitteen vahvistus) siihen, kun **Tänään-näkymä on käyttövalmis** (sisältö näkyy ja napit reagoivat). Tapa: joko Chrome DevTools Performance (etäyhteys: Android `chrome://inspect`, iPhone Safari Web Inspector → Timelines) tai **kelloaika (stop-watch)** — käynnistä osoitteen vahvistuksesta, pysäytä kun ensimmäinen Tänään-kortti reagoi napautukseen.
+  4. **Toista 3 kertaa** (jokainen aloitetaan puhtaasta kylmästä tilasta, kohta 2); kirjaa jokainen aika ja mediaani. Kirjaa myös: ennen/jälkeen-versio (deploy-hash), yhteys (Wi-Fi/4G), kellonaika.
+  5. **Hyväksyntä:** mediaani < 5 s **ja** huonoin kerta < 6 s → "< 5 s saavutettu tuotannossa". Muuten kirjataan luku sellaisenaan (staging-A/B:n tavoite ei ole sama asia kuin tuotannon kokemus).
+  6. **Kirjaus:** `docs/KYLMA_AVAUS_DIAGNOOSI.md` (uusi alikohta, päiväys, laite, 3 lukua, mediaani, menetelmä).
 - Käyttäjähyöty: FCP jo 0,38 s (odotustila); TTI-tavoite < 5 s koskee *käyttövalmista* näkymää.
 
-## 7. Päätettävää PM:ltä
+## 7. Päätökset 28.11.2026 (PM)
 
-1. Hyväksytäänkö järjestys K1 ∥ kattavuusajo → B-prototyyppi → (B) → M2? (M2:n aikaistaminen ei auta ilman B:tä: skenaario 2 ≈ 5,8–6,1 s.)
-2. Prototyypin porttiehto: B jatkoon jos A/B ≥ −1,5 s (auth-alku) ja deploy-muodon testit vihreinä — sopiiko?
-3. Mittaus ilman debug-tokenia tuotantoa vastaavasti — kuka/miten (Tero)?
+1. **Järjestys hyväksytty:** K1 ∥ Teron kattavuusajo → B-prototyyppi → B → M2 (→ M3 Vanhempi).
+2. **Prototyypin portti:** B jatkoon, jos A/B (puhelin, 3 kierrosta, sama suunta kaikilla) **auth-alku ≥ −1,5 s JA interaktiivinen ≥ −1,0 s**, ja deploy-muodon testit vihreinä — myös **PIN- ja kutsulinkkikirjautuminen** ja **SW offline**. (Tämä korvaa §4:n aiemman "≥ −1,5 s auth-alku" -ehdon: interaktiivinen-ehto ja testit lisätty.)
+3. **Tuotantomittaus:** ei automaattista mittausta tuotannossa; Tero mittaa käsin kerran (ohje §6) ennen kuin "< 5 s" kirjataan saavutetuksi.
+
+**Aloitus:** K1 (kaista Tero) — toteutus omassa PR:ssään. K1:n rajaus tarkentui toteutuksessa: `tm_tt_sv_valinta.js` (2,1 kt) jätettiin ajettavaksi (kestää puuttuvan kartan, eikä siirto olisi säästänyt kuin 2 kt); K1 = `tm_lib_i18n.js` + `tm_teknistaktiset_sv.js` (~70 kt gz).
