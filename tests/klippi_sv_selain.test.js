@@ -214,7 +214,8 @@ async function pelaajaPolku(selain, kieli, ika) {
   const kutsu = KERAA + MOCKDB + 'window.__DOCS=' + JSON.stringify(dokit) + ';tmAsetaKieli("' + kieli + '",false);_isDemoUser=false;_pelaaja={id:"p1",etunimi:"Alva",sukunimi:"Berg",syntymaVuosi:' + (new Date().getFullYear() - ika) + ',seuraId:"sibbo"};window._seuraId="sibbo";'
     + 'window._db=window.__mockDb;window._auth={currentUser:{uid:"pu1",getIdToken:async function(){return"x"}}};var __n0=_naytaKirjausVirhe;_naytaKirjausVirhe=function(m){window.__toastit.push(String(m));__n0(m)};'
     + 'window._p7Kp={ladattu:0,ketjut:null,valittu:null,valinta:"",teksti:"",tallentaa:false};' + HOST + '__h.innerHTML=_p7KpHTML("yla")+_p7KpHTML("ala");return _p7KpLataa(true);';
-  await p.goto('file://' + perheSivu(lue('TalentMaster_Pelaaja_v7.html'), JUURI, kutsu)); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 20000 });
+  /* K1: sv-libikartat (tm_lib_i18n) ovat kielilisiä; testi asettaa kielen ajonaikaisesti ohi draw()-portin → ladataan ne ensin (tuotannossa setLoc() → draw() → tmLangLataa() hoitaa) */
+  await p.goto('file://' + perheSivu(lue('TalentMaster_Pelaaja_v7.html'), JUURI, 'return ((typeof _tmKielilisaLataa === "function") ? _tmKielilisaLataa("' + kieli + '") : Promise.resolve()).then(function(){' + kutsu + '});')); await p.waitForSelector('#probe-out', { state: 'attached', timeout: 20000 });
   expect(await p.locator('#probe-out').textContent()).toBe('ok');
   const toastit = async (vaihe) => { for (const t of await p.evaluate(() => window.__toastit.splice(0))) kerätyt.push({ vaihe: 'U' + ika + ' ' + vaihe + ' [toast]', teksti: t }); };
   expect(await p.locator('#__host [data-kp-kortti]').count()).toBe(1);

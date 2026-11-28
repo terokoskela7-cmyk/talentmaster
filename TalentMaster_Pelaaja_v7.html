@@ -561,8 +561,8 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_verkko.js"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script type="text/plain" data-tm-kielipaketti src="lib/tm_lang_sv.js"></script><script type="text/plain" data-tm-kielipaketti src="lib/tm_lang_en.js"></script>   <!-- erä (a): fi-sivu ei lataa; sv/en ladataan tarvittaessa -->
-<script>/* erä (a): tallennettu sv/en-kieli → paketti ladataan synkronisesti heti (kuten ennen jakoa: ei fi-hetkeä käynnistyskoodille); fi ei lataa mitään. Paketti on järjestysriippumaton (TM_LANG_PAKETIT). */(function(){try{var k=localStorage.getItem('tm_kieli');if(k==='sv'||k==='en'){var a=document.querySelectorAll('script[data-tm-kielipaketti]'),i,s;for(i=0;i<a.length;i++){s=a[i].getAttribute('src')||'';if(s.indexOf('tm_lang_'+k+'.js')>=0)document.write('<script src'+"='"+s+"'><\/script>");}}}catch(e){}})();</script>
-<script src="lib/tm_lib_i18n.js"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
+<script type="text/plain" data-tm-kielilisa="sv" src="lib/tm_lib_i18n.js"></script><script type="text/plain" data-tm-kielilisa="sv" src="lib/tm_teknistaktiset_sv.js"></script>   <!-- K1: sv-libikartat (tm_lib_i18n: sv-kartta kirjastojen FI-avaimille; tm_teknistaktiset_sv: konseptikortin sv) vain sv-kielellä. Tagien PITÄÄ olla ennen alla olevaa latausvalintaa (se lukee vain jo jäsennetyt tagit). Kuluttajat typeof-vartioituja (tmLibT/tmLibPohjat/TM_TT_SV) -->
+<script>/* erä (a): tallennettu sv/en-kieli → paketti ladataan synkronisesti heti (kuten ennen jakoa: ei fi-hetkeä käynnistyskoodille); fi ei lataa mitään. K1: sama kielen kielilisät (data-tm-kielilisa="sv": libikartat vain sv:lle). Paketti on järjestysriippumaton (TM_LANG_PAKETIT). */(function(){try{var k=localStorage.getItem('tm_kieli');if(k==='sv'||k==='en'){var a=document.querySelectorAll('script[data-tm-kielipaketti],script[data-tm-kielilisa]'),i,s,l;for(i=0;i<a.length;i++){s=a[i].getAttribute('src')||'';l=a[i].getAttribute('data-tm-kielilisa');if(s.indexOf('tm_lang_'+k+'.js')>=0||(l&&(' '+l+' ').indexOf(' '+k+' ')>=0))document.write('<script src'+"='"+s+"'><\/script>");}}}catch(e){}})();</script>
 <script src="lib/tm_phv_tila.js"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_kentta.js"></script>
 <script src="lib/tm_liput.js"></script>   <!-- K1: liput/julkiset (pelaajalle luettava) -->
@@ -600,7 +600,6 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_tekniikka.js"></script>   <!-- PR 4 (K14): harjoitelogiikan kohdevalinta = SAMA tekniikkamääritelmä kuin VP:n näkymät (TKI → SM-tasot) -->
 <script src="lib/tm_fyysinen.js"></script>   <!-- PR 4 (K14): kohdevalinta fyysisestä = sama määritelmä kuin VP (H-H-tasot, §28) -->
 <script src="lib/tm_teknistaktiset.js"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
-<script src="lib/tm_teknistaktiset_sv.js"></script>   <!-- Konseptikortin SISÄLLÖN sv (TM_TT_SV); en-lähdettä ei ole → en-tilassa sisältö jää suomeksi, chrome kääntyy -->
 <script src="lib/tm_tt_sv_valinta.js"></script>   <!-- P7 viimeiset sv: sama kielivalinta kuin Kehitystyöpöydällä (tmTtSv) — VAIN näyttöön (ydinasiat) -->
 <script src="lib/tm_piirros.js"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_kaavio_render.js"></script>    <!-- Kaavio erä D1: §3-specin SVG-renderöijä (kielitietoinen, ei ulkoisia origineja) -->
@@ -782,6 +781,25 @@ const EX=[
    RENDER
 ══════════════════════════════════════ */
 const body=document.getElementById('phBody');
+
+/* K1: kielipaketin lisäksi nykyisen kielen KIELILISÄT (script[data-tm-kielilisa~=k], nyt sv: lib/tm_lib_i18n.js + lib/tm_teknistaktiset_sv.js). Ajonaikainen fi→sv-vaihto: draw() kutsuu tmLangLataa():a → paketti + lisät ennen renderiä
+   (sama portti kuin ennen). Jo ladattu (loader document.write) ohitetaan. Lisän lataus ei koskaan estä renderiä: kuluttajat ovat typeof-vartioituja → epäonnistuessa teksti jää suomeksi. */
+const _tmKielilisaLupaukset = {};
+function _tmKielilisaLataa(k) {
+  if (!k || k === 'fi') return Promise.resolve(true);
+  if (_tmKielilisaLupaukset[k]) return _tmKielilisaLupaukset[k];
+  const tagit = Array.prototype.slice.call(document.querySelectorAll('script[data-tm-kielilisa]')).filter(function (t) { return (' ' + t.getAttribute('data-tm-kielilisa') + ' ').indexOf(' ' + k + ' ') >= 0; });
+  _tmKielilisaLupaukset[k] = Promise.all(tagit.map(function (t) {
+    const src = t.getAttribute('src');
+    if (Array.prototype.some.call(document.querySelectorAll('script[src]:not([type])'), function (e) { return e.getAttribute('src') === src; })) return true;   // loader ehti jo kirjoittaa
+    return new Promise(function (ok) { const el = document.createElement('script'); el.onload = function () { ok(true); }; el.onerror = function () { ok(false); }; el.src = src; document.head.appendChild(el); });
+  })).then(function () { return true; });
+  return _tmKielilisaLupaukset[k];
+}
+if (typeof window.tmLangLataa === 'function') {   // draw():n portti kutsuu tmLangLataa():a → laajennetaan: paketti + kielilisät yhdessä (palauttaa paketin tuloksen)
+  const _tmLangLataa0 = window.tmLangLataa;
+  window.tmLangLataa = function () { const k = (typeof window.tmNykyinenKieli === 'function') ? window.tmNykyinenKieli() : 'fi'; return Promise.all([_tmLangLataa0(), _tmKielilisaLataa(k)]).then(function (r) { return r[0]; }); };
+}
 
 function draw(){
   if (typeof tmLangValmis === 'function' && !tmLangValmis()) { tmLangLataa().then(function () { draw(); }); return; }   // erä (a): sv/en-haarukka ennen renderiä (ei fi-vilahdusta); fi → ei tee mitään
