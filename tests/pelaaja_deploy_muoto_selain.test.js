@@ -14,11 +14,11 @@ const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..'), REPO = readFi
 const CHROME = [process.env.TM_CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean).find((p) => existsSync(p));
 const SDK = { 'firebase-app-compat.js': 1, 'firebase-app-check-compat.js': 1, 'firebase-auth-compat.js': 1, 'firebase-firestore-compat.js': 1, 'firebase-functions-compat.js': 1 };
 
-/* Parsinta-aikainen probe heti Sentry-asetuksen / odotustilan jälkeen (ENNEN yhtään deferattua skriptiä) + DCL-probe (kaikki deferatut ajettu). */
+/* DCL-probe odottaa, kunnes sivu on poistunut latausnäkymästä (_sc !== 'lataa', max 10 s) — kiinteä 400 ms vei CI:ssä eri tilaan inline- ja deploy-muodossa (flaky: 'LADATAAN...' vs PIN-näkymä). Parsinta-aikainen probe heti Sentry-asetuksen / odotustilan jälkeen (ENNEN yhtään deferattua skriptiä) + DCL-probe (kaikki deferatut ajettu). */
 const PROBE = '<script>window.__tmEnnen={luokka:document.documentElement.classList.contains("tm-main-odottaa"),setLoc:typeof setLoc,go:typeof go,tynka:/^function\\s*\\(\\)\\s*\\{\\s*\\}$/.test(String(window.setLoc||"")),lang:typeof TM_LANG};'
-  + 'document.addEventListener("DOMContentLoaded",function(){setTimeout(function(){var b=document.getElementById("phBody");window.__tmJalkeen={luokka:document.documentElement.classList.contains("tm-main-odottaa"),setLoc:typeof setLoc,go:typeof go,'
+  + 'document.addEventListener("DOMContentLoaded",function(){var n=0;(function t(){if(!(typeof _sc==="string"&&_sc!=="lataa")&&n++<200)return setTimeout(t,50);var b=document.getElementById("phBody");window.__tmJalkeen={luokka:document.documentElement.classList.contains("tm-main-odottaa"),setLoc:typeof setLoc,go:typeof go,'
   + 'tynka:/^function\\s*\\(\\)\\s*\\{\\s*\\}$/.test(String(window.setLoc||"")),p6:typeof _suljeHavainnot,kirjaus:typeof _tallennaKirjaus,lang:typeof TM_LANG,sv:!!(window.TM_LANG&&TM_LANG.sv),'
-  + 'teksti:b?b.innerText.replace(/\\s+/g," ").trim():null,sc:typeof _sc==="string"?_sc:null,url:typeof _URL==="object"?JSON.stringify(_URL):null};},400)});</script>';
+  + 'teksti:b?b.innerText.replace(/\\s+/g," ").trim():null,sc:typeof _sc==="string"?_sc:null,url:typeof _URL==="object"?JSON.stringify(_URL):null};})();});</script>';
 
 function sivuTiedosto(html, T, nimi) {
   const j = html.indexOf('<head>') + 6, i = html.indexOf('</script>', html.indexOf('window.TM_SENTRY={app:')) + 9;   // probe heti TM_SENTRY-asetuksen (ja deployssa odotustilan) jälkeen
